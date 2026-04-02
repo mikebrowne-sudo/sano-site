@@ -1,0 +1,9 @@
+# *
+User-agent: *
+Allow: /
+
+# Host
+Host: https://sano.co.nz
+
+# Sitemaps
+Sitemap: https://sano.co.nz/sitemap.xml

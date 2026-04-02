@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "postbuild": "next-sitemap"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",
