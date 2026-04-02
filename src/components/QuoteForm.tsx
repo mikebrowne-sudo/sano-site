@@ -67,7 +67,7 @@ export function QuoteForm() {
 
   if (status === 'success') {
     return (
-      <div className="bg-sage-50 border border-sage-100 rounded-2xl p-8 text-center">
+      <div role="status" className="bg-sage-50 border border-sage-100 rounded-2xl p-8 text-center">
         <p className="text-4xl mb-4" aria-hidden="true">✓</p>
         <h3 className="text-sage-800 mb-2">Quote request received!</h3>
         <p className="text-gray-600 text-sm">
@@ -87,12 +87,12 @@ export function QuoteForm() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1.5">Name <span aria-hidden="true" className="text-red-400">*</span></label>
-          <input id="name" name="name" type="text" autoComplete="name" value={form.name} onChange={handleChange} className={inputClass('name')} />
+          <input id="name" name="name" type="text" autoComplete="name" required value={form.name} onChange={handleChange} className={inputClass('name')} />
           {errors.name && <p className="mt-1 text-xs text-red-500" role="alert">{errors.name}</p>}
         </div>
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email <span aria-hidden="true" className="text-red-400">*</span></label>
-          <input id="email" name="email" type="email" autoComplete="email" value={form.email} onChange={handleChange} className={inputClass('email')} />
+          <input id="email" name="email" type="email" autoComplete="email" required value={form.email} onChange={handleChange} className={inputClass('email')} />
           {errors.email && <p className="mt-1 text-xs text-red-500" role="alert">{errors.email}</p>}
         </div>
       </div>
@@ -104,7 +104,7 @@ export function QuoteForm() {
         </div>
         <div>
           <label htmlFor="postcode" className="block text-sm font-medium text-gray-700 mb-1.5">Postcode <span aria-hidden="true" className="text-red-400">*</span></label>
-          <input id="postcode" name="postcode" type="text" value={form.postcode} onChange={handleChange} className={inputClass('postcode')} />
+          <input id="postcode" name="postcode" type="text" required value={form.postcode} onChange={handleChange} className={inputClass('postcode')} />
           {errors.postcode && <p className="mt-1 text-xs text-red-500" role="alert">{errors.postcode}</p>}
         </div>
       </div>
@@ -112,7 +112,7 @@ export function QuoteForm() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div>
           <label htmlFor="service" className="block text-sm font-medium text-gray-700 mb-1.5">Service <span aria-hidden="true" className="text-red-400">*</span></label>
-          <select id="service" name="service" value={form.service} onChange={handleChange} className={inputClass('service')}>
+          <select id="service" name="service" required value={form.service} onChange={handleChange} className={inputClass('service')}>
             <option value="">Select a service...</option>
             {SERVICES.map((s) => (
               <option key={s.slug} value={s.slug}>{s.name}</option>
