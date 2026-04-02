@@ -36,7 +36,7 @@ export function TestimonialGrid() {
                 ))}
               </div>
               <blockquote className="text-gray-700 text-sm leading-relaxed mb-4">
-                "{t.quote}"
+                &ldquo;{t.quote}&rdquo;
               </blockquote>
               <footer>
                 <p className="font-semibold text-sm text-sage-800">{t.name}</p>

@@ -1,6 +1,8 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+function getResendClient() {
+  return new Resend(process.env.RESEND_API_KEY)
+}
 
 export interface QuoteEmailParams {
   name: string
@@ -13,6 +15,7 @@ export interface QuoteEmailParams {
 }
 
 export async function sendQuoteConfirmation(params: QuoteEmailParams) {
+  const resend = getResendClient()
   await resend.emails.send({
     from: 'Sano Cleaning <noreply@sano.co.nz>',
     to: params.email,
@@ -34,6 +37,7 @@ export async function sendQuoteConfirmation(params: QuoteEmailParams) {
 
 export async function sendQuoteNotification(params: QuoteEmailParams) {
   const notifyEmail = process.env.SANO_NOTIFY_EMAIL!
+  const resend = getResendClient()
   await resend.emails.send({
     from: 'Sano Website <noreply@sano.co.nz>',
     to: notifyEmail,
