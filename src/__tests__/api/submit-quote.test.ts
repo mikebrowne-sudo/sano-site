@@ -10,7 +10,7 @@ const mockFrom = jest.fn().mockReturnValue({ insert: mockInsert })
 const mockSupabaseClient = { from: mockFrom }
 
 jest.mock('@/lib/supabase', () => ({
-  getSupabaseClient: jest.fn(() => mockSupabaseClient),
+  createServerClient: jest.fn(() => mockSupabaseClient),
 }))
 
 // Mock Resend helpers

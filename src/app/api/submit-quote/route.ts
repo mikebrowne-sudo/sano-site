@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getSupabaseClient } from '@/lib/supabase'
+import { createServerClient } from '@/lib/supabase'
 import { sendQuoteConfirmation, sendQuoteNotification } from '@/lib/resend'
 
 function isValidEmail(email: string) {
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Write to Supabase
-  const supabase = getSupabaseClient()
+  const supabase = createServerClient()
   const { error: dbError } = await supabase.from('quote_requests').insert({
     name: name.trim(),
     email: email.trim(),
