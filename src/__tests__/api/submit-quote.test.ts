@@ -5,12 +5,12 @@ import { POST } from '@/app/api/submit-quote/route'
 import { NextRequest } from 'next/server'
 
 // Mock Supabase
+const mockInsert = jest.fn().mockResolvedValue({ error: null })
+const mockFrom = jest.fn().mockReturnValue({ insert: mockInsert })
+const mockSupabaseClient = { from: mockFrom }
+
 jest.mock('@/lib/supabase', () => ({
-  supabase: {
-    from: jest.fn().mockReturnValue({
-      insert: jest.fn().mockResolvedValue({ error: null }),
-    }),
-  },
+  getSupabaseClient: jest.fn(() => mockSupabaseClient),
 }))
 
 // Mock Resend helpers
