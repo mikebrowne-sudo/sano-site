@@ -19,8 +19,8 @@ export default function HomePage() {
       <HeroSection
         headline="A cleaner home, a clearer mind."
         subtext="Professional, eco-friendly cleaning tailored to your home and schedule. Vetted cleaners, flexible booking, guaranteed results."
-        imageUrl="https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1600&q=80"
-        imageAlt="Bright, clean modern living room"
+        imageUrl="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1600&q=80"
+        imageAlt="Bright, clean modern home"
       />
 
       <QuickQuoteBar />
@@ -31,7 +31,7 @@ export default function HomePage() {
       <section className="section-padding py-16 bg-white">
         <div className="container-max">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <div className="relative h-72 md:h-96 rounded-2xl overflow-hidden">
+            <div className="relative h-72 md:h-96 rounded-2xl overflow-hidden fade-up">
               <Image
                 src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&q=80"
                 alt="Sano cleaner at work"
@@ -40,7 +40,7 @@ export default function HomePage() {
                 sizes="(max-width: 768px) 100vw, 50vw"
               />
             </div>
-            <div>
+            <div className="fade-up" style={{ transitionDelay: '100ms' }}>
               <p className="text-xs font-semibold text-sage-300 uppercase tracking-widest mb-3">Why Sano</p>
               <h2 className="text-sage-800 mb-4">Reliable cleaning, built on experience.</h2>
               <p className="text-gray-600 leading-relaxed mb-6">
@@ -61,11 +61,11 @@ export default function HomePage() {
       {/* Services grid */}
       <section className="section-padding py-16 bg-sage-50">
         <div className="container-max">
-          <p className="text-xs font-semibold text-sage-300 uppercase tracking-widest text-center mb-2">What we offer</p>
-          <h2 className="text-center text-sage-800 mb-10">Our Services</h2>
+          <p className="text-xs font-semibold text-sage-300 uppercase tracking-widest text-center mb-2 fade-up">What we offer</p>
+          <h2 className="text-center text-sage-800 mb-10 fade-up" style={{ transitionDelay: '80ms' }}>Our Services</h2>
           <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {SERVICES.map((service) => (
-              <li key={service.slug}>
+            {SERVICES.map((service, i) => (
+              <li key={service.slug} className="fade-up" style={{ transitionDelay: `${i * 80}ms` }}>
                 <ServiceCard service={service} />
               </li>
             ))}

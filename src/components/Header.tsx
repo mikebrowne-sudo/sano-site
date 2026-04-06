@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { SERVICES } from '@/lib/services'
 import { QuoteButton } from './QuoteButton'
 
@@ -10,6 +10,23 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [servicesOpen, setServicesOpen] = useState(false)
   const pathname = usePathname()
+
+  useEffect(() => {
+    const els = document.querySelectorAll('.fade-up')
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible')
+            observer.unobserve(entry.target)
+          }
+        })
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
+    )
+    els.forEach((el) => observer.observe(el))
+    return () => observer.disconnect()
+  }, [pathname])
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-sage-100 shadow-sm">
@@ -27,7 +44,7 @@ export function Header() {
               <button
                 onClick={() => setServicesOpen(!servicesOpen)}
                 onBlur={() => setTimeout(() => setServicesOpen(false), 150)}
-                className="flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-sage-800 transition-colors"
+                className="flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-sage-800 transition-all duration-200"
                 aria-expanded={servicesOpen}
                 aria-haspopup="true"
               >
@@ -57,8 +74,8 @@ export function Header() {
                 </div>
               )}
             </div>
-            <Link href="/about" className={`text-sm font-medium transition-colors ${pathname === '/about' ? 'text-sage-800' : 'text-gray-700 hover:text-sage-800'}`}>About</Link>
-            <Link href="/faq" className={`text-sm font-medium transition-colors ${pathname === '/faq' ? 'text-sage-800' : 'text-gray-700 hover:text-sage-800'}`}>FAQ</Link>
+            <Link href="/about" className={`text-sm font-semibold transition-all duration-200 ${pathname === '/about' ? 'text-sage-800' : 'text-gray-700 hover:text-sage-800'}`}>About</Link>
+            <Link href="/faq" className={`text-sm font-semibold transition-all duration-200 ${pathname === '/faq' ? 'text-sage-800' : 'text-gray-700 hover:text-sage-800'}`}>FAQ</Link>
             <QuoteButton label="Get a Quote" className="ml-2" />
           </nav>
 

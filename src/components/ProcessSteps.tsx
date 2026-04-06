@@ -20,15 +20,15 @@ export function ProcessSteps() {
   return (
     <section className="section-padding py-16 bg-white">
       <div className="container-max">
-        <h2 className="text-center text-sage-800 mb-12">How it works</h2>
+        <h2 className="text-center text-sage-800 mb-12 fade-up">How it works</h2>
         <ol className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {STEPS.map((step) => (
-            <li key={step.number} className="text-center">
+          {STEPS.map((step, i) => (
+            <li key={step.number} className="text-center fade-up" style={{ transitionDelay: `${i * 120}ms` }}>
               <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-sage-100 text-sage-800 font-display text-xl mb-4">
                 {step.number}
               </div>
               <h3 className="text-lg mb-2">{step.title}</h3>
-              <p className="text-gray-600 text-sm leading-relaxed">{step.description}</p>
+              <p className="text-sage-600 text-sm leading-relaxed">{step.description}</p>
             </li>
           ))}
         </ol>
