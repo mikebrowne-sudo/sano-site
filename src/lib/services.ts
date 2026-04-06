@@ -6,8 +6,8 @@ export const SERVICES: Service[] = [
     name: 'Regular House Cleaning',
     shortDescription: 'Weekly or fortnightly cleaning to keep your home consistently fresh.',
     description: 'Our regular cleaning service is designed to fit around your life. Choose weekly or fortnightly visits, and our vetted cleaners will maintain a consistently clean and healthy home for you.',
-    heroImage: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1600&q=80',
-    cardImage: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',
+    heroImage: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=1600&q=80',
+    cardImage: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&q=80',
     includes: [
       'Vacuuming and mopping all floors',
       'Dusting surfaces, shelves, and skirting boards',
@@ -26,8 +26,8 @@ export const SERVICES: Service[] = [
     name: 'Deep Cleaning',
     shortDescription: 'A top-to-bottom refresh that reaches every corner.',
     description: 'Our deep clean goes far beyond a regular tidy. We tackle built-up grime, hidden dust, and neglected corners — ideal as a one-off seasonal clean or before/after a big event.',
-    heroImage: 'https://images.unsplash.com/photo-1584820927498-cfe5211fd8bf?w=1600&q=80',
-    cardImage: 'https://images.unsplash.com/photo-1584820927498-cfe5211fd8bf?w=800&q=80',
+    heroImage: 'https://images.unsplash.com/photo-1563453392212-326f5e854473?w=1600&q=80',
+    cardImage: 'https://images.unsplash.com/photo-1563453392212-326f5e854473?w=800&q=80',
     includes: [
       'Everything in our regular clean',
       'Inside oven and microwave cleaning',
@@ -88,8 +88,8 @@ export const SERVICES: Service[] = [
     name: 'Carpet & Upholstery Cleaning',
     shortDescription: 'Revive your carpets and soft furnishings with a professional clean.',
     description: 'Carpets and upholstery trap dust, allergens, and odours over time. Our professional equipment extracts deep-set dirt and leaves fabrics looking and smelling fresh.',
-    heroImage: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=1600&q=80',
-    cardImage: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=800&q=80',
+    heroImage: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd6?w=1600&q=80',
+    cardImage: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd6?w=800&q=80',
     includes: [
       'Pre-treatment of stains and high-traffic areas',
       'Hot water extraction (steam cleaning)',

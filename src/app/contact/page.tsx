@@ -21,6 +21,14 @@ export default function ContactPage() {
               <p className="text-gray-600 leading-relaxed mb-8">
                 Fill in the form and we&apos;ll get back to you within a few hours with a fixed quote &mdash; no hidden costs, no obligation.
               </p>
+              <div className="mb-8 space-y-2">
+                <a href="tel:02108799909" className="flex items-center gap-3 text-sage-800 font-semibold hover:text-sage-500 transition-colors">
+                  <span className="text-xl" aria-hidden="true">📞</span> 021 087 99909
+                </a>
+                <a href="mailto:michael@sano.nz" className="flex items-center gap-3 text-sage-800 font-semibold hover:text-sage-500 transition-colors">
+                  <span className="text-xl" aria-hidden="true">✉️</span> michael@sano.nz
+                </a>
+              </div>
               <ul className="space-y-4">
                 {[
                   { icon: '⚡', title: 'Fast response', body: 'We reply within a few hours on business days.' },

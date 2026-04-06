@@ -47,14 +47,19 @@ export function Footer() {
             <ul className="space-y-2 text-sm text-sage-100">
               <li>Auckland, New Zealand</li>
               <li>
-                <a href="mailto:hello@sano.co.nz" className="hover:text-white transition-colors">
-                  hello@sano.co.nz
+                <a href="tel:02108799909" className="hover:text-white transition-colors">
+                  021 087 99909
+                </a>
+              </li>
+              <li>
+                <a href="mailto:michael@sano.nz" className="hover:text-white transition-colors">
+                  michael@sano.nz
                 </a>
               </li>
             </ul>
             <div className="mt-4 flex gap-3">
               <span className="inline-flex items-center gap-1 bg-sage-500/30 rounded-full px-3 py-1 text-xs text-sage-100">✓ Insured</span>
-              <span className="inline-flex items-center gap-1 bg-sage-500/30 rounded-full px-3 py-1 text-xs text-sage-100">✓ 5★ Rated</span>
+              <span className="inline-flex items-center gap-1 bg-sage-500/30 rounded-full px-3 py-1 text-xs text-sage-100">✓ Auckland-wide</span>
             </div>
           </div>
         </div>

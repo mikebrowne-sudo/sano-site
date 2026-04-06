@@ -4,7 +4,6 @@ import { QuickQuoteBar } from '@/components/QuickQuoteBar'
 import { TrustBar } from '@/components/TrustBar'
 import { ServiceCard } from '@/components/ServiceCard'
 import { ProcessSteps } from '@/components/ProcessSteps'
-import { TestimonialGrid } from '@/components/TestimonialGrid'
 import { CtaBanner } from '@/components/CtaBanner'
 import { SERVICES } from '@/lib/services'
 import Image from 'next/image'
@@ -18,7 +17,6 @@ export default function HomePage() {
   return (
     <>
       <HeroSection
-        badge="4.9★ Trusted by Auckland homes"
         headline="A cleaner home, a clearer mind."
         subtext="Professional, eco-friendly cleaning tailored to your home and schedule. Vetted cleaners, flexible booking, guaranteed results."
         imageUrl="https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1600&q=80"
@@ -44,12 +42,12 @@ export default function HomePage() {
             </div>
             <div>
               <p className="text-xs font-semibold text-sage-300 uppercase tracking-widest mb-3">Why Sano</p>
-              <h2 className="text-sage-800 mb-4">Cleaning you can trust, every time.</h2>
+              <h2 className="text-sage-800 mb-4">Reliable cleaning, built on experience.</h2>
               <p className="text-gray-600 leading-relaxed mb-6">
-                Every Sano cleaner is background-checked, trained, and fully insured. We use eco-friendly products that are safe for children and pets — and we back every clean with a satisfaction guarantee.
+                With over 20 years of hands-on experience across residential, commercial, and education environments, Sano was built on one thing: doing the job properly. We&apos;re easy to deal with, we show up when we say we will, and we don&apos;t leave until you&apos;re genuinely happy with the result.
               </p>
               <ul className="flex flex-wrap gap-2">
-                {['Satisfaction guarantee', 'Child & pet safe', 'Background checked', 'Fully insured', 'Eco-friendly'].map((tag) => (
+                {['Satisfaction guaranteed', 'Dedicated area manager', 'NZ owned & operated', 'No lock-in contracts', 'Insured & vetted'].map((tag) => (
                   <li key={tag} className="bg-sage-50 border border-sage-100 rounded-lg px-3 py-1.5 text-xs font-medium text-sage-800">
                     {tag}
                   </li>
@@ -77,8 +75,6 @@ export default function HomePage() {
 
       <ProcessSteps />
 
-      <TestimonialGrid />
-
       {/* JSON-LD: LocalBusiness */}
       <script
         type="application/ld+json"
@@ -92,7 +88,6 @@ export default function HomePage() {
             areaServed: { '@type': 'City', name: 'Auckland' },
             address: { '@type': 'PostalAddress', addressLocality: 'Auckland', addressCountry: 'NZ' },
             priceRange: '$$',
-            aggregateRating: { '@type': 'AggregateRating', ratingValue: '4.9', reviewCount: '120' },
           }),
         }}
       />

@@ -17,12 +17,15 @@ export default function AboutPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
             <div>
               <p className="text-xs font-semibold text-sage-300 uppercase tracking-widest mb-3">About us</p>
-              <h1 className="text-sage-800 mb-4">We care about clean — and the planet.</h1>
-              <p className="text-gray-600 leading-relaxed mb-6">
-                Sano was founded with a simple belief: cleaning should be professional, safe, and kind to the environment. We work with vetted, passionate cleaners who take pride in their work — and we use products that are gentle on your home and the planet.
+              <h1 className="text-sage-800 mb-4">Built on trust.<br />Driven by care.</h1>
+              <p className="text-gray-600 leading-relaxed mb-4">
+                Sano was built on a simple belief — cleaning is about more than just the job. It&apos;s about looking after people and the spaces that matter to them.
+              </p>
+              <p className="text-gray-600 leading-relaxed mb-4">
+                With over 20 years of experience across residential, commercial, and education environments, we understand that every client is different. What matters most is taking the time to listen, understand what&apos;s needed, and delivering a result you can genuinely rely on.
               </p>
               <p className="text-gray-600 leading-relaxed">
-                Based in Auckland, we serve homes and businesses across the city, from the North Shore to South Auckland and everywhere in between.
+                We&apos;re known for going the extra mile — whether that&apos;s picking up on the small details others miss, being flexible when things change, or simply making sure everything is done properly. Behind Sano is a trusted network of experienced cleaners who care about their work and the people they&apos;re working with.
               </p>
             </div>
             <div className="relative h-72 md:h-96 rounded-2xl overflow-hidden">
@@ -46,9 +49,9 @@ export default function AboutPage() {
           <h2 className="text-center text-sage-800 mb-12">Our values</h2>
           <ul className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { title: 'Trust', body: "Every cleaner is background-checked and interviewed in person. You're opening your home to us — we take that seriously." },
-              { title: 'Eco-first', body: "We use biodegradable, non-toxic products that are safe for children, pets, and waterways." },
-              { title: 'Guaranteed', body: "Not happy? We'll come back and make it right — no questions, no fuss." },
+              { title: 'Easy to deal with', body: "Clear communication, simple booking, and a team that actually shows up when they say they will. No chasing, no hassle." },
+              { title: 'Tailored to you', body: "Every space is different. We work around your needs and focus on what matters most to you — not a one-size-fits-all checklist." },
+              { title: 'Consistent results', body: "We take pride in doing the job properly, every time. No shortcuts, no rushed work. Just a standard you can rely on." },
             ].map((value) => (
               <li key={value.title} className="bg-sage-50 rounded-2xl p-8 border border-sage-100">
                 <h3 className="text-sage-800 mb-3">{value.title}</h3>
