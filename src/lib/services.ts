@@ -6,8 +6,8 @@ export const SERVICES: Service[] = [
     name: 'Regular House Cleaning',
     shortDescription: 'Weekly or fortnightly cleaning to keep your home consistently fresh.',
     description: 'Our regular cleaning service is designed to fit around your life. Choose weekly or fortnightly visits, and our vetted cleaners will maintain a consistently clean and healthy home for you.',
-    heroImage: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1600&q=80',
-    cardImage: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&q=80',
+    heroImage: 'https://images.unsplash.com/photo-1631679706909-1844bbd07221?w=1600&q=80',
+    cardImage: 'https://images.unsplash.com/photo-1631679706909-1844bbd07221?w=800&q=80',
     includes: [
       'Vacuuming and mopping all floors',
       'Dusting surfaces, shelves, and skirting boards',
@@ -26,8 +26,8 @@ export const SERVICES: Service[] = [
     name: 'Deep Cleaning',
     shortDescription: 'A top-to-bottom refresh that reaches every corner.',
     description: 'Our deep clean goes far beyond a regular tidy. We tackle built-up grime, hidden dust, and neglected corners — ideal as a one-off seasonal clean or before/after a big event.',
-    heroImage: 'https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?w=1600&q=80',
-    cardImage: 'https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?w=800&q=80',
+    heroImage: 'https://images.unsplash.com/photo-1563453392212-326f5e854473?w=1600&q=80',
+    cardImage: 'https://images.unsplash.com/photo-1563453392212-326f5e854473?w=800&q=80',
     includes: [
       'Everything in our regular clean',
       'Inside oven and microwave cleaning',
@@ -68,8 +68,8 @@ export const SERVICES: Service[] = [
     name: 'Commercial & Office Cleaning',
     shortDescription: 'Keep your workplace spotless and your team productive.',
     description: 'A clean workplace makes a difference. Our commercial cleaning team handles offices, retail spaces, and small businesses across Auckland — after-hours or early morning to minimise disruption.',
-    heroImage: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1600&q=80',
-    cardImage: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80',
+    heroImage: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=1600&q=80',
+    cardImage: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=800&q=80',
     includes: [
       'Vacuuming and mopping all floors',
       'Desk and workstation wiping',
@@ -88,8 +88,8 @@ export const SERVICES: Service[] = [
     name: 'Carpet & Upholstery Cleaning',
     shortDescription: 'Revive your carpets and soft furnishings with a professional clean.',
     description: 'Carpets and upholstery trap dust, allergens, and odours over time. Our professional equipment extracts deep-set dirt and leaves fabrics looking and smelling fresh.',
-    heroImage: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=1600&q=80',
-    cardImage: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=800&q=80',
+    heroImage: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1600&q=80',
+    cardImage: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80',
     includes: [
       'Pre-treatment of stains and high-traffic areas',
       'Hot water extraction (steam cleaning)',
