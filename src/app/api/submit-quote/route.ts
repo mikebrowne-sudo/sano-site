@@ -41,12 +41,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to save request' }, { status: 500 })
   }
 
-  // Send emails (fire-and-forget — don't block response on email failure)
+  // Send emails — must be awaited on serverless (runtime shuts down on response)
   const emailParams = { name, email, phone: phone || '', service, postcode, preferredDate: preferredDate || '', message: message || '' }
-  Promise.all([
-    sendQuoteConfirmation(emailParams),
-    sendQuoteNotification(emailParams),
-  ]).catch((err) => console.error('Email send error:', err))
+  try {
+    await Promise.all([
+      sendQuoteConfirmation(emailParams),
+      sendQuoteNotification(emailParams),
+    ])
+  } catch (err) {
+    console.error('Email send error:', err)
+  }
 
   return NextResponse.json({ success: true }, { status: 200 })
 }
