@@ -25,8 +25,8 @@ export interface QuoteEmailParams {
 
 export async function sendQuoteConfirmation(params: QuoteEmailParams) {
   const resend = getResendClient()
-  await resend.emails.send({
-    from: 'Sano Cleaning <noreply@sano.co.nz>',
+  const { error } = await resend.emails.send({
+    from: 'Sano Cleaning <noreply@sano.nz>',
     to: params.email,
     subject: 'We received your quote request — Sano Cleaning',
     html: `
@@ -42,6 +42,7 @@ export async function sendQuoteConfirmation(params: QuoteEmailParams) {
       <p>The Sano team</p>
     `,
   })
+  if (error) throw new Error(error.message)
 }
 
 export async function sendQuoteNotification(params: QuoteEmailParams) {
@@ -51,8 +52,8 @@ export async function sendQuoteNotification(params: QuoteEmailParams) {
     return
   }
   const resend = getResendClient()
-  await resend.emails.send({
-    from: 'Sano Website <noreply@sano.co.nz>',
+  const { error } = await resend.emails.send({
+    from: 'Sano Website <noreply@sano.nz>',
     to: notifyEmail,
     subject: `New quote request: ${params.service} — ${params.name}`,
     html: `
@@ -68,4 +69,5 @@ export async function sendQuoteNotification(params: QuoteEmailParams) {
       </table>
     `,
   })
+  if (error) throw new Error(error.message)
 }
