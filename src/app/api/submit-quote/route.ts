@@ -43,14 +43,17 @@ export async function POST(req: NextRequest) {
 
   // Send emails — must be awaited on serverless (runtime shuts down on response)
   const emailParams = { name, email, phone: phone || '', service, postcode, preferredDate: preferredDate || '', message: message || '' }
+  let emailError: string | null = null
   try {
     await Promise.all([
       sendQuoteConfirmation(emailParams),
       sendQuoteNotification(emailParams),
     ])
-  } catch (err) {
-    console.error('Email send error:', err)
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : JSON.stringify(err)
+    console.error('Email send error:', msg)
+    emailError = msg
   }
 
-  return NextResponse.json({ success: true }, { status: 200 })
+  return NextResponse.json({ success: true, emailError }, { status: 200 })
 }
