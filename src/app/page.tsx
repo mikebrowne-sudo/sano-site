@@ -1,75 +1,88 @@
 import type { Metadata } from 'next'
-import { HeroSection } from '@/components/HeroSection'
-import { QuickQuoteBar } from '@/components/QuickQuoteBar'
-import { TrustBar } from '@/components/TrustBar'
+import { HomeHero } from '@/components/HomeHero'
 import { ServiceCard } from '@/components/ServiceCard'
 import { ProcessSteps } from '@/components/ProcessSteps'
 import { CtaBanner } from '@/components/CtaBanner'
+import { FadeIn, Stagger, StaggerItem } from '@/components/FadeIn'
 import { SERVICES } from '@/lib/services'
 import Image from 'next/image'
 
 export const metadata: Metadata = {
-  title: 'Sano Cleaning — Professional Cleaning in Auckland',
-  description: 'Professional, eco-friendly cleaning services in Auckland. Regular, deep, end of tenancy, commercial, and more. Vetted cleaners, guaranteed results. Free quotes.',
+  title: 'Sano — Premium Cleaning Services Auckland',
+  description: "Premium residential and commercial cleaning in Auckland. Professionally selected teams, 20+ years industry experience. Tailored to Auckland's finest homes and businesses.",
 }
 
 export default function HomePage() {
   return (
     <>
-      <HeroSection
-        headline="A cleaner home, a clearer mind."
-        subtext="Professional, eco-friendly cleaning tailored to your home and schedule. Vetted cleaners, flexible booking, guaranteed results."
-        imageUrl="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1600&q=80"
-        imageAlt="Bright, clean modern home"
-      />
+      <HomeHero />
 
-      <QuickQuoteBar />
-
-      <TrustBar />
-
-      {/* Why Sano */}
-      <section className="section-padding py-16 bg-white">
+      {/* Why Auckland Chooses Sano */}
+      <section className="section-padding section-y bg-white">
         <div className="container-max">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <div className="relative h-72 md:h-96 rounded-2xl overflow-hidden fade-up">
-              <Image
-                src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&q=80"
-                alt="Sano cleaner at work"
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 50vw"
-              />
-            </div>
-            <div className="fade-up" style={{ transitionDelay: '100ms' }}>
-              <p className="text-xs font-semibold text-sage-300 uppercase tracking-widest mb-3">Why Sano</p>
-              <h2 className="text-sage-800 mb-4">Reliable cleaning, built on experience.</h2>
-              <p className="text-gray-600 leading-relaxed mb-6">
-                With over 20 years of hands-on experience across residential, commercial, and education environments, Sano was built on one thing: doing the job properly. We&apos;re easy to deal with, we show up when we say we will, and we don&apos;t leave until you&apos;re genuinely happy with the result.
-              </p>
-              <ul className="flex flex-wrap gap-2">
-                {['Satisfaction guaranteed', 'Dedicated area manager', 'NZ owned & operated', 'No lock-in contracts', 'Insured & vetted'].map((tag) => (
-                  <li key={tag} className="bg-sage-50 border border-sage-100 rounded-lg px-3 py-1.5 text-xs font-medium text-sage-800">
-                    {tag}
-                  </li>
-                ))}
-              </ul>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 lg:gap-24 items-center">
+            <FadeIn direction="left">
+              <div className="relative h-[22rem] md:h-[32rem] rounded-2xl overflow-hidden">
+                <Image
+                  src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=800&q=80"
+                  alt="Clean interior — Sano cleaning standard"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                />
+              </div>
+            </FadeIn>
+            <FadeIn delay={0.15}>
+              <p className="eyebrow mb-5">Why Auckland Chooses Sano</p>
+              <h2 className="mb-6">More than just a surface clean.</h2>
+              <div className="body-text space-y-4 mb-8">
+                <p>Anyone can make a space look tidy. What matters is how it feels once the job is done.</p>
+                <p>At Sano, we focus on creating clean, healthy environments that are properly cared for. With over 20 years of experience across homes and commercial spaces, we&apos;ve learned that the difference comes down to consistency and attention to detail.</p>
+                <p>We work methodically, take pride in what we do, and don&apos;t rush through jobs. The result is a space that not only looks clean, but feels better to be in.</p>
+              </div>
+              <Stagger staggerDelay={0.08}>
+                <ul className="space-y-3">
+                  {[
+                    '20+ years of hands-on industry experience',
+                    'Carefully selected and reliable cleaning teams',
+                    'Residential and commercial cleaning expertise',
+                    'Cleaning tailored to suit each space',
+                    'Consistent, well-finished results every time',
+                  ].map((point) => (
+                    <StaggerItem key={point}>
+                      <li className="flex items-center gap-3 text-[0.9375rem] font-medium text-sage-800">
+                        <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-sage-500" aria-hidden="true" />
+                        {point}
+                      </li>
+                    </StaggerItem>
+                  ))}
+                </ul>
+              </Stagger>
+            </FadeIn>
           </div>
         </div>
       </section>
 
-      {/* Services grid */}
-      <section className="section-padding py-16 bg-sage-50">
+      {/* Services */}
+      <section className="section-padding section-y bg-[#faf9f6]">
         <div className="container-max">
-          <p className="text-xs font-semibold text-sage-300 uppercase tracking-widest text-center mb-2 fade-up">What we offer</p>
-          <h2 className="text-center text-sage-800 mb-10 fade-up" style={{ transitionDelay: '80ms' }}>Our Services</h2>
-          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {SERVICES.map((service, i) => (
-              <li key={service.slug} className="fade-up" style={{ transitionDelay: `${i * 80}ms` }}>
-                <ServiceCard service={service} />
-              </li>
-            ))}
-          </ul>
+          <FadeIn className="text-center mb-14">
+            <h2 className="mb-4">Cleaning services that work around you.</h2>
+            <p className="body-text max-w-2xl mx-auto">
+              From regular home cleaning to commercial spaces, we tailor each clean to suit the space and how it&apos;s used. No unnecessary extras, just a thorough, well-finished result every time.
+            </p>
+          </FadeIn>
+          <Stagger staggerDelay={0.07}>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {SERVICES.map((service, i) => (
+                <StaggerItem key={service.slug} className={i === SERVICES.length - 1 ? 'lg:col-start-2' : ''}>
+                  <li className="h-full">
+                    <ServiceCard service={service} />
+                  </li>
+                </StaggerItem>
+              ))}
+            </ul>
+          </Stagger>
         </div>
       </section>
 

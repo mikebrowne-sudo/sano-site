@@ -8,8 +8,12 @@ export function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
           {/* Brand */}
           <div>
-            <p className="font-display text-2xl font-bold mb-3">Sano</p>
-            <p className="text-sage-100 text-sm leading-relaxed">Professional, eco-friendly cleaning in Auckland. Vetted cleaners, guaranteed results.</p>
+            {/* Logo — white version via CSS filter on dark background */}
+            <Link href="/" aria-label="Sano — home" className="inline-block mb-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <span className="font-display text-2xl font-bold text-white tracking-tight">Sano</span>
+            </Link>
+            <p className="text-sage-100 text-sm leading-relaxed">Premium residential and commercial cleaning in Auckland. 20+ years experience.</p>
           </div>
           {/* Services */}
           <div>
@@ -47,13 +51,13 @@ export function Footer() {
             <ul className="space-y-2 text-sm text-sage-100">
               <li>Auckland, New Zealand</li>
               <li>
-                <a href="tel:02108799909" className="hover:text-white transition-colors">
-                  021 087 99909
+                <a href="tel:0800726669" className="hover:text-white transition-colors">
+                  0800 726 669
                 </a>
               </li>
               <li>
-                <a href="mailto:michael@sano.nz" className="hover:text-white transition-colors">
-                  michael@sano.nz
+                <a href="mailto:hello@sano.nz" className="hover:text-white transition-colors">
+                  hello@sano.nz
                 </a>
               </li>
             </ul>
@@ -64,7 +68,7 @@ export function Footer() {
           </div>
         </div>
         <div className="border-t border-sage-500/30 pt-6 text-center text-xs text-sage-300">
-          © {new Date().getFullYear()} Sano Cleaning Ltd. All rights reserved.
+          © {new Date().getFullYear()} Sano Property Services Limited. All rights reserved.
         </div>
       </div>
     </footer>

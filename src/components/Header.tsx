@@ -31,20 +31,25 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-sage-100 shadow-sm">
       <div className="container-max section-padding">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link href="/" className="font-display text-2xl text-sage-800 font-bold tracking-tight">
-            Sano
+        <div className="grid grid-cols-3 items-center h-24">
+
+          {/* Logo — left */}
+          <Link href="/" aria-label="Sano — home" className="justify-self-start">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/sano-logo.jpg"
+              alt="Sano"
+              style={{ height: '67px', width: 'auto' }}
+            />
           </Link>
 
-          {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-6" aria-label="Main navigation">
-            {/* Services dropdown */}
+          {/* Nav — centre */}
+          <nav className="hidden md:flex items-center justify-center gap-10" aria-label="Main navigation">
             <div className="relative">
               <button
                 onClick={() => setServicesOpen(!servicesOpen)}
                 onBlur={() => setTimeout(() => setServicesOpen(false), 150)}
-                className="flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-sage-800 transition-all duration-200"
+                className={`flex items-center gap-1 text-[18px] font-semibold transition-all duration-200 ${pathname.startsWith('/services') ? 'text-sage-800' : 'text-gray-700 hover:text-sage-800'}`}
                 aria-expanded={servicesOpen}
                 aria-haspopup="true"
               >
@@ -52,44 +57,39 @@ export function Header() {
                 <span className="text-xs" aria-hidden="true">{servicesOpen ? '▲' : '▼'}</span>
               </button>
               {servicesOpen && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-lg border border-sage-100 py-2 z-50">
-                  <Link
-                    href="/services"
-                    className="block px-4 py-2 text-sm font-semibold text-sage-800 hover:bg-sage-50"
-                    onClick={() => setServicesOpen(false)}
-                  >
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 bg-white rounded-2xl shadow-lg border border-sage-100 py-2 z-50">
+                  <Link href="/services" className="block px-4 py-2 text-sm font-semibold text-sage-800 hover:bg-sage-50" onClick={() => setServicesOpen(false)}>
                     All Services
                   </Link>
                   <hr className="my-1 border-sage-100" />
                   {SERVICES.map((service) => (
-                    <Link
-                      key={service.slug}
-                      href={`/services/${service.slug}`}
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-sage-50 hover:text-sage-800"
-                      onClick={() => setServicesOpen(false)}
-                    >
+                    <Link key={service.slug} href={`/services/${service.slug}`} className="block px-4 py-2 text-sm text-gray-700 hover:bg-sage-50 hover:text-sage-800" onClick={() => setServicesOpen(false)}>
                       {service.name}
                     </Link>
                   ))}
                 </div>
               )}
             </div>
-            <Link href="/about" className={`text-sm font-semibold transition-all duration-200 ${pathname === '/about' ? 'text-sage-800' : 'text-gray-700 hover:text-sage-800'}`}>About</Link>
-            <Link href="/faq" className={`text-sm font-semibold transition-all duration-200 ${pathname === '/faq' ? 'text-sage-800' : 'text-gray-700 hover:text-sage-800'}`}>FAQ</Link>
-            <QuoteButton label="Get a Quote" className="ml-2" />
+            <Link href="/about" className={`text-[18px] font-semibold transition-all duration-200 ${pathname === '/about' ? 'text-sage-800' : 'text-gray-700 hover:text-sage-800'}`}>About</Link>
+            <Link href="/faq" className={`text-[18px] font-semibold transition-all duration-200 ${pathname === '/faq' ? 'text-sage-800' : 'text-gray-700 hover:text-sage-800'}`}>FAQ</Link>
+            <Link href="/contact" className={`text-[18px] font-semibold transition-all duration-200 ${pathname === '/contact' ? 'text-sage-800' : 'text-gray-700 hover:text-sage-800'}`}>Contact</Link>
           </nav>
 
-          {/* Mobile hamburger */}
-          <button
-            className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-sage-50"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            aria-expanded={mobileOpen}
-            aria-label="Toggle menu"
-          >
-            <span className="block w-5 h-0.5 bg-current mb-1" />
-            <span className="block w-5 h-0.5 bg-current mb-1" />
-            <span className="block w-5 h-0.5 bg-current" />
-          </button>
+          {/* CTA + mobile hamburger — right */}
+          <div className="flex items-center justify-end">
+            <QuoteButton label="Get a Quote" className="hidden md:inline-flex" />
+            <button
+              className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-sage-50"
+              onClick={() => setMobileOpen(!mobileOpen)}
+              aria-expanded={mobileOpen}
+              aria-label="Toggle menu"
+            >
+              <span className="block w-5 h-0.5 bg-current mb-1" />
+              <span className="block w-5 h-0.5 bg-current mb-1" />
+              <span className="block w-5 h-0.5 bg-current" />
+            </button>
+          </div>
+
         </div>
       </div>
 
@@ -106,6 +106,7 @@ export function Header() {
             <hr className="border-sage-100 my-2" />
             <Link href="/about" className="block py-2 text-sm font-medium text-gray-700" onClick={() => setMobileOpen(false)}>About</Link>
             <Link href="/faq" className="block py-2 text-sm font-medium text-gray-700" onClick={() => setMobileOpen(false)}>FAQ</Link>
+            <Link href="/contact" className="block py-2 text-sm font-medium text-gray-700" onClick={() => setMobileOpen(false)}>Contact</Link>
             <div className="pt-2">
               <QuoteButton label="Get a Quote" className="w-full text-center" />
             </div>

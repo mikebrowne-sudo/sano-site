@@ -8,19 +8,39 @@
   }
 
   body {
-    @apply font-sans text-gray-800 bg-white antialiased;
+    @apply font-sans text-sage-800 bg-white antialiased;
+    font-size: 1rem;
+    line-height: 1.65;
   }
 
   h1 {
-    @apply font-display font-extrabold;
+    @apply font-display font-bold text-sage-800;
+    font-size: clamp(2.125rem, 4vw, 3rem);
+    line-height: 1.08;
+    letter-spacing: -0.025em;
   }
 
   h2 {
-    @apply font-display font-bold;
+    @apply font-display font-bold text-sage-800;
+    font-size: clamp(1.625rem, 2.75vw, 2.125rem);
+    line-height: 1.15;
+    letter-spacing: -0.015em;
   }
 
-  h3, h4 {
-    @apply font-sans font-semibold;
+  h3 {
+    @apply font-sans font-semibold text-sage-800;
+    font-size: 1.0625rem;
+    line-height: 1.4;
+  }
+
+  h4 {
+    @apply font-sans font-semibold text-sage-800;
+    font-size: 0.9375rem;
+    line-height: 1.4;
+  }
+
+  p {
+    line-height: 1.75;
   }
 
   *:focus-visible {
@@ -37,6 +57,22 @@
     @apply max-w-6xl mx-auto;
   }
 
+  /* Eyebrow label above headings */
+  .eyebrow {
+    @apply text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-sage-500;
+  }
+
+  /* Standard section vertical rhythm */
+  .section-y {
+    @apply py-20 lg:py-24;
+  }
+
+  /* Prose body text */
+  .body-text {
+    @apply text-sage-600 leading-[1.75] text-[1.0625rem];
+  }
+
+  /* Legacy fade-up — kept for server components not using Framer Motion */
   .fade-up {
     opacity: 0;
     transform: translateY(24px);
@@ -46,5 +82,33 @@
   .fade-up.visible {
     opacity: 1;
     transform: translateY(0);
+  }
+
+  /* Animated gradient mesh */
+  .gradient-mesh {
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 50%, rgba(7, 102, 83, 0.18) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 80% at 80% 20%, rgba(126, 200, 122, 0.10) 0%, transparent 65%),
+      radial-gradient(ellipse 70% 50% at 60% 80%, rgba(6, 35, 29, 0.25) 0%, transparent 70%),
+      #faf9f6;
+    background-size: 200% 200%, 180% 180%, 220% 220%, 100%;
+    animation: mesh-shift 12s ease-in-out infinite alternate;
+  }
+
+  @keyframes mesh-shift {
+    0%   { background-position: 0% 50%,   100% 0%,   50% 100%, 0 0; }
+    33%  { background-position: 50% 0%,   0%   100%, 100% 50%, 0 0; }
+    66%  { background-position: 100% 50%, 50%  0%,   0%   100%, 0 0; }
+    100% { background-position: 30% 80%,  80%  30%,  60%  60%,  0 0; }
+  }
+
+  /* Grain texture overlay */
+  .grain::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1;
   }
 }

@@ -12,12 +12,17 @@
     "postbuild": "next-sitemap"
   },
   "dependencies": {
+    "@google/stitch-sdk": "^0.1.0",
     "@supabase/supabase-js": "^2.101.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^1.8.0",
     "next": "14.2.35",
     "next-sitemap": "^4.2.3",
     "react": "^18",
     "react-dom": "^18",
-    "resend": "^6.10.0"
+    "resend": "^6.10.0",
+    "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
     "@netlify/plugin-nextjs": "^5.15.9",

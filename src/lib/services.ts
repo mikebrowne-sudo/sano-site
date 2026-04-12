@@ -4,8 +4,8 @@ export const SERVICES: Service[] = [
   {
     slug: 'regular-cleaning',
     name: 'Regular House Cleaning',
-    shortDescription: 'Weekly or fortnightly cleaning to keep your home consistently fresh.',
-    description: 'Our regular cleaning service is designed to fit around your life. Choose weekly or fortnightly visits, and our vetted cleaners will maintain a consistently clean and healthy home for you.',
+    shortDescription: 'Keep your home consistently clean, tidy, and easy to live in. We take care of the day-to-day cleaning so things stay under control without you having to think about it.',
+    description: 'We handle the day-to-day cleaning so your space stays fresh, tidy, and easy to live in. Each clean is done with care and attention to detail, not rushed.\n\nIdeal for weekly or fortnightly upkeep.',
     heroImage: 'https://images.unsplash.com/photo-1631679706909-1844bbd07221?w=1600&q=80',
     cardImage: 'https://images.unsplash.com/photo-1631679706909-1844bbd07221?w=800&q=80',
     includes: [
@@ -24,10 +24,10 @@ export const SERVICES: Service[] = [
   {
     slug: 'deep-cleaning',
     name: 'Deep Cleaning',
-    shortDescription: 'A top-to-bottom refresh that reaches every corner.',
-    description: 'Our deep clean goes far beyond a regular tidy. We tackle built-up grime, hidden dust, and neglected corners — ideal as a one-off seasonal clean or before/after a big event.',
-    heroImage: 'https://images.unsplash.com/photo-1563453392212-326f5e854473?w=1600&q=80',
-    cardImage: 'https://images.unsplash.com/photo-1563453392212-326f5e854473?w=800&q=80',
+    shortDescription: 'A full top-to-bottom clean that goes beyond the basics. We work through built-up dirt, overlooked areas, and the details that don\'t get done regularly.',
+    description: 'We go beyond the basics, working through built-up dirt, overlooked areas, and the details that don\'t get done regularly.\n\nBest for seasonal cleans or getting things back on track.',
+    heroImage: '/images/deep-cleaning.jpg',
+    cardImage: '/images/deep-cleaning.jpg',
     includes: [
       'Everything in our regular clean',
       'Inside oven and microwave cleaning',
@@ -45,10 +45,10 @@ export const SERVICES: Service[] = [
   {
     slug: 'end-of-tenancy',
     name: 'End of Tenancy Cleaning',
-    shortDescription: 'Move-out ready — get your bond back with confidence.',
-    description: 'Our end of tenancy clean is comprehensive and meets the expectations of Auckland property managers. We help tenants get their full bond back and landlords prepare for new occupants.',
-    heroImage: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1600&q=80',
-    cardImage: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80',
+    shortDescription: 'A thorough clean to leave the space in the right condition before moving out. We handle kitchens, bathrooms, and all the finishing details properly.',
+    description: 'We take care of the full clean so you can focus on the move. Kitchens, bathrooms, living areas, and all the finishing details are handled properly.\n\nDesigned to help meet landlord and property manager expectations.',
+    heroImage: '/images/end-of-tenancy.jpg',
+    cardImage: '/images/end-of-tenancy.jpg',
     includes: [
       'Full deep clean of all rooms',
       'Oven, stovetop, and range hood cleaning',
@@ -66,8 +66,8 @@ export const SERVICES: Service[] = [
   {
     slug: 'commercial-cleaning',
     name: 'Commercial & Office Cleaning',
-    shortDescription: 'Keep your workplace spotless and your team productive.',
-    description: 'A clean workplace makes a difference. Our commercial cleaning team handles offices, retail spaces, and small businesses across Auckland — after-hours or early morning to minimise disruption.',
+    shortDescription: 'Reliable cleaning that keeps your workspace clean, consistent, and presentable. We work around your schedule to minimise disruption.',
+    description: 'We work around your business to keep things clean, presentable, and easy to maintain for staff and clients.\n\nFlexible scheduling to suit your operations.',
     heroImage: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=1600&q=80',
     cardImage: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=800&q=80',
     includes: [
@@ -86,10 +86,10 @@ export const SERVICES: Service[] = [
   {
     slug: 'carpet-upholstery',
     name: 'Carpet & Upholstery Cleaning',
-    shortDescription: 'Revive your carpets and soft furnishings with a professional clean.',
-    description: 'Carpets and upholstery trap dust, allergens, and odours over time. Our professional equipment extracts deep-set dirt and leaves fabrics looking and smelling fresh.',
-    heroImage: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1600&q=80',
-    cardImage: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80',
+    shortDescription: 'Removes built-up dirt, stains, and odours to refresh carpets and furniture. Ideal for high-traffic areas or general upkeep.',
+    description: 'We remove built-up dirt, stains, and odours, leaving surfaces looking cleaner and feeling refreshed.\n\nGreat for high-traffic areas or general maintenance.',
+    heroImage: '/images/carpet-upholstery.jpg',
+    cardImage: '/images/carpet-upholstery.jpg',
     includes: [
       'Pre-treatment of stains and high-traffic areas',
       'Hot water extraction (steam cleaning)',
@@ -105,10 +105,10 @@ export const SERVICES: Service[] = [
   {
     slug: 'window-cleaning',
     name: 'Window Cleaning',
-    shortDescription: 'Crystal-clear windows inside and out.',
-    description: 'Streak-free windows make a huge difference to any home or business. Our window cleaning team handles residential and commercial properties across Auckland, including high windows.',
-    heroImage: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=1600&q=80',
-    cardImage: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&q=80',
+    shortDescription: 'Clean, streak-free windows that lift the overall feel of your space. We take care of glass, frames, and sills for a proper finish.',
+    description: 'We clean glass, frames, and sills to leave windows streak-free and properly finished.\n\nMakes a noticeable difference to the overall space.',
+    heroImage: '/images/window-cleaning.jpg',
+    cardImage: '/images/window-cleaning.jpg',
     includes: [
       'Interior and exterior window cleaning',
       'Window frame and sill wiping',
@@ -124,10 +124,10 @@ export const SERVICES: Service[] = [
   {
     slug: 'post-construction',
     name: 'Post-Construction Cleaning',
-    shortDescription: "Builder's dust and debris cleared — ready to move in.",
-    description: 'After a build or renovation, dust and debris are everywhere. Our post-construction cleaning team removes all traces of building work so your space is spotless and move-in ready.',
-    heroImage: 'https://images.unsplash.com/photo-1541123437800-1bb1317badc2?w=1600&q=80',
-    cardImage: 'https://images.unsplash.com/photo-1541123437800-1bb1317badc2?w=800&q=80',
+    shortDescription: 'We clear dust, debris, and residue after building or renovation work. The space is left clean, safe, and ready to use.',
+    description: 'We clear dust, debris, and residue left behind after construction or renovation, so the space is clean, safe, and ready.\n\nIdeal before handover or moving in.',
+    heroImage: '/images/post-construction.jpg',
+    cardImage: '/images/post-construction.jpg',
     includes: [
       'Removal of construction dust from all surfaces',
       'Cleaning inside cabinets and new fitments',

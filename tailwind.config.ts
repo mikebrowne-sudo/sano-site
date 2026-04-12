@@ -20,7 +20,8 @@ const config: Config = {
       },
       fontFamily: {
         sans:    ['var(--font-outfit)', 'system-ui', 'sans-serif'],
-        display: ['var(--font-outfit)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-noto-serif)', 'Georgia', 'serif'],
+        serif:   ['var(--font-noto-serif)', 'Georgia', 'serif'],
       },
       borderRadius: {
         '4xl': '2rem',
