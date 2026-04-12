@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils'
 import { Layers, Search, Zap } from 'lucide-react'
 import type React from 'react'
-import { motion, useInView } from 'framer-motion'
+import { motion, useInView, type Variants } from 'framer-motion'
 import { useRef } from 'react'
 import { FadeIn } from '@/components/FadeIn'
 
@@ -70,7 +70,7 @@ const stepsData = [
   },
 ]
 
-const cardVariants = {
+const cardVariants: Variants = {
   hidden: { opacity: 0, x: -40 },
   visible: (i: number) => ({
     opacity: 1,
@@ -78,7 +78,7 @@ const cardVariants = {
     transition: {
       delay: i * 1,
       duration: 0.7,
-      ease: "easeInOut",
+      ease: [0.22, 1, 0.36, 1] as number[],
     },
   }),
 }
