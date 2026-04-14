@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render } from '@testing-library/react'
 import { HeroSection } from '@/components/HeroSection'
 
 // Mock IntersectionObserver — not available in jsdom
