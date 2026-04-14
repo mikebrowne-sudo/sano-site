@@ -30,8 +30,8 @@ export default function BlogPostPage({ params }: Props) {
       {/* Featured image banner */}
       <div className="relative h-[380px] overflow-hidden">
         <Image
-          src={post.image}
-          alt={post.title}
+          src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1600&q=80"
+          alt="Clean Auckland home"
           fill
           className="object-cover object-center"
           priority
