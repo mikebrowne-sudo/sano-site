@@ -168,7 +168,7 @@ const POLICIES: Policy[] = [
           and keep things running smoothly.
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-4">
           <div>
             <p className="text-[13px] font-semibold text-sage-700 uppercase tracking-wide mb-2">
               What we collect
@@ -295,7 +295,7 @@ export function PoliciesAccordion() {
   const [openId, setOpenId] = useState<string | null>(null)
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+    <div className="max-w-2xl mx-auto space-y-3">
       {POLICIES.map((policy) => {
         const isOpen = openId === policy.id
         return (
