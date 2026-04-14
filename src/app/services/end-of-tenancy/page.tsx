@@ -114,8 +114,8 @@ export default function EndOfTenancyPage() {
             <FadeIn delay={0.15} direction="right">
               <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
                 <Image
-                  src="https://images.unsplash.com/photo-1585421514738-01798e348b17?w=800&q=80"
-                  alt="Clean kitchen detail after end of tenancy clean"
+                  src="/images/sano-auckland-team.jpeg"
+                  alt="Sano team preparing a property for end of tenancy handover"
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"
@@ -159,8 +159,8 @@ export default function EndOfTenancyPage() {
             <FadeIn direction="left">
               <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
                 <Image
-                  src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80"
-                  alt="Clean, empty space ready for handover"
+                  src="/images/cleaning-shot-2.jpeg"
+                  alt="Property cleaned and prepared for end of tenancy inspection"
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"

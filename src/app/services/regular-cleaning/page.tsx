@@ -120,8 +120,8 @@ export default function RegularCleaningPage() {
             <FadeIn delay={0.15} direction="right">
               <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
                 <Image
-                  src="https://images.unsplash.com/photo-1585421514738-01798e348b17?w=800&q=80"
-                  alt="Detail cleaning — bench being wiped"
+                  src="/images/cleaning-shot-2.jpeg"
+                  alt="Sano cleaner at work in an Auckland home"
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"
@@ -171,8 +171,8 @@ export default function RegularCleaningPage() {
             <FadeIn direction="left">
               <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
                 <Image
-                  src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80"
-                  alt="Clean, calm finished room with natural light"
+                  src="/images/sano-auckland-team.jpeg"
+                  alt="The Sano cleaning team — Auckland locals you can trust"
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"

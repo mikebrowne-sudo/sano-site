@@ -121,8 +121,8 @@ export default function CommercialCleaningPage() {
             <FadeIn delay={0.15} direction="right">
               <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
                 <Image
-                  src="https://images.unsplash.com/photo-1585421514738-01798e348b17?w=800&q=80"
-                  alt="Office cleaning detail"
+                  src="/images/sano-commercial-clean-auckland.jpeg"
+                  alt="Sano team cleaning a commercial space in Auckland"
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"
@@ -172,8 +172,8 @@ export default function CommercialCleaningPage() {
             <FadeIn direction="left">
               <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
                 <Image
-                  src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80"
-                  alt="Clean, calm finished office space"
+                  src="/images/sano-auckland-team.jpeg"
+                  alt="The Sano team ready to service your Auckland business"
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"

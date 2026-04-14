@@ -121,8 +121,8 @@ export default function WindowCleaningPage() {
             <FadeIn delay={0.15} direction="right">
               <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
                 <Image
-                  src="https://images.unsplash.com/photo-1585421514738-01798e348b17?w=800&q=80"
-                  alt="Window cleaning detail close-up"
+                  src="/images/sano-auckland-team.jpeg"
+                  alt="Sano window cleaning team on site in Auckland"
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"
@@ -170,8 +170,8 @@ export default function WindowCleaningPage() {
             <FadeIn direction="left">
               <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
                 <Image
-                  src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80"
-                  alt="Clean, bright space with clear windows"
+                  src="/images/cleaning-shot-2.jpeg"
+                  alt="Clean result after Sano window cleaning service"
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"

@@ -122,8 +122,8 @@ export default function PostConstructionPage() {
             <FadeIn delay={0.15} direction="right">
               <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
                 <Image
-                  src="https://images.unsplash.com/photo-1585421514738-01798e348b17?w=800&q=80"
-                  alt="Post-construction cleaning detail"
+                  src="/images/sano-commercial-clean-auckland.jpeg"
+                  alt="Sano team clearing a post-construction site in Auckland"
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"
@@ -171,8 +171,8 @@ export default function PostConstructionPage() {
             <FadeIn direction="left">
               <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
                 <Image
-                  src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80"
-                  alt="Clean, minimal newly finished space"
+                  src="/images/sano-auckland-team.jpeg"
+                  alt="The Sano team delivering post-construction cleaning in Auckland"
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"
