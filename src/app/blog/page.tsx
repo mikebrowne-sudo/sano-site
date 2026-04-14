@@ -27,11 +27,11 @@ export default function BlogPage() {
         <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-7">
           {POSTS.map((post, index) => {
             const isLast = index === POSTS.length - 1
-            const isOdd = POSTS.length % 3 !== 0
+            const isAloneInLastRow = POSTS.length % 3 === 1
             return (
               <li
                 key={post.slug}
-                className={isLast && isOdd ? 'lg:col-start-2' : undefined}
+                className={isLast && isAloneInLastRow ? 'lg:col-start-2' : undefined}
               >
                 <Link
                   href={`/blog/${post.slug}`}
@@ -46,7 +46,7 @@ export default function BlogPage() {
                       className="w-full h-full object-cover"
                     />
                   </div>
-                  <div className="p-5 pt-[20px] pb-[22px] px-[22px]">
+                  <div className="pt-5 px-[22px] pb-[22px]">
                     <p className="text-[11px] font-semibold tracking-wide uppercase text-gray-400 mb-2">
                       {post.date}
                     </p>
