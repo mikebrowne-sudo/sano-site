@@ -11,7 +11,7 @@ export function Footer() {
             {/* Logo — white version via CSS filter on dark background */}
             <Link href="/" aria-label="Sano — home" className="inline-block mb-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <span className="font-display text-2xl font-bold text-white tracking-tight">Sano</span>
+              <img src="/brand/sano-logo-white.png" alt="Sano" style={{ height: '34px', width: 'auto' }} />
             </Link>
             <p className="text-sage-100 text-sm leading-relaxed">Premium residential and commercial cleaning in Auckland. 20+ years experience.</p>
           </div>
