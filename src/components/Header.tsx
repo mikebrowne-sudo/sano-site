@@ -66,7 +66,7 @@ export function Header() {
             <Link href="/" aria-label="Sano — home" className="flex-shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/brand/sano-logo.jpg"
+                src="/brand/sano-logo.png"
                 alt="Sano"
                 style={{ height: '67px', width: 'auto' }}
               />
