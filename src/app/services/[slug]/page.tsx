@@ -45,11 +45,11 @@ export default function ServicePage({ params }: Props) {
       />
 
       {/* What's included */}
-      <section className="section-padding py-16 bg-white">
+      <section className="section-padding py-10 md:py-14 bg-white">
         <div className="container-max">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div>
-              <h2 className="text-sage-800 mb-6">What&apos;s included</h2>
+              <h2 className="text-sage-800 mb-5">What&apos;s included</h2>
               <ul className="space-y-3">
                 {service.includes.map((item) => (
                   <li key={item} className="flex items-start gap-3 text-gray-700">
@@ -70,9 +70,9 @@ export default function ServicePage({ params }: Props) {
       </section>
 
       {/* How it works */}
-      <section className="section-padding py-12 bg-sage-50">
+      <section className="section-padding py-8 md:py-10 bg-sage-50">
         <div className="container-max">
-          <h2 className="text-sage-800 mb-8 text-center">How it works</h2>
+          <h2 className="text-sage-800 mb-6 text-center">How it works</h2>
           <ol className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
             {[
               { n: '01', title: 'Book', body: "Fill in our quick quote form and we'll confirm your booking within hours." },
@@ -91,9 +91,9 @@ export default function ServicePage({ params }: Props) {
 
       {/* Related services */}
       {related.length > 0 && (
-        <section className="section-padding py-16 bg-white">
+        <section className="section-padding py-10 md:py-14 bg-white">
           <div className="container-max">
-            <h2 className="text-sage-800 mb-8">You might also need</h2>
+            <h2 className="text-sage-800 mb-6">You might also need</h2>
             <ul className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {related.map((s) => (
                 <li key={s.slug}>

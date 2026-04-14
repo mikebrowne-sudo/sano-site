@@ -45,7 +45,7 @@ export function HeroSection({
       />
       {/* Content */}
       <div
-        className={`relative z-10 container-max section-padding py-20 w-full${centred ? ' text-center' : ''}`}
+        className={`relative z-10 container-max section-padding py-16 md:py-20 w-full${centred ? ' text-center' : ''}`}
       >
         {badge && (
           <span className="inline-block mb-4 rounded-full border border-white/30 bg-white/15 backdrop-blur-sm px-4 py-1 text-xs font-medium text-white">
