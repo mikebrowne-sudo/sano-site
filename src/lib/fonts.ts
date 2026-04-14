@@ -1,9 +1,9 @@
-import { Outfit, Noto_Serif } from 'next/font/google'
+import { Poppins, Noto_Serif } from 'next/font/google'
 
-export const outfit = Outfit({
+export const poppins = Poppins({
   subsets: ['latin'],
-  variable: '--font-outfit',
-  weight: ['400', '600', '700', '800'],
+  variable: '--font-poppins',
+  weight: ['400', '500', '600', '700', '800', '900'],
   display: 'swap',
 })
 

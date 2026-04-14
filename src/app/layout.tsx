@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { outfit, notoSerif } from '@/lib/fonts'
+import { poppins, notoSerif } from '@/lib/fonts'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import './globals.css'
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${notoSerif.variable}`}>
+    <html lang="en" className={`${poppins.variable} ${notoSerif.variable}`}>
       <body>
         <Header />
         <main>{children}</main>
