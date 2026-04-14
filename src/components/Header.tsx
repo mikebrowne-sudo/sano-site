@@ -122,7 +122,6 @@ export function Header() {
                 )}
               </div>
 
-              <NavLink href="/join-our-team" label="Join Our Team" pathname={pathname} />
               <NavLink href="/blog" label="Blog" pathname={pathname} />
 
               {/* About — hover dropdown */}
@@ -206,7 +205,6 @@ export function Header() {
               </Link>
             ))}
             <hr className="border-sage-100 my-2" />
-            <Link href="/join-our-team" className="block py-2 text-[15px] font-medium text-gray-700" onClick={() => setMobileOpen(false)}>Join Our Team</Link>
             <Link href="/blog" className="block py-2 text-[15px] font-medium text-gray-700" onClick={() => setMobileOpen(false)}>Blog</Link>
             <p className="py-2 text-[15px] font-semibold text-gray-700">About</p>
             {ABOUT_LINKS.map((link) => (
