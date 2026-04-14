@@ -6,10 +6,23 @@ import { useState, useEffect } from 'react'
 import { SERVICES } from '@/lib/services'
 import { QuoteButton } from './QuoteButton'
 
+const ABOUT_LINKS = [
+  { label: 'About Us', href: '/about' },
+  { label: 'Service Area', href: '/service-area' },
+  { label: 'Our Guarantee', href: '/guarantee' },
+  { label: 'Our Policies', href: '/policies' },
+  { label: 'FAQ', href: '/faq' },
+]
+
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [servicesOpen, setServicesOpen] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
   const pathname = usePathname()
+
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [pathname])
 
   useEffect(() => {
     const els = document.querySelectorAll('.fade-up')
@@ -29,90 +42,212 @@ export function Header() {
   }, [pathname])
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-sage-100 shadow-sm">
-      <div className="container-max section-padding">
-        <div className="grid grid-cols-3 items-center h-24">
+    <header className="sticky top-0 z-50">
 
-          {/* Logo — left */}
-          <Link href="/" aria-label="Sano — home" className="justify-self-start">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/brand/sano-logo.jpg"
-              alt="Sano"
-              style={{ height: '67px', width: 'auto' }}
-            />
-          </Link>
-
-          {/* Nav — centre */}
-          <nav className="hidden md:flex items-center justify-center gap-10" aria-label="Main navigation">
-            <div className="relative">
-              <button
-                onClick={() => setServicesOpen(!servicesOpen)}
-                onBlur={() => setTimeout(() => setServicesOpen(false), 150)}
-                className={`flex items-center gap-1 text-[18px] font-semibold transition-all duration-200 ${pathname.startsWith('/services') ? 'text-sage-800' : 'text-gray-700 hover:text-sage-800'}`}
-                aria-expanded={servicesOpen}
-                aria-haspopup="true"
-              >
-                Services
-                <span className="text-xs" aria-hidden="true">{servicesOpen ? '▲' : '▼'}</span>
-              </button>
-              {servicesOpen && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 bg-white rounded-2xl shadow-lg border border-sage-100 py-2 z-50">
-                  <Link href="/services" className="block px-4 py-2 text-sm font-semibold text-sage-800 hover:bg-sage-50" onClick={() => setServicesOpen(false)}>
-                    All Services
-                  </Link>
-                  <hr className="my-1 border-sage-100" />
-                  {SERVICES.map((service) => (
-                    <Link key={service.slug} href={`/services/${service.slug}`} className="block px-4 py-2 text-sm text-gray-700 hover:bg-sage-50 hover:text-sage-800" onClick={() => setServicesOpen(false)}>
-                      {service.name}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-            <Link href="/about" className={`text-[18px] font-semibold transition-all duration-200 ${pathname === '/about' ? 'text-sage-800' : 'text-gray-700 hover:text-sage-800'}`}>About</Link>
-            <Link href="/faq" className={`text-[18px] font-semibold transition-all duration-200 ${pathname === '/faq' ? 'text-sage-800' : 'text-gray-700 hover:text-sage-800'}`}>FAQ</Link>
-            <Link href="/contact" className={`text-[18px] font-semibold transition-all duration-200 ${pathname === '/contact' ? 'text-sage-800' : 'text-gray-700 hover:text-sage-800'}`}>Contact</Link>
-          </nav>
-
-          {/* CTA + mobile hamburger — right */}
-          <div className="flex items-center justify-end">
-            <QuoteButton label="Get a Quote" className="hidden md:inline-flex" />
-            <button
-              className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-sage-50"
-              onClick={() => setMobileOpen(!mobileOpen)}
-              aria-expanded={mobileOpen}
-              aria-label="Toggle menu"
-            >
-              <span className="block w-5 h-0.5 bg-current mb-1" />
-              <span className="block w-5 h-0.5 bg-current mb-1" />
-              <span className="block w-5 h-0.5 bg-current" />
-            </button>
+      {/* Top bar */}
+      <div className="bg-[#344C3D]">
+        <div className="container-max section-padding">
+          <div className="flex justify-end items-center h-9 gap-2">
+            <PhoneIcon className="text-[#a8c5b0]" />
+            <span className="text-[#a8c5b0] text-[13px] leading-relaxed">Call us for a free quote</span>
+            <span className="text-white text-[13px] font-bold leading-relaxed whitespace-nowrap">0800 726 669</span>
           </div>
+        </div>
+      </div>
 
+      {/* Main header */}
+      <div className="bg-white border-b border-sage-100 shadow-sm">
+        <div className="container-max section-padding">
+          <div className="flex items-center justify-between h-20">
+
+            {/* Logo */}
+            <Link href="/" aria-label="Sano — home" className="flex-shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/brand/sano-logo.jpg"
+                alt="Sano"
+                style={{ height: '67px', width: 'auto' }}
+              />
+            </Link>
+
+            {/* Desktop nav */}
+            <nav className="hidden md:flex items-center gap-8" aria-label="Main navigation">
+              <NavLink href="/" label="Home" pathname={pathname} />
+
+              {/* Services — hover dropdown */}
+              <div
+                className="relative"
+                onMouseEnter={() => setServicesOpen(true)}
+                onMouseLeave={() => setServicesOpen(false)}
+              >
+                <button
+                  className={`flex items-center gap-1 text-[15px] font-semibold transition-colors duration-200 ${
+                    pathname.startsWith('/services') ? 'text-[#344C3D]' : 'text-gray-700 hover:text-[#344C3D]'
+                  }`}
+                  aria-expanded={servicesOpen}
+                  aria-haspopup="true"
+                >
+                  Services
+                  <ChevronIcon />
+                </button>
+                {servicesOpen && (
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 bg-white rounded-2xl shadow-lg border border-sage-100 py-2 z-50">
+                    <Link
+                      href="/services"
+                      className="block px-4 py-2 text-[13px] font-semibold text-[#344C3D] hover:bg-sage-50"
+                      onClick={() => setServicesOpen(false)}
+                    >
+                      All Services
+                    </Link>
+                    <hr className="my-1 border-sage-100" />
+                    {SERVICES.map((service) => (
+                      <Link
+                        key={service.slug}
+                        href={`/services/${service.slug}`}
+                        className="block px-4 py-2 text-[13px] text-gray-700 hover:bg-sage-50 hover:text-[#344C3D]"
+                        onClick={() => setServicesOpen(false)}
+                      >
+                        {service.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <NavLink href="/join-our-team" label="Join Our Team" pathname={pathname} />
+              <NavLink href="/blog" label="Blog" pathname={pathname} />
+
+              {/* About — hover dropdown */}
+              <div
+                className="relative"
+                onMouseEnter={() => setAboutOpen(true)}
+                onMouseLeave={() => setAboutOpen(false)}
+              >
+                <button
+                  className={`flex items-center gap-1 text-[15px] font-semibold transition-colors duration-200 ${
+                    ABOUT_LINKS.some((l) => pathname === l.href) ? 'text-[#344C3D]' : 'text-gray-700 hover:text-[#344C3D]'
+                  }`}
+                  aria-expanded={aboutOpen}
+                  aria-haspopup="true"
+                >
+                  About
+                  <ChevronIcon />
+                </button>
+                {aboutOpen && (
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-52 bg-white rounded-2xl shadow-lg border border-sage-100 py-2 z-50">
+                    {ABOUT_LINKS.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        className="block px-4 py-2 text-[13px] text-gray-700 hover:bg-sage-50 hover:text-[#344C3D]"
+                        onClick={() => setAboutOpen(false)}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <NavLink href="/contact" label="Contact Us" pathname={pathname} />
+            </nav>
+
+            {/* CTA + hamburger */}
+            <div className="flex items-center gap-3">
+              <QuoteButton label="Get a Quote" className="hidden md:inline-flex" />
+              <button
+                className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-sage-50"
+                onClick={() => setMobileOpen(!mobileOpen)}
+                aria-expanded={mobileOpen}
+                aria-label="Toggle menu"
+              >
+                <span className="block w-5 h-0.5 bg-current mb-1" />
+                <span className="block w-5 h-0.5 bg-current mb-1" />
+                <span className="block w-5 h-0.5 bg-current" />
+              </button>
+            </div>
+
+          </div>
         </div>
       </div>
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <nav className="md:hidden border-t border-sage-100 bg-white section-padding py-4" aria-label="Mobile navigation">
+        <nav
+          className="md:hidden border-t border-sage-100 bg-white section-padding py-4"
+          aria-label="Mobile navigation"
+        >
           <div className="space-y-1">
-            <Link href="/services" className="block py-2 text-sm font-semibold text-sage-800" onClick={() => setMobileOpen(false)}>All Services</Link>
+            <Link href="/" className="block py-2 text-[15px] font-semibold text-gray-700" onClick={() => setMobileOpen(false)}>Home</Link>
+            <Link href="/services" className="block py-2 text-[15px] font-semibold text-[#344C3D]" onClick={() => setMobileOpen(false)}>All Services</Link>
             {SERVICES.map((service) => (
-              <Link key={service.slug} href={`/services/${service.slug}`} className="block py-2 pl-4 text-sm text-gray-700" onClick={() => setMobileOpen(false)}>
+              <Link
+                key={service.slug}
+                href={`/services/${service.slug}`}
+                className="block py-2 pl-4 text-[13px] text-gray-700"
+                onClick={() => setMobileOpen(false)}
+              >
                 {service.name}
               </Link>
             ))}
             <hr className="border-sage-100 my-2" />
-            <Link href="/about" className="block py-2 text-sm font-medium text-gray-700" onClick={() => setMobileOpen(false)}>About</Link>
-            <Link href="/faq" className="block py-2 text-sm font-medium text-gray-700" onClick={() => setMobileOpen(false)}>FAQ</Link>
-            <Link href="/contact" className="block py-2 text-sm font-medium text-gray-700" onClick={() => setMobileOpen(false)}>Contact</Link>
+            <Link href="/join-our-team" className="block py-2 text-[15px] font-medium text-gray-700" onClick={() => setMobileOpen(false)}>Join Our Team</Link>
+            <Link href="/blog" className="block py-2 text-[15px] font-medium text-gray-700" onClick={() => setMobileOpen(false)}>Blog</Link>
+            <p className="py-2 text-[15px] font-semibold text-gray-700">About</p>
+            {ABOUT_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="block py-2 pl-4 text-[13px] text-gray-700"
+                onClick={() => setMobileOpen(false)}
+              >
+                {link.label}
+              </Link>
+            ))}
+            <Link href="/contact" className="block py-2 text-[15px] font-medium text-gray-700" onClick={() => setMobileOpen(false)}>Contact Us</Link>
+            <hr className="border-sage-100 my-2" />
+            <div className="flex items-center gap-2 py-2">
+              <PhoneIcon className="text-[#344C3D]" />
+              <span className="text-[13px] text-gray-600">Call us for a free quote</span>
+              <span className="text-[13px] font-bold text-[#344C3D] whitespace-nowrap">0800 726 669</span>
+            </div>
             <div className="pt-2">
               <QuoteButton label="Get a Quote" className="w-full text-center" />
             </div>
           </div>
         </nav>
       )}
+
     </header>
+  )
+}
+
+function NavLink({ href, label, pathname }: { href: string; label: string; pathname: string }) {
+  const isActive = pathname === href
+  return (
+    <Link
+      href={href}
+      className={`text-[15px] font-semibold transition-colors duration-200 ${
+        isActive ? 'text-[#344C3D]' : 'text-gray-700 hover:text-[#344C3D]'
+      }`}
+    >
+      {label}
+    </Link>
+  )
+}
+
+function ChevronIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+      <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function PhoneIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
+      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8 19.79 19.79 0 01.1 1.18 2 2 0 012.08 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.09a16 16 0 006 6l.45-.45a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z" />
+    </svg>
   )
 }
