@@ -122,8 +122,8 @@ export default function DeepCleaningPage() {
             <FadeIn delay={0.15} direction="right">
               <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
                 <Image
-                  src="/images/cleaning-shot-2.jpeg"
-                  alt="Sano cleaner performing a thorough deep clean"
+                  src="/images/sano-commercial-clean-auckland.jpeg"
+                  alt="Professional deep clean in progress by the Sano team"
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"
