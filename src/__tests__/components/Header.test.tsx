@@ -1,6 +1,15 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { Header } from '@/components/Header'
 
+// Mock IntersectionObserver — not available in jsdom
+global.IntersectionObserver = class IntersectionObserver {
+  constructor() {}
+  disconnect() { return undefined }
+  observe() { return undefined }
+  takeRecords() { return [] }
+  unobserve() { return undefined }
+} as unknown as typeof IntersectionObserver
+
 jest.mock('next/navigation', () => ({
   usePathname: () => '/',
 }))
