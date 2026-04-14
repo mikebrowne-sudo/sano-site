@@ -292,12 +292,20 @@ const POLICIES: Policy[] = [
 ]
 
 export function PoliciesAccordion() {
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set())
+
+  function toggle(id: string) {
+    setOpenIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-3">
       {POLICIES.map((policy) => {
-        const isOpen = openId === policy.id
+        const isOpen = openIds.has(policy.id)
         return (
           <div
             key={policy.id}
@@ -324,7 +332,7 @@ export function PoliciesAccordion() {
             {/* Header button */}
             <button
               type="button"
-              onClick={() => setOpenId(isOpen ? null : policy.id)}
+              onClick={() => toggle(policy.id)}
               className={`w-full flex items-center justify-between px-5 py-5 md:px-6 text-left gap-4 transition-colors duration-150 ${
                 isOpen ? 'bg-sage-50' : 'hover:bg-[#fafcfa]'
               }`}
