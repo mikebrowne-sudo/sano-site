@@ -17,15 +17,14 @@ export const SERVICES: Service[] = [
       'Making beds and tidying rooms',
       'Spot-cleaning windows and mirrors',
     ],
-    fromPrice: 120,
-    metaDescription: 'Regular house cleaning in Auckland from $120. Weekly or fortnightly visits by vetted, insured cleaners. Eco-friendly products. Book a free quote today.',
+    metaDescription: 'Regular house cleaning in Auckland. Weekly or fortnightly visits by vetted, insured cleaners. Eco-friendly products. Get in touch for a tailored quote.',
     relatedSlugs: ['deep-cleaning', 'carpet-upholstery', 'window-cleaning'],
   },
   {
     slug: 'deep-cleaning',
     name: 'Deep Cleaning',
-    shortDescription: 'A full top-to-bottom clean that goes beyond the basics. We work through built-up dirt, overlooked areas, and the details that don\'t get done regularly.',
-    description: 'We go beyond the basics, working through built-up dirt, overlooked areas, and the details that don\'t get done regularly.\n\nBest for seasonal cleans or getting things back on track.',
+    shortDescription: 'A more thorough clean for when your space needs extra attention. We focus on the areas that build up over time and are often missed in day to day cleaning.',
+    description: 'Our deep cleaning service goes beyond the regular routine, focusing on the areas that build up over time and are often missed in day to day cleaning. It\'s ideal for first time cleans, seasonal resets, moving in or out, or when things have simply got on top of you.\n\nWe take the time to get into the details. That means behind and under furniture where accessible, inside appliances like ovens and fridges, skirting boards, vents, light switches, and those harder to reach or easy to overlook areas.\n\nEvery deep clean is tailored to your space. We\'ll prioritise what matters most and make sure everything is brought back to a standard you can feel.',
     heroImage: '/images/deep-cleaning.jpg',
     cardImage: '/images/deep-cleaning.jpg',
     includes: [
@@ -38,8 +37,7 @@ export const SERVICES: Service[] = [
       'Wiping down all light switches and door handles',
       'Behind and under furniture vacuuming',
     ],
-    fromPrice: 280,
-    metaDescription: 'Deep cleaning in Auckland from $280. Top-to-bottom clean including oven, fridge, grout, and hidden areas. Fully insured. Get a free quote today.',
+    metaDescription: 'Deep cleaning in Auckland. Top-to-bottom clean including oven, fridge, grout, and hidden areas. Fully insured. Get in touch for a tailored quote.',
     relatedSlugs: ['regular-cleaning', 'end-of-tenancy', 'post-construction'],
   },
   {
@@ -59,8 +57,7 @@ export const SERVICES: Service[] = [
       'Walls spot-cleaned',
       'Garage and outdoor areas swept',
     ],
-    fromPrice: 350,
-    metaDescription: 'End of tenancy cleaning in Auckland from $350. Bond-back guaranteed clean. Thorough, fast, and fully insured. Get a free quote from Sano Cleaning.',
+    metaDescription: 'End of tenancy cleaning in Auckland. Bond-back guaranteed clean. Thorough, fast, and fully insured. Get in touch for a tailored quote.',
     relatedSlugs: ['deep-cleaning', 'carpet-upholstery', 'post-construction'],
   },
   {
@@ -79,8 +76,7 @@ export const SERVICES: Service[] = [
       'Glass partition and window cleaning',
       'Reception and entrance area cleaning',
     ],
-    fromPrice: 200,
-    metaDescription: 'Commercial cleaning in Auckland from $200. Office, retail, and business cleaning after-hours. Vetted cleaners, flexible scheduling. Free quote from Sano.',
+    metaDescription: 'Commercial cleaning in Auckland. Office, retail, and business cleaning after-hours. Vetted cleaners, flexible scheduling. Get in touch for a tailored quote.',
     relatedSlugs: ['regular-cleaning', 'window-cleaning', 'carpet-upholstery'],
   },
   {
@@ -98,8 +94,7 @@ export const SERVICES: Service[] = [
       'Mattress cleaning available on request',
       'Quick-dry process — dry in 2–4 hours',
     ],
-    fromPrice: 150,
-    metaDescription: 'Carpet and upholstery cleaning in Auckland from $150. Steam cleaning, stain removal, and deodorising. Dry in 2–4 hours. Free quote from Sano Cleaning.',
+    metaDescription: 'Carpet and upholstery cleaning in Auckland. Steam cleaning, stain removal, and deodorising. Dry in 2–4 hours. Get in touch for a tailored quote.',
     relatedSlugs: ['regular-cleaning', 'deep-cleaning', 'end-of-tenancy'],
   },
   {
@@ -117,8 +112,7 @@ export const SERVICES: Service[] = [
       'Streak-free finish guaranteed',
       'High-reach windows (up to 3 storeys)',
     ],
-    fromPrice: 100,
-    metaDescription: 'Window cleaning in Auckland from $100. Interior and exterior, streak-free guaranteed. Residential and commercial. Get a free quote from Sano Cleaning.',
+    metaDescription: 'Window cleaning in Auckland. Interior and exterior, streak-free guaranteed. Residential and commercial. Get in touch for a tailored quote.',
     relatedSlugs: ['regular-cleaning', 'commercial-cleaning', 'deep-cleaning'],
   },
   {
@@ -137,8 +131,7 @@ export const SERVICES: Service[] = [
       'Removing stickers and labels from fixtures',
       'Final inspection and touch-up',
     ],
-    fromPrice: 400,
-    metaDescription: "Post-construction cleaning in Auckland from $400. Builder's dust, debris, and residue removed. Move-in ready finish. Free quote from Sano Cleaning.",
+    metaDescription: "Post-construction cleaning in Auckland. Builder's dust, debris, and residue removed. Move-in ready finish. Get in touch for a tailored quote.",
     relatedSlugs: ['deep-cleaning', 'end-of-tenancy', 'window-cleaning'],
   },
 ]

@@ -6,7 +6,6 @@ export interface Service {
   heroImage: string
   cardImage: string
   includes: string[]
-  fromPrice: number
   metaDescription: string
   relatedSlugs: string[]
 }

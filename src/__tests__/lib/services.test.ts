@@ -18,7 +18,7 @@ describe('SERVICES data', () => {
       expect(service.shortDescription).toBeTruthy()
       expect(service.heroImage).toMatch(/^https:\/\/images\.unsplash\.com/)
       expect(service.includes.length).toBeGreaterThanOrEqual(6)
-      expect(service.fromPrice).toBeGreaterThan(0)
+
       expect(service.metaDescription.length).toBeLessThanOrEqual(160)
       expect(service.relatedSlugs).toHaveLength(3)
     }

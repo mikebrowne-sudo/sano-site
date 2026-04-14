@@ -60,9 +60,9 @@ export default function ServicePage({ params }: Props) {
               </ul>
             </div>
             <div className="bg-sage-50 rounded-2xl p-8 self-start">
-              <p className="text-xs font-semibold text-sage-300 uppercase tracking-widest mb-2">Pricing</p>
-              <p className="font-display text-4xl text-sage-800 mb-2">From ${service.fromPrice} NZD</p>
-              <p className="text-gray-500 text-sm mb-6">Free quote, no obligation. Final price based on property size.</p>
+              <p className="text-xs font-semibold text-sage-300 uppercase tracking-widest mb-2">Get a Quote</p>
+              <p className="text-sage-800 text-lg font-semibold mb-2">Tailored to your space</p>
+              <p className="text-gray-500 text-sm mb-6">Every job is different. Get in touch and we'll put together a quote based on your space and requirements.</p>
               <QuoteButton label={`Get a ${service.name} Quote`} className="w-full text-center block" />
             </div>
           </div>
@@ -116,7 +116,6 @@ export default function ServicePage({ params }: Props) {
             description: service.metaDescription,
             provider: { '@type': 'LocalBusiness', name: 'Sano Cleaning' },
             areaServed: { '@type': 'City', name: 'Auckland' },
-            offers: { '@type': 'Offer', price: service.fromPrice, priceCurrency: 'NZD' },
           }),
         }}
       />
