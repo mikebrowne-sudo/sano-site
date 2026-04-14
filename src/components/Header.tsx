@@ -68,7 +68,7 @@ export function Header() {
               <img
                 src="/brand/sano-logo.png"
                 alt="Sano"
-                style={{ height: '67px', width: 'auto' }}
+                style={{ height: '34px', width: 'auto' }}
               />
             </Link>
 
