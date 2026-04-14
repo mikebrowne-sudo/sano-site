@@ -45,11 +45,11 @@ export function Header() {
     <header className="sticky top-0 z-50">
 
       {/* Top bar */}
-      <div className="bg-[#344C3D]">
+      <div className="bg-sage-700">
         <div className="container-max section-padding">
           <div className="flex justify-end items-center h-9 gap-2">
-            <PhoneIcon className="text-[#a8c5b0]" />
-            <span className="text-[#a8c5b0] text-[13px] leading-relaxed">Call us for a free quote</span>
+            <PhoneIcon className="text-sage-200" />
+            <span className="text-sage-200 text-[13px] leading-relaxed">Call us for a free quote</span>
             <span className="text-white text-[13px] font-bold leading-relaxed whitespace-nowrap">0800 726 669</span>
           </div>
         </div>
@@ -81,8 +81,9 @@ export function Header() {
                 onMouseLeave={() => setServicesOpen(false)}
               >
                 <button
+                  type="button"
                   className={`flex items-center gap-1 text-[15px] font-semibold transition-colors duration-200 ${
-                    pathname.startsWith('/services') ? 'text-[#344C3D]' : 'text-gray-700 hover:text-[#344C3D]'
+                    pathname.startsWith('/services') ? 'text-sage-700' : 'text-gray-700 hover:text-sage-700'
                   }`}
                   aria-expanded={servicesOpen}
                   aria-haspopup="true"
@@ -94,7 +95,7 @@ export function Header() {
                   <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 bg-white rounded-2xl shadow-lg border border-sage-100 py-2 z-50">
                     <Link
                       href="/services"
-                      className="block px-4 py-2 text-[13px] font-semibold text-[#344C3D] hover:bg-sage-50"
+                      className="block px-4 py-2 text-[13px] font-semibold text-sage-700 hover:bg-sage-50"
                       onClick={() => setServicesOpen(false)}
                     >
                       All Services
@@ -104,7 +105,7 @@ export function Header() {
                       <Link
                         key={service.slug}
                         href={`/services/${service.slug}`}
-                        className="block px-4 py-2 text-[13px] text-gray-700 hover:bg-sage-50 hover:text-[#344C3D]"
+                        className="block px-4 py-2 text-[13px] text-gray-700 hover:bg-sage-50 hover:text-sage-700"
                         onClick={() => setServicesOpen(false)}
                       >
                         {service.name}
@@ -124,8 +125,9 @@ export function Header() {
                 onMouseLeave={() => setAboutOpen(false)}
               >
                 <button
+                  type="button"
                   className={`flex items-center gap-1 text-[15px] font-semibold transition-colors duration-200 ${
-                    ABOUT_LINKS.some((l) => pathname === l.href) ? 'text-[#344C3D]' : 'text-gray-700 hover:text-[#344C3D]'
+                    ABOUT_LINKS.some((l) => pathname === l.href) ? 'text-sage-700' : 'text-gray-700 hover:text-sage-700'
                   }`}
                   aria-expanded={aboutOpen}
                   aria-haspopup="true"
@@ -139,7 +141,7 @@ export function Header() {
                       <Link
                         key={link.href}
                         href={link.href}
-                        className="block px-4 py-2 text-[13px] text-gray-700 hover:bg-sage-50 hover:text-[#344C3D]"
+                        className="block px-4 py-2 text-[13px] text-gray-700 hover:bg-sage-50 hover:text-sage-700"
                         onClick={() => setAboutOpen(false)}
                       >
                         {link.label}
@@ -156,6 +158,7 @@ export function Header() {
             <div className="flex items-center gap-3">
               <QuoteButton label="Get a Quote" className="hidden md:inline-flex" />
               <button
+                type="button"
                 className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-sage-50"
                 onClick={() => setMobileOpen(!mobileOpen)}
                 aria-expanded={mobileOpen}
@@ -179,7 +182,7 @@ export function Header() {
         >
           <div className="space-y-1">
             <Link href="/" className="block py-2 text-[15px] font-semibold text-gray-700" onClick={() => setMobileOpen(false)}>Home</Link>
-            <Link href="/services" className="block py-2 text-[15px] font-semibold text-[#344C3D]" onClick={() => setMobileOpen(false)}>All Services</Link>
+            <Link href="/services" className="block py-2 text-[15px] font-semibold text-gray-700" onClick={() => setMobileOpen(false)}>All Services</Link>
             {SERVICES.map((service) => (
               <Link
                 key={service.slug}
@@ -207,9 +210,9 @@ export function Header() {
             <Link href="/contact" className="block py-2 text-[15px] font-medium text-gray-700" onClick={() => setMobileOpen(false)}>Contact Us</Link>
             <hr className="border-sage-100 my-2" />
             <div className="flex items-center gap-2 py-2">
-              <PhoneIcon className="text-[#344C3D]" />
+              <PhoneIcon className="text-sage-700" />
               <span className="text-[13px] text-gray-600">Call us for a free quote</span>
-              <span className="text-[13px] font-bold text-[#344C3D] whitespace-nowrap">0800 726 669</span>
+              <span className="text-[13px] font-bold text-sage-700 whitespace-nowrap">0800 726 669</span>
             </div>
             <div className="pt-2">
               <QuoteButton label="Get a Quote" className="w-full text-center" />
@@ -228,7 +231,7 @@ function NavLink({ href, label, pathname }: { href: string; label: string; pathn
     <Link
       href={href}
       className={`text-[15px] font-semibold transition-colors duration-200 ${
-        isActive ? 'text-[#344C3D]' : 'text-gray-700 hover:text-[#344C3D]'
+        isActive ? 'text-sage-700' : 'text-gray-700 hover:text-sage-700'
       }`}
     >
       {label}
