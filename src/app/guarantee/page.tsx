@@ -42,9 +42,9 @@ export default function GuaranteePage() {
       {/* ── Core Guarantee ── */}
       <section className="section-padding py-10 md:py-14 bg-sage-50">
         <div className="container-max max-w-2xl mx-auto">
-          <div className="bg-white rounded-3xl border border-sage-100 shadow-sm p-8 md:p-10">
+          <div className="bg-white rounded-3xl border border-sage-200 shadow-md p-8 md:p-10">
             {/* Icon badge */}
-            <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-sage-700 mb-5">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-sage-700 mb-6">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
@@ -71,13 +71,13 @@ export default function GuaranteePage() {
       </section>
 
       {/* ── How it works ── */}
-      <section className="section-padding py-8 md:py-10 bg-sage-50">
+      <section className="section-padding py-10 md:py-14 bg-white">
         <div className="container-max">
-          <h2 className="text-sage-800 mb-2 text-center">How it works</h2>
-          <p className="body-text text-center max-w-md mx-auto mb-8">
+          <h2 className="text-sage-800 mb-3 text-center">How it works</h2>
+          <p className="body-text text-center max-w-md mx-auto mb-10">
             Three simple steps — no chasing, no complications.
           </p>
-          <ol className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <ol className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               {
                 n: '01',
@@ -112,14 +112,14 @@ export default function GuaranteePage() {
             ].map((step) => (
               <li
                 key={step.n}
-                className="bg-white rounded-2xl border border-sage-100 p-6 text-center shadow-sm transition-shadow duration-200 hover:shadow-md"
+                className="bg-white rounded-2xl border border-sage-200 p-7 md:p-8 text-center shadow-sm transition-all duration-200 hover:shadow-md hover:border-sage-300"
               >
                 {/* Number badge with icon */}
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-sage-700 mb-4">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-sage-700 ring-4 ring-sage-100 mb-5">
                   {step.icon}
                 </div>
                 {/* Step number */}
-                <p className="text-[11px] font-bold tracking-widest uppercase text-sage-400 mb-1">
+                <p className="text-[11px] font-bold tracking-widest uppercase text-sage-500 mb-1">
                   Step {step.n}
                 </p>
                 <h3 className="text-sage-800 mb-2">{step.title}</h3>
@@ -131,13 +131,13 @@ export default function GuaranteePage() {
       </section>
 
       {/* ── Service Promises ── */}
-      <section className="section-padding py-10 md:py-14 bg-white">
+      <section className="section-padding py-10 md:py-14 bg-sage-50">
         <div className="container-max">
           <h2 className="text-sage-800 mb-3 text-center">What you can expect from us</h2>
           <p className="body-text text-center max-w-xl mx-auto mb-8">
             Every visit is backed by the same standard of care and the same commitment to getting it right.
           </p>
-          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {[
               {
                 title: 'Reliable and consistent',
@@ -196,7 +196,7 @@ export default function GuaranteePage() {
             ].map((item) => (
               <li
                 key={item.title}
-                className="flex gap-4 p-5 rounded-2xl border border-sage-100 bg-white shadow-sm transition-all duration-200 hover:shadow-md hover:border-sage-200"
+                className="flex gap-4 p-5 rounded-2xl border border-sage-200 bg-white shadow-sm transition-all duration-200 hover:shadow-md hover:border-sage-300"
               >
                 <div className="flex-shrink-0 mt-0.5 w-9 h-9 rounded-xl bg-sage-700 flex items-center justify-center">
                   {item.icon}
@@ -212,10 +212,10 @@ export default function GuaranteePage() {
       </section>
 
       {/* ── Closing CTA ── */}
-      <section className="section-padding py-14 md:py-16 bg-gradient-to-br from-sage-800 to-sage-700 text-center">
+      <section className="section-padding py-16 md:py-20 bg-gradient-to-br from-sage-800 to-sage-600 text-center">
         <div className="container-max max-w-xl mx-auto">
           <h2 className="text-white mb-4">A better standard of cleaning</h2>
-          <div className="text-white/80 leading-[1.75] text-[1.0625rem] space-y-3 mb-8">
+          <div className="text-white/75 leading-[1.75] text-[1.0625rem] space-y-3 mb-10">
             <p>
               A lot of people have had a poor experience with cleaning at some point. Usually it
               comes down to missed details or inconsistency.
