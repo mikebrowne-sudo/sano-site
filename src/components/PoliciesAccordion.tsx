@@ -13,57 +13,67 @@ const POLICIES: Policy[] = [
     id: 'access',
     title: 'Access & Lockout',
     content: (
-      <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+      <div className="space-y-4 text-sm text-gray-600 leading-relaxed">
         <p>
-          We value both your time and our cleaners&apos; time, so access needs to be sorted before your booking.
+          We value both your time and our cleaners&apos; time, so it&apos;s important that access
+          is sorted before your booking.
         </p>
+
         <div>
-          <p className="font-medium text-gray-700 mb-1.5">Please arrange one of the following:</p>
-          <ul className="space-y-1">
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              Keys left in an agreed location
-            </li>
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              Someone present to let us in
-            </li>
+          <p className="text-[13px] font-semibold text-sage-700 uppercase tracking-wide mb-2">
+            Before your booking
+          </p>
+          <ul className="space-y-1.5">
+            {[
+              'Leave keys in an agreed and secure location, or',
+              'Have someone present to let us in',
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-3">
+                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sage-400 shrink-0" aria-hidden="true" />
+                {item}
+              </li>
+            ))}
           </ul>
         </div>
+
         <p>We&apos;ll send a reminder before your booking to help keep things on track.</p>
+
         <div>
-          <p className="font-medium text-gray-700 mb-1.5">If we can&apos;t access the property:</p>
-          <ul className="space-y-1">
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              We&apos;ll try to contact you shortly after arrival
-            </li>
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              If we can&apos;t reach you, a lockout fee may apply
-            </li>
+          <p className="text-[13px] font-semibold text-sage-700 uppercase tracking-wide mb-2">
+            If we can&apos;t access the property
+          </p>
+          <ul className="space-y-1.5">
+            {[
+              "We'll try to reach you shortly after arrival",
+              "If we're unable to make contact, a lockout fee may apply",
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-3">
+                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sage-400 shrink-0" aria-hidden="true" />
+                {item}
+              </li>
+            ))}
           </ul>
         </div>
+
         <div>
-          <p className="font-medium text-gray-700 mb-1.5">If access is provided after a delay:</p>
-          <ul className="space-y-1">
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              A small fee may apply to cover the cleaner&apos;s waiting time
-            </li>
+          <p className="text-[13px] font-semibold text-sage-700 uppercase tracking-wide mb-2">
+            Delays &amp; lockouts
+          </p>
+          <ul className="space-y-1.5">
+            {[
+              'If access is delayed, a small waiting fee may apply',
+              'If access is not possible at all, a lockout fee of up to 75% of the service may apply',
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-3">
+                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sage-400 shrink-0" aria-hidden="true" />
+                {item}
+              </li>
+            ))}
           </ul>
         </div>
-        <div>
-          <p className="font-medium text-gray-700 mb-1.5">If access isn&apos;t possible at all:</p>
-          <ul className="space-y-1">
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              A lockout fee of up to 75% of the service may apply, capped at a reasonable amount
-            </li>
-          </ul>
-        </div>
-        <p className="text-gray-400 text-xs pt-1">
-          This helps cover travel, time, and disruption to the schedule.
+
+        <p className="text-gray-400 text-[12px] border-t border-sage-100 pt-3 mt-1">
+          Fees help cover travel, time, and disruption to the schedule.
         </p>
       </div>
     ),
@@ -72,16 +82,22 @@ const POLICIES: Policy[] = [
     id: 'cancellations',
     title: 'Cancellations & Rescheduling',
     content: (
-      <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+      <div className="space-y-4 text-sm text-gray-600 leading-relaxed">
         <p>
           We ask for at least{' '}
-          <span className="font-medium text-gray-700">24 hours&apos; notice</span> if you need to
-          cancel or reschedule.
+          <span className="font-semibold text-sage-700">24 hours&apos; notice</span> if you need to
+          cancel or move a booking.
         </p>
-        <p>Changes made within 24 hours may incur a fee of up to 50% of the service.</p>
+        <div className="bg-sage-50 rounded-xl px-4 py-3 border border-sage-100">
+          <p className="text-[13px] font-semibold text-sage-700 mb-1">Within 24 hours</p>
+          <p>A cancellation fee of up to 50% of the service may apply.</p>
+        </div>
         <p>
-          We understand things come up. If it&apos;s a genuine situation, we&apos;ll always try to
-          be fair. Ongoing late changes may affect future bookings.
+          We understand that life happens. If it&apos;s a genuine situation, we&apos;ll always try
+          to be fair and find a solution that works.
+        </p>
+        <p>
+          Repeated late changes may affect the availability of future bookings.
         </p>
       </div>
     ),
@@ -90,43 +106,55 @@ const POLICIES: Policy[] = [
     id: 'payment',
     title: 'Payment Terms',
     content: (
-      <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+      <div className="space-y-4 text-sm text-gray-600 leading-relaxed">
         <div>
-          <p className="font-medium text-gray-700 mb-1.5">For one-off and deep cleans:</p>
-          <ul className="space-y-1">
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              Payment is required before the service, or
-            </li>
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              A deposit may be taken with the balance due on the day
-            </li>
+          <p className="text-[13px] font-semibold text-sage-700 uppercase tracking-wide mb-2">
+            One-off &amp; deep cleans
+          </p>
+          <ul className="space-y-1.5">
+            {[
+              'Full payment is required prior to the service, or',
+              'A deposit is taken with the balance due on the day',
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-3">
+                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sage-400 shrink-0" aria-hidden="true" />
+                {item}
+              </li>
+            ))}
           </ul>
         </div>
+
         <div>
-          <p className="font-medium text-gray-700 mb-1.5">For regular cleans:</p>
-          <ul className="space-y-1">
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              Payment is due after invoicing unless otherwise agreed
-            </li>
+          <p className="text-[13px] font-semibold text-sage-700 uppercase tracking-wide mb-2">
+            Regular cleans
+          </p>
+          <ul className="space-y-1.5">
+            {['Payment is due after invoicing, unless otherwise agreed'].map((item) => (
+              <li key={item} className="flex items-start gap-3">
+                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sage-400 shrink-0" aria-hidden="true" />
+                {item}
+              </li>
+            ))}
           </ul>
         </div>
+
         <div>
-          <p className="font-medium text-gray-700 mb-1.5">We accept:</p>
-          <ul className="space-y-1">
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              Bank transfer
-            </li>
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              Credit or debit card
-            </li>
+          <p className="text-[13px] font-semibold text-sage-700 uppercase tracking-wide mb-2">
+            Accepted payment methods
+          </p>
+          <ul className="space-y-1.5">
+            {['Bank transfer', 'Credit or debit card'].map((item) => (
+              <li key={item} className="flex items-start gap-3">
+                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sage-400 shrink-0" aria-hidden="true" />
+                {item}
+              </li>
+            ))}
           </ul>
         </div>
-        <p>Late payments may incur a small fee if left outstanding.</p>
+
+        <p className="text-gray-400 text-[12px] border-t border-sage-100 pt-3">
+          Overdue invoices may incur a small late payment fee.
+        </p>
       </div>
     ),
   },
@@ -134,54 +162,57 @@ const POLICIES: Policy[] = [
     id: 'privacy',
     title: 'Privacy',
     content: (
-      <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+      <div className="space-y-4 text-sm text-gray-600 leading-relaxed">
         <p>
-          We respect your privacy and only collect the information we need to run our services
-          properly.
+          We respect your privacy. We only collect the information we need to deliver our services
+          and keep things running smoothly.
         </p>
-        <div>
-          <p className="font-medium text-gray-700 mb-1.5">This may include:</p>
-          <ul className="space-y-1">
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              Name and contact details
-            </li>
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              Address
-            </li>
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              Booking and service information
-            </li>
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              Payment details
-            </li>
-          </ul>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <p className="text-[13px] font-semibold text-sage-700 uppercase tracking-wide mb-2">
+              What we collect
+            </p>
+            <ul className="space-y-1.5">
+              {[
+                'Name and contact details',
+                'Property address',
+                'Booking and service history',
+                'Payment information',
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-3">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sage-400 shrink-0" aria-hidden="true" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <p className="text-[13px] font-semibold text-sage-700 uppercase tracking-wide mb-2">
+              How we use it
+            </p>
+            <ul className="space-y-1.5">
+              {[
+                'Managing bookings and services',
+                'Communicating with you',
+                'Improving our service',
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-3">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sage-400 shrink-0" aria-hidden="true" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
-        <div>
-          <p className="font-medium text-gray-700 mb-1.5">We use this to:</p>
-          <ul className="space-y-1">
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              Manage bookings and services
-            </li>
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              Communicate with you
-            </li>
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              Improve our service
-            </li>
-          </ul>
-        </div>
+
         <p>
-          We don&apos;t sell or share your information with third parties unless required to deliver
-          the service or by law.
+          We do not sell or share your information with third parties, except where required to
+          deliver the service or by law.
         </p>
-        <p>You can request access or removal of your information at any time.</p>
+        <p>
+          You can request access to or removal of your information at any time by getting in touch.
+        </p>
       </div>
     ),
   },
@@ -189,34 +220,33 @@ const POLICIES: Policy[] = [
     id: 'terms',
     title: 'Terms of Service',
     content: (
-      <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
-        <p>By booking with Sano, you agree to the following:</p>
-        <div>
-          <p className="font-medium text-gray-700 mb-1">Access</p>
-          <p>
-            Please ensure safe, clear access to the property. Secure pets and remove fragile or
-            valuable items where possible.
-          </p>
-        </div>
-        <div>
-          <p className="font-medium text-gray-700 mb-1">Our Guarantee</p>
-          <p>
-            If something isn&apos;t right, let us know within 24 hours and we&apos;ll come back to
-            fix it or make it right.
-          </p>
-        </div>
-        <div>
-          <p className="font-medium text-gray-700 mb-1">Liability</p>
-          <p>
-            We are fully insured. Any damage caused by our team should be reported within a
-            reasonable timeframe. This does not include normal wear and tear.
-          </p>
-        </div>
-        <div>
-          <p className="font-medium text-gray-700 mb-1">Right to Refuse</p>
-          <p>
-            We may decline or stop services where conditions are unsafe or inappropriate.
-          </p>
+      <div className="space-y-4 text-sm text-gray-600 leading-relaxed">
+        <p>By booking with Sano, you agree to the following terms.</p>
+
+        <div className="space-y-3">
+          {[
+            {
+              title: 'Access',
+              body: "Please ensure safe, unobstructed access to the property. Where possible, secure pets and set aside any fragile or valuable items before we arrive.",
+            },
+            {
+              title: 'Our Guarantee',
+              body: "If something isn\u2019t right, let us know within 24 hours and we\u2019ll come back to fix it or make it right — no hassle.",
+            },
+            {
+              title: 'Liability',
+              body: "We are fully insured. Any damage attributed to our team must be reported within a reasonable timeframe. Normal wear and tear is not covered.",
+            },
+            {
+              title: 'Right to Refuse',
+              body: 'We reserve the right to decline or stop a service if conditions are unsafe, inappropriate, or outside the agreed scope of work.',
+            },
+          ].map(({ title, body }) => (
+            <div key={title} className="rounded-xl bg-sage-50 border border-sage-100 px-4 py-3">
+              <p className="font-semibold text-sage-800 text-[13px] mb-1">{title}</p>
+              <p className="text-gray-600">{body}</p>
+            </div>
+          ))}
         </div>
       </div>
     ),
@@ -225,27 +255,36 @@ const POLICIES: Policy[] = [
     id: 'damage',
     title: 'Damage & Issues',
     content: (
-      <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+      <div className="space-y-4 text-sm text-gray-600 leading-relaxed">
         <p>
-          We take care in every job, but if something goes wrong, we&apos;ll work through it
-          properly.
+          We take great care with every clean. But if something doesn&apos;t seem right after we
+          visit, here&apos;s how to handle it.
         </p>
+
         <div>
-          <p className="font-medium text-gray-700 mb-1.5">If you notice an issue:</p>
-          <ul className="space-y-1">
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              Let us know as soon as possible
-            </li>
-            <li className="flex items-start gap-2.5">
-              <span className="text-sage-400 shrink-0 mt-0.5 select-none" aria-hidden="true">—</span>
-              Send through photos and a short explanation
-            </li>
+          <p className="text-[13px] font-semibold text-sage-700 uppercase tracking-wide mb-2">
+            How to report an issue
+          </p>
+          <ul className="space-y-1.5">
+            {[
+              'Get in touch as soon as possible after noticing the issue',
+              'Include photos and a short description of what happened',
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-3">
+                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sage-400 shrink-0" aria-hidden="true" />
+                {item}
+              </li>
+            ))}
           </ul>
         </div>
+
         <p>
-          We&apos;ll review it quickly and, where appropriate, resolve it through repair,
-          replacement, or insurance.
+          We&apos;ll review the issue promptly and, where appropriate, resolve it through repair,
+          replacement, or our insurance process.
+        </p>
+
+        <p className="text-gray-400 text-[12px] border-t border-sage-100 pt-3">
+          We&apos;re here to make it right. Please don&apos;t hesitate to reach out.
         </p>
       </div>
     ),
@@ -255,36 +294,57 @@ const POLICIES: Policy[] = [
 export function PoliciesAccordion() {
   const [openId, setOpenId] = useState<string | null>(null)
 
-  function toggle(id: string) {
-    setOpenId(openId === id ? null : id)
-  }
-
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
       {POLICIES.map((policy) => {
         const isOpen = openId === policy.id
         return (
           <div
             key={policy.id}
-            className={`rounded-2xl border bg-white overflow-hidden transition-all duration-200 ${
-              isOpen
-                ? 'border-sage-300 shadow-md'
-                : 'border-sage-200 shadow-sm hover:shadow-md hover:border-sage-300'
-            }`}
+            className="rounded-2xl border bg-white overflow-hidden transition-all duration-200"
+            style={{
+              borderColor: isOpen ? '#a8c5b0' : '#c8dcd0',
+              boxShadow: isOpen
+                ? '0 8px 32px rgba(52,76,61,0.12), 0 1px 4px rgba(52,76,61,0.06)'
+                : '0 2px 10px rgba(52,76,61,0.06), 0 1px 3px rgba(52,76,61,0.04)',
+            }}
+            onMouseEnter={(e) => {
+              if (!isOpen) {
+                (e.currentTarget as HTMLDivElement).style.boxShadow =
+                  '0 6px 24px rgba(52,76,61,0.10), 0 1px 4px rgba(52,76,61,0.05)'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isOpen) {
+                (e.currentTarget as HTMLDivElement).style.boxShadow =
+                  '0 2px 10px rgba(52,76,61,0.06), 0 1px 3px rgba(52,76,61,0.04)'
+              }
+            }}
           >
+            {/* Header button */}
             <button
               type="button"
-              onClick={() => toggle(policy.id)}
-              className="w-full flex items-center justify-between px-5 py-5 md:px-6 text-left gap-4 cursor-pointer"
+              onClick={() => setOpenId(isOpen ? null : policy.id)}
+              className={`w-full flex items-center justify-between px-5 py-5 md:px-6 text-left gap-4 transition-colors duration-150 ${
+                isOpen ? 'bg-sage-50' : 'hover:bg-[#fafcfa]'
+              }`}
               aria-expanded={isOpen}
             >
               <span className="font-semibold text-sage-800 text-[15px] leading-snug">
                 {policy.title}
               </span>
+              {/* Icon: white circle with border when closed, sage filled when open */}
               <span
-                className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 ${
-                  isOpen ? 'bg-sage-700 text-white rotate-180' : 'bg-sage-100 text-sage-600'
+                className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 ${
+                  isOpen
+                    ? 'bg-sage-700 text-white rotate-180'
+                    : 'bg-white text-sage-500'
                 }`}
+                style={
+                  isOpen
+                    ? undefined
+                    : { border: '1px solid #c8dcd0' }
+                }
                 aria-hidden="true"
               >
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -299,14 +359,14 @@ export function PoliciesAccordion() {
               </span>
             </button>
 
-            {/* Animated expand/collapse via CSS grid-rows trick */}
+            {/* Animated content via CSS grid-rows */}
             <div
               className={`grid transition-all duration-300 ease-in-out ${
                 isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
               }`}
             >
               <div className="overflow-hidden">
-                <div className="px-5 md:px-6 pb-6 border-t border-sage-100 pt-4">
+                <div className="px-5 md:px-6 pb-6 pt-4 border-t border-sage-100">
                   {policy.content}
                 </div>
               </div>
