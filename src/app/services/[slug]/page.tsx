@@ -47,10 +47,10 @@ export default function ServicePage({ params }: Props) {
       {/* What's included */}
       <section className="section-padding py-10 md:py-14 bg-white">
         <div className="container-max">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <h2 className="text-sage-800 mb-5">What&apos;s included</h2>
-              <ul className="space-y-3">
+              <h2 className="text-sage-800 mb-4">What&apos;s included</h2>
+              <ul className="space-y-2.5">
                 {service.includes.map((item) => (
                   <li key={item} className="flex items-start gap-3 text-gray-700">
                     <span className="mt-0.5 text-sage-500 font-bold" aria-hidden="true">✓</span>
@@ -59,10 +59,10 @@ export default function ServicePage({ params }: Props) {
                 ))}
               </ul>
             </div>
-            <div className="bg-sage-50 rounded-2xl p-8 self-start">
+            <div className="bg-sage-50 rounded-2xl p-6 self-start">
               <p className="text-xs font-semibold text-sage-300 uppercase tracking-widest mb-2">Get a Quote</p>
               <p className="text-sage-800 text-lg font-semibold mb-2">Tailored to your space</p>
-              <p className="text-gray-500 text-sm mb-6">Every job is different. Get in touch and we&apos;ll put together a quote based on your space and requirements.</p>
+              <p className="text-gray-500 text-sm mb-5">Every job is different. Get in touch and we&apos;ll put together a quote based on your space and requirements.</p>
               <QuoteButton label={`Get a ${service.name} Quote`} className="w-full text-center block" />
             </div>
           </div>
@@ -72,16 +72,16 @@ export default function ServicePage({ params }: Props) {
       {/* How it works */}
       <section className="section-padding py-8 md:py-10 bg-sage-50">
         <div className="container-max">
-          <h2 className="text-sage-800 mb-6 text-center">How it works</h2>
-          <ol className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+          <h2 className="text-sage-800 mb-4 text-center">How it works</h2>
+          <ol className="grid grid-cols-1 md:grid-cols-3 gap-5 text-center">
             {[
               { n: '01', title: 'Book', body: "Fill in our quick quote form and we'll confirm your booking within hours." },
               { n: '02', title: 'We clean', body: 'Our vetted cleaner arrives fully equipped with eco-friendly products.' },
               { n: '03', title: 'You relax', body: 'Enjoy your spotless space. We guarantee your satisfaction.' },
             ].map((step) => (
               <li key={step.n}>
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-sage-100 text-sage-800 font-display text-lg mb-3">{step.n}</div>
-                <h3 className="mb-2">{step.title}</h3>
+                <div className="inline-flex items-center justify-center w-11 h-11 rounded-full bg-sage-100 text-sage-800 font-display text-lg mb-2.5">{step.n}</div>
+                <h3 className="mb-1.5">{step.title}</h3>
                 <p className="text-gray-600 text-sm leading-relaxed">{step.body}</p>
               </li>
             ))}
@@ -93,8 +93,8 @@ export default function ServicePage({ params }: Props) {
       {related.length > 0 && (
         <section className="section-padding py-10 md:py-14 bg-white">
           <div className="container-max">
-            <h2 className="text-sage-800 mb-6">You might also need</h2>
-            <ul className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <h2 className="text-sage-800 mb-4">You might also need</h2>
+            <ul className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               {related.map((s) => (
                 <li key={s.slug}>
                   <ServiceCard service={s} />
