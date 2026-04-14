@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { SERVICES } from '@/lib/services'
 import { QuoteButton } from './QuoteButton'
 
@@ -19,6 +19,8 @@ export function Header() {
   const [servicesOpen, setServicesOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   const pathname = usePathname()
+  const servicesCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const aboutCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     setMobileOpen(false)
@@ -77,8 +79,13 @@ export function Header() {
               {/* Services — hover dropdown */}
               <div
                 className="relative"
-                onMouseEnter={() => setServicesOpen(true)}
-                onMouseLeave={() => setServicesOpen(false)}
+                onMouseEnter={() => {
+                  if (servicesCloseTimer.current) clearTimeout(servicesCloseTimer.current)
+                  setServicesOpen(true)
+                }}
+                onMouseLeave={() => {
+                  servicesCloseTimer.current = setTimeout(() => setServicesOpen(false), 200)
+                }}
               >
                 <button
                   type="button"
@@ -121,8 +128,13 @@ export function Header() {
               {/* About — hover dropdown */}
               <div
                 className="relative"
-                onMouseEnter={() => setAboutOpen(true)}
-                onMouseLeave={() => setAboutOpen(false)}
+                onMouseEnter={() => {
+                  if (aboutCloseTimer.current) clearTimeout(aboutCloseTimer.current)
+                  setAboutOpen(true)
+                }}
+                onMouseLeave={() => {
+                  aboutCloseTimer.current = setTimeout(() => setAboutOpen(false), 200)
+                }}
               >
                 <button
                   type="button"
