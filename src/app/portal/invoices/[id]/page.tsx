@@ -5,6 +5,7 @@ import { ArrowLeft, Printer } from 'lucide-react'
 import { SendInvoicePanel } from './_components/SendInvoicePanel'
 import { MarkAsPaidButton } from './_components/MarkAsPaidButton'
 import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
+import { firstName } from '@/lib/doc-helpers'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -52,7 +53,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
   const { data: clientRecord } = await supabase
     .from('clients')
-    .select('email')
+    .select('name, email')
     .eq('id', invoice.client_id)
     .single()
 
@@ -115,6 +116,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             invoiceId={invoice.id}
             invoiceNumber={invoice.invoice_number}
             clientEmail={clientRecord?.email ?? ''}
+            clientName={firstName(clientRecord?.name)}
             printUrl={shareUrl}
           />
         </div>

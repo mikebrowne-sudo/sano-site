@@ -7,6 +7,7 @@ import { SendQuotePanel } from './_components/SendQuotePanel'
 import { ConvertToInvoiceButton } from './_components/ConvertToInvoiceButton'
 import { MarkAsAcceptedButton } from './_components/MarkAsAcceptedButton'
 import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
+import { firstName } from '@/lib/doc-helpers'
 
 export default async function QuoteDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -55,7 +56,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       .order('name'),
     supabase
       .from('clients')
-      .select('email')
+      .select('name, email')
       .eq('id', quote.client_id)
       .single(),
   ])
@@ -91,6 +92,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
             quoteId={quote.id}
             quoteNumber={quote.quote_number}
             clientEmail={currentClient?.email ?? ''}
+            clientName={firstName(currentClient?.name)}
             printUrl={shareUrl}
           />
         </div>

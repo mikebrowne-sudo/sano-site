@@ -9,18 +9,21 @@ export function SendInvoicePanel({
   invoiceId,
   invoiceNumber,
   clientEmail,
+  clientName,
   printUrl,
 }: {
   invoiceId: string
   invoiceNumber: string
   clientEmail: string
+  clientName: string
   printUrl: string
 }) {
+  const greeting = clientName ? `Hi ${clientName},` : 'Hi there,'
   const [open, setOpen] = useState(false)
   const [to, setTo] = useState(clientEmail)
   const [subject, setSubject] = useState(`Invoice ${invoiceNumber} from Sano`)
   const [message, setMessage] = useState(
-    `Hi,\n\nPlease find your invoice ${invoiceNumber} from Sano via the link below.\n\nPayment details are included on the invoice. If you have any questions, just let us know.\n\nKind regards,\nThe Sano team`,
+    `${greeting}\n\nPlease find your invoice ${invoiceNumber} from Sano via the link below.\n\nPayment details are included on the invoice. If you have any questions, just let us know.\n\nKind regards,\nThe Sano team`,
   )
 
   const [isPending, startTransition] = useTransition()

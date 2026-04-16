@@ -9,18 +9,21 @@ export function SendQuotePanel({
   quoteId,
   quoteNumber,
   clientEmail,
+  clientName,
   printUrl,
 }: {
   quoteId: string
   quoteNumber: string
   clientEmail: string
+  clientName: string
   printUrl: string
 }) {
+  const greeting = clientName ? `Hi ${clientName},` : 'Hi there,'
   const [open, setOpen] = useState(false)
   const [to, setTo] = useState(clientEmail)
   const [subject, setSubject] = useState(`Quote ${quoteNumber} from Sano`)
   const [message, setMessage] = useState(
-    `Hi,\n\nPlease find your quote ${quoteNumber} from Sano attached via the link below.\n\nIf you have any questions or would like to go ahead, just let us know.\n\nKind regards,\nThe Sano team`,
+    `${greeting}\n\nPlease find your quote ${quoteNumber} from Sano via the link below.\n\nIf you have any questions or would like to go ahead, just let us know.\n\nKind regards,\nThe Sano team`,
   )
 
   const [isPending, startTransition] = useTransition()
