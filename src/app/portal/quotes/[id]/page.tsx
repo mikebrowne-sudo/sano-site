@@ -7,10 +7,13 @@ import { SendQuotePanel } from './_components/SendQuotePanel'
 import { ConvertToInvoiceButton } from './_components/ConvertToInvoiceButton'
 import { MarkAsAcceptedButton } from './_components/MarkAsAcceptedButton'
 import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
+import { DeleteButton } from '../../_components/DeleteButton'
 import { firstName } from '@/lib/doc-helpers'
 
 export default async function QuoteDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const isAdmin = user?.email === 'michael@sano.nz'
 
   // Load quote
   const { data: quote, error } = await supabase
@@ -99,6 +102,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       </div>
       <div className="flex justify-end mb-6">
         <RegenerateShareLink table="quotes" id={quote.id} />
+        {isAdmin && <DeleteButton type="quote" id={quote.id} />}
       </div>
 
       <EditQuoteForm

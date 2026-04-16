@@ -5,6 +5,7 @@ import { ArrowLeft, Printer } from 'lucide-react'
 import { SendInvoicePanel } from './_components/SendInvoicePanel'
 import { MarkAsPaidButton } from './_components/MarkAsPaidButton'
 import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
+import { DeleteButton } from '../../_components/DeleteButton'
 import { firstName } from '@/lib/doc-helpers'
 import clsx from 'clsx'
 
@@ -27,6 +28,8 @@ function fmtDate(iso: string | null) {
 
 export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const isAdmin = user?.email === 'michael@sano.nz'
 
   const [{ data: invoice, error }, { data: items }] = await Promise.all([
     supabase
@@ -123,6 +126,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       </div>
       <div className="flex justify-end mb-6">
         <RegenerateShareLink table="invoices" id={invoice.id} />
+        {isAdmin && <DeleteButton type="invoice" id={invoice.id} />}
       </div>
 
       <div className="max-w-2xl space-y-8">
