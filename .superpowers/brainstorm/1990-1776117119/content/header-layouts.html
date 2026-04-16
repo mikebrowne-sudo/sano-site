@@ -1,0 +1,91 @@
+<h2>Header Layout Approaches</h2>
+<p class="subtitle">Three ways to structure the top bar + main header. Which direction feels right for Sano?</p>
+
+<div class="cards">
+
+  <!-- Option A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:0; background:#f8f8f8; border-radius:8px 8px 0 0; overflow:hidden;">
+      <!-- Top bar -->
+      <div style="background:#344C3D; padding:8px 20px; display:flex; justify-content:flex-end; align-items:center; gap:8px;">
+        <span style="color:#fff; font-size:11px; opacity:0.85;">📞 Call us for a free quote</span>
+        <span style="color:#fff; font-size:11px; font-weight:700; letter-spacing:0.5px;">0800 726 669</span>
+      </div>
+      <!-- Main header -->
+      <div style="background:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #E0EAE3;">
+        <div style="font-weight:800; font-size:15px; color:#06231D; letter-spacing:-0.5px;">SANO</div>
+        <div style="display:flex; gap:18px; align-items:center;">
+          <span style="font-size:11px; color:#374151; font-weight:600;">Home</span>
+          <span style="font-size:11px; color:#374151; font-weight:600;">Services ▾</span>
+          <span style="font-size:11px; color:#374151; font-weight:600;">About</span>
+          <span style="font-size:11px; color:#374151; font-weight:600;">Join Our Team</span>
+          <span style="font-size:11px; color:#374151; font-weight:600;">Blog</span>
+          <span style="font-size:11px; color:#374151; font-weight:600;">Contact</span>
+        </div>
+        <div style="background:#344C3D; color:#fff; font-size:11px; font-weight:700; padding:8px 16px; border-radius:50px;">Get a Quote →</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Compact Stack</h3>
+      <p>Slim evergreen top bar with phone number, clean white main header below. Similar proportions to the Enhanced Cleaning reference. Tight and efficient.</p>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:0; background:#f8f8f8; border-radius:8px 8px 0 0; overflow:hidden;">
+      <!-- Top bar with border accent -->
+      <div style="background:#344C3D; padding:10px 20px; display:flex; justify-content:flex-end; align-items:center; gap:10px; border-bottom:2px solid rgba(255,255,255,0.1);">
+        <span style="color:#A8C5B0; font-size:11px;">📞 Call us for a free quote</span>
+        <span style="color:#fff; font-size:12px; font-weight:800; letter-spacing:1px;">0800 726 669</span>
+      </div>
+      <!-- Taller main header with more breathing room -->
+      <div style="background:#fff; padding:20px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #E0EAE3;">
+        <div style="font-weight:800; font-size:15px; color:#06231D; letter-spacing:-0.5px;">SANO</div>
+        <div style="display:flex; gap:22px; align-items:center;">
+          <span style="font-size:11px; color:#374151; font-weight:600;">Home</span>
+          <span style="font-size:11px; color:#344C3D; font-weight:700; border-bottom:2px solid #344C3D; padding-bottom:2px;">Services ▾</span>
+          <span style="font-size:11px; color:#374151; font-weight:600;">About</span>
+          <span style="font-size:11px; color:#374151; font-weight:600;">Join Our Team</span>
+          <span style="font-size:11px; color:#374151; font-weight:600;">Blog</span>
+          <span style="font-size:11px; color:#374151; font-weight:600;">Contact</span>
+        </div>
+        <div style="background:#344C3D; color:#fff; font-size:11px; font-weight:700; padding:10px 20px; border-radius:50px; box-shadow:0 2px 8px rgba(52,76,61,0.25);">Get a Quote →</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Premium Spacious</h3>
+      <p>Taller main header with more breathing room — feels more premium and less rushed. Active nav item gets an underline accent in brand green. More white space overall.</p>
+    </div>
+  </div>
+
+  <!-- Option C -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:0; background:#f8f8f8; border-radius:8px 8px 0 0; overflow:hidden;">
+      <!-- Top bar with divider -->
+      <div style="background:#344C3D; padding:8px 20px; display:flex; justify-content:flex-end; align-items:center; gap:6px;">
+        <span style="color:#A8C5B0; font-size:10px; text-transform:uppercase; letter-spacing:1px;">Free Quote</span>
+        <span style="color:#A8C5B0; font-size:10px;">|</span>
+        <span style="color:#fff; font-size:11px; font-weight:800;">0800 726 669</span>
+      </div>
+      <!-- Header with bottom border accent -->
+      <div style="background:#fff; padding:16px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #344C3D;">
+        <div style="font-weight:800; font-size:15px; color:#06231D; letter-spacing:-0.5px;">SANO</div>
+        <div style="display:flex; gap:18px; align-items:center;">
+          <span style="font-size:11px; color:#374151; font-weight:600;">Home</span>
+          <span style="font-size:11px; color:#374151; font-weight:600;">Services ▾</span>
+          <span style="font-size:11px; color:#374151; font-weight:600;">About</span>
+          <span style="font-size:11px; color:#374151; font-weight:600;">Join Our Team</span>
+          <span style="font-size:11px; color:#374151; font-weight:600;">Blog</span>
+          <span style="font-size:11px; color:#374151; font-weight:600;">Contact</span>
+        </div>
+        <div style="border:2px solid #344C3D; color:#344C3D; font-size:11px; font-weight:700; padding:8px 18px; border-radius:50px;">Get a Quote →</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Bold Border Accent</h3>
+      <p>Thick brand-green bottom border on the main header creates a strong visual separation from page content. CTA button uses an outline style to match. More structured feel.</p>
+    </div>
+  </div>
+
+</div>

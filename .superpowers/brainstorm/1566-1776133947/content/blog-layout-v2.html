@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Poppins', sans-serif; background: #f5f5f5; color: #1a1a1a; }
+
+.page-label { text-align: center; padding: 16px; font-size: 12px; color: #888; background: #fff; border-bottom: 1px solid #e5e5e5; }
+
+.header { background: #344C3D; color: white; padding: 8px 40px; font-size: 12px; display: flex; justify-content: flex-end; gap: 8px; }
+.main-nav { background: white; padding: 16px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.nav-logo { font-weight: 800; font-size: 18px; color: #344C3D; }
+.nav-links { display: flex; gap: 24px; font-size: 13px; color: #555; font-weight: 500; }
+.nav-cta { background: #344C3D; color: white; padding: 9px 20px; border-radius: 50px; font-size: 13px; font-weight: 600; }
+
+.blog-hero { background: #f8faf8; padding: 60px 40px 50px; text-align: center; border-bottom: 1px solid #e8eee8; }
+.blog-hero .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #344C3D; margin-bottom: 12px; }
+.blog-hero h1 { font-size: 40px; font-weight: 800; color: #06231D; margin-bottom: 14px; }
+.blog-hero p { font-size: 15px; color: #6B7280; max-width: 480px; margin: 0 auto; line-height: 1.6; }
+
+.blog-section { max-width: 1100px; margin: 0 auto; padding: 50px 24px 80px; }
+
+.blog-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+
+.blog-card { background: white; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+
+.card-img { height: 200px; overflow: hidden; }
+.card-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.card-body { padding: 20px 22px 24px; }
+.card-date { font-size: 11px; color: #9CA3AF; font-weight: 500; margin-bottom: 8px; }
+.card-title { font-size: 15px; font-weight: 700; color: #06231D; line-height: 1.45; margin-bottom: 10px; }
+.card-excerpt { font-size: 13px; color: #6B7280; line-height: 1.6; margin-bottom: 16px; }
+.card-link { font-size: 13px; font-weight: 600; color: #344C3D; display: inline-flex; align-items: center; gap: 5px; }
+
+.blog-grid .blog-card:nth-child(5) { grid-column: 2; }
+</style>
+</head>
+<body>
+
+<div class="page-label">Blog layout with real images — does this look right?</div>
+
+<div class="header"><span style="color:#a8c5b0">📞 Call us for a free quote</span> &nbsp;<strong>0800 726 669</strong></div>
+<div class="main-nav">
+  <div class="nav-logo">sano</div>
+  <div class="nav-links"><span>Home</span><span>Services ▾</span><span>Join Our Team</span><span style="color:#344C3D;font-weight:700">Blog</span><span>About ▾</span><span>Contact Us</span></div>
+  <div class="nav-cta">Get a Quote →</div>
+</div>
+
+<div class="blog-hero">
+  <div class="eyebrow">Tips &amp; Guides</div>
+  <h1>Cleaning Advice for Auckland Homes</h1>
+  <p>Practical tips, guides, and insights to help you keep your space clean, healthy, and well-maintained.</p>
+</div>
+
+<div class="blog-section">
+  <div class="blog-grid">
+
+    <div class="blog-card">
+      <div class="card-img"><img src="F:/Sano/sano-site/public/blog/5-practical-tips.jpg" alt=""></div>
+      <div class="card-body">
+        <div class="card-date">April 2025</div>
+        <div class="card-title">5 Practical Tips for Keeping Your Home Clean in Auckland</div>
+        <div class="card-excerpt">Between damp conditions and changing weather, it doesn't take long for things to build up. These habits make a real difference day to day.</div>
+        <span class="card-link">Read article →</span>
+      </div>
+    </div>
+
+    <div class="blog-card">
+      <div class="card-img"><img src="F:/Sano/sano-site/public/blog/5-cleaning-hacks.jpg" alt=""></div>
+      <div class="card-body">
+        <div class="card-date">April 2025</div>
+        <div class="card-title">5 Simple Cleaning Hacks Using What You Already Have at Home</div>
+        <div class="card-excerpt">You don't always need expensive products to get good results. Some of the most effective cleaning solutions are already in your kitchen.</div>
+        <span class="card-link">Read article →</span>
+      </div>
+    </div>
+
+    <div class="blog-card">
+      <div class="card-img"><img src="F:/Sano/sano-site/public/blog/6-things-to-know.jpg" alt=""></div>
+      <div class="card-body">
+        <div class="card-date">April 2025</div>
+        <div class="card-title">6 Things to Know Before Hiring a House Cleaner in Auckland</div>
+        <div class="card-excerpt">Not all cleaning services are the same. Here's what to look for so you end up with the right fit for your home.</div>
+        <span class="card-link">Read article →</span>
+      </div>
+    </div>
+
+    <div class="blog-card">
+      <div class="card-img"><img src="F:/Sano/sano-site/public/blog/12-common-areas.jpg" alt=""></div>
+      <div class="card-body">
+        <div class="card-date">April 2025</div>
+        <div class="card-title">12 Common Areas People Forget to Clean Around the House</div>
+        <div class="card-excerpt">Even if you stay on top of cleaning, there are always spots that slip through the cracks — quietly collecting dust and grime.</div>
+        <span class="card-link">Read article →</span>
+      </div>
+    </div>
+
+    <div class="blog-card">
+      <div class="card-img"><img src="F:/Sano/sano-site/public/blog/right-cleaner-for-office.jpg" alt=""></div>
+      <div class="card-body">
+        <div class="card-date">April 2025</div>
+        <div class="card-title">How Choosing the Right Cleaner for Your Office Can Save You Money</div>
+        <div class="card-excerpt">Most business owners see cleaning as just another expense. In reality, the right cleaner makes a noticeable difference to how your workplace runs.</div>
+        <span class="card-link">Read article →</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
