@@ -6,6 +6,7 @@ import { ArrowLeft, Printer } from 'lucide-react'
 import { SendQuotePanel } from './_components/SendQuotePanel'
 import { ConvertToInvoiceButton } from './_components/ConvertToInvoiceButton'
 import { MarkAsAcceptedButton } from './_components/MarkAsAcceptedButton'
+import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
 
 export default async function QuoteDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -31,6 +32,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       discount,
       gst_included,
       payment_type,
+      share_token,
       date_issued,
       valid_until,
       created_at
@@ -60,6 +62,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
   const printUrl = `${siteUrl}/portal/quotes/${params.id}/print`
+  const shareUrl = `${siteUrl}/share/quote/${quote.share_token}`
 
   return (
     <div>
@@ -89,9 +92,12 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
             quoteId={quote.id}
             quoteNumber={quote.quote_number}
             clientEmail={currentClient?.email ?? ''}
-            printUrl={printUrl}
+            printUrl={shareUrl}
           />
         </div>
+      </div>
+      <div className="flex justify-end mb-6">
+        <RegenerateShareLink table="quotes" id={quote.id} />
       </div>
 
       <EditQuoteForm

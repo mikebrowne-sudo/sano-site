@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft, Printer } from 'lucide-react'
 import { SendInvoicePanel } from './_components/SendInvoicePanel'
 import { MarkAsPaidButton } from './_components/MarkAsPaidButton'
+import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -33,7 +34,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         id, invoice_number, quote_id, client_id, status,
         property_category, type_of_clean, service_type,
         frequency, scope_size, service_address, notes,
-        base_price, discount, gst_included, payment_type,
+        base_price, discount, gst_included, payment_type, share_token,
         date_issued, due_date, date_paid,
         created_at,
         clients ( name, company_name )
@@ -62,6 +63,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
   const printUrl = `${siteUrl}/portal/invoices/${params.id}/print`
+  const shareUrl = `${siteUrl}/share/invoice/${invoice.share_token}`
 
   const serviceLines: { label: string; value: string }[] = []
   if (invoice.property_category) serviceLines.push({ label: 'Property', value: invoice.property_category })
@@ -114,9 +116,12 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             invoiceId={invoice.id}
             invoiceNumber={invoice.invoice_number}
             clientEmail={clientRecord?.email ?? ''}
-            printUrl={printUrl}
+            printUrl={shareUrl}
           />
         </div>
+      </div>
+      <div className="flex justify-end mb-6">
+        <RegenerateShareLink table="invoices" id={invoice.id} />
       </div>
 
       <div className="max-w-2xl space-y-8">
