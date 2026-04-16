@@ -62,7 +62,6 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   const total = (invoice.base_price ?? 0) + addonsTotal - (invoice.discount ?? 0)
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
-  const printUrl = `${siteUrl}/portal/invoices/${params.id}/print`
   const shareUrl = `${siteUrl}/share/invoice/${invoice.share_token}`
 
   const serviceLines: { label: string; value: string }[] = []

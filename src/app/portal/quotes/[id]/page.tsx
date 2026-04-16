@@ -61,7 +61,6 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
   ])
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
-  const printUrl = `${siteUrl}/portal/quotes/${params.id}/print`
   const shareUrl = `${siteUrl}/share/quote/${quote.share_token}`
 
   return (
