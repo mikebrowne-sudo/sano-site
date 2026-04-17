@@ -23,7 +23,7 @@ interface RecurringJobInput {
 
 function calcNextDueDate(startDate: string, frequency: string, after?: string | null): string | null {
   const start = new Date(startDate)
-  let cursor = new Date(start)
+  const cursor = new Date(start)
   const afterDate = after ? new Date(after) : new Date(startDate)
   afterDate.setDate(afterDate.getDate() - 1) // include the after date itself
 
