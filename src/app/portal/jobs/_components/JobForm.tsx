@@ -42,6 +42,8 @@ interface JobData {
   contractor_id: string | null
   contractor_price: number | null
   job_price: number | null
+  allowed_hours: number | null
+  worker_ids: string[]
   internal_notes: string | null
   contractor_notes: string | null
 }
@@ -86,6 +88,8 @@ export function JobForm({
   }
   const [contractorPrice, setContractorPrice] = useState(job?.contractor_price != null ? String(job.contractor_price) : '')
   const [jobPrice, setJobPrice] = useState(job?.job_price != null ? String(job.job_price) : '')
+  const [allowedHours, setAllowedHours] = useState(job?.allowed_hours != null ? String(job.allowed_hours) : '')
+  const [workerIds, setWorkerIds] = useState<string[]>(job?.worker_ids ?? [])
   const [internalNotes, setInternalNotes] = useState(job?.internal_notes ?? '')
   const [contractorNotes, setContractorNotes] = useState(job?.contractor_notes ?? '')
 
@@ -115,6 +119,8 @@ export function JobForm({
       contractor_id: contractorId.trim() || undefined,
       contractor_price: toNum(contractorPrice),
       job_price: toNum(jobPrice),
+      allowed_hours: toNum(allowedHours),
+      worker_ids: workerIds.filter(Boolean),
       internal_notes: internalNotes.trim() || undefined,
     }
 
@@ -205,16 +211,39 @@ export function JobForm({
 
       {/* Contractor */}
       <Section title="Pricing &amp; Assignment">
-        <Field label="Job price — client ($)" type="number" step="0.01" min="0" value={jobPrice} onChange={setJobPrice} />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Field label="Job price — client ($)" type="number" step="0.01" min="0" value={jobPrice} onChange={setJobPrice} />
+          <Field label="Allowed hours" type="number" step="0.25" min="0" value={allowedHours} onChange={setAllowedHours} placeholder="e.g. 3" />
+          <Field label="Contractor price ($)" type="number" step="0.01" min="0" value={contractorPrice} onChange={setContractorPrice} />
+        </div>
+        <div className="mt-4">
           <Select
-            label="Assigned contractor"
+            label="Lead contractor"
             value={contractorId}
             onChange={handleContractorSelect}
             options={contractors.map((c) => ({ value: c.id, label: c.full_name }))}
             placeholder="Unassigned"
           />
-          <Field label="Contractor price ($)" type="number" step="0.01" min="0" value={contractorPrice} onChange={setContractorPrice} />
+        </div>
+        <div className="mt-4">
+          <span className="block text-sm font-semibold text-sage-800 mb-1.5">Assigned workers</span>
+          <div className="space-y-2">
+            {contractors.map((c) => (
+              <label key={c.id} className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={workerIds.includes(c.id)}
+                  onChange={(e) => {
+                    if (e.target.checked) setWorkerIds([...workerIds, c.id])
+                    else setWorkerIds(workerIds.filter((id) => id !== c.id))
+                  }}
+                  className="rounded border-sage-300 text-sage-500 focus:ring-sage-500"
+                />
+                <span className="text-sm text-sage-800">{c.full_name}</span>
+              </label>
+            ))}
+          </div>
+          {contractors.length === 0 && <p className="text-sage-500 text-sm">No active contractors</p>}
         </div>
       </Section>
 

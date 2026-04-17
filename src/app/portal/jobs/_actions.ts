@@ -19,6 +19,8 @@ interface JobInput {
   contractor_id?: string
   contractor_price?: number
   job_price?: number
+  allowed_hours?: number
+  worker_ids?: string[]
   internal_notes?: string
 }
 
@@ -45,6 +47,7 @@ export async function createJob(input: JobInput) {
       contractor_id: input.contractor_id || null,
       contractor_price: input.contractor_price ?? null,
       job_price: input.job_price ?? null,
+      allowed_hours: input.allowed_hours ?? null,
       internal_notes: input.internal_notes || null,
     })
     .select('id, job_number')
@@ -52,6 +55,17 @@ export async function createJob(input: JobInput) {
 
   if (error || !data) {
     return { error: `Failed to create job: ${error?.message}` }
+  }
+
+  // Save worker assignments
+  if (input.worker_ids?.length) {
+    const rows = input.worker_ids.filter(Boolean).map((cid) => ({
+      job_id: data.id,
+      contractor_id: cid,
+    }))
+    if (rows.length > 0) {
+      await supabase.from('job_workers').upsert(rows, { onConflict: 'job_id,contractor_id' })
+    }
   }
 
   // Notify contractor if assigned on creation
@@ -114,6 +128,7 @@ export async function updateJob(input: UpdateJobInput) {
       contractor_id: input.contractor_id || null,
       contractor_price: input.contractor_price ?? null,
       job_price: input.job_price ?? null,
+      allowed_hours: input.allowed_hours ?? null,
       internal_notes: input.internal_notes || null,
       contractor_notes: input.contractor_notes || null,
     })
@@ -121,6 +136,18 @@ export async function updateJob(input: UpdateJobInput) {
 
   if (error) {
     return { error: `Failed to update job: ${error.message}` }
+  }
+
+  // Replace worker assignments
+  if (input.worker_ids !== undefined) {
+    await supabase.from('job_workers').delete().eq('job_id', input.id)
+    const rows = (input.worker_ids ?? []).filter(Boolean).map((cid) => ({
+      job_id: input.id,
+      contractor_id: cid,
+    }))
+    if (rows.length > 0) {
+      await supabase.from('job_workers').insert(rows)
+    }
   }
 
   // Notify new contractor if assignment changed

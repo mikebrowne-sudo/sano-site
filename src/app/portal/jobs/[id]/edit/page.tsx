@@ -7,14 +7,14 @@ import { ArrowLeft } from 'lucide-react'
 export default async function EditJobPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
 
-  const [{ data: job, error }, { data: clients }, { data: contractors }, { data: quotes }, { data: invoices }] = await Promise.all([
+  const [{ data: job, error }, { data: clients }, { data: contractors }, { data: quotes }, { data: invoices }, { data: existingWorkers }] = await Promise.all([
     supabase
       .from('jobs')
       .select(`
         id, client_id, quote_id, invoice_id, status, job_number,
         title, description, address,
         scheduled_date, scheduled_time, duration_estimate,
-        assigned_to, contractor_id, contractor_price, job_price,
+        assigned_to, contractor_id, contractor_price, job_price, allowed_hours,
         internal_notes, contractor_notes
       `)
       .eq('id', params.id)
@@ -23,6 +23,7 @@ export default async function EditJobPage({ params }: { params: { id: string } }
     supabase.from('contractors').select('id, full_name').eq('status', 'active').order('full_name'),
     supabase.from('quotes').select('id, quote_number').order('created_at', { ascending: false }),
     supabase.from('invoices').select('id, invoice_number').order('created_at', { ascending: false }),
+    supabase.from('job_workers').select('contractor_id').eq('job_id', params.id),
   ])
 
   if (error || !job) notFound()
@@ -40,7 +41,7 @@ export default async function EditJobPage({ params }: { params: { id: string } }
       <h1 className="text-2xl font-bold text-sage-800 mb-8">Edit {job.job_number}</h1>
 
       <JobForm
-        job={job}
+        job={{ ...job, worker_ids: (existingWorkers ?? []).map((w) => w.contractor_id) }}
         clients={clients ?? []}
         contractors={contractors ?? []}
         quotes={quotes ?? []}

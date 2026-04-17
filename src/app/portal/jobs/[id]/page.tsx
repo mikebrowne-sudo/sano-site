@@ -7,6 +7,7 @@ import { JobStatusActions } from './_components/JobStatusActions'
 import { AssignJobButton } from './_components/AssignJobButton'
 import { DuplicateJobButton } from './_components/DuplicateJobButton'
 import { CreateRecurringButton } from './_components/CreateRecurringButton'
+import { calculateLabour } from '@/lib/labour-calc'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -45,7 +46,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
       id, job_number, client_id, quote_id, invoice_id, recurring_job_id, status, assigned_to,
       title, description, address,
       scheduled_date, scheduled_time, duration_estimate,
-      contractor_id, contractor_price, job_price,
+      contractor_id, contractor_price, job_price, allowed_hours,
       started_at, completed_at,
       internal_notes, contractor_notes,
       created_at, updated_at,
@@ -55,6 +56,12 @@ export default async function JobDetailPage({ params }: { params: { id: string }
     .single()
 
   if (error || !job) notFound()
+
+  // Load assigned workers with hourly rates
+  const { data: jobWorkers } = await supabase
+    .from('job_workers')
+    .select('contractor_id, hours_allocated, contractors ( full_name, hourly_rate )')
+    .eq('job_id', params.id)
 
   const client = job.clients as unknown as { name: string; company_name: string | null } | null
 
@@ -213,21 +220,64 @@ export default async function JobDetailPage({ params }: { params: { id: string }
         )}
 
         {/* Pricing & Contractor */}
-        <Section title="Pricing &amp; Contractor">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-            <div>
-              <span className="text-sage-500">Job price (client)</span>
-              <p className="text-sage-800 font-medium">{fmtCurrency(job.job_price)}</p>
-            </div>
-            <div>
-              <span className="text-sage-500">Contractor ID</span>
-              <p className="text-sage-800 font-medium">{job.contractor_id ?? '—'}</p>
-            </div>
-            <div>
-              <span className="text-sage-500">Contractor price</span>
-              <p className="text-sage-800 font-medium">{fmtCurrency(job.contractor_price)}</p>
-            </div>
-          </div>
+        <Section title="Pricing &amp; Labour">
+          {(() => {
+            const workers = (jobWorkers ?? []).map((w) => {
+              const c = w.contractors as unknown as { full_name: string; hourly_rate: number | null } | null
+              return { contractor_id: w.contractor_id, full_name: c?.full_name ?? '—', hourly_rate: c?.hourly_rate ?? null, hours_allocated: w.hours_allocated }
+            })
+            const labour = calculateLabour(job.job_price ?? 0, job.allowed_hours, workers)
+
+            return (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm mb-4">
+                  <div>
+                    <span className="text-sage-500">Job price</span>
+                    <p className="text-sage-800 font-bold text-lg">{fmtCurrency(job.job_price)}</p>
+                  </div>
+                  <div>
+                    <span className="text-sage-500">Allowed hours</span>
+                    <p className="text-sage-800 font-medium">{job.allowed_hours ?? '—'}</p>
+                  </div>
+                  <div>
+                    <span className="text-sage-500">Labour cost</span>
+                    <p className="text-sage-800 font-medium">{fmtCurrency(labour.totalLabourCost)}</p>
+                  </div>
+                  <div>
+                    <span className="text-sage-500">Gross profit</span>
+                    <p className={clsx('font-bold', labour.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600')}>
+                      {fmtCurrency(labour.grossProfit)} <span className="text-xs font-normal">({labour.marginPercent}%)</span>
+                    </p>
+                  </div>
+                </div>
+
+                {workers.length > 0 && (
+                  <div className="border-t border-sage-100 pt-3 mt-3">
+                    <span className="text-xs text-sage-500 font-semibold uppercase tracking-wide">Assigned Workers</span>
+                    <div className="mt-2 space-y-1">
+                      {labour.workers.map((w) => (
+                        <div key={w.contractorId} className="flex items-center justify-between text-sm bg-sage-50 rounded-lg px-3 py-2">
+                          <span className="text-sage-800 font-medium">{w.fullName}</span>
+                          <div className="flex items-center gap-4 text-xs text-sage-600">
+                            <span>{w.hoursAllocated.toFixed(1)}h</span>
+                            <span>@ {fmtCurrency(w.hourlyRate)}/hr</span>
+                            <span className="font-medium text-sage-800">{fmtCurrency(w.cost)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {job.contractor_price != null && (
+                  <div className="border-t border-sage-100 pt-3 mt-3 text-sm">
+                    <span className="text-sage-500">Contractor price (legacy)</span>
+                    <p className="text-sage-600">{fmtCurrency(job.contractor_price)}</p>
+                  </div>
+                )}
+              </>
+            )
+          })()}
         </Section>
 
         {/* Notes */}
