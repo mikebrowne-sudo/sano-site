@@ -186,6 +186,9 @@ export default async function PrintInvoicePage({ params }: { params: { id: strin
                 : 'Payment is due within 14 days of invoice date, unless otherwise agreed.'}
             </p>
             <p className="print-terms-text">Please use your invoice number as the payment reference.</p>
+            <p className="print-terms-text" style={{ marginTop: '12px' }}>
+              By making payment you confirm acceptance of our <a href="/share/invoice-terms" target="_blank" rel="noopener noreferrer" style={{ color: '#076653', textDecoration: 'underline' }}>Service Terms</a>.
+            </p>
           </section>
 
         </div>

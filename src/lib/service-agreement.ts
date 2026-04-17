@@ -78,3 +78,56 @@ All workers are vetted, trained, and required to meet our internal standards bef
     content: `By accepting the quote, the client agrees to this service agreement.`,
   },
 ]
+
+// ── Invoice service terms ────────────────────────────
+
+export const INVOICE_TERMS_LAST_UPDATED = '17 April 2026'
+
+export const INVOICE_TERMS_SECTIONS = [
+  {
+    title: 'Services Delivered',
+    content: `This invoice relates to cleaning services completed as outlined in the original quote or booking confirmation.`,
+  },
+  {
+    title: 'Payment Terms',
+    content: `Payment is due within the timeframe stated on this invoice.
+
+Late payments may result in delays to future bookings or additional charges where applicable.`,
+  },
+  {
+    title: 'Pricing Adjustments',
+    content: `Where required, pricing may have been adjusted to reflect actual site conditions, access, or scope of work.
+
+This will be reflected in the invoice total.`,
+  },
+  {
+    title: 'Quality Assurance',
+    content: `If you are not satisfied with any aspect of the service:
+
+• Please notify us within 24 hours of the service
+• We will review and arrange a return visit where appropriate
+
+We aim to resolve any issues quickly and fairly.`,
+  },
+  {
+    title: 'Damages and Liability',
+    content: `Any damage believed to have been caused during the service must be reported within 24 hours.
+
+Liability is limited to direct damage caused during the service. We are not responsible for:
+• Pre-existing damage
+• Wear and tear
+• Items not disclosed as fragile or at risk`,
+  },
+  {
+    title: 'Access and Missed Appointments',
+    content: `Where access was not available at the scheduled time, or the booking was cancelled without sufficient notice, a fee may be included in this invoice.`,
+  },
+  {
+    title: 'Ongoing Services',
+    content: `For recurring services, schedules and pricing may be reviewed with reasonable notice.`,
+  },
+  {
+    title: 'Agreement',
+    content: `By making payment, you confirm acceptance of these terms and the services provided.`,
+  },
+]
