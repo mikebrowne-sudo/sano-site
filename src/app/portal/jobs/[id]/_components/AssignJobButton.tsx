@@ -2,39 +2,53 @@
 
 import { useState, useTransition } from 'react'
 import { assignJob } from '../_actions'
-import { UserPlus, X } from 'lucide-react'
+import { UserPlus, X, ChevronDown } from 'lucide-react'
+
+interface Contractor {
+  id: string
+  full_name: string
+}
 
 export function AssignJobButton({
   jobId,
   currentAssignee,
+  currentContractorId,
+  contractors,
 }: {
   jobId: string
   currentAssignee: string | null
+  currentContractorId: string | null
+  contractors: Contractor[]
 }) {
   const [open, setOpen] = useState(false)
-  const [name, setName] = useState(currentAssignee ?? '')
+  const [selectedId, setSelectedId] = useState(currentContractorId ?? '')
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
+  const [savedName, setSavedName] = useState<string | null>(null)
 
   function handleSave() {
     setError(null)
+    if (!selectedId) {
+      setError('Please select a contractor.')
+      return
+    }
     startTransition(async () => {
-      const result = await assignJob(jobId, name)
+      const result = await assignJob(jobId, selectedId)
       if (result?.error) {
         setError(result.error)
       } else {
-        setSaved(true)
+        const c = contractors.find((ct) => ct.id === selectedId)
+        setSavedName(c?.full_name ?? 'Assigned')
         setOpen(false)
-        setTimeout(() => setSaved(false), 3000)
+        setTimeout(() => setSavedName(null), 3000)
       }
     })
   }
 
-  if (saved) {
+  if (savedName) {
     return (
       <span className="inline-flex items-center gap-1.5 text-sm text-emerald-700 font-medium">
-        Assigned to {name}
+        Assigned to {savedName}
       </span>
     )
   }
@@ -63,14 +77,20 @@ export function AssignJobButton({
         </button>
       </div>
       <label className="block">
-        <span className="block text-sm font-semibold text-sage-800 mb-1.5">Staff / contractor name</span>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Carol, Michael"
-          className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm"
-        />
+        <span className="block text-sm font-semibold text-sage-800 mb-1.5">Contractor</span>
+        <div className="relative">
+          <select
+            value={selectedId}
+            onChange={(e) => setSelectedId(e.target.value)}
+            className="w-full appearance-none rounded-lg border border-sage-200 px-4 py-3 pr-10 text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm bg-white"
+          >
+            <option value="">Select contractor…</option>
+            {contractors.map((c) => (
+              <option key={c.id} value={c.id}>{c.full_name}</option>
+            ))}
+          </select>
+          <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-sage-400 pointer-events-none" />
+        </div>
       </label>
       {error && <p className="text-red-600 text-xs">{error}</p>}
       <div className="flex items-center gap-3">

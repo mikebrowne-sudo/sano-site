@@ -69,6 +69,12 @@ export default async function JobDetailPage({ params }: { params: { id: string }
     invoiceNumber = data?.invoice_number ?? null
   }
 
+  const { data: contractors } = await supabase
+    .from('contractors')
+    .select('id, full_name')
+    .eq('status', 'active')
+    .order('full_name')
+
   return (
     <div>
       <Link
@@ -96,14 +102,22 @@ export default async function JobDetailPage({ params }: { params: { id: string }
           </div>
           {job.title && <p className="text-sage-600 text-sm mt-1">{job.title}</p>}
           <p className="text-sage-500 text-xs mt-1">
-            {job.assigned_to ? `Assigned to ${job.assigned_to}` : 'Unassigned'}
+            {job.assigned_to ? (
+              job.contractor_id ? (
+                <Link href={`/portal/contractors/${job.contractor_id}`} className="hover:text-sage-700 transition-colors">
+                  Assigned to {job.assigned_to}
+                </Link>
+              ) : (
+                `Assigned to ${job.assigned_to}`
+              )
+            ) : 'Unassigned'}
           </p>
         </div>
         <div className="flex items-center gap-3">
           <span className={clsx('inline-block px-3 py-1 rounded-full text-sm font-medium capitalize', STATUS_STYLES[job.status] ?? STATUS_STYLES.draft)}>
             {statusLabel(job.status)}
           </span>
-          <AssignJobButton jobId={job.id} currentAssignee={job.assigned_to} />
+          <AssignJobButton jobId={job.id} currentAssignee={job.assigned_to} currentContractorId={job.contractor_id} contractors={contractors ?? []} />
           <Link
             href={`/portal/jobs/${params.id}/edit`}
             className="inline-flex items-center gap-2 bg-sage-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"

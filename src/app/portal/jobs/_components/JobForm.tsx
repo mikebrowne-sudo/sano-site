@@ -22,6 +22,7 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 interface Client { id: string; name: string; company_name: string | null }
+interface ContractorOption { id: string; full_name: string }
 interface QuoteOption { id: string; quote_number: string }
 interface InvoiceOption { id: string; invoice_number: string }
 
@@ -53,11 +54,13 @@ function toNum(v: string) {
 export function JobForm({
   job,
   clients,
+  contractors,
   quotes,
   invoices,
 }: {
   job?: JobData
   clients: Client[]
+  contractors: ContractorOption[]
   quotes: QuoteOption[]
   invoices: InvoiceOption[]
 }) {
@@ -73,8 +76,14 @@ export function JobForm({
   const [scheduledDate, setScheduledDate] = useState(job?.scheduled_date ?? '')
   const [scheduledTime, setScheduledTime] = useState(job?.scheduled_time ?? '')
   const [durationEstimate, setDurationEstimate] = useState(job?.duration_estimate ?? '')
+  const [contractorId, setContractorId] = useState(job?.contractor_id ?? '')
   const [assignedTo, setAssignedTo] = useState(job?.assigned_to ?? '')
-  const contractorId = job?.contractor_id ?? ''
+
+  function handleContractorSelect(id: string) {
+    setContractorId(id)
+    const c = contractors.find((ct) => ct.id === id)
+    setAssignedTo(c?.full_name ?? '')
+  }
   const [contractorPrice, setContractorPrice] = useState(job?.contractor_price != null ? String(job.contractor_price) : '')
   const [jobPrice, setJobPrice] = useState(job?.job_price != null ? String(job.job_price) : '')
   const [internalNotes, setInternalNotes] = useState(job?.internal_notes ?? '')
@@ -198,7 +207,13 @@ export function JobForm({
       <Section title="Pricing &amp; Assignment">
         <Field label="Job price — client ($)" type="number" step="0.01" min="0" value={jobPrice} onChange={setJobPrice} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-          <Field label="Assigned staff / contractor" value={assignedTo} onChange={setAssignedTo} placeholder="e.g. Carol, Michael" />
+          <Select
+            label="Assigned contractor"
+            value={contractorId}
+            onChange={handleContractorSelect}
+            options={contractors.map((c) => ({ value: c.id, label: c.full_name }))}
+            placeholder="Unassigned"
+          />
           <Field label="Contractor price ($)" type="number" step="0.01" min="0" value={contractorPrice} onChange={setContractorPrice} />
         </div>
       </Section>

@@ -103,11 +103,22 @@ export async function completeJob(jobId: string) {
   return { success: true }
 }
 
-export async function assignJob(jobId: string, assignedTo: string) {
+export async function assignJob(jobId: string, contractorId: string) {
   const supabase = createClient()
 
-  if (!assignedTo.trim()) {
-    return { error: 'Name is required.' }
+  if (!contractorId) {
+    return { error: 'Please select a contractor.' }
+  }
+
+  // Look up contractor name
+  const { data: contractor } = await supabase
+    .from('contractors')
+    .select('full_name')
+    .eq('id', contractorId)
+    .single()
+
+  if (!contractor) {
+    return { error: 'Contractor not found.' }
   }
 
   // Only move to assigned if currently draft
@@ -121,7 +132,11 @@ export async function assignJob(jobId: string, assignedTo: string) {
 
   const { error } = await supabase
     .from('jobs')
-    .update({ assigned_to: assignedTo.trim(), status: newStatus })
+    .update({
+      contractor_id: contractorId,
+      assigned_to: contractor.full_name,
+      status: newStatus,
+    })
     .eq('id', jobId)
 
   if (error) {

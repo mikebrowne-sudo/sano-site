@@ -6,8 +6,9 @@ import { ArrowLeft } from 'lucide-react'
 export default async function NewJobPage() {
   const supabase = createClient()
 
-  const [{ data: clients }, { data: quotes }, { data: invoices }] = await Promise.all([
+  const [{ data: clients }, { data: contractors }, { data: quotes }, { data: invoices }] = await Promise.all([
     supabase.from('clients').select('id, name, company_name').order('name'),
+    supabase.from('contractors').select('id, full_name').eq('status', 'active').order('full_name'),
     supabase.from('quotes').select('id, quote_number').order('created_at', { ascending: false }),
     supabase.from('invoices').select('id, invoice_number').order('created_at', { ascending: false }),
   ])
@@ -26,6 +27,7 @@ export default async function NewJobPage() {
 
       <JobForm
         clients={clients ?? []}
+        contractors={contractors ?? []}
         quotes={quotes ?? []}
         invoices={invoices ?? []}
       />
