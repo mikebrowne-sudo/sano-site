@@ -22,7 +22,7 @@ interface Job {
   recurring_job_id: string | null
 }
 
-export function JobCard({ job, today, compact }: { job: Job; today: string; compact?: boolean }) {
+export function JobCard({ job, compact }: { job: Job; compact?: boolean }) {
   const isUnassigned = !job.contractor_id
 
   if (compact) {

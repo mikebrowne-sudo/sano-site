@@ -186,7 +186,7 @@ export default async function CalendarPage({
           ) : (
             <div className="space-y-3">
               {jobsByDate[selectedDate].map((job) => (
-                <JobCard key={job.id} job={job} today={today} />
+                <JobCard key={job.id} job={job} />
               ))}
             </div>
           )}
@@ -212,7 +212,7 @@ export default async function CalendarPage({
                 ) : (
                   <div className="space-y-2">
                     {dayJobs.map((job) => (
-                      <JobCard key={job.id} job={job} today={today} compact />
+                      <JobCard key={job.id} job={job} compact />
                     ))}
                   </div>
                 )}
