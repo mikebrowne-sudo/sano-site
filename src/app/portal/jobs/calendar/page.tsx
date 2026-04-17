@@ -31,6 +31,22 @@ function fmtDateLong(iso: string) {
   return new Date(iso).toLocaleDateString('en-NZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
+// Parse free-text scheduled_time (e.g. "9:00am", "09:00", "2pm") to minutes-from-midnight.
+// Unparseable or empty values sort to end-of-day via POSITIVE_INFINITY.
+function parseScheduledTime(raw: string | null): number {
+  if (!raw) return Number.POSITIVE_INFINITY
+  const s = raw.trim().toLowerCase().replace(/\s+/g, '').replace(/\./g, ':')
+  const m = s.match(/^(\d{1,2})(?::(\d{2}))?(am|pm)?$/)
+  if (!m) return Number.POSITIVE_INFINITY
+  let h = parseInt(m[1], 10)
+  const mm = m[2] ? parseInt(m[2], 10) : 0
+  const ampm = m[3]
+  if (h < 0 || h > 23 || mm < 0 || mm > 59) return Number.POSITIVE_INFINITY
+  if (ampm === 'pm' && h < 12) h += 12
+  if (ampm === 'am' && h === 12) h = 0
+  return h * 60 + mm
+}
+
 interface Job {
   id: string
   job_number: string
@@ -92,7 +108,6 @@ export default async function CalendarPage({
     .select('id, job_number, title, address, scheduled_date, scheduled_time, duration_estimate, status, assigned_to, contractor_id, recurring_job_id')
     .gte('scheduled_date', rangeStart)
     .lte('scheduled_date', rangeEnd)
-    .order('scheduled_time', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: true })
 
   if (contractorFilter) query = query.eq('contractor_id', contractorFilter)
@@ -110,6 +125,11 @@ export default async function CalendarPage({
     if (j.scheduled_date && jobsByDate[j.scheduled_date]) {
       jobsByDate[j.scheduled_date].push(j)
     }
+  }
+  // Sort each day's jobs by parsed scheduled_time; unparseable times go to end-of-day.
+  // Stable sort preserves the DB's created_at tiebreaker for equal times.
+  for (const d of dates) {
+    jobsByDate[d].sort((a, b) => parseScheduledTime(a.scheduled_time) - parseScheduledTime(b.scheduled_time))
   }
 
   const totalJobs = jobs?.length ?? 0
