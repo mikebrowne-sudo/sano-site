@@ -6,6 +6,7 @@ import { JobInvoiceButton } from './_components/JobInvoiceButton'
 import { JobStatusActions } from './_components/JobStatusActions'
 import { AssignJobButton } from './_components/AssignJobButton'
 import { DuplicateJobButton } from './_components/DuplicateJobButton'
+import { CreateRecurringButton } from './_components/CreateRecurringButton'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -41,7 +42,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
   const { data: job, error } = await supabase
     .from('jobs')
     .select(`
-      id, job_number, client_id, quote_id, invoice_id, status, assigned_to,
+      id, job_number, client_id, quote_id, invoice_id, recurring_job_id, status, assigned_to,
       title, description, address,
       scheduled_date, scheduled_time, duration_estimate,
       contractor_id, contractor_price, job_price,
@@ -100,6 +101,11 @@ export default async function JobDetailPage({ params }: { params: { id: string }
                 {quoteNumber}
               </Link>
             )}
+            {job.recurring_job_id && (
+              <Link href={`/portal/recurring-jobs/${job.recurring_job_id}`} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 text-purple-600 text-xs font-medium hover:bg-purple-100 transition-colors">
+                Recurring
+              </Link>
+            )}
           </div>
           {job.title && <p className="text-sage-600 text-sm mt-1">{job.title}</p>}
           <p className="text-sage-500 text-xs mt-1">
@@ -127,6 +133,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
             Edit Job
           </Link>
           <DuplicateJobButton jobId={job.id} />
+          {!job.recurring_job_id && <CreateRecurringButton jobId={job.id} />}
           <JobStatusActions jobId={job.id} status={job.status} />
           <JobInvoiceButton
             jobId={job.id}
