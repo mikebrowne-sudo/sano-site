@@ -6,13 +6,14 @@ import { LogOut, Menu } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, FileText, Receipt, Users, Settings } from 'lucide-react'
+import { LayoutDashboard, FileText, Receipt, Briefcase, Users, Settings } from 'lucide-react'
 import clsx from 'clsx'
 
 const links = [
   { href: '/portal', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/portal/quotes', label: 'Quotes', icon: FileText },
   { href: '/portal/invoices', label: 'Invoices', icon: Receipt },
+  { href: '/portal/jobs', label: 'Jobs', icon: Briefcase },
   { href: '/portal/clients', label: 'Clients', icon: Users },
   { href: '/portal/settings', label: 'Settings', icon: Settings },
 ]
