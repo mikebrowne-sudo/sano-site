@@ -168,6 +168,9 @@ export default async function PrintQuotePage({ params }: { params: { id: string 
                 : 'Payment is due within 14 days of invoice date, unless otherwise agreed.'}
             </p>
             <p className="print-terms-text">If anything is unclear, please let us know.</p>
+            <p className="print-terms-text" style={{ marginTop: '12px' }}>
+              By accepting this quote you agree to our <a href="/share/service-agreement" target="_blank" rel="noopener noreferrer" style={{ color: '#076653', textDecoration: 'underline' }}>Service Agreement</a>.
+            </p>
           </section>
 
         </div>
