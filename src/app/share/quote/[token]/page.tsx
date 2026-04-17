@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
+import { AcceptQuote } from './_components/AcceptQuote'
 
 export const metadata: Metadata = { robots: 'noindex, nofollow' }
 
@@ -27,7 +28,7 @@ export default async function PublicQuotePage({ params }: { params: { token: str
   const { data: quote, error } = await supabase
     .from('quotes')
     .select(`
-      id, quote_number, date_issued, valid_until,
+      id, quote_number, status, accepted_at, date_issued, valid_until,
       property_category, type_of_clean, frequency, scope_size,
       service_address, scheduled_clean_date, notes,
       base_price, discount, gst_included, payment_type,
@@ -176,6 +177,9 @@ export default async function PublicQuotePage({ params }: { params: { token: str
             </p>
           </section>
 
+          {/* Quote acceptance */}
+          <AcceptQuote shareToken={params.token} status={quote.status} acceptedAt={quote.accepted_at} />
+
         </div>
       </div>
     </>
@@ -216,5 +220,39 @@ const PRINT_CSS = `
   .print-notes { color: #555; font-size: 9pt; white-space: pre-wrap; }
   .print-terms-section { margin-top: 36px; }
   .print-terms-text { color: #777; font-size: 8.5pt; margin-bottom: 4px; line-height: 1.6; }
-  @media print { .share-page { background: none; } .print-page { margin: 0; padding: 0; box-shadow: none; max-width: none; } @page { margin: 18mm 16mm; size: A4; } }
+  /* Accept panel */
+  .accept-panel {
+    margin-top: 32px; padding: 24px; border: 2px solid #e0eae3;
+    border-radius: 12px; background: #f7f9f7;
+  }
+  .accept-done {
+    display: flex; align-items: flex-start; gap: 16px;
+    border-color: #a7f3d0; background: #ecfdf5;
+  }
+  .accept-done-icon { color: #059669; flex-shrink: 0; margin-top: 2px; }
+  .accept-done-title { font-weight: 700; font-size: 12pt; color: #065f46; margin: 0 0 4px; }
+  .accept-done-sub { font-size: 9.5pt; color: #047857; margin: 0 0 2px; }
+  .accept-title { font-size: 11pt; font-weight: 700; color: #076653; margin: 0 0 16px; }
+  .accept-checkbox-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 9.5pt; color: #333; cursor: pointer; margin-bottom: 16px;
+  }
+  .accept-checkbox {
+    margin-top: 2px; width: 16px; height: 16px; accent-color: #076653;
+  }
+  .accept-link { color: #076653; text-decoration: underline; }
+  .accept-error { color: #dc2626; font-size: 9pt; margin-bottom: 12px; }
+  .accept-button {
+    display: inline-block; padding: 12px 32px;
+    background: #076653; color: #fff; font-weight: 600; font-size: 10pt;
+    border: none; border-radius: 8px; cursor: pointer;
+    transition: background 0.2s;
+  }
+  .accept-button:hover { background: #065f46; }
+  .accept-button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  @media print {
+    .accept-panel { display: none; }
+    .share-page { background: none; } .print-page { margin: 0; padding: 0; box-shadow: none; max-width: none; } @page { margin: 18mm 16mm; size: A4; }
+  }
 `
