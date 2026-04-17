@@ -28,23 +28,44 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const isPortal = request.nextUrl.pathname.startsWith('/portal')
-  const isLogin = request.nextUrl.pathname === '/portal/login'
-  const isCallback = request.nextUrl.pathname === '/portal/auth/callback'
+  const path = request.nextUrl.pathname
 
-  // Not logged in → redirect to login (except login page and callback)
-  if (isPortal && !isLogin && !isCallback && !user) {
+  // ── Admin portal routes ──────────────────────────
+  const isPortal = path.startsWith('/portal')
+  const isPortalLogin = path === '/portal/login'
+  const isPortalCallback = path === '/portal/auth/callback'
+
+  if (isPortal && !isPortalLogin && !isPortalCallback && !user) {
     return NextResponse.redirect(new URL('/portal/login', request.url))
   }
-
-  // Already logged in → redirect away from login page
-  if (isLogin && user) {
+  if (isPortalLogin && user) {
     return NextResponse.redirect(new URL('/portal', request.url))
+  }
+
+  // ── Contractor portal routes ─────────────────────
+  const isContractor = path.startsWith('/contractor')
+  const isContractorLogin = path === '/contractor/login'
+
+  if (isContractor && !isContractorLogin && !user) {
+    return NextResponse.redirect(new URL('/contractor/login', request.url))
+  }
+  if (isContractorLogin && user) {
+    // Check if this user has a contractor record before redirecting
+    const { data: contractor } = await supabase
+      .from('contractors')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .maybeSingle()
+
+    if (contractor) {
+      return NextResponse.redirect(new URL('/contractor/jobs', request.url))
+    }
+    // No contractor record — let them see the login page (which will show an error)
   }
 
   return response
 }
 
 export const config = {
-  matcher: ['/portal/:path*'],
+  matcher: ['/portal/:path*', '/contractor/:path*'],
 }
