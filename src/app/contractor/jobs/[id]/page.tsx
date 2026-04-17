@@ -1,7 +1,7 @@
 import { getContractor } from '../../_lib/get-contractor'
-import { notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar, Clock, Timer } from 'lucide-react'
 import { ContractorJobActions } from './_components/ContractorJobActions'
 import { ContractorNotesForm } from './_components/ContractorNotesForm'
 import clsx from 'clsx'
@@ -14,121 +14,169 @@ const STATUS_STYLES: Record<string, string> = {
   invoiced:    'bg-purple-50 text-purple-700',
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  draft:       'Draft',
+  assigned:    'Assigned',
+  in_progress: 'In Progress',
+  completed:   'Completed',
+  invoiced:    'Invoiced',
+}
+
 function fmtDate(iso: string | null) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
+  if (!iso) return null
+  return new Date(iso).toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function fmtDateTime(iso: string | null) {
-  if (!iso) return '—'
+  if (!iso) return null
   return new Date(iso).toLocaleString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+}
+
+function fmtCurrency(dollars: number | null) {
+  if (dollars == null) return null
+  return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
 }
 
 export default async function ContractorJobDetailPage({ params }: { params: { id: string } }) {
   const { supabase, contractor } = await getContractor()
 
-  // Only select safe fields — no job_price, contractor_price, internal_notes
+  // Safe fields only — no job_price, internal_notes, quote/invoice data
   const { data: job, error } = await supabase
     .from('jobs')
     .select(`
       id, job_number, title, description, address,
       scheduled_date, scheduled_time, duration_estimate,
-      status, contractor_notes, started_at, completed_at
+      status, contractor_notes, contractor_price,
+      started_at, completed_at
     `)
     .eq('id', params.id)
     .eq('contractor_id', contractor.id)
     .single()
 
-  if (error || !job) notFound()
+  // Job doesn't exist or doesn't belong to this contractor → back to list
+  if (error || !job) {
+    redirect('/contractor/jobs')
+  }
+
+  const scheduledDate = fmtDate(job.scheduled_date)
+  const startedAt = fmtDateTime(job.started_at)
+  const completedAt = fmtDateTime(job.completed_at)
+  const price = fmtCurrency(job.contractor_price)
 
   return (
-    <div>
+    <div className="pb-8">
+
+      {/* Back link */}
       <Link
         href="/contractor/jobs"
-        className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"
+        className="inline-flex items-center gap-1.5 text-sm text-sage-500 hover:text-sage-700 transition-colors mb-5"
       >
         <ArrowLeft size={14} />
-        Back to my jobs
+        My Jobs
       </Link>
 
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-sage-800">{job.job_number}</h1>
-          {job.title && <p className="text-sage-600 text-sm mt-1">{job.title}</p>}
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-xl font-bold text-sage-800 leading-tight">{job.job_number}</h1>
+          <span className={clsx(
+            'shrink-0 inline-block px-3 py-1 rounded-full text-xs font-semibold',
+            STATUS_STYLES[job.status] ?? STATUS_STYLES.draft,
+          )}>
+            {STATUS_LABELS[job.status] ?? job.status}
+          </span>
         </div>
-        <span className={clsx('inline-block px-3 py-1 rounded-full text-sm font-medium capitalize', STATUS_STYLES[job.status] ?? STATUS_STYLES.draft)}>
-          {job.status.replace('_', ' ')}
-        </span>
+        {job.title && (
+          <p className="text-sage-600 text-sm mt-1">{job.title}</p>
+        )}
       </div>
 
-      <div className="space-y-6">
+      {/* Primary action — large, prominent, mobile-friendly */}
+      <ContractorJobActions jobId={job.id} status={job.status} />
 
-        {/* Actions */}
-        <ContractorJobActions jobId={job.id} status={job.status} />
-
-        {/* Schedule */}
-        <Section title="Schedule">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+      {/* Schedule card */}
+      <div className="bg-white rounded-2xl border border-sage-100 p-5 mt-5 space-y-4">
+        {scheduledDate && (
+          <div className="flex items-start gap-3">
+            <Calendar size={18} className="text-sage-400 mt-0.5 shrink-0" />
             <div>
-              <span className="text-sage-500">Date</span>
-              <p className="text-sage-800 font-medium">{fmtDate(job.scheduled_date)}</p>
-            </div>
-            <div>
-              <span className="text-sage-500">Time</span>
-              <p className="text-sage-800 font-medium">{job.scheduled_time ?? '—'}</p>
-            </div>
-            <div>
-              <span className="text-sage-500">Duration</span>
-              <p className="text-sage-800 font-medium">{job.duration_estimate ?? '—'}</p>
+              <p className="text-xs text-sage-500 font-medium">Date</p>
+              <p className="text-sage-800 font-medium">{scheduledDate}</p>
             </div>
           </div>
-        </Section>
-
-        {/* Address */}
-        {job.address && (
-          <Section title="Address">
-            <p className="text-sage-800 text-sm">{job.address}</p>
-          </Section>
         )}
-
-        {/* Description */}
-        {job.description && (
-          <Section title="Description">
-            <p className="text-sage-600 text-sm whitespace-pre-wrap">{job.description}</p>
-          </Section>
-        )}
-
-        {/* Tracking */}
-        {(job.started_at || job.completed_at) && (
-          <Section title="Tracking">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-sage-500">Started</span>
-                <p className="text-sage-800 font-medium">{fmtDateTime(job.started_at)}</p>
-              </div>
-              <div>
-                <span className="text-sage-500">Completed</span>
-                <p className="text-sage-800 font-medium">{fmtDateTime(job.completed_at)}</p>
-              </div>
+        {job.scheduled_time && (
+          <div className="flex items-start gap-3">
+            <Clock size={18} className="text-sage-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-xs text-sage-500 font-medium">Time</p>
+              <p className="text-sage-800 font-medium">{job.scheduled_time}</p>
             </div>
-          </Section>
+          </div>
         )}
-
-        {/* Contractor notes */}
-        <Section title="Notes">
-          <ContractorNotesForm jobId={job.id} currentNotes={job.contractor_notes ?? ''} />
-        </Section>
-
+        {job.duration_estimate && (
+          <div className="flex items-start gap-3">
+            <Timer size={18} className="text-sage-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-xs text-sage-500 font-medium">Duration</p>
+              <p className="text-sage-800 font-medium">{job.duration_estimate}</p>
+            </div>
+          </div>
+        )}
+        {job.address && (
+          <div className="flex items-start gap-3">
+            <MapPin size={18} className="text-sage-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-xs text-sage-500 font-medium">Address</p>
+              <p className="text-sage-800 font-medium">{job.address}</p>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  )
-}
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-white rounded-xl border border-sage-100 p-4">
-      <h2 className="text-sm font-semibold text-sage-800 mb-3">{title}</h2>
-      {children}
+      {/* Description */}
+      {job.description && (
+        <div className="bg-white rounded-2xl border border-sage-100 p-5 mt-4">
+          <h2 className="text-xs text-sage-500 font-semibold uppercase tracking-wide mb-2">Description</h2>
+          <p className="text-sage-700 text-sm whitespace-pre-wrap leading-relaxed">{job.description}</p>
+        </div>
+      )}
+
+      {/* Tracking */}
+      {(startedAt || completedAt) && (
+        <div className="bg-white rounded-2xl border border-sage-100 p-5 mt-4">
+          <h2 className="text-xs text-sage-500 font-semibold uppercase tracking-wide mb-3">Tracking</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            {startedAt && (
+              <div>
+                <p className="text-xs text-sage-500">Started</p>
+                <p className="text-sage-800 font-medium">{startedAt}</p>
+              </div>
+            )}
+            {completedAt && (
+              <div>
+                <p className="text-xs text-sage-500">Completed</p>
+                <p className="text-sage-800 font-medium">{completedAt}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Pay */}
+      {price && (
+        <div className="bg-white rounded-2xl border border-sage-100 p-5 mt-4">
+          <h2 className="text-xs text-sage-500 font-semibold uppercase tracking-wide mb-2">Your Rate</h2>
+          <p className="text-sage-800 text-lg font-bold">{price}</p>
+        </div>
+      )}
+
+      {/* Notes */}
+      <div className="bg-white rounded-2xl border border-sage-100 p-5 mt-4">
+        <h2 className="text-xs text-sage-500 font-semibold uppercase tracking-wide mb-3">Your Notes</h2>
+        <ContractorNotesForm jobId={job.id} currentNotes={job.contractor_notes ?? ''} />
+      </div>
+
     </div>
   )
 }

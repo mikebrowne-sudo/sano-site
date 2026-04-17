@@ -25,9 +25,9 @@ export function ContractorJobActions({ jobId, status }: { jobId: string; status:
 
   if (done) {
     return (
-      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3">
-        <CheckCircle size={18} className="text-emerald-600" />
-        <span className="text-sm text-emerald-700 font-medium">{done}</span>
+      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 flex items-center gap-3">
+        <CheckCircle size={20} className="text-emerald-600 shrink-0" />
+        <span className="text-sm text-emerald-700 font-semibold">{done}</span>
       </div>
     )
   }
@@ -38,12 +38,12 @@ export function ContractorJobActions({ jobId, status }: { jobId: string; status:
         <button
           onClick={() => handle('start')}
           disabled={isPending}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold px-6 py-3 rounded-xl text-sm hover:bg-blue-700 transition-colors disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold px-6 py-4 rounded-2xl text-base hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50"
         >
-          <Play size={16} />
+          <Play size={20} />
           {isPending ? 'Starting…' : 'Start Job'}
         </button>
-        {error && <p className="text-red-600 text-xs mt-2">{error}</p>}
+        {error && <p className="text-red-600 text-xs mt-2 text-center">{error}</p>}
       </div>
     )
   }
@@ -54,12 +54,21 @@ export function ContractorJobActions({ jobId, status }: { jobId: string; status:
         <button
           onClick={() => handle('complete')}
           disabled={isPending}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 text-white font-semibold px-6 py-3 rounded-xl text-sm hover:bg-emerald-700 transition-colors disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white font-semibold px-6 py-4 rounded-2xl text-base hover:bg-emerald-700 active:bg-emerald-800 transition-colors disabled:opacity-50"
         >
-          <CheckCircle size={16} />
+          <CheckCircle size={20} />
           {isPending ? 'Completing…' : 'Complete Job'}
         </button>
-        {error && <p className="text-red-600 text-xs mt-2">{error}</p>}
+        {error && <p className="text-red-600 text-xs mt-2 text-center">{error}</p>}
+      </div>
+    )
+  }
+
+  if (status === 'completed') {
+    return (
+      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center gap-3">
+        <CheckCircle size={18} className="text-emerald-600 shrink-0" />
+        <span className="text-sm text-emerald-700 font-medium">This job is complete</span>
       </div>
     )
   }
