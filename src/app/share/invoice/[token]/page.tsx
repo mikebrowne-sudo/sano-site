@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
+import { PayNowButton } from './_components/PayNowButton'
 
 export const metadata: Metadata = { robots: 'noindex, nofollow' }
 
@@ -21,13 +22,13 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-export default async function PublicInvoicePage({ params }: { params: { token: string } }) {
+export default async function PublicInvoicePage({ params, searchParams }: { params: { token: string }; searchParams: { payment?: string } }) {
   const supabase = getPublicSupabase()
 
   const { data: invoice, error } = await supabase
     .from('invoices')
     .select(`
-      id, invoice_number, date_issued, due_date,
+      id, invoice_number, status, date_paid, date_issued, due_date,
       property_category, type_of_clean, frequency, scope_size,
       service_address, scheduled_clean_date, notes,
       base_price, discount, gst_included, payment_type,
@@ -193,6 +194,15 @@ export default async function PublicInvoicePage({ params }: { params: { token: s
             </p>
           </section>
 
+          {/* Payment */}
+          <PayNowButton
+            shareToken={params.token}
+            status={invoice.status}
+            datePaid={invoice.date_paid}
+            paymentResult={searchParams.payment ?? null}
+            total={fmt(total)}
+          />
+
         </div>
       </div>
     </>
@@ -234,5 +244,32 @@ const PRINT_CSS = `
   .print-notes { color: #555; font-size: 9pt; white-space: pre-wrap; }
   .print-terms-section { margin-top: 36px; }
   .print-terms-text { color: #777; font-size: 8.5pt; margin-bottom: 4px; line-height: 1.6; }
-  @media print { .share-page { background: none; } .print-page { margin: 0; padding: 0; box-shadow: none; max-width: none; } @page { margin: 18mm 16mm; size: A4; } }
+  /* Payment panel */
+  .pay-panel {
+    margin-top: 32px; padding: 24px; border: 2px solid #e0eae3;
+    border-radius: 12px; background: #f7f9f7; text-align: center;
+  }
+  .pay-done {
+    display: flex; align-items: flex-start; gap: 16px; text-align: left;
+    border-color: #a7f3d0; background: #ecfdf5;
+  }
+  .pay-done-icon { color: #059669; flex-shrink: 0; margin-top: 2px; }
+  .pay-done-title { font-weight: 700; font-size: 12pt; color: #065f46; margin: 0 0 4px; }
+  .pay-done-sub { font-size: 9.5pt; color: #047857; margin: 0 0 2px; }
+  .pay-cancelled { font-size: 9.5pt; color: #92400e; margin: 0 0 16px; }
+  .pay-button {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 36px; background: #076653; color: #fff;
+    font-weight: 600; font-size: 11pt; border: none; border-radius: 8px;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .pay-button:hover { background: #065f46; }
+  .pay-button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .pay-secure { font-size: 8.5pt; color: #999; margin: 8px 0 0; }
+  .pay-error { font-size: 9pt; color: #dc2626; margin: 8px 0 0; }
+
+  @media print {
+    .pay-panel { display: none; }
+    .share-page { background: none; } .print-page { margin: 0; padding: 0; box-shadow: none; max-width: none; } @page { margin: 18mm 16mm; size: A4; }
+  }
 `
