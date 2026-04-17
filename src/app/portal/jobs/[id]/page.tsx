@@ -57,10 +57,10 @@ export default async function JobDetailPage({ params }: { params: { id: string }
 
   if (error || !job) notFound()
 
-  // Load assigned workers with hourly rates
+  // Load assigned workers with payroll fields for costing
   const { data: jobWorkers } = await supabase
     .from('job_workers')
-    .select('contractor_id, hours_allocated, contractors ( full_name, hourly_rate )')
+    .select('contractor_id, hours_allocated, contractors ( full_name, hourly_rate, worker_type, holiday_pay_method, holiday_pay_percent, kiwisaver_enrolled, kiwisaver_employer_rate )')
     .eq('job_id', params.id)
 
   const client = job.clients as unknown as { name: string; company_name: string | null } | null
@@ -220,59 +220,96 @@ export default async function JobDetailPage({ params }: { params: { id: string }
         )}
 
         {/* Pricing & Contractor */}
-        <Section title="Pricing &amp; Labour">
+        <Section title="Labour &amp; Margin">
           {(() => {
             const workers = (jobWorkers ?? []).map((w) => {
-              const c = w.contractors as unknown as { full_name: string; hourly_rate: number | null } | null
-              return { contractor_id: w.contractor_id, full_name: c?.full_name ?? '—', hourly_rate: c?.hourly_rate ?? null, hours_allocated: w.hours_allocated }
+              const c = w.contractors as unknown as {
+                full_name: string; hourly_rate: number | null; worker_type: string | null
+                holiday_pay_method: string | null; holiday_pay_percent: number | null
+                kiwisaver_enrolled: boolean; kiwisaver_employer_rate: number | null
+              } | null
+              return {
+                contractor_id: w.contractor_id,
+                full_name: c?.full_name ?? '—',
+                hourly_rate: c?.hourly_rate ?? null,
+                hours_allocated: w.hours_allocated,
+                worker_type: c?.worker_type ?? 'contractor',
+                holiday_pay_method: c?.holiday_pay_method ?? null,
+                holiday_pay_percent: c?.holiday_pay_percent ?? null,
+                kiwisaver_enrolled: c?.kiwisaver_enrolled ?? false,
+                kiwisaver_employer_rate: c?.kiwisaver_employer_rate ?? null,
+              }
             })
             const labour = calculateLabour(job.job_price ?? 0, job.allowed_hours, workers)
 
             return (
               <>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm mb-4">
-                  <div>
-                    <span className="text-sage-500">Job price</span>
-                    <p className="text-sage-800 font-bold text-lg">{fmtCurrency(job.job_price)}</p>
+                {/* Summary cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                  <div className="bg-sage-50 rounded-lg p-3">
+                    <p className="text-xs text-sage-500">Job value</p>
+                    <p className="text-lg font-bold text-sage-800">{fmtCurrency(job.job_price)}</p>
                   </div>
-                  <div>
-                    <span className="text-sage-500">Allowed hours</span>
-                    <p className="text-sage-800 font-medium">{job.allowed_hours ?? '—'}</p>
+                  <div className="bg-sage-50 rounded-lg p-3">
+                    <p className="text-xs text-sage-500">Labour cost</p>
+                    <p className="text-lg font-bold text-sage-800">{fmtCurrency(labour.totalLabourCost)}</p>
                   </div>
-                  <div>
-                    <span className="text-sage-500">Labour cost</span>
-                    <p className="text-sage-800 font-medium">{fmtCurrency(labour.totalLabourCost)}</p>
+                  <div className={clsx('rounded-lg p-3', labour.grossProfit >= 0 ? 'bg-emerald-50' : 'bg-red-50')}>
+                    <p className={clsx('text-xs', labour.grossProfit >= 0 ? 'text-emerald-600' : 'text-red-600')}>Gross margin</p>
+                    <p className={clsx('text-lg font-bold', labour.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600')}>
+                      {fmtCurrency(labour.grossProfit)}
+                    </p>
                   </div>
-                  <div>
-                    <span className="text-sage-500">Gross profit</span>
-                    <p className={clsx('font-bold', labour.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600')}>
-                      {fmtCurrency(labour.grossProfit)} <span className="text-xs font-normal">({labour.marginPercent}%)</span>
+                  <div className={clsx('rounded-lg p-3', labour.marginPercent >= 0 ? 'bg-emerald-50' : 'bg-red-50')}>
+                    <p className={clsx('text-xs', labour.marginPercent >= 0 ? 'text-emerald-600' : 'text-red-600')}>Margin %</p>
+                    <p className={clsx('text-lg font-bold', labour.marginPercent >= 0 ? 'text-emerald-700' : 'text-red-600')}>
+                      {labour.marginPercent}%
                     </p>
                   </div>
                 </div>
 
-                {workers.length > 0 && (
-                  <div className="border-t border-sage-100 pt-3 mt-3">
-                    <span className="text-xs text-sage-500 font-semibold uppercase tracking-wide">Assigned Workers</span>
-                    <div className="mt-2 space-y-1">
-                      {labour.workers.map((w) => (
-                        <div key={w.contractorId} className="flex items-center justify-between text-sm bg-sage-50 rounded-lg px-3 py-2">
-                          <span className="text-sage-800 font-medium">{w.fullName}</span>
-                          <div className="flex items-center gap-4 text-xs text-sage-600">
-                            <span>{w.hoursAllocated.toFixed(1)}h</span>
-                            <span>@ {fmtCurrency(w.hourlyRate)}/hr</span>
-                            <span className="font-medium text-sage-800">{fmtCurrency(w.cost)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Cost breakdown */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 text-sm">
+                  <div><span className="text-sage-500">Total hours</span><p className="text-sage-800 font-medium">{labour.totalHours.toFixed(1)}h</p></div>
+                  <div><span className="text-sage-500">Allowed hours</span><p className="text-sage-800 font-medium">{job.allowed_hours ?? '—'}</p></div>
+                  <div><span className="text-sage-500">Employer KiwiSaver</span><p className="text-sage-800 font-medium">{fmtCurrency(labour.totalEmployerKs)}</p></div>
+                  <div><span className="text-sage-500">ACC levy (1.7%)</span><p className="text-sage-800 font-medium">{fmtCurrency(labour.totalAccCost)}</p></div>
+                </div>
 
-                {job.contractor_price != null && (
-                  <div className="border-t border-sage-100 pt-3 mt-3 text-sm">
-                    <span className="text-sage-500">Contractor price (legacy)</span>
-                    <p className="text-sage-600">{fmtCurrency(job.contractor_price)}</p>
+                {/* Per-worker table */}
+                {labour.workers.length > 0 && (
+                  <div className="border-t border-sage-100 pt-3 mt-3">
+                    <span className="text-xs text-sage-500 font-semibold uppercase tracking-wide">Worker Breakdown</span>
+                    <div className="overflow-x-auto mt-2">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-left text-sage-500 border-b border-sage-100">
+                            <th className="py-2 pr-3">Worker</th>
+                            <th className="py-2 pr-3">Type</th>
+                            <th className="py-2 pr-3 text-right">Hours</th>
+                            <th className="py-2 pr-3 text-right">Rate</th>
+                            <th className="py-2 pr-3 text-right">Hol. Pay</th>
+                            <th className="py-2 pr-3 text-right">KS (er)</th>
+                            <th className="py-2 pr-3 text-right">ACC</th>
+                            <th className="py-2 text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {labour.workers.map((w) => (
+                            <tr key={w.contractorId} className="border-b border-sage-50">
+                              <td className="py-2 pr-3 font-medium text-sage-800">{w.fullName}</td>
+                              <td className="py-2 pr-3 text-sage-600 capitalize">{w.workerType.replace('_', ' ')}</td>
+                              <td className="py-2 pr-3 text-right text-sage-700">{w.hoursAllocated.toFixed(1)}</td>
+                              <td className="py-2 pr-3 text-right text-sage-700">{fmtCurrency(w.hourlyRate)}</td>
+                              <td className="py-2 pr-3 text-right text-sage-600">{w.holidayPay > 0 ? fmtCurrency(w.holidayPay) : '—'}</td>
+                              <td className="py-2 pr-3 text-right text-sage-600">{w.employerKiwisaver > 0 ? fmtCurrency(w.employerKiwisaver) : '—'}</td>
+                              <td className="py-2 pr-3 text-right text-sage-600">{w.accCost > 0 ? fmtCurrency(w.accCost) : '—'}</td>
+                              <td className="py-2 text-right font-bold text-sage-800">{fmtCurrency(w.totalCost)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </>
