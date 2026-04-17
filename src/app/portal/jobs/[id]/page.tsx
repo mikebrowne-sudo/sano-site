@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { JobInvoiceButton } from './_components/JobInvoiceButton'
+import { JobStatusActions } from './_components/JobStatusActions'
+import { AssignJobButton } from './_components/AssignJobButton'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -38,7 +40,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
   const { data: job, error } = await supabase
     .from('jobs')
     .select(`
-      id, job_number, client_id, quote_id, invoice_id, status,
+      id, job_number, client_id, quote_id, invoice_id, status, assigned_to,
       title, description, address,
       scheduled_date, scheduled_time, duration_estimate,
       contractor_id, contractor_price, job_price,
@@ -79,13 +81,29 @@ export default async function JobDetailPage({ params }: { params: { id: string }
 
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-sage-800">{job.job_number}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-sage-800">{job.job_number}</h1>
+            {invoiceNumber && (
+              <Link href={`/portal/invoices/${job.invoice_id}`} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sage-100 text-sage-700 text-xs font-medium hover:bg-sage-200 transition-colors">
+                {invoiceNumber}
+              </Link>
+            )}
+            {quoteNumber && (
+              <Link href={`/portal/quotes/${job.quote_id}`} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sage-50 text-sage-500 text-xs font-medium hover:bg-sage-100 transition-colors">
+                {quoteNumber}
+              </Link>
+            )}
+          </div>
           {job.title && <p className="text-sage-600 text-sm mt-1">{job.title}</p>}
+          <p className="text-sage-500 text-xs mt-1">
+            {job.assigned_to ? `Assigned to ${job.assigned_to}` : 'Unassigned'}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <span className={clsx('inline-block px-3 py-1 rounded-full text-sm font-medium capitalize', STATUS_STYLES[job.status] ?? STATUS_STYLES.draft)}>
             {statusLabel(job.status)}
           </span>
+          <AssignJobButton jobId={job.id} currentAssignee={job.assigned_to} />
           <Link
             href={`/portal/jobs/${params.id}/edit`}
             className="inline-flex items-center gap-2 bg-sage-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
@@ -93,6 +111,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
             <Pencil size={14} />
             Edit Job
           </Link>
+          <JobStatusActions jobId={job.id} status={job.status} />
           <JobInvoiceButton
             jobId={job.id}
             invoiceId={job.invoice_id}
@@ -127,19 +146,19 @@ export default async function JobDetailPage({ params }: { params: { id: string }
           </Section>
         )}
 
-        {/* Schedule */}
+        {/* Schedule & Tracking */}
         <Section title="Schedule">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
             <div>
-              <span className="text-sage-500">Date</span>
+              <span className="text-sage-500">Scheduled date</span>
               <p className="text-sage-800 font-medium">{fmtDate(job.scheduled_date)}</p>
             </div>
             <div>
-              <span className="text-sage-500">Time</span>
+              <span className="text-sage-500">Scheduled time</span>
               <p className="text-sage-800 font-medium">{job.scheduled_time ?? '—'}</p>
             </div>
             <div>
-              <span className="text-sage-500">Duration</span>
+              <span className="text-sage-500">Duration estimate</span>
               <p className="text-sage-800 font-medium">{job.duration_estimate ?? '—'}</p>
             </div>
           </div>
@@ -147,6 +166,18 @@ export default async function JobDetailPage({ params }: { params: { id: string }
             <div className="mt-3 text-sm">
               <span className="text-sage-500">Address</span>
               <p className="text-sage-800">{job.address}</p>
+            </div>
+          )}
+          {(job.started_at || job.completed_at) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mt-4 pt-4 border-t border-sage-100">
+              <div>
+                <span className="text-sage-500">Started</span>
+                <p className="text-sage-800 font-medium">{fmtDateTime(job.started_at)}</p>
+              </div>
+              <div>
+                <span className="text-sage-500">Completed</span>
+                <p className="text-sage-800 font-medium">{fmtDateTime(job.completed_at)}</p>
+              </div>
             </div>
           )}
         </Section>
@@ -158,7 +189,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
           </Section>
         )}
 
-        {/* Contractor */}
+        {/* Pricing & Contractor */}
         <Section title="Pricing &amp; Contractor">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
             <div>
@@ -172,20 +203,6 @@ export default async function JobDetailPage({ params }: { params: { id: string }
             <div>
               <span className="text-sage-500">Contractor price</span>
               <p className="text-sage-800 font-medium">{fmtCurrency(job.contractor_price)}</p>
-            </div>
-          </div>
-        </Section>
-
-        {/* Tracking */}
-        <Section title="Tracking">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-sage-500">Started</span>
-              <p className="text-sage-800 font-medium">{fmtDateTime(job.started_at)}</p>
-            </div>
-            <div>
-              <span className="text-sage-500">Completed</span>
-              <p className="text-sage-800 font-medium">{fmtDateTime(job.completed_at)}</p>
             </div>
           </div>
         </Section>

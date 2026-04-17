@@ -18,10 +18,10 @@ export async function createJobFromInvoice(invoiceId: string) {
     return { error: 'A job already exists for this invoice.' }
   }
 
-  // 2. Load invoice
+  // 2. Load invoice + client name + first line item
   const { data: invoice, error: iErr } = await supabase
     .from('invoices')
-    .select('client_id, quote_id, service_address, scheduled_clean_date, base_price, notes, invoice_number')
+    .select('client_id, quote_id, service_address, scheduled_clean_date, base_price, notes, invoice_number, type_of_clean, clients ( name )')
     .eq('id', invoiceId)
     .single()
 
@@ -29,7 +29,6 @@ export async function createJobFromInvoice(invoiceId: string) {
     return { error: `Invoice not found: ${iErr?.message}` }
   }
 
-  // 3. Load first invoice item for title
   const { data: items } = await supabase
     .from('invoice_items')
     .select('label')
@@ -37,7 +36,18 @@ export async function createJobFromInvoice(invoiceId: string) {
     .order('sort_order')
     .limit(1)
 
-  const title = items?.[0]?.label || `Job for ${invoice.invoice_number}`
+  // 3. Build a useful title — prefer specific label, fall back through options
+  const clientName = (invoice.clients as unknown as { name: string } | null)?.name
+  const itemLabel = items?.[0]?.label
+  const isGenericLabel = !itemLabel || itemLabel === 'Service' || itemLabel === 'Cleaning service'
+
+  const title = !isGenericLabel
+    ? itemLabel
+    : invoice.type_of_clean
+      ? `${invoice.type_of_clean}${clientName ? ` — ${clientName}` : ''}`
+      : clientName
+        ? `Cleaning — ${clientName}`
+        : `Job for ${invoice.invoice_number}`
 
   // 4. Create job
   const { data: job, error: jErr } = await supabase

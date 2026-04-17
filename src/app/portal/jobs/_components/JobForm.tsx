@@ -37,6 +37,7 @@ interface JobData {
   scheduled_date: string | null
   scheduled_time: string | null
   duration_estimate: string | null
+  assigned_to: string | null
   contractor_id: string | null
   contractor_price: number | null
   job_price: number | null
@@ -72,6 +73,7 @@ export function JobForm({
   const [scheduledDate, setScheduledDate] = useState(job?.scheduled_date ?? '')
   const [scheduledTime, setScheduledTime] = useState(job?.scheduled_time ?? '')
   const [durationEstimate, setDurationEstimate] = useState(job?.duration_estimate ?? '')
+  const [assignedTo, setAssignedTo] = useState(job?.assigned_to ?? '')
   const [contractorId, setContractorId] = useState(job?.contractor_id ?? '')
   const [contractorPrice, setContractorPrice] = useState(job?.contractor_price != null ? String(job.contractor_price) : '')
   const [jobPrice, setJobPrice] = useState(job?.job_price != null ? String(job.job_price) : '')
@@ -100,6 +102,7 @@ export function JobForm({
       scheduled_date: scheduledDate || undefined,
       scheduled_time: scheduledTime.trim() || undefined,
       duration_estimate: durationEstimate.trim() || undefined,
+      assigned_to: assignedTo.trim() || undefined,
       contractor_id: contractorId.trim() || undefined,
       contractor_price: toNum(contractorPrice),
       job_price: toNum(jobPrice),
@@ -192,10 +195,10 @@ export function JobForm({
       </Section>
 
       {/* Contractor */}
-      <Section title="Pricing &amp; Contractor">
+      <Section title="Pricing &amp; Assignment">
         <Field label="Job price — client ($)" type="number" step="0.01" min="0" value={jobPrice} onChange={setJobPrice} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-          <Field label="Contractor ID" value={contractorId} onChange={setContractorId} placeholder="UUID (optional)" />
+          <Field label="Assigned staff / contractor" value={assignedTo} onChange={setAssignedTo} placeholder="e.g. Carol, Michael" />
           <Field label="Contractor price ($)" type="number" step="0.01" min="0" value={contractorPrice} onChange={setContractorPrice} />
         </div>
       </Section>

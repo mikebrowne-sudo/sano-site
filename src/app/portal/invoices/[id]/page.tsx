@@ -63,7 +63,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       .single(),
     supabase
       .from('jobs')
-      .select('id')
+      .select('id, job_number, status')
       .eq('invoice_id', params.id)
       .maybeSingle(),
   ])
@@ -114,7 +114,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             {displayStatus}
           </span>
           {showMarkPaid && <MarkAsPaidButton invoiceId={invoice.id} />}
-          <InvoiceJobButton invoiceId={invoice.id} linkedJobId={linkedJob?.id ?? null} />
+          <InvoiceJobButton invoiceId={invoice.id} linkedJob={linkedJob ?? null} />
           <a
             href={`/portal/invoices/${params.id}/print`}
             target="_blank"

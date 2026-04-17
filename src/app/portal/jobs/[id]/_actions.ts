@@ -68,3 +68,67 @@ export async function createInvoiceFromJob(jobId: string) {
 
   redirect(`/portal/invoices/${invoice.id}`)
 }
+
+export async function startJob(jobId: string) {
+  const supabase = createClient()
+
+  const { error } = await supabase
+    .from('jobs')
+    .update({ status: 'in_progress', started_at: new Date().toISOString() })
+    .eq('id', jobId)
+
+  if (error) {
+    return { error: `Failed to start job: ${error.message}` }
+  }
+
+  revalidatePath(`/portal/jobs/${jobId}`)
+  revalidatePath('/portal/jobs')
+  return { success: true }
+}
+
+export async function completeJob(jobId: string) {
+  const supabase = createClient()
+
+  const { error } = await supabase
+    .from('jobs')
+    .update({ status: 'completed', completed_at: new Date().toISOString() })
+    .eq('id', jobId)
+
+  if (error) {
+    return { error: `Failed to complete job: ${error.message}` }
+  }
+
+  revalidatePath(`/portal/jobs/${jobId}`)
+  revalidatePath('/portal/jobs')
+  return { success: true }
+}
+
+export async function assignJob(jobId: string, assignedTo: string) {
+  const supabase = createClient()
+
+  if (!assignedTo.trim()) {
+    return { error: 'Name is required.' }
+  }
+
+  // Only move to assigned if currently draft
+  const { data: job } = await supabase
+    .from('jobs')
+    .select('status')
+    .eq('id', jobId)
+    .single()
+
+  const newStatus = job?.status === 'draft' ? 'assigned' : job?.status
+
+  const { error } = await supabase
+    .from('jobs')
+    .update({ assigned_to: assignedTo.trim(), status: newStatus })
+    .eq('id', jobId)
+
+  if (error) {
+    return { error: `Failed to assign job: ${error.message}` }
+  }
+
+  revalidatePath(`/portal/jobs/${jobId}`)
+  revalidatePath('/portal/jobs')
+  return { success: true }
+}

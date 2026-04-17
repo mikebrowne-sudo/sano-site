@@ -14,6 +14,7 @@ interface JobInput {
   scheduled_date?: string
   scheduled_time?: string
   duration_estimate?: string
+  assigned_to?: string
   contractor_id?: string
   contractor_price?: number
   job_price?: number
@@ -39,6 +40,7 @@ export async function createJob(input: JobInput) {
       scheduled_date: input.scheduled_date || null,
       scheduled_time: input.scheduled_time || null,
       duration_estimate: input.duration_estimate || null,
+      assigned_to: input.assigned_to || null,
       contractor_id: input.contractor_id || null,
       contractor_price: input.contractor_price ?? null,
       job_price: input.job_price ?? null,
@@ -76,6 +78,7 @@ export async function updateJob(input: UpdateJobInput) {
       scheduled_date: input.scheduled_date || null,
       scheduled_time: input.scheduled_time || null,
       duration_estimate: input.duration_estimate || null,
+      assigned_to: input.assigned_to || null,
       contractor_id: input.contractor_id || null,
       contractor_price: input.contractor_price ?? null,
       job_price: input.job_price ?? null,
