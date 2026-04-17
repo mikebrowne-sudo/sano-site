@@ -17,7 +17,7 @@ export default async function ContractorInvoicesPage() {
 
   const { data: invoices, error } = await supabase
     .from('contractor_invoices')
-    .select('id, invoice_number, amount, date_submitted, date_paid, status, contractors ( full_name ), jobs ( job_number )')
+    .select('id, invoice_number, amount, date_submitted, date_paid, status, contractor_id, job_id, contractors ( full_name, hourly_rate ), jobs ( job_number, allowed_hours )')
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -30,9 +30,11 @@ export default async function ContractorInvoicesPage() {
   }
 
   const rows = (invoices ?? []).map((ci) => {
-    const contractor = ci.contractors as unknown as { full_name: string } | null
-    const job = ci.jobs as unknown as { job_number: string } | null
-    return { id: ci.id, number: ci.invoice_number, contractor: contractor?.full_name ?? '—', job: job?.job_number ?? '—', amount: ci.amount, date: ci.date_submitted, datePaid: ci.date_paid, status: ci.status }
+    const contractor = ci.contractors as unknown as { full_name: string; hourly_rate: number | null } | null
+    const job = ci.jobs as unknown as { job_number: string; allowed_hours: number | null } | null
+    const expected = contractor?.hourly_rate && job?.allowed_hours ? contractor.hourly_rate * job.allowed_hours : null
+    const variance = expected != null ? ci.amount - expected : null
+    return { id: ci.id, number: ci.invoice_number, contractor: contractor?.full_name ?? '—', job: job?.job_number ?? '—', amount: ci.amount, expected, variance, date: ci.date_submitted, status: ci.status }
   })
 
   return (
@@ -62,6 +64,7 @@ export default async function ContractorInvoicesPage() {
                   <th className="px-5 py-3 font-semibold">Date</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
                   <th className="px-5 py-3 font-semibold text-right">Amount</th>
+                  <th className="px-5 py-3 font-semibold text-right">Variance</th>
                 </tr>
               </thead>
               <tbody>
@@ -73,6 +76,7 @@ export default async function ContractorInvoicesPage() {
                     <td className="p-0"><Link href={`/portal/contractor-invoices/${r.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{fmtDate(r.date)}</Link></td>
                     <td className="p-0"><Link href={`/portal/contractor-invoices/${r.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors"><span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', STATUS_STYLES[r.status])}>{r.status}</span></Link></td>
                     <td className="p-0"><Link href={`/portal/contractor-invoices/${r.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-right font-medium text-sage-800">{fmt(r.amount)}</Link></td>
+                    <td className="p-0"><Link href={`/portal/contractor-invoices/${r.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-right">{r.variance != null ? <span className={clsx('font-medium', r.variance > 0 ? 'text-red-600' : r.variance < 0 ? 'text-emerald-700' : 'text-sage-600')}>{r.variance > 0 ? '+' : ''}{fmt(r.variance)}</span> : <span className="text-sage-300">—</span>}</Link></td>
                   </tr>
                 ))}
               </tbody>

@@ -19,14 +19,36 @@ export default async function ContractorInvoiceDetailPage({ params }: { params: 
 
   const { data: ci, error } = await supabase
     .from('contractor_invoices')
-    .select('id, invoice_number, contractor_id, job_id, amount, date_submitted, date_paid, status, notes, created_at, contractors ( full_name ), jobs ( job_number, title )')
+    .select('id, invoice_number, contractor_id, job_id, amount, date_submitted, date_paid, status, notes, created_at, contractors ( full_name, hourly_rate ), jobs ( job_number, title, job_price, allowed_hours )')
     .eq('id', params.id)
     .single()
 
   if (error || !ci) notFound()
 
-  const contractor = ci.contractors as unknown as { full_name: string } | null
-  const job = ci.jobs as unknown as { job_number: string; title: string | null } | null
+  const contractor = ci.contractors as unknown as { full_name: string; hourly_rate: number | null } | null
+  const job = ci.jobs as unknown as { job_number: string; title: string | null; job_price: number | null; allowed_hours: number | null } | null
+
+  // Calculate expected labour cost if job is linked
+  let expectedCost: number | null = null
+  if (ci.job_id && job) {
+    const { data: workers } = await supabase
+      .from('job_workers')
+      .select('contractor_id, hours_allocated, contractors ( hourly_rate )')
+      .eq('job_id', ci.job_id)
+
+    if (workers && workers.length > 0) {
+      const totalHours = job.allowed_hours ?? 0
+      expectedCost = workers.reduce((sum, w) => {
+        const rate = (w.contractors as unknown as { hourly_rate: number | null } | null)?.hourly_rate ?? 0
+        const hours = w.hours_allocated ?? (totalHours / workers.length)
+        return sum + (rate * hours)
+      }, 0)
+    } else if (contractor?.hourly_rate && job.allowed_hours) {
+      expectedCost = contractor.hourly_rate * job.allowed_hours
+    }
+  }
+
+  const variance = expectedCost != null ? ci.amount - expectedCost : null
 
   return (
     <div>
@@ -46,7 +68,27 @@ export default async function ContractorInvoiceDetailPage({ params }: { params: 
 
       <div className="max-w-2xl space-y-8">
         <Section title="Amount">
-          <p className="text-2xl font-bold text-sage-800">{fmt(ci.amount)}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <span className="text-sage-500 text-sm">Invoice amount</span>
+              <p className="text-2xl font-bold text-sage-800">{fmt(ci.amount)}</p>
+            </div>
+            {expectedCost != null && (
+              <div>
+                <span className="text-sage-500 text-sm">Expected labour cost</span>
+                <p className="text-lg font-medium text-sage-700">{fmt(expectedCost)}</p>
+              </div>
+            )}
+            {variance != null && (
+              <div>
+                <span className="text-sage-500 text-sm">Variance</span>
+                <p className={clsx('text-lg font-bold', variance > 0 ? 'text-red-600' : variance < 0 ? 'text-emerald-700' : 'text-sage-800')}>
+                  {variance > 0 ? '+' : ''}{fmt(variance)}
+                  <span className="text-xs font-normal ml-1">{variance > 0 ? 'over' : variance < 0 ? 'under' : 'exact'}</span>
+                </p>
+              </div>
+            )}
+          </div>
         </Section>
 
         <Section title="Details">
