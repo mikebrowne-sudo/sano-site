@@ -29,38 +29,54 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const path = request.nextUrl.pathname
-
-  // ── Admin portal routes ──────────────────────────
   const isPortal = path.startsWith('/portal')
   const isPortalLogin = path === '/portal/login'
   const isPortalCallback = path === '/portal/auth/callback'
-
-  if (isPortal && !isPortalLogin && !isPortalCallback && !user) {
-    return NextResponse.redirect(new URL('/portal/login', request.url))
-  }
-  if (isPortalLogin && user) {
-    return NextResponse.redirect(new URL('/portal', request.url))
-  }
-
-  // ── Contractor portal routes ─────────────────────
   const isContractor = path.startsWith('/contractor')
   const isContractorLogin = path === '/contractor/login'
 
-  if (isContractor && !isContractorLogin && !user) {
-    return NextResponse.redirect(new URL('/contractor/login', request.url))
-  }
-  if (isContractorLogin && user) {
-    // Check if this user has a contractor record before redirecting
-    const { data: contractor } = await supabase
-      .from('contractors')
-      .select('id')
-      .eq('auth_user_id', user.id)
-      .maybeSingle()
-
-    if (contractor) {
-      return NextResponse.redirect(new URL('/contractor/jobs', request.url))
+  // ── Not logged in ───────────────────────────────────
+  if (!user) {
+    if (isPortal && !isPortalLogin && !isPortalCallback) {
+      return NextResponse.redirect(new URL('/portal/login', request.url))
     }
-    // No contractor record — let them see the login page (which will show an error)
+    if (isContractor && !isContractorLogin) {
+      return NextResponse.redirect(new URL('/contractor/login', request.url))
+    }
+    return response
+  }
+
+  // ── Logged in — check if this user is a contractor ──
+  const { data: contractorRecord } = await supabase
+    .from('contractors')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .maybeSingle()
+
+  const isContractorUser = !!contractorRecord
+
+  // ── Contractor user hitting admin portal → redirect out ──
+  if (isContractorUser && isPortal && !isPortalLogin) {
+    return NextResponse.redirect(new URL('/contractor/jobs', request.url))
+  }
+
+  // ── Staff user hitting contractor portal → redirect out ──
+  if (!isContractorUser && isContractor && !isContractorLogin) {
+    return NextResponse.redirect(new URL('/portal', request.url))
+  }
+
+  // ── Login page redirects for already-authenticated users ──
+  if (isPortalLogin && !isContractorUser) {
+    return NextResponse.redirect(new URL('/portal', request.url))
+  }
+  if (isPortalLogin && isContractorUser) {
+    return NextResponse.redirect(new URL('/contractor/jobs', request.url))
+  }
+  if (isContractorLogin && isContractorUser) {
+    return NextResponse.redirect(new URL('/contractor/jobs', request.url))
+  }
+  if (isContractorLogin && !isContractorUser) {
+    return NextResponse.redirect(new URL('/portal', request.url))
   }
 
   return response
