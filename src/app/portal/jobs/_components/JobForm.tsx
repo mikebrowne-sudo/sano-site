@@ -74,7 +74,7 @@ export function JobForm({
   const [scheduledTime, setScheduledTime] = useState(job?.scheduled_time ?? '')
   const [durationEstimate, setDurationEstimate] = useState(job?.duration_estimate ?? '')
   const [assignedTo, setAssignedTo] = useState(job?.assigned_to ?? '')
-  const [contractorId, setContractorId] = useState(job?.contractor_id ?? '')
+  const contractorId = job?.contractor_id ?? ''
   const [contractorPrice, setContractorPrice] = useState(job?.contractor_price != null ? String(job.contractor_price) : '')
   const [jobPrice, setJobPrice] = useState(job?.job_price != null ? String(job.job_price) : '')
   const [internalNotes, setInternalNotes] = useState(job?.internal_notes ?? '')
