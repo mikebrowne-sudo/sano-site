@@ -45,8 +45,17 @@ interface CreateQuoteInput {
   addons: AddonInput[]
 }
 
+function addDaysISO(iso: string, days: number): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d + days))
+  return dt.toISOString().slice(0, 10)
+}
+
 export async function createQuote(input: CreateQuoteInput) {
   const supabase = createClient()
+
+  const today = new Date().toISOString().slice(0, 10)
+  const validUntil = addDaysISO(today, 30)
 
   // 1. Resolve client_id — create new client if needed
   let clientId = input.client_id
@@ -94,6 +103,8 @@ export async function createQuote(input: CreateQuoteInput) {
       discount: input.discount,
       gst_included: input.gst_included,
       payment_type: input.payment_type || 'cash_sale',
+      date_issued: today,
+      valid_until: validUntil,
     })
     .select('id')
     .single()

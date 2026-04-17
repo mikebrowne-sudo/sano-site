@@ -303,7 +303,19 @@ export function EditQuoteForm({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-          <Field label="Date issued" type="date" value={dateIssued} onChange={setDateIssued} />
+          <Field
+            label="Date issued"
+            type="date"
+            value={dateIssued}
+            onChange={(next) => {
+              setDateIssued(next)
+              if (next && !validUntil) {
+                const [y, m, d] = next.split('-').map(Number)
+                const dt = new Date(Date.UTC(y, m - 1, d + 30))
+                setValidUntil(dt.toISOString().slice(0, 10))
+              }
+            }}
+          />
           <Field label="Valid until" type="date" value={validUntil} onChange={setValidUntil} />
         </div>
       </Section>

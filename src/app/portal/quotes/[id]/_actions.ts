@@ -4,6 +4,12 @@ import { createClient } from '@/lib/supabase-server'
 import { Resend } from 'resend'
 import { revalidatePath } from 'next/cache'
 
+function addDaysISO(iso: string, days: number): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d + days))
+  return dt.toISOString().slice(0, 10)
+}
+
 interface AddonInput {
   label: string
   price: number
@@ -134,21 +140,25 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
     return { error: `Failed to send email: ${emailErr.message}` }
   }
 
-  // Update quote: status → sent, set date_issued if empty
+  // Update quote: status → sent, set date_issued if empty, set valid_until if empty
   const supabase = createClient()
   const today = new Date().toISOString().slice(0, 10)
 
   const { data: quote } = await supabase
     .from('quotes')
-    .select('date_issued')
+    .select('date_issued, valid_until')
     .eq('id', input.quote_id)
     .single()
+
+  const effectiveIssued = quote?.date_issued || today
+  const effectiveValidUntil = quote?.valid_until || addDaysISO(effectiveIssued, 30)
 
   await supabase
     .from('quotes')
     .update({
       status: 'sent',
-      date_issued: quote?.date_issued || today,
+      date_issued: effectiveIssued,
+      valid_until: effectiveValidUntil,
     })
     .eq('id', input.quote_id)
 
