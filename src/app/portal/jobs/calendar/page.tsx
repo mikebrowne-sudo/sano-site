@@ -23,6 +23,23 @@ function getMonday(dateStr: string) {
   return d.toISOString().slice(0, 10)
 }
 
+function getMonthStart(dateStr: string) {
+  const d = new Date(dateStr)
+  d.setDate(1)
+  return d.toISOString().slice(0, 10)
+}
+
+function addMonths(dateStr: string, months: number) {
+  const d = new Date(dateStr)
+  d.setDate(1)
+  d.setMonth(d.getMonth() + months)
+  return d.toISOString().slice(0, 10)
+}
+
+function fmtMonthHeader(iso: string) {
+  return new Date(iso).toLocaleDateString('en-NZ', { month: 'long', year: 'numeric' })
+}
+
 function fmtDayHeader(iso: string) {
   return new Date(iso).toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short' })
 }
@@ -68,7 +85,8 @@ export default async function CalendarPage({
 }) {
   const supabase = createClient()
 
-  const view = searchParams.view === 'day' ? 'day' : 'week'
+  const view: 'day' | 'week' | 'month' =
+    searchParams.view === 'day' ? 'day' : searchParams.view === 'month' ? 'month' : 'week'
   const today = todayStr()
   const selectedDate = searchParams.date || today
   const contractorFilter = searchParams.contractor ?? ''
@@ -83,15 +101,28 @@ export default async function CalendarPage({
     rangeStart = selectedDate
     rangeEnd = selectedDate
     dates = [selectedDate]
-  } else {
+  } else if (view === 'week') {
     rangeStart = getMonday(selectedDate)
     rangeEnd = addDays(rangeStart, 6)
     dates = Array.from({ length: 7 }, (_, i) => addDays(rangeStart, i))
+  } else {
+    const monthStart = getMonthStart(selectedDate)
+    rangeStart = getMonday(monthStart)
+    rangeEnd = addDays(rangeStart, 41)
+    dates = Array.from({ length: 42 }, (_, i) => addDays(rangeStart, i))
   }
 
+  const selectedMonthKey = getMonthStart(selectedDate).slice(0, 7)
+
   // Navigation URLs
-  const prevDate = view === 'day' ? addDays(selectedDate, -1) : addDays(rangeStart, -7)
-  const nextDate = view === 'day' ? addDays(selectedDate, 1) : addDays(rangeStart, 7)
+  const prevDate =
+    view === 'day' ? addDays(selectedDate, -1)
+    : view === 'week' ? addDays(rangeStart, -7)
+    : addMonths(selectedDate, -1)
+  const nextDate =
+    view === 'day' ? addDays(selectedDate, 1)
+    : view === 'week' ? addDays(rangeStart, 7)
+    : addMonths(selectedDate, 1)
 
   function buildUrl(overrides: Record<string, string>) {
     const params = new URLSearchParams()
@@ -159,6 +190,7 @@ export default async function CalendarPage({
           <div className="flex rounded-lg border border-sage-200 overflow-hidden">
             <Link href={buildUrl({ view: 'day' })} className={clsx('px-3 py-2 text-sm font-medium transition-colors', view === 'day' ? 'bg-sage-500 text-white' : 'text-sage-600 hover:bg-sage-50')}>Day</Link>
             <Link href={buildUrl({ view: 'week' })} className={clsx('px-3 py-2 text-sm font-medium transition-colors', view === 'week' ? 'bg-sage-500 text-white' : 'text-sage-600 hover:bg-sage-50')}>Week</Link>
+            <Link href={buildUrl({ view: 'month' })} className={clsx('px-3 py-2 text-sm font-medium transition-colors', view === 'month' ? 'bg-sage-500 text-white' : 'text-sage-600 hover:bg-sage-50')}>Month</Link>
           </div>
 
           {/* Nav arrows */}
@@ -177,7 +209,9 @@ export default async function CalendarPage({
         <span className="text-sm font-medium text-sage-700">
           {view === 'day'
             ? fmtDateLong(selectedDate)
-            : `${fmtDayHeader(rangeStart)} – ${fmtDayHeader(rangeEnd)}`
+            : view === 'week'
+            ? `${fmtDayHeader(rangeStart)} – ${fmtDayHeader(rangeEnd)}`
+            : fmtMonthHeader(selectedDate)
           }
           <span className="text-sage-400 ml-2">({totalJobs} job{totalJobs !== 1 ? 's' : ''})</span>
         </span>
@@ -193,8 +227,7 @@ export default async function CalendarPage({
       />
 
       {/* Calendar body */}
-      {view === 'day' ? (
-        /* Day view */
+      {view === 'day' && (
         <div className="bg-white rounded-xl border border-sage-100 p-5">
           {jobsByDate[selectedDate].length === 0 ? (
             <div className="text-center py-10">
@@ -211,8 +244,9 @@ export default async function CalendarPage({
             </div>
           )}
         </div>
-      ) : (
-        /* Week view */
+      )}
+
+      {view === 'week' && (
         <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
           {dates.map((date) => {
             const dayJobs = jobsByDate[date]
@@ -239,6 +273,63 @@ export default async function CalendarPage({
               </div>
             )
           })}
+        </div>
+      )}
+
+      {view === 'month' && (
+        <div>
+          <div className="grid grid-cols-7 gap-2 mb-2">
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+              <div key={d} className="text-xs text-sage-500 font-semibold text-center">{d}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-2">
+            {dates.map((date) => {
+              const dayJobs = jobsByDate[date]
+              const isToday = date === today
+              const isInMonth = date.slice(0, 7) === selectedMonthKey
+              const overflow = dayJobs.length > 3
+              const shown = overflow ? dayJobs.slice(0, 3) : dayJobs
+              return (
+                <div
+                  key={date}
+                  className={clsx(
+                    'bg-white rounded-lg border p-2 min-h-[110px] flex flex-col',
+                    isToday ? 'border-sage-300 ring-1 ring-sage-200' : 'border-sage-100',
+                    !isInMonth && 'opacity-50',
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <Link
+                      href={buildUrl({ view: 'day', date })}
+                      className={clsx(
+                        'text-xs font-semibold hover:text-sage-700 transition-colors',
+                        isToday ? 'text-sage-800' : 'text-sage-500',
+                      )}
+                    >
+                      {new Date(date).getDate()}
+                    </Link>
+                    {dayJobs.length > 0 && (
+                      <span className="text-[10px] text-sage-400 font-medium">{dayJobs.length}</span>
+                    )}
+                  </div>
+                  <div className="space-y-1 flex-1">
+                    {shown.map((job) => (
+                      <JobCard key={job.id} job={job} compact />
+                    ))}
+                    {overflow && (
+                      <Link
+                        href={buildUrl({ view: 'day', date })}
+                        className="block text-[11px] text-sage-500 hover:text-sage-700 font-medium pl-1 pt-0.5"
+                      >
+                        +{dayJobs.length - 3} more
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>
