@@ -13,7 +13,7 @@ export default async function ContractorsPage() {
 
   const { data: contractors, error } = await supabase
     .from('contractors')
-    .select('id, full_name, email, phone, hourly_rate, status')
+    .select('id, full_name, email, phone, hourly_rate, status, worker_type')
     .order('full_name')
 
   if (error) {
@@ -64,6 +64,7 @@ export default async function ContractorsPage() {
                   <th className="px-5 py-3 font-semibold">Email</th>
                   <th className="px-5 py-3 font-semibold">Phone</th>
                   <th className="px-5 py-3 font-semibold">Rate</th>
+                  <th className="px-5 py-3 font-semibold">Type</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
                 </tr>
               </thead>
@@ -74,6 +75,7 @@ export default async function ContractorsPage() {
                     <td className="p-0"><Link href={`/portal/contractors/${c.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{c.email || '—'}</Link></td>
                     <td className="p-0"><Link href={`/portal/contractors/${c.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{c.phone || '—'}</Link></td>
                     <td className="p-0"><Link href={`/portal/contractors/${c.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{fmtCurrency(c.hourly_rate)}/hr</Link></td>
+                    <td className="p-0"><Link href={`/portal/contractors/${c.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600 capitalize">{(c.worker_type ?? 'contractor').replace('_', ' ')}</Link></td>
                     <td className="p-0"><Link href={`/portal/contractors/${c.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors"><span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', c.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600')}>{c.status}</span></Link></td>
                   </tr>
                 ))}

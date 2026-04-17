@@ -2,7 +2,16 @@ import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Pencil } from 'lucide-react'
+import { DocumentUpload } from '../_components/DocumentUpload'
+import { DocumentList } from '../_components/DocumentList'
 import clsx from 'clsx'
+
+const WORKER_TYPE_STYLES: Record<string, string> = {
+  contractor: 'bg-blue-50 text-blue-700',
+  casual: 'bg-amber-50 text-amber-700',
+  part_time: 'bg-purple-50 text-purple-700',
+  full_time: 'bg-emerald-50 text-emerald-700',
+}
 
 function fmtCurrency(dollars: number | null) {
   if (dollars == null) return '—'
@@ -17,10 +26,10 @@ function fmtDate(iso: string | null) {
 export default async function ContractorDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
 
-  const [{ data: contractor, error }, { data: jobs, count: jobCount }] = await Promise.all([
+  const [{ data: contractor, error }, { data: jobs, count: jobCount }, { data: documents }] = await Promise.all([
     supabase
       .from('contractors')
-      .select('id, full_name, email, phone, hourly_rate, status, notes, created_at')
+      .select('id, full_name, email, phone, hourly_rate, status, worker_type, notes, created_at')
       .eq('id', params.id)
       .single(),
     supabase
@@ -29,9 +38,28 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
       .eq('contractor_id', params.id)
       .order('scheduled_date', { ascending: false })
       .limit(5),
+    supabase
+      .from('worker_documents')
+      .select('id, document_type, title, file_path, file_size, notes, uploaded_at')
+      .eq('contractor_id', params.id)
+      .order('uploaded_at', { ascending: false }),
   ])
 
   if (error || !contractor) notFound()
+
+  // Generate signed download URLs for documents
+  const docs = documents ?? []
+  const downloadUrls: Record<string, string> = {}
+  for (const doc of docs) {
+    const { data } = await supabase.storage
+      .from('worker-documents')
+      .createSignedUrl(doc.file_path, 3600)
+    if (data?.signedUrl) {
+      downloadUrls[doc.id] = data.signedUrl
+    }
+  }
+
+  const workerType = contractor.worker_type ?? 'contractor'
 
   return (
     <div>
@@ -46,9 +74,14 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-sage-800">{contractor.full_name}</h1>
-          <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize mt-1', contractor.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600')}>
-            {contractor.status}
-          </span>
+          <div className="flex items-center gap-2 mt-1">
+            <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', contractor.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600')}>
+              {contractor.status}
+            </span>
+            <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', WORKER_TYPE_STYLES[workerType] ?? WORKER_TYPE_STYLES.contractor)}>
+              {workerType.replace('_', ' ')}
+            </span>
+          </div>
         </div>
         <Link
           href={`/portal/contractors/${params.id}/edit`}
@@ -82,6 +115,14 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
             <p className="text-sage-600 text-sm whitespace-pre-wrap">{contractor.notes}</p>
           </Section>
         )}
+
+        {/* Documents */}
+        <Section title={`Documents${docs.length > 0 ? ` (${docs.length})` : ''}`}>
+          <div className="mb-4">
+            <DocumentUpload contractorId={contractor.id} />
+          </div>
+          <DocumentList documents={docs} contractorId={contractor.id} downloadUrls={downloadUrls} />
+        </Section>
 
         {/* Recent jobs */}
         <Section title={`Jobs${jobCount != null ? ` (${jobCount})` : ''}`}>

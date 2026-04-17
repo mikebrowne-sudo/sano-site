@@ -9,7 +9,7 @@ export default async function EditContractorPage({ params }: { params: { id: str
 
   const { data: contractor, error } = await supabase
     .from('contractors')
-    .select('id, full_name, email, phone, hourly_rate, status, notes')
+    .select('id, full_name, email, phone, hourly_rate, status, worker_type, notes')
     .eq('id', params.id)
     .single()
 

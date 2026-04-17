@@ -11,6 +11,7 @@ interface ContractorData {
   phone: string | null
   hourly_rate: number | null
   status: string
+  worker_type: string
   notes: string | null
 }
 
@@ -27,6 +28,7 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
   const [phone, setPhone] = useState(contractor?.phone ?? '')
   const [hourlyRate, setHourlyRate] = useState(contractor?.hourly_rate != null ? String(contractor.hourly_rate) : '')
   const [status, setStatus] = useState(contractor?.status ?? 'active')
+  const [workerType, setWorkerType] = useState(contractor?.worker_type ?? 'contractor')
   const [notes, setNotes] = useState(contractor?.notes ?? '')
 
   const [isPending, startTransition] = useTransition()
@@ -47,6 +49,7 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
       phone: phone.trim() || undefined,
       hourly_rate: toNum(hourlyRate),
       status,
+      worker_type: workerType,
       notes: notes.trim() || undefined,
     }
 
@@ -88,6 +91,21 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
           >
             Inactive
           </button>
+        </div>
+      </Section>
+
+      <Section title="Worker Type">
+        <div className="flex flex-wrap gap-2">
+          {(['contractor', 'casual', 'part_time', 'full_time'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setWorkerType(t)}
+              className={clsx('px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize', workerType === t ? 'bg-sage-500 text-white' : 'bg-sage-100 text-sage-600 hover:bg-sage-200')}
+            >
+              {t.replace('_', ' ')}
+            </button>
+          ))}
         </div>
       </Section>
 
