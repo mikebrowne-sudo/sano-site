@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { updateQuote } from '../_actions'
+import { AddressField } from '../../../_components/AddressField'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -360,7 +361,7 @@ export function EditQuoteForm({
           options={SCOPE_SIZES.map((v) => ({ value: v, label: v }))}
           className="mt-4"
         />
-        <Field label="Service address" value={serviceAddress} onChange={setServiceAddress} className="mt-4" />
+        <AddressField label="Service address" value={serviceAddress} onChange={setServiceAddress} className="mt-4" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <Field label="Preferred dates" value={preferredDates} onChange={setPreferredDates} />
           <Field label="Scheduled clean date" type="date" value={scheduledCleanDate} onChange={setScheduledCleanDate} />

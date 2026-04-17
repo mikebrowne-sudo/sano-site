@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { createJob, updateJob } from '../_actions'
+import { AddressField } from '../../_components/AddressField'
 import { ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -201,7 +202,7 @@ export function JobForm({
       <Section title="Job Details">
         <Field label="Title" value={title} onChange={setTitle} placeholder="e.g. Weekly clean — Smith residence" />
         <TextArea label="Description" value={description} onChange={setDescription} className="mt-4" />
-        <Field label="Address" value={address} onChange={setAddress} className="mt-4" />
+        <AddressField label="Address" value={address} onChange={setAddress} className="mt-4" />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
           <Field label="Scheduled date" type="date" value={scheduledDate} onChange={setScheduledDate} />
           <Field label="Scheduled time" value={scheduledTime} onChange={setScheduledTime} placeholder="e.g. 9:00am" />

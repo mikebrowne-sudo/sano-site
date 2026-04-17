@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { createQuote } from '../_actions'
+import { AddressField } from '../../../_components/AddressField'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -323,7 +324,7 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
 
       {/* ── Section 2: Address ──────────────────────── */}
       <Section title="Address">
-        <Field
+        <AddressField
           label="Service address"
           required
           value={serviceAddress}
@@ -338,7 +339,7 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
         </label>
 
         {!billingSame && (
-          <Field label="Billing address" value={billingAddress} onChange={setBillingAddress} className="mt-4" />
+          <AddressField label="Billing address" value={billingAddress} onChange={setBillingAddress} className="mt-4" />
         )}
       </Section>
 

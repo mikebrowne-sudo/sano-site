@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { createClientAction, updateClientAction } from '../_actions'
+import { AddressField } from '../../_components/AddressField'
 import clsx from 'clsx'
 
 interface ClientData {
@@ -81,7 +82,7 @@ export function ClientForm({ client }: { client?: ClientData }) {
 
       {/* ── Addresses ────────────────────────────── */}
       <Section title="Addresses">
-        <Field label="Service address" value={serviceAddress} onChange={setServiceAddress} />
+        <AddressField label="Service address" value={serviceAddress} onChange={setServiceAddress} />
 
         <label className="flex items-center gap-3 mt-4 cursor-pointer">
           <button
@@ -105,7 +106,7 @@ export function ClientForm({ client }: { client?: ClientData }) {
         </label>
 
         {!billingSame && (
-          <Field label="Billing address" value={billingAddress} onChange={setBillingAddress} className="mt-4" />
+          <AddressField label="Billing address" value={billingAddress} onChange={setBillingAddress} className="mt-4" />
         )}
       </Section>
 
