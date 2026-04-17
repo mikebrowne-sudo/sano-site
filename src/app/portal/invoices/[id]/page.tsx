@@ -6,6 +6,7 @@ import { SendInvoicePanel } from './_components/SendInvoicePanel'
 import { MarkAsPaidButton } from './_components/MarkAsPaidButton'
 import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
 import { DeleteButton } from '../../_components/DeleteButton'
+import { InvoiceJobButton } from './_components/InvoiceJobButton'
 import { firstName } from '@/lib/doc-helpers'
 import clsx from 'clsx'
 
@@ -54,11 +55,18 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
   if (error || !invoice) notFound()
 
-  const { data: clientRecord } = await supabase
-    .from('clients')
-    .select('name, email')
-    .eq('id', invoice.client_id)
-    .single()
+  const [{ data: clientRecord }, { data: linkedJob }] = await Promise.all([
+    supabase
+      .from('clients')
+      .select('name, email')
+      .eq('id', invoice.client_id)
+      .single(),
+    supabase
+      .from('jobs')
+      .select('id')
+      .eq('invoice_id', params.id)
+      .maybeSingle(),
+  ])
 
   const client = invoice.clients as unknown as { name: string; company_name: string | null } | null
   const addons = items ?? []
@@ -106,6 +114,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             {displayStatus}
           </span>
           {showMarkPaid && <MarkAsPaidButton invoiceId={invoice.id} />}
+          <InvoiceJobButton invoiceId={invoice.id} linkedJobId={linkedJob?.id ?? null} />
           <a
             href={`/portal/invoices/${params.id}/print`}
             target="_blank"

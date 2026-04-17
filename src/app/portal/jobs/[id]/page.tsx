@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Pencil } from 'lucide-react'
+import { JobInvoiceButton } from './_components/JobInvoiceButton'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -92,6 +93,11 @@ export default async function JobDetailPage({ params }: { params: { id: string }
             <Pencil size={14} />
             Edit Job
           </Link>
+          <JobInvoiceButton
+            jobId={job.id}
+            invoiceId={job.invoice_id}
+            hasJobPrice={job.job_price != null && job.job_price > 0}
+          />
         </div>
       </div>
 
