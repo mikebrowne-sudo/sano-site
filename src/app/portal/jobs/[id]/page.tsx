@@ -40,7 +40,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
       id, job_number, client_id, quote_id, invoice_id, status,
       title, description, address,
       scheduled_date, scheduled_time, duration_estimate,
-      contractor_id, contractor_price,
+      contractor_id, contractor_price, job_price,
       started_at, completed_at,
       internal_notes, contractor_notes,
       created_at, updated_at,
@@ -153,8 +153,12 @@ export default async function JobDetailPage({ params }: { params: { id: string }
         )}
 
         {/* Contractor */}
-        <Section title="Contractor">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+        <Section title="Pricing &amp; Contractor">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+            <div>
+              <span className="text-sage-500">Job price (client)</span>
+              <p className="text-sage-800 font-medium">{fmtCurrency(job.job_price)}</p>
+            </div>
             <div>
               <span className="text-sage-500">Contractor ID</span>
               <p className="text-sage-800 font-medium">{job.contractor_id ?? '—'}</p>

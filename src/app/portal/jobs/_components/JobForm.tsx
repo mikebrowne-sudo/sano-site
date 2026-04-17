@@ -39,6 +39,7 @@ interface JobData {
   duration_estimate: string | null
   contractor_id: string | null
   contractor_price: number | null
+  job_price: number | null
   internal_notes: string | null
   contractor_notes: string | null
 }
@@ -73,6 +74,7 @@ export function JobForm({
   const [durationEstimate, setDurationEstimate] = useState(job?.duration_estimate ?? '')
   const [contractorId, setContractorId] = useState(job?.contractor_id ?? '')
   const [contractorPrice, setContractorPrice] = useState(job?.contractor_price != null ? String(job.contractor_price) : '')
+  const [jobPrice, setJobPrice] = useState(job?.job_price != null ? String(job.job_price) : '')
   const [internalNotes, setInternalNotes] = useState(job?.internal_notes ?? '')
   const [contractorNotes, setContractorNotes] = useState(job?.contractor_notes ?? '')
 
@@ -100,6 +102,7 @@ export function JobForm({
       duration_estimate: durationEstimate.trim() || undefined,
       contractor_id: contractorId.trim() || undefined,
       contractor_price: toNum(contractorPrice),
+      job_price: toNum(jobPrice),
       internal_notes: internalNotes.trim() || undefined,
     }
 
@@ -189,8 +192,9 @@ export function JobForm({
       </Section>
 
       {/* Contractor */}
-      <Section title="Contractor">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <Section title="Pricing &amp; Contractor">
+        <Field label="Job price — client ($)" type="number" step="0.01" min="0" value={jobPrice} onChange={setJobPrice} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <Field label="Contractor ID" value={contractorId} onChange={setContractorId} placeholder="UUID (optional)" />
           <Field label="Contractor price ($)" type="number" step="0.01" min="0" value={contractorPrice} onChange={setContractorPrice} />
         </div>

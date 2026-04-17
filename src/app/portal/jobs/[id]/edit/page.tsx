@@ -14,7 +14,7 @@ export default async function EditJobPage({ params }: { params: { id: string } }
         id, client_id, quote_id, invoice_id, status, job_number,
         title, description, address,
         scheduled_date, scheduled_time, duration_estimate,
-        contractor_id, contractor_price,
+        contractor_id, contractor_price, job_price,
         internal_notes, contractor_notes
       `)
       .eq('id', params.id)

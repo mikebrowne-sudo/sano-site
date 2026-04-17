@@ -16,6 +16,7 @@ interface JobInput {
   duration_estimate?: string
   contractor_id?: string
   contractor_price?: number
+  job_price?: number
   internal_notes?: string
 }
 
@@ -40,6 +41,7 @@ export async function createJob(input: JobInput) {
       duration_estimate: input.duration_estimate || null,
       contractor_id: input.contractor_id || null,
       contractor_price: input.contractor_price ?? null,
+      job_price: input.job_price ?? null,
       internal_notes: input.internal_notes || null,
     })
     .select('id')
@@ -76,6 +78,7 @@ export async function updateJob(input: UpdateJobInput) {
       duration_estimate: input.duration_estimate || null,
       contractor_id: input.contractor_id || null,
       contractor_price: input.contractor_price ?? null,
+      job_price: input.job_price ?? null,
       internal_notes: input.internal_notes || null,
       contractor_notes: input.contractor_notes || null,
     })
