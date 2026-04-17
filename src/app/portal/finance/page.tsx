@@ -118,7 +118,7 @@ export default async function FinancePage({
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-10">
         <Card icon={Receipt} label="Invoiced" value={fmt(totalRevenue)} />
-        <Card icon={DollarSign} label="Paid" value={fmt(paidRevenue)} accent="emerald" />
+        <Card icon={DollarSign} label="Paid" value={fmt(paidRevenue)} accent="emerald" sub={`${paidCount} invoice${paidCount !== 1 ? 's' : ''}`} />
         <Card icon={AlertTriangle} label="Unpaid" value={fmt(unpaidRevenue)} accent={unpaidRevenue > 0 ? 'amber' : undefined} sub={`${unpaidCount} invoice${unpaidCount !== 1 ? 's' : ''}${overdueInvoices.length > 0 ? ` (${overdueInvoices.length} overdue)` : ''}`} />
         <Card icon={Briefcase} label="Contractor cost" value={fmt(totalCost)} />
         <Card icon={TrendingUp} label="Est. margin" value={fmt(estimatedMargin)} accent={estimatedMargin >= 0 ? 'emerald' : 'red'} sub={`${marginPercent}%`} />
