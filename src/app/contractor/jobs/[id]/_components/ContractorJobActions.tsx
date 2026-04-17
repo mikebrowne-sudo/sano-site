@@ -4,9 +4,9 @@ import { useState, useTransition } from 'react'
 import { contractorStartJob, contractorCompleteJob } from '../_actions'
 import { Play, CheckCircle } from 'lucide-react'
 
-export function ContractorJobActions({ jobId, status }: { jobId: string; status: string }) {
+export function ContractorJobActions({ jobId, status: initialStatus }: { jobId: string; status: string }) {
   const [isPending, startTransition] = useTransition()
-  const [done, setDone] = useState<string | null>(null)
+  const [currentStatus, setCurrentStatus] = useState(initialStatus)
   const [error, setError] = useState<string | null>(null)
 
   function handle(action: 'start' | 'complete') {
@@ -18,21 +18,12 @@ export function ContractorJobActions({ jobId, status }: { jobId: string; status:
       if (result?.error) {
         setError(result.error)
       } else {
-        setDone(action === 'start' ? 'Job started' : 'Job completed')
+        setCurrentStatus(action === 'start' ? 'in_progress' : 'completed')
       }
     })
   }
 
-  if (done) {
-    return (
-      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 flex items-center gap-3">
-        <CheckCircle size={20} className="text-emerald-600 shrink-0" />
-        <span className="text-sm text-emerald-700 font-semibold">{done}</span>
-      </div>
-    )
-  }
-
-  if (status === 'draft' || status === 'assigned') {
+  if (currentStatus === 'draft' || currentStatus === 'assigned') {
     return (
       <div>
         <button
@@ -48,7 +39,7 @@ export function ContractorJobActions({ jobId, status }: { jobId: string; status:
     )
   }
 
-  if (status === 'in_progress') {
+  if (currentStatus === 'in_progress') {
     return (
       <div>
         <button
@@ -64,7 +55,7 @@ export function ContractorJobActions({ jobId, status }: { jobId: string; status:
     )
   }
 
-  if (status === 'completed') {
+  if (currentStatus === 'completed' || currentStatus === 'invoiced') {
     return (
       <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center gap-3">
         <CheckCircle size={18} className="text-emerald-600 shrink-0" />
