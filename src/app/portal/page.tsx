@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import Link from 'next/link'
-import { FileText, Receipt, Briefcase, Plus, ArrowRight, DollarSign, Clock, AlertTriangle, BookOpen, Bell, CalendarDays } from 'lucide-react'
+import { FileText, Receipt, Briefcase, Plus, ArrowRight, DollarSign, Clock, AlertTriangle, Bell, CalendarDays } from 'lucide-react'
 import clsx from 'clsx'
 
 const QUOTE_STATUS: Record<string, string> = {
@@ -15,11 +15,6 @@ const JOB_STATUS: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700', assigned: 'bg-blue-50 text-blue-700',
   in_progress: 'bg-amber-50 text-amber-700', completed: 'bg-emerald-50 text-emerald-700',
   invoiced: 'bg-purple-50 text-purple-700',
-}
-
-function fmtDate(iso: string | null) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 export default async function PortalDashboard() {
