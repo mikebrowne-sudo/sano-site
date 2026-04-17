@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { DocumentUpload } from '../_components/DocumentUpload'
 import { DocumentList } from '../_components/DocumentList'
+import { PayPreview } from '../_components/PayPreview'
 import clsx from 'clsx'
 
 const WORKER_TYPE_STYLES: Record<string, string> = {
@@ -29,7 +30,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
   const [{ data: contractor, error }, { data: jobs, count: jobCount }, { data: documents }, { data: trainingAssignments }] = await Promise.all([
     supabase
       .from('contractors')
-      .select('id, full_name, email, phone, hourly_rate, status, worker_type, notes, created_at')
+      .select('id, full_name, email, phone, hourly_rate, status, worker_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate')
       .eq('id', params.id)
       .single(),
     supabase
@@ -114,6 +115,58 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
         <Section title="Rate">
           <p className="text-sage-800 font-medium text-sm">{fmtCurrency(contractor.hourly_rate)}/hr</p>
         </Section>
+
+        {/* Employment — employees only */}
+        {workerType !== 'contractor' && (
+          <Section title="Employment">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+              <div><span className="text-sage-500">Start date</span><p className="text-sage-800 font-medium">{fmtDate(contractor.start_date)}</p></div>
+              <div><span className="text-sage-500">End date</span><p className="text-sage-800 font-medium">{fmtDate(contractor.end_date)}</p></div>
+              <div><span className="text-sage-500">Pay frequency</span><p className="text-sage-800 font-medium capitalize">{contractor.pay_frequency ?? '—'}</p></div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mt-3">
+              <div><span className="text-sage-500">Standard hours</span><p className="text-sage-800 font-medium">{contractor.standard_hours ?? '—'}</p></div>
+              <div><span className="text-sage-500">Holiday pay</span><p className="text-sage-800 font-medium capitalize">{(contractor.holiday_pay_method ?? '—').replace(/_/g, ' ')}</p></div>
+            </div>
+          </Section>
+        )}
+
+        {/* Tax — employees only */}
+        {workerType !== 'contractor' && (
+          <Section title="Tax">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+              <div><span className="text-sage-500">IRD number</span><p className="text-sage-800 font-medium">{contractor.ird_number || '—'}</p></div>
+              <div><span className="text-sage-500">Tax code</span><p className="text-sage-800 font-medium">{contractor.tax_code || '—'}</p></div>
+              <div><span className="text-sage-500">IR330 received</span><p className={clsx('font-medium', contractor.ir330_received ? 'text-emerald-700' : 'text-amber-600')}>{contractor.ir330_received ? 'Yes' : 'No'}</p></div>
+            </div>
+            {!contractor.ir330_received && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mt-3 text-sm text-amber-800">
+                IR330 not received — ND tax rate (45%) will apply
+              </div>
+            )}
+          </Section>
+        )}
+
+        {/* KiwiSaver — employees only */}
+        {workerType !== 'contractor' && (
+          <Section title="KiwiSaver">
+            {contractor.kiwisaver_enrolled ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div><span className="text-sage-500">Employee rate</span><p className="text-sage-800 font-medium">{contractor.kiwisaver_employee_rate ?? 3}%</p></div>
+                <div><span className="text-sage-500">Employer rate</span><p className="text-sage-800 font-medium">{contractor.kiwisaver_employer_rate ?? 3}%</p></div>
+              </div>
+            ) : (
+              <p className="text-sage-500 text-sm">Not enrolled</p>
+            )}
+          </Section>
+        )}
+
+        {/* Pay preview — employees only */}
+        {workerType !== 'contractor' && contractor.hourly_rate && (
+          <Section title="Pay Preview">
+            <PayPreview contractor={contractor} />
+          </Section>
+        )}
 
         {contractor.notes && (
           <Section title="Notes">

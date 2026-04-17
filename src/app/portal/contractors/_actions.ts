@@ -12,6 +12,36 @@ interface ContractorInput {
   status?: string
   worker_type?: string
   notes?: string
+  // Payroll
+  start_date?: string
+  end_date?: string
+  pay_frequency?: string
+  standard_hours?: number
+  holiday_pay_method?: string
+  ird_number?: string
+  tax_code?: string
+  ir330_received?: boolean
+  kiwisaver_enrolled?: boolean
+  kiwisaver_employee_rate?: number
+  kiwisaver_employer_rate?: number
+}
+
+function payrollFields(input: ContractorInput) {
+  const isEmployee = input.worker_type && input.worker_type !== 'contractor'
+  if (!isEmployee) return {}
+  return {
+    start_date: input.start_date || null,
+    end_date: input.end_date || null,
+    pay_frequency: input.pay_frequency || null,
+    standard_hours: input.standard_hours ?? null,
+    holiday_pay_method: input.holiday_pay_method || null,
+    ird_number: input.ird_number?.trim() || null,
+    tax_code: input.tax_code || 'M',
+    ir330_received: input.ir330_received ?? false,
+    kiwisaver_enrolled: input.kiwisaver_enrolled ?? false,
+    kiwisaver_employee_rate: input.kiwisaver_employee_rate ?? 3,
+    kiwisaver_employer_rate: input.kiwisaver_employer_rate ?? 3,
+  }
 }
 
 export async function createContractor(input: ContractorInput) {
@@ -31,6 +61,7 @@ export async function createContractor(input: ContractorInput) {
       status: input.status || 'active',
       worker_type: input.worker_type || 'contractor',
       notes: input.notes?.trim() || null,
+      ...payrollFields(input),
     })
     .select('id')
     .single()
@@ -59,6 +90,7 @@ export async function updateContractor(id: string, input: ContractorInput) {
       status: input.status || 'active',
       worker_type: input.worker_type || 'contractor',
       notes: input.notes?.trim() || null,
+      ...payrollFields(input),
     })
     .eq('id', id)
 
