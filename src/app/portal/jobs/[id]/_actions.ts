@@ -1,0 +1,70 @@
+'use server'
+
+import { createClient } from '@/lib/supabase-server'
+import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
+
+export async function createInvoiceFromJob(jobId: string) {
+  const supabase = createClient()
+
+  // 1. Load job
+  const { data: job, error: jErr } = await supabase
+    .from('jobs')
+    .select('client_id, quote_id, invoice_id, title, description, address, scheduled_date, job_price')
+    .eq('id', jobId)
+    .single()
+
+  if (jErr || !job) {
+    return { error: `Job not found: ${jErr?.message}` }
+  }
+
+  if (job.invoice_id) {
+    return { error: 'This job already has an invoice.' }
+  }
+
+  if (job.job_price == null) {
+    return { error: 'Job price must be set before creating an invoice.' }
+  }
+
+  // 2. Create invoice
+  const { data: invoice, error: iErr } = await supabase
+    .from('invoices')
+    .insert({
+      client_id: job.client_id,
+      quote_id: job.quote_id || null,
+      service_address: job.address || null,
+      scheduled_clean_date: job.scheduled_date || null,
+      base_price: job.job_price,
+      notes: job.description || null,
+    })
+    .select('id')
+    .single()
+
+  if (iErr || !invoice) {
+    return { error: `Failed to create invoice: ${iErr?.message}` }
+  }
+
+  // 3. Create invoice item
+  const label = job.title || 'Cleaning service'
+
+  await supabase
+    .from('invoice_items')
+    .insert({
+      invoice_id: invoice.id,
+      label,
+      price: job.job_price,
+      sort_order: 0,
+    })
+
+  // 4. Link invoice to job and set status to invoiced
+  await supabase
+    .from('jobs')
+    .update({ invoice_id: invoice.id, status: 'invoiced' })
+    .eq('id', jobId)
+
+  revalidatePath(`/portal/jobs/${jobId}`)
+  revalidatePath('/portal/jobs')
+  revalidatePath('/portal/invoices')
+
+  redirect(`/portal/invoices/${invoice.id}`)
+}
