@@ -6,7 +6,7 @@ import { LogOut, Menu } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, FileText, Receipt, Briefcase, RefreshCw, Users, HardHat, BookOpen, DollarSign, FileInput, Bell, Settings } from 'lucide-react'
+import { LayoutDashboard, FileText, Receipt, Briefcase, RefreshCw, Users, HardHat, BookOpen, DollarSign, FileInput, Wallet, Bell, Settings } from 'lucide-react'
 import clsx from 'clsx'
 
 const links = [
@@ -19,6 +19,7 @@ const links = [
   { href: '/portal/contractors', label: 'Contractors', icon: HardHat },
   { href: '/portal/training', label: 'Training', icon: BookOpen },
   { href: '/portal/contractor-invoices', label: 'Contractor Inv.', icon: FileInput },
+  { href: '/portal/payroll', label: 'Payroll', icon: Wallet },
   { href: '/portal/finance', label: 'Finance', icon: DollarSign },
   { href: '/portal/alerts', label: 'Alerts', icon: Bell },
   { href: '/portal/settings', label: 'Settings', icon: Settings },
