@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { notifyContractorAssigned } from '@/lib/notify-contractor'
 
 export async function createInvoiceFromJob(jobId: string) {
   const supabase = createClient()
@@ -110,10 +111,10 @@ export async function assignJob(jobId: string, contractorId: string) {
     return { error: 'Please select a contractor.' }
   }
 
-  // Look up contractor name
+  // Look up contractor details
   const { data: contractor } = await supabase
     .from('contractors')
-    .select('full_name')
+    .select('full_name, email')
     .eq('id', contractorId)
     .single()
 
@@ -121,14 +122,19 @@ export async function assignJob(jobId: string, contractorId: string) {
     return { error: 'Contractor not found.' }
   }
 
-  // Only move to assigned if currently draft
+  // Load current job to detect contractor change and get job details
   const { data: job } = await supabase
     .from('jobs')
-    .select('status')
+    .select('status, contractor_id, job_number, title, address, scheduled_date, scheduled_time, duration_estimate')
     .eq('id', jobId)
     .single()
 
-  const newStatus = job?.status === 'draft' ? 'assigned' : job?.status
+  if (!job) {
+    return { error: 'Job not found.' }
+  }
+
+  const contractorChanged = contractorId !== (job.contractor_id ?? '')
+  const newStatus = job.status === 'draft' ? 'assigned' : job.status
 
   const { error } = await supabase
     .from('jobs')
@@ -141,6 +147,19 @@ export async function assignJob(jobId: string, contractorId: string) {
 
   if (error) {
     return { error: `Failed to assign job: ${error.message}` }
+  }
+
+  // Notify contractor if assignment is new or changed
+  if (contractorChanged) {
+    await notifyContractorAssigned(contractor, {
+      id: jobId,
+      job_number: job.job_number,
+      title: job.title,
+      address: job.address,
+      scheduled_date: job.scheduled_date,
+      scheduled_time: job.scheduled_time,
+      duration_estimate: job.duration_estimate,
+    })
   }
 
   revalidatePath(`/portal/jobs/${jobId}`)

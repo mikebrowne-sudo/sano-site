@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import { notifyContractorAssigned } from '@/lib/notify-contractor'
 
 interface JobInput {
   client_id: string
@@ -46,11 +47,32 @@ export async function createJob(input: JobInput) {
       job_price: input.job_price ?? null,
       internal_notes: input.internal_notes || null,
     })
-    .select('id')
+    .select('id, job_number')
     .single()
 
   if (error || !data) {
     return { error: `Failed to create job: ${error?.message}` }
+  }
+
+  // Notify contractor if assigned on creation
+  if (input.contractor_id) {
+    const { data: contractor } = await supabase
+      .from('contractors')
+      .select('full_name, email')
+      .eq('id', input.contractor_id)
+      .single()
+
+    if (contractor) {
+      await notifyContractorAssigned(contractor, {
+        id: data.id,
+        job_number: data.job_number,
+        title: input.title || null,
+        address: input.address || null,
+        scheduled_date: input.scheduled_date || null,
+        scheduled_time: input.scheduled_time || null,
+        duration_estimate: input.duration_estimate || null,
+      })
+    }
   }
 
   redirect(`/portal/jobs/${data.id}`)
@@ -64,6 +86,16 @@ interface UpdateJobInput extends JobInput {
 
 export async function updateJob(input: UpdateJobInput) {
   const supabase = createClient()
+
+  // Load current contractor_id to detect changes
+  const { data: current } = await supabase
+    .from('jobs')
+    .select('contractor_id')
+    .eq('id', input.id)
+    .single()
+
+  const contractorChanged = !!input.contractor_id
+    && input.contractor_id !== (current?.contractor_id ?? '')
 
   const { error } = await supabase
     .from('jobs')
@@ -89,6 +121,26 @@ export async function updateJob(input: UpdateJobInput) {
 
   if (error) {
     return { error: `Failed to update job: ${error.message}` }
+  }
+
+  // Notify new contractor if assignment changed
+  if (contractorChanged) {
+    const [{ data: contractor }, { data: job }] = await Promise.all([
+      supabase.from('contractors').select('full_name, email').eq('id', input.contractor_id!).single(),
+      supabase.from('jobs').select('id, job_number').eq('id', input.id).single(),
+    ])
+
+    if (contractor && job) {
+      await notifyContractorAssigned(contractor, {
+        id: job.id,
+        job_number: job.job_number,
+        title: input.title || null,
+        address: input.address || null,
+        scheduled_date: input.scheduled_date || null,
+        scheduled_time: input.scheduled_time || null,
+        duration_estimate: input.duration_estimate || null,
+      })
+    }
   }
 
   revalidatePath(`/portal/jobs/${input.id}`)
