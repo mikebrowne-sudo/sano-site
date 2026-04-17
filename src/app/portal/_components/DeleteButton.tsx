@@ -1,14 +1,14 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { deleteQuote, deleteInvoice } from '../_actions/delete-record'
+import { deleteQuote, deleteInvoice, deleteClient } from '../_actions/delete-record'
 import { Trash2 } from 'lucide-react'
 
 export function DeleteButton({
   type,
   id,
 }: {
-  type: 'quote' | 'invoice'
+  type: 'quote' | 'invoice' | 'client'
   id: string
 }) {
   const [confirming, setConfirming] = useState(false)
@@ -20,7 +20,9 @@ export function DeleteButton({
     startTransition(async () => {
       const result = type === 'quote'
         ? await deleteQuote(id)
-        : await deleteInvoice(id)
+        : type === 'invoice'
+        ? await deleteInvoice(id)
+        : await deleteClient(id)
 
       if (result?.error) {
         setError(result.error)

@@ -43,3 +43,20 @@ export async function deleteInvoice(invoiceId: string) {
 
   redirect('/portal/invoices')
 }
+
+export async function deleteClient(clientId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user || user.email !== ADMIN_EMAIL) {
+    return { error: 'You do not have permission to delete clients.' }
+  }
+
+  const { error } = await supabase.from('clients').delete().eq('id', clientId)
+
+  if (error) {
+    return { error: `Failed to delete client: ${error.message}. The client may have linked quotes, invoices, or jobs.` }
+  }
+
+  redirect('/portal/clients')
+}

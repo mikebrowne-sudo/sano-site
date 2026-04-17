@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { ClientForm } from '../_components/ClientForm'
+import { DeleteButton } from '../../_components/DeleteButton'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
@@ -15,6 +16,9 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
   if (error || !client) notFound()
 
+  const { data: { user } } = await supabase.auth.getUser()
+  const isAdmin = user?.email === 'michael@sano.nz'
+
   return (
     <div>
       <Link
@@ -25,7 +29,10 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         Back to clients
       </Link>
 
-      <h1 className="text-2xl font-bold text-sage-800 mb-8">{client.name}</h1>
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-2xl font-bold text-sage-800">{client.name}</h1>
+        {isAdmin && <DeleteButton type="client" id={client.id} />}
+      </div>
 
       <ClientForm client={client} />
     </div>
