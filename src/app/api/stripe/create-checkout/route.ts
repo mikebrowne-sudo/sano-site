@@ -10,75 +10,82 @@ function getPublicSupabase() {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json()
-  const { share_token } = body
+  try {
+    const body = await req.json()
+    const { share_token } = body
 
-  if (!share_token) {
-    return NextResponse.json({ error: 'Missing share token' }, { status: 400 })
-  }
+    if (!share_token) {
+      return NextResponse.json({ error: 'Missing share token' }, { status: 400 })
+    }
 
-  const supabase = getPublicSupabase()
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 })
+    }
 
-  // Load invoice by share token
-  const { data: invoice, error } = await supabase
-    .from('invoices')
-    .select('id, invoice_number, status, base_price, discount, gst_included, share_token, clients ( name, email ), invoice_items ( price )')
-    .eq('share_token', share_token)
-    .single()
+    const supabase = getPublicSupabase()
 
-  if (error || !invoice) {
-    return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
-  }
+    const { data: invoice, error } = await supabase
+      .from('invoices')
+      .select('id, invoice_number, status, base_price, discount, gst_included, share_token, clients ( name, email ), invoice_items ( price )')
+      .eq('share_token', share_token)
+      .single()
 
-  if (invoice.status === 'paid') {
-    return NextResponse.json({ error: 'Invoice already paid' }, { status: 400 })
-  }
+    if (error || !invoice) {
+      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
+    }
 
-  // Calculate total (same logic as everywhere else)
-  const items = (invoice.invoice_items ?? []) as { price: number }[]
-  const addons = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
-  const total = (invoice.base_price ?? 0) + addons - (invoice.discount ?? 0)
+    if (invoice.status === 'paid') {
+      return NextResponse.json({ error: 'Invoice already paid' }, { status: 400 })
+    }
 
-  if (total <= 0) {
-    return NextResponse.json({ error: 'Invoice total must be greater than zero' }, { status: 400 })
-  }
+    const items = (invoice.invoice_items ?? []) as { price: number }[]
+    const addons = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
+    const total = (invoice.base_price ?? 0) + addons - (invoice.discount ?? 0)
 
-  const client = invoice.clients as unknown as { name: string; email: string | null } | null
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
+    if (total <= 0) {
+      return NextResponse.json({ error: 'Invoice total must be greater than zero' }, { status: 400 })
+    }
 
-  const stripe = getStripe()
+    const client = invoice.clients as unknown as { name: string; email: string | null } | null
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
 
-  const session = await stripe.checkout.sessions.create({
-    mode: 'payment',
-    currency: 'nzd',
-    customer_email: client?.email || undefined,
-    line_items: [
-      {
-        price_data: {
-          currency: 'nzd',
-          unit_amount: Math.round(total * 100), // Stripe uses cents
-          product_data: {
-            name: `Invoice ${invoice.invoice_number}`,
-            description: `Sano cleaning services`,
+    const stripe = getStripe()
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      currency: 'nzd',
+      customer_email: client?.email || undefined,
+      line_items: [
+        {
+          price_data: {
+            currency: 'nzd',
+            unit_amount: Math.round(total * 100),
+            product_data: {
+              name: `Invoice ${invoice.invoice_number}`,
+              description: 'Sano cleaning services',
+            },
           },
+          quantity: 1,
         },
-        quantity: 1,
+      ],
+      metadata: {
+        invoice_id: invoice.id,
+        invoice_number: invoice.invoice_number,
+        share_token,
       },
-    ],
-    metadata: {
-      invoice_id: invoice.id,
-      invoice_number: invoice.invoice_number,
-      share_token: share_token,
-    },
-    success_url: `${siteUrl}/share/invoice/${share_token}?payment=success`,
-    cancel_url: `${siteUrl}/share/invoice/${share_token}?payment=cancelled`,
-  })
+      success_url: `${siteUrl}/share/invoice/${share_token}?payment=success`,
+      cancel_url: `${siteUrl}/share/invoice/${share_token}?payment=cancelled`,
+    })
 
-  // Store session ID on invoice
-  await supabase
-    .from('invoices')
-    .update({ stripe_checkout_session_id: session.id })
-    .eq('id', invoice.id)
+    await supabase
+      .from('invoices')
+      .update({ stripe_checkout_session_id: session.id })
+      .eq('id', invoice.id)
 
-  return NextResponse.json({ url: session.url })
+    return NextResponse.json({ url: session.url })
+  } catch (err) {
+    console.error('[create-checkout] Error:', err)
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }

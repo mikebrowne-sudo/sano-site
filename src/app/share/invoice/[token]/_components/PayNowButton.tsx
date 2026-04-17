@@ -85,17 +85,24 @@ function PayButton({ shareToken, total, loading, setLoading, error, setError }: 
         body: JSON.stringify({ share_token: shareToken }),
       })
 
+      const contentType = res.headers.get('content-type') ?? ''
+      if (!contentType.includes('application/json')) {
+        setError(`Server error (${res.status}). Please try again.`)
+        setLoading(false)
+        return
+      }
+
       const data = await res.json()
 
       if (!res.ok || !data.url) {
-        setError(data.error || 'Failed to create payment session')
+        setError(data.error || `Failed to create payment session (${res.status})`)
         setLoading(false)
         return
       }
 
       window.location.href = data.url
-    } catch {
-      setError('Something went wrong. Please try again.')
+    } catch (err) {
+      setError(`Connection error: ${err instanceof Error ? err.message : 'Please try again.'}`)
       setLoading(false)
     }
   }
