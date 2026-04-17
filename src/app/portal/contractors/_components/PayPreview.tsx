@@ -9,6 +9,9 @@ function fmt(d: number) { return new Intl.NumberFormat('en-NZ', { style: 'curren
 export function PayPreview({ contractor }: {
   contractor: {
     hourly_rate: number | null
+    base_hourly_rate: number | null
+    loaded_hourly_rate: number | null
+    holiday_pay_percent: number | null
     pay_frequency: string | null
     standard_hours: number | null
     tax_code: string | null
@@ -20,35 +23,46 @@ export function PayPreview({ contractor }: {
 }) {
   const [hours, setHours] = useState(String(contractor.standard_hours ?? 40))
 
-  const rate = contractor.hourly_rate ?? 0
+  const isPaygo = contractor.holiday_pay_method === 'pay_as_you_go_8_percent'
+  const baseRate = contractor.base_hourly_rate ?? contractor.hourly_rate ?? 0
+  const loadedRate = contractor.loaded_hourly_rate ?? baseRate
+  const effectiveRate = isPaygo ? loadedRate : baseRate
   const hoursNum = parseFloat(hours) || 0
 
   const result = calculatePayPreview({
     hoursWorked: hoursNum,
-    hourlyRate: rate,
+    hourlyRate: effectiveRate,
     payFrequency: (contractor.pay_frequency as 'weekly' | 'fortnightly') || 'fortnightly',
     taxCode: contractor.tax_code || 'M',
     kiwisaverEnrolled: contractor.kiwisaver_enrolled,
     kiwisaverEmployeeRate: contractor.kiwisaver_employee_rate ?? 3,
     kiwisaverEmployerRate: contractor.kiwisaver_employer_rate ?? 3,
-    holidayPayMethod: contractor.holiday_pay_method,
+    holidayPayMethod: isPaygo ? null : contractor.holiday_pay_method,
   })
 
   return (
     <div>
-      <div className="mb-4">
+      <div className="flex flex-wrap items-end gap-4 mb-4">
         <label className="block">
           <span className="block text-sm font-semibold text-sage-800 mb-1.5">Hours worked</span>
           <input type="number" step="0.5" min="0" value={hours} onChange={(e) => setHours(e.target.value)} className="w-32 rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
         </label>
+        <div className="text-sm text-sage-600">
+          {isPaygo ? (
+            <span>Base ${baseRate.toFixed(2)}/hr → <span className="font-semibold text-emerald-700">Loaded ${loadedRate.toFixed(2)}/hr</span> (incl. {contractor.holiday_pay_percent ?? 8}% holiday)</span>
+          ) : (
+            <span>${effectiveRate.toFixed(2)}/hr</span>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-sage-100 overflow-hidden">
         <table className="w-full text-sm">
           <tbody>
-            <Row label="Gross pay" value={fmt(result.grossPay)} />
+            <Row label={`Gross pay (${hoursNum}h × $${effectiveRate.toFixed(2)})`} value={fmt(result.grossPay)} />
             {result.holidayPay > 0 && <Row label="Holiday pay (8%)" value={fmt(result.holidayPay)} />}
             {result.holidayPay > 0 && <Row label="Effective gross" value={fmt(result.effectiveGross)} bold />}
+            {isPaygo && <Row label="(Holiday pay included in loaded rate)" value="" note />}
             <Row label={`PAYE (${contractor.tax_code || 'M'})`} value={`-${fmt(result.paye)}`} color="red" />
             {result.employeeKiwisaver > 0 && <Row label={`KiwiSaver employee (${contractor.kiwisaver_employee_rate ?? 3}%)`} value={`-${fmt(result.employeeKiwisaver)}`} color="red" />}
             <Row label="Net pay" value={fmt(result.netPay)} bold color="emerald" highlight />
@@ -71,7 +85,10 @@ export function PayPreview({ contractor }: {
   )
 }
 
-function Row({ label, value, bold, color, highlight }: { label: string; value: string; bold?: boolean; color?: string; highlight?: boolean }) {
+function Row({ label, value, bold, color, highlight, note }: { label: string; value: string; bold?: boolean; color?: string; highlight?: boolean; note?: boolean }) {
+  if (note) {
+    return <tr><td colSpan={2} className="px-4 py-1.5 text-xs text-sage-400 italic">{label}</td></tr>
+  }
   return (
     <tr className={clsx(highlight && 'bg-emerald-50')}>
       <td className={clsx('px-4 py-2.5', bold ? 'font-semibold text-sage-800' : 'text-sage-600')}>{label}</td>

@@ -30,7 +30,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
   const [{ data: contractor, error }, { data: jobs, count: jobCount }, { data: documents }, { data: trainingAssignments }] = await Promise.all([
     supabase
       .from('contractors')
-      .select('id, full_name, email, phone, hourly_rate, status, worker_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate')
+      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate')
       .eq('id', params.id)
       .single(),
     supabase
@@ -113,7 +113,28 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
         </Section>
 
         <Section title="Rate">
-          <p className="text-sage-800 font-medium text-sm">{fmtCurrency(contractor.hourly_rate)}/hr</p>
+          {workerType !== 'contractor' && contractor.base_hourly_rate ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+              <div>
+                <span className="text-sage-500">Base rate</span>
+                <p className="text-sage-800 font-medium">{fmtCurrency(contractor.base_hourly_rate)}/hr</p>
+              </div>
+              {contractor.holiday_pay_method === 'pay_as_you_go_8_percent' && (
+                <>
+                  <div>
+                    <span className="text-sage-500">Holiday pay</span>
+                    <p className="text-sage-800 font-medium">{contractor.holiday_pay_percent ?? 8}%</p>
+                  </div>
+                  <div>
+                    <span className="text-sage-500">Loaded rate</span>
+                    <p className="text-emerald-700 font-bold">{fmtCurrency(contractor.loaded_hourly_rate)}/hr</p>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <p className="text-sage-800 font-medium text-sm">{fmtCurrency(contractor.hourly_rate)}/hr</p>
+          )}
         </Section>
 
         {/* Employment — employees only */}

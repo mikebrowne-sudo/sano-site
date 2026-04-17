@@ -9,7 +9,7 @@ export default async function EditContractorPage({ params }: { params: { id: str
 
   const { data: contractor, error } = await supabase
     .from('contractors')
-    .select('id, full_name, email, phone, hourly_rate, status, worker_type, notes, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate')
+    .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, notes, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate')
     .eq('id', params.id)
     .single()
 

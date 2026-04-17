@@ -9,6 +9,9 @@ interface ContractorInput {
   email?: string
   phone?: string
   hourly_rate?: number
+  base_hourly_rate?: number
+  loaded_hourly_rate?: number
+  holiday_pay_percent?: number
   status?: string
   worker_type?: string
   notes?: string
@@ -29,7 +32,17 @@ interface ContractorInput {
 function payrollFields(input: ContractorInput) {
   const isEmployee = input.worker_type && input.worker_type !== 'contractor'
   if (!isEmployee) return {}
+
+  const baseRate = input.base_hourly_rate ?? input.hourly_rate ?? null
+  const holidayPct = input.holiday_pay_percent ?? 8
+  const isPaygo = input.holiday_pay_method === 'pay_as_you_go_8_percent'
+  const loadedRate = baseRate && isPaygo ? Math.round(baseRate * (1 + holidayPct / 100) * 100) / 100 : baseRate
+
   return {
+    base_hourly_rate: baseRate,
+    loaded_hourly_rate: loadedRate,
+    holiday_pay_percent: holidayPct,
+    hourly_rate: loadedRate ?? baseRate,
     start_date: input.start_date || null,
     end_date: input.end_date || null,
     pay_frequency: input.pay_frequency || null,

@@ -10,6 +10,9 @@ interface ContractorData {
   email: string | null
   phone: string | null
   hourly_rate: number | null
+  base_hourly_rate: number | null
+  loaded_hourly_rate: number | null
+  holiday_pay_percent: number | null
   status: string
   worker_type: string
   notes: string | null
@@ -41,6 +44,8 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
   const [email, setEmail] = useState(contractor?.email ?? '')
   const [phone, setPhone] = useState(contractor?.phone ?? '')
   const [hourlyRate, setHourlyRate] = useState(contractor?.hourly_rate != null ? String(contractor.hourly_rate) : '')
+  const [baseHourlyRate, setBaseHourlyRate] = useState(contractor?.base_hourly_rate != null ? String(contractor.base_hourly_rate) : '')
+  const [holidayPayPercent, setHolidayPayPercent] = useState(contractor?.holiday_pay_percent != null ? String(contractor.holiday_pay_percent) : '8')
   const [status, setStatus] = useState(contractor?.status ?? 'active')
   const [workerType, setWorkerType] = useState(contractor?.worker_type ?? 'contractor')
   const [notes, setNotes] = useState(contractor?.notes ?? '')
@@ -74,6 +79,8 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
       hourly_rate: toNum(hourlyRate),
+      base_hourly_rate: isEmployee ? toNum(baseHourlyRate) : toNum(hourlyRate),
+      holiday_pay_percent: toNum(holidayPayPercent),
       status,
       worker_type: workerType,
       notes: notes.trim() || undefined,
@@ -108,7 +115,29 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
           <Field label="Email" type="email" value={email} onChange={setEmail} />
           <Field label="Phone" type="tel" value={phone} onChange={setPhone} />
         </div>
-        <Field label="Hourly rate ($)" type="number" step="0.01" min="0" value={hourlyRate} onChange={setHourlyRate} className="mt-4" />
+        {isEmployee ? (
+          <div className="mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Field label="Base hourly rate ($)" type="number" step="0.01" min="0" value={baseHourlyRate} onChange={setBaseHourlyRate} />
+              {holidayPayMethod === 'pay_as_you_go_8_percent' && (
+                <Field label="Holiday pay (%)" type="number" step="0.5" min="0" max="20" value={holidayPayPercent} onChange={setHolidayPayPercent} />
+              )}
+              {holidayPayMethod === 'pay_as_you_go_8_percent' && (() => {
+                const base = parseFloat(baseHourlyRate) || 0
+                const pct = parseFloat(holidayPayPercent) || 8
+                const loaded = Math.round(base * (1 + pct / 100) * 100) / 100
+                return (
+                  <div>
+                    <span className="block text-sm font-semibold text-sage-800 mb-1.5">Loaded rate</span>
+                    <p className="px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 font-bold text-sm">${loaded.toFixed(2)}/hr</p>
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+        ) : (
+          <Field label="Hourly rate ($)" type="number" step="0.01" min="0" value={hourlyRate} onChange={setHourlyRate} className="mt-4" />
+        )}
       </Section>
 
       {/* Status + Worker Type */}
