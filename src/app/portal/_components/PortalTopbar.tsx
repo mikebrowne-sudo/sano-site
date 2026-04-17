@@ -6,7 +6,7 @@ import { LogOut, Menu } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, FileText, Receipt, Briefcase, RefreshCw, Users, HardHat, DollarSign, Settings } from 'lucide-react'
+import { LayoutDashboard, FileText, Receipt, Briefcase, RefreshCw, Users, HardHat, BookOpen, DollarSign, Settings } from 'lucide-react'
 import clsx from 'clsx'
 
 const links = [
@@ -17,6 +17,7 @@ const links = [
   { href: '/portal/recurring-jobs', label: 'Recurring', icon: RefreshCw },
   { href: '/portal/clients', label: 'Clients', icon: Users },
   { href: '/portal/contractors', label: 'Contractors', icon: HardHat },
+  { href: '/portal/training', label: 'Training', icon: BookOpen },
   { href: '/portal/finance', label: 'Finance', icon: DollarSign },
   { href: '/portal/settings', label: 'Settings', icon: Settings },
 ]

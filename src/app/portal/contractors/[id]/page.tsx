@@ -26,7 +26,7 @@ function fmtDate(iso: string | null) {
 export default async function ContractorDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
 
-  const [{ data: contractor, error }, { data: jobs, count: jobCount }, { data: documents }] = await Promise.all([
+  const [{ data: contractor, error }, { data: jobs, count: jobCount }, { data: documents }, { data: trainingAssignments }] = await Promise.all([
     supabase
       .from('contractors')
       .select('id, full_name, email, phone, hourly_rate, status, worker_type, notes, created_at')
@@ -43,6 +43,11 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
       .select('id, document_type, title, file_path, file_size, notes, uploaded_at')
       .eq('contractor_id', params.id)
       .order('uploaded_at', { ascending: false }),
+    supabase
+      .from('worker_training_assignments')
+      .select('id, status, due_date, completed_at, training_modules ( title, category )')
+      .eq('contractor_id', params.id)
+      .order('status'),
   ])
 
   if (error || !contractor) notFound()
@@ -122,6 +127,34 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
             <DocumentUpload contractorId={contractor.id} />
           </div>
           <DocumentList documents={docs} contractorId={contractor.id} downloadUrls={downloadUrls} />
+        </Section>
+
+        {/* Training compliance */}
+        <Section title={`Training${(trainingAssignments ?? []).length > 0 ? ` (${(trainingAssignments ?? []).filter((t) => t.status === 'completed').length}/${(trainingAssignments ?? []).length} completed)` : ''}`}>
+          {(!trainingAssignments || trainingAssignments.length === 0) ? (
+            <p className="text-sage-500 text-sm">No training assigned.</p>
+          ) : (
+            <div className="space-y-2">
+              {(trainingAssignments ?? []).map((t) => {
+                const mod = t.training_modules as unknown as { title: string; category: string } | null
+                const today = new Date().toISOString().slice(0, 10)
+                const isOverdue = t.status !== 'completed' && t.due_date && t.due_date < today
+                return (
+                  <div key={t.id} className="flex items-center justify-between bg-sage-50 rounded-lg px-4 py-3 text-sm">
+                    <div>
+                      <span className="font-medium text-sage-800">{mod?.title ?? '—'}</span>
+                      <span className={clsx('inline-block px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ml-2',
+                        t.status === 'completed' ? 'bg-emerald-50 text-emerald-700' :
+                        isOverdue ? 'bg-red-50 text-red-700' :
+                        'bg-blue-50 text-blue-700'
+                      )}>{isOverdue ? 'overdue' : t.status.replace('_', ' ')}</span>
+                    </div>
+                    {t.due_date && <span className="text-xs text-sage-500">Due {fmtDate(t.due_date)}</span>}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </Section>
 
         {/* Recent jobs */}
