@@ -12,19 +12,28 @@ export async function runJobReminders() {
   const tomorrowStr = tomorrow.toISOString().slice(0, 10)
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
 
-  // Find jobs scheduled for tomorrow, assigned to a contractor, not completed/invoiced
-  // Skip if reminder already sent today
-  const { data: jobs } = await supabase
+  // Jobs scheduled for tomorrow, assigned, not finished
+  const { data: jobs, error: queryErr } = await supabase
     .from('jobs')
     .select('id, job_number, title, address, scheduled_date, scheduled_time, contractor_id, status, last_reminder_sent_at, contractors ( full_name, email )')
     .eq('scheduled_date', tomorrowStr)
     .not('contractor_id', 'is', null)
-    .not('status', 'in', '("completed","invoiced")')
+    .neq('status', 'completed')
+    .neq('status', 'invoiced')
 
+  if (queryErr) {
+    return { error: `Query failed: ${queryErr.message}`, sent: 0, failed: 0, total: 0 }
+  }
+
+  // Skip if already reminded today
   const eligible = (jobs ?? []).filter((j) => {
-    if (!j.last_reminder_sent_at || j.last_reminder_sent_at < todayStart) return true
-    return false
+    return !j.last_reminder_sent_at || j.last_reminder_sent_at < todayStart
   })
+
+  if (eligible.length === 0) {
+    revalidatePath('/portal/alerts')
+    return { sent: 0, failed: 0, total: 0 }
+  }
 
   let sent = 0
   let failed = 0
@@ -60,18 +69,25 @@ export async function runTrainingReminders() {
   const today = now.toISOString().slice(0, 10)
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
 
-  // Find overdue training assignments not yet completed
-  const { data: assignments } = await supabase
+  const { data: assignments, error: queryErr } = await supabase
     .from('worker_training_assignments')
     .select('id, due_date, last_reminder_sent_at, contractors ( full_name, email ), training_modules ( title )')
     .neq('status', 'completed')
     .not('due_date', 'is', null)
     .lt('due_date', today)
 
+  if (queryErr) {
+    return { error: `Query failed: ${queryErr.message}`, sent: 0, failed: 0, total: 0 }
+  }
+
   const eligible = (assignments ?? []).filter((a) => {
-    if (!a.last_reminder_sent_at || a.last_reminder_sent_at < todayStart) return true
-    return false
+    return !a.last_reminder_sent_at || a.last_reminder_sent_at < todayStart
   })
+
+  if (eligible.length === 0) {
+    revalidatePath('/portal/alerts')
+    return { sent: 0, failed: 0, total: 0 }
+  }
 
   let sent = 0
   let failed = 0

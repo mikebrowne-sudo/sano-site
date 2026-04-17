@@ -32,21 +32,21 @@ export default async function AlertsPage() {
     supabase.from('jobs')
       .select('id, job_number, title, scheduled_date, status', { count: 'exact' })
       .is('contractor_id', null)
-      .not('status', 'in', '("completed","invoiced")')
+      .neq('status', 'completed').neq('status', 'invoiced')
       .order('scheduled_date', { ascending: true, nullsFirst: false })
       .limit(5),
     // Today's jobs
     supabase.from('jobs')
       .select('id, job_number, title, assigned_to, status, scheduled_time', { count: 'exact' })
       .eq('scheduled_date', today)
-      .not('status', 'in', '("completed","invoiced")')
+      .neq('status', 'completed').neq('status', 'invoiced')
       .order('scheduled_time', { ascending: true, nullsFirst: false }),
     // Tomorrow's jobs (for reminders)
     supabase.from('jobs')
       .select('id, job_number, title, assigned_to, contractor_id, scheduled_time, last_reminder_sent_at', { count: 'exact' })
       .eq('scheduled_date', tomorrowStr)
       .not('contractor_id', 'is', null)
-      .not('status', 'in', '("completed","invoiced")'),
+      .neq('status', 'completed').neq('status', 'invoiced'),
     // Overdue invoices
     supabase.from('invoices')
       .select('id, invoice_number, base_price, discount, due_date, clients ( name ), invoice_items ( price )', { count: 'exact' })
