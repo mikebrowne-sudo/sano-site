@@ -7,7 +7,8 @@ import { JobStatusActions } from './_components/JobStatusActions'
 import { AssignJobButton } from './_components/AssignJobButton'
 import { DuplicateJobButton } from './_components/DuplicateJobButton'
 import { CreateRecurringButton } from './_components/CreateRecurringButton'
-import { calculateLabour } from '@/lib/labour-calc'
+import { calculateVariance } from '@/lib/labour-calc'
+import { ActualHoursEditor } from './_components/ActualHoursEditor'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -60,7 +61,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
   // Load assigned workers with payroll fields for costing
   const { data: jobWorkers } = await supabase
     .from('job_workers')
-    .select('contractor_id, hours_allocated, contractors ( full_name, hourly_rate, worker_type, holiday_pay_method, holiday_pay_percent, kiwisaver_enrolled, kiwisaver_employer_rate )')
+    .select('contractor_id, hours_allocated, actual_start_time, actual_end_time, actual_hours, contractors ( full_name, hourly_rate, worker_type, holiday_pay_method, holiday_pay_percent, kiwisaver_enrolled, kiwisaver_employer_rate )')
     .eq('job_id', params.id)
 
   const client = job.clients as unknown as { name: string; company_name: string | null } | null
@@ -219,7 +220,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
           </Section>
         )}
 
-        {/* Pricing & Contractor */}
+        {/* Labour & Margin */}
         <Section title="Labour &amp; Margin">
           {(() => {
             const workers = (jobWorkers ?? []).map((w) => {
@@ -233,6 +234,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
                 full_name: c?.full_name ?? '—',
                 hourly_rate: c?.hourly_rate ?? null,
                 hours_allocated: w.hours_allocated,
+                actual_hours: w.actual_hours ?? null,
                 worker_type: c?.worker_type ?? 'contractor',
                 holiday_pay_method: c?.holiday_pay_method ?? null,
                 holiday_pay_percent: c?.holiday_pay_percent ?? null,
@@ -240,73 +242,106 @@ export default async function JobDetailPage({ params }: { params: { id: string }
                 kiwisaver_employer_rate: c?.kiwisaver_employer_rate ?? null,
               }
             })
-            const labour = calculateLabour(job.job_price ?? 0, job.allowed_hours, workers)
+            const v = calculateVariance(job.job_price ?? 0, job.allowed_hours, workers)
+            const hasActuals = workers.some((w) => (w.actual_hours ?? 0) > 0)
 
             return (
               <>
-                {/* Summary cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                  <div className="bg-sage-50 rounded-lg p-3">
-                    <p className="text-xs text-sage-500">Job value</p>
-                    <p className="text-lg font-bold text-sage-800">{fmtCurrency(job.job_price)}</p>
-                  </div>
-                  <div className="bg-sage-50 rounded-lg p-3">
-                    <p className="text-xs text-sage-500">Labour cost</p>
-                    <p className="text-lg font-bold text-sage-800">{fmtCurrency(labour.totalLabourCost)}</p>
-                  </div>
-                  <div className={clsx('rounded-lg p-3', labour.grossProfit >= 0 ? 'bg-emerald-50' : 'bg-red-50')}>
-                    <p className={clsx('text-xs', labour.grossProfit >= 0 ? 'text-emerald-600' : 'text-red-600')}>Gross margin</p>
-                    <p className={clsx('text-lg font-bold', labour.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600')}>
-                      {fmtCurrency(labour.grossProfit)}
-                    </p>
-                  </div>
-                  <div className={clsx('rounded-lg p-3', labour.marginPercent >= 0 ? 'bg-emerald-50' : 'bg-red-50')}>
-                    <p className={clsx('text-xs', labour.marginPercent >= 0 ? 'text-emerald-600' : 'text-red-600')}>Margin %</p>
-                    <p className={clsx('text-lg font-bold', labour.marginPercent >= 0 ? 'text-emerald-700' : 'text-red-600')}>
-                      {labour.marginPercent}%
-                    </p>
-                  </div>
+                {/* Estimate vs Actual comparison */}
+                <div className="overflow-x-auto mb-4">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-sage-500 border-b border-sage-100">
+                        <th className="py-2 pr-4"></th>
+                        <th className="py-2 pr-4 text-right">Estimated</th>
+                        {hasActuals && <th className="py-2 pr-4 text-right">Actual</th>}
+                        {hasActuals && <th className="py-2 text-right">Variance</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b border-sage-50">
+                        <td className="py-2 pr-4 text-sage-600">Job value</td>
+                        <td className="py-2 pr-4 text-right font-bold text-sage-800" colSpan={hasActuals ? 3 : 1}>{fmtCurrency(job.job_price)}</td>
+                      </tr>
+                      <tr className="border-b border-sage-50">
+                        <td className="py-2 pr-4 text-sage-600">Hours</td>
+                        <td className="py-2 pr-4 text-right text-sage-800">{v.estimated.totalHours.toFixed(1)}h</td>
+                        {hasActuals && <td className="py-2 pr-4 text-right text-sage-800">{v.actual.totalHours.toFixed(1)}h</td>}
+                        {hasActuals && <td className="py-2 text-right"><VarCell value={v.hoursVariance} suffix="h" /></td>}
+                      </tr>
+                      <tr className="border-b border-sage-50">
+                        <td className="py-2 pr-4 text-sage-600">Labour cost</td>
+                        <td className="py-2 pr-4 text-right text-sage-800">{fmtCurrency(v.estimated.totalLabourCost)}</td>
+                        {hasActuals && <td className="py-2 pr-4 text-right text-sage-800">{fmtCurrency(v.actual.totalLabourCost)}</td>}
+                        {hasActuals && <td className="py-2 text-right"><VarCell value={v.costVariance} currency /></td>}
+                      </tr>
+                      <tr className="border-b border-sage-50">
+                        <td className="py-2 pr-4 text-sage-600">Employer KS</td>
+                        <td className="py-2 pr-4 text-right text-sage-600">{fmtCurrency(v.estimated.totalEmployerKs)}</td>
+                        {hasActuals && <td className="py-2 pr-4 text-right text-sage-600">{fmtCurrency(v.actual.totalEmployerKs)}</td>}
+                        {hasActuals && <td className="py-2 text-right"></td>}
+                      </tr>
+                      <tr className="border-b border-sage-50">
+                        <td className="py-2 pr-4 text-sage-600">ACC (1.7%)</td>
+                        <td className="py-2 pr-4 text-right text-sage-600">{fmtCurrency(v.estimated.totalAccCost)}</td>
+                        {hasActuals && <td className="py-2 pr-4 text-right text-sage-600">{fmtCurrency(v.actual.totalAccCost)}</td>}
+                        {hasActuals && <td className="py-2 text-right"></td>}
+                      </tr>
+                      <tr className={clsx(v.estimated.grossProfit >= 0 ? 'bg-emerald-50' : 'bg-red-50')}>
+                        <td className="py-2.5 pr-4 font-semibold text-sage-800">Gross margin</td>
+                        <td className="py-2.5 pr-4 text-right font-bold">
+                          <span className={v.estimated.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}>{fmtCurrency(v.estimated.grossProfit)}</span>
+                          <span className="text-sage-500 font-normal text-xs ml-1">({v.estimated.marginPercent}%)</span>
+                        </td>
+                        {hasActuals && (
+                          <td className="py-2.5 pr-4 text-right font-bold">
+                            <span className={v.actual.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}>{fmtCurrency(v.actual.grossProfit)}</span>
+                            <span className="text-sage-500 font-normal text-xs ml-1">({v.actual.marginPercent}%)</span>
+                          </td>
+                        )}
+                        {hasActuals && <td className="py-2.5 text-right"><VarCell value={v.marginVariance} currency invert /></td>}
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
 
-                {/* Cost breakdown */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 text-sm">
-                  <div><span className="text-sage-500">Total hours</span><p className="text-sage-800 font-medium">{labour.totalHours.toFixed(1)}h</p></div>
-                  <div><span className="text-sage-500">Allowed hours</span><p className="text-sage-800 font-medium">{job.allowed_hours ?? '—'}</p></div>
-                  <div><span className="text-sage-500">Employer KiwiSaver</span><p className="text-sage-800 font-medium">{fmtCurrency(labour.totalEmployerKs)}</p></div>
-                  <div><span className="text-sage-500">ACC levy (1.7%)</span><p className="text-sage-800 font-medium">{fmtCurrency(labour.totalAccCost)}</p></div>
-                </div>
-
-                {/* Per-worker table */}
-                {labour.workers.length > 0 && (
-                  <div className="border-t border-sage-100 pt-3 mt-3">
+                {/* Per-worker breakdown */}
+                {v.estimated.workers.length > 0 && (
+                  <div className="border-t border-sage-100 pt-3">
                     <span className="text-xs text-sage-500 font-semibold uppercase tracking-wide">Worker Breakdown</span>
                     <div className="overflow-x-auto mt-2">
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="text-left text-sage-500 border-b border-sage-100">
-                            <th className="py-2 pr-3">Worker</th>
-                            <th className="py-2 pr-3">Type</th>
-                            <th className="py-2 pr-3 text-right">Hours</th>
-                            <th className="py-2 pr-3 text-right">Rate</th>
-                            <th className="py-2 pr-3 text-right">Hol. Pay</th>
-                            <th className="py-2 pr-3 text-right">KS (er)</th>
-                            <th className="py-2 pr-3 text-right">ACC</th>
-                            <th className="py-2 text-right">Total</th>
+                            <th className="py-2 pr-2">Worker</th>
+                            <th className="py-2 pr-2">Type</th>
+                            <th className="py-2 pr-2 text-right">Est. hrs</th>
+                            <th className="py-2 pr-2 text-right">Actual hrs</th>
+                            <th className="py-2 pr-2 text-right">Rate</th>
+                            <th className="py-2 pr-2 text-right">Est. cost</th>
+                            <th className="py-2 pr-2 text-right">Actual cost</th>
+                            <th className="py-2 text-right">Variance</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {labour.workers.map((w) => (
-                            <tr key={w.contractorId} className="border-b border-sage-50">
-                              <td className="py-2 pr-3 font-medium text-sage-800">{w.fullName}</td>
-                              <td className="py-2 pr-3 text-sage-600 capitalize">{w.workerType.replace('_', ' ')}</td>
-                              <td className="py-2 pr-3 text-right text-sage-700">{w.hoursAllocated.toFixed(1)}</td>
-                              <td className="py-2 pr-3 text-right text-sage-700">{fmtCurrency(w.hourlyRate)}</td>
-                              <td className="py-2 pr-3 text-right text-sage-600">{w.holidayPay > 0 ? fmtCurrency(w.holidayPay) : '—'}</td>
-                              <td className="py-2 pr-3 text-right text-sage-600">{w.employerKiwisaver > 0 ? fmtCurrency(w.employerKiwisaver) : '—'}</td>
-                              <td className="py-2 pr-3 text-right text-sage-600">{w.accCost > 0 ? fmtCurrency(w.accCost) : '—'}</td>
-                              <td className="py-2 text-right font-bold text-sage-800">{fmtCurrency(w.totalCost)}</td>
-                            </tr>
-                          ))}
+                          {v.estimated.workers.map((ew, i) => {
+                            const aw = v.actual.workers[i]
+                            const costVar = aw ? aw.totalCost - ew.totalCost : 0
+                            return (
+                              <tr key={ew.contractorId} className="border-b border-sage-50">
+                                <td className="py-2 pr-2 font-medium text-sage-800">{ew.fullName}</td>
+                                <td className="py-2 pr-2 text-sage-600 capitalize">{ew.workerType.replace('_', ' ')}</td>
+                                <td className="py-2 pr-2 text-right text-sage-700">{ew.hours.toFixed(1)}</td>
+                                <td className="py-2 pr-2 text-right">
+                                  <ActualHoursEditor jobId={job.id} contractorId={ew.contractorId} currentHours={workers[i]?.actual_hours ?? null} />
+                                </td>
+                                <td className="py-2 pr-2 text-right text-sage-700">{fmtCurrency(ew.hourlyRate)}</td>
+                                <td className="py-2 pr-2 text-right text-sage-800">{fmtCurrency(ew.totalCost)}</td>
+                                <td className="py-2 pr-2 text-right text-sage-800">{aw ? fmtCurrency(aw.totalCost) : '—'}</td>
+                                <td className="py-2 text-right">{aw && aw.hours > 0 ? <VarCell value={costVar} currency /> : <span className="text-sage-300">—</span>}</td>
+                              </tr>
+                            )
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -352,4 +387,17 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       {children}
     </div>
   )
+}
+
+function VarCell({ value, currency, suffix, invert }: { value: number; currency?: boolean; suffix?: string; invert?: boolean }) {
+  const rounded = Math.round(value * 100) / 100
+  if (rounded === 0) return <span className="text-sage-400">—</span>
+  // For costs: positive = over budget (bad). For margin: positive = better (good, so invert)
+  const isGood = invert ? rounded > 0 : rounded < 0
+  const color = isGood ? 'text-emerald-700' : 'text-red-600'
+  const sign = rounded > 0 ? '+' : ''
+  const display = currency
+    ? `${sign}${new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(rounded)}`
+    : `${sign}${rounded.toFixed(1)}${suffix ?? ''}`
+  return <span className={clsx('font-medium', color)}>{display}</span>
 }

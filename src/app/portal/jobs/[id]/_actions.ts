@@ -104,6 +104,21 @@ export async function completeJob(jobId: string) {
   return { success: true }
 }
 
+export async function updateWorkerActualHours(jobId: string, contractorId: string, actualHours: number) {
+  const supabase = createClient()
+
+  const { error } = await supabase
+    .from('job_workers')
+    .update({ actual_hours: actualHours })
+    .eq('job_id', jobId)
+    .eq('contractor_id', contractorId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/portal/jobs/${jobId}`)
+  return { success: true }
+}
+
 export async function assignJob(jobId: string, contractorId: string) {
   const supabase = createClient()
 
