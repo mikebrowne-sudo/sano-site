@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { calculatePayPreview } from '@/lib/nz-paye'
+import { calculatePayPreview, KS_DEFAULT_EMPLOYEE } from '@/lib/nz-paye'
 import clsx from 'clsx'
 
 function fmt(d: number) { return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(d) }
@@ -64,7 +64,8 @@ export function PayPreview({ contractor }: {
             {result.holidayPay > 0 && <Row label="Effective gross" value={fmt(result.effectiveGross)} bold />}
             {isPaygo && <Row label="(Holiday pay included in loaded rate)" value="" note />}
             <Row label={`PAYE (${contractor.tax_code || 'M'})`} value={`-${fmt(result.paye)}`} color="red" />
-            {result.employeeKiwisaver > 0 && <Row label={`KiwiSaver employee (${contractor.kiwisaver_employee_rate ?? 3}%)`} value={`-${fmt(result.employeeKiwisaver)}`} color="red" />}
+            {result.studentLoan > 0 && <Row label="Student loan (12%)" value={`-${fmt(result.studentLoan)}`} color="red" />}
+            {result.employeeKiwisaver > 0 && <Row label={`KiwiSaver employee (${contractor.kiwisaver_employee_rate ?? KS_DEFAULT_EMPLOYEE}%)`} value={`-${fmt(result.employeeKiwisaver)}`} color="red" />}
             <Row label="Net pay" value={fmt(result.netPay)} bold color="emerald" highlight />
           </tbody>
         </table>

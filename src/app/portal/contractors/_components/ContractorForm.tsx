@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { createContractor, updateContractor } from '../_actions'
+import { TAX_CODES, KS_EMPLOYEE_RATES, KS_DEFAULT_EMPLOYEE, KS_DEFAULT_EMPLOYER } from '@/lib/nz-paye'
 import clsx from 'clsx'
 
 interface ContractorData {
@@ -35,8 +36,6 @@ function toNum(v: string) {
   return Number.isFinite(n) ? n : undefined
 }
 
-const TAX_CODES = ['M', 'ME', 'SB', 'S', 'SH', 'ST', 'ND']
-
 export function ContractorForm({ contractor }: { contractor?: ContractorData }) {
   const isEdit = !!contractor?.id
 
@@ -60,8 +59,8 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
   const [taxCode, setTaxCode] = useState(contractor?.tax_code ?? 'M')
   const [ir330Received, setIr330Received] = useState(contractor?.ir330_received ?? false)
   const [ksEnrolled, setKsEnrolled] = useState(contractor?.kiwisaver_enrolled ?? false)
-  const [ksEmployeeRate, setKsEmployeeRate] = useState(contractor?.kiwisaver_employee_rate != null ? String(contractor.kiwisaver_employee_rate) : '3')
-  const [ksEmployerRate, setKsEmployerRate] = useState(contractor?.kiwisaver_employer_rate != null ? String(contractor.kiwisaver_employer_rate) : '3')
+  const [ksEmployeeRate, setKsEmployeeRate] = useState(contractor?.kiwisaver_employee_rate != null ? String(contractor.kiwisaver_employee_rate) : String(KS_DEFAULT_EMPLOYEE))
+  const [ksEmployerRate, setKsEmployerRate] = useState(contractor?.kiwisaver_employer_rate != null ? String(contractor.kiwisaver_employer_rate) : String(KS_DEFAULT_EMPLOYER))
 
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -191,11 +190,19 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
             <Field label="IRD number" value={irdNumber} onChange={setIrdNumber} placeholder="e.g. 12-345-678" />
             <div>
               <span className="block text-sm font-semibold text-sage-800 mb-1.5">Tax code</span>
-              <div className="flex flex-wrap gap-2">
-                {TAX_CODES.map((c) => (
-                  <Btn key={c} active={taxCode === c} onClick={() => setTaxCode(c)} color={c === 'ND' ? 'red' : 'sage'}>{c}</Btn>
+              <select
+                value={ir330Received ? taxCode : 'ND'}
+                onChange={(e) => setTaxCode(e.target.value)}
+                disabled={!ir330Received}
+                className={clsx('w-full appearance-none rounded-lg border px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sage-500',
+                  !ir330Received ? 'border-amber-300 text-amber-700 bg-amber-50 cursor-not-allowed' : 'border-sage-200 text-sage-800'
+                )}
+              >
+                {TAX_CODES.map((tc) => (
+                  <option key={tc.value} value={tc.value}>{tc.label}</option>
                 ))}
-              </div>
+              </select>
+              <p className="text-xs text-sage-500 mt-1">Selected from IR330</p>
             </div>
           </div>
           <label className="flex items-center gap-3 mt-4 cursor-pointer">
@@ -204,8 +211,8 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
           </label>
           {!ir330Received && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mt-3">
-              <p className="text-amber-800 text-sm font-medium">IR330 not received</p>
-              <p className="text-amber-700 text-xs mt-1">Tax code ND (no declaration) will apply until an IR330 is received. PAYE will be deducted at 45%.</p>
+              <p className="text-amber-800 text-sm font-medium">IR330 not received — ND will apply</p>
+              <p className="text-amber-700 text-xs mt-1">PAYE will be deducted at the non-notified rate (45%) until an IR330 is received. The tax code selector is locked to ND.</p>
             </div>
           )}
         </Section>
@@ -220,7 +227,12 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
           </label>
           {ksEnrolled && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Employee rate (%)" type="number" step="0.5" min="0" max="10" value={ksEmployeeRate} onChange={setKsEmployeeRate} />
+              <div>
+                <span className="block text-sm font-semibold text-sage-800 mb-1.5">Employee rate (%)</span>
+                <select value={ksEmployeeRate} onChange={(e) => setKsEmployeeRate(e.target.value)} className="w-full appearance-none rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sage-500">
+                  {KS_EMPLOYEE_RATES.map((r) => <option key={r} value={String(r)}>{r}%</option>)}
+                </select>
+              </div>
               <Field label="Employer rate (%)" type="number" step="0.5" min="0" max="10" value={ksEmployerRate} onChange={setKsEmployerRate} />
             </div>
           )}
