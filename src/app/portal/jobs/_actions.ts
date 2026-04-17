@@ -147,3 +147,41 @@ export async function updateJob(input: UpdateJobInput) {
   revalidatePath('/portal/jobs')
   redirect(`/portal/jobs/${input.id}`)
 }
+
+export async function duplicateJob(jobId: string) {
+  const supabase = createClient()
+
+  const { data: source, error: loadErr } = await supabase
+    .from('jobs')
+    .select('client_id, title, description, address, scheduled_time, duration_estimate, contractor_id, assigned_to, contractor_price')
+    .eq('id', jobId)
+    .single()
+
+  if (loadErr || !source) {
+    return { error: `Job not found: ${loadErr?.message}` }
+  }
+
+  const { data: newJob, error: createErr } = await supabase
+    .from('jobs')
+    .insert({
+      client_id: source.client_id,
+      title: source.title,
+      description: source.description,
+      address: source.address,
+      scheduled_time: source.scheduled_time,
+      duration_estimate: source.duration_estimate,
+      contractor_id: source.contractor_id,
+      assigned_to: source.assigned_to,
+      contractor_price: source.contractor_price,
+      status: 'draft',
+    })
+    .select('id')
+    .single()
+
+  if (createErr || !newJob) {
+    return { error: `Failed to duplicate job: ${createErr?.message}` }
+  }
+
+  revalidatePath('/portal/jobs')
+  redirect(`/portal/jobs/${newJob.id}/edit`)
+}

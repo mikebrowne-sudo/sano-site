@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { Briefcase, Plus } from 'lucide-react'
+import { JobFilters } from './_components/JobFilters'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -20,13 +21,66 @@ function statusLabel(s: string) {
   return s.replace('_', ' ')
 }
 
-export default async function JobsPage() {
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function tomorrowStr() {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  return d.toISOString().slice(0, 10)
+}
+
+export default async function JobsPage({
+  searchParams,
+}: {
+  searchParams: { view?: string; contractor?: string; sort?: string; q?: string }
+}) {
   const supabase = createClient()
 
-  const { data: jobs, error } = await supabase
+  const view = searchParams.view ?? ''
+  const contractorFilter = searchParams.contractor ?? ''
+  const sort = searchParams.sort ?? 'scheduled_asc'
+  const search = searchParams.q?.trim() ?? ''
+
+  const today = todayStr()
+  const tomorrow = tomorrowStr()
+
+  // Build query — safe fields + assigned_to + contractor name
+  let query = supabase
     .from('jobs')
-    .select('id, job_number, title, status, scheduled_date, created_at, clients ( name )')
-    .order('created_at', { ascending: false })
+    .select('id, job_number, title, address, status, scheduled_date, scheduled_time, assigned_to, contractor_id, created_at, clients ( name )')
+
+  // Apply view filters
+  if (view === 'today') query = query.eq('scheduled_date', today)
+  else if (view === 'tomorrow') query = query.eq('scheduled_date', tomorrow)
+  else if (view === 'unassigned') query = query.is('contractor_id', null)
+  else if (view === 'in_progress') query = query.eq('status', 'in_progress')
+  else if (view === 'completed') query = query.eq('status', 'completed')
+
+  // Contractor filter
+  if (contractorFilter) query = query.eq('contractor_id', contractorFilter)
+
+  // Search — ilike on job_number, title, address, assigned_to
+  if (search) {
+    query = query.or(`job_number.ilike.%${search}%,title.ilike.%${search}%,address.ilike.%${search}%,assigned_to.ilike.%${search}%`)
+  }
+
+  // Sorting
+  if (sort === 'scheduled_asc') query = query.order('scheduled_date', { ascending: true, nullsFirst: false })
+  else if (sort === 'scheduled_desc') query = query.order('scheduled_date', { ascending: false })
+  else if (sort === 'created_desc') query = query.order('created_at', { ascending: false })
+  else if (sort === 'created_asc') query = query.order('created_at', { ascending: true })
+
+  // Load jobs + contractors + counts in parallel
+  const [{ data: jobs, error }, { data: contractors }, todayCount, tomorrowCount, unassignedCount, inProgressCount] = await Promise.all([
+    query,
+    supabase.from('contractors').select('id, full_name').eq('status', 'active').order('full_name'),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('scheduled_date', today),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('scheduled_date', tomorrow),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('contractor_id', null).neq('status', 'completed').neq('status', 'invoiced'),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('status', 'in_progress'),
+  ])
 
   if (error) {
     return (
@@ -46,11 +100,21 @@ export default async function JobsPage() {
       jobNumber: j.job_number,
       clientName: client?.name ?? '—',
       title: j.title ?? '—',
+      address: j.address ?? '',
       status: j.status ?? 'draft',
+      assignedTo: j.assigned_to ?? '',
       scheduledDate: j.scheduled_date,
+      scheduledTime: j.scheduled_time,
       createdAt: j.created_at,
     }
   })
+
+  const counts = {
+    today: todayCount.count ?? 0,
+    tomorrow: tomorrowCount.count ?? 0,
+    unassigned: unassignedCount.count ?? 0,
+    inProgress: inProgressCount.count ?? 0,
+  }
 
   return (
     <div>
@@ -65,47 +129,55 @@ export default async function JobsPage() {
         </Link>
       </div>
 
+      <JobFilters contractors={contractors ?? []} counts={counts} />
+
       {rows.length === 0 ? (
         <div className="bg-white rounded-xl border border-sage-100 p-10 text-center">
           <Briefcase size={32} className="text-sage-200 mx-auto mb-3" />
-          <p className="text-sage-600 text-sm mb-4">No jobs yet.</p>
-          <Link
-            href="/portal/jobs/new"
-            className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
-          >
-            <Plus size={16} />
-            Create your first job
-          </Link>
+          <p className="text-sage-600 text-sm mb-1">
+            {view || search || contractorFilter ? 'No jobs match your filters.' : 'No jobs yet.'}
+          </p>
+          {!view && !search && !contractorFilter && (
+            <Link
+              href="/portal/jobs/new"
+              className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors mt-3"
+            >
+              <Plus size={16} />
+              Create your first job
+            </Link>
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-sage-100 overflow-hidden">
+          {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-sage-100 text-left text-sage-600">
                   <th className="px-5 py-3 font-semibold">Job #</th>
-                  <th className="px-5 py-3 font-semibold">Client</th>
                   <th className="px-5 py-3 font-semibold">Title</th>
+                  <th className="px-5 py-3 font-semibold">Address</th>
+                  <th className="px-5 py-3 font-semibold">Contractor</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
                   <th className="px-5 py-3 font-semibold">Scheduled</th>
-                  <th className="px-5 py-3 font-semibold">Created</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.id} className="border-b border-sage-50 last:border-0 group">
                     <td className="p-0"><Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors font-medium text-sage-800">{row.jobNumber}</Link></td>
-                    <td className="p-0"><Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-700">{row.clientName}</Link></td>
-                    <td className="p-0"><Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-700">{row.title}</Link></td>
+                    <td className="p-0"><Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-700 max-w-[200px] truncate">{row.title}</Link></td>
+                    <td className="p-0"><Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600 max-w-[200px] truncate">{row.address || '—'}</Link></td>
+                    <td className="p-0"><Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{row.assignedTo || <span className="text-sage-300">Unassigned</span>}</Link></td>
                     <td className="p-0"><Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors"><span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', STATUS_STYLES[row.status] ?? STATUS_STYLES.draft)}>{statusLabel(row.status)}</span></Link></td>
-                    <td className="p-0"><Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{fmtDate(row.scheduledDate)}</Link></td>
-                    <td className="p-0"><Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{fmtDate(row.createdAt)}</Link></td>
+                    <td className="p-0"><Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{fmtDate(row.scheduledDate)}{row.scheduledTime ? <span className="text-sage-400 ml-1.5">{row.scheduledTime}</span> : ''}</Link></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
+          {/* Mobile cards */}
           <div className="md:hidden divide-y divide-sage-100">
             {rows.map((row) => (
               <Link key={row.id} href={`/portal/jobs/${row.id}`} className="block px-4 py-4 hover:bg-sage-50/50 transition-colors">
@@ -114,13 +186,18 @@ export default async function JobsPage() {
                   <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', STATUS_STYLES[row.status] ?? STATUS_STYLES.draft)}>{statusLabel(row.status)}</span>
                 </div>
                 <div className="text-sage-700 text-sm">{row.title}</div>
-                <div className="text-sage-600 text-xs mt-1">{row.clientName}</div>
-                <div className="text-sage-500 text-xs mt-1">{fmtDate(row.scheduledDate)}</div>
+                {row.address && <div className="text-sage-500 text-xs mt-1">{row.address}</div>}
+                <div className="flex items-center justify-between mt-2 text-xs text-sage-500">
+                  <span>{row.assignedTo || 'Unassigned'}</span>
+                  <span>{fmtDate(row.scheduledDate)}{row.scheduledTime ? ` ${row.scheduledTime}` : ''}</span>
+                </div>
               </Link>
             ))}
           </div>
         </div>
       )}
+
+      <p className="text-xs text-sage-400 mt-4">{rows.length} job{rows.length !== 1 ? 's' : ''}</p>
     </div>
   )
 }

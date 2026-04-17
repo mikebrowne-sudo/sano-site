@@ -5,6 +5,7 @@ import { ArrowLeft, Pencil } from 'lucide-react'
 import { JobInvoiceButton } from './_components/JobInvoiceButton'
 import { JobStatusActions } from './_components/JobStatusActions'
 import { AssignJobButton } from './_components/AssignJobButton'
+import { DuplicateJobButton } from './_components/DuplicateJobButton'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -125,6 +126,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
             <Pencil size={14} />
             Edit Job
           </Link>
+          <DuplicateJobButton jobId={job.id} />
           <JobStatusActions jobId={job.id} status={job.status} />
           <JobInvoiceButton
             jobId={job.id}
