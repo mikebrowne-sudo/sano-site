@@ -70,11 +70,13 @@ export function PricingSummary({
         bathrooms: builder.bathrooms ? parseInt(builder.bathrooms, 10) : null,
         condition_tags: builder.condition_tags,
         addons_wording: builder.addons_wording,
+        frequency: builder.frequency || null,
+        x_per_week: builder.x_per_week ? parseInt(builder.x_per_week, 10) : null,
       },
       value.pricing_mode,
       overrideNumber,
     )
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    /* eslint-disable react-hooks/exhaustive-deps */
   }, [
     eligible,
     builder.service_category,
@@ -83,10 +85,13 @@ export function PricingSummary({
     builder.bathrooms,
     builder.condition_tags.join(','),
     builder.addons_wording.join(','),
+    builder.frequency,
+    builder.x_per_week,
     value.pricing_mode,
     value.override_flag,
     value.override_price,
   ])
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   // The input displays the override value if one is set, otherwise the live calculated value.
   // No effects, no synced state — the source of truth is `value` (owned state) + `live` (derived).

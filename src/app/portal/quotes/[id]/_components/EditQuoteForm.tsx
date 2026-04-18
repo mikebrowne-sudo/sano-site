@@ -199,6 +199,8 @@ export function EditQuoteForm({
         bathrooms: builder.bathrooms ? parseInt(builder.bathrooms, 10) : null,
         condition_tags: builder.condition_tags,
         addons_wording: builder.addons_wording,
+        frequency: builder.frequency || null,
+        x_per_week: builder.x_per_week ? parseInt(builder.x_per_week, 10) : null,
       },
       pricing.pricing_mode,
       overrideNumber,
@@ -209,6 +211,7 @@ export function EditQuoteForm({
     builder.service_category, builder.service_type_code,
     builder.bedrooms, builder.bathrooms,
     builder.condition_tags.join(','), builder.addons_wording.join(','),
+    builder.frequency, builder.x_per_week,
     pricing.pricing_mode, pricing.override_flag, pricing.override_price,
   ])
   /* eslint-enable react-hooks/exhaustive-deps */

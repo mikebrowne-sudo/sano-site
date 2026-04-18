@@ -28,49 +28,48 @@ Sits alongside the existing quote wording system. The wording engine is untouche
 
 ## 3. Pricing Model
 
-Calculation sequence, strictly in this order:
+**Billable hour calculation order** (strict):
 
-1. **Base labour hours** from bed count (see bed table).
-2. **Service type multiplier** (see table). Applied to base hours.
-3. **Condition / focus percentage adjustments** (see table). Multiple `%` adjustments stack **multiplicatively** with each other and with the service type multiplier.
-4. **Flat-hour additions** — applied AFTER multipliers, so they behave as fixed-scope tasks whose time is not scaled by difficulty:
-   - Bathroom adjustment: `+0.5 hrs` for each bathroom over 1.
-   - `high_use_areas` tag: `+0.5 hrs`.
-   - Add-on hours (oven, fridge, windows, mould, etc. — see add-on table).
-5. **Minimum job time**: `max(hours, 2.25)` — enforced BEFORE buffer.
-6. **Buffer**: `× 1.15` (standard) or `× 1.20` (heavy — see list).
-7. **Round up** to nearest 0.5 hr.
-8. **Hourly rate**: `× $65`.
-9. **Pricing mode multiplier**: `× 0.92` (Win) / `× 1.00` (Standard) / `× 1.08` (Premium).
-10. **Service fee**: `+ $25` (silent — never itemised client-facing).
+1. **Raw service hours** from bedrooms × service type multiplier.
+2. **Condition multiplier** — stack all `%` adjustments multiplicatively.
+3. **Flat-hour loadings** — `+0.5 hrs` per bathroom over 1, `+0.5 hrs` for `high_use_areas`, plus all selected add-on hours. Fixed-scope; not scaled by multipliers.
+4. **Frequency multiplier**, subject to minimum: `max(MIN_JOB_HOURS, hours × frequency_multiplier)`. The minimum enforces a floor AFTER frequency discounting, so a weekly recurring 1-bed clean never drops below the minimum billable.
+5. **Buffer multiplier** — `× 1.05` (standard) or `× 1.08` (heavy — see list).
+6. **Round up** to the nearest 0.5 hour.
+7. **Hourly rate** — selected directly by pricing mode (Win $65 / Standard $75 / Premium $82). No post-multiplier.
+8. **Service fee** — `+ $25` (silent; never itemised client-facing).
+9. **Override** — if staff enters a Final price differing from the calculated price, `final_price = override` and `override_flag = true`.
 
 Formulaically:
 
 ```
-hours = (base_hours × service_multiplier × Π condition_multipliers)
-        + bathroom_hours + high_use_hours + Σ addon_hours
-hours = max(hours, MIN_JOB_HOURS)
-hours = ceil_to_0_5(hours × buffer)
-calculated_price = (hours × HOURLY_RATE × pricing_mode_multiplier) + SERVICE_FEE
-final_price = override ?? calculated_price
+raw          = base_hours × service_multiplier × condition_multiplier
+adjusted     = raw + bathroom_hours + high_use_hours + Σ addon_hours
+after_freq   = max(MIN_JOB_HOURS, adjusted × frequency_multiplier)
+buffered     = after_freq × (1 + buffer_percent)
+final_hours  = ceil_to_0_5(buffered)
+rate         = HOURLY_RATES[pricing_mode]     // 65 / 75 / 82
+calculated   = (final_hours × rate) + SERVICE_FEE
+final_price  = override ?? calculated
 ```
 
-All flat-hour additions (bathroom, high-use, add-ons) are fixed-scope and never scaled by the service type multiplier or condition percentages — a 2-bathroom 3-bed Deep Clean with an oven clean adds the same `0.5 + 1.0` hrs as a 2-bathroom 3-bed Standard Clean with an oven clean.
-
-Result is the `calculated_price`. The `final_price` equals `calculated_price` unless staff enters an override, in which case `override_flag = true`.
+Flat-hour loadings (bathroom, high-use, add-ons) are fixed-scope and never scaled by service or condition multipliers — a 2-bathroom 3-bed Deep Clean with an oven clean adds the same `0.5 + 1.0` hrs as a 2-bathroom 3-bed Standard Clean with an oven clean.
 
 ### 3.1 Base time by bedrooms (Residential / Property Management / Airbnb)
 
+Aligned with the Sano 100-point residential system.
+
 | Bedrooms | Hours |
 |---|---|
-| 1 | 2.25 |
-| 2 | 3.25 |
-| 3 | 4.75 |
-| 4 | 6.5 |
-| 5 | 8.0 |
+| 1 | 2.0 |
+| 2 | 2.75 |
+| 3 | 3.5 |
+| 4 | 5.0 |
+| 5 | 6.0 |
+| 6 | 7.5 |
 
-- `bedrooms` empty or `0` → fall back to 1-bed base. UI shows muted note: *"Using 1-bedroom base until property size is selected."*
-- `bedrooms > 5` → clamp to 5-bed base. UI shows muted note: *"Pricing currently caps at 5 bedrooms. Please review manually."*
+- `bedrooms` empty or `0` → fall back to 1-bed base. UI note: *"Using 1-bedroom base until property size is selected."*
+- `bedrooms > 6` → clamp to 6-bed base. UI note: *"Pricing currently caps at 6 bedrooms. Please review manually."*
 
 ### 3.2 Service type multipliers
 
@@ -78,14 +77,14 @@ Result is the `calculated_price`. The `final_price` equals `calculated_price` un
 |---|---|---|
 | Residential | `standard_clean` | 1.0 |
 | Residential | `deep_clean` | 1.6 |
-| Residential | `move_in_out` | 1.8 |
-| Residential | `pre_sale` | 1.3 |
+| Residential | `move_in_out` | 1.65 |
+| Residential | `pre_sale` | 1.2 |
 | Property Management | `routine` | 1.0 |
-| Property Management | `end_of_tenancy` | 1.8 |
-| Property Management | `pre_inspection` | 1.3 |
-| Property Management | `handover` | 1.3 |
+| Property Management | `end_of_tenancy` | 1.65 |
+| Property Management | `pre_inspection` | 1.2 |
+| Property Management | `handover` | 1.2 |
 | Airbnb | `turnover` | 0.9 |
-| Airbnb | `deep_reset` | 1.4 |
+| Airbnb | `deep_reset` | 1.25 |
 
 ### 3.3 Condition / focus adjustments
 
@@ -93,21 +92,21 @@ Result is the `calculated_price`. The `final_price` equals `calculated_price` un
 |---|---|
 | `well_maintained` | 0% |
 | `average_condition` | +10% |
-| `build_up_present` | +25% |
+| `build_up_present` | +20% |
 | `furnished_property` | +10% |
 | `high_use_areas` | +0.5 hrs (flat) |
-| `recently_renovated` | +30% |
+| `recently_renovated` | +20% |
 | `inspection_focus` | +10% |
 | `vacant_property` | 0 |
 | `guest_ready_focus` | 0 |
 
-Multiple `%` adjustments stack **multiplicatively** with each other and with the service type multiplier (applied at step 3) — e.g. Deep × Build-up × Furnished = `1.6 × 1.25 × 1.10`.
+Multiple `%` adjustments stack **multiplicatively** with each other and with the service type multiplier (e.g. Deep × Build-up × Furnished = `1.6 × 1.20 × 1.10`).
 
-`high_use_areas` is a **flat hour addition** (`+0.5 hrs`) applied at step 4 after the multipliers — not a percentage. Treating it as fixed-scope means adding a "high-use areas" tag to a Deep Clean adds the same 0.5 hrs as it would to a Standard Clean.
+`high_use_areas` is a **flat hour addition** (`+0.5 hrs`) applied at step 3 alongside bathrooms and add-ons — not a percentage. Adding a "high-use areas" tag to a Deep Clean adds the same 0.5 hrs as it would to a Standard Clean.
 
 ### 3.4 Bathroom adjustment
 
-`+0.5 hrs` for each bathroom over 1. Applied at step 4 as a flat-hour addition (not scaled by the service type multiplier or condition percentages).
+`+0.5 hrs` for each bathroom over 1. Applied at step 3 as a flat-hour loading (not scaled by service type multiplier or condition percentages).
 
 - `bathrooms` empty or `0` → treat as 1 (no adjustment).
 - `bathrooms ≥ 2` → add `(bathrooms − 1) × 0.5` hrs.
@@ -118,37 +117,75 @@ Multiple `%` adjustments stack **multiplicatively** with each other and with the
 |---|---|
 | `oven_clean` | +1.0 |
 | `fridge_clean` | +0.5 |
-| `interior_window` | +1.5 |
-| `wall_spot_cleaning` | +1.0 |
+| `interior_window` | +1.0 |
+| `wall_spot_cleaning` | +0.75 |
 | `carpet_cleaning` | +0.5 |
 | `spot_treatment` | +0.5 |
-| `mould_treatment` | +1.5 (new — appended to `ADDON_OPTIONS` in `quote-wording.ts`) |
+| `mould_treatment` | +1.5 |
 | `glass_doors`, `skirting_detailing`, `garage_clean`, `outdoor_areas`, `pressure_washing` | 0 (wording-only; v1) |
 
-### 3.6 Buffer classification
+Add-on keys intentionally match the existing `ADDON_OPTIONS` in `quote-wording.ts`; no renaming.
 
-Heavy buffer (×1.20) applies when service type is one of:
+### 3.6 Frequency multiplier
+
+Applied at step 4, AFTER flat-hour loadings and BEFORE the minimum-hours floor is enforced. `max(MIN_JOB_HOURS, adjusted_hours × frequency_multiplier)` means a heavy frequency discount will not push the billable below the floor.
+
+| Frequency (from builder state) | Multiplier |
+|---|---|
+| `one_off`                | 1.0  |
+| `monthly`                | 1.0  |
+| `weekly`                 | 0.75 |
+| `fortnightly`            | 0.85 |
+| `x_per_week` with count=1 | 0.75 |
+| `x_per_week` with count=2 | 0.60 |
+| `x_per_week` with count≥3 | 0.50 |
+| empty / null / unknown   | 1.0  |
+
+### 3.7 Buffer classification
+
+Heavy buffer (`× 1.08`) applies when service type is one of:
 - `deep_clean`, `move_in_out`, `end_of_tenancy`, `deep_reset`
 
-All other eligible service types use the standard buffer (×1.15).
+All other eligible service types use the standard buffer (`× 1.05`).
 
-### 3.7 Pricing mode multipliers
+### 3.8 Pricing mode — direct hourly rate selection
 
-| Mode | Multiplier |
+Pricing mode selects the hourly rate directly. There is no post-rate multiplier.
+
+| Mode | Hourly rate |
 |---|---|
-| `win` | 0.92 |
-| `standard` | 1.00 |
-| `premium` | 1.08 |
+| `win` | $65 |
+| `standard` | $75 |
+| `premium` | $82 |
 
 Default mode for a fresh quote: `standard`.
 
-### 3.8 Constants
+### 3.9 Constants
 
 ```
-HOURLY_RATE   = 65
-SERVICE_FEE   = 25
-MIN_JOB_HOURS = 2.25
+HOURLY_RATE_WIN       = 65
+HOURLY_RATE_STANDARD  = 75
+HOURLY_RATE_PREMIUM   = 82
+SERVICE_FEE           = 25
+MIN_JOB_HOURS         = 2.0
+BUFFER_STANDARD       = 0.05
+BUFFER_HEAVY          = 0.08
 ```
+
+### 3.10 Scenario reference values
+
+Used as the canonical test vectors. All values are the engine's exact outputs.
+
+| # | Property | Service / tags / mode | Final hours | Final price |
+|---|---|---|---|---|
+| 1 | 1-bed / 1-bath | Residential Standard / well-maintained / Win | 2.5 | $187.50 |
+| 2 | 3-bed / 2-bath | Residential Standard / well-maintained / Win | 4.5 | $317.50 |
+| 3 | 4-bed / 2-bath | Residential Deep / — / Win | 9.5 | $642.50 |
+| 4 | 3-bed / 2-bath | Residential Standard / well-maintained / Standard | 4.5 | $362.50 |
+| 5 | 3-bed / 2-bath | Deep + build-up + oven + fridge / Premium | 9.5 | $804.00 |
+| 6 | 1-bed / 1-bath | Airbnb Turnover / well-maintained / Standard | 2.5 | $212.50 |
+| 7 | 4-bed / 3-bath | PM End-of-Tenancy / furnished / Win | 11.0 | $740.00 |
+| 8 | 1-bed / 1-bath | Airbnb Turnover / weekly recurring / Standard | 2.5 | $212.50 (min floor kicks in AFTER frequency) |
 
 ## 4. Architecture
 
@@ -179,21 +216,52 @@ export interface PricingInput {
   bathrooms: number | null
   condition_tags: string[]
   addons_wording: string[]
+  frequency?: string | null        // 'one_off', 'weekly', 'fortnightly', 'x_per_week', 'monthly', null
+  x_per_week?: number | null       // only used when frequency === 'x_per_week'
 }
 
+// Breakdown is a SUPERSET — it retains all fields PricingSummary reads for UI continuity
+// while adding the new spec-native fields. Legacy saved breakdowns (pre-2026-04 revision)
+// use a subset of these fields; the UI tolerates missing fields gracefully.
 export interface PricingBreakdown {
+  // Base / inputs
   base_hours: number
-  bathroom_adjustment_hours: number
-  service_type_multiplier: number
+  bed_count_used: number
+  bed_count_clamped: boolean
+  bed_count_fallback: boolean
+
+  // Multipliers
+  service_type_multiplier: number       // historical name kept for UI
+  service_multiplier: number            // alias of service_type_multiplier (new spec name)
   condition_adjustments: Array<{ tag: string; type: 'percent' | 'hours'; value: number }>
+  condition_multiplier: number          // scalar product of (1 + pct) across all % tags
+
+  // Flat-hour loadings
+  bathroom_hours: number
+  high_use_hours: number
   addon_hours: number
-  min_applied: boolean
-  buffer_percent: number        // 0.15 or 0.20
-  rounded_hours: number
-  hourly_rate: number            // 65
+  addon_items: Array<{ key: string; hours: number }>
+
+  // Frequency
+  frequency_key: string | null          // 'one_off' | 'weekly' | ... | null
+  frequency_multiplier: number          // 1.0 / 0.75 / 0.85 / 0.60 / 0.50
+
+  // Min / buffer / rounding
+  hours_after_adjustments: number       // raw × multipliers + flat loadings (pre-frequency)
+  pre_buffer_hours: number              // after frequency + min
+  min_applied: boolean                  // true when min floor raised the hours
+  buffer_percent: number                // 0.05 or 0.08
+  rounded_hours: number                 // UI name kept
+  final_hours: number                   // alias of rounded_hours (new spec name)
+
+  // Rate / fee
+  hourly_rate: number                   // selected rate (65, 75, or 82)
+  hourly_rate_used: number              // alias (new spec name)
   pricing_mode: PricingMode
-  pricing_mode_multiplier: number
-  service_fee: number            // 25
+  pricing_mode_multiplier: number       // always 1.0 after 2026-04 revision; kept for UI field access on legacy quotes
+  service_fee: number                   // 25
+
+  // Prices
   calculated_price: number
   final_price: number
   override_flag: boolean
