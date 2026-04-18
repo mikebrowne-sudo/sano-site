@@ -7,6 +7,8 @@ import clsx from 'clsx'
 
 const TYPE_LABELS: Record<string, string> = {
   contract: 'Contract',
+  insurance: 'Insurance',
+  right_to_work: 'Right to Work',
   health_and_safety: 'Health & Safety',
   onboarding: 'Onboarding',
   policy: 'Policy',
@@ -16,6 +18,8 @@ const TYPE_LABELS: Record<string, string> = {
 
 const TYPE_COLORS: Record<string, string> = {
   contract: 'bg-blue-50 text-blue-700',
+  insurance: 'bg-rose-50 text-rose-700',
+  right_to_work: 'bg-indigo-50 text-indigo-700',
   health_and_safety: 'bg-amber-50 text-amber-700',
   onboarding: 'bg-emerald-50 text-emerald-700',
   policy: 'bg-purple-50 text-purple-700',

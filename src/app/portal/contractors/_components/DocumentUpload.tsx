@@ -6,6 +6,8 @@ import { Upload, CheckCircle, ChevronDown } from 'lucide-react'
 
 const DOC_TYPES = [
   { value: 'contract', label: 'Contract' },
+  { value: 'insurance', label: 'Insurance' },
+  { value: 'right_to_work', label: 'Right to Work' },
   { value: 'health_and_safety', label: 'Health & Safety' },
   { value: 'onboarding', label: 'Onboarding' },
   { value: 'policy', label: 'Policy' },
