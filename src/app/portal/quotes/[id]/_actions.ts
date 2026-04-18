@@ -145,6 +145,30 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
     return { error: 'Recipient email is required.' }
   }
 
+  const supabase = createClient()
+
+  // Load existing quote state first so we can preserve date_issued / valid_until
+  // and dedupe rapid double-clicks (same tab or concurrent tabs).
+  const { data: quote, error: loadErr } = await supabase
+    .from('quotes')
+    .select('date_issued, valid_until, sent_at')
+    .eq('id', input.quote_id)
+    .single()
+
+  if (loadErr || !quote) {
+    return { error: `Quote not found: ${loadErr?.message ?? 'unknown'}` }
+  }
+
+  // Dedupe: if this quote was already sent within the last 5 seconds, skip both
+  // the email and the DB update. Protects against duplicate emails from concurrent
+  // requests. The client already disables the button during the in-flight request.
+  if (quote.sent_at) {
+    const sentAtMs = new Date(quote.sent_at as string).getTime()
+    if (Number.isFinite(sentAtMs) && Date.now() - sentAtMs < 5000) {
+      return { success: true }
+    }
+  }
+
   const resend = new Resend(process.env.RESEND_API_KEY)
 
   const html = `
@@ -160,31 +184,30 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
     html,
   })
 
+  // Email failed → do NOT update the quote status.
   if (emailErr) {
     return { error: `Failed to send email: ${emailErr.message}` }
   }
 
-  // Update quote: status → sent, set date_issued if empty, set valid_until if empty
-  const supabase = createClient()
+  // Email sent → update status and stamps.
   const today = new Date().toISOString().slice(0, 10)
+  const effectiveIssued = quote.date_issued || today
+  const effectiveValidUntil = quote.valid_until || addDaysISO(effectiveIssued as string, 30)
+  const sentAtIso = new Date().toISOString()
 
-  const { data: quote } = await supabase
-    .from('quotes')
-    .select('date_issued, valid_until')
-    .eq('id', input.quote_id)
-    .single()
-
-  const effectiveIssued = quote?.date_issued || today
-  const effectiveValidUntil = quote?.valid_until || addDaysISO(effectiveIssued, 30)
-
-  await supabase
+  const { error: updateErr } = await supabase
     .from('quotes')
     .update({
       status: 'sent',
       date_issued: effectiveIssued,
       valid_until: effectiveValidUntil,
+      sent_at: sentAtIso,
     })
     .eq('id', input.quote_id)
+
+  if (updateErr) {
+    return { error: `Email sent but failed to update quote status: ${updateErr.message}` }
+  }
 
   revalidatePath(`/portal/quotes/${input.quote_id}`)
   revalidatePath('/portal/quotes')
