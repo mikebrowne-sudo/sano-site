@@ -33,59 +33,59 @@ const APPROVED_SERVICES = [
   { value: 'after_hours', label: 'After hours' },
 ]
 
-interface ContractorData {
+export interface ContractorData {
   id?: string
   full_name: string
-  email: string | null
-  phone: string | null
-  hourly_rate: number | null
-  base_hourly_rate: number | null
-  loaded_hourly_rate: number | null
-  holiday_pay_percent: number | null
-  status: string
-  worker_type: string
-  notes: string | null
+  email?: string | null
+  phone?: string | null
+  hourly_rate?: number | null
+  base_hourly_rate?: number | null
+  loaded_hourly_rate?: number | null
+  holiday_pay_percent?: number | null
+  status?: string | null
+  worker_type?: string | null
+  notes?: string | null
   // Payroll (employee)
-  start_date: string | null
-  end_date: string | null
-  pay_frequency: string | null
-  standard_hours: number | null
-  holiday_pay_method: string | null
-  ird_number: string | null
-  tax_code: string | null
-  ir330_received: boolean
-  kiwisaver_enrolled: boolean
-  kiwisaver_employee_rate: number | null
-  kiwisaver_employer_rate: number | null
+  start_date?: string | null
+  end_date?: string | null
+  pay_frequency?: string | null
+  standard_hours?: number | null
+  holiday_pay_method?: string | null
+  ird_number?: string | null
+  tax_code?: string | null
+  ir330_received?: boolean | null
+  kiwisaver_enrolled?: boolean | null
+  kiwisaver_employee_rate?: number | null
+  kiwisaver_employer_rate?: number | null
   // Insurance
-  insurance_provider: string | null
-  insurance_policy_number: string | null
-  insurance_expiry: string | null
-  insurance_liability_cover: number | null
+  insurance_provider?: string | null
+  insurance_policy_number?: string | null
+  insurance_expiry?: string | null
+  insurance_liability_cover?: number | null
   // Business identity (contractor)
-  company_name: string | null
-  business_structure: string | null
-  nzbn: string | null
+  company_name?: string | null
+  business_structure?: string | null
+  nzbn?: string | null
   // GST (contractor)
-  gst_registered: boolean
-  gst_number: string | null
+  gst_registered?: boolean | null
+  gst_number?: string | null
   // Payment (contractor)
-  bank_account_name: string | null
-  bank_account_number: string | null
-  payment_terms_days: number | null
+  bank_account_name?: string | null
+  bank_account_number?: string | null
+  payment_terms_days?: number | null
   // Compliance (shared)
-  contract_signed_date: string | null
-  right_to_work_required: boolean
-  right_to_work_expiry: string | null
+  contract_signed_date?: string | null
+  right_to_work_required?: boolean | null
+  right_to_work_expiry?: string | null
   // Operational (shared)
-  service_areas: string[]
-  approved_services: string[]
-  availability_notes: string | null
-  has_vehicle: boolean
-  provides_own_equipment: boolean
-  key_holding_approved: boolean
-  alarm_access_approved: boolean
-  pet_friendly: boolean
+  service_areas?: string[] | null
+  approved_services?: string[] | null
+  availability_notes?: string | null
+  has_vehicle?: boolean | null
+  provides_own_equipment?: boolean | null
+  key_holding_approved?: boolean | null
+  alarm_access_approved?: boolean | null
+  pet_friendly?: boolean | null
 }
 
 function toNum(v: string) {
