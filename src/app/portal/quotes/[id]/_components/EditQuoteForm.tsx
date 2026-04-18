@@ -8,60 +8,6 @@ import { SERVICE_TYPES_BY_CATEGORY, type ServiceCategory } from '@/lib/quote-wor
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 
-// ── Option lists ────────────────────────────��─────────────────
-
-const PROPERTY_TYPES = ['Residential', 'Commercial', 'Specialised']
-
-const CLEAN_TYPES: Record<string, string[]> = {
-  Residential: [
-    'Regular Cleaning',
-    'Deep Cleaning',
-    'End of Tenancy',
-    'Move-in Clean',
-    'Spring Clean',
-  ],
-  Commercial: [
-    'Office Cleaning',
-    'Commercial Cleaning',
-    'Retail Cleaning',
-    'Medical / Clinic',
-  ],
-  Specialised: [
-    'Carpet & Upholstery',
-    'Window Cleaning',
-    'Post-Construction',
-    'High-Access Cleaning',
-  ],
-}
-
-const SERVICE_TYPES: Record<string, string[]> = {
-  'Regular Cleaning':       ['Standard', 'Premium'],
-  'Deep Cleaning':          ['Full House', 'Kitchen & Bathrooms Only', 'Specific Rooms'],
-  'End of Tenancy':         ['Standard Bond Clean', 'Full Property'],
-  'Move-in Clean':          ['Pre-Move Clean', 'Full Sanitise'],
-  'Spring Clean':           ['Interior Only', 'Interior + Exterior'],
-  'Office Cleaning':        ['Daily', 'Weekly', 'Fortnightly'],
-  'Commercial Cleaning':    ['Standard', 'After-Hours'],
-  'Retail Cleaning':        ['Opening Hours', 'After-Hours'],
-  'Medical / Clinic':       ['Standard', 'Infection Control'],
-  'Carpet & Upholstery':    ['Carpet Only', 'Upholstery Only', 'Carpet + Upholstery'],
-  'Window Cleaning':        ['Interior', 'Exterior', 'Interior + Exterior'],
-  'Post-Construction':      ['Builders Clean', 'Final Clean', 'Full Scope'],
-  'High-Access Cleaning':   ['Standard', 'Specialist Equipment'],
-}
-
-const FREQUENCIES = ['One-off', 'Weekly', 'Fortnightly', 'Monthly']
-
-const SCOPE_SIZES = [
-  'Studio / 1 bedroom',
-  '2 bedrooms',
-  '3 bedrooms',
-  '4+ bedrooms',
-  'Small office',
-  'Medium office',
-  'Large / warehouse',
-]
-
 const STATUSES = [
   { value: 'draft', label: 'Draft' },
   { value: 'sent', label: 'Sent' },

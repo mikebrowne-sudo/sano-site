@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import clsx from 'clsx'
 import {
   SERVICE_CATEGORIES,
