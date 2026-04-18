@@ -217,9 +217,24 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
 export async function markQuoteAccepted(quoteId: string) {
   const supabase = createClient()
 
+  // Load current state so we can preserve an existing accepted_at and short-circuit
+  // if already accepted.
+  const { data: current } = await supabase
+    .from('quotes')
+    .select('status, accepted_at, share_token')
+    .eq('id', quoteId)
+    .single()
+
+  if (current?.status === 'accepted' && current.accepted_at) {
+    revalidatePath(`/portal/quotes/${quoteId}`)
+    revalidatePath('/portal/quotes')
+    return { success: true, alreadyAccepted: true }
+  }
+
+  const now = new Date().toISOString()
   const { error } = await supabase
     .from('quotes')
-    .update({ status: 'accepted' })
+    .update({ status: 'accepted', accepted_at: current?.accepted_at || now })
     .eq('id', quoteId)
 
   if (error) {
@@ -228,5 +243,8 @@ export async function markQuoteAccepted(quoteId: string) {
 
   revalidatePath(`/portal/quotes/${quoteId}`)
   revalidatePath('/portal/quotes')
+  if (current?.share_token) {
+    revalidatePath(`/share/quote/${current.share_token}`)
+  }
   return { success: true }
 }

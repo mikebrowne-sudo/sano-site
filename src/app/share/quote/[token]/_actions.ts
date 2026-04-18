@@ -33,16 +33,20 @@ export async function acceptQuote(shareToken: string) {
     return { error: 'Quote not found.' }
   }
 
-  // Idempotent — already accepted
+  // Idempotent — already accepted. Still revalidate portal paths in case a previous
+  // acceptance request updated the DB without revalidating (older builds of this action).
   if (quote.status === 'accepted' && quote.accepted_at) {
+    revalidatePath(`/share/quote/${shareToken}`)
+    revalidatePath(`/portal/quotes/${quote.id}`)
+    revalidatePath('/portal/quotes')
     return { success: true, alreadyAccepted: true }
   }
 
-  // Update status
+  // Update status + accepted_at. Never overwrite an existing accepted_at.
   const now = new Date().toISOString()
   const { error: updateErr } = await supabase
     .from('quotes')
-    .update({ status: 'accepted', accepted_at: now })
+    .update({ status: 'accepted', accepted_at: quote.accepted_at || now })
     .eq('id', quote.id)
 
   if (updateErr) {
@@ -93,5 +97,7 @@ export async function acceptQuote(shareToken: string) {
   }
 
   revalidatePath(`/share/quote/${shareToken}`)
+  revalidatePath(`/portal/quotes/${quote.id}`)
+  revalidatePath('/portal/quotes')
   return { success: true }
 }
