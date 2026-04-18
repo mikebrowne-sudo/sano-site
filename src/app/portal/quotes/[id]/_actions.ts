@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { Resend } from 'resend'
 import { revalidatePath } from 'next/cache'
+import type { PricingBreakdown, PricingMode } from '@/lib/quote-pricing'
 
 function addDaysISO(iso: string, days: number): string {
   const [y, m, d] = iso.split('-').map(Number)
@@ -48,6 +49,9 @@ interface UpdateQuoteInput {
   gst_included: boolean
   payment_type?: string
   addons: AddonInput[]
+  pricing_mode?: PricingMode
+  estimated_hours?: number
+  pricing_breakdown?: PricingBreakdown
 }
 
 export async function updateQuote(input: UpdateQuoteInput) {
@@ -83,6 +87,9 @@ export async function updateQuote(input: UpdateQuoteInput) {
       scheduled_clean_date: input.scheduled_clean_date || null,
       notes: input.notes || null,
       base_price: input.base_price,
+      pricing_mode: input.pricing_mode ?? null,
+      estimated_hours: input.estimated_hours ?? null,
+      pricing_breakdown: input.pricing_breakdown ?? null,
       discount: input.discount,
       gst_included: input.gst_included,
       payment_type: input.payment_type || 'cash_sale',

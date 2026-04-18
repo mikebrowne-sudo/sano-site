@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { updateQuote } from '../_actions'
 import { AddressField } from '../../../_components/AddressField'
 import { QuoteBuilder, emptyBuilderState, type QuoteBuilderState } from '../../_components/QuoteBuilder'
+import { PricingSummary, emptyPricingSummaryValue, type PricingSummaryValue } from '../../_components/PricingSummary'
+import { calculateQuotePrice, isPricingEligible, type PricingBreakdown, type PricingMode } from '@/lib/quote-pricing'
 import { SERVICE_TYPES_BY_CATEGORY, type ServiceCategory } from '@/lib/quote-wording'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
@@ -70,6 +72,9 @@ interface Quote {
   addons_wording: string[] | null
   generated_scope: string | null
   description_edited: boolean | null
+  pricing_mode: string | null
+  estimated_hours: number | null
+  pricing_breakdown: unknown | null
 }
 
 interface Addon {
@@ -149,12 +154,64 @@ export function EditQuoteForm({
   const [gstIncluded, setGstIncluded] = useState(quote.gst_included)
   const [paymentType, setPaymentType] = useState(quote.payment_type ?? 'cash_sale')
 
+  // Pricing engine state (hydrated from saved row)
+  const savedBreakdown = (quote.pricing_breakdown as PricingBreakdown | null) ?? null
+
+  const [pricing, setPricing] = useState<PricingSummaryValue>(() => {
+    // If the saved row was overridden, hydrate the override_price from base_price so the input
+    // shows the saved override. Otherwise start unoverridden so the input will follow the live
+    // calculated price.
+    if (savedBreakdown?.override_flag) {
+      return {
+        pricing_mode: (quote.pricing_mode as PricingMode | null) ?? 'standard',
+        override_price: String(quote.base_price || ''),
+        override_flag: true,
+      }
+    }
+    return {
+      ...emptyPricingSummaryValue(),
+      pricing_mode: (quote.pricing_mode as PricingMode | null) ?? 'standard',
+    }
+  })
+
+  const isLocked = quote.status === 'sent' || quote.status === 'accepted'
+
   // Add-ons — seed from existing items
   const [addons, setAddons] = useState<Addon[]>(
     items
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((it) => ({ key: it.id, label: it.label, price: String(it.price) })),
   )
+
+  // ── Pricing engine (derived) ─────────────────────────────
+  const eligible = isPricingEligible(builder.service_category || null, builder.service_type_code || null)
+
+  const engineResult = useMemo(() => {
+    if (!eligible || isLocked) return null
+    const overrideNumber = pricing.override_flag && pricing.override_price != null
+      ? toNum(pricing.override_price)
+      : undefined
+    return calculateQuotePrice(
+      {
+        service_category: builder.service_category || null,
+        service_type_code: builder.service_type_code || null,
+        bedrooms: builder.bedrooms ? parseInt(builder.bedrooms, 10) : null,
+        bathrooms: builder.bathrooms ? parseInt(builder.bathrooms, 10) : null,
+        condition_tags: builder.condition_tags,
+        addons_wording: builder.addons_wording,
+      },
+      pricing.pricing_mode,
+      overrideNumber,
+    )
+    /* eslint-disable react-hooks/exhaustive-deps */
+  }, [
+    eligible, isLocked,
+    builder.service_category, builder.service_type_code,
+    builder.bedrooms, builder.bathrooms,
+    builder.condition_tags.join(','), builder.addons_wording.join(','),
+    pricing.pricing_mode, pricing.override_flag, pricing.override_price,
+  ])
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   // Submit state
   const [isPending, startTransition] = useTransition()
@@ -175,7 +232,9 @@ export function EditQuoteForm({
   }
 
   // Totals
-  const base = toNum(basePrice)
+  const base = eligible
+    ? (engineResult?.final_price ?? quote.base_price ?? 0)   // locked quote → engineResult is null → fall back to saved
+    : toNum(basePrice)
   const disc = toNum(discount)
   const addonsTotal = addons.reduce((sum, a) => sum + toNum(a.price), 0)
   const total = base + addonsTotal - disc
@@ -221,6 +280,15 @@ export function EditQuoteForm({
         scheduled_clean_date: scheduledCleanDate || undefined,
         notes: notes.trim() || undefined,
         base_price: base,
+        pricing_mode: isLocked
+          ? (quote.pricing_mode as PricingMode | null) ?? undefined
+          : (eligible ? pricing.pricing_mode : undefined),
+        estimated_hours: isLocked
+          ? quote.estimated_hours ?? undefined
+          : (eligible ? engineResult?.estimated_hours ?? undefined : undefined),
+        pricing_breakdown: isLocked
+          ? savedBreakdown ?? undefined
+          : (eligible ? engineResult?.breakdown ?? undefined : undefined),
         discount: disc,
         gst_included: gstIncluded,
         payment_type: paymentType,
@@ -318,8 +386,25 @@ export function EditQuoteForm({
 
       {/* ── Section: Pricing ────────────────────────── */}
       <Section title="Pricing">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Base price ($)" type="number" step="0.01" min="0" value={basePrice} onChange={setBasePrice} />
+        {eligible ? (
+          <PricingSummary
+            builder={builder}
+            value={pricing}
+            onChange={setPricing}
+            savedBreakdown={savedBreakdown}
+            readOnly={isLocked}
+          />
+        ) : (
+          <Field
+            label="Base price ($)"
+            type="number"
+            step="0.01"
+            min="0"
+            value={basePrice}
+            onChange={setBasePrice}
+          />
+        )}
+        <div className="mt-4 max-w-sm">
           <Field label="Discount ($)" type="number" step="0.01" min="0" value={discount} onChange={setDiscount} />
         </div>
 

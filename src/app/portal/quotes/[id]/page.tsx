@@ -50,7 +50,10 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       share_token,
       date_issued,
       valid_until,
-      created_at
+      created_at,
+      pricing_mode,
+      estimated_hours,
+      pricing_breakdown
     `)
     .eq('id', params.id)
     .single()
