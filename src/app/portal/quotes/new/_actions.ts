@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
+import type { PricingBreakdown, PricingMode } from '@/lib/quote-pricing'
 
 interface AddonInput {
   label: string
@@ -53,6 +54,11 @@ interface CreateQuoteInput {
   discount: number
   gst_included: boolean
   payment_type?: string
+
+  // Pricing engine fields (null when ineligible)
+  pricing_mode?: PricingMode
+  estimated_hours?: number
+  pricing_breakdown?: PricingBreakdown
 
   // Add-ons (priced line items — distinct from addons_wording)
   addons: AddonInput[]
@@ -125,6 +131,9 @@ export async function createQuote(input: CreateQuoteInput) {
       scheduled_clean_date: input.scheduled_clean_date || null,
       notes: input.notes || null,
       base_price: input.base_price,
+      pricing_mode: input.pricing_mode ?? null,
+      estimated_hours: input.estimated_hours ?? null,
+      pricing_breakdown: input.pricing_breakdown ?? null,
       discount: input.discount,
       gst_included: input.gst_included,
       payment_type: input.payment_type || 'cash_sale',

@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { createQuote } from '../_actions'
 import { AddressField } from '../../../_components/AddressField'
 import { QuoteBuilder, emptyBuilderState, type QuoteBuilderState } from '../../_components/QuoteBuilder'
+import { PricingSummary, emptyPricingSummaryValue, type PricingSummaryValue } from '../../_components/PricingSummary'
 import { SERVICE_TYPES_BY_CATEGORY } from '@/lib/quote-wording'
+import { calculateQuotePrice, isPricingEligible } from '@/lib/quote-pricing'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -66,6 +68,9 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
   // Service details — structured builder
   const [builder, setBuilder] = useState<QuoteBuilderState>(emptyBuilderState())
 
+  // Pricing engine state (owned by form; consumed by <PricingSummary>)
+  const [pricing, setPricing] = useState<PricingSummaryValue>(emptyPricingSummaryValue())
+
   // Scheduling
   const [preferredDates, setPreferredDates] = useState('')
   const [scheduledCleanDate, setScheduledCleanDate] = useState('')
@@ -81,6 +86,41 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
 
   // Add-ons
   const [addons, setAddons] = useState<Addon[]>([])
+
+  // ── Pricing engine (derived) ─────────────────────────────
+  const eligible = isPricingEligible(builder.service_category || null, builder.service_type_code || null)
+
+  const engineResult = useMemo(() => {
+    if (!eligible) return null
+    const overrideNumber = pricing.override_flag && pricing.override_price != null
+      ? toNum(pricing.override_price)
+      : undefined
+    return calculateQuotePrice(
+      {
+        service_category: builder.service_category || null,
+        service_type_code: builder.service_type_code || null,
+        bedrooms: builder.bedrooms ? parseInt(builder.bedrooms, 10) : null,
+        bathrooms: builder.bathrooms ? parseInt(builder.bathrooms, 10) : null,
+        condition_tags: builder.condition_tags,
+        addons_wording: builder.addons_wording,
+      },
+      pricing.pricing_mode,
+      overrideNumber,
+    )
+    /* eslint-disable react-hooks/exhaustive-deps */
+  }, [
+    eligible,
+    builder.service_category,
+    builder.service_type_code,
+    builder.bedrooms,
+    builder.bathrooms,
+    builder.condition_tags.join(','),
+    builder.addons_wording.join(','),
+    pricing.pricing_mode,
+    pricing.override_flag,
+    pricing.override_price,
+  ])
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   // State
   const [isPending, startTransition] = useTransition()
@@ -130,7 +170,9 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
 
   // ── Totals ───────────────────────────────────────────────
 
-  const base = toNum(basePrice)
+  const base = eligible && engineResult?.final_price != null
+    ? engineResult.final_price
+    : toNum(basePrice)
   const disc = toNum(discount)
   const addonsTotal = addons.reduce((sum, a) => sum + toNum(a.price), 0)
   const total = base + addonsTotal - disc
@@ -149,7 +191,11 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
     if (!serviceAddress.trim()) {
       errs.serviceAddress = 'Service address is required.'
     }
-    if (!basePrice.trim() || toNum(basePrice) <= 0) {
+    if (eligible) {
+      if (engineResult?.final_price == null || engineResult.final_price <= 0) {
+        errs.basePrice = 'Final price is required. Select a service type and confirm pricing.'
+      }
+    } else if (!basePrice.trim() || toNum(basePrice) <= 0) {
       errs.basePrice = 'Base price is required.'
     }
 
@@ -201,6 +247,9 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
         scheduled_clean_date: scheduledCleanDate || undefined,
         notes: notes.trim() || undefined,
         base_price: base,
+        pricing_mode: eligible ? pricing.pricing_mode : undefined,
+        estimated_hours: eligible ? engineResult?.estimated_hours ?? undefined : undefined,
+        pricing_breakdown: eligible ? engineResult?.breakdown ?? undefined : undefined,
         discount: disc,
         gst_included: gstIncluded,
         payment_type: paymentType,
@@ -300,7 +349,9 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
 
       {/* ── Section 4: Pricing ──────────────────────── */}
       <Section title="Pricing">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {eligible ? (
+          <PricingSummary builder={builder} value={pricing} onChange={setPricing} />
+        ) : (
           <Field
             label="Base price ($)"
             type="number"
@@ -311,6 +362,8 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
             required
             error={validationErrors.basePrice}
           />
+        )}
+        <div className="mt-4 max-w-sm">
           <Field label="Discount ($)" type="number" step="0.01" min="0" value={discount} onChange={setDiscount} />
         </div>
 
