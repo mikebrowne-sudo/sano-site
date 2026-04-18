@@ -86,6 +86,15 @@ export interface ContractorData {
   key_holding_approved?: boolean | null
   alarm_access_approved?: boolean | null
   pet_friendly?: boolean | null
+  // Work capability (Phase 2)
+  experience_level?: string | null
+  can_lead_jobs?: boolean | null
+  can_work_solo?: boolean | null
+  can_supervise_others?: boolean | null
+  // Portal access (Phase 2)
+  invite_sent_at?: string | null
+  portal_access_active?: boolean | null
+  auth_user_id?: string | null
 }
 
 function toNum(v: string) {
@@ -161,6 +170,17 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
   const [alarmAccessApproved, setAlarmAccessApproved] = useState(contractor?.alarm_access_approved ?? false)
   const [petFriendly, setPetFriendly] = useState(contractor?.pet_friendly ?? false)
 
+  // Work capability (shared, Phase 2)
+  const [experienceLevel, setExperienceLevel] = useState(contractor?.experience_level ?? '')
+  const [canLeadJobs, setCanLeadJobs] = useState(contractor?.can_lead_jobs ?? false)
+  const [canWorkSolo, setCanWorkSolo] = useState(contractor?.can_work_solo ?? true)
+  const [canSuperviseOthers, setCanSuperviseOthers] = useState(contractor?.can_supervise_others ?? false)
+
+  // Portal access (shared, Phase 2)
+  const [portalAccessActive, setPortalAccessActive] = useState(contractor?.portal_access_active ?? false)
+  const inviteSentAt = contractor?.invite_sent_at ?? null
+  const authLinked = !!contractor?.auth_user_id
+
   // Notes
   const [notes, setNotes] = useState(contractor?.notes ?? '')
 
@@ -228,6 +248,13 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
       key_holding_approved: keyHoldingApproved,
       alarm_access_approved: alarmAccessApproved,
       pet_friendly: petFriendly,
+      // Shared: work capability (Phase 2)
+      experience_level: experienceLevel || undefined,
+      can_lead_jobs: canLeadJobs,
+      can_work_solo: canWorkSolo,
+      can_supervise_others: canSuperviseOthers,
+      // Shared: portal access (Phase 2)
+      portal_access_active: portalAccessActive,
     }
 
     startTransition(async () => {
@@ -465,6 +492,45 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
             <span className="block text-sm font-semibold text-sage-800 mb-1.5">Availability notes</span>
             <textarea rows={2} value={availabilityNotes} onChange={(e) => setAvailabilityNotes(e.target.value)} placeholder="e.g. Weekday mornings only; unavailable Fridays" className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 text-sm resize-y" />
           </label>
+        </div>
+      </Section>
+
+      {/* Capability (shared, Phase 2) */}
+      <Section title="Capability">
+        <span className="block text-sm font-semibold text-sage-800 mb-2">Experience level</span>
+        <div className="flex flex-wrap gap-2">
+          {([
+            { value: 'trainee', label: 'Trainee' },
+            { value: 'intermediate', label: 'Intermediate' },
+            { value: 'experienced', label: 'Experienced' },
+            { value: 'lead', label: 'Lead' },
+          ]).map((e) => (
+            <Btn key={e.value} active={experienceLevel === e.value} onClick={() => setExperienceLevel(e.value)} color="sage">{e.label}</Btn>
+          ))}
+          {experienceLevel && (
+            <button type="button" onClick={() => setExperienceLevel('')} className="text-xs text-sage-500 hover:text-sage-700 px-2">Clear</button>
+          )}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
+          <CheckboxRow label="Can lead jobs" checked={canLeadJobs} onChange={setCanLeadJobs} />
+          <CheckboxRow label="Can work solo" checked={canWorkSolo} onChange={setCanWorkSolo} />
+          <CheckboxRow label="Can supervise others" checked={canSuperviseOthers} onChange={setCanSuperviseOthers} />
+        </div>
+      </Section>
+
+      {/* Portal access (shared, Phase 2) */}
+      <Section title="Portal access">
+        <label className="flex items-center gap-3 cursor-pointer">
+          <Toggle checked={portalAccessActive} onChange={setPortalAccessActive} />
+          <span className="text-sm text-sage-800">Portal access active</span>
+        </label>
+        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-sage-600">
+          <span>
+            Invite sent: <span className="font-medium text-sage-800">{inviteSentAt ? new Date(inviteSentAt).toLocaleDateString('en-NZ') : '—'}</span>
+          </span>
+          <span>
+            Auth linked: <span className={clsx('font-medium', authLinked ? 'text-emerald-700' : 'text-sage-500')}>{authLinked ? 'Yes' : 'No'}</span>
+          </span>
         </div>
       </Section>
 

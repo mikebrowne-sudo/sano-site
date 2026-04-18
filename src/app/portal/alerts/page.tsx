@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase-server'
 import Link from 'next/link'
-import { AlertTriangle, Briefcase, Receipt, BookOpen, CalendarDays } from 'lucide-react'
+import { AlertTriangle, Briefcase, Receipt, BookOpen, CalendarDays, ShieldCheck } from 'lucide-react'
 import { RunJobReminders, RunTrainingReminders } from './_components/ReminderButtons'
+import { computeComplianceStatus } from '@/lib/contractor-compliance'
+import { ComplianceBadge } from '../contractors/_components/ComplianceBadge'
 import clsx from 'clsx'
 
 function fmtDate(iso: string | null) {
@@ -27,6 +29,7 @@ export default async function AlertsPage() {
     { data: tomorrowJobs, count: tomorrowCount },
     { data: overdueInvoices, count: overdueInvCount },
     { data: overdueTraining, count: overdueTrainingCount },
+    { data: activeContractors },
   ] = await Promise.all([
     // Unassigned jobs (not completed/invoiced)
     supabase.from('jobs')
@@ -60,7 +63,19 @@ export default async function AlertsPage() {
       .neq('status', 'completed')
       .not('due_date', 'is', null)
       .lt('due_date', today),
+    // Active contractors for compliance check
+    supabase.from('contractors')
+      .select('id, full_name, status, insurance_expiry, right_to_work_required, right_to_work_expiry, contract_signed_date')
+      .eq('status', 'active')
+      .order('full_name'),
   ])
+
+  // Compute compliance flags for active contractors
+  const complianceFlagged = (activeContractors ?? [])
+    .map((c) => ({ contractor: c, result: computeComplianceStatus(c, today) }))
+    .filter((r) => r.result.status !== 'compliant' && r.result.status !== 'inactive')
+
+  const complianceFlaggedCount = complianceFlagged.length
 
   // Calculate which tomorrow jobs haven't been reminded today
   const todayStart = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).toISOString()
@@ -71,11 +86,12 @@ export default async function AlertsPage() {
       <h1 className="text-2xl font-bold text-sage-800 mb-6">Alerts & Reminders</h1>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
         <SummaryCard icon={Briefcase} label="Unassigned jobs" value={unassignedCount ?? 0} accent={unassignedCount ? 'amber' : undefined} />
         <SummaryCard icon={CalendarDays} label="Today's jobs" value={todayCount ?? 0} />
         <SummaryCard icon={Receipt} label="Overdue invoices" value={overdueInvCount ?? 0} accent={overdueInvCount ? 'red' : undefined} />
         <SummaryCard icon={BookOpen} label="Overdue training" value={overdueTrainingCount ?? 0} accent={overdueTrainingCount ? 'amber' : undefined} />
+        <SummaryCard icon={ShieldCheck} label="Compliance alerts" value={complianceFlaggedCount} accent={complianceFlaggedCount ? 'amber' : undefined} />
       </div>
 
       {/* Job reminders */}
@@ -155,6 +171,32 @@ export default async function AlertsPage() {
           </div>
         </Section>
       )}
+
+      {/* Compliance expiries */}
+      <Section title={`Compliance Alerts (${complianceFlaggedCount})`} icon={ShieldCheck}>
+        {complianceFlagged.length === 0 ? (
+          <p className="text-sage-500 text-sm">All active contractors are compliant.</p>
+        ) : (
+          <div className="space-y-2">
+            {complianceFlagged.map(({ contractor, result }) => (
+              <Link
+                key={contractor.id}
+                href={`/portal/contractors/${contractor.id}`}
+                className={clsx(
+                  'flex items-center justify-between rounded-lg px-4 py-3 transition-colors text-sm',
+                  result.status === 'expired' ? 'bg-red-50 hover:bg-red-100' : 'bg-amber-50 hover:bg-amber-100',
+                )}
+              >
+                <div className="min-w-0">
+                  <span className="font-medium text-sage-800">{contractor.full_name}</span>
+                  <p className="text-xs text-sage-600 truncate mt-0.5">{result.reasons.join(' · ')}</p>
+                </div>
+                <ComplianceBadge status={result.status} size="sm" />
+              </Link>
+            ))}
+          </div>
+        )}
+      </Section>
 
       {/* Overdue invoices */}
       <Section title={`Overdue Invoices (${overdueInvCount ?? 0})`} icon={Receipt}>

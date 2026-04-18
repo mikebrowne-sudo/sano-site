@@ -5,6 +5,27 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { notifyContractorAssigned } from '@/lib/notify-contractor'
 
+// Returns an error message if the contractor's insurance is missing or expired; null otherwise.
+async function checkContractorInsurance(
+  supabase: ReturnType<typeof createClient>,
+  contractorId: string,
+): Promise<string | null> {
+  const { data } = await supabase
+    .from('contractors')
+    .select('full_name, insurance_expiry')
+    .eq('id', contractorId)
+    .single()
+  if (!data) return 'Contractor not found.'
+  const today = new Date().toISOString().slice(0, 10)
+  if (!data.insurance_expiry) {
+    return `Cannot assign — ${data.full_name} has no insurance expiry on file. Update the contractor's insurance details first.`
+  }
+  if ((data.insurance_expiry as string) < today) {
+    return `Cannot assign — ${data.full_name}'s insurance expired on ${data.insurance_expiry}. Update the contractor's insurance details first.`
+  }
+  return null
+}
+
 interface JobInput {
   client_id: string
   quote_id?: string
@@ -29,6 +50,11 @@ export async function createJob(input: JobInput) {
 
   if (!input.client_id) {
     return { error: 'Client is required.' }
+  }
+
+  if (input.contractor_id) {
+    const insuranceError = await checkContractorInsurance(supabase, input.contractor_id)
+    if (insuranceError) return { error: insuranceError }
   }
 
   const { data, error } = await supabase
@@ -110,6 +136,11 @@ export async function updateJob(input: UpdateJobInput) {
 
   const contractorChanged = !!input.contractor_id
     && input.contractor_id !== (current?.contractor_id ?? '')
+
+  if (contractorChanged) {
+    const insuranceError = await checkContractorInsurance(supabase, input.contractor_id!)
+    if (insuranceError) return { error: insuranceError }
+  }
 
   const { error } = await supabase
     .from('jobs')

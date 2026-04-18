@@ -5,6 +5,9 @@ import { ArrowLeft, Pencil } from 'lucide-react'
 import { DocumentUpload } from '../_components/DocumentUpload'
 import { DocumentList } from '../_components/DocumentList'
 import { PayPreview } from '../_components/PayPreview'
+import { ComplianceBadge } from '../_components/ComplianceBadge'
+import { IncidentList } from '../_components/IncidentList'
+import { computeComplianceStatus } from '@/lib/contractor-compliance'
 import clsx from 'clsx'
 
 const WORKER_TYPE_STYLES: Record<string, string> = {
@@ -27,10 +30,10 @@ function fmtDate(iso: string | null) {
 export default async function ContractorDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
 
-  const [{ data: contractor, error }, { data: jobs, count: jobCount }, { data: documents }, { data: trainingAssignments }] = await Promise.all([
+  const [{ data: contractor, error }, { data: jobs, count: jobCount }, { data: documents }, { data: trainingAssignments }, { data: incidents }] = await Promise.all([
     supabase
       .from('contractors')
-      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate')
+      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate, insurance_provider, insurance_policy_number, insurance_expiry, insurance_liability_cover, company_name, business_structure, nzbn, gst_registered, gst_number, bank_account_name, bank_account_number, payment_terms_days, contract_signed_date, right_to_work_required, right_to_work_expiry, service_areas, approved_services, availability_notes, has_vehicle, provides_own_equipment, key_holding_approved, alarm_access_approved, pet_friendly, experience_level, can_lead_jobs, can_work_solo, can_supervise_others, invite_sent_at, portal_access_active, auth_user_id')
       .eq('id', params.id)
       .single(),
     supabase
@@ -49,6 +52,11 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
       .select('id, status, due_date, completed_at, training_modules ( title, category )')
       .eq('contractor_id', params.id)
       .order('status'),
+    supabase
+      .from('contractor_incidents')
+      .select('id, incident_date, severity, description, resolved_at, notes, created_at')
+      .eq('contractor_id', params.id)
+      .order('incident_date', { ascending: false }),
   ])
 
   if (error || !contractor) notFound()
@@ -66,6 +74,9 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
   }
 
   const workerType = contractor.worker_type ?? 'contractor'
+  const compliance = computeComplianceStatus(contractor)
+  const incidentList = incidents ?? []
+  const openIncidentCount = incidentList.filter((i) => !i.resolved_at).length
 
   return (
     <div>
@@ -80,13 +91,14 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-sage-800">{contractor.full_name}</h1>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', contractor.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600')}>
               {contractor.status}
             </span>
             <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', WORKER_TYPE_STYLES[workerType] ?? WORKER_TYPE_STYLES.contractor)}>
               {workerType.replace('_', ' ')}
             </span>
+            <ComplianceBadge status={compliance.status} reasons={compliance.reasons} />
           </div>
         </div>
         <Link
@@ -112,6 +124,31 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
           </div>
         </Section>
 
+        {/* Business identity — contractor only */}
+        {workerType === 'contractor' && (contractor.company_name || contractor.business_structure || contractor.nzbn) && (
+          <Section title="Business identity">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+              <div><span className="text-sage-500">Trading / company name</span><p className="text-sage-800 font-medium">{contractor.company_name || '—'}</p></div>
+              <div><span className="text-sage-500">Structure</span><p className="text-sage-800 font-medium capitalize">{(contractor.business_structure as string | null)?.replace('_', ' ') || '—'}</p></div>
+              <div><span className="text-sage-500">NZBN</span><p className="text-sage-800 font-medium">{contractor.nzbn || '—'}</p></div>
+            </div>
+          </Section>
+        )}
+
+        {/* GST — contractor only */}
+        {workerType === 'contractor' && (
+          <Section title="GST">
+            {contractor.gst_registered ? (
+              <div className="flex items-center gap-3 text-sm">
+                <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium text-xs">GST registered</span>
+                <span className="text-sage-800 font-medium">{contractor.gst_number || <span className="text-amber-600">No GST number on file</span>}</span>
+              </div>
+            ) : (
+              <p className="text-sage-500 text-sm">Not GST registered</p>
+            )}
+          </Section>
+        )}
+
         <Section title="Rate">
           {workerType !== 'contractor' && contractor.base_hourly_rate ? (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
@@ -136,6 +173,17 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
             <p className="text-sage-800 font-medium text-sm">{fmtCurrency(contractor.hourly_rate)}/hr</p>
           )}
         </Section>
+
+        {/* Payment — contractor only */}
+        {workerType === 'contractor' && (contractor.bank_account_number || contractor.bank_account_name || contractor.payment_terms_days != null) && (
+          <Section title="Payment">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+              <div><span className="text-sage-500">Account name</span><p className="text-sage-800 font-medium">{contractor.bank_account_name || '—'}</p></div>
+              <div><span className="text-sage-500">Account number</span><p className="text-sage-800 font-medium">{contractor.bank_account_number || '—'}</p></div>
+              <div><span className="text-sage-500">Payment terms</span><p className="text-sage-800 font-medium">{contractor.payment_terms_days != null ? `${contractor.payment_terms_days} days` : '—'}</p></div>
+            </div>
+          </Section>
+        )}
 
         {/* Employment — employees only */}
         {workerType !== 'contractor' && (
@@ -195,6 +243,166 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
           </Section>
         )}
 
+        {/* Insurance */}
+        {(contractor.insurance_provider || contractor.insurance_policy_number || contractor.insurance_expiry || contractor.insurance_liability_cover) && (() => {
+          const today = new Date().toISOString().slice(0, 10)
+          const expiry = contractor.insurance_expiry as string | null
+          const isExpired = expiry != null && expiry < today
+          const daysToExpiry = expiry ? Math.round((new Date(expiry).getTime() - new Date(today).getTime()) / 86400000) : null
+          const isSoon = !isExpired && daysToExpiry != null && daysToExpiry <= 30
+          return (
+            <Section title="Insurance">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="text-sage-500">Provider</span>
+                  <p className="text-sage-800 font-medium">{contractor.insurance_provider ?? '—'}</p>
+                </div>
+                <div>
+                  <span className="text-sage-500">Policy number</span>
+                  <p className="text-sage-800 font-medium">{contractor.insurance_policy_number ?? '—'}</p>
+                </div>
+                <div>
+                  <span className="text-sage-500">Expiry</span>
+                  <p className="flex items-center gap-2">
+                    <span className="text-sage-800 font-medium">{fmtDate(expiry)}</span>
+                    {expiry && (
+                      <span className={clsx('inline-block px-2 py-0.5 rounded-full text-[10px] font-medium',
+                        isExpired ? 'bg-red-50 text-red-700' : isSoon ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700',
+                      )}>
+                        {isExpired ? 'Expired' : isSoon ? `${daysToExpiry}d left` : 'Current'}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              {contractor.insurance_liability_cover != null && (
+                <div className="mt-3 text-sm">
+                  <span className="text-sage-500">Public liability cover</span>
+                  <p className="text-sage-800 font-medium">{fmtCurrency(contractor.insurance_liability_cover)}</p>
+                </div>
+              )}
+              {(isExpired || !expiry) && (
+                <p className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  {isExpired ? 'Insurance has expired.' : 'Insurance expiry not set.'} This contractor cannot be assigned to new jobs until current insurance is recorded.
+                </p>
+              )}
+            </Section>
+          )
+        })()}
+
+        {/* Compliance — shared */}
+        {(contractor.contract_signed_date || contractor.right_to_work_required || contractor.right_to_work_expiry) && (() => {
+          const today = new Date().toISOString().slice(0, 10)
+          const rtwExpiry = contractor.right_to_work_expiry as string | null
+          const rtwExpired = contractor.right_to_work_required && rtwExpiry != null && rtwExpiry < today
+          const rtwMissing = contractor.right_to_work_required && !rtwExpiry
+          return (
+            <Section title="Compliance">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-sage-500">Contract signed</span>
+                  <p className="text-sage-800 font-medium">{fmtDate(contractor.contract_signed_date)}</p>
+                </div>
+                <div>
+                  <span className="text-sage-500">Right to work</span>
+                  {contractor.right_to_work_required ? (
+                    <p className="flex items-center gap-2">
+                      <span className="text-sage-800 font-medium">{fmtDate(rtwExpiry)}</span>
+                      <span className={clsx('inline-block px-2 py-0.5 rounded-full text-[10px] font-medium',
+                        rtwExpired ? 'bg-red-50 text-red-700' : rtwMissing ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700',
+                      )}>
+                        {rtwExpired ? 'Expired' : rtwMissing ? 'Missing' : 'Current'}
+                      </span>
+                    </p>
+                  ) : (
+                    <p className="text-sage-500">Not required</p>
+                  )}
+                </div>
+              </div>
+            </Section>
+          )
+        })()}
+
+        {/* Operational — shared */}
+        {(contractor.service_areas?.length || contractor.approved_services?.length || contractor.availability_notes
+          || contractor.has_vehicle || contractor.provides_own_equipment
+          || contractor.key_holding_approved || contractor.alarm_access_approved || contractor.pet_friendly) && (
+          <Section title="Operational">
+            {(contractor.service_areas?.length ?? 0) > 0 && (
+              <div className="mb-3">
+                <span className="text-sage-500 text-sm">Service areas</span>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {(contractor.service_areas as string[]).map((a) => (
+                    <span key={a} className="inline-block px-2 py-0.5 rounded-full bg-sage-100 text-sage-700 text-xs capitalize">{a.replace(/_/g, ' ')}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {(contractor.approved_services?.length ?? 0) > 0 && (
+              <div className="mb-3">
+                <span className="text-sage-500 text-sm">Approved services</span>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {(contractor.approved_services as string[]).map((s) => (
+                    <span key={s} className="inline-block px-2 py-0.5 rounded-full bg-sage-100 text-sage-700 text-xs capitalize">{s.replace(/_/g, ' ')}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-sage-700">
+              {contractor.has_vehicle && <span>✓ Has vehicle</span>}
+              {contractor.provides_own_equipment && <span>✓ Own equipment</span>}
+              {contractor.key_holding_approved && <span>✓ Key holding</span>}
+              {contractor.alarm_access_approved && <span>✓ Alarm access</span>}
+              {contractor.pet_friendly && <span>✓ Pet-friendly</span>}
+            </div>
+            {contractor.availability_notes && (
+              <div className="mt-3 text-sm">
+                <span className="text-sage-500">Availability</span>
+                <p className="text-sage-700 whitespace-pre-wrap">{contractor.availability_notes}</p>
+              </div>
+            )}
+          </Section>
+        )}
+
+        {/* Capability — shared (Phase 2) */}
+        {(contractor.experience_level || contractor.can_lead_jobs || contractor.can_work_solo || contractor.can_supervise_others) && (
+          <Section title="Capability">
+            {contractor.experience_level && (
+              <div className="text-sm mb-2">
+                <span className="text-sage-500">Experience level</span>
+                <p className="text-sage-800 font-medium capitalize">{contractor.experience_level}</p>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-sage-700">
+              {contractor.can_lead_jobs && <span>✓ Can lead jobs</span>}
+              {contractor.can_work_solo && <span>✓ Can work solo</span>}
+              {contractor.can_supervise_others && <span>✓ Can supervise others</span>}
+            </div>
+          </Section>
+        )}
+
+        {/* Portal access — shared (Phase 2) */}
+        <Section title="Portal access">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+            <div>
+              <span className="text-sage-500">Portal access</span>
+              <p className={clsx('font-medium', contractor.portal_access_active ? 'text-emerald-700' : 'text-sage-500')}>
+                {contractor.portal_access_active ? 'Active' : 'Inactive'}
+              </p>
+            </div>
+            <div>
+              <span className="text-sage-500">Invite sent</span>
+              <p className="text-sage-800 font-medium">{contractor.invite_sent_at ? fmtDate((contractor.invite_sent_at as string).slice(0, 10)) : '—'}</p>
+            </div>
+            <div>
+              <span className="text-sage-500">Auth linked</span>
+              <p className={clsx('font-medium', contractor.auth_user_id ? 'text-emerald-700' : 'text-sage-500')}>
+                {contractor.auth_user_id ? 'Yes' : 'No'}
+              </p>
+            </div>
+          </div>
+        </Section>
+
         {/* Documents */}
         <Section title={`Documents${docs.length > 0 ? ` (${docs.length})` : ''}`}>
           <div className="mb-4">
@@ -229,6 +437,11 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
               })}
             </div>
           )}
+        </Section>
+
+        {/* Incidents — Phase 2 */}
+        <Section title={`Incidents${incidentList.length > 0 ? ` (${incidentList.length}${openIncidentCount > 0 ? `, ${openIncidentCount} open` : ''})` : ''}`}>
+          <IncidentList contractorId={contractor.id} incidents={incidentList} />
         </Section>
 
         {/* Recent jobs */}
