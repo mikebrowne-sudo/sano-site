@@ -28,30 +28,37 @@ Sits alongside the existing quote wording system. The wording engine is untouche
 
 ## 3. Pricing Model
 
-**Billable hour calculation order** (strict):
+### Billable Hour Calculation Order
 
-1. **Raw service hours** from bedrooms × service type multiplier.
-2. **Condition multiplier** — stack all `%` adjustments multiplicatively.
-3. **Flat-hour loadings** — `+0.5 hrs` per bathroom over 1, `+0.5 hrs` for `high_use_areas`, plus all selected add-on hours. Fixed-scope; not scaled by multipliers.
-4. **Frequency multiplier**, subject to minimum: `max(MIN_JOB_HOURS, hours × frequency_multiplier)`. The minimum enforces a floor AFTER frequency discounting, so a weekly recurring 1-bed clean never drops below the minimum billable.
-5. **Buffer multiplier** — `× 1.05` (standard) or `× 1.08` (heavy — see list).
-6. **Round up** to the nearest 0.5 hour.
-7. **Hourly rate** — selected directly by pricing mode (Win $65 / Standard $75 / Premium $82). No post-multiplier.
-8. **Service fee** — `+ $25` (silent; never itemised client-facing).
-9. **Override** — if staff enters a Final price differing from the calculated price, `final_price = override` and `override_flag = true`.
+The strict source of truth for both the live UI and the Jest suite:
+
+1. Calculate base hours from property size (bedrooms) and service type (`base_hours × service_multiplier`).
+2. Apply condition multiplier (product of all selected `%` adjustments, stacked multiplicatively).
+3. Add bathroom, high-detail, and add-on hours (flat loadings; fixed-scope; not scaled by multipliers).
+4. Apply frequency multiplier, respecting minimum hours: `max(MIN_JOB_HOURS, hours × frequency_multiplier)`. The minimum floor applies AFTER the frequency discount, so a weekly recurring 1-bed clean never drops below `MIN_JOB_HOURS`.
+5. Apply buffer multiplier (`× 1.05` standard or `× 1.08` heavy).
+6. Round up to the nearest 0.5 hour.
+7. Multiply by hourly rate (selected directly by pricing mode) and add the callout / service fee.
 
 Formulaically:
 
 ```
-raw          = base_hours × service_multiplier × condition_multiplier
-adjusted     = raw + bathroom_hours + high_use_hours + Σ addon_hours
-after_freq   = max(MIN_JOB_HOURS, adjusted × frequency_multiplier)
-buffered     = after_freq × (1 + buffer_percent)
-final_hours  = ceil_to_0_5(buffered)
-rate         = HOURLY_RATES[pricing_mode]     // 65 / 75 / 82
-calculated   = (final_hours × rate) + SERVICE_FEE
-final_price  = override ?? calculated
+adjusted_hours  = (base_hours × service_multiplier × condition_multiplier)
+                   + bathroom_hours + high_use_hours + Σ addon_hours
+after_frequency = max(MIN_JOB_HOURS, adjusted_hours × frequency_multiplier)
+buffered_hours  = after_frequency × (1 + buffer_percent)
+final_hours     = ceil_to_0_5(buffered_hours)
+final_price     = (final_hours × HOURLY_RATES[pricing_mode]) + SERVICE_FEE
 ```
+
+If staff overrides the final price, `final_price = override` and `override_flag = true`; `final_hours` and the derived `calculated_price` are preserved in the breakdown unchanged.
+
+### Engine invariants (enforced by tests and shared by the UI)
+
+- Buffer is **always** applied to billable hours. It is never display-only.
+- Rounding to 0.5 always happens **after** the buffer multiplier — never before.
+- `final_hours` is always a multiple of 0.5.
+- Tests and the UI both call `calculateQuotePrice` from `src/lib/quote-pricing.ts` — there is exactly one calculation path in the codebase.
 
 Flat-hour loadings (bathroom, high-use, add-ons) are fixed-scope and never scaled by service or condition multipliers — a 2-bathroom 3-bed Deep Clean with an oven clean adds the same `0.5 + 1.0` hrs as a 2-bathroom 3-bed Standard Clean with an oven clean.
 
@@ -172,20 +179,19 @@ BUFFER_STANDARD       = 0.05
 BUFFER_HEAVY          = 0.08
 ```
 
-### 3.10 Scenario reference values
+### 3.10 Canonical scenarios
 
-Used as the canonical test vectors. All values are the engine's exact outputs.
+Exact outputs of the formula above. Used as both Jest assertions and live-portal verification targets. No `%` conditions and no add-ons unless noted.
 
-| # | Property | Service / tags / mode | Final hours | Final price |
+| # | Property | Service / frequency / mode | `final_hours` | `final_price` |
 |---|---|---|---|---|
-| 1 | 1-bed / 1-bath | Residential Standard / well-maintained / Win | 2.5 | $187.50 |
-| 2 | 3-bed / 2-bath | Residential Standard / well-maintained / Win | 4.5 | $317.50 |
-| 3 | 4-bed / 2-bath | Residential Deep / — / Win | 9.5 | $642.50 |
-| 4 | 3-bed / 2-bath | Residential Standard / well-maintained / Standard | 4.5 | $362.50 |
-| 5 | 3-bed / 2-bath | Deep + build-up + oven + fridge / Premium | 9.5 | $804.00 |
-| 6 | 1-bed / 1-bath | Airbnb Turnover / well-maintained / Standard | 2.5 | $212.50 |
-| 7 | 4-bed / 3-bath | PM End-of-Tenancy / furnished / Win | 11.0 | $740.00 |
-| 8 | 1-bed / 1-bath | Airbnb Turnover / weekly recurring / Standard | 2.5 | $212.50 (min floor kicks in AFTER frequency) |
+| 1 | 1 bed / 1 bath | Residential Standard / one-off / Win    | 2.5  | $187.50 |
+| 2 | 3 bed / 2 bath | Residential Standard / one-off / Win    | 4.5  | $317.50 |
+| 3 | 4 bed / 2 bath | Residential Standard / one-off / Win    | 6.0  | $415.00 |
+| 4 | 4 bed / 2 bath | Residential Deep     / one-off / Win    | 9.5  | $642.50 |
+| 5 | 3 bed / 2 bath | Residential Standard / **weekly** / Win | 3.5  | $252.50 |
+
+The Jest suite contains these as `Canonical A`–`Canonical E` plus broader coverage for other modes, frequencies, edge cases (minimum floor activation, clamp, fallback, override), and legacy+new breakdown field parity.
 
 ## 4. Architecture
 
@@ -291,26 +297,23 @@ NewQuoteForm / EditQuoteForm → createQuote / updateQuote
 
 ## 5. UI
 
-### 5.1 Pricing Summary layout
+### 5.1 Pricing Summary layout (staff-only, inside the portal)
 
 Placement: between the existing `QuoteBuilder` output and the Pricing section of the form. Replaces the legacy `Base price ($)` input **only when pricing is eligible**.
 
 Visible elements, in order:
-- **Estimated time** — e.g. `5.5 hrs` (shown as soon as eligible; displays even before mode is touched).
-- **Calculated price** — e.g. `$382.50` (always visible when eligible).
+- **Estimated time** — e.g. `4.5 hrs` (the post-buffer, rounded `final_hours` — the same number used to compute the price).
+- **Calculated price** — e.g. `$317.50` (always visible when eligible).
 - **Mode selector** — three pill buttons (`Win` / `Standard` / `Premium`) in the QuoteBuilder chip style. Default `standard`.
-- **Breakdown (collapsible, staff-facing only)** — plain-English lines in calculation order:
-  - `3-bed base`
-  - `Deep clean`
-  - `Build-up`
-  - `2 bathrooms`
-  - `Oven + fridge`
-  - `Buffer (20%)`
-  - `Rounded`
-  - `$65 × 11.5 hrs`
-  - `Premium ×1.08`
-  - `Service fee`
-  - `Calculated`
+- **Breakdown (collapsible, staff-facing only)** — plain-English lines in calculation order. Using Canonical scenario 4 (4-bed / 2-bath Deep / Win / one-off) for illustration:
+  - `4-bed base            5.0 hrs`
+  - `Deep clean            ×1.6`
+  - `Bathrooms             +0.5 hrs`
+  - `Rounded               9.5 hrs`
+  - `Buffer (8%)           ×1.08`
+  - `$65 × 9.5 hrs         $617.50`
+  - `Service fee           +$25.00`
+  - `Calculated            $642.50`
 - **Final price** — numeric input, always editable, pre-populated with calculated price.
   - When different from calculated: muted line `Overridden from $X calculated` and a `Revert to calculated` link.
   - Field is labelled **Final price** in the UI. The word "override" stays internal only (`override_flag` in breakdown).
@@ -320,13 +323,28 @@ Visible elements, in order:
 - Category or service type not selected → show placeholder: *"Select an eligible service to use guided pricing."* Legacy manual `Base price` input remains.
 - Category = Commercial → engine never runs; legacy manual `Base price` input is rendered as today.
 - Eligible but `bedrooms` empty / 0 → 1-bed fallback with muted note.
-- Eligible but `bedrooms > 5` → 5-bed clamp with muted note.
+- Eligible but `bedrooms > 6` → 6-bed clamp with muted note.
 
 ### 5.3 Mode selector
 
 - Always visible when pricing is eligible.
 - Default `standard` for new quotes and for legacy rows with null `pricing_mode`.
 - Saved mode hydrates on edit.
+
+### 5.4 Customer-facing vs internal rendering
+
+The breakdown is strictly internal. Every customer-visible surface shows only the final price.
+
+| Surface | What it shows |
+|---|---|
+| Quote print / PDF (`/portal/quotes/{id}/print`) | Final price only. No hours, no buffer, no breakdown. |
+| Shared quote link (`/share/quote/{token}`) | Final price only. No hours, no buffer, no breakdown. |
+| Invoice (`/portal/invoices/{id}` + print) | Final price only. Same behaviour as today. |
+| Email quote (via Send panel) | Final price only, inside the existing Resend template. |
+| Portal quote edit (staff, `draft` status) | Full `<PricingSummary>` — mode selector, estimated time, calculated price, collapsible breakdown (bed base, service multiplier, conditions, bathroom, add-ons, frequency, minimum floor, buffer, rounded `final_hours`, rate × hours, service fee, calculated, final / overridden). |
+| Portal quote view (staff, `sent` / `accepted` status) | `<PricingSummary>` renders read-only — breakdown visible for reference but mode and Final price controls disabled. Status transitions alone (Send, Mark as accepted) never recalculate pricing. |
+
+The `$25` service fee is part of the internal breakdown and is rolled into the final price for customer-facing output; it is never surfaced as a separate line item anywhere the client sees.
 
 ## 6. Persistence
 

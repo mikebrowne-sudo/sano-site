@@ -123,6 +123,43 @@ describe('Canonical C: 4-bed / 2-bath Deep Residential / no conditions / Win', (
   it('service_multiplier = 1.6', () => { expect(result.breakdown?.service_multiplier).toBe(1.6) })
 })
 
+describe('Canonical D: 4-bed / 2-bath Standard Residential / no conditions / Win / one-off', () => {
+  // 5.0 × 1.0 × 1.0 + 0.5 = 5.5 → × freq 1.0 = 5.5 → max(2.0, 5.5) = 5.5
+  // × 1.05 = 5.775 → ceil 0.5 = 6.0 → × $65 + $25 = $415.00
+  const result = calculateQuotePrice({
+    service_category: 'residential',
+    service_type_code: 'standard_clean',
+    bedrooms: 4,
+    bathrooms: 2,
+    condition_tags: [],
+    addons_wording: [],
+  }, 'win')
+
+  it('final_hours = 6.0', () => { expect(result.estimated_hours).toBe(6.0) })
+  it('calculated_price = $415.00', () => { expect(result.calculated_price).toBe(415) })
+  it('buffer is standard (5%)', () => { expect(result.breakdown?.buffer_percent).toBe(0.05) })
+  it('bathroom_hours = 0.5', () => { expect(result.breakdown?.bathroom_hours).toBe(0.5) })
+})
+
+describe('Canonical E: 3-bed / 2-bath Standard Residential / weekly / Win', () => {
+  // 3.5 × 1.0 × 1.0 + 0.5 = 4.0 → × freq 0.75 = 3.0 → max(2.0, 3.0) = 3.0
+  // × 1.05 = 3.15 → ceil 0.5 = 3.5 → × $65 + $25 = $252.50
+  const result = calculateQuotePrice({
+    service_category: 'residential',
+    service_type_code: 'standard_clean',
+    bedrooms: 3,
+    bathrooms: 2,
+    condition_tags: [],
+    addons_wording: [],
+    frequency: 'weekly',
+  }, 'win')
+
+  it('final_hours = 3.5', () => { expect(result.estimated_hours).toBe(3.5) })
+  it('calculated_price = $252.50', () => { expect(result.calculated_price).toBe(252.5) })
+  it('frequency_multiplier = 0.75', () => { expect(result.breakdown?.frequency_multiplier).toBe(0.75) })
+  it('min_applied = false (post-frequency hours 3.0 >= MIN 2.0)', () => { expect(result.breakdown?.min_applied).toBe(false) })
+})
+
 // ============================================================
 // Broader scenario coverage
 // ============================================================
