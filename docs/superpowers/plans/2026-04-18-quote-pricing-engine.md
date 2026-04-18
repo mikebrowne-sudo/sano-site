@@ -87,7 +87,7 @@ describe('quote-pricing — smoke', () => {
 - [ ] **Step 2: Run it to verify it fails at import (module does not yet exist)**
 
 ```bash
-npm test -- --testPathPattern=quote-pricing
+npm test -- --testPathPatterns=quote-pricing
 ```
 
 Expected: FAIL with `Cannot find module '../quote-pricing'`.
@@ -177,7 +177,7 @@ export function calculateQuotePrice(
 - [ ] **Step 4: Run the smoke test again and confirm it passes**
 
 ```bash
-npm test -- --testPathPattern=quote-pricing
+npm test -- --testPathPatterns=quote-pricing
 ```
 
 Expected: PASS (1 test).
@@ -463,7 +463,7 @@ describe('calculateQuotePrice — breakdown stores both calculated_price and fin
 - [ ] **Step 6: Run the suite; expect the scenario tests to fail (eligibility and math not implemented)**
 
 ```bash
-npm test -- --testPathPattern=quote-pricing
+npm test -- --testPathPatterns=quote-pricing
 ```
 
 Expected: 2 PASS (smoke + maybe `isPricingEligible` "all false" case), most FAIL.
@@ -710,7 +710,7 @@ export function calculateQuotePrice(
 - [ ] **Step 8: Run the full suite and confirm all tests pass**
 
 ```bash
-npm test -- --testPathPattern=quote-pricing
+npm test -- --testPathPatterns=quote-pricing
 ```
 
 Expected: ALL tests pass. If a numeric test fails, first re-check the spec's formula in section 3 — the implementation must match the spec, not the other way around. If the spec's expected numbers need correcting, update the spec first, then the test.
@@ -1608,7 +1608,7 @@ Tail the browser devtools console throughout Steps 2–13. Expected: no errors, 
 ```bash
 npx tsc --noEmit
 npm run lint
-npm test -- --testPathPattern=quote-pricing
+npm test -- --testPathPatterns=quote-pricing
 ```
 
 Expected: all green.
