@@ -172,6 +172,7 @@ export const ADDON_OPTIONS: { value: string; label: string; wording: string }[] 
   { value: 'garage_clean',            label: 'Garage clean',            wording: 'garage clean' },
   { value: 'outdoor_areas',           label: 'Outdoor areas',           wording: 'outdoor areas' },
   { value: 'pressure_washing',        label: 'Pressure washing',        wording: 'pressure washing' },
+  { value: 'mould_treatment',         label: 'Mould treatment',         wording: 'mould treatment' },
 ]
 
 // ─────────────────────────────────────────────────────────────
