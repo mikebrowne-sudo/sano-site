@@ -24,12 +24,25 @@ interface CreateQuoteInput {
   client_id?: string
   new_client?: NewClientInput
 
-  // Service details
+  // Service details (legacy)
   property_category?: string
   type_of_clean?: string
   service_type?: string
-  frequency?: string
   scope_size?: string
+  // Service details (structured builder — Phase 1 of quote wording system)
+  service_category?: string
+  service_type_code?: string
+  property_type?: string
+  bedrooms?: number
+  bathrooms?: number
+  site_type?: string
+  areas_included?: string[]
+  condition_tags?: string[]
+  addons_wording?: string[]
+  generated_scope?: string
+  description_edited?: boolean
+
+  frequency?: string
   service_address?: string
   preferred_dates?: string
   scheduled_clean_date?: string
@@ -41,7 +54,7 @@ interface CreateQuoteInput {
   gst_included: boolean
   payment_type?: string
 
-  // Add-ons
+  // Add-ons (priced line items — distinct from addons_wording)
   addons: AddonInput[]
 }
 
@@ -95,6 +108,18 @@ export async function createQuote(input: CreateQuoteInput) {
       service_type: input.service_type || null,
       frequency: input.frequency || null,
       scope_size: input.scope_size || null,
+      // Structured scope fields
+      service_category: input.service_category || null,
+      service_type_code: input.service_type_code || null,
+      property_type: input.property_type || null,
+      bedrooms: input.bedrooms ?? null,
+      bathrooms: input.bathrooms ?? null,
+      site_type: input.site_type || null,
+      areas_included: input.areas_included ?? [],
+      condition_tags: input.condition_tags ?? [],
+      addons_wording: input.addons_wording ?? [],
+      generated_scope: input.generated_scope || null,
+      description_edited: input.description_edited ?? false,
       service_address: input.service_address || null,
       preferred_dates: input.preferred_dates || null,
       scheduled_clean_date: input.scheduled_clean_date || null,

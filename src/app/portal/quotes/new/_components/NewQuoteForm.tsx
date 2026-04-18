@@ -3,6 +3,8 @@
 import { useState, useTransition } from 'react'
 import { createQuote } from '../_actions'
 import { AddressField } from '../../../_components/AddressField'
+import { QuoteBuilder, emptyBuilderState, type QuoteBuilderState } from '../../_components/QuoteBuilder'
+import { SERVICE_TYPES_BY_CATEGORY } from '@/lib/quote-wording'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -114,14 +116,14 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
   const [billingAddress, setBillingAddress] = useState('')
   const [billingSame, setBillingSame] = useState(true)
 
-  // Service details
-  const [propertyType, setPropertyType] = useState('')
-  const [cleanType, setCleanType] = useState('')
-  const [serviceType, setServiceType] = useState('')
-  const [frequency, setFrequency] = useState('')
-  const [scopeSize, setScopeSize] = useState('')
+  // Service details — structured builder
+  const [builder, setBuilder] = useState<QuoteBuilderState>(emptyBuilderState())
+
+  // Scheduling
   const [preferredDates, setPreferredDates] = useState('')
   const [scheduledCleanDate, setScheduledCleanDate] = useState('')
+
+  // Supplementary notes (client-facing)
   const [notes, setNotes] = useState('')
 
   // Pricing
@@ -166,22 +168,6 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
       setBillingSame(true)
     }
   }
-
-  // ── Cascading dropdowns ──────────────────────────────────
-
-  function handlePropertyTypeChange(v: string) {
-    setPropertyType(v)
-    setCleanType('')
-    setServiceType('')
-  }
-
-  function handleCleanTypeChange(v: string) {
-    setCleanType(v)
-    setServiceType('')
-  }
-
-  const cleanTypeOptions = propertyType ? (CLEAN_TYPES[propertyType] ?? []) : []
-  const serviceTypeOptions = cleanType ? (SERVICE_TYPES[cleanType] ?? []) : []
 
   // ── Add-ons ──────────────────────────────────────────────
 
@@ -245,11 +231,24 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
                 billing_same_as_service: billingSame,
               }
             : undefined,
-        property_category: propertyType || undefined,
-        type_of_clean: cleanType || undefined,
-        service_type: serviceType || undefined,
-        frequency: frequency || undefined,
-        scope_size: scopeSize || undefined,
+        // Legacy-compat column (human-readable label for pricing label renderer)
+        type_of_clean: (() => {
+          if (!builder.service_category || !builder.service_type_code) return undefined
+          return SERVICE_TYPES_BY_CATEGORY[builder.service_category].find((t) => t.value === builder.service_type_code)?.label
+        })(),
+        // Structured builder fields
+        service_category: builder.service_category || undefined,
+        service_type_code: builder.service_type_code || undefined,
+        property_type: builder.property_type || undefined,
+        bedrooms: builder.bedrooms ? parseInt(builder.bedrooms, 10) : undefined,
+        bathrooms: builder.bathrooms ? parseInt(builder.bathrooms, 10) : undefined,
+        site_type: builder.site_type.trim() || undefined,
+        frequency: builder.frequency || undefined,
+        areas_included: builder.areas_included,
+        condition_tags: builder.condition_tags,
+        addons_wording: builder.addons_wording,
+        generated_scope: builder.generated_scope || undefined,
+        description_edited: builder.description_edited,
         service_address: serviceAddress.trim() || undefined,
         preferred_dates: preferredDates.trim() || undefined,
         scheduled_clean_date: scheduledCleanDate || undefined,
@@ -345,44 +344,8 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
 
       {/* ── Section 3: Service ──────────────────────── */}
       <Section title="Service">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Select
-            label="Property type"
-            value={propertyType}
-            onChange={handlePropertyTypeChange}
-            options={PROPERTY_TYPES.map((v) => ({ value: v, label: v }))}
-          />
-          <Select
-            label="Type of clean"
-            value={cleanType}
-            onChange={handleCleanTypeChange}
-            options={cleanTypeOptions.map((v) => ({ value: v, label: v }))}
-            disabled={!propertyType}
-            placeholder={propertyType ? 'Select…' : 'Select property type first'}
-          />
-          <Select
-            label="Service type"
-            value={serviceType}
-            onChange={setServiceType}
-            options={serviceTypeOptions.map((v) => ({ value: v, label: v }))}
-            disabled={!cleanType}
-            placeholder={cleanType ? 'Select…' : 'Select type of clean first'}
-          />
-          <Select
-            label="Frequency"
-            value={frequency}
-            onChange={setFrequency}
-            options={FREQUENCIES.map((v) => ({ value: v, label: v }))}
-          />
-        </div>
-        <Select
-          label="Scope / size"
-          value={scopeSize}
-          onChange={setScopeSize}
-          options={SCOPE_SIZES.map((v) => ({ value: v, label: v }))}
-          className="mt-4"
-        />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+        <QuoteBuilder value={builder} onChange={setBuilder} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
           <Field label="Preferred dates" value={preferredDates} onChange={setPreferredDates} placeholder="e.g. Mondays, or 21 April" />
           <Field label="Scheduled clean date" type="date" value={scheduledCleanDate} onChange={setScheduledCleanDate} />
         </div>

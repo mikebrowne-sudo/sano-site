@@ -3,6 +3,8 @@
 import { useState, useTransition } from 'react'
 import { updateQuote } from '../_actions'
 import { AddressField } from '../../../_components/AddressField'
+import { QuoteBuilder, emptyBuilderState, type QuoteBuilderState } from '../../_components/QuoteBuilder'
+import { SERVICE_TYPES_BY_CATEGORY, type ServiceCategory } from '@/lib/quote-wording'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -110,6 +112,18 @@ interface Quote {
   date_issued: string | null
   valid_until: string | null
   created_at: string
+  // Structured builder fields
+  service_category: string | null
+  service_type_code: string | null
+  property_type: string | null
+  bedrooms: number | null
+  bathrooms: number | null
+  site_type: string | null
+  areas_included: string[] | null
+  condition_tags: string[] | null
+  addons_wording: string[] | null
+  generated_scope: string | null
+  description_edited: boolean | null
 }
 
 interface Addon {
@@ -153,12 +167,31 @@ export function EditQuoteForm({
   const [dateIssued, setDateIssued] = useState(quote.date_issued ?? '')
   const [validUntil, setValidUntil] = useState(quote.valid_until ?? '')
 
-  // Service details
-  const [propertyCategory, setPropertyCategory] = useState(quote.property_category ?? '')
-  const [typeOfClean, setTypeOfClean] = useState(quote.type_of_clean ?? '')
-  const [serviceType, setServiceType] = useState(quote.service_type ?? '')
-  const [frequency, setFrequency] = useState(quote.frequency ?? '')
-  const [scopeSize, setScopeSize] = useState(quote.scope_size ?? '')
+  // Service details — structured builder (hydrated from existing quote if present)
+  const [builder, setBuilder] = useState<QuoteBuilderState>(() => {
+    const fresh = emptyBuilderState()
+    if (quote.service_category) {
+      return {
+        ...fresh,
+        service_category: quote.service_category as ServiceCategory | '',
+        service_type_code: quote.service_type_code ?? '',
+        property_type: quote.property_type ?? '',
+        bedrooms: quote.bedrooms != null ? String(quote.bedrooms) : '',
+        bathrooms: quote.bathrooms != null ? String(quote.bathrooms) : '',
+        site_type: quote.site_type ?? '',
+        frequency: quote.frequency ?? '',
+        areas_included: quote.areas_included ?? [],
+        condition_tags: quote.condition_tags ?? [],
+        addons_wording: quote.addons_wording ?? [],
+        generated_scope: quote.generated_scope ?? '',
+        description_edited: quote.description_edited ?? false,
+      }
+    }
+    return fresh
+  })
+  const hasLegacyOnly = !quote.service_category && (quote.property_category || quote.type_of_clean)
+
+  // Scheduling
   const [serviceAddress, setServiceAddress] = useState(quote.service_address ?? '')
   const [preferredDates, setPreferredDates] = useState(quote.preferred_dates ?? '')
   const [scheduledCleanDate, setScheduledCleanDate] = useState(quote.scheduled_clean_date ?? '')
@@ -169,34 +202,6 @@ export function EditQuoteForm({
   const [discount, setDiscount] = useState(String(quote.discount || ''))
   const [gstIncluded, setGstIncluded] = useState(quote.gst_included)
   const [paymentType, setPaymentType] = useState(quote.payment_type ?? 'cash_sale')
-
-  // Cascading dropdown logic
-  function handlePropertyTypeChange(v: string) {
-    setPropertyCategory(v)
-    setTypeOfClean('')
-    setServiceType('')
-  }
-
-  function handleCleanTypeChange(v: string) {
-    setTypeOfClean(v)
-    setServiceType('')
-  }
-
-  // Build options — include existing value even if it's not in the predefined list
-  function buildOptions(list: string[], current: string) {
-    const opts = list.map((v) => ({ value: v, label: v }))
-    if (current && !list.includes(current)) {
-      opts.unshift({ value: current, label: current })
-    }
-    return opts
-  }
-
-  const cleanTypeList = propertyCategory ? (CLEAN_TYPES[propertyCategory] ?? []) : Object.values(CLEAN_TYPES).flat()
-  const serviceTypeList = typeOfClean ? (SERVICE_TYPES[typeOfClean] ?? []) : []
-
-  const propertyTypeOptions = buildOptions(PROPERTY_TYPES, propertyCategory)
-  const cleanTypeOptions = buildOptions(cleanTypeList, typeOfClean)
-  const serviceTypeOptions = buildOptions(serviceTypeList, serviceType)
 
   // Add-ons — seed from existing items
   const [addons, setAddons] = useState<Addon[]>(
@@ -247,11 +252,24 @@ export function EditQuoteForm({
         status,
         date_issued: dateIssued || undefined,
         valid_until: validUntil || undefined,
-        property_category: propertyCategory || undefined,
-        type_of_clean: typeOfClean || undefined,
-        service_type: serviceType || undefined,
-        frequency: frequency || undefined,
-        scope_size: scopeSize || undefined,
+        // Legacy label for pricing/items renderer
+        type_of_clean: (() => {
+          if (!builder.service_category || !builder.service_type_code) return quote.type_of_clean || undefined
+          return SERVICE_TYPES_BY_CATEGORY[builder.service_category].find((t) => t.value === builder.service_type_code)?.label
+        })(),
+        // Structured builder fields
+        service_category: builder.service_category || undefined,
+        service_type_code: builder.service_type_code || undefined,
+        property_type: builder.property_type || undefined,
+        bedrooms: builder.bedrooms ? parseInt(builder.bedrooms, 10) : undefined,
+        bathrooms: builder.bathrooms ? parseInt(builder.bathrooms, 10) : undefined,
+        site_type: builder.site_type.trim() || undefined,
+        frequency: builder.frequency || undefined,
+        areas_included: builder.areas_included,
+        condition_tags: builder.condition_tags,
+        addons_wording: builder.addons_wording,
+        generated_scope: builder.generated_scope || undefined,
+        description_edited: builder.description_edited,
         service_address: serviceAddress.trim() || undefined,
         preferred_dates: preferredDates.trim() || undefined,
         scheduled_clean_date: scheduledCleanDate || undefined,
@@ -336,44 +354,15 @@ export function EditQuoteForm({
 
       {/* ── Section: Service details ────────────────── */}
       <Section title="Service Details">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Select
-            label="Property type"
-            value={propertyCategory}
-            onChange={handlePropertyTypeChange}
-            options={propertyTypeOptions}
-          />
-          <Select
-            label="Type of clean"
-            value={typeOfClean}
-            onChange={handleCleanTypeChange}
-            options={cleanTypeOptions}
-            disabled={!propertyCategory}
-            placeholder={propertyCategory ? 'Select…' : 'Select property type first'}
-          />
-          <Select
-            label="Service type"
-            value={serviceType}
-            onChange={setServiceType}
-            options={serviceTypeOptions}
-            disabled={!typeOfClean}
-            placeholder={typeOfClean ? 'Select…' : 'Select type of clean first'}
-          />
-          <Select
-            label="Frequency"
-            value={frequency}
-            onChange={setFrequency}
-            options={FREQUENCIES.map((v) => ({ value: v, label: v }))}
-          />
-        </div>
-        <Select
-          label="Scope / size"
-          value={scopeSize}
-          onChange={setScopeSize}
-          options={SCOPE_SIZES.map((v) => ({ value: v, label: v }))}
-          className="mt-4"
-        />
-        <AddressField label="Service address" value={serviceAddress} onChange={setServiceAddress} className="mt-4" />
+        {hasLegacyOnly && (
+          <div className="bg-sage-50 border border-sage-200 rounded-lg px-4 py-3 mb-5 text-xs text-sage-700">
+            This quote was created before the structured scope builder.
+            Current legacy fields: <span className="font-medium">{quote.property_category || '—'} / {quote.type_of_clean || '—'}</span>.
+            Filling in the builder below will generate a new structured scope and replace the legacy description on save.
+          </div>
+        )}
+        <QuoteBuilder value={builder} onChange={setBuilder} />
+        <AddressField label="Service address" value={serviceAddress} onChange={setServiceAddress} className="mt-6" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <Field label="Preferred dates" value={preferredDates} onChange={setPreferredDates} />
           <Field label="Scheduled clean date" type="date" value={scheduledCleanDate} onChange={setScheduledCleanDate} />

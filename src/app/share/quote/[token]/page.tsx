@@ -30,6 +30,7 @@ export default async function PublicQuotePage({ params }: { params: { token: str
     .select(`
       id, quote_number, status, accepted_at, date_issued, valid_until,
       property_category, type_of_clean, frequency, scope_size,
+      generated_scope,
       service_address, scheduled_clean_date, notes,
       base_price, discount, gst_included, payment_type,
       clients ( name, company_name, service_address, phone, email )
@@ -53,7 +54,7 @@ export default async function PublicQuotePage({ params }: { params: { token: str
   const subtotalExGst = quote.gst_included ? lineTotal - gstAmount : lineTotal
   const total = quote.gst_included ? lineTotal : lineTotal + gstAmount
 
-  const description = buildServiceDescription(quote)
+  const description: string = (quote.generated_scope as string | null) || buildServiceDescription(quote)
   const pricingLabel = buildPricingLabel(quote)
   const isCashSale = (quote.payment_type ?? 'cash_sale') === 'cash_sale'
 
@@ -103,7 +104,11 @@ export default async function PublicQuotePage({ params }: { params: { token: str
             {description && (
               <div className="print-field">
                 <div className="print-field-label">Service Description</div>
-                <div className="print-field-value">{description}</div>
+                <div className="print-field-value">
+                  {description.split('\n\n').map((para, i) => (
+                    <p key={i} style={{ marginBottom: i === description.split('\n\n').length - 1 ? 0 : '0.6em', whiteSpace: 'pre-wrap' }}>{para}</p>
+                  ))}
+                </div>
               </div>
             )}
             {quote.service_address && (

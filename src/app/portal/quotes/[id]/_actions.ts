@@ -27,6 +27,18 @@ interface UpdateQuoteInput {
   service_type?: string
   frequency?: string
   scope_size?: string
+  // Structured builder fields
+  service_category?: string
+  service_type_code?: string
+  property_type?: string
+  bedrooms?: number
+  bathrooms?: number
+  site_type?: string
+  areas_included?: string[]
+  condition_tags?: string[]
+  addons_wording?: string[]
+  generated_scope?: string
+  description_edited?: boolean
   service_address?: string
   preferred_dates?: string
   scheduled_clean_date?: string
@@ -49,11 +61,23 @@ export async function updateQuote(input: UpdateQuoteInput) {
       status: input.status,
       date_issued: input.date_issued || null,
       valid_until: input.valid_until || null,
-      property_category: input.property_category || null,
-      type_of_clean: input.type_of_clean || null,
-      service_type: input.service_type || null,
+      property_category: input.property_category ?? null,
+      type_of_clean: input.type_of_clean ?? null,
+      service_type: input.service_type ?? null,
       frequency: input.frequency || null,
-      scope_size: input.scope_size || null,
+      scope_size: input.scope_size ?? null,
+      // Structured builder fields
+      service_category: input.service_category || null,
+      service_type_code: input.service_type_code || null,
+      property_type: input.property_type || null,
+      bedrooms: input.bedrooms ?? null,
+      bathrooms: input.bathrooms ?? null,
+      site_type: input.site_type || null,
+      areas_included: input.areas_included ?? [],
+      condition_tags: input.condition_tags ?? [],
+      addons_wording: input.addons_wording ?? [],
+      generated_scope: input.generated_scope || null,
+      description_edited: input.description_edited ?? false,
       service_address: input.service_address || null,
       preferred_dates: input.preferred_dates || null,
       scheduled_clean_date: input.scheduled_clean_date || null,
