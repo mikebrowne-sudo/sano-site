@@ -53,7 +53,14 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       created_at,
       pricing_mode,
       estimated_hours,
-      pricing_breakdown
+      pricing_breakdown,
+      is_price_overridden,
+      override_price,
+      override_reason,
+      override_confirmed,
+      override_confirmed_by,
+      override_confirmed_at,
+      calculated_price
     `)
     .eq('id', params.id)
     .single()

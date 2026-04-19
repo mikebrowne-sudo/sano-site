@@ -52,6 +52,11 @@ interface UpdateQuoteInput {
   pricing_mode?: PricingMode
   estimated_hours?: number
   pricing_breakdown?: PricingBreakdown
+  is_price_overridden?: boolean
+  override_price?: number | null
+  override_reason?: string | null
+  override_confirmed?: boolean
+  calculated_price?: number | null
 }
 
 export async function updateQuote(input: UpdateQuoteInput) {
@@ -90,6 +95,11 @@ export async function updateQuote(input: UpdateQuoteInput) {
       pricing_mode: input.pricing_mode ?? null,
       estimated_hours: input.estimated_hours ?? null,
       pricing_breakdown: input.pricing_breakdown ?? null,
+      is_price_overridden: input.is_price_overridden ?? false,
+      override_price: input.override_price ?? null,
+      override_reason: input.override_reason ?? null,
+      override_confirmed: input.override_confirmed ?? false,
+      calculated_price: input.calculated_price ?? null,
       discount: input.discount,
       gst_included: input.gst_included,
       payment_type: input.payment_type || 'cash_sale',

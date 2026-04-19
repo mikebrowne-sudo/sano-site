@@ -4,7 +4,10 @@ import { useMemo, useState, useTransition } from 'react'
 import { updateQuote } from '../_actions'
 import { AddressField } from '../../../_components/AddressField'
 import { QuoteBuilder, emptyBuilderState, type QuoteBuilderState } from '../../_components/QuoteBuilder'
-import { PricingSummary, emptyPricingSummaryValue, type PricingSummaryValue } from '../../_components/PricingSummary'
+import { PricingSummary, type PricingSummaryValue } from '../../_components/PricingSummary'
+import { OverridePanel, type OverridePanelValue } from '../../_components/OverridePanel'
+import { validateOverride, type OverrideValidationErrors } from '../../_components/override-validation'
+import { computeFinalPrice } from '../../new/_components/final-price'
 import { calculateQuotePrice, isPricingEligible, type PricingBreakdown, type PricingMode } from '@/lib/quote-pricing'
 import { SERVICE_TYPES_BY_CATEGORY, type ServiceCategory } from '@/lib/quote-wording'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
@@ -75,6 +78,13 @@ interface Quote {
   pricing_mode: string | null
   estimated_hours: number | null
   pricing_breakdown: unknown | null
+  is_price_overridden?: boolean
+  override_price?: number | null
+  override_reason?: string | null
+  override_confirmed?: boolean | null
+  override_confirmed_by?: string | null
+  override_confirmed_at?: string | null
+  calculated_price?: number | null
 }
 
 interface Addon {
@@ -157,22 +167,17 @@ export function EditQuoteForm({
   // Pricing engine state (hydrated from saved row)
   const savedBreakdown = (quote.pricing_breakdown as PricingBreakdown | null) ?? null
 
-  const [pricing, setPricing] = useState<PricingSummaryValue>(() => {
-    // If the saved row was overridden, hydrate the override_price from base_price so the input
-    // shows the saved override. Otherwise start unoverridden so the input will follow the live
-    // calculated price.
-    if (savedBreakdown?.override_flag) {
-      return {
-        pricing_mode: (quote.pricing_mode as PricingMode | null) ?? 'standard',
-        override_price: String(quote.base_price || ''),
-        override_flag: true,
-      }
-    }
-    return {
-      ...emptyPricingSummaryValue(),
-      pricing_mode: (quote.pricing_mode as PricingMode | null) ?? 'standard',
-    }
+  const [pricing, setPricing] = useState<PricingSummaryValue>({
+    pricing_mode: (quote.pricing_mode as PricingMode | null) ?? 'standard',
   })
+
+  const [override, setOverride] = useState<OverridePanelValue>({
+    is_price_overridden: quote.is_price_overridden ?? false,
+    override_price: quote.override_price != null ? String(quote.override_price) : '',
+    override_reason: quote.override_reason ?? '',
+    override_confirmed: quote.override_confirmed ?? false,
+  })
+  const [overrideErrors, setOverrideErrors] = useState<OverrideValidationErrors>({})
 
   const isLocked = quote.status === 'sent' || quote.status === 'accepted'
 
@@ -188,9 +193,6 @@ export function EditQuoteForm({
 
   const engineResult = useMemo(() => {
     if (!eligible || isLocked) return null
-    const overrideNumber = pricing.override_flag && pricing.override_price != null
-      ? toNum(pricing.override_price)
-      : undefined
     return calculateQuotePrice(
       {
         service_category: builder.service_category || null,
@@ -203,7 +205,6 @@ export function EditQuoteForm({
         x_per_week: builder.x_per_week ? parseInt(builder.x_per_week, 10) : null,
       },
       pricing.pricing_mode,
-      overrideNumber,
     )
     /* eslint-disable react-hooks/exhaustive-deps */
   }, [
@@ -212,9 +213,16 @@ export function EditQuoteForm({
     builder.bedrooms, builder.bathrooms,
     builder.condition_tags.join(','), builder.addons_wording.join(','),
     builder.frequency, builder.x_per_week,
-    pricing.pricing_mode, pricing.override_flag, pricing.override_price,
+    pricing.pricing_mode,
   ])
   /* eslint-enable react-hooks/exhaustive-deps */
+
+  const finalPrice = computeFinalPrice({
+    is_price_overridden: override.is_price_overridden,
+    override_price: override.override_price,
+    engineFinalPrice: engineResult?.final_price ?? quote.base_price ?? null,
+    manualBasePrice: parseFloat(basePrice) || 0,
+  })
 
   // Submit state
   const [isPending, startTransition] = useTransition()
@@ -235,10 +243,8 @@ export function EditQuoteForm({
   }
 
   // Totals
-  const base = eligible
-    ? (engineResult?.final_price ?? quote.base_price ?? 0)   // locked quote → engineResult is null → fall back to saved
-    : toNum(basePrice)
-  const disc = toNum(discount)
+  const base = finalPrice
+  const disc = override.is_price_overridden ? 0 : toNum(discount)
   const addonsTotal = addons.reduce((sum, a) => sum + toNum(a.price), 0)
   const total = base + addonsTotal - disc
 
@@ -252,6 +258,31 @@ export function EditQuoteForm({
       setError('Please select a client.')
       return
     }
+
+    if (!isLocked) {
+      const overrideValidation = validateOverride(override)
+      if (Object.keys(overrideValidation).length > 0) {
+        setOverrideErrors(overrideValidation)
+        return
+      }
+      setOverrideErrors({})
+    }
+
+    const overridePayload = isLocked
+      ? {
+          is_price_overridden: quote.is_price_overridden ?? false,
+          override_price: quote.override_price ?? null,
+          override_reason: quote.override_reason ?? null,
+          override_confirmed: quote.override_confirmed ?? false,
+          calculated_price: quote.calculated_price ?? null,
+        }
+      : {
+          is_price_overridden: override.is_price_overridden,
+          override_price: override.is_price_overridden ? parseFloat(override.override_price) : null,
+          override_reason: override.is_price_overridden ? override.override_reason.trim() : null,
+          override_confirmed: override.is_price_overridden,
+          calculated_price: engineResult?.calculated_price ?? quote.calculated_price ?? null,
+        }
 
     startTransition(async () => {
       const result = await updateQuote({
@@ -282,7 +313,7 @@ export function EditQuoteForm({
         preferred_dates: preferredDates.trim() || undefined,
         scheduled_clean_date: scheduledCleanDate || undefined,
         notes: notes.trim() || undefined,
-        base_price: base,
+        base_price: finalPrice,
         pricing_mode: isLocked
           ? (quote.pricing_mode as PricingMode | null) ?? undefined
           : (eligible ? pricing.pricing_mode : undefined),
@@ -292,6 +323,7 @@ export function EditQuoteForm({
         pricing_breakdown: isLocked
           ? savedBreakdown ?? undefined
           : (eligible ? engineResult?.breakdown ?? undefined : undefined),
+        ...overridePayload,
         discount: disc,
         gst_included: gstIncluded,
         payment_type: paymentType,
@@ -389,13 +421,26 @@ export function EditQuoteForm({
 
       {/* ── Section: Pricing ────────────────────────── */}
       <Section title="Pricing">
+        {/* Final-price banner — always visible */}
+        <div className="mb-4 bg-white rounded-xl border border-sage-100 p-4 flex items-center justify-between">
+          <div>
+            <span className="block text-xs font-medium text-sage-500 uppercase tracking-wide">Final price</span>
+            {override.is_price_overridden && (
+              <span className="text-[11px] text-amber-700 font-medium">Manual override applied</span>
+            )}
+          </div>
+          <span className="text-2xl font-bold text-sage-800">
+            {new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(finalPrice)}
+          </span>
+        </div>
+
         {eligible ? (
           <PricingSummary
             builder={builder}
             value={pricing}
             onChange={setPricing}
             savedBreakdown={savedBreakdown}
-            readOnly={isLocked}
+            readOnly={isLocked || override.is_price_overridden}
           />
         ) : (
           <Field
@@ -408,8 +453,30 @@ export function EditQuoteForm({
           />
         )}
         <div className="mt-4 max-w-sm">
-          <Field label="Discount ($)" type="number" step="0.01" min="0" value={discount} onChange={setDiscount} />
+          <Field
+            label="Discount ($)"
+            type="number"
+            step="0.01"
+            min="0"
+            value={discount}
+            onChange={setDiscount}
+            disabled={isLocked || override.is_price_overridden}
+          />
+          {override.is_price_overridden && (
+            <p className="mt-1 text-xs text-sage-500 italic">Discount doesn&apos;t apply to overridden prices.</p>
+          )}
         </div>
+
+        <OverridePanel
+          value={override}
+          onChange={(next) => {
+            // For ineligible services, force is_price_overridden to stay true
+            if (!eligible) next.is_price_overridden = true
+            setOverride(next)
+          }}
+          errors={overrideErrors}
+          readOnly={isLocked}
+        />
 
         <label className="flex items-center gap-3 mt-4 cursor-pointer">
           <button
@@ -553,11 +620,13 @@ function Field({
   label,
   required,
   className,
+  disabled,
   ...props
 }: {
   label: string
   required?: boolean
   className?: string
+  disabled?: boolean
   value: string
   onChange: (v: string) => void
   type?: string
@@ -576,7 +645,11 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={required}
-        className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm"
+        disabled={disabled}
+        className={clsx(
+          'w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm',
+          disabled && 'opacity-60 cursor-not-allowed bg-sage-50',
+        )}
         {...rest}
       />
     </label>
