@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase-server'
 import { Resend } from 'resend'
 import { revalidatePath } from 'next/cache'
 import type { PricingBreakdown, PricingMode } from '@/lib/quote-pricing'
+import { validateCreateQuoteOverride } from '../new/_actions-validation'
 
 function addDaysISO(iso: string, days: number): string {
   const [y, m, d] = iso.split('-').map(Number)
@@ -62,6 +63,43 @@ interface UpdateQuoteInput {
 export async function updateQuote(input: UpdateQuoteInput) {
   const supabase = createClient()
 
+  const overrideErr = validateCreateQuoteOverride({
+    is_price_overridden: input.is_price_overridden ?? false,
+    override_price: input.override_price ?? null,
+    override_reason: input.override_reason ?? null,
+    override_confirmed: input.override_confirmed ?? false,
+  })
+  if (overrideErr) return { error: overrideErr }
+
+  // Load existing override audit fields so we can preserve them when the
+  // override is unchanged (or stamp them when it transitions from off to on).
+  const { data: existing, error: existingErr } = await supabase
+    .from('quotes')
+    .select('is_price_overridden, override_confirmed_by, override_confirmed_at')
+    .eq('id', input.id)
+    .single()
+
+  if (existingErr || !existing) {
+    return { error: `Quote not found or could not be loaded: ${existingErr?.message ?? 'missing row'}` }
+  }
+
+  const wasOverridden = existing?.is_price_overridden ?? false
+  const isOverridden = input.is_price_overridden ?? false
+  const { data: { user } } = await supabase.auth.getUser()
+
+  let overrideConfirmedBy: string | null = existing?.override_confirmed_by ?? null
+  let overrideConfirmedAt: string | null = existing?.override_confirmed_at ?? null
+
+  if (isOverridden && !wasOverridden) {
+    // Newly overridden (including re-activation after toggling off) — stamp fresh audit fields.
+    // The previous override_confirmed_by/at, if any, is intentionally overwritten: the audit
+    // record reflects whoever made the decision currently in effect.
+    overrideConfirmedBy = user?.id ?? null
+    overrideConfirmedAt = user?.id ? new Date().toISOString() : null
+  }
+  // If isOverridden && wasOverridden: preserve existing stamps (no re-stamp on edit).
+  // If !isOverridden: preserve existing stamps as-is per design (no reset-on-save).
+
   // 1. Update quote row
   const { error: quoteErr } = await supabase
     .from('quotes')
@@ -99,6 +137,8 @@ export async function updateQuote(input: UpdateQuoteInput) {
       override_price: input.override_price ?? null,
       override_reason: input.override_reason ?? null,
       override_confirmed: input.override_confirmed ?? false,
+      override_confirmed_by: overrideConfirmedBy,
+      override_confirmed_at: overrideConfirmedAt,
       calculated_price: input.calculated_price ?? null,
       discount: input.discount,
       gst_included: input.gst_included,

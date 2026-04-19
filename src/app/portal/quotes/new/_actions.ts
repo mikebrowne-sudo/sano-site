@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import type { PricingBreakdown, PricingMode } from '@/lib/quote-pricing'
+import { validateCreateQuoteOverride } from './_actions-validation'
 
 interface AddonInput {
   label: string
@@ -80,6 +81,18 @@ function addDaysISO(iso: string, days: number): string {
 export async function createQuote(input: CreateQuoteInput) {
   const supabase = createClient()
 
+  const overrideErr = validateCreateQuoteOverride({
+    is_price_overridden: input.is_price_overridden ?? false,
+    override_price: input.override_price ?? null,
+    override_reason: input.override_reason ?? null,
+    override_confirmed: input.override_confirmed ?? false,
+  })
+  if (overrideErr) return { error: overrideErr }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const overrideConfirmedBy = input.is_price_overridden && user?.id ? user.id : null
+  const overrideConfirmedAt = input.is_price_overridden && user?.id ? new Date().toISOString() : null
+
   const today = new Date().toISOString().slice(0, 10)
   const validUntil = addDaysISO(today, 30)
 
@@ -143,6 +156,8 @@ export async function createQuote(input: CreateQuoteInput) {
       override_price: input.override_price ?? null,
       override_reason: input.override_reason ?? null,
       override_confirmed: input.override_confirmed ?? false,
+      override_confirmed_by: overrideConfirmedBy,
+      override_confirmed_at: overrideConfirmedAt,
       pricing_mode: input.pricing_mode ?? null,
       estimated_hours: input.estimated_hours ?? null,
       pricing_breakdown: input.pricing_breakdown ?? null,
