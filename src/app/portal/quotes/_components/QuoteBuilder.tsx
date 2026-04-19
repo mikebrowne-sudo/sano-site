@@ -180,8 +180,8 @@ export function QuoteBuilder({
     <div className="space-y-10">
 
       {/* ── Service ──────────────────────────────── */}
-      <Block title="Service">
-        <Label>Category</Label>
+      <fieldset>
+        <Label>Service Category</Label>
         <ChipRow>
           {SERVICE_CATEGORIES.map((c) => (
             <Chip key={c.value} active={s.service_category === c.value} onClick={() => pickCategory(c.value)}>
@@ -228,7 +228,7 @@ export function QuoteBuilder({
             )}
           </>
         )}
-      </Block>
+      </fieldset>
 
       {/* ── Property details ─────────────────────── */}
       {category && (

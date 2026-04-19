@@ -9,6 +9,7 @@ import { DuplicateJobButton } from './_components/DuplicateJobButton'
 import { CreateRecurringButton } from './_components/CreateRecurringButton'
 import { calculateVariance } from '@/lib/labour-calc'
 import { ActualHoursEditor } from './_components/ActualHoursEditor'
+import { DeleteButton } from '../../_components/DeleteButton'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -40,6 +41,8 @@ function statusLabel(s: string) {
 
 export default async function JobDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const isAdmin = user?.email === 'michael@sano.nz'
 
   const { data: job, error } = await supabase
     .from('jobs')
@@ -69,15 +72,24 @@ export default async function JobDetailPage({ params }: { params: { id: string }
   // Load linked quote/invoice numbers if they exist
   let quoteNumber: string | null = null
   let invoiceNumber: string | null = null
+  let linkedInvoiceStatus: string | null = null
 
   if (job.quote_id) {
     const { data } = await supabase.from('quotes').select('quote_number').eq('id', job.quote_id).single()
     quoteNumber = data?.quote_number ?? null
   }
   if (job.invoice_id) {
-    const { data } = await supabase.from('invoices').select('invoice_number').eq('id', job.invoice_id).single()
+    const { data } = await supabase.from('invoices').select('invoice_number, status').eq('id', job.invoice_id).single()
     invoiceNumber = data?.invoice_number ?? null
+    linkedInvoiceStatus = data?.status ?? null
   }
+
+  // Delete eligibility: draft/assigned only, AND not linked to a sent/paid invoice.
+  // Server-side `deleteJob` re-checks these; this controls UI visibility only.
+  const canDeleteJob =
+    isAdmin &&
+    ['draft', 'assigned'].includes(job.status) &&
+    (!job.invoice_id || !['sent', 'paid'].includes(linkedInvoiceStatus ?? ''))
 
   const { data: contractors } = await supabase
     .from('contractors')
@@ -150,6 +162,12 @@ export default async function JobDetailPage({ params }: { params: { id: string }
           />
         </div>
       </div>
+
+      {canDeleteJob && (
+        <div className="flex justify-end mb-6">
+          <DeleteButton type="job" id={job.id} />
+        </div>
+      )}
 
       <div className="max-w-2xl space-y-8">
 

@@ -7,6 +7,7 @@ import { DocumentList } from '../_components/DocumentList'
 import { PayPreview } from '../_components/PayPreview'
 import { ComplianceBadge } from '../_components/ComplianceBadge'
 import { IncidentList } from '../_components/IncidentList'
+import { DeleteButton } from '../../_components/DeleteButton'
 import { computeComplianceStatus } from '@/lib/contractor-compliance'
 import clsx from 'clsx'
 
@@ -29,6 +30,8 @@ function fmtDate(iso: string | null) {
 
 export default async function ContractorDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const isAdmin = user?.email === 'michael@sano.nz'
 
   const [{ data: contractor, error }, { data: jobs, count: jobCount }, { data: documents }, { data: trainingAssignments }, { data: incidents }] = await Promise.all([
     supabase
@@ -109,6 +112,12 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
           Edit
         </Link>
       </div>
+
+      {isAdmin && (
+        <div className="flex justify-end mb-6">
+          <DeleteButton type="contractor" id={contractor.id} />
+        </div>
+      )}
 
       <div className="max-w-2xl space-y-8">
         <Section title="Contact">
