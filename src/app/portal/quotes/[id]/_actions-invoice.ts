@@ -13,7 +13,9 @@ export async function convertToInvoice(quoteId: string) {
       client_id, property_category, type_of_clean, service_type,
       frequency, scope_size, service_address, notes,
       base_price, discount, gst_included, payment_type,
-      scheduled_clean_date, date_issued
+      scheduled_clean_date, date_issued,
+      is_price_overridden, override_price, override_reason, override_confirmed,
+      override_confirmed_by, override_confirmed_at, calculated_price
     `)
     .eq('id', quoteId)
     .single()
@@ -64,6 +66,14 @@ export async function convertToInvoice(quoteId: string) {
       scheduled_clean_date: quote.scheduled_clean_date,
       date_issued: dateIssued,
       due_date: dueDate,
+      // Audit snapshot of pricing override at time of conversion
+      is_price_overridden: quote.is_price_overridden ?? false,
+      override_price: quote.override_price ?? null,
+      override_reason: quote.override_reason ?? null,
+      override_confirmed: quote.override_confirmed ?? false,
+      override_confirmed_by: quote.override_confirmed_by ?? null,
+      override_confirmed_at: quote.override_confirmed_at ?? null,
+      calculated_price: quote.calculated_price ?? null,
     })
     .select('id')
     .single()
