@@ -1641,7 +1641,23 @@ This task gates the feature for production use. Schema must be live before the n
 
 - [ ] **Step 1: Mike runs the SQL in the Supabase dashboard**
 
-Open the Supabase project's SQL editor, paste the contents of [docs/db/2026-04-20-add-price-override.sql](../../db/2026-04-20-add-price-override.sql), and execute. Verify:
+**Pre-run check:** open the Supabase table editor and check whether `quotes` or `invoices` already contains any of the seven new columns (`is_price_overridden`, `override_price`, `override_reason`, `override_confirmed`, `override_confirmed_by`, `override_confirmed_at`, `calculated_price`). The SQL uses `IF NOT EXISTS`, which silently succeeds if columns are already present — so a botched previous run could leave wrong column types in place and the script would still report success.
+
+If any of the seven already exist, **inspect their type and default first** rather than dropping blindly. Compare against the spec:
+
+| Column | Expected type | Default | Nullable |
+|---|---|---|---|
+| `is_price_overridden` | `boolean` | `false` | NOT NULL |
+| `override_price` | `decimal(10,2)` (shown as `numeric(10,2)`) | NULL | YES |
+| `override_reason` | `text` | NULL | YES |
+| `override_confirmed` | `boolean` | `false` | NOT NULL |
+| `override_confirmed_by` | `uuid` (FK → `auth.users`) | NULL | YES |
+| `override_confirmed_at` | `timestamptz` | NULL | YES |
+| `calculated_price` | `decimal(10,2)` | NULL | YES |
+
+If the existing column matches → leave it; the script's `IF NOT EXISTS` will skip it correctly. If it doesn't match → `DROP COLUMN` it first, then run the script.
+
+Then open the Supabase project's SQL editor, paste the contents of [docs/db/2026-04-20-add-price-override.sql](../../db/2026-04-20-add-price-override.sql), and execute. Verify:
 
 ```sql
 SELECT column_name, data_type, is_nullable, column_default
