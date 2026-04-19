@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import clsx from 'clsx'
-import { RotateCcw, ChevronDown } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import {
   calculateQuotePrice,
   isPricingEligible,
@@ -13,21 +13,14 @@ import type { QuoteBuilderState } from './QuoteBuilder'
 
 export interface PricingSummaryValue {
   pricing_mode: PricingMode
-  override_price: string | null   // null when no override (input shows calculated)
-  override_flag: boolean
 }
 
 export function emptyPricingSummaryValue(): PricingSummaryValue {
-  return { pricing_mode: 'standard', override_price: null, override_flag: false }
+  return { pricing_mode: 'standard' }
 }
 
 function formatNZD(n: number): string {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
-}
-
-function toNum(v: string): number {
-  const n = parseFloat(v)
-  return Number.isFinite(n) ? n : 0
 }
 
 const MODE_LABELS: { value: PricingMode; label: string }[] = [
@@ -56,12 +49,8 @@ export function PricingSummary({
     builder.service_type_code || null,
   )
 
-  // Derived from builder + owned state. Pure; safe to recompute on every render.
   const live = useMemo(() => {
     if (!eligible) return null
-    const overrideNumber = value.override_flag && value.override_price != null
-      ? toNum(value.override_price)
-      : undefined
     return calculateQuotePrice(
       {
         service_category: builder.service_category || null,
@@ -74,7 +63,6 @@ export function PricingSummary({
         x_per_week: builder.x_per_week ? parseInt(builder.x_per_week, 10) : null,
       },
       value.pricing_mode,
-      overrideNumber,
     )
     /* eslint-disable react-hooks/exhaustive-deps */
   }, [
@@ -88,39 +76,12 @@ export function PricingSummary({
     builder.frequency,
     builder.x_per_week,
     value.pricing_mode,
-    value.override_flag,
-    value.override_price,
   ])
   /* eslint-enable react-hooks/exhaustive-deps */
 
-  // The input displays the override value if one is set, otherwise the live calculated value.
-  // No effects, no synced state — the source of truth is `value` (owned state) + `live` (derived).
-  const inputValue =
-    value.override_flag && value.override_price != null
-      ? value.override_price
-      : (live?.calculated_price != null ? String(live.calculated_price) : '')
-
   function setMode(next: PricingMode) {
     if (readOnly) return
-    onChange({ ...value, pricing_mode: next })
-  }
-
-  function setPriceRaw(next: string) {
-    if (readOnly) return
-    const typed = toNum(next)
-    const calc = live?.calculated_price ?? null
-    // An edit counts as an override only when it's eligible AND differs from calculated.
-    const isOverride = calc != null && typed !== calc
-    onChange({
-      ...value,
-      override_flag: isOverride,
-      override_price: isOverride ? next : null,
-    })
-  }
-
-  function revertToCalculated() {
-    if (readOnly) return
-    onChange({ ...value, override_flag: false, override_price: null })
+    onChange({ pricing_mode: next })
   }
 
   if (!eligible) {
@@ -135,7 +96,7 @@ export function PricingSummary({
   const clamped = live?.breakdown?.bed_count_clamped
 
   return (
-    <div className="space-y-5 bg-sage-50/50 border border-sage-100 rounded-xl p-5">
+    <div className={clsx('space-y-5 bg-sage-50/50 border border-sage-100 rounded-xl p-5', readOnly && 'opacity-70')}>
       {fallback && (
         <p className="text-xs text-sage-500 italic">Using 1-bedroom base until property size is selected.</p>
       )}
@@ -179,37 +140,9 @@ export function PricingSummary({
 
       <BreakdownPanel breakdown={live?.breakdown ?? null} defaultOpen={expandedByDefault} />
 
-      <div>
-        <label className="block text-sm font-semibold text-sage-800 mb-1.5">Final price</label>
-        <input
-          type="number"
-          step="0.01"
-          min="0"
-          value={inputValue}
-          onChange={(e) => setPriceRaw(e.target.value)}
-          disabled={readOnly}
-          className={clsx(
-            'w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm',
-            readOnly && 'bg-sage-50 text-sage-500 cursor-not-allowed',
-          )}
-        />
-        {value.override_flag && live?.calculated_price != null && (
-          <div className="mt-2 flex items-center justify-between text-xs">
-            <span className="text-amber-700">Overridden from {formatNZD(live.calculated_price)} calculated</span>
-            <button
-              type="button"
-              onClick={revertToCalculated}
-              disabled={readOnly}
-              className="inline-flex items-center gap-1 text-sage-600 hover:text-sage-800 font-medium"
-            >
-              <RotateCcw size={12} /> Revert to calculated
-            </button>
-          </div>
-        )}
-        {savedBreakdown && !value.override_flag && (
-          <p className="mt-2 text-[11px] text-sage-400 italic">Last saved price: {formatNZD(savedBreakdown.final_price)} ({savedBreakdown.pricing_mode}).</p>
-        )}
-      </div>
+      {savedBreakdown && (
+        <p className="text-[11px] text-sage-400 italic">Last saved price: {formatNZD(savedBreakdown.final_price)} ({savedBreakdown.pricing_mode}).</p>
+      )}
     </div>
   )
 }

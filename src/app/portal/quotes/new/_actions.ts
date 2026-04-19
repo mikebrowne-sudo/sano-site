@@ -59,6 +59,13 @@ interface CreateQuoteInput {
   pricing_mode?: PricingMode
   estimated_hours?: number
   pricing_breakdown?: PricingBreakdown
+  calculated_price?: number | null
+
+  // Override fields
+  is_price_overridden?: boolean
+  override_price?: number | null
+  override_reason?: string | null
+  override_confirmed?: boolean
 
   // Add-ons (priced line items — distinct from addons_wording)
   addons: AddonInput[]
@@ -131,6 +138,11 @@ export async function createQuote(input: CreateQuoteInput) {
       scheduled_clean_date: input.scheduled_clean_date || null,
       notes: input.notes || null,
       base_price: input.base_price,
+      calculated_price: input.calculated_price ?? null,
+      is_price_overridden: input.is_price_overridden ?? false,
+      override_price: input.override_price ?? null,
+      override_reason: input.override_reason ?? null,
+      override_confirmed: input.override_confirmed ?? false,
       pricing_mode: input.pricing_mode ?? null,
       estimated_hours: input.estimated_hours ?? null,
       pricing_breakdown: input.pricing_breakdown ?? null,

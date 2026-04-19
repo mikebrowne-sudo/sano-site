@@ -1,10 +1,13 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { createQuote } from '../_actions'
 import { AddressField } from '../../../_components/AddressField'
 import { QuoteBuilder, emptyBuilderState, type QuoteBuilderState } from '../../_components/QuoteBuilder'
 import { PricingSummary, emptyPricingSummaryValue, type PricingSummaryValue } from '../../_components/PricingSummary'
+import { OverridePanel, type OverridePanelValue } from '../../_components/OverridePanel'
+import { validateOverride, type OverrideValidationErrors } from '../../_components/override-validation'
+import { computeFinalPrice } from './final-price'
 import { SERVICE_TYPES_BY_CATEGORY } from '@/lib/quote-wording'
 import { calculateQuotePrice, isPricingEligible } from '@/lib/quote-pricing'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
@@ -71,6 +74,15 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
   // Pricing engine state (owned by form; consumed by <PricingSummary>)
   const [pricing, setPricing] = useState<PricingSummaryValue>(emptyPricingSummaryValue())
 
+  // Override state
+  const [override, setOverride] = useState<OverridePanelValue>({
+    is_price_overridden: false,
+    override_price: '',
+    override_reason: '',
+    override_confirmed: false,
+  })
+  const [overrideErrors, setOverrideErrors] = useState<OverrideValidationErrors>({})
+
   // Scheduling
   const [preferredDates, setPreferredDates] = useState('')
   const [scheduledCleanDate, setScheduledCleanDate] = useState('')
@@ -90,11 +102,15 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
   // ── Pricing engine (derived) ─────────────────────────────
   const eligible = isPricingEligible(builder.service_category || null, builder.service_type_code || null)
 
+  // For ineligible services, lock override on
+  useEffect(() => {
+    if (!eligible && !override.is_price_overridden) {
+      setOverride((prev) => ({ ...prev, is_price_overridden: true }))
+    }
+  }, [eligible, override.is_price_overridden])
+
   const engineResult = useMemo(() => {
     if (!eligible) return null
-    const overrideNumber = pricing.override_flag && pricing.override_price != null
-      ? toNum(pricing.override_price)
-      : undefined
     return calculateQuotePrice(
       {
         service_category: builder.service_category || null,
@@ -107,7 +123,6 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
         x_per_week: builder.x_per_week ? parseInt(builder.x_per_week, 10) : null,
       },
       pricing.pricing_mode,
-      overrideNumber,
     )
     /* eslint-disable react-hooks/exhaustive-deps */
   }, [
@@ -121,10 +136,15 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
     builder.frequency,
     builder.x_per_week,
     pricing.pricing_mode,
-    pricing.override_flag,
-    pricing.override_price,
   ])
   /* eslint-enable react-hooks/exhaustive-deps */
+
+  const finalPrice = computeFinalPrice({
+    is_price_overridden: override.is_price_overridden,
+    override_price: override.override_price,
+    engineFinalPrice: engineResult?.final_price ?? null,
+    manualBasePrice: parseFloat(basePrice) || 0,
+  })
 
   // State
   const [isPending, startTransition] = useTransition()
@@ -174,10 +194,8 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
 
   // ── Totals ───────────────────────────────────────────────
 
-  const base = eligible && engineResult?.final_price != null
-    ? engineResult.final_price
-    : toNum(basePrice)
-  const disc = toNum(discount)
+  const base = finalPrice
+  const disc = override.is_price_overridden ? 0 : toNum(discount)
   const addonsTotal = addons.reduce((sum, a) => sum + toNum(a.price), 0)
   const total = base + addonsTotal - disc
 
@@ -212,6 +230,13 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
     setError(null)
 
     if (!validate()) return
+
+    const overrideValidation = validateOverride(override)
+    if (Object.keys(overrideValidation).length > 0) {
+      setOverrideErrors(overrideValidation)
+      return  // prevent submit
+    }
+    setOverrideErrors({})
 
     startTransition(async () => {
       const result = await createQuote({
@@ -250,7 +275,12 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
         preferred_dates: preferredDates.trim() || undefined,
         scheduled_clean_date: scheduledCleanDate || undefined,
         notes: notes.trim() || undefined,
-        base_price: base,
+        base_price: finalPrice,
+        calculated_price: engineResult?.calculated_price ?? null,
+        is_price_overridden: override.is_price_overridden,
+        override_price: override.is_price_overridden ? parseFloat(override.override_price) : null,
+        override_reason: override.is_price_overridden ? override.override_reason.trim() : null,
+        override_confirmed: override.is_price_overridden,
         pricing_mode: eligible ? pricing.pricing_mode : undefined,
         estimated_hours: eligible ? engineResult?.estimated_hours ?? undefined : undefined,
         pricing_breakdown: eligible ? engineResult?.breakdown ?? undefined : undefined,
@@ -353,8 +383,26 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
 
       {/* ── Section 4: Pricing ──────────────────────── */}
       <Section title="Pricing">
+        {/* Final-price banner — always visible */}
+        <div className="mb-4 bg-white rounded-xl border border-sage-100 p-4 flex items-center justify-between">
+          <div>
+            <span className="block text-xs font-medium text-sage-500 uppercase tracking-wide">Final price</span>
+            {override.is_price_overridden && (
+              <span className="text-[11px] text-amber-700 font-medium">Manual override applied</span>
+            )}
+          </div>
+          <span className="text-2xl font-bold text-sage-800">
+            {new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(finalPrice)}
+          </span>
+        </div>
+
         {eligible ? (
-          <PricingSummary builder={builder} value={pricing} onChange={setPricing} />
+          <PricingSummary
+            builder={builder}
+            value={pricing}
+            onChange={setPricing}
+            readOnly={override.is_price_overridden}
+          />
         ) : (
           <Field
             label="Base price ($)"
@@ -367,9 +415,31 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
             error={validationErrors.basePrice}
           />
         )}
+
         <div className="mt-4 max-w-sm">
-          <Field label="Discount ($)" type="number" step="0.01" min="0" value={discount} onChange={setDiscount} />
+          <Field
+            label="Discount ($)"
+            type="number"
+            step="0.01"
+            min="0"
+            value={discount}
+            onChange={setDiscount}
+            disabled={override.is_price_overridden}
+          />
+          {override.is_price_overridden && (
+            <p className="mt-1 text-xs text-sage-500 italic">Discount doesn't apply to overridden prices.</p>
+          )}
         </div>
+
+        <OverridePanel
+          value={override}
+          onChange={(next) => {
+            // For ineligible services, force is_price_overridden to stay true
+            if (!eligible) next.is_price_overridden = true
+            setOverride(next)
+          }}
+          errors={overrideErrors}
+        />
 
         <label className="flex items-center gap-3 mt-4 cursor-pointer">
           <Toggle checked={gstIncluded} onChange={setGstIncluded} />
@@ -507,6 +577,7 @@ function Field({
   error,
   value,
   onChange,
+  disabled,
   ...rest
 }: {
   label: string
@@ -515,6 +586,7 @@ function Field({
   error?: string
   value: string
   onChange: (v: string) => void
+  disabled?: boolean
   type?: string
   step?: string
   min?: string
@@ -529,9 +601,11 @@ function Field({
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
         className={clsx(
           'w-full rounded-lg border px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm',
           error ? 'border-red-300' : 'border-sage-200',
+          disabled && 'opacity-60 cursor-not-allowed bg-sage-50',
         )}
         {...rest}
       />
