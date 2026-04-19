@@ -42,6 +42,8 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         base_price, discount, gst_included, payment_type, share_token,
         date_issued, due_date, date_paid,
         created_at,
+        is_price_overridden, override_price, override_reason, override_confirmed,
+        override_confirmed_by, override_confirmed_at, calculated_price,
         clients ( name, company_name )
       `)
       .eq('id', params.id)
@@ -208,6 +210,45 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             </div>
           </div>
         </Section>
+
+        {/* Manual override audit block */}
+        {invoice.is_price_overridden && (
+          <Section title="Manual override applied">
+            <div className="bg-amber-50/50 border border-amber-200 rounded-xl p-5 space-y-2">
+              <p className="text-sm text-amber-800 font-medium">
+                This invoice was created with a manual price override.
+              </p>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                {invoice.calculated_price != null && (
+                  <div>
+                    <dt className="text-sage-500">Original calculated price</dt>
+                    <dd className="text-sage-800">{fmt(invoice.calculated_price)}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt className="text-sage-500">Final invoiced price</dt>
+                  <dd className="text-sage-800 font-semibold">{fmt(invoice.override_price ?? invoice.base_price ?? 0)}</dd>
+                </div>
+                {invoice.override_reason && (
+                  <div className="sm:col-span-2">
+                    <dt className="text-sage-500">Reason</dt>
+                    <dd className="text-sage-800 whitespace-pre-wrap">{invoice.override_reason}</dd>
+                  </div>
+                )}
+                {invoice.override_confirmed_at && (
+                  <div className="sm:col-span-2">
+                    <dt className="text-sage-500">Confirmed</dt>
+                    <dd className="text-sage-800">
+                      {invoice.override_confirmed_by ? `By user ${invoice.override_confirmed_by.slice(0, 8)}…` : 'By unknown user'}
+                      {' on '}
+                      {new Date(invoice.override_confirmed_at).toLocaleString('en-NZ')}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          </Section>
+        )}
 
         {/* Notes */}
         {invoice.notes && (
