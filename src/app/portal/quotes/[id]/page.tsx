@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { EditQuoteForm } from './_components/EditQuoteForm'
+import { QuoteCustomerDetails } from './_components/QuoteCustomerDetails'
 import Link from 'next/link'
 import { ArrowLeft, Printer } from 'lucide-react'
 import { SendQuotePanel } from './_components/SendQuotePanel'
@@ -80,7 +81,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       .order('name'),
     supabase
       .from('clients')
-      .select('name, email')
+      .select('name, phone, email')
       .eq('id', quote.client_id)
       .single(),
   ])
@@ -125,6 +126,13 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
         <RegenerateShareLink table="quotes" id={quote.id} />
         {isAdmin && <DeleteButton type="quote" id={quote.id} />}
       </div>
+
+      <QuoteCustomerDetails
+        name={currentClient?.name ?? null}
+        phone={currentClient?.phone ?? null}
+        email={currentClient?.email ?? null}
+        serviceAddress={quote.service_address ?? null}
+      />
 
       <EditQuoteForm
         quote={quote}
