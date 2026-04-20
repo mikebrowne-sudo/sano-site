@@ -42,7 +42,7 @@ export const STEPS: StepDef[] = [
 
   { id: 'hello', type: 'info',
     title: (d) => `Nice to meet you, ${d.first_name.trim() || 'there'}.`,
-    body: 'Let\u2019s keep going.',
+    body: 'Next, a few quick questions to understand how you prefer to work.',
   },
 
   { id: 'phone', type: 'text', field: 'phone', inputType: 'tel', question: "What's the best number to reach you on?", required: true },
@@ -71,7 +71,7 @@ export const STEPS: StepDef[] = [
     visible: (d) => d.has_experience === true,
   },
   { id: 'experience_notes', type: 'textarea', field: 'experience_notes',
-    question: 'Tell us a bit about your experience (optional)',
+    question: 'Tell us a bit about your experience (optional).',
   },
 
   { id: 'values', type: 'info',
@@ -87,7 +87,7 @@ export const STEPS: StepDef[] = [
   },
 
   { id: 'available_days', type: 'chip-multi', field: 'available_days',
-    question: 'What days are you generally available?',
+    question: 'What days are you generally available? (optional)',
     helper: 'Select all that apply.',
     options: DAY_OPTIONS,
   },
@@ -113,7 +113,7 @@ export const STEPS: StepDef[] = [
   },
 
   { id: 'why_join_sano', type: 'textarea', field: 'why_join_sano',
-    question: 'Why are you interested in working with Sano? (optional)',
+    question: 'Why are you interested in working with Sano? (optional).',
   },
 
   { id: 'declaration', type: 'declaration', field: 'confirm_truth',
