@@ -24,6 +24,11 @@ describe('validateCreateQuoteOverride', () => {
       .toMatch(/price/i)
   })
 
+  it('rejects override on with price exceeding max', () => {
+    expect(validateCreateQuoteOverride({ ...base(), is_price_overridden: true, override_price: 100000000, override_reason: 'x', override_confirmed: true }))
+      .toMatch(/exceed/i)
+  })
+
   it('rejects override on with empty reason', () => {
     expect(validateCreateQuoteOverride({ ...base(), is_price_overridden: true, override_price: 100, override_reason: '   ', override_confirmed: true }))
       .toMatch(/reason/i)

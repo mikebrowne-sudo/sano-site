@@ -16,6 +16,9 @@ export function validateCreateQuoteOverride(p: CreateQuoteOverridePayload): stri
   if (p.override_price == null || !Number.isFinite(p.override_price) || p.override_price <= 0) {
     return 'Override price must be greater than 0.'
   }
+  if (p.override_price > 99999999.99) {
+    return 'Override price must not exceed $99,999,999.99.'
+  }
   if (!p.override_reason || !p.override_reason.trim()) {
     return 'Override reason is required.'
   }

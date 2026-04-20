@@ -102,13 +102,6 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
   // ── Pricing engine (derived) ─────────────────────────────
   const eligible = isPricingEligible(builder.service_category || null, builder.service_type_code || null)
 
-  // For ineligible services, lock override on
-  useEffect(() => {
-    if (!eligible && !override.is_price_overridden) {
-      setOverride((prev) => ({ ...prev, is_price_overridden: true }))
-    }
-  }, [eligible, override.is_price_overridden])
-
   const engineResult = useMemo(() => {
     if (!eligible) return null
     return calculateQuotePrice(
@@ -138,6 +131,19 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
     pricing.pricing_mode,
   ])
   /* eslint-enable react-hooks/exhaustive-deps */
+
+  // For ineligible services, lock override on and pre-fill price
+  useEffect(() => {
+    if (!eligible && !override.is_price_overridden) {
+      setOverride((prev) => ({
+        ...prev,
+        is_price_overridden: true,
+        override_price: prev.override_price || (engineResult?.calculated_price != null
+          ? String(engineResult.calculated_price)
+          : ''),
+      }))
+    }
+  }, [eligible, override.is_price_overridden, engineResult?.calculated_price])
 
   const finalPrice = computeFinalPrice({
     is_price_overridden: override.is_price_overridden,
@@ -280,7 +286,7 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
         is_price_overridden: override.is_price_overridden,
         override_price: override.is_price_overridden ? parseFloat(override.override_price) : null,
         override_reason: override.is_price_overridden ? override.override_reason.trim() : null,
-        override_confirmed: override.is_price_overridden,
+        override_confirmed: override.override_confirmed,
         pricing_mode: eligible ? pricing.pricing_mode : undefined,
         estimated_hours: eligible ? engineResult?.estimated_hours ?? undefined : undefined,
         pricing_breakdown: eligible ? engineResult?.breakdown ?? undefined : undefined,
@@ -436,6 +442,12 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
           onChange={(next) => {
             // For ineligible services, force is_price_overridden to stay true
             if (!eligible) next.is_price_overridden = true
+            // Pre-fill custom price when toggling override on and input is empty
+            if (next.is_price_overridden && !override.is_price_overridden && !next.override_price) {
+              next.override_price = engineResult?.calculated_price != null
+                ? String(engineResult.calculated_price)
+                : ''
+            }
             setOverride(next)
           }}
           errors={overrideErrors}

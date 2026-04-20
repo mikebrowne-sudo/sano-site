@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { updateQuote } from '../_actions'
 import { AddressField } from '../../../_components/AddressField'
 import { QuoteBuilder, emptyBuilderState, type QuoteBuilderState } from '../../_components/QuoteBuilder'
@@ -217,6 +217,18 @@ export function EditQuoteForm({
   ])
   /* eslint-enable react-hooks/exhaustive-deps */
 
+  useEffect(() => {
+    if (!eligible && !override.is_price_overridden) {
+      setOverride((prev) => ({
+        ...prev,
+        is_price_overridden: true,
+        override_price: prev.override_price || (engineResult?.calculated_price != null
+          ? String(engineResult.calculated_price)
+          : ''),
+      }))
+    }
+  }, [eligible, override.is_price_overridden, engineResult?.calculated_price])
+
   const finalPrice = computeFinalPrice({
     is_price_overridden: override.is_price_overridden,
     override_price: override.override_price,
@@ -280,7 +292,7 @@ export function EditQuoteForm({
           is_price_overridden: override.is_price_overridden,
           override_price: override.is_price_overridden ? parseFloat(override.override_price) : null,
           override_reason: override.is_price_overridden ? override.override_reason.trim() : null,
-          override_confirmed: override.is_price_overridden,
+          override_confirmed: override.override_confirmed,
           calculated_price: engineResult?.calculated_price ?? quote.calculated_price ?? null,
         }
 
@@ -472,6 +484,11 @@ export function EditQuoteForm({
           onChange={(next) => {
             // For ineligible services, force is_price_overridden to stay true
             if (!eligible) next.is_price_overridden = true
+            if (next.is_price_overridden && !override.is_price_overridden && !next.override_price) {
+              next.override_price = engineResult?.calculated_price != null
+                ? String(engineResult.calculated_price)
+                : ''
+            }
             setOverride(next)
           }}
           errors={overrideErrors}
