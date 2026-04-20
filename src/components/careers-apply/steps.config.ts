@@ -55,7 +55,7 @@ export const STEPS: StepDef[] = [
   },
 
   { id: 'fit_intro', type: 'info',
-    body: 'Next, a few quick questions to understand how you prefer to work.',
+    body: 'A few quick yes/no questions next to understand how you like to work.',
   },
 
   { id: 'has_license', type: 'yesno', field: 'has_license', question: 'Do you hold a current driver licence?', required: true },
