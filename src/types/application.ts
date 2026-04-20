@@ -1,6 +1,6 @@
 // src/types/application.ts
 
-export type ApplicationType = 'contractor' | 'casual' | 'either'
+export type ApplicationType = 'contractor' | 'employee'
 
 export type ExperienceType =
   | 'residential'
@@ -16,7 +16,8 @@ export type DayOfWeek = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
 
 export interface ApplicationFormData {
   // Personal details
-  full_name: string
+  first_name: string
+  last_name: string
   phone: string
   email: string
   suburb: string
@@ -36,27 +37,24 @@ export interface ApplicationFormData {
 
   // Equipment
   has_equipment: boolean | null
-  equipment_notes: string
 
   // Availability
   available_days: DayOfWeek[]
   preferred_hours: string
   travel_areas: string
 
-  // Additional questions
-  work_preferences: string
+  // Independent work + compliance
   independent_work: boolean | null
-  why_join_sano: string
-
-  // Compliance
   work_rights_nz: boolean | null
   has_insurance: boolean | null
   willing_to_get_insurance: boolean | null
+
+  // Motivation (optional)
+  why_join_sano: string
 
   // Declaration
   confirm_truth: boolean
 }
 
 export type ApplicationFormErrors = Partial<Record<keyof ApplicationFormData, string>>
-
 export type JobApplicationPayload = ApplicationFormData

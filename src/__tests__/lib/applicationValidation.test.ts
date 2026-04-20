@@ -3,7 +3,8 @@ import type { ApplicationFormData } from '@/types/application'
 
 function valid(): ApplicationFormData {
   return {
-    full_name: 'Jane Doe',
+    first_name: 'Jane',
+    last_name: 'Doe',
     phone: '021 000 0000',
     email: 'jane@example.com',
     suburb: 'Mount Eden',
@@ -15,16 +16,14 @@ function valid(): ApplicationFormData {
     experience_types: ['residential'],
     experience_notes: '',
     has_equipment: true,
-    equipment_notes: '',
     available_days: [],
     preferred_hours: '',
     travel_areas: '',
-    work_preferences: '',
     independent_work: true,
-    why_join_sano: '',
     work_rights_nz: true,
     has_insurance: null,
     willing_to_get_insurance: null,
+    why_join_sano: '',
     confirm_truth: true,
   }
 }
@@ -34,9 +33,14 @@ describe('validateApplication', () => {
     expect(validateApplication(valid())).toEqual({})
   })
 
-  it('requires full_name', () => {
-    const data = { ...valid(), full_name: '   ' }
-    expect(validateApplication(data).full_name).toBeDefined()
+  it('requires first_name', () => {
+    const data = { ...valid(), first_name: '   ' }
+    expect(validateApplication(data).first_name).toBeDefined()
+  })
+
+  it('requires last_name', () => {
+    const data = { ...valid(), last_name: '' }
+    expect(validateApplication(data).last_name).toBeDefined()
   })
 
   it('requires phone (presence only, no format check)', () => {
