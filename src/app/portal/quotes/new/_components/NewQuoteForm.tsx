@@ -10,6 +10,12 @@ import { validateOverride, type OverrideValidationErrors } from '../../_componen
 import { computeFinalPrice } from './final-price'
 import { SERVICE_TYPES_BY_CATEGORY } from '@/lib/quote-wording'
 import { calculateQuotePrice, isPricingEligible } from '@/lib/quote-pricing'
+import {
+  buildCommercialDescription,
+  buildQuoteItemsFromCalc,
+  mapPricingMode,
+  type CommercialCalculationRow,
+} from '@/lib/commercialPricingMapping'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -52,7 +58,13 @@ function formatNZD(dollars: number) {
 
 // ── Component ───────────────────────────────────────────────
 
-export function NewQuoteForm({ clients }: { clients: Client[] }) {
+export function NewQuoteForm({
+  clients,
+  calc,
+}: {
+  clients: Client[]
+  calc?: CommercialCalculationRow | null
+}) {
   // Client mode
   const [clientMode, setClientMode] = useState<'existing' | 'new'>(
     clients.length > 0 ? 'existing' : 'new',
@@ -157,6 +169,44 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
+
+  // One-shot seed from a commercial calc (read-and-map only; no recalc).
+  // Runs once on mount when `calc` is present.
+  const [calcSeeded, setCalcSeeded] = useState(false)
+  useEffect(() => {
+    if (calc && !calcSeeded) {
+      const view = calc.selected_pricing_view ?? 'per_clean'
+      const corePrice = view === 'monthly' ? calc.monthly_value : calc.total_per_clean
+
+      setBuilder((prev) => ({
+        ...prev,
+        service_category: 'commercial',
+        service_type_code: 'maintenance',
+        description_edited: true,
+        generated_scope: buildCommercialDescription(calc.inputs),
+      }))
+      setPricing((prev) => ({ ...prev, pricing_mode: mapPricingMode(calc.pricing_mode) }))
+      setBasePrice(String(corePrice))
+      setAddons(
+        buildQuoteItemsFromCalc(calc).map((item, i) => ({
+          key: `calc-${i}`,
+          label: item.label,
+          price: String(item.price),
+        })),
+      )
+      // Prevent the ineligible-service auto-override effect from clobbering the
+      // calc price to 0. The calc itself is the authoritative override.
+      setOverride((prev) => ({
+        ...prev,
+        is_price_overridden: true,
+        override_price: String(corePrice),
+        override_reason: 'From commercial calculator',
+        override_confirmed: true,
+      }))
+      setCalcSeeded(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Client autofill ──────────────────────────────────────
 
@@ -283,14 +333,17 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
         scheduled_clean_date: scheduledCleanDate || undefined,
         notes: notes.trim() || undefined,
         base_price: finalPrice,
-        calculated_price: engineResult?.calculated_price ?? null,
+        calculated_price: calc
+          ? (calc.selected_pricing_view === 'monthly' ? calc.monthly_value : calc.total_per_clean)
+          : (engineResult?.calculated_price ?? null),
         is_price_overridden: override.is_price_overridden,
         override_price: override.is_price_overridden ? parseFloat(override.override_price) : null,
         override_reason: override.is_price_overridden ? override.override_reason.trim() : null,
         override_confirmed: override.override_confirmed,
         pricing_mode: eligible ? pricing.pricing_mode : undefined,
-        estimated_hours: eligible ? engineResult?.estimated_hours ?? undefined : undefined,
+        estimated_hours: calc?.estimated_hours ?? engineResult?.estimated_hours ?? undefined,
         pricing_breakdown: eligible ? engineResult?.breakdown ?? undefined : undefined,
+        commercial_calc_id: calc?.id ?? null,
         discount: disc,
         gst_included: gstIncluded,
         payment_type: paymentType,
