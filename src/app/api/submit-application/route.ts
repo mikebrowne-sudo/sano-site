@@ -16,7 +16,8 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('[job-application] received', {
-      full_name: payload.full_name,
+      first_name: payload.first_name,
+      last_name: payload.last_name,
       email: payload.email,
       suburb: payload.suburb,
       application_type: payload.application_type,

@@ -15,7 +15,8 @@ function makeRequest(body: object) {
 
 function validBody(): JobApplicationPayload {
   return {
-    full_name: 'Jane Doe',
+    first_name: 'Jane',
+    last_name: 'Doe',
     phone: '021 000 0000',
     email: 'jane@example.com',
     suburb: 'Mount Eden',
@@ -27,16 +28,14 @@ function validBody(): JobApplicationPayload {
     experience_types: ['residential'],
     experience_notes: '',
     has_equipment: true,
-    equipment_notes: '',
     available_days: [],
     preferred_hours: '',
     travel_areas: '',
-    work_preferences: '',
     independent_work: true,
-    why_join_sano: '',
     work_rights_nz: true,
     has_insurance: null,
     willing_to_get_insurance: null,
+    why_join_sano: '',
     confirm_truth: true,
   }
 }
@@ -57,12 +56,13 @@ describe('POST /api/submit-application', () => {
     expect(json.ok).toBe(true)
   })
 
-  it('logs only the four redacted fields on success', async () => {
+  it('logs only the five redacted fields on success', async () => {
     await POST(makeRequest(validBody()))
     expect(console.log).toHaveBeenCalledWith(
       '[job-application] received',
       expect.objectContaining({
-        full_name: 'Jane Doe',
+        first_name: 'Jane',
+        last_name: 'Doe',
         email: 'jane@example.com',
         suburb: 'Mount Eden',
         application_type: 'contractor',
@@ -70,12 +70,12 @@ describe('POST /api/submit-application', () => {
     )
     const call = (console.log as jest.Mock).mock.calls[0][1]
     expect(Object.keys(call).sort()).toEqual(
-      ['application_type', 'email', 'full_name', 'suburb'].sort(),
+      ['application_type', 'email', 'first_name', 'last_name', 'suburb'].sort(),
     )
   })
 
-  it('returns 400 when full_name is missing', async () => {
-    const res = await POST(makeRequest({ ...validBody(), full_name: '' }))
+  it('returns 400 when first_name is missing', async () => {
+    const res = await POST(makeRequest({ ...validBody(), first_name: '' }))
     expect(res.status).toBe(400)
   })
 
