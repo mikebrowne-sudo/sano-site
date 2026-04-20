@@ -68,8 +68,8 @@ export function ReviewStep({ data, status, errorMessage, onSubmit }: ReviewStepP
 
   return (
     <div>
-      <h2 className="mb-6">Quick review.</h2>
-      <p className="body-text mb-8">Have a look over your answers. Hit Back if you want to change anything.</p>
+      <h2 className="mb-6">Review your details</h2>
+      <p className="body-text mb-8">Take a moment to check everything looks right before submitting.</p>
 
       <dl className="rounded-2xl border border-sage-100 bg-white divide-y divide-sage-100">
         {rows.map((row) => (

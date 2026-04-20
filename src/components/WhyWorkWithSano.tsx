@@ -11,7 +11,7 @@ const BENEFITS: Benefit[] = [
   {
     icon: <Clock3 className="w-6 h-6" />,
     title: 'Flexible Work',
-    body: 'Choose work that suits your schedule. We offer flexible opportunities across different types of cleaning jobs.',
+    body: 'Choose work that suits your schedule. We offer flexible opportunities across a range of cleaning jobs.',
   },
   {
     icon: <Users className="w-6 h-6" />,
