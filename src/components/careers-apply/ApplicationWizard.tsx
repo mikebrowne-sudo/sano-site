@@ -12,6 +12,7 @@ import { WelcomeStep } from './step-types/WelcomeStep'
 import { InfoStep } from './step-types/InfoStep'
 import { TextStep } from './step-types/TextStep'
 import { TextareaStep } from './step-types/TextareaStep'
+import { DateStep } from './step-types/DateStep'
 import { YesNoStep } from './step-types/YesNoStep'
 import { ChipSingleStep } from './step-types/ChipSingleStep'
 import { ChipMultiStep } from './step-types/ChipMultiStep'
@@ -168,6 +169,17 @@ function renderStep(
           onChange={(v) => update(step.field, v as ApplicationFormData[typeof step.field])}
           placeholder={step.placeholder}
           helper={step.helper}
+        />
+      )
+    case 'date':
+      return (
+        <DateStep
+          id={step.id}
+          question={step.question}
+          helper={step.helper}
+          value={form.date_of_birth}
+          onChange={(v) => update('date_of_birth', v)}
+          onSkip={() => { update('date_of_birth', null); goNext() }}
         />
       )
     case 'yesno':

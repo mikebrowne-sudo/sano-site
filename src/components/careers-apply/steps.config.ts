@@ -5,6 +5,7 @@ export type StepDef =
   | { id: string; type: 'info'; title?: string | ((d: ApplicationFormData) => string); body: string | ((d: ApplicationFormData) => string); visible?: (d: ApplicationFormData) => boolean }
   | { id: string; type: 'text'; field: 'first_name' | 'last_name' | 'phone' | 'email' | 'suburb' | 'preferred_hours' | 'travel_areas'; question: string; inputType?: 'text' | 'tel' | 'email'; placeholder?: string; required?: boolean; visible?: (d: ApplicationFormData) => boolean }
   | { id: string; type: 'textarea'; field: 'experience_notes' | 'why_join_sano'; question: string; placeholder?: string; helper?: string; visible?: (d: ApplicationFormData) => boolean }
+  | { id: string; type: 'date'; field: 'date_of_birth'; question: string; helper?: string; visible?: (d: ApplicationFormData) => boolean }
   | { id: string; type: 'yesno'; field: 'has_license' | 'has_vehicle' | 'can_travel' | 'has_experience' | 'has_equipment' | 'independent_work' | 'work_rights_nz' | 'has_insurance' | 'willing_to_get_insurance'; question: string | ((d: ApplicationFormData) => string); required?: boolean; visible?: (d: ApplicationFormData) => boolean }
   | { id: string; type: 'chip-single'; field: 'application_type'; question: string; options: { value: string; label: string }[]; required?: boolean; visible?: (d: ApplicationFormData) => boolean }
   | { id: string; type: 'chip-multi'; field: 'experience_types' | 'available_days'; question: string; helper?: string; options: { value: string; label: string }[]; minSelected?: number; visible?: (d: ApplicationFormData) => boolean }
@@ -39,6 +40,11 @@ export const STEPS: StepDef[] = [
 
   { id: 'first_name', type: 'text', field: 'first_name', question: "What's your first name?", required: true },
   { id: 'last_name', type: 'text', field: 'last_name', question: 'And your surname?', required: true },
+
+  { id: 'date_of_birth', type: 'date', field: 'date_of_birth',
+    question: 'What\u2019s your date of birth? (optional)',
+    helper: 'This helps us understand availability and compliance. You can skip this if you prefer.',
+  },
 
   { id: 'hello', type: 'info',
     title: (d) => `Nice to meet you, ${d.first_name.trim() || 'there'}.`,
