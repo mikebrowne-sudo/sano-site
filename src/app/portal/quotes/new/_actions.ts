@@ -62,6 +62,9 @@ interface CreateQuoteInput {
   pricing_breakdown?: PricingBreakdown
   calculated_price?: number | null
 
+  // Commercial calculator integration (null when not calc-driven)
+  commercial_calc_id?: string | null
+
   // Override fields
   is_price_overridden?: boolean
   override_price?: number | null
@@ -161,6 +164,7 @@ export async function createQuote(input: CreateQuoteInput) {
       pricing_mode: input.pricing_mode ?? null,
       estimated_hours: input.estimated_hours ?? null,
       pricing_breakdown: input.pricing_breakdown ?? null,
+      commercial_calc_id: input.commercial_calc_id ?? null,
       discount: input.discount,
       gst_included: input.gst_included,
       payment_type: input.payment_type || 'cash_sale',
