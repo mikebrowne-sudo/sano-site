@@ -77,10 +77,12 @@ export function buildCommercialDescription(
 export interface CommercialCalculationRow {
   id: string
   inputs: CommercialInputs
+  pricing_mode: PricingMode
   total_per_clean: number
   monthly_value: number
   extras_breakdown: ExtrasBreakdown
   selected_pricing_view: PricingView | null
+  estimated_hours: number
 }
 
 export interface QuoteLineItem {

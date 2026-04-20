@@ -185,7 +185,7 @@ export function NewQuoteForm({
         description_edited: true,
         generated_scope: buildCommercialDescription(calc.inputs, view),
       }))
-      setPricing((prev) => ({ ...prev, pricing_mode: mapPricingMode(calc.inputs.pricing_mode) }))
+      setPricing((prev) => ({ ...prev, pricing_mode: mapPricingMode(calc.pricing_mode) }))
       setBasePrice(String(corePrice))
       setAddons(
         buildQuoteItemsFromCalc(calc).map((item, i) => ({
@@ -194,6 +194,15 @@ export function NewQuoteForm({
           price: String(item.price),
         })),
       )
+      // Prevent the ineligible-service auto-override effect from clobbering the
+      // calc price to 0. The calc itself is the authoritative override.
+      setOverride((prev) => ({
+        ...prev,
+        is_price_overridden: true,
+        override_price: String(corePrice),
+        override_reason: 'From commercial calculator',
+        override_confirmed: true,
+      }))
       setCalcSeeded(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -324,13 +333,15 @@ export function NewQuoteForm({
         scheduled_clean_date: scheduledCleanDate || undefined,
         notes: notes.trim() || undefined,
         base_price: finalPrice,
-        calculated_price: engineResult?.calculated_price ?? null,
+        calculated_price: calc
+          ? (calc.selected_pricing_view === 'monthly' ? calc.monthly_value : calc.total_per_clean)
+          : (engineResult?.calculated_price ?? null),
         is_price_overridden: override.is_price_overridden,
         override_price: override.is_price_overridden ? parseFloat(override.override_price) : null,
         override_reason: override.is_price_overridden ? override.override_reason.trim() : null,
         override_confirmed: override.override_confirmed,
         pricing_mode: eligible ? pricing.pricing_mode : undefined,
-        estimated_hours: eligible ? engineResult?.estimated_hours ?? undefined : undefined,
+        estimated_hours: calc?.estimated_hours ?? engineResult?.estimated_hours ?? undefined,
         pricing_breakdown: eligible ? engineResult?.breakdown ?? undefined : undefined,
         commercial_calc_id: calc?.id ?? null,
         discount: disc,
