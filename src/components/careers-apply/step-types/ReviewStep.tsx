@@ -32,18 +32,31 @@ function orDash(v: string): string {
   return v.trim() ? v : '\u2014'
 }
 
+function formatDateNZ(iso: string | null): string | null {
+  if (!iso) return null
+  const d = new Date(`${iso}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return null
+  return new Intl.DateTimeFormat('en-NZ', { dateStyle: 'long' }).format(d)
+}
+
 export function ReviewStep({ data, status, errorMessage, onSubmit }: ReviewStepProps) {
   const rows: { label: string; value: string }[] = [
     { label: 'Name', value: `${data.first_name} ${data.last_name}`.trim() },
     { label: 'Phone', value: data.phone },
     { label: 'Email', value: data.email },
     { label: 'Suburb', value: data.suburb },
-    { label: 'Role type', value: data.application_type === 'contractor' ? 'Contractor' : data.application_type === 'employee' ? 'Employee' : '\u2014' },
-    { label: 'Driver licence', value: yesNo(data.has_license) },
-    { label: 'Vehicle', value: yesNo(data.has_vehicle) },
-    { label: 'Can travel', value: yesNo(data.can_travel) },
-    { label: 'Has experience', value: yesNo(data.has_experience) },
   ]
+
+  const dobFormatted = formatDateNZ(data.date_of_birth)
+  if (dobFormatted) {
+    rows.push({ label: 'Date of birth', value: dobFormatted })
+  }
+
+  rows.push({ label: 'Role type', value: data.application_type === 'contractor' ? 'Contractor' : data.application_type === 'employee' ? 'Employee' : '\u2014' })
+  rows.push({ label: 'Driver licence', value: yesNo(data.has_license) })
+  rows.push({ label: 'Vehicle', value: yesNo(data.has_vehicle) })
+  rows.push({ label: 'Can travel', value: yesNo(data.can_travel) })
+  rows.push({ label: 'Has experience', value: yesNo(data.has_experience) })
 
   if (data.has_experience) {
     rows.push({ label: 'Experience types', value: data.experience_types.map((t) => EXPERIENCE_LABELS[t]).join(', ') || '\u2014' })
