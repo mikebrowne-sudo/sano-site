@@ -28,7 +28,7 @@ describe('Header — top bar', () => {
 
   it('renders the phone number', () => {
     render(<Header />)
-    expect(screen.getByText('0800 726 669')).toBeInTheDocument()
+    expect(screen.getByText('0800 726 686')).toBeInTheDocument()
   })
 })
 
@@ -127,7 +127,7 @@ describe('Header — mobile menu', () => {
     render(<Header />)
     fireEvent.click(screen.getByRole('button', { name: /toggle menu/i }))
     const mobileNav = screen.getByRole('navigation', { name: /mobile navigation/i })
-    expect(mobileNav).toHaveTextContent('0800 726 669')
+    expect(mobileNav).toHaveTextContent('0800 726 686')
   })
 
   it('shows all service links in mobile menu', () => {

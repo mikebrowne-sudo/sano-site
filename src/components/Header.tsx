@@ -52,7 +52,7 @@ export function Header() {
           <div className="flex justify-end items-center h-9 gap-2">
             <PhoneIcon className="text-sage-200" />
             <span className="text-sage-200 text-[13px] leading-relaxed">Call us for a free quote</span>
-            <span className="text-white text-[13px] font-bold leading-relaxed whitespace-nowrap">0800 726 669</span>
+            <span className="text-white text-[13px] font-bold leading-relaxed whitespace-nowrap">0800 726 686</span>
           </div>
         </div>
       </div>
@@ -222,7 +222,7 @@ export function Header() {
             <div className="flex items-center gap-2 py-2">
               <PhoneIcon className="text-sage-700" />
               <span className="text-[13px] text-gray-600">Call us for a free quote</span>
-              <span className="text-[13px] font-bold text-sage-700 whitespace-nowrap">0800 726 669</span>
+              <span className="text-[13px] font-bold text-sage-700 whitespace-nowrap">0800 726 686</span>
             </div>
             <div className="pt-2">
               <QuoteButton label="Get a Quote" className="w-full text-center" />
