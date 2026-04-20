@@ -434,7 +434,7 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
             disabled={override.is_price_overridden}
           />
           {override.is_price_overridden && (
-            <p className="mt-1 text-xs text-sage-500 italic">Discount doesn't apply to overridden prices.</p>
+            <p className="mt-1 text-xs text-sage-500 italic">Discount doesn&apos;t apply to overridden prices.</p>
           )}
         </div>
 
