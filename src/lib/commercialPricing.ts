@@ -171,4 +171,134 @@ export function minimumCharge(effectiveVisitsPerWeek: number): number {
   return 180
 }
 
-// calculateCommercialPrice will be added in Task 3.
+// ─ Main function ───────────────────────────────────────────────────
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
+function fitoutColumn(level: FitoutLevel): 'low' | 'medium' | 'high' {
+  // per spec: basic -> low column, standard -> medium, premium -> high
+  if (level === 'basic')    return 'low'
+  if (level === 'standard') return 'medium'
+  return 'high'
+}
+
+function pricingStatusFromMargin(margin: number): PricingStatus {
+  if (margin > 0.55) return 'high_margin'
+  if (margin >= 0.35) return 'healthy'
+  return 'tight'
+}
+
+export function calculateCommercialPrice(input: CommercialInputs): CommercialResult {
+  const mode = input.pricing_mode
+
+  // ── Pass 1: core recurring price ──
+
+  const office_m2    = input.office_m2    ?? 0
+  const warehouse_m2 = input.warehouse_m2 ?? 0
+  const retail_m2    = input.retail_m2    ?? 0
+  const medical_m2   = input.medical_m2   ?? 0
+
+  const area_base =
+    office_m2    * BASE_RATES.office[mode] +
+    warehouse_m2 * BASE_RATES.warehouse[mode] +
+    retail_m2    * BASE_RATES.retail[mode] +
+    medical_m2   * BASE_RATES.medical[mode]
+
+  const { visits_per_month, effective_visits_per_week } =
+    normaliseFrequency(input.frequency_type, input.visits_per_period)
+
+  const freq_mul = frequencyMultiplier(effective_visits_per_week)
+  const complexity_mul =
+    1 +
+    COMPLEXITY_UPLIFTS.traffic[input.traffic_level] +
+    COMPLEXITY_UPLIFTS.fitout[input.fitout_level] +
+    COMPLEXITY_UPLIFTS.access[input.access_difficulty]
+  const location_mul = 1 + LOCATION_UPLIFT[input.location_type]
+
+  const area_after = area_base * freq_mul * complexity_mul * location_mul
+
+  const fixtures =
+    input.bathrooms * FIXTURE_RATES.bathroom[mode] +
+    input.kitchens  * FIXTURE_RATES.kitchen[mode] +
+    (input.desks ?? 0) * FIXTURE_RATES.desk[mode] +
+    (input.bins  ?? 0) * FIXTURE_RATES.bin[mode]
+
+  const core_subtotal = area_after + fixtures
+
+  // ── Pass 2: hours & cost (recurring only) ──
+
+  const col = fitoutColumn(input.fitout_level)
+
+  const area_hours =
+    office_m2    / PRODUCTION_RATES.office[col] +
+    warehouse_m2 / PRODUCTION_RATES.warehouse[col] +
+    retail_m2    / PRODUCTION_RATES.retail[col] +
+    medical_m2   / PRODUCTION_RATES.medical[col]
+
+  const fixture_hours =
+    input.bathrooms * FIXTURE_HOURS.bathroom +
+    input.kitchens  * FIXTURE_HOURS.kitchen
+
+  const raw_hours =
+    area_hours + fixture_hours + TRAVEL_TIME[input.location_type] + SETUP_TIME
+  const estimated_hours_raw = Math.max(raw_hours, MINIMUM_HOURS)
+  const estimated_hours = round2(estimated_hours_raw)
+  const estimated_cost = round2(estimated_hours * HOURLY_COST)
+
+  // ── Pass 3: margin check, minimum charge, finalise ──
+
+  const pre_min_margin = core_subtotal > 0
+    ? (core_subtotal - estimated_cost) / core_subtotal
+    : 0
+  const target_margin = targetMargin(effective_visits_per_week)
+
+  let below_target_margin = false
+  let suggested_price: number | null = null
+  if (pre_min_margin < target_margin) {
+    below_target_margin = true
+    suggested_price = round2(estimated_cost / (1 - target_margin))
+  }
+
+  const min_charge = minimumCharge(effective_visits_per_week)
+  const total_per_clean = round2(Math.max(core_subtotal, min_charge))
+  const minimum_applied = total_per_clean > round2(core_subtotal)
+
+  const profit = round2(total_per_clean - estimated_cost)
+  const margin = total_per_clean > 0 ? profit / total_per_clean : 0
+  const monthly_value = round2(total_per_clean * visits_per_month)
+  const effective_hourly_rate = estimated_hours > 0
+    ? round2(total_per_clean / estimated_hours)
+    : 0
+  const pricing_status = pricingStatusFromMargin(margin)
+
+  // ── Pass 4: extras (flat, one-off, not in recurring metrics) ──
+
+  const windows      = round2((input.windows         ?? 0) * FIXTURE_RATES.window)
+  const carpet       = round2((input.carpet_clean_m2 ?? 0) * FIXTURE_RATES.carpet)
+  const hard_floor   = round2((input.hard_floor_m2   ?? 0) * FIXTURE_RATES.hard_floor)
+  // Deep clean: uplift delta only — core clean already billed in core_subtotal.
+  const deep_clean   = input.deep_clean
+    ? round2(area_base * (DEEP_CLEAN_MULTIPLIER - 1))
+    : 0
+
+  const extras_breakdown: ExtrasBreakdown = { windows, carpet, hard_floor, deep_clean }
+  const extras_total = round2(windows + carpet + hard_floor + deep_clean)
+
+  return {
+    total_per_clean,
+    monthly_value,
+    estimated_hours,
+    estimated_cost,
+    profit,
+    margin: round2(margin * 100) / 100,
+    effective_hourly_rate,
+    below_target_margin,
+    suggested_price,
+    minimum_applied,
+    pricing_status,
+    extras_total,
+    extras_breakdown,
+  }
+}
