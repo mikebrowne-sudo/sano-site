@@ -51,8 +51,8 @@ export function Footer() {
             <ul className="space-y-2 text-sm text-sage-100">
               <li>Auckland, New Zealand</li>
               <li>
-                <a href="tel:0800726669" className="hover:text-white transition-colors">
-                  0800 726 669
+                <a href="tel:0800726686" className="hover:text-white transition-colors">
+                  0800 726 686
                 </a>
               </li>
               <li>
