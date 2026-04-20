@@ -190,6 +190,7 @@ export function EditQuoteForm({
 
   // ── Pricing engine (derived) ─────────────────────────────
   const eligible = isPricingEligible(builder.service_category || null, builder.service_type_code || null)
+  const serviceSelected = !!builder.service_category && !!builder.service_type_code
 
   const engineResult = useMemo(() => {
     if (!eligible || isLocked) return null
@@ -218,7 +219,7 @@ export function EditQuoteForm({
   /* eslint-enable react-hooks/exhaustive-deps */
 
   useEffect(() => {
-    if (!eligible && !override.is_price_overridden) {
+    if (serviceSelected && !eligible && !override.is_price_overridden) {
       setOverride((prev) => ({
         ...prev,
         is_price_overridden: true,
@@ -227,7 +228,7 @@ export function EditQuoteForm({
           : ''),
       }))
     }
-  }, [eligible, override.is_price_overridden, engineResult?.calculated_price])
+  }, [serviceSelected, eligible, override.is_price_overridden, engineResult?.calculated_price])
 
   const finalPrice = computeFinalPrice({
     is_price_overridden: override.is_price_overridden,
@@ -483,7 +484,7 @@ export function EditQuoteForm({
           value={override}
           onChange={(next) => {
             // For ineligible services, force is_price_overridden to stay true
-            if (!eligible) next.is_price_overridden = true
+            if (serviceSelected && !eligible) next.is_price_overridden = true
             if (next.is_price_overridden && !override.is_price_overridden && !next.override_price) {
               next.override_price = engineResult?.calculated_price != null
                 ? String(engineResult.calculated_price)

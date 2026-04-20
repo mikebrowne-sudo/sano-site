@@ -101,6 +101,7 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
 
   // ── Pricing engine (derived) ─────────────────────────────
   const eligible = isPricingEligible(builder.service_category || null, builder.service_type_code || null)
+  const serviceSelected = !!builder.service_category && !!builder.service_type_code
 
   const engineResult = useMemo(() => {
     if (!eligible) return null
@@ -134,7 +135,7 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
 
   // For ineligible services, lock override on and pre-fill price
   useEffect(() => {
-    if (!eligible && !override.is_price_overridden) {
+    if (serviceSelected && !eligible && !override.is_price_overridden) {
       setOverride((prev) => ({
         ...prev,
         is_price_overridden: true,
@@ -143,7 +144,7 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
           : ''),
       }))
     }
-  }, [eligible, override.is_price_overridden, engineResult?.calculated_price])
+  }, [serviceSelected, eligible, override.is_price_overridden, engineResult?.calculated_price])
 
   const finalPrice = computeFinalPrice({
     is_price_overridden: override.is_price_overridden,
@@ -441,7 +442,7 @@ export function NewQuoteForm({ clients }: { clients: Client[] }) {
           value={override}
           onChange={(next) => {
             // For ineligible services, force is_price_overridden to stay true
-            if (!eligible) next.is_price_overridden = true
+            if (serviceSelected && !eligible) next.is_price_overridden = true
             // Pre-fill custom price when toggling override on and input is empty
             if (next.is_price_overridden && !override.is_price_overridden && !next.override_price) {
               next.override_price = engineResult?.calculated_price != null
