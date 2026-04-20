@@ -202,10 +202,10 @@ export function JobApplicationForm() {
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-6">
       {/* SECTION: Personal details */}
-      <fieldset className={cardBase} data-field="full_name">
+      <fieldset className={cardBase}>
         <legend className={sectionTitle}>Personal details</legend>
         <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
+          <div data-field="full_name">
             <label htmlFor="full_name" className={labelBase}>Full name *</label>
             <input
               id="full_name"
@@ -217,7 +217,7 @@ export function JobApplicationForm() {
             />
             {err('full_name')}
           </div>
-          <div>
+          <div data-field="phone">
             <label htmlFor="phone" className={labelBase}>Phone *</label>
             <input
               id="phone"
@@ -229,7 +229,7 @@ export function JobApplicationForm() {
             />
             {err('phone')}
           </div>
-          <div>
+          <div data-field="email">
             <label htmlFor="email" className={labelBase}>Email *</label>
             <input
               id="email"
@@ -241,7 +241,7 @@ export function JobApplicationForm() {
             />
             {err('email')}
           </div>
-          <div>
+          <div data-field="suburb">
             <label htmlFor="suburb" className={labelBase}>Suburb *</label>
             <input
               id="suburb"
