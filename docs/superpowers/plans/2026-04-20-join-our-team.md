@@ -1,56 +1,110 @@
-# Join Our Team Implementation Plan
+# Join Our Team Implementation Plan — Revision 2 (wizard refactor)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship `/join-our-team` — a public careers page with a grouped application form that POSTs to a stub API route and swaps to a success card on success.
+**Goal:** Refactor the existing single-page careers form into (a) a clean landing page at `/join-our-team` and (b) a guided multi-step wizard at `/join-our-team/apply`. Reuse the types, validator, API route, and landing-page section components where possible. Retire `JobApplicationForm.tsx`.
 
-**Architecture:** Single Next.js App Router page under `src/app/(public)/join-our-team/` composes five section components. The form is one client component (`JobApplicationForm.tsx`) with inline fieldsets, no sub-components. A shared `validateApplication()` function in `src/lib/` is imported by both the client form and the API route so the rules live in one place. The API route logs four redacted fields and returns `{ ok: true }` — Supabase/Resend hookup is deferred.
+**Architecture:** Two public routes, one data contract. The landing page is a server component composing Hero → Why → Process → Contact, with an Apply Now CTA in the hero. The wizard is a client component driven by a declarative `STEPS` config array; a small library of step-type components (text / yes-no / chip / info / declaration / review / success) renders each step. State is in-memory; conditional branching drives visibility of contractor-only insurance steps and the experience-types follow-up.
 
-**Tech Stack:** Next.js 14 (App Router), TypeScript, Tailwind (existing sage palette), lucide-react icons, Jest + ts-jest for tests. No new dependencies.
+**Tech stack:** Next.js 14 (App Router), TypeScript, Tailwind (existing sage palette), lucide-react, framer-motion (already in the project), Jest + ts-jest. No new dependencies.
 
 **Spec reference:** `docs/superpowers/specs/2026-04-20-join-our-team-design.md`
 
----
-
-## File Structure
-
-| Path | New/Modify | Responsibility |
-|------|-----------|----------------|
-| `src/types/application.ts` | New | `ApplicationFormData`, `ApplicationFormErrors`, `JobApplicationPayload`, supporting enums |
-| `src/lib/applicationValidation.ts` | New | Pure `validateApplication(data)` — shared by client and server |
-| `src/__tests__/lib/applicationValidation.test.ts` | New | Unit tests for validation rules |
-| `src/app/api/submit-application/route.ts` | New | POST handler — stub, logs redacted preview |
-| `src/__tests__/api/submit-application.test.ts` | New | API route tests (jsdom→node) |
-| `src/components/JobApplicationForm.tsx` | New | Client form, inline sections, pills, chips, submit flow |
-| `src/components/CareersHero.tsx` | New | Two-column hero with placeholder block |
-| `src/components/WhyWorkWithSano.tsx` | New | 3 benefit cards |
-| `src/components/CareersProcess.tsx` | New | 5-step row |
-| `src/components/CareersContact.tsx` | New | "Have a question?" block |
-| `src/app/(public)/join-our-team/page.tsx` | New | Server component, composes sections, metadata |
-| `src/components/Footer.tsx` | Modify | Add "Join Our Team" link to Company column |
+**Branch:** `feat/join-our-team` (already contains Revision 1's commits; unrelated commits from other work will be filtered at PR time via cherry-pick onto a fresh branch).
 
 ---
 
-## Mike Checkpoints
+## What already exists
 
-Pause and ask Mike to eyeball before proceeding past:
-- **After Task 3** — API route + validation locked in (critical contract)
-- **After Task 5** — Form component first draft (biggest file; worth a visual sanity check in browser)
-- **After Task 12** — Final browser walkthrough before cleanup/commit polish
+From the prior build, the following commits are live on this branch and will be reused with small edits or unchanged:
+
+| File | Prior commit | This plan |
+|------|--------------|-----------|
+| `src/types/application.ts` | `0f353d1` | Edit (T1) |
+| `src/lib/applicationValidation.ts` | `a4dd9e3` | Edit (T2) |
+| `src/__tests__/lib/applicationValidation.test.ts` | `a4dd9e3` | Edit (T2) |
+| `src/app/api/submit-application/route.ts` | `3e5d676` | Edit (T3) |
+| `src/__tests__/api/submit-application.test.ts` | `3e5d676` | Edit (T3) |
+| `src/components/Footer.tsx` | `8698684` | No change |
+| `src/components/JobApplicationForm.tsx` | `ded2b93`, `67ae446` | Retire (T4) |
+| `src/components/CareersHero.tsx` | `c533731` | Edit (T4) |
+| `src/components/WhyWorkWithSano.tsx` | `e785e11` | No change |
+| `src/components/CareersProcess.tsx` | `fabb926` | No change |
+| `src/components/CareersContact.tsx` | `a5cda0f` | No change |
+| `src/app/(public)/join-our-team/page.tsx` | `2375934` | Edit (T4) |
 
 ---
 
-## Task 1: Types (`src/types/application.ts`)
+## File structure after this plan
 
-**Files:**
-- Create: `src/types/application.ts`
+```
+src/
+  app/
+    (public)/
+      join-our-team/
+        page.tsx                              — landing, no form
+        apply/
+          page.tsx                            — NEW wizard host
+    api/
+      submit-application/
+        route.ts                              — edited: log first_name/last_name
+  components/
+    CareersHero.tsx                           — edited: Apply Now CTA
+    WhyWorkWithSano.tsx
+    CareersProcess.tsx
+    CareersContact.tsx
+    Footer.tsx
+    _retired/
+      JobApplicationForm.old.tsx              — NEW location (moved from parent dir)
+    careers-apply/
+      ApplicationWizard.tsx                   — NEW orchestrator
+      steps.config.ts                         — NEW declarative flow
+      WizardProgress.tsx                      — NEW
+      WizardNav.tsx                           — NEW
+      step-types/
+        WelcomeStep.tsx                       — NEW
+        TextStep.tsx                          — NEW
+        TextareaStep.tsx                      — NEW
+        YesNoStep.tsx                         — NEW
+        ChipSingleStep.tsx                    — NEW
+        ChipMultiStep.tsx                     — NEW
+        InfoStep.tsx                          — NEW
+        DeclarationStep.tsx                   — NEW
+        ReviewStep.tsx                        — NEW
+        SuccessStep.tsx                       — NEW
+  lib/
+    applicationValidation.ts                  — edited
+    applicationStepValidation.ts              — NEW per-step gating
+  types/
+    application.ts                            — edited
+  __tests__/
+    lib/
+      applicationValidation.test.ts           — edited fixture
+    api/
+      submit-application.test.ts              — edited fixture
+```
 
-- [ ] **Step 1: Create the types file**
+---
+
+## Mike checkpoints
+
+Pause and ask Mike before proceeding past:
+- **After Task 3** — API contract finalised (same gate as before, new shape).
+- **After Task 11** — wizard orchestrator + all step types assembled; good to browser-test the flow.
+- **Before T13 PR cleanup** — Mike decides whether to cherry-pick onto a fresh branch.
+
+---
+
+## Task 1: Type edits
+
+**Files:** modify `src/types/application.ts`.
+
+- [ ] **Step 1: Replace the types file with the revised shape.**
 
 ```ts
 // src/types/application.ts
 
-export type ApplicationType = 'contractor' | 'casual' | 'either'
+export type ApplicationType = 'contractor' | 'employee'
 
 export type ExperienceType =
   | 'residential'
@@ -66,7 +120,8 @@ export type DayOfWeek = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
 
 export interface ApplicationFormData {
   // Personal details
-  full_name: string
+  first_name: string
+  last_name: string
   phone: string
   email: string
   suburb: string
@@ -86,62 +141,52 @@ export interface ApplicationFormData {
 
   // Equipment
   has_equipment: boolean | null
-  equipment_notes: string
 
   // Availability
   available_days: DayOfWeek[]
   preferred_hours: string
   travel_areas: string
 
-  // Additional questions
-  work_preferences: string
+  // Independent work + compliance
   independent_work: boolean | null
-  why_join_sano: string
-
-  // Compliance
   work_rights_nz: boolean | null
   has_insurance: boolean | null
   willing_to_get_insurance: boolean | null
+
+  // Motivation (optional)
+  why_join_sano: string
 
   // Declaration
   confirm_truth: boolean
 }
 
 export type ApplicationFormErrors = Partial<Record<keyof ApplicationFormData, string>>
-
 export type JobApplicationPayload = ApplicationFormData
 ```
 
-- [ ] **Step 2: Verify TypeScript compiles**
+- [ ] **Step 2: Run tsc.**
 
-Run: `cd F:/Sano/01-Site && npx tsc --noEmit`
-Expected: PASS (no errors from the new file)
+Run: `cd F:/Sano/01-Site && rm -f tsconfig.tsbuildinfo && npx tsc --noEmit`
 
-- [ ] **Step 3: Commit**
+Expected: **Errors in `src/lib/applicationValidation.ts`, `src/components/JobApplicationForm.tsx`, `src/__tests__/*/applicationValidation.test.ts`, `src/__tests__/api/submit-application.test.ts`, and `src/app/api/submit-application/route.ts`** — all references to `full_name`, `application_type: 'casual'`/`'either'`, `equipment_notes`, `work_preferences` will break. This is expected; Tasks 2–4 fix them.
 
-```bash
-cd F:/Sano/01-Site && git add src/types/application.ts && git commit -m "feat(careers): add ApplicationFormData and payload types"
-```
+Do NOT commit yet — commit after Task 2 so tsc is green at commit time.
 
 ---
 
-## Task 2: Shared validation module
+## Task 2: Update `validateApplication` and tests
 
-**Files:**
-- Create: `src/lib/applicationValidation.ts`
-- Create: `src/__tests__/lib/applicationValidation.test.ts`
+**Files:** modify `src/lib/applicationValidation.ts` and `src/__tests__/lib/applicationValidation.test.ts`.
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Update the test fixture + tests first (TDD — tests first).**
 
-Create `src/__tests__/lib/applicationValidation.test.ts`:
+Open `src/__tests__/lib/applicationValidation.test.ts`. Replace the `valid()` fixture:
 
 ```ts
-import { validateApplication, createEmptyApplicationForm } from '@/lib/applicationValidation'
-import type { ApplicationFormData } from '@/types/application'
-
 function valid(): ApplicationFormData {
   return {
-    full_name: 'Jane Doe',
+    first_name: 'Jane',
+    last_name: 'Doe',
     phone: '021 000 0000',
     email: 'jane@example.com',
     suburb: 'Mount Eden',
@@ -153,101 +198,42 @@ function valid(): ApplicationFormData {
     experience_types: ['residential'],
     experience_notes: '',
     has_equipment: true,
-    equipment_notes: '',
     available_days: [],
     preferred_hours: '',
     travel_areas: '',
-    work_preferences: '',
     independent_work: true,
-    why_join_sano: '',
     work_rights_nz: true,
     has_insurance: null,
     willing_to_get_insurance: null,
+    why_join_sano: '',
     confirm_truth: true,
   }
 }
+```
 
-describe('validateApplication', () => {
-  it('returns no errors for a complete valid form', () => {
-    expect(validateApplication(valid())).toEqual({})
-  })
+Rename `it('requires full_name', ...)` to `it('requires first_name', ...)` and update to flip `first_name`. Add a symmetric `it('requires last_name', ...)`:
 
-  it('requires full_name', () => {
-    const data = { ...valid(), full_name: '   ' }
-    expect(validateApplication(data).full_name).toBeDefined()
-  })
+```ts
+it('requires first_name', () => {
+  const data = { ...valid(), first_name: '   ' }
+  expect(validateApplication(data).first_name).toBeDefined()
+})
 
-  it('requires phone (presence only, no format check)', () => {
-    const missing = validateApplication({ ...valid(), phone: '' })
-    expect(missing.phone).toBeDefined()
-    const anyFormat = validateApplication({ ...valid(), phone: '12345' })
-    expect(anyFormat.phone).toBeUndefined()
-  })
-
-  it('requires a valid email format', () => {
-    expect(validateApplication({ ...valid(), email: '' }).email).toBeDefined()
-    expect(validateApplication({ ...valid(), email: 'not-an-email' }).email).toBeDefined()
-  })
-
-  it('requires suburb', () => {
-    expect(validateApplication({ ...valid(), suburb: '' }).suburb).toBeDefined()
-  })
-
-  it('requires application_type', () => {
-    expect(validateApplication({ ...valid(), application_type: '' }).application_type).toBeDefined()
-  })
-
-  it('requires has_license/has_vehicle/can_travel to be non-null', () => {
-    expect(validateApplication({ ...valid(), has_license: null }).has_license).toBeDefined()
-    expect(validateApplication({ ...valid(), has_vehicle: null }).has_vehicle).toBeDefined()
-    expect(validateApplication({ ...valid(), can_travel: null }).can_travel).toBeDefined()
-  })
-
-  it('requires has_experience/has_equipment/independent_work to be non-null', () => {
-    expect(validateApplication({ ...valid(), has_experience: null }).has_experience).toBeDefined()
-    expect(validateApplication({ ...valid(), has_equipment: null }).has_equipment).toBeDefined()
-    expect(validateApplication({ ...valid(), independent_work: null }).independent_work).toBeDefined()
-  })
-
-  it('requires work_rights_nz', () => {
-    expect(validateApplication({ ...valid(), work_rights_nz: null }).work_rights_nz).toBeDefined()
-  })
-
-  it('does NOT require has_insurance or willing_to_get_insurance', () => {
-    const errors = validateApplication({ ...valid(), has_insurance: null, willing_to_get_insurance: null })
-    expect(errors.has_insurance).toBeUndefined()
-    expect(errors.willing_to_get_insurance).toBeUndefined()
-  })
-
-  it('requires confirm_truth to be true', () => {
-    expect(validateApplication({ ...valid(), confirm_truth: false }).confirm_truth).toBeDefined()
-  })
-
-  it('requires at least one experience_type when has_experience is true', () => {
-    const errors = validateApplication({ ...valid(), has_experience: true, experience_types: [] })
-    expect(errors.experience_types).toBeDefined()
-  })
-
-  it('does not require experience_types when has_experience is false', () => {
-    const errors = validateApplication({ ...valid(), has_experience: false, experience_types: [] })
-    expect(errors.experience_types).toBeUndefined()
-  })
-
-  it('createEmptyApplicationForm returns a form that fails validation', () => {
-    const empty = createEmptyApplicationForm()
-    expect(Object.keys(validateApplication(empty)).length).toBeGreaterThan(0)
-  })
+it('requires last_name', () => {
+  const data = { ...valid(), last_name: '' }
+  expect(validateApplication(data).last_name).toBeDefined()
 })
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+Remove any remaining `full_name` references.
+
+- [ ] **Step 2: Run the tests — expect failures.**
 
 Run: `cd F:/Sano/01-Site && npm test -- applicationValidation`
-Expected: FAIL with `Cannot find module '@/lib/applicationValidation'`
 
-- [ ] **Step 3: Implement the validation module**
+Expected: multiple failures (module still has old rules).
 
-Create `src/lib/applicationValidation.ts`:
+- [ ] **Step 3: Update `src/lib/applicationValidation.ts`.**
 
 ```ts
 import type { ApplicationFormData, ApplicationFormErrors } from '@/types/application'
@@ -256,7 +242,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function createEmptyApplicationForm(): ApplicationFormData {
   return {
-    full_name: '',
+    first_name: '',
+    last_name: '',
     phone: '',
     email: '',
     suburb: '',
@@ -268,16 +255,14 @@ export function createEmptyApplicationForm(): ApplicationFormData {
     experience_types: [],
     experience_notes: '',
     has_equipment: null,
-    equipment_notes: '',
     available_days: [],
     preferred_hours: '',
     travel_areas: '',
-    work_preferences: '',
     independent_work: null,
-    why_join_sano: '',
     work_rights_nz: null,
     has_insurance: null,
     willing_to_get_insurance: null,
+    why_join_sano: '',
     confirm_truth: false,
   }
 }
@@ -285,12 +270,15 @@ export function createEmptyApplicationForm(): ApplicationFormData {
 export function validateApplication(data: ApplicationFormData): ApplicationFormErrors {
   const errors: ApplicationFormErrors = {}
 
-  if (!data.full_name.trim()) errors.full_name = 'Your full name is required'
+  if (!data.first_name.trim()) errors.first_name = 'Your first name is required'
+  if (!data.last_name.trim()) errors.last_name = 'Your last name is required'
   if (!data.phone.trim()) errors.phone = 'Phone is required'
-  if (!data.email.trim() || !EMAIL_RE.test(data.email)) errors.email = 'A valid email is required'
+  if (!data.email.trim() || !EMAIL_RE.test(data.email.trim())) errors.email = 'A valid email is required'
   if (!data.suburb.trim()) errors.suburb = 'Suburb is required'
 
-  if (!data.application_type) errors.application_type = 'Please choose one'
+  if (data.application_type !== 'contractor' && data.application_type !== 'employee') {
+    errors.application_type = 'Please choose one'
+  }
 
   if (data.has_license === null) errors.has_license = 'Please answer yes or no'
   if (data.has_vehicle === null) errors.has_vehicle = 'Please answer yes or no'
@@ -304,7 +292,6 @@ export function validateApplication(data: ApplicationFormData): ApplicationFormE
   if (data.has_equipment === null) errors.has_equipment = 'Please answer yes or no'
 
   if (data.independent_work === null) errors.independent_work = 'Please answer yes or no'
-
   if (data.work_rights_nz === null) errors.work_rights_nz = 'Please answer yes or no'
 
   if (!data.confirm_truth) errors.confirm_truth = 'You must confirm before submitting'
@@ -313,768 +300,118 @@ export function validateApplication(data: ApplicationFormData): ApplicationFormE
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+Note: `EMAIL_RE.test(data.email.trim())` picks up the minor trim fix flagged in the prior code review.
+
+- [ ] **Step 4: Run tests — expect pass.**
 
 Run: `cd F:/Sano/01-Site && npm test -- applicationValidation`
-Expected: PASS — all 13 tests green
 
-- [ ] **Step 5: Commit**
+Expected: all tests green (14 → 15 with the new `last_name` test).
+
+- [ ] **Step 5: Commit.**
 
 ```bash
-cd F:/Sano/01-Site && git add src/lib/applicationValidation.ts src/__tests__/lib/applicationValidation.test.ts && git commit -m "feat(careers): add shared application validation with tests"
+cd F:/Sano/01-Site && git add src/types/application.ts src/lib/applicationValidation.ts src/__tests__/lib/applicationValidation.test.ts && git commit -m "refactor(careers): split names, tighten enum, trim email in validator"
 ```
 
 ---
 
-## Task 3: API route `/api/submit-application`
+## Task 3: Update API route + tests
 
-**Files:**
-- Create: `src/app/api/submit-application/route.ts`
-- Create: `src/__tests__/api/submit-application.test.ts`
+**Files:** modify `src/app/api/submit-application/route.ts` and `src/__tests__/api/submit-application.test.ts`.
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Update the test fixture + logging assertion first.**
 
-Create `src/__tests__/api/submit-application.test.ts`:
+In `src/__tests__/api/submit-application.test.ts`:
+
+Replace `validBody()` to use the new field names (same pattern as Task 2's fixture).
+
+Rename `it('returns 400 when full_name is missing', ...)` to `it('returns 400 when first_name is missing', ...)` and update the body.
+
+Update the logging test to match five fields:
 
 ```ts
-/**
- * @jest-environment node
- */
-import { POST } from '@/app/api/submit-application/route'
-import { NextRequest } from 'next/server'
-import type { JobApplicationPayload } from '@/types/application'
-
-function makeRequest(body: object) {
-  return new NextRequest('http://localhost/api/submit-application', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-}
-
-function validBody(): JobApplicationPayload {
-  return {
-    full_name: 'Jane Doe',
-    phone: '021 000 0000',
-    email: 'jane@example.com',
-    suburb: 'Mount Eden',
-    application_type: 'contractor',
-    has_license: true,
-    has_vehicle: true,
-    can_travel: true,
-    has_experience: true,
-    experience_types: ['residential'],
-    experience_notes: '',
-    has_equipment: true,
-    equipment_notes: '',
-    available_days: [],
-    preferred_hours: '',
-    travel_areas: '',
-    work_preferences: '',
-    independent_work: true,
-    why_join_sano: '',
-    work_rights_nz: true,
-    has_insurance: null,
-    willing_to_get_insurance: null,
-    confirm_truth: true,
-  }
-}
-
-describe('POST /api/submit-application', () => {
-  const originalLog = console.log
-  beforeEach(() => {
-    console.log = jest.fn()
-  })
-  afterEach(() => {
-    console.log = originalLog
-  })
-
-  it('returns 200 and { ok: true } for a valid payload', async () => {
-    const res = await POST(makeRequest(validBody()))
-    expect(res.status).toBe(200)
-    const json = await res.json()
-    expect(json.ok).toBe(true)
-  })
-
-  it('logs only the four redacted fields on success', async () => {
-    await POST(makeRequest(validBody()))
-    expect(console.log).toHaveBeenCalledWith(
-      '[job-application] received',
-      expect.objectContaining({
-        full_name: 'Jane Doe',
-        email: 'jane@example.com',
-        suburb: 'Mount Eden',
-        application_type: 'contractor',
-      }),
-    )
-    const call = (console.log as jest.Mock).mock.calls[0][1]
-    expect(Object.keys(call).sort()).toEqual(
-      ['application_type', 'email', 'full_name', 'suburb'].sort(),
-    )
-  })
-
-  it('returns 400 when full_name is missing', async () => {
-    const res = await POST(makeRequest({ ...validBody(), full_name: '' }))
-    expect(res.status).toBe(400)
-  })
-
-  it('returns 400 when email is invalid', async () => {
-    const res = await POST(makeRequest({ ...validBody(), email: 'not-an-email' }))
-    expect(res.status).toBe(400)
-  })
-
-  it('returns 400 when confirm_truth is false', async () => {
-    const res = await POST(makeRequest({ ...validBody(), confirm_truth: false }))
-    expect(res.status).toBe(400)
-  })
-
-  it('returns 200 when insurance booleans are null (insurance is optional)', async () => {
-    const res = await POST(makeRequest({ ...validBody(), has_insurance: null, willing_to_get_insurance: null }))
-    expect(res.status).toBe(200)
-  })
+it('logs only the five redacted fields on success', async () => {
+  await POST(makeRequest(validBody()))
+  expect(console.log).toHaveBeenCalledWith(
+    '[job-application] received',
+    expect.objectContaining({
+      first_name: 'Jane',
+      last_name: 'Doe',
+      email: 'jane@example.com',
+      suburb: 'Mount Eden',
+      application_type: 'contractor',
+    }),
+  )
+  const call = (console.log as jest.Mock).mock.calls[0][1]
+  expect(Object.keys(call).sort()).toEqual(
+    ['application_type', 'email', 'first_name', 'last_name', 'suburb'].sort(),
+  )
 })
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [ ] **Step 2: Run tests — expect failures.**
 
 Run: `cd F:/Sano/01-Site && npm test -- submit-application`
-Expected: FAIL with `Cannot find module '@/app/api/submit-application/route'`
 
-- [ ] **Step 3: Implement the route**
+Expected: fixture + logging-key assertion both fail.
 
-Create `src/app/api/submit-application/route.ts`:
+- [ ] **Step 3: Update `src/app/api/submit-application/route.ts`.**
+
+Replace the console.log block only:
 
 ```ts
-import { NextRequest, NextResponse } from 'next/server'
-import { validateApplication } from '@/lib/applicationValidation'
-import type { JobApplicationPayload } from '@/types/application'
-
-export async function POST(req: NextRequest) {
-  try {
-    const payload = (await req.json()) as JobApplicationPayload
-
-    const errors = validateApplication(payload)
-    const errorKeys = Object.keys(errors)
-    if (errorKeys.length > 0) {
-      return NextResponse.json(
-        { error: errors[errorKeys[0] as keyof typeof errors] ?? 'Invalid submission' },
-        { status: 400 },
-      )
-    }
-
-    console.log('[job-application] received', {
-      full_name: payload.full_name,
-      email: payload.email,
-      suburb: payload.suburb,
-      application_type: payload.application_type,
-    })
-
-    // TODO(later): insert into job_applications (Supabase), send Resend thank-you, notify SANO_NOTIFY_EMAIL.
-
-    return NextResponse.json({ ok: true }, { status: 200 })
-  } catch (err) {
-    console.error('[job-application] error', err)
-    return NextResponse.json({ error: 'Submission failed' }, { status: 500 })
-  }
-}
+console.log('[job-application] received', {
+  first_name: payload.first_name,
+  last_name: payload.last_name,
+  email: payload.email,
+  suburb: payload.suburb,
+  application_type: payload.application_type,
+})
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+Everything else in the route (validator call, response shape, try/catch) stays as-is.
+
+- [ ] **Step 4: Run tests — expect pass.**
 
 Run: `cd F:/Sano/01-Site && npm test -- submit-application`
-Expected: PASS — all 6 tests green
 
-- [ ] **Step 5: Commit**
+Expected: all 6 tests green.
+
+- [ ] **Step 5: Commit.**
 
 ```bash
-cd F:/Sano/01-Site && git add src/app/api/submit-application/route.ts src/__tests__/api/submit-application.test.ts && git commit -m "feat(careers): add /api/submit-application stub with tests"
+cd F:/Sano/01-Site && git add src/app/api/submit-application/route.ts src/__tests__/api/submit-application.test.ts && git commit -m "refactor(careers): log first_name+last_name (5 redacted fields)"
 ```
 
-- [ ] **Step 6: PAUSE — Mike checkpoint**
+- [ ] **Step 6: PAUSE — Mike checkpoint.**
 
-Contract is locked here. Ask Mike to confirm the API route + validation shape before touching the form.
+API contract locked. Confirm before proceeding to the UI refactor.
 
 ---
 
-## Task 4: Footer link addition
+## Task 4: Retire old form + landing page cleanup + Apply Now CTA (batched)
+
+These three changes belong together — they transition the site from "form on /join-our-team" to "landing page → apply link". Doing them in one task keeps intermediate commits coherent.
 
 **Files:**
-- Modify: `src/components/Footer.tsx` (Company column array, ~lines 35-45)
+- Move: `src/components/JobApplicationForm.tsx` → `src/components/_retired/JobApplicationForm.old.tsx`
+- Modify: `src/components/CareersHero.tsx`
+- Modify: `src/app/(public)/join-our-team/page.tsx`
 
-Doing this early so the page is reachable from navigation the moment the route exists.
-
-- [ ] **Step 1: Update the Company column array**
-
-In `src/components/Footer.tsx`, replace the three-entry Company array:
-
-```tsx
-{[
-  { href: '/about', label: 'About Sano' },
-  { href: '/faq', label: 'FAQ' },
-  { href: '/contact', label: 'Contact Us' },
-].map((link) => (
-```
-
-With the four-entry version (Join Our Team between FAQ and Contact Us):
-
-```tsx
-{[
-  { href: '/about', label: 'About Sano' },
-  { href: '/faq', label: 'FAQ' },
-  { href: '/join-our-team', label: 'Join Our Team' },
-  { href: '/contact', label: 'Contact Us' },
-].map((link) => (
-```
-
-- [ ] **Step 2: Verify the build still passes**
-
-Run: `cd F:/Sano/01-Site && npx tsc --noEmit`
-Expected: PASS
-
-- [ ] **Step 3: Commit**
+- [ ] **Step 1: Move JobApplicationForm out of the live tree.**
 
 ```bash
-cd F:/Sano/01-Site && git add src/components/Footer.tsx && git commit -m "feat(footer): add Join Our Team link to Company column"
+cd F:/Sano/01-Site && mkdir -p src/components/_retired && git mv src/components/JobApplicationForm.tsx src/components/_retired/JobApplicationForm.old.tsx
 ```
 
----
+- [ ] **Step 2: Update `src/components/CareersHero.tsx` to include the Apply Now CTA.**
 
-## Task 5: `JobApplicationForm.tsx` — the full form
-
-**Files:**
-- Create: `src/components/JobApplicationForm.tsx`
-
-This is the biggest file (~500 lines). Inline yes/no pill and chip components live at the top of the file; sections render inline via fieldsets. Validation imports the shared function from Task 2.
-
-- [ ] **Step 1: Create the component with helpers and scaffolding**
-
-Create `src/components/JobApplicationForm.tsx`:
+Replace the file with:
 
 ```tsx
-'use client'
-
-import { useState } from 'react'
-import type {
-  ApplicationFormData,
-  ApplicationFormErrors,
-  ApplicationType,
-  DayOfWeek,
-  ExperienceType,
-} from '@/types/application'
-import { validateApplication, createEmptyApplicationForm } from '@/lib/applicationValidation'
-
-// ---------- Shared styling constants ----------
-
-const inputBase =
-  'w-full rounded-xl border px-4 py-3 text-sm bg-sage-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-sage-300'
-const inputOk = 'border-sage-100'
-const inputErr = 'border-red-300'
-const labelBase = 'block text-sm font-medium text-gray-700 mb-1.5'
-const cardBase = 'rounded-2xl border border-sage-100 bg-white p-6 sm:p-8'
-const sectionTitle = 'text-lg font-semibold text-sage-800'
-const helper = 'text-xs text-gray-500 mt-1'
-
-// ---------- Inline helpers: yes/no pills, chip multi-select ----------
-
-function YesNoPills({
-  name,
-  value,
-  onChange,
-  error,
-}: {
-  name: string
-  value: boolean | null
-  onChange: (v: boolean) => void
-  error?: string
-}) {
-  const pill = (selected: boolean) =>
-    `px-5 py-2 rounded-full border text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-sage-300 ${
-      selected
-        ? 'bg-sage-800 text-white border-sage-800'
-        : error
-        ? 'bg-white border-red-300 text-gray-700 hover:border-sage-300'
-        : 'bg-white border-sage-100 text-gray-700 hover:border-sage-300'
-    }`
-
-  return (
-    <div role="radiogroup" aria-labelledby={`${name}-label`} className="flex gap-3">
-      <button
-        type="button"
-        role="radio"
-        aria-checked={value === true}
-        onClick={() => onChange(true)}
-        className={pill(value === true)}
-      >
-        Yes
-      </button>
-      <button
-        type="button"
-        role="radio"
-        aria-checked={value === false}
-        onClick={() => onChange(false)}
-        className={pill(value === false)}
-      >
-        No
-      </button>
-    </div>
-  )
-}
-
-function Chip({
-  selected,
-  onClick,
-  children,
-}: {
-  selected: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      onClick={onClick}
-      className={`px-4 py-2 rounded-full border text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-sage-300 ${
-        selected
-          ? 'bg-sage-800 text-white border-sage-800'
-          : 'bg-white border-sage-100 text-gray-700 hover:border-sage-300'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}
-
-// ---------- Data: multi-select options ----------
-
-const EXPERIENCE_OPTIONS: { value: ExperienceType; label: string }[] = [
-  { value: 'residential', label: 'Residential cleaning' },
-  { value: 'deep', label: 'Deep cleaning' },
-  { value: 'end_of_tenancy', label: 'End of tenancy' },
-  { value: 'commercial', label: 'Commercial' },
-  { value: 'carpet_upholstery', label: 'Carpet & upholstery' },
-  { value: 'windows', label: 'Window cleaning' },
-  { value: 'post_construction', label: 'Post-construction' },
-  { value: 'other', label: 'Other' },
-]
-
-const DAY_OPTIONS: { value: DayOfWeek; label: string }[] = [
-  { value: 'mon', label: 'Mon' },
-  { value: 'tue', label: 'Tue' },
-  { value: 'wed', label: 'Wed' },
-  { value: 'thu', label: 'Thu' },
-  { value: 'fri', label: 'Fri' },
-  { value: 'sat', label: 'Sat' },
-  { value: 'sun', label: 'Sun' },
-]
-
-const APPLICATION_TYPE_OPTIONS: { value: ApplicationType; label: string }[] = [
-  { value: 'contractor', label: 'Contractor' },
-  { value: 'casual', label: 'Casual' },
-  { value: 'either', label: 'Either' },
-]
-
-// ---------- Main component ----------
-
-export function JobApplicationForm() {
-  const [form, setForm] = useState<ApplicationFormData>(createEmptyApplicationForm())
-  const [errors, setErrors] = useState<ApplicationFormErrors>({})
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
-  const [errorMessage, setErrorMessage] = useState('')
-
-  function update<K extends keyof ApplicationFormData>(key: K, value: ApplicationFormData[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }))
-    if (errors[key]) {
-      setErrors((prev) => ({ ...prev, [key]: undefined }))
-    }
-  }
-
-  function toggleArrayMember<T>(arr: T[], value: T): T[] {
-    return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value]
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const validationErrors = validateApplication(form)
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors)
-      // Scroll to first error
-      const firstKey = Object.keys(validationErrors)[0]
-      const el = document.querySelector(`[data-field="${firstKey}"]`)
-      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      return
-    }
-
-    setStatus('loading')
-    try {
-      const res = await fetch('/api/submit-application', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || 'Submission failed')
-      }
-      setStatus('success')
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
-      setStatus('error')
-    }
-  }
-
-  // ---------- Success card ----------
-
-  if (status === 'success') {
-    return (
-      <div role="status" className="bg-sage-50 border border-sage-100 rounded-2xl p-8 text-center">
-        <p className="text-4xl mb-4" aria-hidden="true">✓</p>
-        <h3 className="text-sage-800 text-xl font-semibold mb-3">Thanks — application received</h3>
-        <p className="text-gray-600 text-sm leading-relaxed">
-          We&apos;ve received your application and will be in touch if it looks like a good fit. If you don&apos;t hear from us within a week, feel free to reach out at{' '}
-          <a href="mailto:hello@sano.nz" className="text-sage-800 underline hover:text-sage-500">
-            hello@sano.nz
-          </a>
-          .
-        </p>
-      </div>
-    )
-  }
-
-  // ---------- Form ----------
-
-  const err = (k: keyof ApplicationFormErrors) =>
-    errors[k] ? (
-      <p className="mt-1 text-xs text-red-500" role="alert">
-        {errors[k]}
-      </p>
-    ) : null
-
-  return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-6">
-      {/* SECTION: Personal details */}
-      <fieldset className={cardBase} data-field="full_name">
-        <legend className={sectionTitle}>Personal details</legend>
-        <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
-            <label htmlFor="full_name" className={labelBase}>Full name *</label>
-            <input
-              id="full_name"
-              type="text"
-              autoComplete="name"
-              value={form.full_name}
-              onChange={(e) => update('full_name', e.target.value)}
-              className={`${inputBase} ${errors.full_name ? inputErr : inputOk}`}
-            />
-            {err('full_name')}
-          </div>
-          <div>
-            <label htmlFor="phone" className={labelBase}>Phone *</label>
-            <input
-              id="phone"
-              type="tel"
-              autoComplete="tel"
-              value={form.phone}
-              onChange={(e) => update('phone', e.target.value)}
-              className={`${inputBase} ${errors.phone ? inputErr : inputOk}`}
-            />
-            {err('phone')}
-          </div>
-          <div>
-            <label htmlFor="email" className={labelBase}>Email *</label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              value={form.email}
-              onChange={(e) => update('email', e.target.value)}
-              className={`${inputBase} ${errors.email ? inputErr : inputOk}`}
-            />
-            {err('email')}
-          </div>
-          <div>
-            <label htmlFor="suburb" className={labelBase}>Suburb *</label>
-            <input
-              id="suburb"
-              type="text"
-              autoComplete="address-level2"
-              value={form.suburb}
-              onChange={(e) => update('suburb', e.target.value)}
-              className={`${inputBase} ${errors.suburb ? inputErr : inputOk}`}
-            />
-            {err('suburb')}
-          </div>
-        </div>
-      </fieldset>
-
-      {/* SECTION: Role type */}
-      <fieldset className={cardBase} data-field="application_type">
-        <legend className={sectionTitle}>Role type</legend>
-        <p className="mt-2 text-sm text-gray-600">Which type of work are you looking for? *</p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          {APPLICATION_TYPE_OPTIONS.map((opt) => (
-            <Chip
-              key={opt.value}
-              selected={form.application_type === opt.value}
-              onClick={() => update('application_type', opt.value)}
-            >
-              {opt.label}
-            </Chip>
-          ))}
-        </div>
-        {err('application_type')}
-      </fieldset>
-
-      {/* SECTION: Licence & transport */}
-      <fieldset className={cardBase}>
-        <legend className={sectionTitle}>Licence & transport</legend>
-        <div className="mt-5 space-y-5">
-          <div data-field="has_license">
-            <p id="has_license-label" className={labelBase}>Do you have a driver&apos;s licence? *</p>
-            <YesNoPills name="has_license" value={form.has_license} onChange={(v) => update('has_license', v)} error={errors.has_license} />
-            {err('has_license')}
-          </div>
-          <div data-field="has_vehicle">
-            <p id="has_vehicle-label" className={labelBase}>Do you have your own vehicle? *</p>
-            <YesNoPills name="has_vehicle" value={form.has_vehicle} onChange={(v) => update('has_vehicle', v)} error={errors.has_vehicle} />
-            {err('has_vehicle')}
-          </div>
-          <div data-field="can_travel">
-            <p id="can_travel-label" className={labelBase}>Are you able to travel to different jobs? *</p>
-            <YesNoPills name="can_travel" value={form.can_travel} onChange={(v) => update('can_travel', v)} error={errors.can_travel} />
-            {err('can_travel')}
-          </div>
-        </div>
-      </fieldset>
-
-      {/* SECTION: Experience */}
-      <fieldset className={cardBase}>
-        <legend className={sectionTitle}>Experience</legend>
-        <div className="mt-5 space-y-5">
-          <div data-field="has_experience">
-            <p id="has_experience-label" className={labelBase}>Do you have cleaning experience? *</p>
-            <YesNoPills name="has_experience" value={form.has_experience} onChange={(v) => update('has_experience', v)} error={errors.has_experience} />
-            {err('has_experience')}
-          </div>
-          {form.has_experience === true && (
-            <div data-field="experience_types">
-              <p className={labelBase}>What types? *</p>
-              <p className={helper}>Select all that apply.</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {EXPERIENCE_OPTIONS.map((opt) => (
-                  <Chip
-                    key={opt.value}
-                    selected={form.experience_types.includes(opt.value)}
-                    onClick={() => update('experience_types', toggleArrayMember(form.experience_types, opt.value))}
-                  >
-                    {opt.label}
-                  </Chip>
-                ))}
-              </div>
-              {err('experience_types')}
-            </div>
-          )}
-          <div>
-            <label htmlFor="experience_notes" className={labelBase}>Anything else about your experience?</label>
-            <textarea
-              id="experience_notes"
-              rows={3}
-              value={form.experience_notes}
-              onChange={(e) => update('experience_notes', e.target.value)}
-              className={`${inputBase} ${inputOk} resize-none`}
-            />
-          </div>
-        </div>
-      </fieldset>
-
-      {/* SECTION: Equipment */}
-      <fieldset className={cardBase}>
-        <legend className={sectionTitle}>Equipment</legend>
-        <div className="mt-5 space-y-5">
-          <div data-field="has_equipment">
-            <p id="has_equipment-label" className={labelBase}>Do you have your own cleaning equipment? *</p>
-            <YesNoPills name="has_equipment" value={form.has_equipment} onChange={(v) => update('has_equipment', v)} error={errors.has_equipment} />
-            {err('has_equipment')}
-          </div>
-          <div>
-            <label htmlFor="equipment_notes" className={labelBase}>Notes about your equipment</label>
-            <textarea
-              id="equipment_notes"
-              rows={3}
-              value={form.equipment_notes}
-              onChange={(e) => update('equipment_notes', e.target.value)}
-              className={`${inputBase} ${inputOk} resize-none`}
-            />
-          </div>
-        </div>
-      </fieldset>
-
-      {/* SECTION: Availability */}
-      <fieldset className={cardBase}>
-        <legend className={sectionTitle}>Availability</legend>
-        <div className="mt-5 space-y-5">
-          <div>
-            <p className={labelBase}>Which days are you generally available?</p>
-            <p className={helper}>Tap the days you&apos;re generally available.</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {DAY_OPTIONS.map((opt) => (
-                <Chip
-                  key={opt.value}
-                  selected={form.available_days.includes(opt.value)}
-                  onClick={() => update('available_days', toggleArrayMember(form.available_days, opt.value))}
-                >
-                  {opt.label}
-                </Chip>
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div>
-              <label htmlFor="preferred_hours" className={labelBase}>Preferred hours</label>
-              <input
-                id="preferred_hours"
-                type="text"
-                placeholder="e.g. mornings, school hours"
-                value={form.preferred_hours}
-                onChange={(e) => update('preferred_hours', e.target.value)}
-                className={`${inputBase} ${inputOk}`}
-              />
-            </div>
-            <div>
-              <label htmlFor="travel_areas" className={labelBase}>Areas you can travel to</label>
-              <input
-                id="travel_areas"
-                type="text"
-                placeholder="e.g. Central, North Shore"
-                value={form.travel_areas}
-                onChange={(e) => update('travel_areas', e.target.value)}
-                className={`${inputBase} ${inputOk}`}
-              />
-            </div>
-          </div>
-        </div>
-      </fieldset>
-
-      {/* SECTION: Additional questions */}
-      <fieldset className={cardBase}>
-        <legend className={sectionTitle}>Additional questions</legend>
-        <div className="mt-5 space-y-5">
-          <div>
-            <label htmlFor="work_preferences" className={labelBase}>Any work preferences or restrictions?</label>
-            <textarea
-              id="work_preferences"
-              rows={3}
-              value={form.work_preferences}
-              onChange={(e) => update('work_preferences', e.target.value)}
-              className={`${inputBase} ${inputOk} resize-none`}
-            />
-          </div>
-          <div data-field="independent_work">
-            <p id="independent_work-label" className={labelBase}>Are you comfortable working independently? *</p>
-            <YesNoPills name="independent_work" value={form.independent_work} onChange={(v) => update('independent_work', v)} error={errors.independent_work} />
-            {err('independent_work')}
-          </div>
-          <div>
-            <label htmlFor="why_join_sano" className={labelBase}>Why do you want to join Sano?</label>
-            <textarea
-              id="why_join_sano"
-              rows={3}
-              value={form.why_join_sano}
-              onChange={(e) => update('why_join_sano', e.target.value)}
-              className={`${inputBase} ${inputOk} resize-none`}
-            />
-          </div>
-        </div>
-      </fieldset>
-
-      {/* SECTION: Compliance */}
-      <fieldset className={cardBase}>
-        <legend className={sectionTitle}>Compliance</legend>
-        <div className="mt-5 space-y-5">
-          <div data-field="work_rights_nz">
-            <p id="work_rights_nz-label" className={labelBase}>Do you have the right to work in New Zealand? *</p>
-            <YesNoPills name="work_rights_nz" value={form.work_rights_nz} onChange={(v) => update('work_rights_nz', v)} error={errors.work_rights_nz} />
-            {err('work_rights_nz')}
-          </div>
-          <div>
-            <p id="has_insurance-label" className={labelBase}>Do you currently have public liability insurance?</p>
-            <YesNoPills name="has_insurance" value={form.has_insurance} onChange={(v) => update('has_insurance', v)} />
-          </div>
-          <div>
-            <p id="willing_to_get_insurance-label" className={labelBase}>If needed, would you be willing to get insured?</p>
-            <YesNoPills name="willing_to_get_insurance" value={form.willing_to_get_insurance} onChange={(v) => update('willing_to_get_insurance', v)} />
-          </div>
-        </div>
-      </fieldset>
-
-      {/* SECTION: Declaration */}
-      <fieldset className={cardBase} data-field="confirm_truth">
-        <legend className={sectionTitle}>Declaration</legend>
-        <label className="mt-5 flex items-start gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={form.confirm_truth}
-            onChange={(e) => update('confirm_truth', e.target.checked)}
-            className="mt-1 h-4 w-4 rounded border-sage-100 text-sage-800 focus:ring-sage-300"
-          />
-          <span className="text-sm text-gray-700 leading-relaxed">
-            I confirm the information I&apos;ve provided is true and accurate. *
-          </span>
-        </label>
-        {err('confirm_truth')}
-      </fieldset>
-
-      {/* Error banner */}
-      {status === 'error' && (
-        <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-3" role="alert">
-          {errorMessage}
-        </p>
-      )}
-
-      {/* Submit */}
-      <button
-        type="submit"
-        disabled={status === 'loading'}
-        className="w-full rounded-full bg-sage-800 px-6 py-4 font-medium text-white hover:bg-sage-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-      >
-        {status === 'loading' ? 'Sending…' : 'Apply Now'}
-      </button>
-    </form>
-  )
-}
-```
-
-- [ ] **Step 2: Verify TypeScript compiles**
-
-Run: `cd F:/Sano/01-Site && npx tsc --noEmit`
-Expected: PASS
-
-- [ ] **Step 3: Run all tests to make sure nothing regressed**
-
-Run: `cd F:/Sano/01-Site && npm test`
-Expected: PASS — all prior tests still green (form has no tests yet; browser smoke test comes in Task 12)
-
-- [ ] **Step 4: Commit**
-
-```bash
-cd F:/Sano/01-Site && git add src/components/JobApplicationForm.tsx && git commit -m "feat(careers): add JobApplicationForm with all sections and submit flow"
-```
-
-- [ ] **Step 5: PAUSE — Mike checkpoint**
-
-Form is a big file — good to have Mike eyeball the component once it's visible in the browser (which happens in Task 12). Flag this task as "ready for visual check later" but proceed.
-
----
-
-## Task 6: `CareersHero.tsx`
-
-**Files:**
-- Create: `src/components/CareersHero.tsx`
-
-- [ ] **Step 1: Create the hero component**
-
-```tsx
-import { Users } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowRight, Users } from 'lucide-react'
 
 export function CareersHero() {
   return (
@@ -1085,12 +422,19 @@ export function CareersHero() {
           <div>
             <p className="eyebrow mb-4">Careers</p>
             <h1 className="mb-6">Join Our Team</h1>
-            <p className="body-text max-w-xl">
+            <p className="body-text max-w-xl mb-8">
               We&apos;re always looking for reliable, detail-focused people who take pride in their work. If you have cleaning experience and want flexible opportunities with a growing team, we&apos;d love to hear from you.
             </p>
+            <Link
+              href="/join-our-team/apply"
+              className="inline-flex items-center gap-2 rounded-full bg-sage-800 px-6 py-3 text-sm font-medium text-white hover:bg-sage-500 transition-colors"
+            >
+              Apply Now
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+            </Link>
           </div>
 
-          {/* Placeholder block (swap for <Image> later — same wrapper, same classes) */}
+          {/* Placeholder block */}
           <div className="relative rounded-2xl ring-1 ring-sage-100/60 shadow-sm overflow-hidden aspect-video lg:aspect-[4/5] bg-gradient-to-br from-sage-50 to-sage-100 flex items-center justify-center">
             <Users className="w-16 h-16 text-sage-500/40" aria-hidden="true" />
           </div>
@@ -1101,221 +445,15 @@ export function CareersHero() {
 }
 ```
 
-- [ ] **Step 2: Verify TypeScript compiles**
+- [ ] **Step 3: Update `src/app/(public)/join-our-team/page.tsx` to drop the form section.**
 
-Run: `cd F:/Sano/01-Site && npx tsc --noEmit`
-Expected: PASS
-
-- [ ] **Step 3: Commit**
-
-```bash
-cd F:/Sano/01-Site && git add src/components/CareersHero.tsx && git commit -m "feat(careers): add CareersHero with placeholder block"
-```
-
----
-
-## Task 7: `WhyWorkWithSano.tsx`
-
-**Files:**
-- Create: `src/components/WhyWorkWithSano.tsx`
-
-- [ ] **Step 1: Create the component**
-
-```tsx
-import { Clock3, TrendingUp, Users } from 'lucide-react'
-import type React from 'react'
-
-interface Benefit {
-  icon: React.ReactNode
-  title: string
-  body: string
-}
-
-const BENEFITS: Benefit[] = [
-  {
-    icon: <Clock3 className="w-6 h-6" />,
-    title: 'Flexible Work',
-    body: 'Choose work that suits your schedule. We offer flexible opportunities across different types of cleaning jobs.',
-  },
-  {
-    icon: <Users className="w-6 h-6" />,
-    title: 'Supportive Team',
-    body: 'We keep things straightforward and back our team. Clear communication and support matter to us.',
-  },
-  {
-    icon: <TrendingUp className="w-6 h-6" />,
-    title: 'Consistent Opportunities',
-    body: "We're growing and have regular work available. We're looking for people we can rely on long term.",
-  },
-]
-
-export function WhyWorkWithSano() {
-  return (
-    <section className="section-padding section-y bg-[#faf9f6]">
-      <div className="container-max">
-        <div className="mx-auto mb-10 max-w-2xl text-center">
-          <h2>Why work with Sano</h2>
-        </div>
-        <div className="mx-auto grid max-w-5xl grid-cols-1 md:grid-cols-3 gap-6">
-          {BENEFITS.map((b) => (
-            <div key={b.title} className="rounded-2xl border border-sage-100 bg-white p-6">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-sage-50 text-sage-600">
-                {b.icon}
-              </div>
-              <h3 className="mb-2 text-lg font-semibold text-sage-800">{b.title}</h3>
-              <p className="text-sm leading-relaxed text-sage-600">{b.body}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-```
-
-- [ ] **Step 2: Verify TypeScript compiles**
-
-Run: `cd F:/Sano/01-Site && npx tsc --noEmit`
-Expected: PASS
-
-- [ ] **Step 3: Commit**
-
-```bash
-cd F:/Sano/01-Site && git add src/components/WhyWorkWithSano.tsx && git commit -m "feat(careers): add WhyWorkWithSano 3-card section"
-```
-
----
-
-## Task 8: `CareersProcess.tsx`
-
-**Files:**
-- Create: `src/components/CareersProcess.tsx`
-
-- [ ] **Step 1: Create the component**
-
-```tsx
-const STEPS = ['Apply', 'Review', 'Contact', 'Trial', 'Get started']
-
-export function CareersProcess() {
-  return (
-    <section className="section-padding section-y bg-white">
-      <div className="container-max">
-        <div className="mx-auto mb-10 max-w-2xl text-center">
-          <h2>How it works</h2>
-        </div>
-
-        {/* Desktop: horizontal row with connector line */}
-        <div className="relative mx-auto hidden max-w-4xl md:block">
-          <div
-            aria-hidden="true"
-            className="absolute left-[10%] top-5 h-px w-[80%] bg-sage-100"
-          />
-          <div className="relative grid grid-cols-5 gap-4">
-            {STEPS.map((label, i) => (
-              <div key={label} className="flex flex-col items-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white border border-sage-100 text-sage-600 text-sm font-semibold ring-4 ring-white">
-                  {i + 1}
-                </div>
-                <p className="mt-3 text-sm font-medium text-sage-800">{label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Mobile: vertical stack */}
-        <ol className="mx-auto max-w-sm space-y-5 md:hidden">
-          {STEPS.map((label, i) => (
-            <li key={label} className="flex items-center gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white border border-sage-100 text-sage-600 text-sm font-semibold">
-                {i + 1}
-              </div>
-              <p className="text-sm font-medium text-sage-800">{label}</p>
-            </li>
-          ))}
-        </ol>
-      </div>
-    </section>
-  )
-}
-```
-
-- [ ] **Step 2: Verify TypeScript compiles**
-
-Run: `cd F:/Sano/01-Site && npx tsc --noEmit`
-Expected: PASS
-
-- [ ] **Step 3: Commit**
-
-```bash
-cd F:/Sano/01-Site && git add src/components/CareersProcess.tsx && git commit -m "feat(careers): add CareersProcess 5-step row"
-```
-
----
-
-## Task 9: `CareersContact.tsx`
-
-**Files:**
-- Create: `src/components/CareersContact.tsx`
-
-- [ ] **Step 1: Create the component**
-
-```tsx
-export function CareersContact() {
-  return (
-    <section className="section-padding section-y bg-white">
-      <div className="container-max">
-        <div className="mx-auto max-w-3xl text-center">
-          <h2 className="mb-4">Have a question?</h2>
-          <p className="body-text mb-8">
-            If you&apos;re unsure about anything or want to check if this is the right fit, feel free to get in touch.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <a
-              href="tel:0800726686"
-              className="inline-flex items-center justify-center rounded-full bg-sage-800 px-6 py-3 text-sm font-medium text-white hover:bg-sage-500 transition-colors"
-            >
-              0800 726 686
-            </a>
-            <a
-              href="mailto:hello@sano.nz"
-              className="inline-flex items-center justify-center rounded-full border border-sage-800 px-6 py-3 text-sm font-medium text-sage-800 hover:bg-sage-50 transition-colors"
-            >
-              hello@sano.nz
-            </a>
-          </div>
-        </div>
-      </div>
-    </section>
-  )
-}
-```
-
-- [ ] **Step 2: Verify TypeScript compiles**
-
-Run: `cd F:/Sano/01-Site && npx tsc --noEmit`
-Expected: PASS
-
-- [ ] **Step 3: Commit**
-
-```bash
-cd F:/Sano/01-Site && git add src/components/CareersContact.tsx && git commit -m "feat(careers): add CareersContact section"
-```
-
----
-
-## Task 10: Page composition + metadata
-
-**Files:**
-- Create: `src/app/(public)/join-our-team/page.tsx`
-
-- [ ] **Step 1: Create the page**
+Replace the file with:
 
 ```tsx
 import type { Metadata } from 'next'
 import { CareersHero } from '@/components/CareersHero'
 import { WhyWorkWithSano } from '@/components/WhyWorkWithSano'
 import { CareersProcess } from '@/components/CareersProcess'
-import { JobApplicationForm } from '@/components/JobApplicationForm'
 import { CareersContact } from '@/components/CareersContact'
 
 export const metadata: Metadata = {
@@ -1330,150 +468,1163 @@ export default function JoinOurTeamPage() {
       <CareersHero />
       <WhyWorkWithSano />
       <CareersProcess />
-      <section className="section-padding section-y bg-[#faf9f6]">
-        <div className="mx-auto max-w-3xl">
-          <JobApplicationForm />
-        </div>
-      </section>
       <CareersContact />
     </>
   )
 }
 ```
 
-- [ ] **Step 2: Verify the full build passes**
+(Note: `JobApplicationForm` import is gone; the wrapper `<section>` around it is gone; the import list is 4 components.)
 
-Run: `cd F:/Sano/01-Site && npm run build`
-Expected: PASS — build succeeds, `/join-our-team` listed in the route output
+- [ ] **Step 4: Verify tsc still passes.**
 
-- [ ] **Step 3: Commit**
+Run: `cd F:/Sano/01-Site && rm -f tsconfig.tsbuildinfo && npx tsc --noEmit`
+
+Expected: clean.
+
+- [ ] **Step 5: Run the test suite.**
+
+Run: `cd F:/Sano/01-Site && npm test`
+
+Expected: the 20 careers-suite tests from Tasks 2 and 3 still pass; unrelated pre-existing failures in `services.test.ts` and `Header.test.tsx` are fine.
+
+- [ ] **Step 6: Commit.**
 
 ```bash
-cd F:/Sano/01-Site && git add "src/app/(public)/join-our-team/page.tsx" && git commit -m "feat(careers): add /join-our-team page composition"
+cd F:/Sano/01-Site && git add -A src/components/_retired src/components/JobApplicationForm.tsx src/components/CareersHero.tsx "src/app/(public)/join-our-team/page.tsx" && git commit -m "refactor(careers): retire old form; landing page drops inline form; hero gets Apply Now CTA"
 ```
 
 ---
 
-## Task 11: Lint pass
+## Task 5: Per-step validator module
 
-**Files:**
-- Modify: any file flagged by the linter
+**Files:** create `src/lib/applicationStepValidation.ts`.
 
-- [ ] **Step 1: Run lint**
+- [ ] **Step 1: Create the module.**
 
-Run: `cd F:/Sano/01-Site && npm run lint`
-Expected: PASS (no errors). If warnings or errors surface, fix them in the original file — common ones to watch for: unescaped apostrophes (`&apos;`), unused imports, missing alt text.
+```ts
+import type { ApplicationFormData } from '@/types/application'
+import { validateApplication } from './applicationValidation'
 
-- [ ] **Step 2: If fixes were needed, commit**
+// Returns the error message for `field` if the full-form validator would flag it, else null.
+function fieldError(data: ApplicationFormData, field: keyof ApplicationFormData): string | null {
+  const errors = validateApplication(data)
+  return errors[field] ?? null
+}
 
-```bash
-cd F:/Sano/01-Site && git add -u && git commit -m "fix(careers): address lint warnings"
+export const stepValidators = {
+  first_name: (d: ApplicationFormData) => fieldError(d, 'first_name'),
+  last_name: (d: ApplicationFormData) => fieldError(d, 'last_name'),
+  phone: (d: ApplicationFormData) => fieldError(d, 'phone'),
+  email: (d: ApplicationFormData) => fieldError(d, 'email'),
+  suburb: (d: ApplicationFormData) => fieldError(d, 'suburb'),
+  application_type: (d: ApplicationFormData) => fieldError(d, 'application_type'),
+  has_license: (d: ApplicationFormData) => fieldError(d, 'has_license'),
+  has_vehicle: (d: ApplicationFormData) => fieldError(d, 'has_vehicle'),
+  can_travel: (d: ApplicationFormData) => fieldError(d, 'can_travel'),
+  has_experience: (d: ApplicationFormData) => fieldError(d, 'has_experience'),
+  experience_types: (d: ApplicationFormData) => fieldError(d, 'experience_types'),
+  has_equipment: (d: ApplicationFormData) => fieldError(d, 'has_equipment'),
+  independent_work: (d: ApplicationFormData) => fieldError(d, 'independent_work'),
+  work_rights_nz: (d: ApplicationFormData) => fieldError(d, 'work_rights_nz'),
+  confirm_truth: (d: ApplicationFormData) => fieldError(d, 'confirm_truth'),
+} as const
+
+export type StepField = keyof typeof stepValidators
 ```
 
-If no fixes needed, skip.
+This composes per-step validators from the shared rules — zero rule duplication.
+
+- [ ] **Step 2: Verify tsc.**
+
+Run: `cd F:/Sano/01-Site && npx tsc --noEmit`
+
+Expected: clean.
+
+- [ ] **Step 3: Commit.**
+
+```bash
+cd F:/Sano/01-Site && git add src/lib/applicationStepValidation.ts && git commit -m "feat(careers): add per-step validators composed from shared rules"
+```
+
+---
+
+## Task 6: Simple step-type components (Welcome, Info, Success)
+
+**Files:** create 3 files under `src/components/careers-apply/step-types/`.
+
+- [ ] **Step 1: Create `WelcomeStep.tsx`.**
+
+```tsx
+'use client'
+
+import { ArrowRight } from 'lucide-react'
+
+interface WelcomeStepProps {
+  onNext: () => void
+}
+
+export function WelcomeStep({ onNext }: WelcomeStepProps) {
+  return (
+    <div className="text-center">
+      <p className="eyebrow mb-4">Application</p>
+      <h1 className="mb-6">Let&apos;s get you onboard.</h1>
+      <p className="body-text max-w-lg mx-auto mb-10">
+        This should take about five minutes. A few quick questions so we can understand if it&apos;s a good fit.
+      </p>
+      <button
+        type="button"
+        onClick={onNext}
+        className="inline-flex items-center gap-2 rounded-full bg-sage-800 px-6 py-3 text-sm font-medium text-white hover:bg-sage-500 transition-colors"
+      >
+        Let&apos;s start
+        <ArrowRight className="w-4 h-4" aria-hidden="true" />
+      </button>
+    </div>
+  )
+}
+```
+
+- [ ] **Step 2: Create `InfoStep.tsx`.**
+
+```tsx
+'use client'
+
+import type { ApplicationFormData } from '@/types/application'
+
+interface InfoStepProps {
+  data: ApplicationFormData
+  title?: string | ((d: ApplicationFormData) => string)
+  body: string | ((d: ApplicationFormData) => string)
+}
+
+export function InfoStep({ data, title, body }: InfoStepProps) {
+  const resolvedTitle = typeof title === 'function' ? title(data) : title
+  const resolvedBody = typeof body === 'function' ? body(data) : body
+
+  return (
+    <div className="text-center">
+      {resolvedTitle && <h2 className="mb-6">{resolvedTitle}</h2>}
+      <p className="body-text max-w-lg mx-auto">{resolvedBody}</p>
+    </div>
+  )
+}
+```
+
+- [ ] **Step 3: Create `SuccessStep.tsx`.**
+
+```tsx
+'use client'
+
+export function SuccessStep() {
+  return (
+    <div role="status" className="bg-sage-50 border border-sage-100 rounded-2xl p-10 text-center">
+      <p className="text-5xl mb-6" aria-hidden="true">✓</p>
+      <h2 className="text-sage-800 mb-4">Thanks — application received</h2>
+      <p className="body-text max-w-lg mx-auto">
+        We&apos;ve received your application and will be in touch if it looks like a good fit. If you don&apos;t hear from us within a week, feel free to reach out at{' '}
+        <a href="mailto:hello@sano.nz" className="text-sage-800 underline hover:text-sage-500">
+          hello@sano.nz
+        </a>
+        .
+      </p>
+    </div>
+  )
+}
+```
+
+- [ ] **Step 4: Verify tsc.**
+
+Run: `cd F:/Sano/01-Site && npx tsc --noEmit`
+
+Expected: clean.
+
+- [ ] **Step 5: Commit.**
+
+```bash
+cd F:/Sano/01-Site && git add src/components/careers-apply/step-types/WelcomeStep.tsx src/components/careers-apply/step-types/InfoStep.tsx src/components/careers-apply/step-types/SuccessStep.tsx && git commit -m "feat(careers): add WelcomeStep, InfoStep, SuccessStep"
+```
+
+---
+
+## Task 7: Input step-type components (TextStep, TextareaStep, DeclarationStep)
+
+**Files:** create 3 files under `src/components/careers-apply/step-types/`.
+
+- [ ] **Step 1: Create `TextStep.tsx`.**
+
+```tsx
+'use client'
+
+import { useEffect, useRef } from 'react'
+
+interface TextStepProps {
+  id: string
+  question: string
+  value: string
+  onChange: (value: string) => void
+  onNext: () => void
+  inputType?: 'text' | 'tel' | 'email'
+  placeholder?: string
+  error?: string | null
+}
+
+export function TextStep({ id, question, value, onChange, onNext, inputType = 'text', placeholder, error }: TextStepProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => { inputRef.current?.focus() }, [id])
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      onNext()
+    }
+  }
+
+  const inputId = `step-${id}`
+
+  return (
+    <div>
+      <label htmlFor={inputId} className="block text-2xl sm:text-3xl font-semibold text-sage-800 mb-6 leading-tight">
+        {question}
+      </label>
+      <input
+        ref={inputRef}
+        id={inputId}
+        type={inputType}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        autoComplete={
+          inputType === 'email' ? 'email' :
+          inputType === 'tel' ? 'tel' :
+          'off'
+        }
+        className={`w-full rounded-xl border px-4 py-4 text-lg bg-sage-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-sage-300 ${
+          error ? 'border-red-300' : 'border-sage-100'
+        }`}
+      />
+      {error && <p className="mt-2 text-sm text-red-500" role="alert">{error}</p>}
+    </div>
+  )
+}
+```
+
+- [ ] **Step 2: Create `TextareaStep.tsx`.**
+
+```tsx
+'use client'
+
+interface TextareaStepProps {
+  id: string
+  question: string
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  helper?: string
+}
+
+export function TextareaStep({ id, question, value, onChange, placeholder, helper }: TextareaStepProps) {
+  const inputId = `step-${id}`
+  return (
+    <div>
+      <label htmlFor={inputId} className="block text-2xl sm:text-3xl font-semibold text-sage-800 mb-4 leading-tight">
+        {question}
+      </label>
+      {helper && <p className="text-sm text-gray-500 mb-4">{helper}</p>}
+      <textarea
+        id={inputId}
+        rows={5}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-xl border border-sage-100 px-4 py-4 text-base bg-sage-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-sage-300 resize-none"
+      />
+    </div>
+  )
+}
+```
+
+- [ ] **Step 3: Create `DeclarationStep.tsx`.**
+
+```tsx
+'use client'
+
+interface DeclarationStepProps {
+  body: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+  error?: string | null
+}
+
+export function DeclarationStep({ body, checked, onChange, error }: DeclarationStepProps) {
+  return (
+    <div>
+      <h2 className="mb-6">One last thing.</h2>
+      <label className="flex items-start gap-3 cursor-pointer bg-sage-50 border border-sage-100 rounded-2xl p-6">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          className="mt-1 h-5 w-5 rounded border-sage-100 text-sage-800 focus:ring-sage-300"
+        />
+        <span className="text-base text-gray-700 leading-relaxed">{body}</span>
+      </label>
+      {error && <p className="mt-2 text-sm text-red-500" role="alert">{error}</p>}
+    </div>
+  )
+}
+```
+
+- [ ] **Step 4: Verify tsc and commit.**
+
+Run: `cd F:/Sano/01-Site && npx tsc --noEmit`
+
+Expected: clean.
+
+```bash
+cd F:/Sano/01-Site && git add src/components/careers-apply/step-types/TextStep.tsx src/components/careers-apply/step-types/TextareaStep.tsx src/components/careers-apply/step-types/DeclarationStep.tsx && git commit -m "feat(careers): add TextStep, TextareaStep, DeclarationStep"
+```
+
+---
+
+## Task 8: Choice step-type components (YesNoStep, ChipSingleStep, ChipMultiStep)
+
+**Files:** create 3 files under `src/components/careers-apply/step-types/`.
+
+- [ ] **Step 1: Create `YesNoStep.tsx`.**
+
+```tsx
+'use client'
+
+interface YesNoStepProps {
+  id: string
+  question: string
+  value: boolean | null
+  onChange: (v: boolean) => void
+  error?: string | null
+}
+
+export function YesNoStep({ id, question, value, onChange, error }: YesNoStepProps) {
+  const pill = (selected: boolean) =>
+    `px-8 py-4 rounded-full border text-base font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-sage-300 ${
+      selected
+        ? 'bg-sage-800 text-white border-sage-800'
+        : 'bg-white border-sage-100 text-gray-700 hover:border-sage-300'
+    }`
+
+  return (
+    <div>
+      <h2 id={`step-${id}-label`} className="mb-8">{question}</h2>
+      <div role="radiogroup" aria-labelledby={`step-${id}-label`} className="flex gap-4">
+        <button type="button" role="radio" aria-checked={value === true} onClick={() => onChange(true)} className={pill(value === true)}>
+          Yes
+        </button>
+        <button type="button" role="radio" aria-checked={value === false} onClick={() => onChange(false)} className={pill(value === false)}>
+          No
+        </button>
+      </div>
+      {error && <p className="mt-4 text-sm text-red-500" role="alert">{error}</p>}
+    </div>
+  )
+}
+```
+
+- [ ] **Step 2: Create `ChipSingleStep.tsx`.**
+
+```tsx
+'use client'
+
+interface Option { value: string; label: string }
+
+interface ChipSingleStepProps {
+  id: string
+  question: string
+  options: Option[]
+  value: string
+  onChange: (v: string) => void
+  error?: string | null
+}
+
+export function ChipSingleStep({ id, question, options, value, onChange, error }: ChipSingleStepProps) {
+  return (
+    <div>
+      <h2 id={`step-${id}-label`} className="mb-8">{question}</h2>
+      <div role="radiogroup" aria-labelledby={`step-${id}-label`} className="flex flex-wrap gap-3">
+        {options.map((opt) => {
+          const selected = value === opt.value
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => onChange(opt.value)}
+              className={`px-6 py-3 rounded-full border text-base font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-sage-300 ${
+                selected ? 'bg-sage-800 text-white border-sage-800' : 'bg-white border-sage-100 text-gray-700 hover:border-sage-300'
+              }`}
+            >
+              {opt.label}
+            </button>
+          )
+        })}
+      </div>
+      {error && <p className="mt-4 text-sm text-red-500" role="alert">{error}</p>}
+    </div>
+  )
+}
+```
+
+- [ ] **Step 3: Create `ChipMultiStep.tsx`.**
+
+```tsx
+'use client'
+
+interface Option { value: string; label: string }
+
+interface ChipMultiStepProps {
+  id: string
+  question: string
+  helper?: string
+  options: Option[]
+  value: string[]
+  onChange: (v: string[]) => void
+  error?: string | null
+}
+
+export function ChipMultiStep({ id, question, helper, options, value, onChange, error }: ChipMultiStepProps) {
+  function toggle(opt: string) {
+    if (value.includes(opt)) onChange(value.filter((v) => v !== opt))
+    else onChange([...value, opt])
+  }
+
+  return (
+    <div>
+      <h2 className="mb-3" id={`step-${id}-label`}>{question}</h2>
+      {helper && <p className="text-sm text-gray-500 mb-6">{helper}</p>}
+      <div className="flex flex-wrap gap-2" role="group" aria-labelledby={`step-${id}-label`}>
+        {options.map((opt) => {
+          const selected = value.includes(opt.value)
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => toggle(opt.value)}
+              className={`px-4 py-2 rounded-full border text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-sage-300 ${
+                selected ? 'bg-sage-800 text-white border-sage-800' : 'bg-white border-sage-100 text-gray-700 hover:border-sage-300'
+              }`}
+            >
+              {opt.label}
+            </button>
+          )
+        })}
+      </div>
+      {error && <p className="mt-4 text-sm text-red-500" role="alert">{error}</p>}
+    </div>
+  )
+}
+```
+
+- [ ] **Step 4: Verify tsc and commit.**
+
+Run: `cd F:/Sano/01-Site && npx tsc --noEmit`
+
+Expected: clean.
+
+```bash
+cd F:/Sano/01-Site && git add src/components/careers-apply/step-types/YesNoStep.tsx src/components/careers-apply/step-types/ChipSingleStep.tsx src/components/careers-apply/step-types/ChipMultiStep.tsx && git commit -m "feat(careers): add YesNoStep, ChipSingleStep, ChipMultiStep"
+```
+
+---
+
+## Task 9: ReviewStep
+
+**Files:** create `src/components/careers-apply/step-types/ReviewStep.tsx`.
+
+- [ ] **Step 1: Create the component.**
+
+```tsx
+'use client'
+
+import type { ApplicationFormData, DayOfWeek, ExperienceType } from '@/types/application'
+
+interface ReviewStepProps {
+  data: ApplicationFormData
+  status: 'idle' | 'submitting' | 'error'
+  errorMessage?: string
+  onSubmit: () => void
+}
+
+const EXPERIENCE_LABELS: Record<ExperienceType, string> = {
+  residential: 'Residential cleaning',
+  deep: 'Deep cleaning',
+  end_of_tenancy: 'End of tenancy',
+  commercial: 'Commercial',
+  carpet_upholstery: 'Carpet & upholstery',
+  windows: 'Window cleaning',
+  post_construction: 'Post-construction',
+  other: 'Other',
+}
+
+const DAY_LABELS: Record<DayOfWeek, string> = {
+  mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun',
+}
+
+function yesNo(v: boolean | null): string {
+  return v === true ? 'Yes' : v === false ? 'No' : '—'
+}
+
+function orDash(v: string): string {
+  return v.trim() ? v : '—'
+}
+
+export function ReviewStep({ data, status, errorMessage, onSubmit }: ReviewStepProps) {
+  const rows: { label: string; value: string }[] = [
+    { label: 'Name', value: `${data.first_name} ${data.last_name}`.trim() },
+    { label: 'Phone', value: data.phone },
+    { label: 'Email', value: data.email },
+    { label: 'Suburb', value: data.suburb },
+    { label: 'Role type', value: data.application_type === 'contractor' ? 'Contractor' : data.application_type === 'employee' ? 'Employee' : '—' },
+    { label: 'Driver licence', value: yesNo(data.has_license) },
+    { label: 'Vehicle', value: yesNo(data.has_vehicle) },
+    { label: 'Can travel', value: yesNo(data.can_travel) },
+    { label: 'Has experience', value: yesNo(data.has_experience) },
+  ]
+
+  if (data.has_experience) {
+    rows.push({ label: 'Experience types', value: data.experience_types.map((t) => EXPERIENCE_LABELS[t]).join(', ') || '—' })
+    rows.push({ label: 'Experience notes', value: orDash(data.experience_notes) })
+  }
+
+  rows.push({ label: 'Own equipment', value: yesNo(data.has_equipment) })
+  rows.push({ label: 'Available days', value: data.available_days.map((d) => DAY_LABELS[d]).join(', ') || '—' })
+  rows.push({ label: 'Preferred hours', value: orDash(data.preferred_hours) })
+  rows.push({ label: 'Travel areas', value: orDash(data.travel_areas) })
+  rows.push({ label: 'Independent work', value: yesNo(data.independent_work) })
+  rows.push({ label: 'Right to work in NZ', value: yesNo(data.work_rights_nz) })
+
+  if (data.application_type === 'contractor') {
+    rows.push({ label: 'Public liability insurance', value: yesNo(data.has_insurance) })
+    if (data.has_insurance === false) {
+      rows.push({ label: 'Willing to arrange insurance', value: yesNo(data.willing_to_get_insurance) })
+    }
+  }
+
+  rows.push({ label: 'Why Sano', value: orDash(data.why_join_sano) })
+
+  return (
+    <div>
+      <h2 className="mb-6">Quick review.</h2>
+      <p className="body-text mb-8">Have a look over your answers. Hit Back if you want to change anything.</p>
+
+      <dl className="rounded-2xl border border-sage-100 bg-white divide-y divide-sage-100">
+        {rows.map((row) => (
+          <div key={row.label} className="flex flex-col sm:flex-row gap-2 sm:gap-6 py-4 px-5">
+            <dt className="text-sm font-medium text-sage-600 sm:w-56 sm:flex-shrink-0">{row.label}</dt>
+            <dd className="text-sm text-sage-800 whitespace-pre-wrap break-words">{row.value}</dd>
+          </div>
+        ))}
+      </dl>
+
+      {status === 'error' && (
+        <p className="mt-6 text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-3" role="alert">
+          {errorMessage || 'Something went wrong. Please try again.'}
+        </p>
+      )}
+
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={status === 'submitting'}
+        className="mt-8 w-full rounded-full bg-sage-800 px-6 py-4 font-medium text-white hover:bg-sage-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        {status === 'submitting' ? 'Sending…' : 'Submit application'}
+      </button>
+    </div>
+  )
+}
+```
+
+- [ ] **Step 2: Verify tsc and commit.**
+
+Run: `cd F:/Sano/01-Site && npx tsc --noEmit`
+
+Expected: clean.
+
+```bash
+cd F:/Sano/01-Site && git add src/components/careers-apply/step-types/ReviewStep.tsx && git commit -m "feat(careers): add ReviewStep summary screen"
+```
+
+---
+
+## Task 10: WizardProgress + WizardNav
+
+**Files:** create 2 files under `src/components/careers-apply/`.
+
+- [ ] **Step 1: Create `WizardProgress.tsx`.**
+
+```tsx
+'use client'
+
+interface WizardProgressProps {
+  current: number // 0-indexed
+  total: number
+}
+
+export function WizardProgress({ current, total }: WizardProgressProps) {
+  const pct = Math.min(100, Math.max(0, ((current + 1) / total) * 100))
+  return (
+    <div className="w-full">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs text-sage-600">
+          Step {current + 1} of {total}
+        </span>
+      </div>
+      <div className="h-[3px] w-full bg-sage-100 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-sage-800 transition-all duration-300 ease-out"
+          style={{ width: `${pct}%` }}
+          role="progressbar"
+          aria-valuemin={1}
+          aria-valuemax={total}
+          aria-valuenow={current + 1}
+        />
+      </div>
+    </div>
+  )
+}
+```
+
+- [ ] **Step 2: Create `WizardNav.tsx`.**
+
+```tsx
+'use client'
+
+import { ArrowLeft, ArrowRight } from 'lucide-react'
+
+interface WizardNavProps {
+  onNext: () => void
+  onBack: () => void
+  isFirst: boolean
+  isLast: boolean
+  nextLabel?: string
+  nextDisabled?: boolean
+}
+
+export function WizardNav({ onNext, onBack, isFirst, isLast, nextLabel, nextDisabled }: WizardNavProps) {
+  return (
+    <div className="flex items-center justify-between gap-4 mt-10">
+      {!isFirst ? (
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-2 text-sm font-medium text-sage-600 hover:text-sage-800 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+          Back
+        </button>
+      ) : <span />}
+      {!isLast && (
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={nextDisabled}
+          className="inline-flex items-center gap-2 rounded-full bg-sage-800 px-6 py-3 text-sm font-medium text-white hover:bg-sage-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {nextLabel ?? 'Next'}
+          <ArrowRight className="w-4 h-4" aria-hidden="true" />
+        </button>
+      )}
+    </div>
+  )
+}
+```
+
+- [ ] **Step 3: Verify tsc and commit.**
+
+Run: `cd F:/Sano/01-Site && npx tsc --noEmit`
+
+Expected: clean.
+
+```bash
+cd F:/Sano/01-Site && git add src/components/careers-apply/WizardProgress.tsx src/components/careers-apply/WizardNav.tsx && git commit -m "feat(careers): add WizardProgress and WizardNav"
+```
+
+---
+
+## Task 11: steps.config.ts + ApplicationWizard orchestrator + /apply route
+
+This is the heart of the refactor. Single larger commit combining the config, orchestrator, and host page — they only make sense together.
+
+**Files:**
+- Create `src/components/careers-apply/steps.config.ts`
+- Create `src/components/careers-apply/ApplicationWizard.tsx`
+- Create `src/app/(public)/join-our-team/apply/page.tsx`
+
+- [ ] **Step 1: Create `steps.config.ts`.**
+
+```ts
+import type { ApplicationFormData } from '@/types/application'
+
+export type StepDef =
+  | { id: string; type: 'welcome' }
+  | { id: string; type: 'info'; title?: string | ((d: ApplicationFormData) => string); body: string | ((d: ApplicationFormData) => string); visible?: (d: ApplicationFormData) => boolean }
+  | { id: string; type: 'text'; field: 'first_name' | 'last_name' | 'phone' | 'email' | 'suburb' | 'preferred_hours' | 'travel_areas'; question: string; inputType?: 'text' | 'tel' | 'email'; placeholder?: string; required?: boolean; visible?: (d: ApplicationFormData) => boolean }
+  | { id: string; type: 'textarea'; field: 'experience_notes' | 'why_join_sano'; question: string; placeholder?: string; helper?: string; visible?: (d: ApplicationFormData) => boolean }
+  | { id: string; type: 'yesno'; field: 'has_license' | 'has_vehicle' | 'can_travel' | 'has_experience' | 'has_equipment' | 'independent_work' | 'work_rights_nz' | 'has_insurance' | 'willing_to_get_insurance'; question: string | ((d: ApplicationFormData) => string); required?: boolean; visible?: (d: ApplicationFormData) => boolean }
+  | { id: string; type: 'chip-single'; field: 'application_type'; question: string; options: { value: string; label: string }[]; required?: boolean; visible?: (d: ApplicationFormData) => boolean }
+  | { id: string; type: 'chip-multi'; field: 'experience_types' | 'available_days'; question: string; helper?: string; options: { value: string; label: string }[]; minSelected?: number; visible?: (d: ApplicationFormData) => boolean }
+  | { id: string; type: 'declaration'; field: 'confirm_truth'; body: string }
+  | { id: string; type: 'review' }
+  | { id: string; type: 'success' }
+
+const EXPERIENCE_OPTIONS = [
+  { value: 'residential', label: 'Residential cleaning' },
+  { value: 'deep', label: 'Deep cleaning' },
+  { value: 'end_of_tenancy', label: 'End of tenancy' },
+  { value: 'commercial', label: 'Commercial' },
+  { value: 'carpet_upholstery', label: 'Carpet & upholstery' },
+  { value: 'windows', label: 'Window cleaning' },
+  { value: 'post_construction', label: 'Post-construction' },
+  { value: 'other', label: 'Other' },
+]
+
+const DAY_OPTIONS = [
+  { value: 'mon', label: 'Mon' }, { value: 'tue', label: 'Tue' }, { value: 'wed', label: 'Wed' },
+  { value: 'thu', label: 'Thu' }, { value: 'fri', label: 'Fri' }, { value: 'sat', label: 'Sat' },
+  { value: 'sun', label: 'Sun' },
+]
+
+const APPLICATION_TYPE_OPTIONS = [
+  { value: 'contractor', label: 'Contractor' },
+  { value: 'employee', label: 'Employee' },
+]
+
+export const STEPS: StepDef[] = [
+  { id: 'welcome', type: 'welcome' },
+
+  { id: 'first_name', type: 'text', field: 'first_name', question: "What's your first name?", required: true },
+  { id: 'last_name', type: 'text', field: 'last_name', question: 'And your last name?', required: true },
+
+  { id: 'hello', type: 'info',
+    title: (d) => `Nice to meet you, ${d.first_name.trim() || 'there'}.`,
+    body: 'A few more quick questions and we\u2019ll have what we need.',
+  },
+
+  { id: 'phone', type: 'text', field: 'phone', inputType: 'tel', question: "What's the best number to reach you on?", required: true },
+  { id: 'email', type: 'text', field: 'email', inputType: 'email', question: 'And an email address?', required: true },
+  { id: 'suburb', type: 'text', field: 'suburb', question: 'Which suburb or area are you based in?', required: true },
+
+  { id: 'application_type', type: 'chip-single', field: 'application_type',
+    question: 'Are you looking for contractor or employee work?',
+    options: APPLICATION_TYPE_OPTIONS, required: true,
+  },
+
+  { id: 'fit_intro', type: 'info',
+    body: 'The next few questions help us understand fit, availability, and how you work.',
+  },
+
+  { id: 'has_license', type: 'yesno', field: 'has_license', question: 'Do you hold a current NZ driver licence?', required: true },
+  { id: 'has_vehicle', type: 'yesno', field: 'has_vehicle', question: 'Do you have access to a vehicle for getting to jobs?', required: true },
+  { id: 'can_travel', type: 'yesno', field: 'can_travel', question: 'Are you comfortable travelling to different job locations?', required: true },
+
+  { id: 'has_experience', type: 'yesno', field: 'has_experience', question: 'Have you worked in cleaning before?', required: true },
+
+  { id: 'experience_types', type: 'chip-multi', field: 'experience_types',
+    question: 'What types of cleaning have you done?',
+    helper: 'Select all that apply.',
+    options: EXPERIENCE_OPTIONS, minSelected: 1,
+    visible: (d) => d.has_experience === true,
+  },
+  { id: 'experience_notes', type: 'textarea', field: 'experience_notes',
+    question: 'Tell us a bit about your experience.',
+    helper: 'Optional \u2014 a sentence or two is plenty.',
+  },
+
+  { id: 'values', type: 'info',
+    body: 'We work best with people who are reliable, detail-focused, and take pride in their work.',
+  },
+
+  { id: 'has_equipment', type: 'yesno', field: 'has_equipment',
+    question: (d) =>
+      d.application_type === 'contractor'
+        ? 'Do you have your own cleaning equipment and products?'
+        : 'Do you currently have cleaning equipment and products of your own?',
+    required: true,
+  },
+
+  { id: 'available_days', type: 'chip-multi', field: 'available_days',
+    question: 'Which days generally work for you?',
+    helper: 'Tap the days you\u2019re usually available \u2014 optional.',
+    options: DAY_OPTIONS,
+  },
+  { id: 'preferred_hours', type: 'text', field: 'preferred_hours',
+    question: 'Any hours that work best?',
+    placeholder: 'e.g. mornings, school hours',
+  },
+  { id: 'travel_areas', type: 'text', field: 'travel_areas',
+    question: 'Which areas are you happy to work in?',
+    placeholder: 'e.g. Central, North Shore, Eastern suburbs',
+  },
+
+  { id: 'independent_work', type: 'yesno', field: 'independent_work', question: 'Are you comfortable working independently when needed?', required: true },
+  { id: 'work_rights_nz', type: 'yesno', field: 'work_rights_nz', question: 'Do you have the legal right to work in New Zealand?', required: true },
+
+  { id: 'has_insurance', type: 'yesno', field: 'has_insurance',
+    question: 'Do you currently hold public liability insurance?',
+    visible: (d) => d.application_type === 'contractor',
+  },
+  { id: 'willing_to_get_insurance', type: 'yesno', field: 'willing_to_get_insurance',
+    question: 'Would you be willing to arrange public liability insurance if required?',
+    visible: (d) => d.application_type === 'contractor' && d.has_insurance === false,
+  },
+
+  { id: 'why_join_sano', type: 'textarea', field: 'why_join_sano',
+    question: 'Why are you interested in working with Sano?',
+    helper: 'Optional.',
+  },
+
+  { id: 'declaration', type: 'declaration', field: 'confirm_truth',
+    body: 'I confirm the information I\u2019ve provided is true and accurate.',
+  },
+
+  { id: 'review', type: 'review' },
+  { id: 'success', type: 'success' },
+]
+```
+
+- [ ] **Step 2: Create `ApplicationWizard.tsx`.**
+
+```tsx
+'use client'
+
+import { useMemo, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import type { ApplicationFormData, JobApplicationPayload } from '@/types/application'
+import { createEmptyApplicationForm, validateApplication } from '@/lib/applicationValidation'
+import { stepValidators, type StepField } from '@/lib/applicationStepValidation'
+import { STEPS, type StepDef } from './steps.config'
+import { WizardProgress } from './WizardProgress'
+import { WizardNav } from './WizardNav'
+import { WelcomeStep } from './step-types/WelcomeStep'
+import { InfoStep } from './step-types/InfoStep'
+import { TextStep } from './step-types/TextStep'
+import { TextareaStep } from './step-types/TextareaStep'
+import { YesNoStep } from './step-types/YesNoStep'
+import { ChipSingleStep } from './step-types/ChipSingleStep'
+import { ChipMultiStep } from './step-types/ChipMultiStep'
+import { DeclarationStep } from './step-types/DeclarationStep'
+import { ReviewStep } from './step-types/ReviewStep'
+import { SuccessStep } from './step-types/SuccessStep'
+
+type Status = 'idle' | 'submitting' | 'success' | 'error'
+
+function stepError(step: StepDef, data: ApplicationFormData): string | null {
+  if ('field' in step && step.type !== 'declaration' && step.type !== 'review' && step.type !== 'success') {
+    const field = step.field as StepField
+    if (field in stepValidators) {
+      const required = 'required' in step && step.required
+      const minSelected = step.type === 'chip-multi' ? step.minSelected ?? 0 : 0
+      if (required || minSelected > 0) {
+        return stepValidators[field](data)
+      }
+    }
+  }
+  return null
+}
+
+export function ApplicationWizard() {
+  const [form, setForm] = useState<ApplicationFormData>(createEmptyApplicationForm())
+  const [stepIndex, setStepIndex] = useState(0)
+  const [status, setStatus] = useState<Status>('idle')
+  const [errorMessage, setErrorMessage] = useState('')
+  const [showStepError, setShowStepError] = useState(false)
+
+  const visibleSteps = useMemo(() => STEPS.filter((s) => !('visible' in s) || !s.visible || s.visible(form)), [form])
+  const currentStep = visibleSteps[Math.min(stepIndex, visibleSteps.length - 1)]
+  const total = visibleSteps.length
+  const isFirst = stepIndex === 0
+  const isLast = currentStep.type === 'success'
+
+  function update<K extends keyof ApplicationFormData>(key: K, value: ApplicationFormData[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }))
+    setShowStepError(false)
+  }
+
+  function goNext() {
+    const err = stepError(currentStep, form)
+    if (err) {
+      setShowStepError(true)
+      return
+    }
+    if (currentStep.type === 'review') return // review has its own submit button
+    setShowStepError(false)
+    setStepIndex((i) => Math.min(i + 1, visibleSteps.length - 1))
+  }
+
+  function goBack() {
+    setShowStepError(false)
+    setStepIndex((i) => Math.max(i - 1, 0))
+  }
+
+  async function submit() {
+    const errors = validateApplication(form)
+    if (Object.keys(errors).length > 0) {
+      setErrorMessage(Object.values(errors)[0] ?? 'Please check your answers.')
+      setStatus('error')
+      return
+    }
+    setStatus('submitting')
+    try {
+      const payload: JobApplicationPayload = form
+      const res = await fetch('/api/submit-application', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Submission failed')
+      }
+      setStatus('success')
+      setStepIndex(visibleSteps.findIndex((s) => s.type === 'success'))
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+      setStatus('error')
+    }
+  }
+
+  const err = showStepError ? stepError(currentStep, form) : null
+
+  return (
+    <div className="min-h-[600px] flex flex-col">
+      {currentStep.type !== 'success' && (
+        <div className="mb-10 max-w-2xl mx-auto w-full">
+          <WizardProgress current={stepIndex} total={total} />
+        </div>
+      )}
+
+      <div className="flex-1 max-w-2xl mx-auto w-full">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentStep.id}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+          >
+            {renderStep(currentStep, form, update, goNext, submit, status, errorMessage, err)}
+          </motion.div>
+        </AnimatePresence>
+
+        {currentStep.type !== 'success' && currentStep.type !== 'review' && currentStep.type !== 'welcome' && (
+          <WizardNav onNext={goNext} onBack={goBack} isFirst={isFirst} isLast={isLast} />
+        )}
+
+        {currentStep.type === 'welcome' && !isFirst && (
+          <WizardNav onNext={goNext} onBack={goBack} isFirst={isFirst} isLast={isLast} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function renderStep(
+  step: StepDef,
+  form: ApplicationFormData,
+  update: <K extends keyof ApplicationFormData>(key: K, value: ApplicationFormData[K]) => void,
+  goNext: () => void,
+  submit: () => void,
+  status: Status,
+  errorMessage: string,
+  err: string | null,
+) {
+  switch (step.type) {
+    case 'welcome':
+      return <WelcomeStep onNext={goNext} />
+    case 'info':
+      return <InfoStep data={form} title={step.title} body={step.body} />
+    case 'text':
+      return (
+        <TextStep
+          id={step.id}
+          question={step.question}
+          value={String(form[step.field] ?? '')}
+          onChange={(v) => update(step.field, v as ApplicationFormData[typeof step.field])}
+          onNext={goNext}
+          inputType={step.inputType}
+          placeholder={step.placeholder}
+          error={err}
+        />
+      )
+    case 'textarea':
+      return (
+        <TextareaStep
+          id={step.id}
+          question={step.question}
+          value={String(form[step.field] ?? '')}
+          onChange={(v) => update(step.field, v as ApplicationFormData[typeof step.field])}
+          placeholder={step.placeholder}
+          helper={step.helper}
+        />
+      )
+    case 'yesno':
+      return (
+        <YesNoStep
+          id={step.id}
+          question={typeof step.question === 'function' ? step.question(form) : step.question}
+          value={form[step.field] as boolean | null}
+          onChange={(v) => update(step.field, v as ApplicationFormData[typeof step.field])}
+          error={err}
+        />
+      )
+    case 'chip-single':
+      return (
+        <ChipSingleStep
+          id={step.id}
+          question={step.question}
+          options={step.options}
+          value={String(form[step.field] ?? '')}
+          onChange={(v) => update(step.field, v as ApplicationFormData[typeof step.field])}
+          error={err}
+        />
+      )
+    case 'chip-multi':
+      return (
+        <ChipMultiStep
+          id={step.id}
+          question={step.question}
+          helper={step.helper}
+          options={step.options}
+          value={(form[step.field] as string[]) ?? []}
+          onChange={(v) => update(step.field, v as ApplicationFormData[typeof step.field])}
+          error={err}
+        />
+      )
+    case 'declaration':
+      return (
+        <DeclarationStep
+          body={step.body}
+          checked={form.confirm_truth}
+          onChange={(v) => update('confirm_truth', v)}
+          error={err}
+        />
+      )
+    case 'review':
+      return <ReviewStep data={form} status={status === 'submitting' ? 'submitting' : status === 'error' ? 'error' : 'idle'} errorMessage={errorMessage} onSubmit={submit} />
+    case 'success':
+      return <SuccessStep />
+    default:
+      return null
+  }
+}
+```
+
+- [ ] **Step 3: Create `src/app/(public)/join-our-team/apply/page.tsx`.**
+
+```tsx
+import type { Metadata } from 'next'
+import { ApplicationWizard } from '@/components/careers-apply/ApplicationWizard'
+
+export const metadata: Metadata = {
+  title: 'Apply | Sano Careers',
+  description: 'Apply to join the Sano cleaning team.',
+}
+
+export default function ApplyPage() {
+  return (
+    <section className="section-padding section-y bg-[#faf9f6] min-h-[80vh]">
+      <ApplicationWizard />
+    </section>
+  )
+}
+```
+
+- [ ] **Step 4: Verify tsc.**
+
+Run: `cd F:/Sano/01-Site && rm -f tsconfig.tsbuildinfo && npx tsc --noEmit`
+
+Expected: clean.
+
+- [ ] **Step 5: Run full test suite.**
+
+Run: `cd F:/Sano/01-Site && npm test`
+
+Expected: careers tests (validation + API route) all green; pre-existing unrelated failures acceptable.
+
+- [ ] **Step 6: Commit.**
+
+```bash
+cd F:/Sano/01-Site && git add src/components/careers-apply "src/app/(public)/join-our-team/apply" && git commit -m "feat(careers): add wizard orchestrator, steps config, and /apply route"
+```
+
+- [ ] **Step 7: PAUSE — Mike checkpoint.**
+
+Wizard fully assembled. Browser-test before cleanup.
 
 ---
 
 ## Task 12: Browser smoke test
 
-**Files:** none (dev server only).
+**Files:** none. This is a Mike checkpoint.
 
-Must test the feature in a real browser — type checks don't verify feature correctness.
-
-- [ ] **Step 1: Start the dev server**
-
-Run: `cd F:/Sano/01-Site && npm run dev`
-Wait for "Ready in Xms".
-
-- [ ] **Step 2: Walk the page at http://localhost:3000/join-our-team**
-
-Verify the following. If any fail, note the issue and fix in the original component file, then re-test.
-
-**Visual / layout:**
-- [ ] Hero renders with "Careers" eyebrow, "Join Our Team" H1, and the placeholder block on the right (desktop) or stacked (mobile).
-- [ ] "Why work with Sano" shows 3 cards in a row on desktop, stacked on mobile. Icons render. Copy matches the brief.
-- [ ] "How it works" shows 5 numbered circles horizontally on desktop, stacked on mobile. Labels match: Apply, Review, Contact, Trial, Get started.
-- [ ] Form is centred in a narrow column, each section is its own white card.
-- [ ] "Have a question?" section renders with phone and email pill buttons.
-- [ ] Footer shows "Join Our Team" between FAQ and Contact Us.
-
-**Form behaviour — golden path:**
-- [ ] Fill every required field with valid data, check the declaration, click Apply Now.
-- [ ] Button shows "Sending…" briefly, then the success card replaces the form.
-- [ ] Success card reads `Thanks — application received` with the approved body text and a mailto link.
-
-**Form behaviour — validation:**
-- [ ] Click Apply Now on an empty form. All required fields show red inline errors. Page scrolls to the first error.
-- [ ] Yes/no pill groups show their error state clearly.
-- [ ] Select "No" for "Do you have cleaning experience?" — the experience types chip selector hides.
-- [ ] Select "Yes" — chip selector shows.
-- [ ] Leave all experience_types unselected while has_experience is Yes — submit → error shown under chips.
-- [ ] Uncheck the declaration — submit → error shown.
-
-**Form behaviour — insurance is optional:**
-- [ ] Fill a valid form but leave both insurance questions unanswered. Submit. Success card appears.
-
-**API logging:**
-- [ ] After a successful submit, check the terminal where `npm run dev` is running. You should see a log line like:
-      `[job-application] received { full_name: '…', email: '…', suburb: '…', application_type: '…' }`
-- [ ] No other form fields are logged.
-
-**Keyboard / accessibility:**
-- [ ] Tab through the form — focus indicators visible.
-- [ ] Arrow keys move selection within a yes/no pill group.
-- [ ] If a screen reader misreads any pill state or the keyboard nav feels broken, fall back to styled native radios in `JobApplicationForm.tsx` without waiting.
-
-**Regression check:**
-- [ ] Visit `/`, `/about`, `/contact`, `/services/regular-cleaning` — confirm nothing visual changed.
-- [ ] Footer shows the new link on every page.
-
-- [ ] **Step 3: If any fixes landed during testing, commit them**
+- [ ] **Step 1: Start dev server.**
 
 ```bash
-cd F:/Sano/01-Site && git add -u && git commit -m "fix(careers): <describe fix>"
+cd F:/Sano/01-Site && rm -rf .next && npm run dev
 ```
 
-- [ ] **Step 4: Stop the dev server.**
+- [ ] **Step 2: Mike walks the flows.**
 
-- [ ] **Step 5: PAUSE — Mike checkpoint**
+At `http://localhost:3000/join-our-team`:
+- [ ] Landing page renders: hero with Apply Now button, Why section, Process section, Contact section.
+- [ ] No form appears on the landing page.
+- [ ] Click Apply Now → navigates to `/join-our-team/apply`.
 
-Mike walks the page. Flag anything to change before wrapping up.
+At `http://localhost:3000/join-our-team/apply`:
+- [ ] Welcome step renders with "Let's start" button.
+- [ ] Clicking through a **contractor** path: First → Last → "Nice to meet you, {first_name}." → Phone → Email → Suburb → Role (Contractor) → fit transition → driver/vehicle/travel → experience (Yes) → experience types → experience notes → values transition → equipment (contractor wording) → days → hours → areas → independent → right to work → insurance → (if No) willing → why → declaration → review (everything shown including insurance rows) → submit → success.
+- [ ] Clicking through an **employee** path skips insurance steps; review has no insurance rows.
+- [ ] Clicking through with "no experience": experience types step is skipped; review shows no experience types row.
+- [ ] On a required-field step, Next without answer shows inline error below the question and the step does not advance.
+- [ ] Declaration unchecked → Next blocked with error.
+- [ ] Back button works on every non-first, non-success step.
+- [ ] Progress bar advances per step and shows "Step N of M" with M being the correct total (26 employee / 28 contractor).
+- [ ] Transitions between steps are subtle (200ms fade+slide).
+- [ ] On a successful submit, the dev server terminal prints a log line `[job-application] received { first_name: ..., last_name: ..., email: ..., suburb: ..., application_type: ... }` with only those five fields.
+
+If anything fails, note it and I'll dispatch a fix. Otherwise: "all green" = done.
 
 ---
 
-## Task 13: Final verification
+## Task 13: Final verification + PR handoff
 
-**Files:** none (verification only).
-
-- [ ] **Step 1: Run the full test suite**
-
-Run: `cd F:/Sano/01-Site && npm test`
-Expected: PASS — all tests green, including the 13 validation tests and 6 API route tests added in this work.
-
-- [ ] **Step 2: Run the full build**
-
-Run: `cd F:/Sano/01-Site && npm run build`
-Expected: PASS — static/dynamic route summary includes `/join-our-team` and `/api/submit-application`.
-
-- [ ] **Step 3: Confirm git state is clean**
-
-Run: `cd F:/Sano/01-Site && git status --short`
-Expected: empty output (everything committed).
-
-- [ ] **Step 4: Summarise commits**
-
-Run: `cd F:/Sano/01-Site && git log --oneline ebfb9a2..HEAD`
-Expected: 9–12 commits tagged `feat(careers):`, `feat(footer):`, and optionally `fix(careers):`.
+- [ ] **Step 1: `npx tsc --noEmit`** — clean (removing `tsconfig.tsbuildinfo` first if stale).
+- [ ] **Step 2: `npm test`** — careers suites green; pre-existing unrelated failures noted but not blocked.
+- [ ] **Step 3: `npm run lint`** — no new warnings or errors on careers files.
+- [ ] **Step 4: `git status --short`** — clean (no uncommitted changes).
+- [ ] **Step 5: PAUSE — Mike decides branch strategy for PR.**
+  - Option A: push `feat/join-our-team` directly, open PR from it (includes 4 unrelated commits).
+  - Option B: cherry-pick only the careers commits onto a fresh branch cut from `main`, open the PR from there. Commands:
+    ```bash
+    git log --oneline main..feat/join-our-team | grep careers | awk '{print $1}' | tac > /tmp/careers-shas.txt
+    git checkout -b feat/careers-clean main
+    xargs -a /tmp/careers-shas.txt git cherry-pick
+    ```
+  - Option B produces a clean diff. Mike to confirm before running.
+- [ ] **Step 6: `gh pr create`** (after Mike confirms branch).
 
 ---
 
 ## Success criteria (end state)
 
-- `/join-our-team` renders correctly on desktop and mobile, matching the spec's visual design.
-- Form validates required fields on both client and server; insurance booleans never block submission.
-- Submitting a valid form logs the four-field redacted preview server-side and returns `{ ok: true }`.
-- Success card replaces the form on success with the approved copy; error banner shows on failure without clearing inputs.
-- Footer shows "Join Our Team" in the Company column between FAQ and Contact Us on every page.
-- `npm test` passes — all new unit tests green plus all existing tests still green.
-- `npm run build` completes without errors.
-- No Header changes. No changes to the homepage, service pages, or the existing `/api/submit-quote` route.
+- `/join-our-team` shows a landing page with no form; Apply Now button links to `/join-our-team/apply`.
+- `/join-our-team/apply` renders the wizard and walks a valid applicant from Welcome to Success.
+- Contractor vs Employee path correctly shows/hides insurance steps.
+- Experience types step shown only after a Yes.
+- Required fields gate Next; server also re-validates on final submit.
+- Success log line on Netlify shows exactly five redacted fields.
+- All careers tests green. Pre-existing unrelated test failures remain but are not introduced by this work.
+- `JobApplicationForm.tsx` retired to `_retired/` subfolder (not deleted).
+- Footer retains the Join Our Team link. Header unchanged.

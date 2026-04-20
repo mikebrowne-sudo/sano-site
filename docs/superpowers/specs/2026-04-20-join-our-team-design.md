@@ -1,11 +1,30 @@
 # Join Our Team — Design Spec
+
 **Date:** 2026-04-20
+**Revised:** 2026-04-20 — pivoted from single-page grouped form to landing page + multi-step wizard. See "Revision history" at bottom for what changed.
+
+---
 
 ## Overview
 
-Build a `/join-our-team` careers page for the public Sano site: hero, three benefit cards, a five-step row, a grouped application form, and a small contact block. The form submits to a new stub API route `/api/submit-application` that validates server-side and logs a redacted preview. Supabase persistence, Resend emails, and the portal Applicants flow are explicitly out of scope for this build but the data contracts are designed so later wiring is mechanical. The footer gains one new link under the Company column; the header is unchanged.
+Ship a Sano careers experience in two routes:
 
-Layout inspiration: enhancedcleaning.com.au/careers (structure only — no wording or branding copied).
+1. **`/join-our-team`** — landing page. Hero, benefits, how-it-works, contact block. One prominent **Apply Now** CTA in the hero linking to `/apply`. No form on this page.
+2. **`/join-our-team/apply`** — guided multi-step application wizard. One primary question per screen, subtle fade/slide transitions between steps, personalized transition screens using previously-entered answers (e.g. "Nice to meet you, Jane."), conditional branching (contractor-only insurance questions, experience-type follow-up only if has experience), progress bar, Next/Back navigation, in-memory state only. Final step submits to the existing `/api/submit-application` route.
+
+Layout/interaction inspiration: Enhanced Cleaning careers flow (structural reference only — no copy, branding, or questions reused). Tone is Sano's own: professional, human, clear, confident, not corporate or cheesy. NZ-specific wording throughout.
+
+The footer gains one new link under the Company column (already done in the prior build). **Header is NOT changed** in this pass — confirmed as a later decision.
+
+---
+
+## Route map
+
+| Route | Type | Purpose |
+|-------|------|---------|
+| `/join-our-team` | Server component | Landing page (static marketing content) |
+| `/join-our-team/apply` | Client component host | Multi-step wizard |
+| `/api/submit-application` | POST | Payload receiver (unchanged structurally; payload shape updated to split names) |
 
 ---
 
@@ -13,128 +32,58 @@ Layout inspiration: enhancedcleaning.com.au/careers (structure only — no wordi
 
 ### New
 ```
-src/app/(public)/join-our-team/page.tsx           — page composition
-src/app/api/submit-application/route.ts            — POST endpoint (stub)
-src/components/CareersHero.tsx                     — hero with placeholder block
-src/components/WhyWorkWithSano.tsx                 — 3 benefit cards
-src/components/CareersProcess.tsx                  — 5-step row
-src/components/JobApplicationForm.tsx              — full form, single client component
-src/components/CareersContact.tsx                  — "Have a question?" block
-src/types/application.ts                           — form + payload types
+src/app/(public)/join-our-team/apply/page.tsx   — wizard host (client-rendered)
+src/components/careers-apply/
+  ApplicationWizard.tsx                         — orchestrator: state, nav, transitions, submit
+  steps.config.ts                               — declarative STEPS array (one entry per screen)
+  WizardProgress.tsx                            — thin progress bar + "Step N of M" label
+  WizardNav.tsx                                 — Next / Back buttons
+  step-types/
+    WelcomeStep.tsx                             — intro + "Let's start" CTA
+    TextStep.tsx                                — single text input (name / phone / email / suburb / etc.)
+    TextareaStep.tsx                            — optional longer text (experience notes, why Sano)
+    YesNoStep.tsx                               — pill pair
+    ChipSingleStep.tsx                          — role type chip picker
+    ChipMultiStep.tsx                           — experience types, available days
+    InfoStep.tsx                                — transition/personalized screens
+    DeclarationStep.tsx                         — final checkbox
+    ReviewStep.tsx                              — summary of answers
+    SuccessStep.tsx                             — terminal "application received" card
+src/lib/applicationStepValidation.ts            — per-step field subset validators
 ```
 
 ### Modified
 ```
-src/components/Footer.tsx                          — add "Join Our Team" to Company column
+src/types/application.ts                        — split full_name → first_name + last_name; application_type enum becomes 'contractor' | 'employee'
+src/lib/applicationValidation.ts                — mirror type change; drop 'either'/'casual'; rename full_name rule; drop equipment_notes + work_preferences
+src/__tests__/lib/applicationValidation.test.ts — fixture uses new field names and enum
+src/app/api/submit-application/route.ts         — redacted log updated to first_name + last_name; shape otherwise unchanged
+src/__tests__/api/submit-application.test.ts    — fixture updated
+src/components/CareersHero.tsx                  — add prominent Apply Now CTA linking to /join-our-team/apply
+src/app/(public)/join-our-team/page.tsx         — remove the inline form section; section order becomes Hero → Why → Process → Contact
 ```
 
-### Not touched
-- `src/components/Header.tsx` — careers stays out of top nav (customer-journey focused).
-- `src/lib/resend.ts`, `src/lib/supabase.ts` — no new functions in this build.
+### Retired (not deleted yet — moved for reference)
+```
+src/components/JobApplicationForm.tsx → src/components/_retired/JobApplicationForm.old.tsx
+```
+
+### Unchanged
+```
+src/components/WhyWorkWithSano.tsx
+src/components/CareersProcess.tsx
+src/components/CareersContact.tsx
+src/components/Footer.tsx   (already has the Join Our Team link)
+```
 
 ---
 
-## Route, nav, SEO
+## Data types
 
-- **Route:** `/join-our-team`
-- **Footer Company column order** (`src/components/Footer.tsx`):
-  1. About Sano
-  2. FAQ
-  3. Join Our Team *(new)*
-  4. Contact Us
-- **Page `metadata`:** title `Join Our Team | Sano`, description aligned with the hero copy. No OG image overrides for this build.
-
----
-
-## Page composition
-
-`src/app/(public)/join-our-team/page.tsx` is a server component rendering, in order:
-
-1. `<CareersHero />`
-2. `<WhyWorkWithSano />`
-3. `<CareersProcess />`
-4. `<JobApplicationForm />` — wrapped in a section element with off-white background and `max-w-3xl` inner container
-5. `<CareersContact />`
-
-Section spacing uses the existing `.section-y` / `.section-padding` utilities. Backgrounds alternate white / `#faf9f6` to match the homepage rhythm.
-
----
-
-## Component specs
-
-### `CareersHero.tsx`
-
-- Two-column grid on `lg:`, stacked on mobile (`grid grid-cols-1 lg:grid-cols-2 gap-10 items-center`).
-- Text column:
-  - Eyebrow: `Careers` (`.eyebrow` utility class)
-  - H1: `Join Our Team`
-  - Body paragraph (from brief):
-    > We're always looking for reliable, detail-focused people who take pride in their work. If you have cleaning experience and want flexible opportunities with a growing team, we'd love to hear from you.
-  - No CTA button.
-- Placeholder block (right / stacked below):
-  - Aspect ratio: `aspect-[4/5]` on `lg:`, `aspect-video` on mobile.
-  - Styling: `rounded-2xl`, `bg-gradient-to-br from-sage-50 to-sage-100`, `ring-1 ring-sage-100/60`, subtle `shadow-sm`.
-  - Centered lucide-react `Users` icon, `w-16 h-16`, `text-sage-500/40`.
-  - No text inside the block. This is intentional neutral surface, not a banner.
-- **Future swap:** replace the placeholder `<div>` with `<Image>` of the same aspect ratio and classes. No parent layout change required.
-
-### `WhyWorkWithSano.tsx`
-
-- Section background: `#faf9f6`.
-- Heading block: centered, short intro optional (omit if it starts to feel like filler).
-- Grid: `grid grid-cols-1 md:grid-cols-3 gap-6` inside `max-w-5xl mx-auto`.
-- Card styling (shared): `rounded-2xl border border-sage-100 bg-white p-6`. No hover scale (keeps the page quieter than the homepage `StepCard`).
-- Card contents:
-  - Icon square: `w-12 h-12 rounded-lg bg-sage-50 flex items-center justify-center text-sage-600`.
-  - H3 title: `text-lg font-semibold text-sage-800 mb-2`.
-  - Body: `.body-text` but size-reduced — `text-sm leading-relaxed text-sage-600`.
-- Three cards (copy verbatim from brief):
-
-| Icon | Title | Body |
-|------|-------|------|
-| `Clock3` | Flexible Work | Choose work that suits your schedule. We offer flexible opportunities across different types of cleaning jobs. |
-| `Users` | Supportive Team | We keep things straightforward and back our team. Clear communication and support matter to us. |
-| `TrendingUp` | Consistent Opportunities | We're growing and have regular work available. We're looking for people we can rely on long term. |
-
-### `CareersProcess.tsx`
-
-- White background.
-- Heading: `How it works` (no supporting paragraph — brief said keep it simple).
-- 5 equal-width circles on `md:`, stacked vertically on mobile.
-- Circle: `w-10 h-10 rounded-full bg-white border border-sage-100 text-sage-600 font-semibold` containing the step number `1`…`5`.
-- Connector: horizontal thin sage-100 line behind the circles on `md:`; short vertical line between circles on mobile. Same technique as `ProcessSteps.tsx` uses for its 3 numbered dots.
-- Label beneath each circle: `text-sm font-medium text-sage-800`. Labels: **Apply**, **Review**, **Contact**, **Trial**, **Get started**.
-- No descriptions, no cards, no animations. This is a visual rhythm beat between the benefits and the form, not a content section.
-
-### `JobApplicationForm.tsx`
-
-See dedicated section below.
-
-### `CareersContact.tsx`
-
-- White background, `max-w-3xl mx-auto text-center`.
-- H2: `Have a question?`
-- Body paragraph (from brief):
-  > If you're unsure about anything or want to check if this is the right fit, feel free to get in touch.
-- Two pill buttons, stacked on mobile and inline on `sm:` (`flex flex-col sm:flex-row gap-3 justify-center`):
-  - Phone: `<a href="tel:0800726686">` — filled sage button, display text `0800 726 686`.
-  - Email: `<a href="mailto:hello@sano.nz">` — outlined sage button, display text `hello@sano.nz`.
-- Phone number formatting: exactly `0800 726 686` (with spaces) in the visible text.
-
-### `Footer.tsx` (modified)
-
-Add `{ href: '/join-our-team', label: 'Join Our Team' }` to the Company column array, inserted between the FAQ and Contact Us entries. No other changes.
-
----
-
-## Form: `JobApplicationForm.tsx`
-
-Single `'use client'` component. One `useState` for the form object, one `useState` for errors, one `useState` for status. One `validate()` function. Sections rendered inline as consecutive `<fieldset>` elements, each wrapped in a white card. No sub-components.
-
-### Types — `src/types/application.ts`
+`src/types/application.ts`:
 
 ```ts
-export type ApplicationType = 'contractor' | 'casual' | 'either'
+export type ApplicationType = 'contractor' | 'employee'
 
 export type ExperienceType =
   | 'residential'
@@ -150,7 +99,8 @@ export type DayOfWeek = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
 
 export interface ApplicationFormData {
   // Personal details
-  full_name: string
+  first_name: string
+  last_name: string
   phone: string
   email: string
   suburb: string
@@ -170,239 +120,279 @@ export interface ApplicationFormData {
 
   // Equipment
   has_equipment: boolean | null
-  equipment_notes: string
 
   // Availability
   available_days: DayOfWeek[]
   preferred_hours: string
   travel_areas: string
 
-  // Additional questions
-  work_preferences: string
+  // Independent work + compliance
   independent_work: boolean | null
-  why_join_sano: string
-
-  // Compliance
   work_rights_nz: boolean | null
-  has_insurance: boolean | null
-  willing_to_get_insurance: boolean | null
+  has_insurance: boolean | null            // captured only if application_type = 'contractor'
+  willing_to_get_insurance: boolean | null // captured only if contractor AND has_insurance = false
+
+  // Motivation (optional)
+  why_join_sano: string
 
   // Declaration
   confirm_truth: boolean
 }
 
 export type ApplicationFormErrors = Partial<Record<keyof ApplicationFormData, string>>
-
-// Alias today; keeps API contract decoupled from form shape if they diverge later.
 export type JobApplicationPayload = ApplicationFormData
 ```
 
-Booleans that represent user choice (yes/no questions) are `boolean | null` so "unanswered" is distinguishable from "no" at validation time. `confirm_truth` is plain `boolean` because unchecked = false = invalid.
-
-### Form sections (rendered in this order)
-
-Each section wraps in `<fieldset class="rounded-2xl border border-sage-100 bg-white p-6 sm:p-8">` with an `<legend>` (visually rendered as an H3 inside the card).
-
-1. **Personal details** — `full_name`, `phone`, `email`, `suburb`.
-2. **Role type** — `application_type` (three chip-style options: Contractor, Casual, Either).
-3. **Licence & transport** — `has_license`, `has_vehicle`, `can_travel` (each a yes/no pill pair).
-4. **Experience**
-   - `has_experience` (yes/no pills)
-   - `experience_types` (chip multi-select, revealed only when `has_experience === true`)
-   - `experience_notes` (textarea, always visible, optional)
-5. **Equipment** — `has_equipment` (yes/no pills), `equipment_notes` (textarea, optional).
-6. **Availability** — `available_days` (chip multi-select, Mon–Sun), `preferred_hours` (text), `travel_areas` (text). All optional.
-7. **Additional questions** — `work_preferences` (textarea, optional), `independent_work` (yes/no pills), `why_join_sano` (textarea, optional).
-8. **Compliance** — `work_rights_nz` (yes/no pills), `has_insurance` (yes/no pills), `willing_to_get_insurance` (yes/no pills). Only the first is required.
-9. **Declaration** — single `confirm_truth` checkbox with inline label:
-    > I confirm the information I've provided is true and accurate.
-
-Submit button sits below the last card: full-width pill, `bg-sage-800 hover:bg-sage-500`, text `Apply Now` (loading state `Sending…`).
-
-### Multi-select option labels (user-facing)
-
-**Experience types:**
-- Residential cleaning (`residential`)
-- Deep cleaning (`deep`)
-- End of tenancy (`end_of_tenancy`)
-- Commercial (`commercial`)
-- Carpet & upholstery (`carpet_upholstery`)
-- Window cleaning (`windows`)
-- Post-construction (`post_construction`)
-- Other (`other`)
-
-**Available days:** Mon / Tue / Wed / Thu / Fri / Sat / Sun (short labels, 7 chips in a single wrapping row).
-
-### Validation rules
-
-`validate(data: ApplicationFormData): ApplicationFormErrors` runs on submit.
-
-**Required** — must be non-empty / non-null / true:
-- `full_name` — trim, non-empty
-- `phone` — trim, non-empty (presence only, no NZ format check)
-- `email` — trim, non-empty, matches `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`
-- `suburb` — trim, non-empty
-- `application_type` — one of the three enum values (empty string fails)
-- `has_license`, `has_vehicle`, `can_travel` — non-null
-- `has_experience`, `has_equipment`, `independent_work` — non-null
-- `work_rights_nz` — non-null
-- `confirm_truth` — must be `true`
-- If `has_experience === true`, then `experience_types.length >= 1`
-
-**Not required** (captured but never block submission):
-- `has_insurance`, `willing_to_get_insurance`
-- `experience_notes`, `equipment_notes`, `preferred_hours`, `travel_areas`, `work_preferences`, `why_join_sano`
-- `available_days`
-
-The insurance booleans are intentionally optional — blocking on insurance at application stage filters out casual applicants who'd be fine once onboarded.
-
-Errors clear as the user edits (same pattern as `QuoteForm.tsx`). Validation runs only on submit — no on-blur validation.
-
-### Yes/no pill component (inline helper)
-
-Each yes/no pill group renders as:
-
-```tsx
-<div role="radiogroup" aria-labelledby={`${name}-label`} className="flex gap-2">
-  <button
-    type="button"
-    role="radio"
-    aria-checked={value === true}
-    onClick={() => onChange(true)}
-    className={/* selected: bg-sage-800 text-white border-sage-800; unselected: bg-white border-sage-100 text-gray-700 */}
-  >
-    Yes
-  </button>
-  {/* mirrored No button */}
-</div>
-```
-
-Keyboard: arrow keys move selection within the group (standard radiogroup behaviour). Focus ring `ring-sage-300`. Error state adds `border-red-300` to the unselected pill when validation fails.
-
-**Accessibility fallback:** if during build any accessibility gap surfaces (screen reader misreads selection state, keyboard nav glitches, etc.), fall back to styled native `<input type="radio">` without asking. Clarity trumps style.
-
-### Chip multi-select (inline helper)
-
-Used for `experience_types` and `available_days`. Each option is a `<button type="button" aria-pressed={selected}>` that toggles inclusion in the array. Selected: `bg-sage-800 text-white`; unselected: `bg-white border border-sage-100 text-gray-700`. Wraps across lines naturally. Minimum tap target 40×40 on mobile.
-
-### Helper text
-
-Used sparingly. Only where it genuinely clarifies:
-- `experience_types`: small helper when revealed — `Select all that apply.`
-- `available_days`: small helper — `Tap the days you're generally available.`
-
-No helper text on fields where the label already makes the ask clear.
-
-### Submit flow
-
-1. Client `validate()` → if errors, `setErrors()`, scroll to first error, return.
-2. `setStatus('loading')`, submit button shows `Sending…`, disabled.
-3. `POST /api/submit-application` with the form data as JSON body.
-4. On `res.ok` → `setStatus('success')`, component swaps its return to a success card (no form reset — success card replaces the form).
-5. On failure → `setStatus('error')`, inline error banner above the submit button, form stays populated for retry.
-
-### Success card
-
-Replaces the entire form on success. Styled like the existing `QuoteForm` success card: sage-50 background, `rounded-2xl`, `p-8`, `text-center`, large checkmark.
-
-- **Heading:** `Thanks — application received`
-- **Body:**
-  > We've received your application and will be in touch if it looks like a good fit. If you don't hear from us within a week, feel free to reach out at hello@sano.nz.
-
-No "submit another" button — a 25-field form shouldn't silently reset.
+Fields removed vs prior spec:
+- `full_name` (replaced by first_name + last_name)
+- `work_preferences` and `equipment_notes` (dropped — never asked explicitly in the new flow)
 
 ---
 
-## API route — `src/app/api/submit-application/route.ts`
+## Validation
 
-### Shape
+### Shared server-side rules (`src/lib/applicationValidation.ts`)
+
+Same signature as before — `validateApplication(data): ApplicationFormErrors`. Rules:
+
+- `first_name` — required (trim non-empty)
+- `last_name` — required
+- `phone` — required (presence only, no NZ format check)
+- `email` — required + regex match
+- `suburb` — required
+- `application_type` — must be `'contractor'` or `'employee'`
+- `has_license`, `has_vehicle`, `can_travel` — non-null
+- `has_experience` — non-null
+- `experience_types` — required (≥1) **iff** `has_experience === true`
+- `has_equipment` — non-null
+- `available_days` — optional (any length OK)
+- `preferred_hours`, `travel_areas`, `experience_notes`, `why_join_sano` — optional
+- `independent_work` — non-null
+- `work_rights_nz` — non-null
+- `has_insurance` — optional (ignored if non-contractor; never blocks submission)
+- `willing_to_get_insurance` — optional
+- `confirm_truth` — must be `true`
+
+Insurance booleans are intentionally never required — conditional only in the UI, not in validation. An employee application will have them both `null`; that's fine.
+
+### Per-step client-side rules (`src/lib/applicationStepValidation.ts`)
+
+Each wizard step that needs gating declares a pure `(data) => string | null` validator. Next button is disabled (or shows an inline error on tap) until the validator returns `null`. Optional-field steps export a no-op validator.
+
+These per-step rules are **strict subsets** of the rules in `validateApplication`. Duplication is avoided by composing per-step validators from a shared rule set.
+
+---
+
+## Step flow — `/join-our-team/apply`
+
+Total visible steps: **28** (contractor), **26** (employee — skips #23 and #24). Step 14 only appears if #13 is Yes.
+
+| # | Step | Type | Validate | Notes |
+|---|------|------|----------|-------|
+| 1 | Welcome | `WelcomeStep` | — | Short intro, single "Let's start" button. |
+| 2 | First name | `TextStep` (`first_name`) | required | "What's your first name?" |
+| 3 | Last name | `TextStep` (`last_name`) | required | "And your last name?" |
+| 4 | Hello | `InfoStep` | — | Personalized: "Nice to meet you, {first_name}." |
+| 5 | Phone | `TextStep` (`phone`, inputType="tel") | required (presence only) | "What's the best number to reach you on?" |
+| 6 | Email | `TextStep` (`email`, inputType="email") | required + regex | "And an email address?" |
+| 7 | Suburb | `TextStep` (`suburb`) | required | "Which suburb or area are you based in?" |
+| 8 | Role type | `ChipSingleStep` (`application_type`) | required | Options: Contractor / Employee |
+| 9 | Transition | `InfoStep` | — | "The next few questions help us understand fit, availability, and how you work." |
+| 10 | Driver licence | `YesNoStep` (`has_license`) | required | "Do you hold a current NZ driver licence?" |
+| 11 | Vehicle access | `YesNoStep` (`has_vehicle`) | required | "Do you have access to a vehicle for getting to jobs?" |
+| 12 | Travel | `YesNoStep` (`can_travel`) | required | "Are you comfortable travelling to different job locations?" |
+| 13 | Experience | `YesNoStep` (`has_experience`) | required | "Have you worked in cleaning before?" |
+| 14 | Experience types | `ChipMultiStep` (`experience_types`) | ≥1 | **Conditional — visible only if #13 is Yes.** Helper: "Select all that apply." |
+| 15 | Experience notes | `TextareaStep` (`experience_notes`) | optional | "Tell us a bit about your experience." |
+| 16 | Values | `InfoStep` | — | "We work best with people who are reliable, detail-focused, and take pride in their work." |
+| 17 | Equipment | `YesNoStep` (`has_equipment`) | required | Copy adapts to role: contractors see "Do you have your own cleaning equipment and products?"; employees see "Do you currently have cleaning equipment and products of your own?" |
+| 18 | Available days | `ChipMultiStep` (`available_days`) | optional | Mon–Sun chips. Helper: "Tap the days that generally work for you." |
+| 19 | Preferred hours | `TextStep` (`preferred_hours`) | optional | Placeholder: "e.g. mornings, school hours" |
+| 20 | Travel areas | `TextStep` (`travel_areas`) | optional | Placeholder: "e.g. Central, North Shore, Eastern suburbs" |
+| 21 | Independent work | `YesNoStep` (`independent_work`) | required | "Are you comfortable working independently when needed?" |
+| 22 | Right to work | `YesNoStep` (`work_rights_nz`) | required | "Do you have the legal right to work in New Zealand?" |
+| 23 | Insurance now | `YesNoStep` (`has_insurance`) | optional | **Conditional — contractor only.** "Do you currently hold public liability insurance?" |
+| 24 | Willing to insure | `YesNoStep` (`willing_to_get_insurance`) | optional | **Conditional — contractor AND #23 is No.** "Would you be willing to arrange public liability insurance if required?" |
+| 25 | Why Sano | `TextareaStep` (`why_join_sano`) | optional | "Why are you interested in working with Sano?" |
+| 26 | Declaration | `DeclarationStep` (`confirm_truth`) | must be `true` | Checkbox + copy. |
+| 27 | Review | `ReviewStep` | — | Summary of answers. Back button still visible. Submit triggers POST. |
+| 28 | Success | `SuccessStep` | — | Terminal screen. Cannot navigate back. |
+
+Per step, the copy shown above is the intended Sano tone. Exact wording is the implementer's to tighten during build — but no step should acquire questions not in this table.
+
+---
+
+## Wizard architecture
+
+### Orchestrator (`ApplicationWizard.tsx`)
+
+- Owns `form: ApplicationFormData`, `stepIndex: number`, `status: 'idle' | 'submitting' | 'success' | 'error'`, `errorMessage: string`.
+- Initialises `form` via `createEmptyApplicationForm()` (exported from `applicationValidation.ts`).
+- Computes `visibleSteps` by filtering `STEPS` through each entry's `visible(form)` predicate on every render.
+- Renders current step through a `type → component` map.
+- Handles `goNext()`, `goBack()`, `submit()`.
+- `submit()` runs the full `validateApplication(form)` one last time. If errors, set status `'error'`, show the first error message via the inline error banner. Otherwise POST to `/api/submit-application`, set `'success'`.
+
+### Step config (`steps.config.ts`)
+
+Declarative array of ~28 entries:
 
 ```ts
-import type { JobApplicationPayload } from '@/types/application'
+export type StepDef =
+  | { id: string; type: 'welcome' }
+  | { id: string; type: 'info'; title?: string | ((d: ApplicationFormData) => string); body: string | ((d: ApplicationFormData) => string); visible?: (d: ApplicationFormData) => boolean }
+  | { id: string; type: 'text'; field: keyof ApplicationFormData; question: string; inputType?: 'text' | 'tel' | 'email'; placeholder?: string; required?: boolean; visible?: (d: ApplicationFormData) => boolean }
+  | { id: string; type: 'textarea'; field: keyof ApplicationFormData; question: string; placeholder?: string; visible?: (d: ApplicationFormData) => boolean }
+  | { id: string; type: 'yesno'; field: keyof ApplicationFormData; question: string | ((d: ApplicationFormData) => string); required?: boolean; visible?: (d: ApplicationFormData) => boolean }
+  | { id: string; type: 'chip-single'; field: keyof ApplicationFormData; question: string; options: { value: string; label: string }[]; required?: boolean; visible?: (d: ApplicationFormData) => boolean }
+  | { id: string; type: 'chip-multi'; field: keyof ApplicationFormData; question: string; helper?: string; options: { value: string; label: string }[]; minSelected?: number; visible?: (d: ApplicationFormData) => boolean }
+  | { id: string; type: 'declaration'; field: 'confirm_truth'; body: string }
+  | { id: string; type: 'review' }
+  | { id: string; type: 'success' }
 
-export async function POST(request: Request) {
-  try {
-    const payload = (await request.json()) as JobApplicationPayload
-
-    const validationError = validatePayload(payload)
-    if (validationError) {
-      return Response.json({ error: validationError }, { status: 400 })
-    }
-
-    console.log('[job-application] received', {
-      full_name: payload.full_name,
-      email: payload.email,
-      suburb: payload.suburb,
-      application_type: payload.application_type,
-    })
-
-    // TODO(later): insert into job_applications (Supabase), send Resend thank-you, notify SANO_NOTIFY_EMAIL.
-
-    return Response.json({ ok: true }, { status: 200 })
-  } catch (err) {
-    console.error('[job-application] error', err)
-    return Response.json({ error: 'Submission failed' }, { status: 500 })
-  }
-}
+export const STEPS: StepDef[] = [ /* 28 entries */ ]
 ```
 
-### Server-side validation
+The config is the single source of truth for order, field binding, copy, and conditional visibility. Reordering or inserting a step is a config-only change.
 
-`validatePayload(payload)` runs the same required-field rules as the client-side `validate()`. Returns a single string on failure (e.g., `"Missing required fields"`), `null` on success. Never trust the client.
+### Step-type components
 
-### Logging
+Each step-type component takes a minimal prop surface:
 
-Logs exactly four fields: `full_name`, `email`, `suburb`, `application_type`. Intentionally redacted — enough to spot activity or a spam wave in Netlify logs without spraying 25 fields of PII.
+- `data: ApplicationFormData`
+- `onChange<K>(key: K, value: ApplicationFormData[K])`
+- `onNext(): void`
+- `onBack(): void`
+- `isFirst: boolean` / `isLast: boolean` — for nav button rendering
+- `error: string | null` — current validation error, if any
+- Step-specific config (e.g. `question`, `options`)
 
-### Response contract
+Size budget per step-type component: 60–120 lines.
 
-- Success: `{ ok: true }`, status 200.
-- Client validation failure: `{ error: string }`, status 400.
-- Server failure: `{ error: 'Submission failed' }`, status 500.
+### Animations
 
-Matches the pattern the existing `/api/submit-quote` handler uses, so the frontend `res.ok` check reads identically.
+`framer-motion` (already in the project, used in `ProcessSteps.tsx`). Use `<AnimatePresence mode="wait">` wrapping the current step with a subtle variant:
+
+```tsx
+initial={{ opacity: 0, y: 8 }}
+animate={{ opacity: 1, y: 0 }}
+exit={{ opacity: 0, y: -8 }}
+transition={{ duration: 0.2 }}
+```
+
+No dramatic movement. Respect `prefers-reduced-motion` — framer-motion handles this automatically.
+
+### Progress indicator (`WizardProgress.tsx`)
+
+- Thin bar, height 3px, sage-800 fill on sage-100 background.
+- Width: `(stepIndex + 1) / visibleSteps.length * 100%`.
+- Label (right aligned, optional): "Step N of M".
+- Hidden on the Success step.
+
+### Navigation (`WizardNav.tsx`)
+
+- Full-width Next button, sage-800 pill, loading state on final submit.
+- Back button: ghost style, left-aligned, hidden on step 0 (Welcome) and on Success.
+- Keyboard: `Enter` triggers Next when focus is in a text input or on the Next button.
+
+### State and refresh
+
+In-memory only. Refresh = start over. This is documented and acceptable for this first release. URL state is noted as follow-up if drop-off data argues for it.
 
 ---
 
-## Design tokens used
+## Landing page changes
 
-- **Colours:** `sage-50`, `sage-100`, `sage-300`, `sage-500`, `sage-600`, `sage-800` only. No new palette additions.
-- **Off-white section background:** `#faf9f6` (homepage alternating pattern).
-- **Typography:** existing H1/H2/H3 scale from `globals.css`, `.body-text` for paragraphs, `.eyebrow` for kickers.
-- **Container widths:** `max-w-6xl` for full-width sections (hero, benefits, process), `max-w-3xl` for form and contact sections.
-- **Radii:** `rounded-2xl` for cards, `rounded-xl` for inputs, `rounded-full` for submit and pill buttons.
-- **Section spacing:** `.section-y` (py-20 lg:py-24), `.section-padding` (px-4 sm:px-6 lg:px-8).
+### `src/app/(public)/join-our-team/page.tsx`
 
-No new Tailwind config entries. No new global CSS utilities.
+```tsx
+<CareersHero />
+<WhyWorkWithSano />
+<CareersProcess />
+<CareersContact />
+```
+
+No form section. The page is now pure marketing content.
+
+### `src/components/CareersHero.tsx`
+
+- Keep the placeholder block on the right.
+- In the text column, add a single pill-style CTA under the body paragraph:
+  - `Apply Now` with `→` icon (lucide-react `ArrowRight`).
+  - Links to `/join-our-team/apply` via `next/link`.
+  - Style mirrors the existing sage-800 pill used site-wide.
+
+Nothing else in the hero changes.
 
 ---
 
-## Out of scope (future work — designed-in, not built)
+## API + logging
 
-What this spec intentionally defers. The shape of the form and API route is chosen so each of these is an additive step, not a refactor:
+Route unchanged structurally. Redacted log updates from:
 
-- **Supabase persistence.** Table `job_applications` with columns matching `ApplicationFormData`, plus `id`, `created_at`, `application_status` enum (`new`/`reviewing`/`approved`/`declined`/`converted`, default `new`), and internal-only columns `police_vetting_status`, `trial_feedback_notes`. Later: replace `console.log` in the API route with `supabaseAdmin.from('job_applications').insert(payload)`. No frontend change.
-- **Resend emails.** Thank-you on submit, approval email, decline email, contractor-invite email. New functions in `src/lib/resend.ts` following the existing `sendQuoteConfirmation` pattern, called from the API route (thank-you) or later from portal server actions (approval/decline/invite).
-- **File uploads.** CV, photo ID, insurance certificate. New `FileUploadSection` component inserted between Experience and Compliance. Payload extends with `cv_url`, `id_url`, `insurance_url`. Supabase Storage handles upload.
-- **Portal Applicants flow.** New `/portal/applicants` route lists submissions, allows status changes, enables convert-to-contractor (copies relevant fields into `contractors` table). Out of scope for this build.
-- **SEO extras.** Structured data, OG image, sitemap entry — add in a later pass once the page copy is settled.
+```ts
+console.log('[job-application] received', { full_name, email, suburb, application_type })
+```
+
+to:
+
+```ts
+console.log('[job-application] received', { first_name, last_name, email, suburb, application_type })
+```
+
+Still five or fewer fields, still no free-text content. Server-side validation continues to call `validateApplication(payload)`.
 
 ---
 
-## Open questions / assumptions
+## Header nav
 
-- **Meta description copy:** spec assumes a meta description derived from the hero paragraph is acceptable. If a tighter SEO-optimised description is wanted, flag during implementation.
-- **`experience_types` when `has_experience === false`:** form hides the chip selector in this case; payload sends an empty array. Server-side validation accepts this.
-- **Favicon / OG image:** not changed in this build.
+**Not changed in this pass.** Adding `Join Our Team` to the header's top-level nav was discussed but explicitly deferred. Footer link (from Task 4 of the prior plan) stays and remains the only entry point besides direct URL.
+
+---
+
+## Accessibility
+
+- Wizard root is a `<main>` with `aria-label="Application form"`.
+- Each step's question renders as an `<h1>` or `<h2>` with an id the progress bar can reference via `aria-describedby`.
+- YesNo pills and chips continue the accessibility patterns from the previous form (role="radio"/"radiogroup", aria-pressed, keyboard focus rings).
+- `prefers-reduced-motion` disables the slide transition.
+- Focus moves to the step heading on Next/Back so screen readers announce the new question.
+
+---
+
+## Out of scope (unchanged from prior spec)
+
+- Supabase persistence, Resend emails, file uploads, portal Applicants flow.
+- URL state (wizard resumes on refresh).
+- SEO structured data or OG image.
+- Reordering or editing answers from the review step (user hits Back instead).
+
+---
+
+## Revision history
+
+**2026-04-20 — pivot to wizard.** Original spec was a single-page grouped form with nine `<fieldset>` cards on `/join-our-team`. Revised to:
+
+- Split `/join-our-team` into a landing page and `/join-our-team/apply` wizard.
+- One question per screen with subtle transitions.
+- Personalized transition screens using prior answers.
+- `full_name` split into `first_name` + `last_name`.
+- `application_type` enum changed from `contractor | casual | either` to `contractor | employee`.
+- Insurance questions now contractor-only (UI-level conditional).
+- `equipment_notes` and `work_preferences` dropped from the data model — not asked in the new flow.
+- Header nav addition deferred; footer link stays.
 
 ---
 
 ## Success criteria
 
-- `/join-our-team` renders on desktop and mobile with no layout regressions elsewhere.
-- Form validates required fields client-side and server-side; insurance booleans never block submission.
-- Submitting a valid form logs the four-field redacted preview in Netlify function logs and returns `{ ok: true }`.
-- Success card replaces the form on success; error banner shows on failure without clearing inputs.
-- Footer shows the new "Join Our Team" link in the Company column between FAQ and Contact Us.
-- No changes to the Header, homepage, service pages, or the existing `/api/submit-quote` route.
-- Tailwind tokens only — no new CSS, no new config entries.
+- `/join-our-team` renders the landing page (no form).
+- Hero has a visible Apply Now button linking to `/join-our-team/apply`.
+- `/join-our-team/apply` renders the wizard starting at Welcome; Next moves forward, Back returns, progress bar tracks.
+- Contractor path shows insurance questions; Employee path skips them.
+- Experience types step appears only after a Yes to "Have you worked in cleaning before?".
+- Required fields block Next with an inline error; server also rejects an invalid payload on final submit.
+- Successful submit returns `{ ok: true }` with the first/last/email/suburb/application_type redacted log line in Netlify function logs.
+- Success step replaces the wizard on a successful submit.
+- All prior tests (validation, API route) pass with updated fixtures.
+- No changes to the Header. Footer unchanged.
