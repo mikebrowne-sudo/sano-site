@@ -129,7 +129,7 @@ export async function assignJob(jobId: string, contractorId: string) {
   // Look up contractor details
   const { data: contractor } = await supabase
     .from('contractors')
-    .select('full_name, email, insurance_expiry')
+    .select('full_name, email, worker_type, insurance_expiry')
     .eq('id', contractorId)
     .single()
 
@@ -137,13 +137,16 @@ export async function assignJob(jobId: string, contractorId: string) {
     return { error: 'Contractor not found.' }
   }
 
-  // Block assignment if insurance is missing or expired
-  const today = new Date().toISOString().slice(0, 10)
-  if (!contractor.insurance_expiry) {
-    return { error: `Cannot assign — ${contractor.full_name} has no insurance expiry on file. Update the contractor's insurance details first.` }
-  }
-  if (contractor.insurance_expiry < today) {
-    return { error: `Cannot assign — ${contractor.full_name}'s insurance expired on ${contractor.insurance_expiry}. Update the contractor's insurance details first.` }
+  // Block assignment if insurance is missing or expired — contractors only.
+  const isContractor = !contractor.worker_type || contractor.worker_type === 'contractor'
+  if (isContractor) {
+    const today = new Date().toISOString().slice(0, 10)
+    if (!contractor.insurance_expiry) {
+      return { error: `Cannot assign — ${contractor.full_name} has no insurance expiry on file. Update the contractor's insurance details first.` }
+    }
+    if (contractor.insurance_expiry < today) {
+      return { error: `Cannot assign — ${contractor.full_name}'s insurance expired on ${contractor.insurance_expiry}. Update the contractor's insurance details first.` }
+    }
   }
 
   // Load current job to detect contractor change and get job details

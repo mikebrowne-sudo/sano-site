@@ -230,11 +230,13 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
         bank_account_number: bankAccountNumber.trim() || undefined,
         payment_terms_days: toInt(paymentTermsDays),
       } : {}),
-      // Shared: insurance
-      insurance_provider: insuranceProvider.trim() || undefined,
-      insurance_policy_number: insurancePolicyNumber.trim() || undefined,
-      insurance_expiry: insuranceExpiry || undefined,
-      insurance_liability_cover: toNum(insuranceLiabilityCover),
+      // Insurance — contractor only (employees: omit so existing data is preserved on edit)
+      ...(!isEmployee ? {
+        insurance_provider: insuranceProvider.trim() || undefined,
+        insurance_policy_number: insurancePolicyNumber.trim() || undefined,
+        insurance_expiry: insuranceExpiry || undefined,
+        insurance_liability_cover: toNum(insuranceLiabilityCover),
+      } : {}),
       // Shared: compliance
       contract_signed_date: contractSignedDate || undefined,
       right_to_work_required: rightToWorkRequired,
@@ -448,18 +450,20 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
 
       {/* ══════ SHARED SECTIONS ══════ */}
 
-      {/* Insurance (shared) */}
-      <Section title="Insurance">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Provider" value={insuranceProvider} onChange={setInsuranceProvider} placeholder="e.g. NZI" />
-          <Field label="Policy number" value={insurancePolicyNumber} onChange={setInsurancePolicyNumber} placeholder="e.g. PL-1234567" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-          <Field label="Expiry date" type="date" value={insuranceExpiry} onChange={setInsuranceExpiry} />
-          <Field label="Public liability cover ($)" type="number" step="1000" min="0" value={insuranceLiabilityCover} onChange={setInsuranceLiabilityCover} placeholder="e.g. 2000000" />
-        </div>
-        <p className="text-xs text-sage-500 mt-3">Upload the insurance certificate under Documents (type: Insurance) after saving.</p>
-      </Section>
+      {/* Insurance — contractor only */}
+      {!isEmployee && (
+        <Section title="Insurance" badge="Contractor only">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Provider" value={insuranceProvider} onChange={setInsuranceProvider} placeholder="e.g. NZI" />
+            <Field label="Policy number" value={insurancePolicyNumber} onChange={setInsurancePolicyNumber} placeholder="e.g. PL-1234567" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+            <Field label="Expiry date" type="date" value={insuranceExpiry} onChange={setInsuranceExpiry} />
+            <Field label="Public liability cover ($)" type="number" step="1000" min="0" value={insuranceLiabilityCover} onChange={setInsuranceLiabilityCover} placeholder="e.g. 2000000" />
+          </div>
+          <p className="text-xs text-sage-500 mt-3">Upload the insurance certificate under Documents (type: Insurance) after saving.</p>
+        </Section>
+      )}
 
       {/* Compliance (shared) */}
       <Section title="Compliance">

@@ -252,8 +252,8 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
           </Section>
         )}
 
-        {/* Insurance */}
-        {(contractor.insurance_provider || contractor.insurance_policy_number || contractor.insurance_expiry || contractor.insurance_liability_cover) && (() => {
+        {/* Insurance — contractor only (data preserved for other worker types but hidden) */}
+        {workerType === 'contractor' && (contractor.insurance_provider || contractor.insurance_policy_number || contractor.insurance_expiry || contractor.insurance_liability_cover) && (() => {
           const today = new Date().toISOString().slice(0, 10)
           const expiry = contractor.insurance_expiry as string | null
           const isExpired = expiry != null && expiry < today

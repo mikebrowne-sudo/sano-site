@@ -2,6 +2,7 @@ export type ComplianceStatus = 'compliant' | 'expiring_soon' | 'missing' | 'expi
 
 export interface ComplianceInput {
   status?: string | null
+  worker_type?: string | null
   insurance_expiry?: string | null
   right_to_work_required?: boolean | null
   right_to_work_expiry?: string | null
@@ -31,16 +32,19 @@ export function computeComplianceStatus(c: ComplianceInput, todayIso?: string): 
   let anyExpiringSoon = false
   let anyMissing = false
 
-  // Insurance (always required before assignment)
-  if (!c.insurance_expiry) {
-    anyMissing = true
-    reasons.push('Insurance expiry not on file')
-  } else if (c.insurance_expiry < today) {
-    anyExpired = true
-    reasons.push(`Insurance expired on ${c.insurance_expiry}`)
-  } else if (daysUntil(c.insurance_expiry, today) <= EXPIRY_SOON_DAYS) {
-    anyExpiringSoon = true
-    reasons.push(`Insurance expires in ${daysUntil(c.insurance_expiry, today)} days`)
+  // Insurance — required only for contractors (employees are covered by Sano)
+  const isContractor = !c.worker_type || c.worker_type === 'contractor'
+  if (isContractor) {
+    if (!c.insurance_expiry) {
+      anyMissing = true
+      reasons.push('Insurance expiry not on file')
+    } else if (c.insurance_expiry < today) {
+      anyExpired = true
+      reasons.push(`Insurance expired on ${c.insurance_expiry}`)
+    } else if (daysUntil(c.insurance_expiry, today) <= EXPIRY_SOON_DAYS) {
+      anyExpiringSoon = true
+      reasons.push(`Insurance expires in ${daysUntil(c.insurance_expiry, today)} days`)
+    }
   }
 
   // Right-to-work (only if required)

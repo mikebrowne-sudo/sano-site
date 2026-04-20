@@ -65,7 +65,7 @@ export default async function AlertsPage() {
       .lt('due_date', today),
     // Active contractors for compliance check
     supabase.from('contractors')
-      .select('id, full_name, status, insurance_expiry, right_to_work_required, right_to_work_expiry, contract_signed_date')
+      .select('id, full_name, status, worker_type, insurance_expiry, right_to_work_required, right_to_work_expiry, contract_signed_date')
       .eq('status', 'active')
       .order('full_name'),
   ])

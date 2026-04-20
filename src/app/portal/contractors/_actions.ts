@@ -102,6 +102,19 @@ function validateGst(input: ContractorInput): string | null {
   return null
 }
 
+// Insurance is captured only for contractors. For employees we omit the columns
+// from the write payload so existing data is preserved (not wiped) on edit.
+function insuranceFields(input: ContractorInput) {
+  const isContractor = !input.worker_type || input.worker_type === 'contractor'
+  if (!isContractor) return {}
+  return {
+    insurance_provider: input.insurance_provider?.trim() || null,
+    insurance_policy_number: input.insurance_policy_number?.trim() || null,
+    insurance_expiry: input.insurance_expiry || null,
+    insurance_liability_cover: input.insurance_liability_cover ?? null,
+  }
+}
+
 export async function createContractor(input: ContractorInput) {
   const supabase = createClient()
 
@@ -122,11 +135,6 @@ export async function createContractor(input: ContractorInput) {
       status: input.status || 'active',
       worker_type: input.worker_type || 'contractor',
       notes: input.notes?.trim() || null,
-      // Insurance
-      insurance_provider: input.insurance_provider?.trim() || null,
-      insurance_policy_number: input.insurance_policy_number?.trim() || null,
-      insurance_expiry: input.insurance_expiry || null,
-      insurance_liability_cover: input.insurance_liability_cover ?? null,
       // Business identity (contractor)
       company_name: input.company_name?.trim() || null,
       business_structure: input.business_structure || null,
@@ -159,6 +167,7 @@ export async function createContractor(input: ContractorInput) {
       // Portal access (Phase 2)
       invite_sent_at: input.invite_sent_at || null,
       portal_access_active: input.portal_access_active ?? false,
+      ...insuranceFields(input),
       ...payrollFields(input),
     })
     .select('id')
@@ -191,11 +200,6 @@ export async function updateContractor(id: string, input: ContractorInput) {
       status: input.status || 'active',
       worker_type: input.worker_type || 'contractor',
       notes: input.notes?.trim() || null,
-      // Insurance
-      insurance_provider: input.insurance_provider?.trim() || null,
-      insurance_policy_number: input.insurance_policy_number?.trim() || null,
-      insurance_expiry: input.insurance_expiry || null,
-      insurance_liability_cover: input.insurance_liability_cover ?? null,
       // Business identity (contractor)
       company_name: input.company_name?.trim() || null,
       business_structure: input.business_structure || null,
@@ -228,6 +232,7 @@ export async function updateContractor(id: string, input: ContractorInput) {
       // Portal access (Phase 2)
       invite_sent_at: input.invite_sent_at || null,
       portal_access_active: input.portal_access_active ?? false,
+      ...insuranceFields(input),
       ...payrollFields(input),
     })
     .eq('id', id)

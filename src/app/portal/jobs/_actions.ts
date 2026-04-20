@@ -5,17 +5,20 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { notifyContractorAssigned } from '@/lib/notify-contractor'
 
-// Returns an error message if the contractor's insurance is missing or expired; null otherwise.
+// Returns an error message if the worker's insurance is missing or expired; null otherwise.
+// Insurance is only required for contractors — employees (casual/part_time/full_time) are skipped.
 async function checkContractorInsurance(
   supabase: ReturnType<typeof createClient>,
   contractorId: string,
 ): Promise<string | null> {
   const { data } = await supabase
     .from('contractors')
-    .select('full_name, insurance_expiry')
+    .select('full_name, worker_type, insurance_expiry')
     .eq('id', contractorId)
     .single()
   if (!data) return 'Contractor not found.'
+  const isContractor = !data.worker_type || data.worker_type === 'contractor'
+  if (!isContractor) return null
   const today = new Date().toISOString().slice(0, 10)
   if (!data.insurance_expiry) {
     return `Cannot assign — ${data.full_name} has no insurance expiry on file. Update the contractor's insurance details first.`
