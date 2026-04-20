@@ -1,5 +1,6 @@
 import type {
   CommercialInputs,
+  ExtrasBreakdown,
   PricingMode,
   PricingView,
   PropertyType,
@@ -73,4 +74,62 @@ export function buildCommercialDescription(
   return `Commercial cleaning for a ${property}${fixtures}, serviced ${cadence}`
 }
 
-// buildQuoteItemsFromCalc will be added in a later task.
+export interface CommercialCalculationRow {
+  id: string
+  inputs: CommercialInputs
+  total_per_clean: number
+  monthly_value: number
+  extras_breakdown: ExtrasBreakdown
+  selected_pricing_view: PricingView | null
+}
+
+export interface QuoteLineItem {
+  label: string
+  price: number
+  sort_order: number
+}
+
+export function buildQuoteItemsFromCalc(calc: CommercialCalculationRow): QuoteLineItem[] {
+  const items: QuoteLineItem[] = []
+
+  const view: PricingView = calc.selected_pricing_view ?? 'per_clean'
+  const corePrice = view === 'monthly' ? calc.monthly_value : calc.total_per_clean
+
+  items.push({
+    label: 'Commercial cleaning — recurring service',
+    price: corePrice,
+    sort_order: 0,
+  })
+
+  let order = 1
+  if (calc.extras_breakdown.windows > 0) {
+    items.push({
+      label: `Window cleaning — ${calc.inputs.windows ?? 0} windows (one-off)`,
+      price: calc.extras_breakdown.windows,
+      sort_order: order++,
+    })
+  }
+  if (calc.extras_breakdown.carpet > 0) {
+    items.push({
+      label: `Carpet cleaning — ${calc.inputs.carpet_clean_m2 ?? 0} m² (one-off)`,
+      price: calc.extras_breakdown.carpet,
+      sort_order: order++,
+    })
+  }
+  if (calc.extras_breakdown.hard_floor > 0) {
+    items.push({
+      label: `Hard floor treatment — ${calc.inputs.hard_floor_m2 ?? 0} m² (one-off)`,
+      price: calc.extras_breakdown.hard_floor,
+      sort_order: order++,
+    })
+  }
+  if (calc.extras_breakdown.deep_clean > 0) {
+    items.push({
+      label: 'Deep clean — additional uplift (one-off)',
+      price: calc.extras_breakdown.deep_clean,
+      sort_order: order++,
+    })
+  }
+
+  return items
+}
