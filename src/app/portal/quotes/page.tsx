@@ -40,6 +40,7 @@ export default async function QuotesPage() {
       date_issued,
       valid_until,
       created_at,
+      service_address,
       clients ( name ),
       quote_items ( price )
     `)
@@ -66,6 +67,7 @@ export default async function QuotesPage() {
       id: q.id,
       quoteNumber: q.quote_number,
       clientName: client?.name ?? 'No client',
+      address: q.service_address ?? null,
       status: q.status ?? 'draft',
       dateIssued: q.date_issued,
       validUntil: q.valid_until,
@@ -107,6 +109,7 @@ export default async function QuotesPage() {
                 <tr className="border-b border-sage-100 text-left text-sage-600">
                   <th className="px-5 py-3 font-semibold">Quote #</th>
                   <th className="px-5 py-3 font-semibold">Client</th>
+                  <th className="px-5 py-3 font-semibold">Address</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
                   <th className="px-5 py-3 font-semibold">Issued</th>
                   <th className="px-5 py-3 font-semibold">Valid until</th>
@@ -118,6 +121,15 @@ export default async function QuotesPage() {
                   <tr key={row.id} className="border-b border-sage-50 last:border-0 group">
                     <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors font-medium text-sage-800">{row.quoteNumber}</Link></td>
                     <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-700">{row.clientName}</Link></td>
+                    <td className="p-0">
+                      <Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">
+                        {row.address ? (
+                          <span className="block max-w-[180px] truncate" title={row.address}>{row.address}</span>
+                        ) : (
+                          <span className="text-sage-400">—</span>
+                        )}
+                      </Link>
+                    </td>
                     <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors"><span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', STATUS_STYLES[row.status] ?? STATUS_STYLES.draft)}>{row.status}</span></Link></td>
                     <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{formatDate(row.dateIssued)}</Link></td>
                     <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{formatDate(row.validUntil)}</Link></td>
@@ -139,6 +151,9 @@ export default async function QuotesPage() {
                   </span>
                 </div>
                 <div className="text-sage-600 text-sm">{row.clientName}</div>
+                {row.address && (
+                  <div className="text-sage-500 text-xs truncate">{row.address}</div>
+                )}
                 <div className="flex items-center justify-between mt-2 text-xs text-sage-500">
                   <span>{formatDate(row.dateIssued)}</span>
                   <span className="font-medium text-sage-800 text-sm">{formatCurrency(row.total)}</span>
