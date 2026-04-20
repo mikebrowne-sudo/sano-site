@@ -125,7 +125,13 @@ export function ApplicationWizard() {
         </AnimatePresence>
 
         {currentStep.type !== 'success' && currentStep.type !== 'review' && currentStep.type !== 'welcome' && (
-          <WizardNav onNext={goNext} onBack={goBack} isFirst={isFirst} isLast={isLast} />
+          <WizardNav
+            onNext={goNext}
+            onBack={goBack}
+            isFirst={isFirst}
+            isLast={isLast}
+            nextLabel={currentStep.type === 'info' ? currentStep.nextLabel : undefined}
+          />
         )}
       </div>
     </div>

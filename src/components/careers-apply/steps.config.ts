@@ -2,7 +2,7 @@ import type { ApplicationFormData } from '@/types/application'
 
 export type StepDef =
   | { id: string; type: 'welcome' }
-  | { id: string; type: 'info'; title?: string | ((d: ApplicationFormData) => string); body: string | ((d: ApplicationFormData) => string); visible?: (d: ApplicationFormData) => boolean }
+  | { id: string; type: 'info'; title?: string | ((d: ApplicationFormData) => string); body: string | ((d: ApplicationFormData) => string); nextLabel?: string; visible?: (d: ApplicationFormData) => boolean }
   | { id: string; type: 'text'; field: 'first_name' | 'last_name' | 'phone' | 'email' | 'suburb' | 'preferred_hours' | 'travel_areas'; question: string; inputType?: 'text' | 'tel' | 'email'; placeholder?: string; required?: boolean; visible?: (d: ApplicationFormData) => boolean }
   | { id: string; type: 'textarea'; field: 'experience_notes' | 'why_join_sano'; question: string; placeholder?: string; helper?: string; visible?: (d: ApplicationFormData) => boolean }
   | { id: string; type: 'date'; field: 'date_of_birth'; question: string; helper?: string; visible?: (d: ApplicationFormData) => boolean }
@@ -48,7 +48,8 @@ export const STEPS: StepDef[] = [
 
   { id: 'hello', type: 'info',
     title: (d) => `Nice to meet you, ${d.first_name.trim() || 'there'}.`,
-    body: 'Next, a few quick questions to understand how you prefer to work.',
+    body: 'Thanks for taking the time to apply.\n\nHere\u2019s what working with Sano can look like.\n\nYou\u2019ll usually be looking after a small group of regular cleaning jobs, so consistency and reliability really matter. We aim to keep scheduling flexible and match work to the hours that suit you where possible.\n\nA lot of our team prefer work that fits around family or school hours, but we also have early starts and evening jobs available depending on the role.\n\nIf that sounds like a good fit, we\u2019ll ask a few quick questions to learn more about your experience and how you like to work.',
+    nextLabel: 'Continue',
   },
 
   { id: 'phone', type: 'text', field: 'phone', inputType: 'tel', question: "What's the best number to reach you on?", required: true },
@@ -81,7 +82,8 @@ export const STEPS: StepDef[] = [
   },
 
   { id: 'values', type: 'info',
-    body: 'We\u2019re looking for people who are reliable, detail-focused, and take pride in their work.',
+    title: 'Here\u2019s the kind of person we\u2019re looking for',
+    body: 'You take pride in your work and notice the small details others might miss.\n\nYou\u2019re reliable, organised, and people can count on you to show up and do a great job.\n\nYou\u2019re respectful, friendly, and like helping people keep their homes or workplaces clean and comfortable.\n\nYou\u2019re comfortable working on your own, but also happy to be part of a team when needed.\n\nIf that sounds like you, you\u2019ll fit in well here.',
   },
 
   { id: 'has_equipment', type: 'yesno', field: 'has_equipment',
