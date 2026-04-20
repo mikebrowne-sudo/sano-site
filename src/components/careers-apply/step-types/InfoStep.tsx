@@ -11,11 +11,16 @@ interface InfoStepProps {
 export function InfoStep({ data, title, body }: InfoStepProps) {
   const resolvedTitle = typeof title === 'function' ? title(data) : title
   const resolvedBody = typeof body === 'function' ? body(data) : body
+  const paragraphs = resolvedBody.split('\n\n').filter((p) => p.trim().length > 0)
 
   return (
     <div className="text-center">
       {resolvedTitle && <h2 className="mb-6">{resolvedTitle}</h2>}
-      <p className="body-text max-w-lg mx-auto">{resolvedBody}</p>
+      <div className="max-w-lg mx-auto space-y-4">
+        {paragraphs.map((paragraph, i) => (
+          <p key={i} className="body-text">{paragraph}</p>
+        ))}
+      </div>
     </div>
   )
 }
