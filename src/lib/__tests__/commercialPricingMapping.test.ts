@@ -77,3 +77,77 @@ describe('buildCommercialDescription', () => {
     expect(buildCommercialDescription(descInputs({ bathrooms: 0, kitchens: 1 }), 'per_clean')).toContain('with 1 kitchen')
   })
 })
+
+import { buildQuoteItemsFromCalc, type CommercialCalculationRow } from '../commercialPricingMapping'
+
+function calcRow(over: Partial<CommercialCalculationRow> = {}): CommercialCalculationRow {
+  return {
+    id: 'calc-1',
+    total_per_clean: 498,
+    monthly_value: 4313.16,
+    extras_breakdown: { windows: 0, carpet: 0, hard_floor: 0, deep_clean: 0 },
+    selected_pricing_view: 'per_clean',
+    inputs: {
+      property_type: 'office',
+      office_m2: 500, warehouse_m2: 0, retail_m2: 0, medical_m2: 0,
+      location_type: 'suburban',
+      bathrooms: 2, kitchens: 1,
+      windows: 0, desks: 0, bins: 0,
+      frequency_type: 'weekly', visits_per_period: 2,
+      traffic_level: 'medium', fitout_level: 'standard', access_difficulty: 'easy',
+      carpet_clean_m2: 0, hard_floor_m2: 0, deep_clean: false,
+      pricing_mode: 'make_money',
+    },
+    ...over,
+  }
+}
+
+describe('buildQuoteItemsFromCalc', () => {
+  it('returns only the core line when no extras', () => {
+    const items = buildQuoteItemsFromCalc(calcRow())
+    expect(items).toHaveLength(1)
+    expect(items[0]).toEqual({
+      label: 'Commercial cleaning — recurring service',
+      price: 498,
+      sort_order: 0,
+    })
+  })
+
+  it('uses monthly_value when selected_pricing_view is monthly', () => {
+    const items = buildQuoteItemsFromCalc(calcRow({ selected_pricing_view: 'monthly' }))
+    expect(items[0].price).toBe(4313.16)
+  })
+
+  it('adds extra rows for each non-zero extra with labels matching the spec', () => {
+    const items = buildQuoteItemsFromCalc(calcRow({
+      extras_breakdown: { windows: 80, carpet: 200, hard_floor: 150, deep_clean: 200 },
+      inputs: {
+        ...calcRow().inputs,
+        windows: 10,
+        carpet_clean_m2: 50,
+        hard_floor_m2: 30,
+        deep_clean: true,
+      },
+    }))
+    expect(items).toHaveLength(5)
+    expect(items[0]).toMatchObject({ label: 'Commercial cleaning — recurring service', sort_order: 0 })
+    expect(items[1]).toEqual({ label: 'Window cleaning — 10 windows (one-off)', price: 80,  sort_order: 1 })
+    expect(items[2]).toEqual({ label: 'Carpet cleaning — 50 m² (one-off)',       price: 200, sort_order: 2 })
+    expect(items[3]).toEqual({ label: 'Hard floor treatment — 30 m² (one-off)',  price: 150, sort_order: 3 })
+    expect(items[4]).toEqual({ label: 'Deep clean — additional uplift (one-off)',price: 200, sort_order: 4 })
+  })
+
+  it('omits extras whose breakdown is 0 even if input was set', () => {
+    const items = buildQuoteItemsFromCalc(calcRow({
+      extras_breakdown: { windows: 80, carpet: 0, hard_floor: 0, deep_clean: 0 },
+      inputs: { ...calcRow().inputs, windows: 10 },
+    }))
+    expect(items).toHaveLength(2)
+    expect(items[1].label).toBe('Window cleaning — 10 windows (one-off)')
+  })
+
+  it('defaults to per_clean when selected_pricing_view is null', () => {
+    const items = buildQuoteItemsFromCalc(calcRow({ selected_pricing_view: null }))
+    expect(items[0].price).toBe(498)
+  })
+})
