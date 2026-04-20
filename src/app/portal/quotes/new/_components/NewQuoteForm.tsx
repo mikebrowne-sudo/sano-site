@@ -183,7 +183,7 @@ export function NewQuoteForm({
         service_category: 'commercial',
         service_type_code: 'maintenance',
         description_edited: true,
-        generated_scope: buildCommercialDescription(calc.inputs, view),
+        generated_scope: buildCommercialDescription(calc.inputs),
       }))
       setPricing((prev) => ({ ...prev, pricing_mode: mapPricingMode(calc.pricing_mode) }))
       setBasePrice(String(corePrice))

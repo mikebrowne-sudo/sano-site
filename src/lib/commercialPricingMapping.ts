@@ -64,10 +64,7 @@ function frequencyPhrase(input: CommercialInputs): string {
   return `${v} times per month`
 }
 
-export function buildCommercialDescription(
-  input: CommercialInputs,
-  _view: PricingView,
-): string {
+export function buildCommercialDescription(input: CommercialInputs): string {
   const property = propertyPhrase(input)
   const fixtures = fixturePhrase(input.bathrooms, input.kitchens)
   const cadence  = frequencyPhrase(input)
