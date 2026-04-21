@@ -71,16 +71,49 @@ export async function updateQuote(input: UpdateQuoteInput) {
   })
   if (overrideErr) return { error: overrideErr }
 
-  // Load existing override audit fields so we can preserve them when the
-  // override is unchanged (or stamp them when it transitions from off to on).
-  const { data: existing, error: existingErr } = await supabase
-    .from('quotes')
-    .select('is_price_overridden, override_confirmed_by, override_confirmed_at')
-    .eq('id', input.id)
-    .single()
+  // Load the FULL existing quote row + items so we can:
+  //   (a) preserve override audit stamps where appropriate
+  //   (b) snapshot the pre-update state into quote_versions
+  //   (c) read the current `version` to bump it
+  // One round-trip per table; both are tiny payloads.
+  const [
+    { data: existing, error: existingErr },
+    { data: existingItems },
+  ] = await Promise.all([
+    supabase
+      .from('quotes')
+      .select('*')
+      .eq('id', input.id)
+      .single(),
+    supabase
+      .from('quote_items')
+      .select('*')
+      .eq('quote_id', input.id)
+      .order('sort_order'),
+  ])
 
   if (existingErr || !existing) {
     return { error: `Quote not found or could not be loaded: ${existingErr?.message ?? 'missing row'}` }
+  }
+
+  // Snapshot the pre-update state into quote_versions BEFORE we mutate
+  // anything. Snapshot stores the OLD version number so a reader can
+  // reconstruct exactly what v(N) looked like by selecting the row with
+  // version=N. We always snapshot — even no-op saves create a snapshot
+  // — to keep behaviour predictable. Diff-detection is intentionally
+  // not implemented here; can be added later if quote_versions bloats.
+  const currentVersion: number = (existing.version as number | null) ?? 1
+  const { error: snapshotErr } = await supabase
+    .from('quote_versions')
+    .insert({
+      quote_id: input.id,
+      version: currentVersion,
+      snapshot: { quote: existing, quote_items: existingItems ?? [] },
+    })
+  if (snapshotErr) {
+    // Don't proceed with the update if we can't preserve the previous
+    // state — silently overwriting would defeat the purpose of versioning.
+    return { error: `Failed to snapshot previous version: ${snapshotErr.message}` }
   }
 
   const wasOverridden = existing?.is_price_overridden ?? false
@@ -143,6 +176,11 @@ export async function updateQuote(input: UpdateQuoteInput) {
       discount: input.discount,
       gst_included: input.gst_included,
       payment_type: input.payment_type || 'cash_sale',
+      // Bump version + version timestamp. Snapshot of the old version is
+      // already in quote_versions (inserted above), so this row now
+      // represents v(N+1) and the previous v(N) is preserved.
+      version: currentVersion + 1,
+      version_created_at: new Date().toISOString(),
     })
     .eq('id', input.id)
 

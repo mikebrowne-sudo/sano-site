@@ -61,6 +61,8 @@ export default async function EditQuotePage({ params }: { params: { id: string }
       created_at,
       updated_at,
       sent_at,
+      version,
+      version_created_at,
       pricing_mode,
       estimated_hours,
       pricing_breakdown,
@@ -118,10 +120,12 @@ export default async function EditQuotePage({ params }: { params: { id: string }
       </Link>
 
       <div className="flex items-baseline gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-sage-800">Edit quote</h1>
+        <h1 className="text-2xl font-bold text-sage-800">
+          Editing Quote v{(quote.version as number | null) ?? 1}
+        </h1>
         <span className="text-sm text-sage-500 font-medium">{quote.quote_number}</span>
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-sage-100 text-sage-700 text-xs font-semibold uppercase tracking-wide">
-          Editing
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold uppercase tracking-wide">
+          Saving creates v{((quote.version as number | null) ?? 1) + 1}
         </span>
       </div>
 

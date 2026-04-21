@@ -55,6 +55,8 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       created_at,
       updated_at,
       sent_at,
+      version,
+      version_created_at,
       pricing_mode,
       estimated_hours,
       pricing_breakdown,
@@ -121,7 +123,15 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
 
       <div className="flex items-center justify-between mb-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold text-sage-800">{quote.quote_number}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-sage-800">{quote.quote_number}</h1>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-sage-100 text-sage-700 text-xs font-semibold uppercase tracking-wide">
+              v{(quote.version as number | null) ?? 1}
+            </span>
+            {((quote.version as number | null) ?? 1) > 1 && (
+              <span className="text-xs text-sage-500">· This quote has been revised</span>
+            )}
+          </div>
           <QuoteAuditLine
             updatedAt={(quote.updated_at as string | null) ?? null}
             sentAt={(quote.sent_at as string | null) ?? null}
