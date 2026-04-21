@@ -2,9 +2,10 @@ import type { ApplicationFormData } from '@/types/application'
 
 export type StepDef =
   | { id: string; type: 'welcome' }
-  | { id: string; type: 'info'; title?: string | ((d: ApplicationFormData) => string); body: string | ((d: ApplicationFormData) => string); visible?: (d: ApplicationFormData) => boolean }
+  | { id: string; type: 'info'; title?: string | ((d: ApplicationFormData) => string); body: string | ((d: ApplicationFormData) => string); nextLabel?: string; visible?: (d: ApplicationFormData) => boolean }
   | { id: string; type: 'text'; field: 'first_name' | 'last_name' | 'phone' | 'email' | 'suburb' | 'preferred_hours' | 'travel_areas'; question: string; inputType?: 'text' | 'tel' | 'email'; placeholder?: string; required?: boolean; visible?: (d: ApplicationFormData) => boolean }
   | { id: string; type: 'textarea'; field: 'experience_notes' | 'why_join_sano'; question: string; placeholder?: string; helper?: string; visible?: (d: ApplicationFormData) => boolean }
+  | { id: string; type: 'date'; field: 'date_of_birth'; question: string; helper?: string; visible?: (d: ApplicationFormData) => boolean }
   | { id: string; type: 'yesno'; field: 'has_license' | 'has_vehicle' | 'can_travel' | 'has_experience' | 'has_equipment' | 'independent_work' | 'work_rights_nz' | 'has_insurance' | 'willing_to_get_insurance'; question: string | ((d: ApplicationFormData) => string); required?: boolean; visible?: (d: ApplicationFormData) => boolean }
   | { id: string; type: 'chip-single'; field: 'application_type'; question: string; options: { value: string; label: string }[]; required?: boolean; visible?: (d: ApplicationFormData) => boolean }
   | { id: string; type: 'chip-multi'; field: 'experience_types' | 'available_days'; question: string; helper?: string; options: { value: string; label: string }[]; minSelected?: number; visible?: (d: ApplicationFormData) => boolean }
@@ -40,9 +41,15 @@ export const STEPS: StepDef[] = [
   { id: 'first_name', type: 'text', field: 'first_name', question: "What's your first name?", required: true },
   { id: 'last_name', type: 'text', field: 'last_name', question: 'And your surname?', required: true },
 
+  { id: 'date_of_birth', type: 'date', field: 'date_of_birth',
+    question: 'What\u2019s your date of birth? (optional)',
+    helper: 'This helps us understand availability and compliance. You can skip this if you prefer.',
+  },
+
   { id: 'hello', type: 'info',
     title: (d) => `Nice to meet you, ${d.first_name.trim() || 'there'}.`,
-    body: 'Next, a few quick questions to understand how you prefer to work.',
+    body: 'Thanks for taking the time to apply.\n\nHere\u2019s a quick look at how things work at Sano.\n\nThe work can vary \u2014 from one-off jobs like end of tenancy and deep cleans, through to regular residential and commercial work.\n\nWe\u2019re flexible with how things are structured. Some people prefer regular ongoing work, while others like picking up one-off jobs. We try to match the work to what suits you.\n\nThat said, being reliable and doing a great job matters to us, no matter the type of work.\n\nSound like something that could work for you?',
+    nextLabel: 'Continue',
   },
 
   { id: 'phone', type: 'text', field: 'phone', inputType: 'tel', question: "What's the best number to reach you on?", required: true },
@@ -75,7 +82,7 @@ export const STEPS: StepDef[] = [
   },
 
   { id: 'values', type: 'info',
-    body: 'We\u2019re looking for people who are reliable, detail-focused, and take pride in their work.',
+    body: 'Awesome.\n\nHere\u2019s the kind of person who tends to do well with us.\n\nYou\u2019ve got a good eye for detail and take pride in your work.\n\nYou\u2019re reliable and show up when you say you will.\n\nYou\u2019re easy to deal with, respectful, and communicate well.\n\nYou\u2019re comfortable working on your own, but also happy to be part of a team when needed.\n\nYou\u2019re adaptable.\n\nEvery job can be a little different.\n\nIf that sounds like you, you\u2019ll fit in well here.',
   },
 
   { id: 'has_equipment', type: 'yesno', field: 'has_equipment',

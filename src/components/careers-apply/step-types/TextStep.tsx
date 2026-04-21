@@ -1,6 +1,9 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { motion } from 'framer-motion'
+import { containerVariants, itemVariants } from '../motion'
+import { OkButton } from '../OkButton'
 
 interface TextStepProps {
   id: string
@@ -27,11 +30,12 @@ export function TextStep({ id, question, value, onChange, onNext, inputType = 't
   const inputId = `step-${id}`
 
   return (
-    <div>
-      <label htmlFor={inputId} className="block text-2xl sm:text-3xl font-semibold text-sage-800 mb-6 leading-tight">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible">
+      <motion.label variants={itemVariants} htmlFor={inputId} className="block text-2xl sm:text-3xl font-serif text-sage-800 mb-6 leading-tight">
         {question}
-      </label>
-      <input
+      </motion.label>
+      <motion.input
+        variants={itemVariants}
         ref={inputRef}
         id={inputId}
         type={inputType}
@@ -44,11 +48,14 @@ export function TextStep({ id, question, value, onChange, onNext, inputType = 't
           inputType === 'tel' ? 'tel' :
           'off'
         }
-        className={`w-full rounded-xl border px-4 py-4 text-lg bg-sage-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-sage-300 ${
+        className={`w-full rounded-xl border px-4 py-4 text-lg bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-sage-300 ${
           error ? 'border-red-300' : 'border-sage-100'
         }`}
       />
-      {error && <p className="mt-2 text-sm text-red-500" role="alert">{error}</p>}
-    </div>
+      {error && <motion.p variants={itemVariants} className="mt-2 text-sm text-red-500" role="alert">{error}</motion.p>}
+      <motion.div variants={itemVariants} className="mt-6">
+        <OkButton onClick={onNext} />
+      </motion.div>
+    </motion.div>
   )
 }

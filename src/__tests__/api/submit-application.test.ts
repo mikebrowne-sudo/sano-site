@@ -20,6 +20,7 @@ function validBody(): JobApplicationPayload {
     phone: '021 000 0000',
     email: 'jane@example.com',
     suburb: 'Mount Eden',
+    date_of_birth: null,
     application_type: 'contractor',
     has_license: true,
     has_vehicle: true,

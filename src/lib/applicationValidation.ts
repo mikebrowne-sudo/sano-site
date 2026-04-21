@@ -9,6 +9,7 @@ export function createEmptyApplicationForm(): ApplicationFormData {
     phone: '',
     email: '',
     suburb: '',
+    date_of_birth: null,
     application_type: '',
     has_license: null,
     has_vehicle: null,

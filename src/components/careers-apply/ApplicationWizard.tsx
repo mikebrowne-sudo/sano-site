@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import type { ApplicationFormData, JobApplicationPayload } from '@/types/application'
 import { createEmptyApplicationForm, validateApplication } from '@/lib/applicationValidation'
 import { stepValidators, type StepField } from '@/lib/applicationStepValidation'
@@ -12,6 +12,7 @@ import { WelcomeStep } from './step-types/WelcomeStep'
 import { InfoStep } from './step-types/InfoStep'
 import { TextStep } from './step-types/TextStep'
 import { TextareaStep } from './step-types/TextareaStep'
+import { DateStep } from './step-types/DateStep'
 import { YesNoStep } from './step-types/YesNoStep'
 import { ChipSingleStep } from './step-types/ChipSingleStep'
 import { ChipMultiStep } from './step-types/ChipMultiStep'
@@ -103,31 +104,39 @@ export function ApplicationWizard() {
   const reviewStatus: 'idle' | 'submitting' | 'error' = status === 'submitting' ? 'submitting' : status === 'error' ? 'error' : 'idle'
 
   return (
-    <div className="min-h-[600px] flex flex-col">
-      {currentStep.type !== 'success' && (
-        <div className="mb-10 max-w-2xl mx-auto w-full">
-          <WizardProgress current={stepIndex} total={total} />
-        </div>
-      )}
-
-      <div className="flex-1 max-w-2xl mx-auto w-full">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentStep.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-          >
-            {renderStep(currentStep, form, update, goNext, submit, reviewStatus, errorMessage, err)}
-          </motion.div>
-        </AnimatePresence>
-
-        {currentStep.type !== 'success' && currentStep.type !== 'review' && currentStep.type !== 'welcome' && (
-          <WizardNav onNext={goNext} onBack={goBack} isFirst={isFirst} isLast={isLast} />
+    <MotionConfig reducedMotion="user">
+      <div className="min-h-[600px] flex flex-col">
+        {currentStep.type !== 'success' && (
+          <div className="mb-12 max-w-2xl mx-auto w-full">
+            <WizardProgress current={stepIndex} total={total} />
+          </div>
         )}
+
+        <div className="flex-1 max-w-2xl mx-auto w-full">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentStep.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              {renderStep(currentStep, form, update, goNext, submit, reviewStatus, errorMessage, err)}
+            </motion.div>
+          </AnimatePresence>
+
+          {currentStep.type !== 'success' && currentStep.type !== 'review' && currentStep.type !== 'welcome' && (
+            <WizardNav
+              onNext={goNext}
+              onBack={goBack}
+              isFirst={isFirst}
+              isLast={isLast}
+              nextLabel={currentStep.type === 'info' ? currentStep.nextLabel : undefined}
+            />
+          )}
+        </div>
       </div>
-    </div>
+    </MotionConfig>
   )
 }
 
@@ -166,8 +175,21 @@ function renderStep(
           question={step.question}
           value={String(form[step.field] ?? '')}
           onChange={(v) => update(step.field, v as ApplicationFormData[typeof step.field])}
+          onNext={goNext}
           placeholder={step.placeholder}
           helper={step.helper}
+        />
+      )
+    case 'date':
+      return (
+        <DateStep
+          id={step.id}
+          question={step.question}
+          helper={step.helper}
+          value={form.date_of_birth}
+          onChange={(v) => update('date_of_birth', v)}
+          onNext={goNext}
+          onSkip={() => { update('date_of_birth', null); goNext() }}
         />
       )
     case 'yesno':
@@ -177,6 +199,7 @@ function renderStep(
           question={typeof step.question === 'function' ? step.question(form) : step.question}
           value={form[step.field] as boolean | null}
           onChange={(v) => update(step.field, v as ApplicationFormData[typeof step.field])}
+          onNext={goNext}
           error={err}
         />
       )
@@ -188,6 +211,7 @@ function renderStep(
           options={step.options}
           value={String(form[step.field] ?? '')}
           onChange={(v) => update(step.field, v as ApplicationFormData[typeof step.field])}
+          onNext={goNext}
           error={err}
         />
       )
@@ -200,6 +224,7 @@ function renderStep(
           options={step.options}
           value={(form[step.field] as string[]) ?? []}
           onChange={(v) => update(step.field, v as ApplicationFormData[typeof step.field])}
+          onNext={goNext}
           error={err}
         />
       )
@@ -209,6 +234,7 @@ function renderStep(
           body={step.body}
           checked={form.confirm_truth}
           onChange={(v) => update('confirm_truth', v)}
+          onNext={goNext}
           error={err}
         />
       )

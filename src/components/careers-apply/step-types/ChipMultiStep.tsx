@@ -1,5 +1,9 @@
 'use client'
 
+import { motion } from 'framer-motion'
+import { containerVariants, itemVariants } from '../motion'
+import { OkButton } from '../OkButton'
+
 interface Option { value: string; label: string }
 
 interface ChipMultiStepProps {
@@ -9,20 +13,21 @@ interface ChipMultiStepProps {
   options: Option[]
   value: string[]
   onChange: (v: string[]) => void
+  onNext: () => void
   error?: string | null
 }
 
-export function ChipMultiStep({ id, question, helper, options, value, onChange, error }: ChipMultiStepProps) {
+export function ChipMultiStep({ id, question, helper, options, value, onChange, onNext, error }: ChipMultiStepProps) {
   function toggle(opt: string) {
     if (value.includes(opt)) onChange(value.filter((v) => v !== opt))
     else onChange([...value, opt])
   }
 
   return (
-    <div>
-      <h2 className="mb-3" id={`step-${id}-label`}>{question}</h2>
-      {helper && <p className="text-sm text-gray-500 mb-6">{helper}</p>}
-      <div className="flex flex-wrap gap-2" role="group" aria-labelledby={`step-${id}-label`}>
+    <motion.div variants={containerVariants} initial="hidden" animate="visible">
+      <motion.h2 variants={itemVariants} className="mb-3" id={`step-${id}-label`}>{question}</motion.h2>
+      {helper && <motion.p variants={itemVariants} className="text-sm text-gray-500 mb-6">{helper}</motion.p>}
+      <motion.div variants={itemVariants} className="flex flex-wrap gap-2" role="group" aria-labelledby={`step-${id}-label`}>
         {options.map((opt) => {
           const selected = value.includes(opt.value)
           return (
@@ -39,8 +44,11 @@ export function ChipMultiStep({ id, question, helper, options, value, onChange, 
             </button>
           )
         })}
-      </div>
-      {error && <p className="mt-4 text-sm text-red-500" role="alert">{error}</p>}
-    </div>
+      </motion.div>
+      {error && <motion.p variants={itemVariants} className="mt-4 text-sm text-red-500" role="alert">{error}</motion.p>}
+      <motion.div variants={itemVariants} className="mt-6">
+        <OkButton onClick={onNext} />
+      </motion.div>
+    </motion.div>
   )
 }

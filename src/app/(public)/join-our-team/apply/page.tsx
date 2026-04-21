@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function ApplyPage() {
   return (
-    <section className="section-padding section-y bg-[#faf9f6] min-h-[80vh]">
+    <section className="section-padding section-y bg-white min-h-[80vh]">
       <ApplicationWizard />
     </section>
   )

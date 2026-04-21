@@ -1,6 +1,8 @@
 'use client'
 
+import { motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { buttonInteraction } from './motion'
 
 interface WizardNavProps {
   onNext: () => void
@@ -25,15 +27,17 @@ export function WizardNav({ onNext, onBack, isFirst, isLast, nextLabel, nextDisa
         </button>
       ) : <span />}
       {!isLast && (
-        <button
+        <motion.button
           type="button"
           onClick={onNext}
           disabled={nextDisabled}
+          whileHover={buttonInteraction.whileHover}
+          whileTap={buttonInteraction.whileTap}
           className="inline-flex items-center gap-2 rounded-full bg-sage-800 px-6 py-3 text-sm font-medium text-white hover:bg-sage-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {nextLabel ?? 'Next'}
           <ArrowRight className="w-4 h-4" aria-hidden="true" />
-        </button>
+        </motion.button>
       )}
     </div>
   )

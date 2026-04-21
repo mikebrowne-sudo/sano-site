@@ -1,14 +1,19 @@
 'use client'
 
+import { motion } from 'framer-motion'
+import { containerVariants, itemVariants } from '../motion'
+import { OkButton } from '../OkButton'
+
 interface YesNoStepProps {
   id: string
   question: string
   value: boolean | null
   onChange: (v: boolean) => void
+  onNext: () => void
   error?: string | null
 }
 
-export function YesNoStep({ id, question, value, onChange, error }: YesNoStepProps) {
+export function YesNoStep({ id, question, value, onChange, onNext, error }: YesNoStepProps) {
   const pill = (selected: boolean) =>
     `px-8 py-4 rounded-full border text-base font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-sage-300 ${
       selected
@@ -17,17 +22,20 @@ export function YesNoStep({ id, question, value, onChange, error }: YesNoStepPro
     }`
 
   return (
-    <div>
-      <h2 id={`step-${id}-label`} className="mb-8">{question}</h2>
-      <div role="radiogroup" aria-labelledby={`step-${id}-label`} className="flex gap-4">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible">
+      <motion.h2 variants={itemVariants} id={`step-${id}-label`} className="mb-8">{question}</motion.h2>
+      <motion.div variants={itemVariants} role="radiogroup" aria-labelledby={`step-${id}-label`} className="flex gap-4">
         <button type="button" role="radio" aria-checked={value === true} onClick={() => onChange(true)} className={pill(value === true)}>
           Yes
         </button>
         <button type="button" role="radio" aria-checked={value === false} onClick={() => onChange(false)} className={pill(value === false)}>
           No
         </button>
-      </div>
-      {error && <p className="mt-4 text-sm text-red-500" role="alert">{error}</p>}
-    </div>
+      </motion.div>
+      {error && <motion.p variants={itemVariants} className="mt-4 text-sm text-red-500" role="alert">{error}</motion.p>}
+      <motion.div variants={itemVariants} className="mt-6">
+        <OkButton onClick={onNext} />
+      </motion.div>
+    </motion.div>
   )
 }

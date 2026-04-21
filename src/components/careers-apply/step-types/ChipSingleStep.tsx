@@ -1,5 +1,9 @@
 'use client'
 
+import { motion } from 'framer-motion'
+import { containerVariants, itemVariants } from '../motion'
+import { OkButton } from '../OkButton'
+
 interface Option { value: string; label: string }
 
 interface ChipSingleStepProps {
@@ -8,14 +12,15 @@ interface ChipSingleStepProps {
   options: Option[]
   value: string
   onChange: (v: string) => void
+  onNext: () => void
   error?: string | null
 }
 
-export function ChipSingleStep({ id, question, options, value, onChange, error }: ChipSingleStepProps) {
+export function ChipSingleStep({ id, question, options, value, onChange, onNext, error }: ChipSingleStepProps) {
   return (
-    <div>
-      <h2 id={`step-${id}-label`} className="mb-8">{question}</h2>
-      <div role="radiogroup" aria-labelledby={`step-${id}-label`} className="flex flex-wrap gap-3">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible">
+      <motion.h2 variants={itemVariants} id={`step-${id}-label`} className="mb-8">{question}</motion.h2>
+      <motion.div variants={itemVariants} role="radiogroup" aria-labelledby={`step-${id}-label`} className="flex flex-wrap gap-3">
         {options.map((opt) => {
           const selected = value === opt.value
           return (
@@ -33,8 +38,11 @@ export function ChipSingleStep({ id, question, options, value, onChange, error }
             </button>
           )
         })}
-      </div>
-      {error && <p className="mt-4 text-sm text-red-500" role="alert">{error}</p>}
-    </div>
+      </motion.div>
+      {error && <motion.p variants={itemVariants} className="mt-4 text-sm text-red-500" role="alert">{error}</motion.p>}
+      <motion.div variants={itemVariants} className="mt-6">
+        <OkButton onClick={onNext} />
+      </motion.div>
+    </motion.div>
   )
 }

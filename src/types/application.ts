@@ -21,6 +21,7 @@ export interface ApplicationFormData {
   phone: string
   email: string
   suburb: string
+  date_of_birth: string | null   // ISO YYYY-MM-DD; null if skipped
 
   // Role type
   application_type: ApplicationType | ''
