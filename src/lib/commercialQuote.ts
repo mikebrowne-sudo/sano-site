@@ -305,7 +305,7 @@ export function isMarginTier(v: unknown): v is MarginTier {
 export const WEEKS_PER_MONTH = 4.33
 
 // Default labour cost basis ($/hr) when the operator hasn't set one.
-export const DEFAULT_LABOUR_COST_BASIS = 45
+export const DEFAULT_LABOUR_COST_BASIS = 65
 
 // How many times a given scope frequency repeats per week. `per_visit`
 // is handled specially (multiplied by visits_per_week); `as_required`
