@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { motion } from 'framer-motion'
+import { containerVariants, itemVariants } from '../motion'
 
 interface DateStepProps {
   id: string
@@ -18,12 +20,13 @@ export function DateStep({ id, question, helper, value, onChange, onSkip }: Date
   const inputId = `step-${id}`
 
   return (
-    <div>
-      <label htmlFor={inputId} className="block text-2xl sm:text-3xl font-semibold text-sage-800 mb-4 leading-tight">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible">
+      <motion.label variants={itemVariants} htmlFor={inputId} className="block text-2xl sm:text-3xl font-semibold text-sage-800 mb-4 leading-tight">
         {question}
-      </label>
-      {helper && <p className="text-sm text-gray-500 mb-6">{helper}</p>}
-      <input
+      </motion.label>
+      {helper && <motion.p variants={itemVariants} className="text-sm text-gray-500 mb-6">{helper}</motion.p>}
+      <motion.input
+        variants={itemVariants}
         ref={inputRef}
         id={inputId}
         type="date"
@@ -31,13 +34,14 @@ export function DateStep({ id, question, helper, value, onChange, onSkip }: Date
         onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
         className="w-full rounded-xl border border-sage-100 px-4 py-4 text-lg bg-sage-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-sage-300"
       />
-      <button
+      <motion.button
+        variants={itemVariants}
         type="button"
         onClick={onSkip}
         className="mt-4 text-sm text-sage-600 hover:text-sage-800 underline-offset-2 hover:underline transition-colors"
       >
         Skip this question
-      </button>
-    </div>
+      </motion.button>
+    </motion.div>
   )
 }
