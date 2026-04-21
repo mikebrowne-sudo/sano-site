@@ -16,6 +16,17 @@ import {
   mapPricingMode,
   type CommercialCalculationRow,
 } from '@/lib/commercialPricingMapping'
+import {
+  CommercialDetailsSection,
+  emptyCommercialDetails,
+  toCommercialDetailsInput,
+  type CommercialDetailsFormState,
+} from '../../_components/commercial/CommercialDetailsSection'
+import {
+  CommercialScopeBuilder,
+  toScopeItemsInput,
+  type CommercialScopeFormRow,
+} from '../../_components/commercial/CommercialScopeBuilder'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -110,6 +121,11 @@ export function NewQuoteForm({
 
   // Add-ons
   const [addons, setAddons] = useState<Addon[]>([])
+
+  // Commercial quote engine state — only used when service_category === 'commercial'.
+  const [commercialDetails, setCommercialDetails] = useState<CommercialDetailsFormState>(emptyCommercialDetails)
+  const [commercialScope, setCommercialScope] = useState<CommercialScopeFormRow[]>([])
+  const isCommercial = builder.service_category === 'commercial'
 
   // ── Pricing engine (derived) ─────────────────────────────
   const eligible = isPricingEligible(builder.service_category || null, builder.service_type_code || null)
@@ -344,6 +360,10 @@ export function NewQuoteForm({
         estimated_hours: calc?.estimated_hours ?? engineResult?.estimated_hours ?? undefined,
         pricing_breakdown: eligible ? engineResult?.breakdown ?? undefined : undefined,
         commercial_calc_id: calc?.id ?? null,
+        commercial_details: isCommercial
+          ? toCommercialDetailsInput(commercialDetails) ?? undefined
+          : undefined,
+        commercial_scope: isCommercial ? toScopeItemsInput(commercialScope) : undefined,
         discount: disc,
         gst_included: gstIncluded,
         payment_type: paymentType,
@@ -440,6 +460,22 @@ export function NewQuoteForm({
           <Field label="Scheduled clean date" type="date" value={scheduledCleanDate} onChange={setScheduledCleanDate} />
         </div>
       </Section>
+
+      {/* ── Section 3b: Commercial details + scope (commercial only) ── */}
+      {isCommercial && (
+        <Section title="Commercial details">
+          <div className="space-y-4">
+            <CommercialDetailsSection
+              value={commercialDetails}
+              onChange={setCommercialDetails}
+            />
+            <CommercialScopeBuilder
+              rows={commercialScope}
+              onChange={setCommercialScope}
+            />
+          </div>
+        </Section>
+      )}
 
       {/* ── Section 4: Pricing ──────────────────────── */}
       <Section title="Pricing">

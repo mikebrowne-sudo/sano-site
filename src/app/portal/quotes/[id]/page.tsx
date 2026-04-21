@@ -68,8 +68,15 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
 
   if (error || !quote) notFound()
 
-  // Load quote items, all clients, and current client email in parallel
-  const [{ data: items }, { data: clients }, { data: currentClient }] = await Promise.all([
+  // Load quote items, all clients, current client email, and (for commercial
+  // quotes) the commercial detail row + scope items — all in parallel.
+  const [
+    { data: items },
+    { data: clients },
+    { data: currentClient },
+    { data: commercialDetails },
+    { data: commercialScope },
+  ] = await Promise.all([
     supabase
       .from('quote_items')
       .select('id, label, price, sort_order')
@@ -84,6 +91,16 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       .select('name, phone, email')
       .eq('id', quote.client_id)
       .single(),
+    supabase
+      .from('commercial_quote_details')
+      .select('*')
+      .eq('quote_id', params.id)
+      .maybeSingle(),
+    supabase
+      .from('commercial_scope_items')
+      .select('*')
+      .eq('quote_id', params.id)
+      .order('display_order'),
   ])
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
@@ -138,6 +155,8 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
         quote={quote}
         clients={clients ?? []}
         items={items ?? []}
+        commercialDetails={commercialDetails ?? null}
+        commercialScope={commercialScope ?? []}
       />
     </div>
   )

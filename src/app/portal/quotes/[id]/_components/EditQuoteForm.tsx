@@ -10,6 +10,23 @@ import { validateOverride, type OverrideValidationErrors } from '../../_componen
 import { computeFinalPrice } from '../../new/_components/final-price'
 import { calculateQuotePrice, isPricingEligible, type PricingBreakdown, type PricingMode } from '@/lib/quote-pricing'
 import { SERVICE_TYPES_BY_CATEGORY, type ServiceCategory } from '@/lib/quote-wording'
+import type { CommercialQuoteDetails, CommercialScopeItem } from '@/lib/commercialQuote'
+import {
+  saveCommercialDetails,
+  saveCommercialScope,
+} from '../../_actions-commercial'
+import {
+  CommercialDetailsSection,
+  hydrateCommercialDetails,
+  toCommercialDetailsInput,
+  type CommercialDetailsFormState,
+} from '../../_components/commercial/CommercialDetailsSection'
+import {
+  CommercialScopeBuilder,
+  hydrateScopeRows,
+  toScopeItemsInput,
+  type CommercialScopeFormRow,
+} from '../../_components/commercial/CommercialScopeBuilder'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -115,10 +132,14 @@ export function EditQuoteForm({
   quote,
   clients,
   items,
+  commercialDetails: commercialDetailsRow = null,
+  commercialScope: commercialScopeRows = [],
 }: {
   quote: Quote
   clients: Client[]
   items: QuoteItem[]
+  commercialDetails?: CommercialQuoteDetails | null
+  commercialScope?: CommercialScopeItem[]
 }) {
   // Client
   const [clientId, setClientId] = useState(quote.client_id)
@@ -187,6 +208,16 @@ export function EditQuoteForm({
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((it) => ({ key: it.id, label: it.label, price: String(it.price) })),
   )
+
+  // Commercial quote engine state — hydrated from props; only used when
+  // service_category === 'commercial'.
+  const [commercialDetails, setCommercialDetails] = useState<CommercialDetailsFormState>(
+    () => hydrateCommercialDetails(commercialDetailsRow),
+  )
+  const [commercialScope, setCommercialScope] = useState<CommercialScopeFormRow[]>(
+    () => hydrateScopeRows(commercialScopeRows),
+  )
+  const isCommercial = builder.service_category === 'commercial'
 
   // ── Pricing engine (derived) ─────────────────────────────
   const eligible = isPricingEligible(builder.service_category || null, builder.service_type_code || null)
@@ -347,10 +378,31 @@ export function EditQuoteForm({
 
       if (result?.error) {
         setError(result.error)
-      } else {
-        setSaved(true)
-        setTimeout(() => setSaved(false), 3000)
+        return
       }
+
+      // Commercial saves — only when this is a commercial quote. Runs after
+      // the quote row update succeeded. Failures surface as an inline error
+      // but do not roll back the quote update itself.
+      if (isCommercial && !isLocked) {
+        const detailsInput = toCommercialDetailsInput(commercialDetails)
+        if (detailsInput) {
+          const detailsResult = await saveCommercialDetails(quote.id, detailsInput)
+          if ('error' in detailsResult) {
+            setError(`Quote saved but commercial details failed: ${detailsResult.error}`)
+            return
+          }
+        }
+        const scopeInput = toScopeItemsInput(commercialScope)
+        const scopeResult = await saveCommercialScope(quote.id, scopeInput)
+        if ('error' in scopeResult) {
+          setError(`Quote saved but commercial scope failed: ${scopeResult.error}`)
+          return
+        }
+      }
+
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
     })
   }
 
@@ -431,6 +483,24 @@ export function EditQuoteForm({
         </div>
         <TextArea label="Notes" value={notes} onChange={setNotes} className="mt-4" />
       </Section>
+
+      {/* ── Section: Commercial details + scope (commercial only) ── */}
+      {isCommercial && (
+        <Section title="Commercial details">
+          <div className="space-y-4">
+            <CommercialDetailsSection
+              value={commercialDetails}
+              onChange={setCommercialDetails}
+              disabled={isLocked}
+            />
+            <CommercialScopeBuilder
+              rows={commercialScope}
+              onChange={setCommercialScope}
+              disabled={isLocked}
+            />
+          </div>
+        </Section>
+      )}
 
       {/* ── Section: Pricing ────────────────────────── */}
       <Section title="Pricing">

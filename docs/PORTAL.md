@@ -499,3 +499,35 @@ Structured quote builder (approved scope, not yet live):
 - Advanced reporting
 - Automation workflows
 - Potential payroll layer (separate from current system)
+
+
+## Commercial quote engine — planned scope (phased)
+
+### Phase 0 — Foundation (shipped on `feat/commercial-quote-foundation`)
+- New tables: `commercial_quote_details` (1:1 with quotes, universal commercial fields as columns + `sector_fields` JSONB for sector packs) and `commercial_scope_items` (1:N, structured area/task/frequency/quantity/time rows).
+- `quotes.deleted_at` + `quotes.deleted_by`: soft-delete columns with partial index on active quotes. Physical delete never exposed via the app.
+- `commercial_calculations.quote_id` FK: links pricing snapshots to the quote they were taken against.
+- Commercial margin tiers as configurable ranges: `win_the_work` 15–20%, `standard` 22–28%, `premium` 30–38%, `specialist` 35%+. Exported from `src/lib/commercialQuote.ts`.
+- Sector categories supported: office, education, medical, industrial, mixed_use, custom. Sector-specific field packs config-driven (no hardcoded JSX) via `SECTOR_FIELD_PACKS`.
+- Server actions in `src/app/portal/quotes/_actions-commercial.ts`: `saveCommercialDetails`, `saveCommercialScope`, `softDeleteQuote`. Admin-only soft-delete gated on `user.email === 'michael@sano.nz'` with block+confirm pattern for quotes linked to invoices/jobs, and full `record_snapshots` + `audit_log` trail.
+- RLS: staff full access via `NOT public.is_contractor()`; contractor portal never sees commercial quote data.
+- Prerequisite audit infra (`is_contractor()`, `audit_log`, `record_snapshots`) bundled idempotently into the foundation migration.
+
+### Phase 1 — Commercial quote form UI (shipped on `feat/commercial-quote-phase-1`, stacks on Phase 0)
+- Three new components under `src/app/portal/quotes/_components/commercial/`:
+  - `CommercialDetailsSection.tsx` — controlled container with Commercial overview, Site & Building profile, Sector pack delegation, and Assumptions/Exclusions/Compliance.
+  - `SectorFieldPack.tsx` — config-driven field renderer over `SECTOR_FIELD_PACKS`, supports text / textarea / number / integer / boolean / select / chips.
+  - `CommercialScopeBuilder.tsx` — add / remove / move-up / move-down / included-toggle rows for structured scope items.
+- `NewQuoteForm` and `EditQuoteForm` both render the commercial section only when `service_category === 'commercial'`; residential flows unchanged.
+- `createQuote` server action extended with optional `commercial_details` + `commercial_scope` — saves inline after the quote row insert, before redirect.
+- `/portal/quotes/[id]/page.tsx` parallel-loads `commercial_quote_details` + `commercial_scope_items` and passes them to `EditQuoteForm` for hydration.
+- `EditQuoteForm` orchestrates commercial saves client-side after a successful `updateQuote`; locked quotes (sent/accepted) render the commercial section disabled, matching the existing lock behaviour.
+- Scope reordering is arrow-button this pass; drag-and-drop is a later improvement.
+
+### Phase 2 — Pricing preview + admin delete UI (planned)
+- Embedded pricing preview using `src/lib/commercialPricing.ts`. Standalone `/portal/commercial-calculator` path retired.
+- Estimated service/weekly/monthly hours, labour cost basis, margin tier-driven sell price summary — override-compatible.
+- Admin delete button on the quote detail/edit page — confirmation modal, surfaces linked invoice/job IDs before soft-deleting.
+
+### Phase 3 — Tender document generation (future; out of scope here)
+- Customer-facing tender pack generated from the structured commercial quote data.
