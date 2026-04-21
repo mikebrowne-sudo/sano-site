@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { CareersHero } from '@/components/CareersHero'
+import { CareersApplyCTA } from '@/components/CareersApplyCTA'
 import { WhyWorkWithSano } from '@/components/WhyWorkWithSano'
 import { CareersProcess } from '@/components/CareersProcess'
 import { CareersPrideSection } from '@/components/CareersPrideSection'
@@ -15,6 +16,7 @@ export default function JoinOurTeamPage() {
   return (
     <>
       <CareersHero />
+      <CareersApplyCTA />
       <WhyWorkWithSano />
       <CareersProcess />
       <CareersPrideSection />
