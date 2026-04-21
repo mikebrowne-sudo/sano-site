@@ -1,5 +1,8 @@
+'use client'
+
+import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Send, Link2, Printer } from 'lucide-react'
+import { ArrowLeft, Send, Link2, Check, Printer } from 'lucide-react'
 import type { ProposalStatus } from '@/lib/proposals/types'
 import { ProposalStatusBadge } from './ProposalStatusBadge'
 
@@ -20,6 +23,21 @@ export function InternalPreviewBar({
   backHref,
   backLabel,
 }: InternalPreviewBarProps) {
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    if (!shareUrl) return
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      // Clipboard API unavailable (older browsers / insecure context).
+      // Fall back to a prompt so the operator can still grab the URL.
+      window.prompt('Copy share link:', shareUrl)
+    }
+  }
+
   return (
     <div className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-sage-100 print:hidden">
       <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center gap-3">
@@ -41,16 +59,17 @@ export function InternalPreviewBar({
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
-            disabled
-            title={
+            onClick={handleCopy}
+            disabled={!shareUrl}
+            title={shareUrl ?? 'No share link yet'}
+            className={
               shareUrl
-                ? 'Share link copy will be wired in the next milestone'
-                : 'No share link yet'
+                ? 'inline-flex items-center gap-1.5 border border-sage-200 text-sage-700 font-medium px-3 py-1.5 rounded-lg text-xs hover:bg-sage-50 transition-colors'
+                : 'inline-flex items-center gap-1.5 border border-sage-200 text-sage-500 font-medium px-3 py-1.5 rounded-lg text-xs cursor-not-allowed opacity-70'
             }
-            className="inline-flex items-center gap-1.5 border border-sage-200 text-sage-500 font-medium px-3 py-1.5 rounded-lg text-xs cursor-not-allowed opacity-70"
           >
-            <Link2 size={14} />
-            Copy share link
+            {copied ? <Check size={14} /> : <Link2 size={14} />}
+            {copied ? 'Copied' : 'Copy share link'}
           </button>
           <button
             type="button"
