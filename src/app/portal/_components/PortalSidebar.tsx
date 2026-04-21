@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, FileText, Receipt, Briefcase, RefreshCw, Users, HardHat, BookOpen, DollarSign, FileInput, Wallet, Bell, Settings } from 'lucide-react'
+import { LayoutDashboard, FileText, Receipt, Briefcase, RefreshCw, Users, HardHat, BookOpen, DollarSign, FileInput, Wallet, Bell, Settings, Calculator } from 'lucide-react'
 import clsx from 'clsx'
 
 const links = [
   { href: '/portal', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/portal/quotes', label: 'Quotes', icon: FileText },
+  { href: '/portal/commercial-calculator', label: 'Commercial calc', icon: Calculator },
   { href: '/portal/invoices', label: 'Invoices', icon: Receipt },
   { href: '/portal/jobs', label: 'Jobs', icon: Briefcase },
   { href: '/portal/recurring-jobs', label: 'Recurring', icon: RefreshCw },
