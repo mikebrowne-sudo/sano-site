@@ -1,6 +1,8 @@
 'use client'
 
+import { motion } from 'framer-motion'
 import type { ApplicationFormData } from '@/types/application'
+import { containerVariants, infoVariants } from '../motion'
 
 interface InfoStepProps {
   data: ApplicationFormData
@@ -14,13 +16,22 @@ export function InfoStep({ data, title, body }: InfoStepProps) {
   const paragraphs = resolvedBody.split('\n\n').filter((p) => p.trim().length > 0)
 
   return (
-    <div className="text-center">
-      {resolvedTitle && <h2 className="mb-6">{resolvedTitle}</h2>}
+    <motion.div
+      className="text-center"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      {resolvedTitle && (
+        <motion.h2 variants={infoVariants} className="mb-6">{resolvedTitle}</motion.h2>
+      )}
       <div className="max-w-lg mx-auto space-y-4">
         {paragraphs.map((paragraph, i) => (
-          <p key={i} className="body-text">{paragraph}</p>
+          <motion.p key={i} variants={infoVariants} className="body-text">
+            {paragraph}
+          </motion.p>
         ))}
       </div>
-    </div>
+    </motion.div>
   )
 }

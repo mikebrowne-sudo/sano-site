@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import type { ApplicationFormData, JobApplicationPayload } from '@/types/application'
 import { createEmptyApplicationForm, validateApplication } from '@/lib/applicationValidation'
 import { stepValidators, type StepField } from '@/lib/applicationStepValidation'
@@ -104,37 +104,39 @@ export function ApplicationWizard() {
   const reviewStatus: 'idle' | 'submitting' | 'error' = status === 'submitting' ? 'submitting' : status === 'error' ? 'error' : 'idle'
 
   return (
-    <div className="min-h-[600px] flex flex-col">
-      {currentStep.type !== 'success' && (
-        <div className="mb-10 max-w-2xl mx-auto w-full">
-          <WizardProgress current={stepIndex} total={total} />
-        </div>
-      )}
-
-      <div className="flex-1 max-w-2xl mx-auto w-full">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentStep.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-          >
-            {renderStep(currentStep, form, update, goNext, submit, reviewStatus, errorMessage, err)}
-          </motion.div>
-        </AnimatePresence>
-
-        {currentStep.type !== 'success' && currentStep.type !== 'review' && currentStep.type !== 'welcome' && (
-          <WizardNav
-            onNext={goNext}
-            onBack={goBack}
-            isFirst={isFirst}
-            isLast={isLast}
-            nextLabel={currentStep.type === 'info' ? currentStep.nextLabel : undefined}
-          />
+    <MotionConfig reducedMotion="user">
+      <div className="min-h-[600px] flex flex-col">
+        {currentStep.type !== 'success' && (
+          <div className="mb-10 max-w-2xl mx-auto w-full">
+            <WizardProgress current={stepIndex} total={total} />
+          </div>
         )}
+
+        <div className="flex-1 max-w-2xl mx-auto w-full">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentStep.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              {renderStep(currentStep, form, update, goNext, submit, reviewStatus, errorMessage, err)}
+            </motion.div>
+          </AnimatePresence>
+
+          {currentStep.type !== 'success' && currentStep.type !== 'review' && currentStep.type !== 'welcome' && (
+            <WizardNav
+              onNext={goNext}
+              onBack={goBack}
+              isFirst={isFirst}
+              isLast={isLast}
+              nextLabel={currentStep.type === 'info' ? currentStep.nextLabel : undefined}
+            />
+          )}
+        </div>
       </div>
-    </div>
+    </MotionConfig>
   )
 }
 
