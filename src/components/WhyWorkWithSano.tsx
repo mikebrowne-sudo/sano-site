@@ -28,11 +28,11 @@ const BENEFITS: Benefit[] = [
 
 export function WhyWorkWithSano() {
   return (
-    <section className="section-padding py-20 lg:py-24 bg-white">
-      <div className="container-max max-w-7xl mx-auto">
+    <section className="section-padding py-20 lg:py-24 bg-white overflow-hidden">
+      <div className="max-w-[1500px] mx-auto">
         <div className="relative">
-          {/* Cream inner panel — full width, no carve-out */}
-          <div className="relative rounded-2xl bg-[#faf9f6] px-6 py-12 sm:px-10 sm:py-14 lg:px-14 lg:py-16 overflow-visible">
+          {/* Cream inner panel — left-aligned, constrained on lg+ so the right side breathes */}
+          <div className="relative lg:max-w-[1080px] rounded-2xl bg-[#faf9f6] px-6 py-12 sm:px-10 sm:py-14 lg:px-14 lg:py-16">
             <p className="eyebrow text-sage-500 mb-3">BENEFITS</p>
             <h2 className="font-sans font-bold mb-10">
               <span className="text-gray-900">Why </span>
@@ -56,20 +56,17 @@ export function WhyWorkWithSano() {
             </div>
           </div>
 
-          {/* Crew image — floats top-right, extends above panel and past right edge.
-              Sibling of panel (not child) so the panel's bg can't cover it.
-              z-0 so it sits behind the cards (which are z-10) where they overlap. */}
+          {/* Crew image — anchored to right side of the wider section, sits above panel + behind cards where they overlap */}
           <div
             aria-hidden="true"
-            className="hidden lg:block absolute -top-8 -right-8 w-[420px] aspect-[4/3] rounded-2xl overflow-hidden shadow-md z-0"
+            className="hidden lg:block absolute -top-12 right-0 w-[560px] aspect-[4/3] rounded-2xl overflow-hidden shadow-md z-0"
           >
             <Image
               src="/images/careers/join-the-sano-crew.jpeg"
               alt=""
               fill
-              sizes="420px"
+              sizes="560px"
               className="object-cover"
-              priority={false}
             />
           </div>
 
