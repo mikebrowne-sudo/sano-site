@@ -27,6 +27,8 @@ import {
   toScopeItemsInput,
   type CommercialScopeFormRow,
 } from '../../_components/commercial/CommercialScopeBuilder'
+import { CommercialPricingPreview } from '../../_components/commercial/CommercialPricingPreview'
+import { computeCommercialPreview, type CommercialPreviewScopeRow, type ScopeFrequency } from '@/lib/commercialQuote'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -111,6 +113,12 @@ interface Addon {
 }
 
 // ── Helpers ───────────────────────────────────────────────────
+
+function parseFloatOrNullLocal(v: string | null | undefined): number | null {
+  if (v == null || String(v).trim() === '') return null
+  const n = parseFloat(String(v))
+  return Number.isFinite(n) ? n : null
+}
 
 function toNum(v: string) {
   const n = parseFloat(v)
@@ -218,6 +226,30 @@ export function EditQuoteForm({
     () => hydrateScopeRows(commercialScopeRows),
   )
   const isCommercial = builder.service_category === 'commercial'
+
+  // Commercial preview — same computation as NewQuoteForm; see that file
+  // for the full explanation. Persisted hours go back onto commercial_
+  // quote_details via toCommercialDetailsInput on save.
+  const commercialPreview = useMemo(() => {
+    if (!isCommercial) return null
+    const scopeRows: CommercialPreviewScopeRow[] = commercialScope.map((r) => ({
+      included: r.included,
+      frequency: (r.frequency || null) as ScopeFrequency | null,
+      quantity_value: parseFloatOrNullLocal(r.quantity_value),
+      unit_minutes: parseFloatOrNullLocal(r.unit_minutes),
+      production_rate: parseFloatOrNullLocal(r.production_rate),
+    }))
+    return computeCommercialPreview(
+      {
+        sector_category: commercialDetails.sector_category || null,
+        traffic_level: commercialDetails.traffic_level || null,
+        selected_margin_tier: commercialDetails.selected_margin_tier || null,
+        labour_cost_basis: parseFloatOrNullLocal(commercialDetails.labour_cost_basis),
+        service_days: commercialDetails.service_days.length > 0 ? commercialDetails.service_days : null,
+      },
+      scopeRows,
+    )
+  }, [isCommercial, commercialDetails, commercialScope])
 
   // ── Pricing engine (derived) ─────────────────────────────
   const eligible = isPricingEligible(builder.service_category || null, builder.service_type_code || null)
@@ -385,7 +417,16 @@ export function EditQuoteForm({
       // the quote row update succeeded. Failures surface as an inline error
       // but do not roll back the quote update itself.
       if (isCommercial && !isLocked) {
-        const detailsInput = toCommercialDetailsInput(commercialDetails)
+        const detailsInput = toCommercialDetailsInput(
+          commercialDetails,
+          commercialPreview
+            ? {
+                estimated_service_hours: commercialPreview.estimated_service_hours,
+                estimated_weekly_hours: commercialPreview.estimated_weekly_hours,
+                estimated_monthly_hours: commercialPreview.estimated_monthly_hours,
+              }
+            : undefined,
+        )
         if (detailsInput) {
           const detailsResult = await saveCommercialDetails(quote.id, detailsInput)
           if ('error' in detailsResult) {
@@ -496,6 +537,12 @@ export function EditQuoteForm({
             <CommercialScopeBuilder
               rows={commercialScope}
               onChange={setCommercialScope}
+              disabled={isLocked}
+            />
+            <CommercialPricingPreview
+              details={commercialDetails}
+              scope={commercialScope}
+              onApplyToBasePrice={isLocked ? undefined : (price) => setBasePrice(String(price))}
               disabled={isLocked}
             />
           </div>

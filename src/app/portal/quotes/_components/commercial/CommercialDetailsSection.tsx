@@ -55,6 +55,7 @@ export interface CommercialDetailsFormState {
   sector_fields: Record<string, unknown>
 
   selected_margin_tier: MarginTier | ''
+  labour_cost_basis: string
 }
 
 export function emptyCommercialDetails(): CommercialDetailsFormState {
@@ -88,6 +89,7 @@ export function emptyCommercialDetails(): CommercialDetailsFormState {
     exclusions: '',
     sector_fields: {},
     selected_margin_tier: '',
+    labour_cost_basis: '',
   }
 }
 
@@ -126,6 +128,7 @@ export function hydrateCommercialDetails(
     exclusions: row.exclusions ?? '',
     sector_fields: row.sector_fields ?? {},
     selected_margin_tier: isMarginTier(row.selected_margin_tier) ? row.selected_margin_tier : '',
+    labour_cost_basis: toStr(row.labour_cost_basis),
   }
 }
 
@@ -145,10 +148,19 @@ function emptyToNull(v: string): string | null {
 }
 
 // Convert form state → shape accepted by saveCommercialDetails /
-// createQuote's commercial_details payload.
-// Returns null when the form isn't sufficiently filled (no sector picked).
+// createQuote's commercial_details payload. Returns null when the form
+// isn't sufficiently filled (no sector picked).
+//
+// The optional `preview` arg lets the caller include freshly-computed
+// hours so they land in the DB. Pass it when saving from the form;
+// leave undefined if you only want to convert the raw form state.
 export function toCommercialDetailsInput(
   state: CommercialDetailsFormState,
+  preview?: {
+    estimated_service_hours: number
+    estimated_weekly_hours: number
+    estimated_monthly_hours: number
+  },
 ): CommercialDetailsInput | null {
   if (!state.sector_category) return null
   return {
@@ -181,6 +193,10 @@ export function toCommercialDetailsInput(
     exclusions: emptyToNull(state.exclusions),
     sector_fields: state.sector_fields,
     selected_margin_tier: state.selected_margin_tier || null,
+    labour_cost_basis: toNumber(state.labour_cost_basis),
+    estimated_service_hours: preview?.estimated_service_hours ?? null,
+    estimated_weekly_hours: preview?.estimated_weekly_hours ?? null,
+    estimated_monthly_hours: preview?.estimated_monthly_hours ?? null,
   }
 }
 
@@ -280,11 +296,18 @@ export function CommercialDetailsSection({
           />
         </div>
 
-        <div className="mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 items-end">
           <MarginTierPicker
             value={value.selected_margin_tier}
             onChange={(v) => set('selected_margin_tier', v)}
             disabled={disabled}
+          />
+          <NumberInput
+            label="Labour cost basis ($/hr)"
+            value={value.labour_cost_basis}
+            onChange={(v) => set('labour_cost_basis', v)}
+            disabled={disabled}
+            min={0}
           />
         </div>
       </Fieldset>
