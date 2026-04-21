@@ -82,7 +82,7 @@ export const STEPS: StepDef[] = [
   },
 
   { id: 'values', type: 'info',
-    body: 'Awesome.\n\nHere\u2019s the kind of person who tends to do well with us.\n\nYou\u2019ve got a good eye for detail and take pride in your work.\n\nYou\u2019re reliable and show up when you say you will.\n\nYou\u2019re easy to deal with, respectful, and communicate well.\n\nYou\u2019re comfortable working on your own, but also happy to be part of a team when needed.\n\nYou\u2019re adaptable. Every job can be a little different.\n\nIf that sounds like you, you\u2019ll fit in well here.',
+    body: 'Awesome.\n\nHere\u2019s the kind of person who tends to do well with us.\n\nYou\u2019ve got a good eye for detail and take pride in your work.\n\nYou\u2019re reliable and show up when you say you will.\n\nYou\u2019re easy to deal with, respectful, and communicate well.\n\nYou\u2019re comfortable working on your own, but also happy to be part of a team when needed.\n\nYou\u2019re adaptable.\n\nEvery job can be a little different.\n\nIf that sounds like you, you\u2019ll fit in well here.',
   },
 
   { id: 'has_equipment', type: 'yesno', field: 'has_equipment',

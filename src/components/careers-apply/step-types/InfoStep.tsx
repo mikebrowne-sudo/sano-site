@@ -17,7 +17,7 @@ export function InfoStep({ data, title, body }: InfoStepProps) {
 
   return (
     <motion.div
-      className="text-center"
+      className="max-w-xl mx-auto text-left"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
@@ -25,13 +25,31 @@ export function InfoStep({ data, title, body }: InfoStepProps) {
       {resolvedTitle && (
         <motion.h2 variants={infoVariants} className="mb-6">{resolvedTitle}</motion.h2>
       )}
-      <div className="max-w-lg mx-auto space-y-5">
-        {paragraphs.map((paragraph, i) => (
-          <motion.p key={i} variants={infoVariants} className="body-text">
+      {paragraphs.map((paragraph, i) => {
+        const isFirst = i === 0
+        const isSecondary = i === 1 && paragraphs.length > 2
+        const isLast = i === paragraphs.length - 1
+
+        const textClass = isFirst
+          ? 'font-medium text-sage-800 text-lg leading-relaxed'
+          : 'body-text'
+
+        const gapClass = isLast
+          ? 'mb-0'
+          : isSecondary
+            ? 'mb-6'
+            : 'mb-4'
+
+        return (
+          <motion.p
+            key={i}
+            variants={infoVariants}
+            className={`${textClass} ${gapClass}`}
+          >
             {paragraph}
           </motion.p>
-        ))}
-      </div>
+        )
+      })}
     </motion.div>
   )
 }
