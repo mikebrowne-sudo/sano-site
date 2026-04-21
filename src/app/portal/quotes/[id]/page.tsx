@@ -9,6 +9,7 @@ import { ConvertToInvoiceButton } from './_components/ConvertToInvoiceButton'
 import { MarkAsAcceptedButton } from './_components/MarkAsAcceptedButton'
 import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
 import { DeleteButton } from '../../_components/DeleteButton'
+import { CommercialDeleteButton } from '../_components/commercial/CommercialDeleteButton'
 import { firstName } from '@/lib/doc-helpers'
 
 export default async function QuoteDetailPage({ params }: { params: { id: string } }) {
@@ -141,7 +142,11 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       </div>
       <div className="flex justify-end mb-6">
         <RegenerateShareLink table="quotes" id={quote.id} />
-        {isAdmin && <DeleteButton type="quote" id={quote.id} />}
+        {isAdmin && (
+          quote.service_category === 'commercial'
+            ? <CommercialDeleteButton quoteId={quote.id} />
+            : <DeleteButton type="quote" id={quote.id} />
+        )}
       </div>
 
       <QuoteCustomerDetails
