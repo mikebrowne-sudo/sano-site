@@ -3,8 +3,6 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
 import { AcceptQuote } from './_components/AcceptQuote'
-import { CommercialProposalTemplate } from '@/app/portal/quotes/_components/commercial/proposal/CommercialProposalTemplate'
-import type { CommercialQuoteDetails, CommercialScopeItem } from '@/lib/commercialQuote'
 
 export const metadata: Metadata = { robots: 'noindex, nofollow' }
 
@@ -32,7 +30,7 @@ export default async function PublicQuotePage({ params }: { params: { token: str
     .select(`
       id, quote_number, status, accepted_at, date_issued, valid_until,
       property_category, type_of_clean, frequency, scope_size,
-      generated_scope, service_category,
+      generated_scope,
       service_address, scheduled_clean_date, notes,
       base_price, discount, gst_included, payment_type,
       clients ( name, company_name, service_address, phone, email )
@@ -44,64 +42,9 @@ export default async function PublicQuotePage({ params }: { params: { token: str
 
   const { data: items } = await supabase
     .from('quote_items')
-    .select('id, label, price, sort_order')
+    .select('label, price, sort_order')
     .eq('quote_id', quote.id)
     .order('sort_order')
-
-  // Commercial branch — render the dedicated proposal template with
-  // the existing AcceptQuote component slotted in for the public flow.
-  if (quote.service_category === 'commercial') {
-    const [{ data: details }, { data: scope }] = await Promise.all([
-      supabase
-        .from('commercial_quote_details')
-        .select('*')
-        .eq('quote_id', quote.id)
-        .maybeSingle(),
-      supabase
-        .from('commercial_scope_items')
-        .select('*')
-        .eq('quote_id', quote.id)
-        .order('display_order'),
-    ])
-    const clientForProposal = quote.clients as unknown as { name: string | null; company_name: string | null; service_address: string | null; phone: string | null; email: string | null } | null
-    const showAccept = quote.status !== 'accepted'
-    return (
-      <CommercialProposalTemplate
-        quote={{
-          id: quote.id as string,
-          quote_number: quote.quote_number as string,
-          status: (quote.status as string | null) ?? null,
-          date_issued: (quote.date_issued as string | null) ?? null,
-          valid_until: (quote.valid_until as string | null) ?? null,
-          accepted_at: (quote.accepted_at as string | null) ?? null,
-          service_address: (quote.service_address as string | null) ?? null,
-          notes: (quote.notes as string | null) ?? null,
-          base_price: (quote.base_price as number) ?? 0,
-          discount: (quote.discount as number | null) ?? null,
-          gst_included: (quote.gst_included as boolean) ?? true,
-          payment_type: (quote.payment_type as string | null) ?? null,
-        }}
-        client={clientForProposal}
-        addons={(items ?? []).map((it) => ({
-          label: it.label as string,
-          price: (it.price as number) ?? 0,
-          sort_order: (it.sort_order as number) ?? 0,
-        }))}
-        details={(details as unknown as CommercialQuoteDetails | null) ?? null}
-        scope={(scope as unknown as CommercialScopeItem[]) ?? []}
-        variant="share"
-        acceptanceSlot={
-          showAccept
-            ? <AcceptQuote
-                shareToken={params.token}
-                status={(quote.status as string | null) ?? 'draft'}
-                acceptedAt={(quote.accepted_at as string | null) ?? null}
-              />
-            : undefined
-        }
-      />
-    )
-  }
 
   const client = quote.clients as unknown as { name: string; company_name: string | null; service_address: string | null; phone: string | null; email: string | null } | null
   const addons = (items ?? []).filter((a) => a.price > 0)
