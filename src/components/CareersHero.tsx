@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Clock3 } from 'lucide-react'
 
 export function CareersHero() {
   return (
@@ -20,18 +20,21 @@ export function CareersHero() {
 
       {/* Content */}
       <div className="relative z-10 w-full section-padding py-20 lg:py-28 text-center text-white">
-        <p className="eyebrow text-sage-100 mb-4">Careers</p>
         <h1 className="text-white mb-6">Join Our Team</h1>
         <p className="body-text !text-sage-100 max-w-xl mx-auto mb-8">
           We&apos;re always looking for reliable, detail-focused people who take pride in their work. If you have cleaning experience and want flexible opportunities with a growing team, we&apos;d love to hear from you.
         </p>
         <Link
           href="/join-our-team/apply"
-          className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-medium text-sage-800 hover:bg-sage-50 transition-colors"
+          className="inline-flex items-center gap-2 rounded-full bg-sage-500 px-6 py-3 text-sm font-medium text-white hover:bg-sage-800 transition-colors"
         >
           Apply Now
           <ArrowRight className="w-4 h-4" aria-hidden="true" />
         </Link>
+        <p className="mt-4 inline-flex items-center gap-2 text-sm text-sage-100">
+          <Clock3 className="w-4 h-4" aria-hidden="true" />
+          Takes 7+ minutes
+        </p>
       </div>
     </section>
   )

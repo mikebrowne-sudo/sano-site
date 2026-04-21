@@ -28,35 +28,47 @@ const BENEFITS: Benefit[] = [
 
 export function WhyWorkWithSano() {
   return (
-    <section className="section-padding pt-24 lg:pt-32 pb-24 lg:pb-28 bg-[#faf9f6]">
-      <div className="container-max">
-        <div className="mx-auto mb-12 max-w-2xl text-center">
-          <h2>Why Work With Us?</h2>
-        </div>
-        <div className="mx-auto grid max-w-6xl grid-cols-1 lg:grid-cols-[1fr_400px] gap-10 items-center">
-          {/* Benefit cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-5">
-            {BENEFITS.map((b) => (
-              <div
-                key={b.title}
-                className="rounded-2xl border border-sage-100 bg-white p-5 shadow-sm"
-              >
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-sage-50 text-sage-600">
-                  {b.icon}
+    <section className="section-padding py-24 lg:py-32 bg-white">
+      <div className="container-max max-w-7xl mx-auto">
+        <div className="relative">
+          {/* Cream inner panel with heading + horizontal cards; right-padded on lg+ to leave room for the overlapping image */}
+          <div className="rounded-2xl bg-[#faf9f6] px-6 py-12 sm:px-10 sm:py-14 lg:px-14 lg:py-16 lg:pr-[340px]">
+            <p className="eyebrow text-sage-500 mb-3">BENEFITS</p>
+            <h2 className="mb-10">Why Work With Us?</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {BENEFITS.map((b) => (
+                <div
+                  key={b.title}
+                  className="rounded-2xl border border-sage-100 bg-white p-6 shadow-sm"
+                >
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-sage-50 text-sage-600">
+                    {b.icon}
+                  </div>
+                  <h3 className="mb-2 text-lg font-semibold text-sage-800">{b.title}</h3>
+                  <p className="text-sm leading-relaxed text-sage-600">{b.body}</p>
                 </div>
-                <h3 className="mb-2 text-lg font-semibold text-sage-800">{b.title}</h3>
-                <p className="text-sm leading-relaxed text-sage-600">{b.body}</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
-          {/* Sano crew image — smaller, with subtle left overlap on desktop */}
-          <div className="relative rounded-2xl overflow-hidden shadow-md aspect-[4/5] lg:aspect-[3/4] lg:-ml-6 lg:z-10">
+          {/* Crew image — absolutely positioned on desktop so it overlaps the cream panel on the right */}
+          <div className="hidden lg:block absolute top-14 right-0 w-[360px] aspect-[3/4] rounded-2xl overflow-hidden shadow-md z-10">
             <Image
               src="/images/careers/join-the-sano-crew.jpeg"
               alt="Sano crew members holding a &apos;Join the Sano Crew&apos; sign"
               fill
-              sizes="(min-width: 1024px) 400px, 100vw"
+              sizes="360px"
+              className="object-cover"
+            />
+          </div>
+
+          {/* Mobile image — stacks below the panel */}
+          <div className="lg:hidden mt-6 rounded-2xl overflow-hidden shadow-md aspect-[4/5]">
+            <Image
+              src="/images/careers/join-the-sano-crew.jpeg"
+              alt="Sano crew members holding a &apos;Join the Sano Crew&apos; sign"
+              fill
+              sizes="100vw"
               className="object-cover"
             />
           </div>
