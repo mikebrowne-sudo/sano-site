@@ -1,4 +1,4 @@
-import { Clock3, TrendingUp, Users } from 'lucide-react'
+import { Clock3, GraduationCap, Users } from 'lucide-react'
 import type React from 'react'
 
 interface Benefit {
@@ -10,18 +10,18 @@ interface Benefit {
 const BENEFITS: Benefit[] = [
   {
     icon: <Clock3 className="w-6 h-6" />,
-    title: 'Flexible Work',
-    body: 'Choose work that suits your schedule. We offer flexible opportunities across a range of cleaning jobs.',
+    title: 'Flexible Hours',
+    body: 'We work around your schedule to help you maintain a healthy work-life balance.',
+  },
+  {
+    icon: <GraduationCap className="w-6 h-6" />,
+    title: 'Training & Development',
+    body: 'Hands-on training and ongoing support to help you build confidence and grow.',
   },
   {
     icon: <Users className="w-6 h-6" />,
-    title: 'Supportive Team',
-    body: 'We keep things straightforward and back our team. Clear communication and support matter to us.',
-  },
-  {
-    icon: <TrendingUp className="w-6 h-6" />,
-    title: 'Consistent Opportunities',
-    body: "We're growing and have regular work available. We're looking for people we can rely on long term.",
+    title: 'Great Team Culture',
+    body: 'Be part of a friendly, supportive team that takes pride in what we do.',
   },
 ]
 
@@ -30,7 +30,7 @@ export function WhyWorkWithSano() {
     <section className="section-padding section-y bg-[#faf9f6]">
       <div className="container-max">
         <div className="mx-auto mb-10 max-w-2xl text-center">
-          <h2>Why work with Sano</h2>
+          <h2>Why Work With Us?</h2>
         </div>
         <div className="mx-auto grid max-w-5xl grid-cols-1 md:grid-cols-3 gap-6">
           {BENEFITS.map((b) => (
