@@ -31,8 +31,22 @@ export function WhyWorkWithSano() {
     <section className="section-padding py-20 lg:py-24 bg-white">
       <div className="container-max max-w-7xl mx-auto">
         <div className="relative">
-          {/* Cream inner panel */}
-          <div className="rounded-2xl bg-[#faf9f6] px-6 py-12 sm:px-10 sm:py-14 lg:px-14 lg:py-16 lg:pr-[300px]">
+          {/* Background accent image — sits BEHIND the cards on lg+, offset right so it peeks out */}
+          <div
+            aria-hidden="true"
+            className="hidden lg:block absolute right-[-32px] top-1/2 -translate-y-1/2 w-[420px] aspect-[4/3] rounded-2xl overflow-hidden shadow-md z-0 opacity-95"
+          >
+            <Image
+              src="/images/careers/join-the-sano-crew.jpeg"
+              alt=""
+              fill
+              sizes="420px"
+              className="object-cover"
+            />
+          </div>
+
+          {/* Cream inner panel — sits in front of the image */}
+          <div className="relative z-10 rounded-2xl bg-[#faf9f6] px-6 py-12 sm:px-10 sm:py-14 lg:px-14 lg:py-16">
             <p className="eyebrow text-sage-500 mb-3">BENEFITS</p>
             <h2 className="font-sans font-bold mb-10">
               <span className="text-gray-900">Why </span>
@@ -42,7 +56,7 @@ export function WhyWorkWithSano() {
               {BENEFITS.map((b) => (
                 <div
                   key={b.title}
-                  className="rounded-2xl border border-sage-200 bg-white p-6 shadow-sm"
+                  className="rounded-2xl border border-sage-200 bg-white px-6 py-5 shadow-sm"
                 >
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-sage-50 text-sage-600">
                     {b.icon}
@@ -54,18 +68,7 @@ export function WhyWorkWithSano() {
             </div>
           </div>
 
-          {/* Crew image — landscape, smaller, vertically centred, subtle right overlap on lg+ */}
-          <div className="hidden lg:block absolute top-1/2 -translate-y-1/2 right-0 w-[320px] aspect-[4/3] rounded-2xl overflow-hidden shadow-md z-10">
-            <Image
-              src="/images/careers/join-the-sano-crew.jpeg"
-              alt="Sano crew members holding a &apos;Join the Sano Crew&apos; sign"
-              fill
-              sizes="320px"
-              className="object-cover"
-            />
-          </div>
-
-          {/* Mobile image — stacks below */}
+          {/* Mobile image — visible inline below the cards on smaller screens */}
           <div className="lg:hidden mt-6 rounded-2xl overflow-hidden shadow-md aspect-[4/3]">
             <Image
               src="/images/careers/join-the-sano-crew.jpeg"
