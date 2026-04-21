@@ -48,7 +48,7 @@ export const STEPS: StepDef[] = [
 
   { id: 'hello', type: 'info',
     title: (d) => `Nice to meet you, ${d.first_name.trim() || 'there'}.`,
-    body: 'Thanks for taking the time to apply.\n\nHere\u2019s what working with Sano can look like.\n\nYou\u2019ll usually be looking after a small group of regular cleaning jobs, so consistency and reliability really matter. We aim to keep scheduling flexible and match work to the hours that suit you where possible.\n\nA lot of our team prefer work that fits around family or school hours, but we also have early starts and evening jobs available depending on the role.\n\nIf that sounds like a good fit, we\u2019ll ask a few quick questions to learn more about your experience and how you like to work.',
+    body: 'Thanks for taking the time to apply.\n\nHere\u2019s a quick look at how things work at Sano.\n\nThe work can vary \u2014 from one-off jobs like end of tenancy and deep cleans, through to regular residential and commercial work.\n\nWe\u2019re flexible with how things are structured. Some people prefer regular ongoing work, while others like picking up one-off jobs. We try to match the work to what suits you.\n\nWe keep things flexible, and people tend to structure their work with us in different ways depending on what suits them.\n\nThat said, being reliable and doing a great job really matters to us, no matter the type of work.\n\nSound like something that could work for you?',
     nextLabel: 'Continue',
   },
 
@@ -82,8 +82,8 @@ export const STEPS: StepDef[] = [
   },
 
   { id: 'values', type: 'info',
-    title: 'Here\u2019s the kind of person we\u2019re looking for',
-    body: 'You take pride in your work and notice the small details others might miss.\n\nYou\u2019re reliable, organised, and people can count on you to show up and do a great job.\n\nYou\u2019re respectful, friendly, and like helping people keep their homes or workplaces clean and comfortable.\n\nYou\u2019re comfortable working on your own, but also happy to be part of a team when needed.\n\nIf that sounds like you, you\u2019ll fit in well here.',
+    title: 'Awesome.',
+    body: 'Here\u2019s the kind of person who tends to do well with us.\n\nYou\u2019ve got a good eye for detail and take pride in your work.\n\nYou\u2019re reliable and show up when you say you will.\n\nYou\u2019re easy to deal with, respectful, and communicate well.\n\nYou\u2019re comfortable working on your own, but also happy to be part of a team when needed.\n\nYou\u2019re adaptable \u2014 every job can be a little different.\n\nIf that sounds like you, you\u2019ll fit in well here.',
   },
 
   { id: 'has_equipment', type: 'yesno', field: 'has_equipment',
