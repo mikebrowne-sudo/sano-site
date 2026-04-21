@@ -33,7 +33,7 @@ export function CareersHero() {
           Apply Now
           <ArrowRight className="w-4 h-4" aria-hidden="true" />
         </Link>
-        <p className="mt-4 inline-flex items-center gap-2 text-sm text-sage-100">
+        <p className="mt-3 inline-flex items-center gap-2 text-sm text-sage-100">
           <Clock3 className="w-4 h-4" aria-hidden="true" />
           Takes 7+ minutes
         </p>
