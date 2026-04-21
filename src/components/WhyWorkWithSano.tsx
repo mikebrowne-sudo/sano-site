@@ -31,28 +31,16 @@ export function WhyWorkWithSano() {
     <section className="section-padding py-20 lg:py-24 bg-white">
       <div className="container-max max-w-7xl mx-auto">
         <div className="relative">
-          {/* Background accent image — sits BEHIND the cards on lg+, offset right so it peeks out */}
-          <div
-            aria-hidden="true"
-            className="hidden lg:block absolute right-[-32px] top-1/2 -translate-y-1/2 w-[400px] aspect-[4/3] rounded-2xl overflow-hidden shadow-md z-0"
-          >
-            <Image
-              src="/images/careers/join-the-sano-crew.jpeg"
-              alt=""
-              fill
-              sizes="400px"
-              className="object-cover"
-            />
-          </div>
-
-          {/* Cream inner panel — sits in front of the image */}
-          <div className="relative z-10 rounded-2xl bg-[#faf9f6] px-6 py-12 sm:px-10 sm:py-14 lg:px-14 lg:py-16 lg:pr-[220px]">
+          {/* Cream inner panel — full width, no carve-out */}
+          <div className="relative rounded-2xl bg-[#faf9f6] px-6 py-12 sm:px-10 sm:py-14 lg:px-14 lg:py-16 overflow-visible">
             <p className="eyebrow text-sage-500 mb-3">BENEFITS</p>
             <h2 className="font-sans font-bold mb-10">
               <span className="text-gray-900">Why </span>
               <span className="text-sage-500">Work With Us?</span>
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+            {/* Cards — explicitly z-10 so they sit in front of the image where they overlap */}
+            <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6">
               {BENEFITS.map((b) => (
                 <div
                   key={b.title}
@@ -68,7 +56,24 @@ export function WhyWorkWithSano() {
             </div>
           </div>
 
-          {/* Mobile image — visible inline below the cards on smaller screens */}
+          {/* Crew image — floats top-right, extends above panel and past right edge.
+              Sibling of panel (not child) so the panel's bg can't cover it.
+              z-0 so it sits behind the cards (which are z-10) where they overlap. */}
+          <div
+            aria-hidden="true"
+            className="hidden lg:block absolute -top-8 -right-8 w-[420px] aspect-[4/3] rounded-2xl overflow-hidden shadow-md z-0"
+          >
+            <Image
+              src="/images/careers/join-the-sano-crew.jpeg"
+              alt=""
+              fill
+              sizes="420px"
+              className="object-cover"
+              priority={false}
+            />
+          </div>
+
+          {/* Mobile image — stacks below cards on small screens */}
           <div className="lg:hidden mt-6 rounded-2xl overflow-hidden shadow-md aspect-[4/3]">
             <Image
               src="/images/careers/join-the-sano-crew.jpeg"
