@@ -16,12 +16,14 @@ export function CareersHero() {
       />
 
       {/* Dark overlay for text legibility */}
-      <div aria-hidden="true" className="absolute inset-0 bg-black/40" />
+      <div aria-hidden="true" className="absolute inset-0 bg-black/50" />
 
       {/* Content */}
       <div className="relative z-10 w-full section-padding py-20 lg:py-28 text-center text-white">
-        <h1 className="text-white mb-6">Join Our Team</h1>
-        <p className="body-text !text-sage-100 max-w-xl mx-auto mb-8">
+        <h1 className="text-white font-sans font-bold mb-6 [text-shadow:0_2px_8px_rgba(0,0,0,0.35)]">
+          Join Our Team
+        </h1>
+        <p className="body-text !text-sage-100 max-w-xl mx-auto mb-8 [text-shadow:0_1px_4px_rgba(0,0,0,0.3)]">
           We&apos;re always looking for reliable, detail-focused people who take pride in their work. If you have cleaning experience and want flexible opportunities with a growing team, we&apos;d love to hear from you.
         </p>
         <Link

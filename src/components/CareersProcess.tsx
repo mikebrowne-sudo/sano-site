@@ -37,11 +37,11 @@ const STEPS: Step[] = [
 
 export function CareersProcess() {
   return (
-    <section className="section-padding py-24 lg:py-28 bg-white">
+    <section className="section-padding py-20 lg:py-24 bg-white">
       <div className="container-max">
         <div className="mx-auto mb-14 max-w-2xl text-center">
           <p className="eyebrow text-sage-500 mb-3">OUR PROCESS</p>
-          <h2>Our 5-Step Application Process</h2>
+          <h2 className="font-sans font-bold text-gray-900">Our 5-Step Application Process</h2>
         </div>
 
         {/* Desktop: horizontal row with dotted connectors between icons */}

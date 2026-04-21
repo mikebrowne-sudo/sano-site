@@ -3,13 +3,13 @@ import { ArrowRight, Clock3, Mail, Phone } from 'lucide-react'
 
 export function CareersContact() {
   return (
-    <section className="section-padding pt-0 pb-24 lg:pb-28 bg-white">
+    <section className="section-padding pt-0 pb-20 lg:pb-24 bg-white">
       <div className="container-max">
         <div className="mx-auto max-w-6xl rounded-2xl bg-sage-50 px-6 py-10 sm:px-10 sm:py-12">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-8 items-center">
             {/* Heading + body */}
             <div>
-              <h2 className="mb-3">Ready to Join the Sano Crew?</h2>
+              <h2 className="font-sans font-bold text-gray-900 mb-3">Ready to Join the Sano Crew?</h2>
               <p className="body-text">
                 If you&apos;re unsure about anything or want to check if this is the right fit, feel free to get in touch.
               </p>
