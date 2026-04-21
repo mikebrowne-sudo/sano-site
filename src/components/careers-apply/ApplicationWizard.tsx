@@ -107,7 +107,7 @@ export function ApplicationWizard() {
     <MotionConfig reducedMotion="user">
       <div className="min-h-[600px] flex flex-col">
         {currentStep.type !== 'success' && (
-          <div className="mb-10 max-w-2xl mx-auto w-full">
+          <div className="mb-12 max-w-2xl mx-auto w-full">
             <WizardProgress current={stepIndex} total={total} />
           </div>
         )}

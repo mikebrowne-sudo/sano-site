@@ -14,7 +14,7 @@ export function DeclarationStep({ body, checked, onChange, error }: DeclarationS
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible">
       <motion.h2 variants={itemVariants} className="mb-6">One last thing.</motion.h2>
-      <motion.label variants={itemVariants} className="flex items-start gap-3 cursor-pointer bg-sage-50 border border-sage-100 rounded-2xl p-6">
+      <motion.label variants={itemVariants} className="flex items-start gap-3 cursor-pointer bg-white border border-sage-100 rounded-2xl p-6">
         <input
           type="checkbox"
           checked={checked}

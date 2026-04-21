@@ -25,7 +25,7 @@ export function InfoStep({ data, title, body }: InfoStepProps) {
       {resolvedTitle && (
         <motion.h2 variants={infoVariants} className="mb-6">{resolvedTitle}</motion.h2>
       )}
-      <div className="max-w-lg mx-auto space-y-4">
+      <div className="max-w-lg mx-auto space-y-5">
         {paragraphs.map((paragraph, i) => (
           <motion.p key={i} variants={infoVariants} className="body-text">
             {paragraph}

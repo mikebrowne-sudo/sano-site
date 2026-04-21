@@ -10,7 +10,7 @@ export function SuccessStep() {
       initial="hidden"
       animate="visible"
       role="status"
-      className="bg-sage-50 border border-sage-100 rounded-2xl p-10 text-center"
+      className="bg-white border border-sage-100 rounded-2xl p-10 text-center"
     >
       <motion.p variants={infoVariants} className="text-5xl mb-6" aria-hidden="true">✓</motion.p>
       <motion.h2 variants={infoVariants} className="text-sage-800 mb-4">Thanks — application received</motion.h2>

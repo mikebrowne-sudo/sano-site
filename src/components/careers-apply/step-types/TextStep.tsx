@@ -30,7 +30,7 @@ export function TextStep({ id, question, value, onChange, onNext, inputType = 't
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible">
-      <motion.label variants={itemVariants} htmlFor={inputId} className="block text-2xl sm:text-3xl font-semibold text-sage-800 mb-6 leading-tight">
+      <motion.label variants={itemVariants} htmlFor={inputId} className="block text-2xl sm:text-3xl font-serif text-sage-800 mb-6 leading-tight">
         {question}
       </motion.label>
       <motion.input
@@ -47,7 +47,7 @@ export function TextStep({ id, question, value, onChange, onNext, inputType = 't
           inputType === 'tel' ? 'tel' :
           'off'
         }
-        className={`w-full rounded-xl border px-4 py-4 text-lg bg-sage-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-sage-300 ${
+        className={`w-full rounded-xl border px-4 py-4 text-lg bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-sage-300 ${
           error ? 'border-red-300' : 'border-sage-100'
         }`}
       />
