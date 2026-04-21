@@ -4,6 +4,14 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import type { PricingBreakdown, PricingMode } from '@/lib/quote-pricing'
 import { validateCreateQuoteOverride } from './_actions-validation'
+import type {
+  CommercialDetailsInput,
+  CommercialScopeItemInput,
+} from '../_actions-commercial'
+import {
+  saveCommercialDetails,
+  saveCommercialScope,
+} from '../_actions-commercial'
 
 interface AddonInput {
   label: string
@@ -64,6 +72,10 @@ interface CreateQuoteInput {
 
   // Commercial calculator integration (null when not calc-driven)
   commercial_calc_id?: string | null
+
+  // Commercial quote engine (Phase 0+1) — only applied when service_category === 'commercial'.
+  commercial_details?: CommercialDetailsInput
+  commercial_scope?: CommercialScopeItemInput[]
 
   // Override fields
   is_price_overridden?: boolean
@@ -193,6 +205,24 @@ export async function createQuote(input: CreateQuoteInput) {
 
     if (itemsErr) {
       return { error: `Quote created but add-ons failed: ${itemsErr.message}` }
+    }
+  }
+
+  // 4. Commercial — only when this is a commercial quote. Runs after the
+  // quote row exists so foreign keys resolve. A failure here does not
+  // roll back the quote: the operator can retry from the edit page.
+  if (input.service_category === 'commercial') {
+    if (input.commercial_details) {
+      const detailsResult = await saveCommercialDetails(quote.id, input.commercial_details)
+      if ('error' in detailsResult) {
+        return { error: `Quote created but commercial details failed: ${detailsResult.error}` }
+      }
+    }
+    if (input.commercial_scope && input.commercial_scope.length > 0) {
+      const scopeResult = await saveCommercialScope(quote.id, input.commercial_scope)
+      if ('error' in scopeResult) {
+        return { error: `Quote created but commercial scope failed: ${scopeResult.error}` }
+      }
     }
   }
 
