@@ -7,10 +7,12 @@ import { ArrowLeft, Printer } from 'lucide-react'
 import { SendQuotePanel } from './_components/SendQuotePanel'
 import { ConvertToInvoiceButton } from './_components/ConvertToInvoiceButton'
 import { MarkAsAcceptedButton } from './_components/MarkAsAcceptedButton'
+import { ProposalActionButton } from './_components/ProposalActionButton'
 import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
 import { DeleteButton } from '../../_components/DeleteButton'
 import { CommercialDeleteButton } from '../_components/commercial/CommercialDeleteButton'
 import { firstName } from '@/lib/doc-helpers'
+import { getProposalByQuoteId } from '@/lib/proposals/queries'
 
 export default async function QuoteDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -69,14 +71,16 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
 
   if (error || !quote) notFound()
 
-  // Load quote items, all clients, current client email, and (for commercial
-  // quotes) the commercial detail row + scope items — all in parallel.
+  // Load quote items, all clients, current client email, commercial detail
+  // (when commercial), commercial scope, AND any linked proposal — all in
+  // parallel. The destructure keeps each consumer's shape intact.
   const [
     { data: items },
     { data: clients },
     { data: currentClient },
     { data: commercialDetails },
     { data: commercialScope },
+    existingProposal,
   ] = await Promise.all([
     supabase
       .from('quote_items')
@@ -102,6 +106,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       .select('*')
       .eq('quote_id', params.id)
       .order('display_order'),
+    getProposalByQuoteId(params.id),
   ])
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
@@ -130,6 +135,10 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
             Print / PDF
           </a>
           {quote.status !== 'accepted' && <MarkAsAcceptedButton quoteId={quote.id} />}
+          <ProposalActionButton
+            quoteId={quote.id}
+            existingProposal={existingProposal ? { id: existingProposal.id, status: existingProposal.status } : null}
+          />
           <ConvertToInvoiceButton quoteId={quote.id} />
           <SendQuotePanel
             quoteId={quote.id}
