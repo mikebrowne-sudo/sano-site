@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { ArrowRight, Users } from 'lucide-react'
+import Image from 'next/image'
+import { ArrowRight } from 'lucide-react'
 
 export function CareersHero() {
   return (
@@ -22,9 +23,16 @@ export function CareersHero() {
             </Link>
           </div>
 
-          {/* Placeholder block */}
-          <div className="relative rounded-2xl ring-1 ring-sage-100/60 shadow-sm overflow-hidden aspect-video lg:aspect-[4/5] bg-gradient-to-br from-sage-50 to-sage-100 flex items-center justify-center">
-            <Users className="w-16 h-16 text-sage-500/40" aria-hidden="true" />
+          {/* Hero image */}
+          <div className="relative rounded-2xl overflow-hidden shadow-sm aspect-[4/5]">
+            <Image
+              src="/images/careers/join-our-team-hero.jpg"
+              alt="A team celebrating with their hands raised"
+              fill
+              priority
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              className="object-cover"
+            />
           </div>
         </div>
       </div>
