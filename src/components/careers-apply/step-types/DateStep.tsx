@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { containerVariants, itemVariants } from '../motion'
+import { OkButton } from '../OkButton'
 
 interface DateStepProps {
   id: string
@@ -10,12 +11,20 @@ interface DateStepProps {
   helper?: string
   value: string | null
   onChange: (v: string | null) => void
+  onNext: () => void
   onSkip: () => void
 }
 
-export function DateStep({ id, question, helper, value, onChange, onSkip }: DateStepProps) {
+export function DateStep({ id, question, helper, value, onChange, onNext, onSkip }: DateStepProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   useEffect(() => { inputRef.current?.focus() }, [id])
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      onNext()
+    }
+  }
 
   const inputId = `step-${id}`
 
@@ -32,13 +41,17 @@ export function DateStep({ id, question, helper, value, onChange, onSkip }: Date
         type="date"
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
+        onKeyDown={handleKeyDown}
         className="w-full rounded-xl border border-sage-100 px-4 py-4 text-lg bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-sage-300"
       />
+      <motion.div variants={itemVariants} className="mt-6">
+        <OkButton onClick={onNext} />
+      </motion.div>
       <motion.button
         variants={itemVariants}
         type="button"
         onClick={onSkip}
-        className="mt-4 text-sm text-sage-600 hover:text-sage-800 underline-offset-2 hover:underline transition-colors"
+        className="mt-3 text-sm text-sage-600 hover:text-sage-800 underline-offset-2 hover:underline transition-colors"
       >
         Skip this question
       </motion.button>

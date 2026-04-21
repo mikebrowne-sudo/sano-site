@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { containerVariants, itemVariants } from '../motion'
+import { OkButton } from '../OkButton'
 
 interface Option { value: string; label: string }
 
@@ -12,10 +13,11 @@ interface ChipMultiStepProps {
   options: Option[]
   value: string[]
   onChange: (v: string[]) => void
+  onNext: () => void
   error?: string | null
 }
 
-export function ChipMultiStep({ id, question, helper, options, value, onChange, error }: ChipMultiStepProps) {
+export function ChipMultiStep({ id, question, helper, options, value, onChange, onNext, error }: ChipMultiStepProps) {
   function toggle(opt: string) {
     if (value.includes(opt)) onChange(value.filter((v) => v !== opt))
     else onChange([...value, opt])
@@ -44,6 +46,9 @@ export function ChipMultiStep({ id, question, helper, options, value, onChange, 
         })}
       </motion.div>
       {error && <motion.p variants={itemVariants} className="mt-4 text-sm text-red-500" role="alert">{error}</motion.p>}
+      <motion.div variants={itemVariants} className="mt-6">
+        <OkButton onClick={onNext} />
+      </motion.div>
     </motion.div>
   )
 }

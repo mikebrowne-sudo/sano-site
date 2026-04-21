@@ -175,6 +175,7 @@ function renderStep(
           question={step.question}
           value={String(form[step.field] ?? '')}
           onChange={(v) => update(step.field, v as ApplicationFormData[typeof step.field])}
+          onNext={goNext}
           placeholder={step.placeholder}
           helper={step.helper}
         />
@@ -187,6 +188,7 @@ function renderStep(
           helper={step.helper}
           value={form.date_of_birth}
           onChange={(v) => update('date_of_birth', v)}
+          onNext={goNext}
           onSkip={() => { update('date_of_birth', null); goNext() }}
         />
       )
@@ -197,6 +199,7 @@ function renderStep(
           question={typeof step.question === 'function' ? step.question(form) : step.question}
           value={form[step.field] as boolean | null}
           onChange={(v) => update(step.field, v as ApplicationFormData[typeof step.field])}
+          onNext={goNext}
           error={err}
         />
       )
@@ -208,6 +211,7 @@ function renderStep(
           options={step.options}
           value={String(form[step.field] ?? '')}
           onChange={(v) => update(step.field, v as ApplicationFormData[typeof step.field])}
+          onNext={goNext}
           error={err}
         />
       )
@@ -220,6 +224,7 @@ function renderStep(
           options={step.options}
           value={(form[step.field] as string[]) ?? []}
           onChange={(v) => update(step.field, v as ApplicationFormData[typeof step.field])}
+          onNext={goNext}
           error={err}
         />
       )
@@ -229,6 +234,7 @@ function renderStep(
           body={step.body}
           checked={form.confirm_truth}
           onChange={(v) => update('confirm_truth', v)}
+          onNext={goNext}
           error={err}
         />
       )

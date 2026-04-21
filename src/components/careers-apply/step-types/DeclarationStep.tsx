@@ -2,15 +2,17 @@
 
 import { motion } from 'framer-motion'
 import { containerVariants, itemVariants } from '../motion'
+import { OkButton } from '../OkButton'
 
 interface DeclarationStepProps {
   body: string
   checked: boolean
   onChange: (checked: boolean) => void
+  onNext: () => void
   error?: string | null
 }
 
-export function DeclarationStep({ body, checked, onChange, error }: DeclarationStepProps) {
+export function DeclarationStep({ body, checked, onChange, onNext, error }: DeclarationStepProps) {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible">
       <motion.h2 variants={itemVariants} className="mb-6">One last thing.</motion.h2>
@@ -24,6 +26,9 @@ export function DeclarationStep({ body, checked, onChange, error }: DeclarationS
         <span className="text-base text-gray-700 leading-relaxed">{body}</span>
       </motion.label>
       {error && <motion.p variants={itemVariants} className="mt-2 text-sm text-red-500" role="alert">{error}</motion.p>}
+      <motion.div variants={itemVariants} className="mt-6">
+        <OkButton onClick={onNext} />
+      </motion.div>
     </motion.div>
   )
 }

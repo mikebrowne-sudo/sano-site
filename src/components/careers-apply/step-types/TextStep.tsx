@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { containerVariants, itemVariants } from '../motion'
+import { OkButton } from '../OkButton'
 
 interface TextStepProps {
   id: string
@@ -52,6 +53,9 @@ export function TextStep({ id, question, value, onChange, onNext, inputType = 't
         }`}
       />
       {error && <motion.p variants={itemVariants} className="mt-2 text-sm text-red-500" role="alert">{error}</motion.p>}
+      <motion.div variants={itemVariants} className="mt-6">
+        <OkButton onClick={onNext} />
+      </motion.div>
     </motion.div>
   )
 }
