@@ -26,17 +26,19 @@ export function CareersHero() {
         <p className="body-text !text-sage-100 max-w-xl mx-auto mb-8 [text-shadow:0_1px_4px_rgba(0,0,0,0.3)]">
           We&apos;re always looking for reliable, detail-focused people who take pride in their work. If you have cleaning experience and want flexible opportunities with a growing team, we&apos;d love to hear from you.
         </p>
-        <Link
-          href="/join-our-team/apply"
-          className="inline-flex items-center gap-2 rounded-full bg-sage-500 px-6 py-3 text-sm font-medium text-white hover:bg-sage-800 transition-colors"
-        >
-          Apply Now
-          <ArrowRight className="w-4 h-4" aria-hidden="true" />
-        </Link>
-        <p className="mt-3 inline-flex items-center gap-2 text-sm text-sage-100">
-          <Clock3 className="w-4 h-4" aria-hidden="true" />
-          Takes 7+ minutes
-        </p>
+        <div className="inline-flex flex-col items-center gap-2">
+          <Link
+            href="/join-our-team/apply"
+            className="inline-flex items-center gap-2 rounded-full bg-sage-500 px-6 py-3 text-sm font-medium text-white hover:bg-sage-800 transition-colors"
+          >
+            Apply Now
+            <ArrowRight className="w-4 h-4" aria-hidden="true" />
+          </Link>
+          <p className="inline-flex items-center gap-2 text-sm text-sage-100">
+            <Clock3 className="w-4 h-4" aria-hidden="true" />
+            Takes 7+ minutes
+          </p>
+        </div>
       </div>
     </section>
   )

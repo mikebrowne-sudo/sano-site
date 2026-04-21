@@ -37,7 +37,7 @@ const STEPS: Step[] = [
 
 export function CareersProcess() {
   return (
-    <section className="section-padding pt-12 lg:pt-14 pb-20 lg:pb-24 bg-white">
+    <section className="section-padding pt-6 lg:pt-8 pb-20 lg:pb-24 bg-white">
       <div className="container-max">
         <div className="mx-auto mb-14 max-w-2xl text-center">
           <p className="eyebrow text-sage-500 mb-3">OUR PROCESS</p>

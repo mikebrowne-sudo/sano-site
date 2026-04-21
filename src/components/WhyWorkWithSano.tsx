@@ -34,19 +34,19 @@ export function WhyWorkWithSano() {
           {/* Background accent image — sits BEHIND the cards on lg+, offset right so it peeks out */}
           <div
             aria-hidden="true"
-            className="hidden lg:block absolute right-[-32px] top-1/2 -translate-y-1/2 w-[420px] aspect-[4/3] rounded-2xl overflow-hidden shadow-md z-0 opacity-95"
+            className="hidden lg:block absolute right-[-32px] top-1/2 -translate-y-1/2 w-[400px] aspect-[4/3] rounded-2xl overflow-hidden shadow-md z-0"
           >
             <Image
               src="/images/careers/join-the-sano-crew.jpeg"
               alt=""
               fill
-              sizes="420px"
+              sizes="400px"
               className="object-cover"
             />
           </div>
 
           {/* Cream inner panel — sits in front of the image */}
-          <div className="relative z-10 rounded-2xl bg-[#faf9f6] px-6 py-12 sm:px-10 sm:py-14 lg:px-14 lg:py-16">
+          <div className="relative z-10 rounded-2xl bg-[#faf9f6] px-6 py-12 sm:px-10 sm:py-14 lg:px-14 lg:py-16 lg:pr-[220px]">
             <p className="eyebrow text-sage-500 mb-3">BENEFITS</p>
             <h2 className="font-sans font-bold mb-10">
               <span className="text-gray-900">Why </span>
