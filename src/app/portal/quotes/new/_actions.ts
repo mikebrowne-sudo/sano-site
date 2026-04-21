@@ -8,10 +8,6 @@ import type {
   CommercialDetailsInput,
   CommercialScopeItemInput,
 } from '../_actions-commercial'
-import {
-  saveCommercialDetails,
-  saveCommercialScope,
-} from '../_actions-commercial'
 
 interface AddonInput {
   label: string
@@ -209,19 +205,77 @@ export async function createQuote(input: CreateQuoteInput) {
   }
 
   // 4. Commercial — only when this is a commercial quote. Runs after the
-  // quote row exists so foreign keys resolve. A failure here does not
-  // roll back the quote: the operator can retry from the edit page.
+  // quote row exists so foreign keys resolve. Inlined (rather than calling
+  // saveCommercialDetails / saveCommercialScope) so the nested actions'
+  // revalidatePath calls don't preempt the outer redirect() below. The
+  // public commercial actions are still used by the edit flow, where they
+  // run as top-level client-invoked actions and can safely revalidate.
   if (input.service_category === 'commercial') {
     if (input.commercial_details) {
-      const detailsResult = await saveCommercialDetails(quote.id, input.commercial_details)
-      if ('error' in detailsResult) {
-        return { error: `Quote created but commercial details failed: ${detailsResult.error}` }
+      const cd = input.commercial_details
+      const { error: detailsErr } = await supabase
+        .from('commercial_quote_details')
+        .insert({
+          quote_id: quote.id,
+          sector_category: cd.sector_category,
+          sector_subtype: cd.sector_subtype ?? null,
+          building_type: cd.building_type ?? null,
+          service_days: cd.service_days ?? null,
+          service_window: cd.service_window ?? null,
+          access_requirements: cd.access_requirements ?? null,
+          consumables_by: cd.consumables_by ?? null,
+          occupancy_level: cd.occupancy_level ?? null,
+          traffic_level: cd.traffic_level ?? null,
+          total_area_m2: cd.total_area_m2 ?? null,
+          carpet_area_m2: cd.carpet_area_m2 ?? null,
+          hard_floor_area_m2: cd.hard_floor_area_m2 ?? null,
+          floor_count: cd.floor_count ?? null,
+          toilets_count: cd.toilets_count ?? null,
+          urinals_count: cd.urinals_count ?? null,
+          showers_count: cd.showers_count ?? null,
+          basins_count: cd.basins_count ?? null,
+          kitchens_count: cd.kitchens_count ?? null,
+          desks_count: cd.desks_count ?? null,
+          offices_count: cd.offices_count ?? null,
+          meeting_rooms_count: cd.meeting_rooms_count ?? null,
+          reception_count: cd.reception_count ?? null,
+          corridors_stairs_notes: cd.corridors_stairs_notes ?? null,
+          external_glass_notes: cd.external_glass_notes ?? null,
+          compliance_notes: cd.compliance_notes ?? null,
+          assumptions: cd.assumptions ?? null,
+          exclusions: cd.exclusions ?? null,
+          sector_fields: cd.sector_fields ?? {},
+          selected_margin_tier: cd.selected_margin_tier ?? null,
+          labour_cost_basis: cd.labour_cost_basis ?? null,
+          estimated_service_hours: cd.estimated_service_hours ?? null,
+          estimated_weekly_hours: cd.estimated_weekly_hours ?? null,
+          estimated_monthly_hours: cd.estimated_monthly_hours ?? null,
+        })
+      if (detailsErr) {
+        return { error: `Quote created but commercial details failed: ${detailsErr.message}` }
       }
     }
+
     if (input.commercial_scope && input.commercial_scope.length > 0) {
-      const scopeResult = await saveCommercialScope(quote.id, input.commercial_scope)
-      if ('error' in scopeResult) {
-        return { error: `Quote created but commercial scope failed: ${scopeResult.error}` }
+      const rows = input.commercial_scope.map((i, idx) => ({
+        quote_id: quote.id,
+        area_type: i.area_type ?? null,
+        task_group: i.task_group ?? null,
+        task_name: i.task_name,
+        frequency: i.frequency ?? null,
+        quantity_type: i.quantity_type ?? null,
+        quantity_value: i.quantity_value ?? null,
+        unit_minutes: i.unit_minutes ?? null,
+        production_rate: i.production_rate ?? null,
+        included: i.included ?? true,
+        notes: i.notes ?? null,
+        display_order: i.display_order ?? idx,
+      }))
+      const { error: scopeErr } = await supabase
+        .from('commercial_scope_items')
+        .insert(rows)
+      if (scopeErr) {
+        return { error: `Quote created but commercial scope failed: ${scopeErr.message}` }
       }
     }
   }
