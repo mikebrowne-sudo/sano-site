@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { EditQuoteForm } from './_components/EditQuoteForm'
 import { QuoteCustomerDetails } from './_components/QuoteCustomerDetails'
 import Link from 'next/link'
-import { ArrowLeft, Printer } from 'lucide-react'
+import { ArrowLeft, Printer, Pencil } from 'lucide-react'
 import { SendQuotePanel } from './_components/SendQuotePanel'
 import { ConvertToInvoiceButton } from './_components/ConvertToInvoiceButton'
 import { MarkAsAcceptedButton } from './_components/MarkAsAcceptedButton'
@@ -53,6 +53,8 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       date_issued,
       valid_until,
       created_at,
+      updated_at,
+      sent_at,
       pricing_mode,
       estimated_hours,
       pricing_breakdown,
@@ -118,8 +120,22 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       </Link>
 
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-sage-800">{quote.quote_number}</h1>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold text-sage-800">{quote.quote_number}</h1>
+          <QuoteAuditLine
+            updatedAt={(quote.updated_at as string | null) ?? null}
+            sentAt={(quote.sent_at as string | null) ?? null}
+            status={(quote.status as string | null) ?? null}
+          />
+        </div>
         <div className="flex items-center gap-3">
+          <Link
+            href={`/portal/quotes/${params.id}/edit`}
+            className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
+          >
+            <Pencil size={16} />
+            Edit Quote
+          </Link>
           <a
             href={`/portal/quotes/${params.id}/print`}
             target="_blank"
@@ -163,6 +179,42 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
         commercialDetails={commercialDetails ?? null}
         commercialScope={commercialScope ?? []}
       />
+    </div>
+  )
+}
+
+// ── Audit line shown under the quote number ────────────────────────
+// Renders "Last updated: <date>" plus an "Edited after send" pill when
+// the quote was sent and has subsequently been updated. updated_at is
+// the row's last-modified timestamp (Supabase row default); sent_at is
+// stamped by sendQuoteEmail in the [id]/_actions.ts file.
+
+function QuoteAuditLine({
+  updatedAt,
+  sentAt,
+  status,
+}: {
+  updatedAt: string | null
+  sentAt: string | null
+  status: string | null
+}) {
+  if (!updatedAt) return null
+  const updated = new Date(updatedAt)
+  const updatedLabel = updated.toLocaleDateString('en-NZ', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  }) + ' · ' + updated.toLocaleTimeString('en-NZ', { hour: '2-digit', minute: '2-digit' })
+  const editedAfterSend =
+    status === 'sent'
+      && !!sentAt
+      && new Date(updatedAt).getTime() > new Date(sentAt).getTime() + 5_000 // 5s slack
+  return (
+    <div className="flex items-center gap-2 text-xs text-sage-600">
+      <span>Last updated {updatedLabel}</span>
+      {editedAfterSend && (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-semibold uppercase tracking-wide">
+          Edited after send
+        </span>
+      )}
     </div>
   )
 }

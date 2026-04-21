@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { updateQuote } from '../_actions'
 import { AddressField } from '../../../_components/AddressField'
 import { QuoteBuilder, emptyBuilderState, type QuoteBuilderState } from '../../_components/QuoteBuilder'
@@ -142,13 +143,21 @@ export function EditQuoteForm({
   items,
   commercialDetails: commercialDetailsRow = null,
   commercialScope: commercialScopeRows = [],
+  redirectAfterSaveTo,
 }: {
   quote: Quote
   clients: Client[]
   items: QuoteItem[]
   commercialDetails?: CommercialQuoteDetails | null
   commercialScope?: CommercialScopeItem[]
+  // Optional URL to navigate to after a successful save. The dedicated
+  // /portal/quotes/[id]/edit route passes the detail page URL so the
+  // operator lands back on the quote view. The detail page (which
+  // embeds this form inline) leaves it undefined to preserve the
+  // existing in-place "Saved" indicator behaviour.
+  redirectAfterSaveTo?: string
 }) {
+  const router = useRouter()
   // Client
   const [clientId, setClientId] = useState(quote.client_id)
 
@@ -443,7 +452,15 @@ export function EditQuoteForm({
       }
 
       setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
+      if (redirectAfterSaveTo) {
+        // Brief delay so the operator sees the "Saved" pill before navigation.
+        setTimeout(() => {
+          router.push(redirectAfterSaveTo)
+          router.refresh()
+        }, 600)
+      } else {
+        setTimeout(() => setSaved(false), 3000)
+      }
     })
   }
 
