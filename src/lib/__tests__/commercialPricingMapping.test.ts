@@ -83,12 +83,17 @@ import { buildQuoteItemsFromCalc, type CommercialCalculationRow } from '../comme
 function calcRow(over: Partial<CommercialCalculationRow> = {}): CommercialCalculationRow {
   return {
     id: 'calc-1',
+
     pricing_mode: 'make_money',
+
     total_per_clean: 498,
     monthly_value: 4313.16,
     extras_breakdown: { windows: 0, carpet: 0, hard_floor: 0, deep_clean: 0 },
     selected_pricing_view: 'per_clean',
+
     estimated_hours: 6.2,
+
+
     inputs: {
       property_type: 'office',
       office_m2: 500, warehouse_m2: 0, retail_m2: 0, medical_m2: 0,

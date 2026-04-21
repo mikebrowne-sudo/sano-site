@@ -35,6 +35,7 @@ export function Footer() {
               {[
                 { href: '/about', label: 'About Sano' },
                 { href: '/faq', label: 'FAQ' },
+                { href: '/join-our-team', label: 'Join Our Team' },
                 { href: '/contact', label: 'Contact Us' },
               ].map((link) => (
                 <li key={link.href}>
