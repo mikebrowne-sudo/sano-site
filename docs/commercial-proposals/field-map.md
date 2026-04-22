@@ -133,6 +133,7 @@ Empty groups are dropped; tasks within a group preserve operator
 | `scope_groups` | `groupScopeForProposal(commercial_scope_items)` | `ProposalScopeGroup[]` | see below |
 | `scope_groups[i].key` | one of `general_areas \| offices_workstations \| kitchens_breakout \| bathrooms_washrooms \| common_areas \| specialist_areas` | string | `"general_areas"` |
 | `scope_groups[i].label` | `PROPOSAL_GROUP_LABEL[key]` | string | `"General Areas"` |
+| `scope_groups[i].paragraph` | `buildAreaParagraph(group, details)` from `commercialProposalWording.ts` — Phase 4B | string (optional) | *"Bathrooms and washrooms are maintained to a hygienic standard…"* |
 | `scope_groups[i].tasks[j].task_name` | `commercial_scope_items.task_name` | string | `"Vacuum carpeted floors"` |
 | `scope_groups[i].tasks[j].frequency_label` | `frequencyLabel(row.frequency)` | string | `"Weekly"` |
 | `scope_groups[i].tasks[j].area_type` | `commercial_scope_items.area_type` | string \| null | `"Open plan"` |
@@ -155,6 +156,24 @@ Empty groups are dropped; tasks within a group preserve operator
 | JSON path | Source | Type |
 |---|---|---|
 | `compliance_notes` | `details.compliance_notes` | string \| null |
+
+### `optional_paragraphs` — quote-level service notes (Phase 4B)
+
+Rendered as a dedicated "Service notes" section between Scope and
+Service Schedule (React template) / between Scope and Assumptions
+(static HTML template). Only surfaces when `buildOptionalParagraphs`
+produces at least one entry.
+
+| JSON path | Source | Type | Example |
+|---|---|---|---|
+| `optional_paragraphs` | `buildOptionalParagraphs(details)` from `commercialProposalWording.ts` | `OptionalParagraph[]` (optional) | see below |
+| `optional_paragraphs[i].key` | stable identifier, e.g. `"consumables_by_sano"`, `"security_alarm"` | string | `"consumables_by_sano"` |
+| `optional_paragraphs[i].heading` | section heading rendered above the paragraph | string | `"Consumables"` |
+| `optional_paragraphs[i].text` | paragraph body | string | *"Consumables — chemicals, cloths, hand soap…"* |
+
+Current triggers:
+- Consumables paragraph fires when `details.consumables_by` is set — exactly one of `sano` / `client` / `shared` variants is emitted.
+- Security paragraph fires when `details.access_requirements` contains alarm / access-code / swipe / after-hours keywords.
 
 ### `pricing` — pricing summary
 

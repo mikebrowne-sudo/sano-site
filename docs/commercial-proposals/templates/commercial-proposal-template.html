@@ -199,6 +199,11 @@
       border-bottom: 2px solid var(--sage-500);
       margin-bottom: 8pt;
     }
+    .scope-paragraph {
+      margin: 0 0 8pt 0;
+      font-size: 10pt;
+      color: var(--ink);
+    }
     .scope-table {
       width: 100%;
       border-collapse: collapse;
@@ -222,6 +227,22 @@
     .scope-table td.area { width: 22%; color: var(--muted); }
     .scope-table td.freq { width: 22%; font-weight: 600; color: var(--sage-700); white-space: nowrap; }
     .scope-table td .notes { font-size: 9pt; color: var(--muted); margin-top: 2pt; font-style: italic; }
+
+    /* ── Optional paragraphs (Phase 4B parity) ─────────────────── */
+    .optional-paragraph {
+      margin-bottom: 12pt;
+      page-break-inside: avoid;
+    }
+    .optional-paragraph:last-child { margin-bottom: 0; }
+    .optional-paragraph h4 {
+      color: var(--sage-700);
+      margin-bottom: 4pt;
+    }
+    .optional-paragraph p {
+      font-size: 10pt;
+      color: var(--ink);
+      margin: 0;
+    }
 
     /* ── Assumptions / exclusions / compliance ────────────────── */
     .pillars {
@@ -425,6 +446,7 @@
       {
         "key": "general_areas",
         "label": "General Areas",
+        "paragraph": "General areas covered by the programme are maintained to a consistent baseline on each service. The tasks listed below are carried out on the cadence shown alongside each line. Carpeted floors are vacuumed with attention to edges and under-furniture zones. Hard-floor zones are mopped using a neutral cleaner. Internal glass is spot-cleaned to remove visible marks. Waste is removed and bins are relined as part of each service.",
         "tasks": [
           { "task_name": "Vacuum carpeted floors and edges", "frequency_label": "Weekly", "area_type": "Open plan", "notes": null },
           { "task_name": "Mop hard floors with neutral cleaner", "frequency_label": "Weekly", "area_type": "Hard floor zones", "notes": null },
@@ -435,6 +457,7 @@
       {
         "key": "offices_workstations",
         "label": "Offices / Workstations",
+        "paragraph": "Workstations and office areas are cleaned to a consistent, low-disruption standard. The team follows a repeatable rhythm so surfaces, floors, and high-touch points stay at a reliable baseline every visit. Clear desk surfaces are wiped and sanitised on each service, with high-touch zones (keyboard area, mouse, phone, chair armrests) prioritised. Monitors, accessories, and side furniture are dusted as part of the scheduled rotation. Meeting and boardrooms are reset between visits — tables wiped, chairs restored, whiteboards prepared. Office bins are emptied and relined every visit.",
         "tasks": [
           { "task_name": "Wipe desks (clear surfaces only) and sanitise touchpoints", "frequency_label": "Weekly", "area_type": null, "notes": null },
           { "task_name": "Dust monitors, accessories, and side furniture", "frequency_label": "Fortnightly", "area_type": null, "notes": null },
@@ -444,6 +467,7 @@
       {
         "key": "kitchens_breakout",
         "label": "Kitchens / Breakout Areas",
+        "paragraph": "Kitchen and breakout areas are kept presentable and hygienic for staff use. The programme covers surface cleaning, appliance exteriors, touchpoint sanitation, and waste management on every visit. Benches and splashbacks are wiped down and sanitised. Sinks, taps, and drains are cleaned and polished. Appliance fronts — including fridge, microwave, dishwasher, and coffee machine — are wiped clean. High-touch points (handles, switches, appliance handles) are sanitised. Bins are emptied and kitchen consumables (dishwasher tablets, detergent, hand soap) are restocked where supplied by Sano.",
         "tasks": [
           { "task_name": "Wipe benches, splashbacks, and appliance fronts", "frequency_label": "Weekly", "area_type": null, "notes": null },
           { "task_name": "Clean sinks, taps, and drains", "frequency_label": "Weekly", "area_type": null, "notes": null },
@@ -454,6 +478,7 @@
       {
         "key": "bathrooms_washrooms",
         "label": "Bathrooms / Washrooms",
+        "paragraph": "Bathrooms and washrooms are maintained to a hygienic standard. All fixtures, surfaces, and high-touch points are cleaned and disinfected on every service. Toilets and urinals are cleaned and disinfected inside and out, with attention to seat fixings, pan rims, and flush mechanisms. Basins, mirrors, and tapware are cleaned to a streak-free finish. Floors are mopped with a bathroom-appropriate disinfectant. Consumables — hand soap, paper towels, and toilet paper — are checked and restocked from Sano-supplied stock.",
         "tasks": [
           { "task_name": "Clean and disinfect toilets, urinals, and seats", "frequency_label": "Weekly", "area_type": null, "notes": null },
           { "task_name": "Clean basins, mirrors, and tapware", "frequency_label": "Weekly", "area_type": null, "notes": null },
@@ -464,11 +489,24 @@
       {
         "key": "common_areas",
         "label": "Common Areas",
+        "paragraph": "Shared areas — reception, corridors, stairwells, and lifts — are kept presentable on the same rhythm as the main programme so the path between workspaces stays tidy. Reception and lobby surfaces (desk, seating, entry doors) are kept presentable as the first impression of the site. Corridors and stairwells are vacuumed or mopped to suit the floor type, with handrails dusted on a weekly rotation. Lift interiors — panels, buttons, mirrors, handrails, and floor — are wiped on each visit.",
         "tasks": [
           { "task_name": "Clean reception desk, lobby seating, and front-of-house glass", "frequency_label": "Weekly", "area_type": "Reception", "notes": null },
           { "task_name": "Vacuum stair runners and dust handrails", "frequency_label": "Weekly", "area_type": "Stairwell", "notes": null },
           { "task_name": "Wipe lift interior — buttons, mirrors, and floor", "frequency_label": "Weekly", "area_type": "Lift", "notes": null }
         ]
+      }
+    ],
+    "optional_paragraphs": [
+      {
+        "key": "consumables_by_sano",
+        "heading": "Consumables",
+        "text": "Consumables — chemicals, cloths, hand soap, paper towels, and toilet paper — are supplied by Sano as part of the agreed service fee. Stock is monitored on each visit and replenished ahead of running low."
+      },
+      {
+        "key": "security_alarm",
+        "heading": "Site access and security",
+        "text": "Site access is handled through the nominated Sano supervisor, who holds the current alarm code and any building swipe access. Access details are rotated whenever a team member leaves Sano so the client retains confidence in who holds the codes."
       }
     ],
     "assumptions": [
@@ -627,6 +665,7 @@
         {{#scope_groups}}
         <div class="scope-group">
           <h3>{{label}}</h3>
+          {{#paragraph}}<p class="scope-paragraph">{{paragraph}}</p>{{/paragraph}}
           <table class="scope-table">
             <thead>
               <tr>
@@ -661,6 +700,30 @@
         <span>Scope of works</span>
       </div>
     </article>
+
+    <!-- ── PAGE ── Service notes (Phase 4B parity) ─────────────
+         Only rendered when optional_paragraphs has at least one entry.
+         Mirrors the "Service notes" section in CommercialProposalTemplate.tsx,
+         sitting between Scope and Assumptions. Each paragraph shows its
+         heading above the prose body. -->
+    {{#optional_paragraphs.length}}
+    <article class="page">
+      <section>
+        <h2>Service notes</h2>
+        {{#optional_paragraphs}}
+        <div class="optional-paragraph">
+          <h4>{{heading}}</h4>
+          <p>{{text}}</p>
+        </div>
+        {{/optional_paragraphs}}
+      </section>
+
+      <div class="page-footer">
+        <span>{{sano.trading_as}} · Commercial cleaning proposal · {{meta.reference}}</span>
+        <span>Service notes</span>
+      </div>
+    </article>
+    {{/optional_paragraphs.length}}
 
     <!-- ── PAGE ── Assumptions / Exclusions / Compliance ─────── -->
     <article class="page">
