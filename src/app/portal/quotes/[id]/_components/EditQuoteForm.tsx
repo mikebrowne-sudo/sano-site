@@ -283,8 +283,12 @@ export function EditQuoteForm({
   ])
   /* eslint-enable react-hooks/exhaustive-deps */
 
+  // For ineligible services, lock override on and pre-fill price.
+  // Commercial is intentionally excluded — it's ineligible for the
+  // residential pricing engine but has its own pricing path via
+  // CommercialPricingPreview, so override must stay operator-driven.
   useEffect(() => {
-    if (serviceSelected && !eligible && !override.is_price_overridden) {
+    if (serviceSelected && !eligible && !isCommercial && !override.is_price_overridden) {
       setOverride((prev) => ({
         ...prev,
         is_price_overridden: true,
@@ -293,7 +297,7 @@ export function EditQuoteForm({
           : ''),
       }))
     }
-  }, [serviceSelected, eligible, override.is_price_overridden, engineResult?.calculated_price])
+  }, [serviceSelected, eligible, isCommercial, override.is_price_overridden, engineResult?.calculated_price])
 
   const finalPrice = computeFinalPrice({
     is_price_overridden: override.is_price_overridden,
@@ -602,8 +606,10 @@ export function EditQuoteForm({
         <OverridePanel
           value={override}
           onChange={(next) => {
-            // For ineligible services, force is_price_overridden to stay true
-            if (serviceSelected && !eligible) next.is_price_overridden = true
+            // For ineligible services, force is_price_overridden to stay true.
+            // Commercial is excluded — it has its own pricing path and the
+            // operator must be free to toggle override on and off.
+            if (serviceSelected && !eligible && !isCommercial) next.is_price_overridden = true
             if (next.is_price_overridden && !override.is_price_overridden && !next.override_price) {
               next.override_price = engineResult?.calculated_price != null
                 ? String(engineResult.calculated_price)
