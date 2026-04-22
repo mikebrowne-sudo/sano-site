@@ -31,6 +31,7 @@ export interface CommercialProposalTemplateProps {
 export function CommercialProposalTemplate({ payload }: CommercialProposalTemplateProps) {
   const { meta, sano, client, executive_summary, site_profile, service_schedule,
     scope_groups, assumptions, exclusions, pricing } = payload
+  const optionalParagraphs = payload.optional_paragraphs ?? []
 
   // Cover-title fallback: when the aggregator couldn't resolve a real
   // client name (returns the 'Client' sentinel), fall back to the
@@ -134,6 +135,9 @@ export function CommercialProposalTemplate({ payload }: CommercialProposalTempla
               {scope_groups.map((g) => (
                 <div key={g.key} className="proposal-scope-group">
                   <h3 className="proposal-scope-title">{g.label}</h3>
+                  {g.paragraph && (
+                    <p className="proposal-prose proposal-scope-paragraph">{g.paragraph}</p>
+                  )}
                   <ul className="proposal-scope-list">
                     {g.tasks.map((t) => (
                       <li key={t.id}>
@@ -153,6 +157,21 @@ export function CommercialProposalTemplate({ payload }: CommercialProposalTempla
             </div>
           )}
         </Section>
+
+        {/* 4b. Optional paragraphs (Phase 4B) — consumables, security, etc.
+              Rendered only when one or more are triggered by quote-level
+              details. Sits between Scope and Service Schedule so service
+              notes read alongside the scope content they contextualise. */}
+        {optionalParagraphs.length > 0 && (
+          <Section title="Service notes">
+            {optionalParagraphs.map((p) => (
+              <div key={p.key} className="proposal-optional-paragraph">
+                <h3 className="proposal-optional-heading">{p.heading}</h3>
+                <p className="proposal-prose">{p.text}</p>
+              </div>
+            ))}
+          </Section>
+        )}
 
         {/* 5. Service Schedule */}
         <Section title="Service Schedule">
@@ -435,6 +454,21 @@ const PROPOSAL_CSS = `
     margin: 0 0 8px;
     padding-bottom: 4px;
     border-bottom: 1px dashed #cdd9d2;
+  }
+  .proposal-scope-paragraph {
+    margin: 0 0 10px;
+    color: #1a1a1a;
+  }
+
+  /* Optional paragraphs (Phase 4B) */
+  .proposal-optional-paragraph { margin-bottom: 12px; break-inside: avoid; }
+  .proposal-optional-paragraph:last-child { margin-bottom: 0; }
+  .proposal-optional-heading {
+    font-size: 10pt;
+    font-weight: 700;
+    color: #06231D;
+    margin: 0 0 4px;
+    letter-spacing: 0.01em;
   }
   .proposal-scope-list { margin: 0; padding-left: 0; list-style: none; }
   .proposal-scope-list li {
