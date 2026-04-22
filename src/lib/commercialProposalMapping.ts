@@ -17,6 +17,15 @@ import type {
   TrafficLevel,
   OccupancyLevel,
 } from '@/lib/commercialQuote'
+import {
+  buildAreaParagraph,
+  buildOptionalParagraphs,
+  type OptionalParagraph,
+} from './commercialProposalWording'
+
+// Re-export so downstream consumers (proposal template, HTML template)
+// can import wording types through the existing mapping entry point.
+export type { OptionalParagraph }
 
 // ── Label formatting ────────────────────────────────────────────────
 
@@ -163,6 +172,9 @@ export interface ProposalScopeGroup {
   key: ProposalGroupKey
   label: string
   tasks: ProposalScopeTask[]
+  /** Phase 4B: client-safe prose paragraph generated from the included
+   *  tasks. Optional so older saved payloads stay valid. */
+  paragraph?: string
 }
 
 // Groups included scope rows into proposal sections. Excluded rows
@@ -532,6 +544,10 @@ export interface ProposalPayload {
   pricing: ProposalPricingView
   why_sano: readonly string[]
   acceptance: ProposalAcceptanceBlock
+  /** Phase 4B: quote-level paragraphs (consumables, security, etc.)
+   *  rendered between Scope and Assumptions. Optional for backward
+   *  compatibility — renderers that don't know the field skip it. */
+  optional_paragraphs?: OptionalParagraph[]
 }
 
 export interface BuildProposalPayloadInput {
@@ -599,6 +615,14 @@ export function buildProposalPayload(input: BuildProposalPayloadInput): Proposal
     email: client?.email ?? null,
   }
 
+  // Phase 4B: decorate each scope group with a generated paragraph.
+  // Non-mutating — returns fresh objects so downstream callers cannot
+  // accidentally mutate the raw groupScopeForProposal output.
+  const scopeGroups = groupScopeForProposal(scope).map((g) => ({
+    ...g,
+    paragraph: buildAreaParagraph(g, details),
+  }))
+
   return {
     meta,
     sano: issuer,
@@ -606,7 +630,7 @@ export function buildProposalPayload(input: BuildProposalPayloadInput): Proposal
     executive_summary: buildExecutiveSummary(details, scope, clientLabel),
     site_profile:     buildSiteProfile(details, siteAddress),
     service_schedule: buildServiceSchedule(details),
-    scope_groups:     groupScopeForProposal(scope),
+    scope_groups:     scopeGroups,
     assumptions:      splitToBullets(details.assumptions),
     exclusions:       splitToBullets(details.exclusions),
     compliance_notes: details.compliance_notes?.trim() ? details.compliance_notes.trim() : null,
@@ -617,6 +641,7 @@ export function buildProposalPayload(input: BuildProposalPayloadInput): Proposal
                         quote.gst_included,
                       ),
     why_sano:         whyBullets,
+    optional_paragraphs: buildOptionalParagraphs(details),
     acceptance,
   }
 }
