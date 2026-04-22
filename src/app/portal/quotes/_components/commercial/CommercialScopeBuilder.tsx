@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Plus, Sparkles, Trash2 } from 'lucide-react'
 import type {
   CommercialScopeItem,
   ScopeFrequency,
@@ -8,6 +8,7 @@ import type {
   ScopeInputMode,
 } from '@/lib/commercialQuote'
 import type { CommercialScopeItemInput } from '@/app/portal/quotes/_actions-commercial'
+import { stampOfficeTemplate } from '@/lib/commercialOfficeTemplate'
 
 // ── Form-row type ──────────────────────────────────────────────────
 
@@ -218,6 +219,24 @@ export function CommercialScopeBuilder({
     onChange([...rows, emptyScopeRow()])
   }
 
+  // Phase 4A — stamp the Commercial Office template. Replaces the
+  // current row set. When rows are already present, confirms first so
+  // in-progress work is not wiped accidentally. Fresh _key generated
+  // per row so there is no collision with any existing React state.
+  function applyOfficeTemplate() {
+    if (rows.length > 0) {
+      const confirmed = window.confirm(
+        'Apply the office template? This replaces all current scope rows.',
+      )
+      if (!confirmed) return
+    }
+    const stamped = stampOfficeTemplate().map((row) => ({
+      ...row,
+      _key: newScopeKey(),
+    }))
+    onChange(stamped)
+  }
+
   function removeAt(idx: number) {
     onChange(rows.filter((_, i) => i !== idx))
   }
@@ -244,16 +263,27 @@ export function CommercialScopeBuilder({
 
   return (
     <section className="rounded-lg border border-sage-100 bg-white p-4">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h3 className="text-sm font-semibold text-sage-800 uppercase tracking-wide">Scope of work</h3>
-        <button
-          type="button"
-          onClick={addRow}
-          disabled={disabled}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-sage-700 bg-sage-50 hover:bg-sage-100 border border-sage-200 rounded-lg px-3 py-1.5 disabled:opacity-50"
-        >
-          <Plus size={14} /> Add scope row
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={applyOfficeTemplate}
+            disabled={disabled}
+            title="Replace the current scope rows with the Commercial Office template."
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-sage-600 bg-white border border-sage-200 hover:bg-sage-50 rounded-lg px-3 py-1.5 disabled:opacity-50"
+          >
+            <Sparkles size={14} /> Apply office template
+          </button>
+          <button
+            type="button"
+            onClick={addRow}
+            disabled={disabled}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-sage-700 bg-sage-50 hover:bg-sage-100 border border-sage-200 rounded-lg px-3 py-1.5 disabled:opacity-50"
+          >
+            <Plus size={14} /> Add scope row
+          </button>
+        </div>
       </div>
 
       {rows.length === 0 ? (
