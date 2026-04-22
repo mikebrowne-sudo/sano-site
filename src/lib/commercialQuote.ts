@@ -106,6 +106,7 @@ export interface CommercialScopeItem {
   quantity_value: number | null
   unit_minutes: number | null
   production_rate: number | null
+  input_mode: ScopeInputMode        // Phase 2: persisted, DB-enforced NOT NULL DEFAULT 'measured'
   included: boolean
   notes: string | null
   display_order: number
@@ -331,12 +332,28 @@ export interface CommercialPreviewDetails {
   service_days: string[] | null
 }
 
+// ── Scope input mode (Phase 1 UI-only) ─────────────────────────────
+// Locks a scope row to one of two safe input paths so operators
+// cannot accidentally mix incompatible fields. Derived on hydrate,
+// applied at save time. Not yet persisted to the DB.
+//
+// TODO: persist input_mode in DB (Phase 2)
+
+export type ScopeInputMode = 'measured' | 'time_based'
+
 export interface CommercialPreviewScopeRow {
   included: boolean
   frequency: ScopeFrequency | '' | null
   quantity_value: number | null
   unit_minutes: number | null
   production_rate: number | null
+  /** Phase 1 input-mode lock. When set, the preview ignores fields
+   *  not belonging to the active path:
+   *    measured   → quantity_value × unit_minutes  (production_rate ignored)
+   *    time_based → 1 × unit_minutes               (quantity + production_rate ignored)
+   *  When `undefined`, the legacy priority rule applies (unit_minutes
+   *  preferred, falls back to production_rate). */
+  input_mode?: ScopeInputMode
 }
 
 export interface CommercialPreview {
@@ -389,22 +406,44 @@ export function computeCommercialPreview(
     : DEFAULT_LABOUR_COST_BASIS
 
   // Walk the scope and accumulate weekly minutes.
-  // Priority rule: if unit_minutes is set, use that (quantity × unit_minutes).
-  //                otherwise, use quantity / production_rate × 60.
-  //                if neither, the row is incomplete and skipped.
+  //
+  // When a row has input_mode set, the active path is locked:
+  //   measured   → quantity × unit_minutes      (production_rate ignored)
+  //   time_based → 1 × unit_minutes             (quantity + production_rate ignored)
+  // When input_mode is absent (legacy callers / untouched rows),
+  // fall back to the original priority rule:
+  //   unit_minutes preferred → then production_rate.
   let base_weekly_minutes = 0
   let included_scope_rows = 0
   let incomplete_scope_rows = 0
 
   for (const row of scope) {
     if (!row.included) continue
-    if (!row.quantity_value || row.quantity_value <= 0) continue
+
+    // Effective quantity — time-based rows always count as 1 regardless
+    // of any stale value still in form state.
+    const effective_quantity =
+      row.input_mode === 'time_based' ? 1 : row.quantity_value
+
+    if (row.input_mode !== 'time_based'
+        && (!effective_quantity || effective_quantity <= 0)) continue
 
     let minutes_per_execution: number | null = null
-    if (row.unit_minutes != null && row.unit_minutes > 0) {
-      minutes_per_execution = row.quantity_value * row.unit_minutes
-    } else if (row.production_rate != null && row.production_rate > 0) {
-      minutes_per_execution = (row.quantity_value / row.production_rate) * 60
+    if (row.input_mode === 'measured') {
+      if (row.unit_minutes != null && row.unit_minutes > 0 && effective_quantity != null) {
+        minutes_per_execution = effective_quantity * row.unit_minutes
+      }
+    } else if (row.input_mode === 'time_based') {
+      if (row.unit_minutes != null && row.unit_minutes > 0) {
+        minutes_per_execution = row.unit_minutes
+      }
+    } else {
+      // Legacy path — no input_mode set.
+      if (row.unit_minutes != null && row.unit_minutes > 0 && effective_quantity != null) {
+        minutes_per_execution = effective_quantity * row.unit_minutes
+      } else if (row.production_rate != null && row.production_rate > 0 && effective_quantity != null) {
+        minutes_per_execution = (effective_quantity / row.production_rate) * 60
+      }
     }
 
     if (minutes_per_execution == null) {

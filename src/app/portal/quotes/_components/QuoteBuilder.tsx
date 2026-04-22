@@ -181,14 +181,44 @@ export function QuoteBuilder({
 
       {/* ── Service ──────────────────────────────── */}
       <fieldset>
-        <Label>Service Category</Label>
+        {/* Binary Service Type toggle (Phase 1) — primary frame over the
+            existing 4-way SERVICE_CATEGORIES picker. Does not collapse
+            categories; picking "Residential" shows the 3-way subtype
+            chips, picking "Commercial" locks category to 'commercial'. */}
+        <Label>Service Type</Label>
         <ChipRow>
-          {SERVICE_CATEGORIES.map((c) => (
-            <Chip key={c.value} active={s.service_category === c.value} onClick={() => pickCategory(c.value)}>
-              {c.label}
-            </Chip>
-          ))}
+          <Chip
+            active={isResidentialStyle}
+            onClick={() => {
+              if (!isResidentialStyle) pickCategory('residential')
+            }}
+          >
+            Residential
+          </Chip>
+          <Chip
+            active={isCommercial}
+            onClick={() => {
+              if (!isCommercial) pickCategory('commercial')
+            }}
+          >
+            Commercial
+          </Chip>
         </ChipRow>
+
+        {/* Subtype picker — only for residential-style. Commercial locks
+            category and skips this row entirely. */}
+        {isResidentialStyle && (
+          <>
+            <Label className="mt-5">Service sub-category</Label>
+            <ChipRow>
+              {SERVICE_CATEGORIES.filter((c) => c.value !== 'commercial').map((c) => (
+                <Chip key={c.value} active={s.service_category === c.value} onClick={() => pickCategory(c.value)}>
+                  {c.label}
+                </Chip>
+              ))}
+            </ChipRow>
+          </>
+        )}
 
         {category && (
           <>
@@ -291,8 +321,9 @@ export function QuoteBuilder({
         </Block>
       )}
 
-      {/* ── Areas included ───────────────────────── */}
-      {category && (
+      {/* ── Areas included (residential-only — commercial captures
+             areas per scope row in the Commercial Scope block) ─────── */}
+      {category && !isCommercial && (
         <Block title="Areas included">
           <ChipRow>
             {AREA_OPTIONS.map((a) => (
@@ -326,8 +357,10 @@ export function QuoteBuilder({
         </Block>
       )}
 
-      {/* ── Additional services ──────────────────── */}
-      {category && (
+      {/* ── Additional services (residential-flavoured wording chips
+             like oven/carpet/window — not relevant for commercial, which
+             adds line items via the outer "Add-ons" section instead) ── */}
+      {category && !isCommercial && (
         <Block title="Additional services">
           <ChipRow>
             {ADDON_OPTIONS.map((a) => (

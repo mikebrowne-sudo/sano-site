@@ -50,6 +50,7 @@ export function CommercialPricingPreview({
       quantity_value: parseNumber(r.quantity_value),
       unit_minutes: parseNumber(r.unit_minutes),
       production_rate: parseNumber(r.production_rate),
+      input_mode: r.input_mode,
     }))
     return computeCommercialPreview(
       {
