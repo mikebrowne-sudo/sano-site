@@ -524,10 +524,29 @@ Structured quote builder (approved scope, not yet live):
 - `EditQuoteForm` orchestrates commercial saves client-side after a successful `updateQuote`; locked quotes (sent/accepted) render the commercial section disabled, matching the existing lock behaviour.
 - Scope reordering is arrow-button this pass; drag-and-drop is a later improvement.
 
-### Phase 2 — Pricing preview + admin delete UI (planned)
-- Embedded pricing preview using `src/lib/commercialPricing.ts`. Standalone `/portal/commercial-calculator` path retired.
-- Estimated service/weekly/monthly hours, labour cost basis, margin tier-driven sell price summary — override-compatible.
-- Admin delete button on the quote detail/edit page — confirmation modal, surfaces linked invoice/job IDs before soft-deleting.
+ ### Phase 2 — Pricing preview + admin soft-delete UI (shipped on `feat/commercial-quote-phase-2`, stacks on Phase 1)
+  - Pure pricing function `computeCommercialPreview(details, scope)` in `src/lib/commercialQuote.ts` produces estimated per-visit / weekly / monthly hours, monthly labour cost, and monthly / weekly / per-visit
+   sell price from structured scope rows + sector / traffic multipliers + margin-tier midpoint.
+  - Priority rule for scope hours: `unit_minutes` (quantity × mins) is preferred when set; otherwise `quantity / production_rate × 60`. `per_visit` frequency multiplies by visits_per_week (derived from
+  `service_days` length, default 1). `as_required` rows contribute zero.
+  - New `CommercialPricingPreview` component renders inside the commercial section on both New and Edit forms; shows hours, labour cost, sell price, multipliers used, and warnings for incomplete scope rows.
+  Includes an "Apply to base price" button that copies the estimated monthly sell price into the quote's `base_price` — the existing manual-override flow is untouched.
+  - `CommercialDetailsSection` gains a Labour cost basis ($/hr) field (default $45) next to the margin tier picker.
+  - Computed hours (`estimated_service_hours`, `estimated_weekly_hours`, `estimated_monthly_hours`) and `labour_cost_basis` are persisted via `saveCommercialDetails` / `createQuote`'s inline commercial branch.
+   No migration required — the columns exist from Phase 0.
+  - New `CommercialDeleteButton` component wraps `softDeleteQuote`: two-step confirm, surfaces linked invoice / job IDs when the quote is referenced, exposes a secondary "Delete anyway" that sets
+  `confirm_linked=true`. Only renders for admin (`user.email === 'michael@sano.nz'`). On commercial quote detail pages it replaces the generic `DeleteButton`; non-commercial quotes retain the existing button.
+  - The deprecated standalone `/portal/commercial-calculator` page is left in place but no longer referenced from the commercial quote flow; can be removed in a later tidy pass.
 
-### Phase 3 — Tender document generation (future; out of scope here)
-- Customer-facing tender pack generated from the structured commercial quote data.
+ ### Phase 3 — Commercial tender / proposal pack (shipped on `feat/commercial-quote-phase-3`, stacks on Phase 2)
+  - New `CommercialProposalTemplate` server component (`src/app/portal/quotes/_components/commercial/proposal/`) renders a polished client-facing commercial cleaning proposal from the structured Phase 0/1/2
+  data: Cover · Parties · Executive summary · Site & service profile · Scope of works · Assumptions / Exclusions / Compliance · Pricing summary (recurring fee + indicative annualised) · Why Sano · Acceptance &
+   next steps.
+  - New pure helpers `commercial-proposal-mapping.ts`: scope grouping by area, client-friendly frequency labels, auto-generated executive summary sentence, multi-line text → bullets/paragraph, pricing roll-up.
+  - Same routes used as the legacy print/share flows: `/portal/quotes/[id]/print` and `/share/quote/[token]` branch on `service_category === 'commercial'`. When commercial, parallel-load
+  `commercial_quote_details` + `commercial_scope_items` and render the proposal template; otherwise render the existing legacy quote template byte-identically (residential output unchanged).
+  - The public share route slots the existing `AcceptQuote` component into the proposal's Acceptance section when `status !== 'accepted'`. The accept flow is unchanged.
+  - Internal-only fields are excluded from the client-facing proposal: `labour_cost_basis`, `selected_margin_tier`, `estimated_*_hours`, override math, `pricing_breakdown`, `commercial_calc_id`. Only the
+  operator-set base price, add-ons, GST, and an indicative × 12 annualised value surface in the pricing summary.
+  - Print CSS extends the existing sage / Inter family with richer hierarchy, `break-inside: avoid` on sections / scope areas / acceptance, and A4 print sizing.
+  - No migration. No change to residential print or share output.

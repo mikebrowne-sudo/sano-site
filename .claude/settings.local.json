@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx jest *)",
+      "Bash(npm run *)",
+      "Bash(git cherry-pick *)",
+      "Bash(git ls-tree *)",
+      "Bash(git stash *)",
+      "Bash(git switch *)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"TSC-EXIT:$?\")",
+      "Bash(npx next *)",
+      "Bash(echo \"LINT-EXIT:$?\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git branch *)",
+      "Bash(git pull *)",
+      "Bash(git checkout *)",
+      "Bash(rm -rf src/app/portal/quotes/_components/commercial/proposal)"
+    ]
+  }
+}
