@@ -29,6 +29,7 @@ import {
 } from '../../_components/commercial/CommercialScopeBuilder'
 import { CommercialPricingPreview } from '../../_components/commercial/CommercialPricingPreview'
 import { computeCommercialPreview, type CommercialPreviewScopeRow, type ScopeFrequency } from '@/lib/commercialQuote'
+import type { PricingSettings } from '@/lib/pricingSettings'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -80,9 +81,14 @@ function formatNZD(dollars: number) {
 export function NewQuoteForm({
   clients,
   calc,
+  pricingSettings,
 }: {
   clients: Client[]
   calc?: CommercialCalculationRow | null
+  /** Phase 3B.1: DB-backed commercial pricing knobs, forwarded to
+   *  CommercialPricingPreview. Optional — falls back to in-code
+   *  constants when absent. */
+  pricingSettings?: PricingSettings
 }) {
   // Client mode
   const [clientMode, setClientMode] = useState<'existing' | 'new'>(
@@ -521,6 +527,7 @@ export function NewQuoteForm({
               details={commercialDetails}
               scope={commercialScope}
               onApplyToBasePrice={(price) => setBasePrice(String(price))}
+              pricingSettings={pricingSettings}
             />
           </div>
         </Section>

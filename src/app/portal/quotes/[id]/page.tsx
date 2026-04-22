@@ -11,6 +11,7 @@ import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
 import { DeleteButton } from '../../_components/DeleteButton'
 import { CommercialDeleteButton } from '../_components/commercial/CommercialDeleteButton'
 import { firstName } from '@/lib/doc-helpers'
+import { loadPricingSettings } from '@/lib/pricingSettings'
 
 export default async function QuoteDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -69,14 +70,17 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
 
   if (error || !quote) notFound()
 
-  // Load quote items, all clients, current client email, and (for commercial
-  // quotes) the commercial detail row + scope items — all in parallel.
+  // Load quote items, all clients, current client email, (for commercial
+  // quotes) the commercial detail row + scope items, and the Phase 3A
+  // pricing settings — all in parallel. Settings never throw (loader
+  // falls back to in-code constants on any error).
   const [
     { data: items },
     { data: clients },
     { data: currentClient },
     { data: commercialDetails },
     { data: commercialScope },
+    pricingSettings,
   ] = await Promise.all([
     supabase
       .from('quote_items')
@@ -102,6 +106,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       .select('*')
       .eq('quote_id', params.id)
       .order('display_order'),
+    loadPricingSettings(supabase),
   ])
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
@@ -162,6 +167,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
         items={items ?? []}
         commercialDetails={commercialDetails ?? null}
         commercialScope={commercialScope ?? []}
+        pricingSettings={pricingSettings}
       />
     </div>
   )

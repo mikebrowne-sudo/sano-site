@@ -3,6 +3,7 @@ import { NewQuoteForm } from './_components/NewQuoteForm'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import type { CommercialCalculationRow } from '@/lib/commercialPricingMapping'
+import { loadPricingSettings } from '@/lib/pricingSettings'
 
 export default async function NewQuotePage({
   searchParams,
@@ -11,10 +12,16 @@ export default async function NewQuotePage({
 }) {
   const supabase = createClient()
 
-  const { data: clients } = await supabase
-    .from('clients')
-    .select('id, name, company_name, email, phone, service_address, billing_address, billing_same_as_service')
-    .order('name')
+  // Parallel reads: client list + Phase 3A pricing settings. Settings
+  // never throw (loader falls back to in-code constants on any error).
+  const [clientsRes, pricingSettings] = await Promise.all([
+    supabase
+      .from('clients')
+      .select('id, name, company_name, email, phone, service_address, billing_address, billing_same_as_service')
+      .order('name'),
+    loadPricingSettings(supabase),
+  ])
+  const clients = clientsRes.data
 
   let calc: CommercialCalculationRow | null = null
   if (searchParams?.calc_id) {
@@ -42,7 +49,7 @@ export default async function NewQuotePage({
 
       <h1 className="text-2xl font-bold text-sage-800 mb-8">New Quote</h1>
 
-      <NewQuoteForm clients={clients ?? []} calc={calc} />
+      <NewQuoteForm clients={clients ?? []} calc={calc} pricingSettings={pricingSettings} />
     </div>
   )
 }
