@@ -14,6 +14,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { CommercialProposalTemplate } from '@/app/portal/quotes/_components/commercial/CommercialProposalTemplate'
+import { buildProposalPayload } from '@/lib/commercialProposalMapping'
 import type { CommercialQuoteDetails, CommercialScopeItem } from '@/lib/commercialQuote'
 
 export const metadata: Metadata = { robots: 'noindex, nofollow' }
@@ -132,30 +133,30 @@ export default async function CommercialProposalPage({
     email: string | null
   } | null
 
-  return (
-    <CommercialProposalTemplate
-      quote={{
-        id: quote.id as string,
-        quote_number: quote.quote_number as string,
-        status: (quote.status as string | null) ?? null,
-        date_issued: (quote.date_issued as string | null) ?? null,
-        valid_until: (quote.valid_until as string | null) ?? null,
-        accepted_at: (quote.accepted_at as string | null) ?? null,
-        service_address: (quote.service_address as string | null) ?? null,
-        notes: (quote.notes as string | null) ?? null,
-        base_price: (quote.base_price as number) ?? 0,
-        discount: (quote.discount as number | null) ?? null,
-        gst_included: (quote.gst_included as boolean) ?? true,
-        payment_type: (quote.payment_type as string | null) ?? null,
-      }}
-      client={client}
-      addons={(items ?? []).map((it) => ({
-        label: it.label as string,
-        price: (it.price as number) ?? 0,
-        sort_order: (it.sort_order as number) ?? 0,
-      }))}
-      details={detailsRow}
-      scope={(scope as unknown as CommercialScopeItem[]) ?? []}
-    />
-  )
+  const payload = buildProposalPayload({
+    quote: {
+      id: quote.id as string,
+      quote_number: quote.quote_number as string,
+      status: (quote.status as string | null) ?? null,
+      date_issued: (quote.date_issued as string | null) ?? null,
+      valid_until: (quote.valid_until as string | null) ?? null,
+      accepted_at: (quote.accepted_at as string | null) ?? null,
+      service_address: (quote.service_address as string | null) ?? null,
+      notes: (quote.notes as string | null) ?? null,
+      base_price: (quote.base_price as number) ?? 0,
+      discount: (quote.discount as number | null) ?? null,
+      gst_included: (quote.gst_included as boolean) ?? true,
+      payment_type: (quote.payment_type as string | null) ?? null,
+    },
+    client,
+    addons: (items ?? []).map((it) => ({
+      label: it.label as string,
+      price: (it.price as number) ?? 0,
+      sort_order: (it.sort_order as number) ?? 0,
+    })),
+    details: detailsRow,
+    scope: (scope as unknown as CommercialScopeItem[]) ?? [],
+  })
+
+  return <CommercialProposalTemplate payload={payload} />
 }

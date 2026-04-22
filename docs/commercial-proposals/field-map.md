@@ -68,10 +68,12 @@ helper call) | **Type** | **Example** | **Notes**.
 |---|---|---|---|---|
 | `sano.company_name` | constant | string | `"Sano Property Services Limited"` | |
 | `sano.trading_as` | constant | string | `"Sano"` | Shown in footers. |
-| `sano.phone` | constant | string | `"0800 726 686"` | From `CLAUDE.md`. |
+| `sano.phone` | constant | string | `"0800 726 686"` | Toll-free / general line. From `CLAUDE.md`. |
+| `sano.mobile_phone` | constant | string | `"022 394 3982"` | Operations / direct line. Used on the React commercial proposal's Parties + footer blocks. |
 | `sano.email` | constant | string | `"hello@sano.nz"` | |
 | `sano.website` | constant | string | `"sano.nz"` | |
 | `sano.address_line` | constant | string | `"Auckland, New Zealand"` | |
+| `sano.gst_number` | constant | string | `"141-577-062"` | Rendered as `GST {gst_number}`. |
 | `sano.logo_src` | path to image | string | `"../assets/logos/sano-logo-print.png"` | Drop the file into `assets/logos/`. Renderer skips the `<img>` if empty. |
 
 > Recommendation: keep `sano.*` in a single shared constant in

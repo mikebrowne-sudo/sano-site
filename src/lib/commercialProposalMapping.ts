@@ -444,10 +444,12 @@ export function fmtProposalDateOrNull(iso: string | null | undefined): string | 
 export interface ProposalIssuer {
   company_name: string
   trading_as: string
-  phone: string
+  phone: string                  // toll-free / general line (CLAUDE.md)
+  mobile_phone: string           // operations / direct line (used on commercial proposals)
   email: string
   website: string
   address_line: string
+  gst_number: string
   logo_src: string
 }
 
@@ -455,9 +457,11 @@ export const SANO_ISSUER: ProposalIssuer = {
   company_name: 'Sano Property Services Limited',
   trading_as: 'Sano',
   phone: '0800 726 686',
+  mobile_phone: '022 394 3982',
   email: 'hello@sano.nz',
   website: 'sano.nz',
   address_line: 'Auckland, New Zealand',
+  gst_number: '141-577-062',
   logo_src: '/brand/sano-logo-print.png',
 }
 

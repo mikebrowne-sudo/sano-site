@@ -1,67 +1,45 @@
 // Commercial proposal template — server component.
 //
 // Rendered by /portal/quotes/[id]/proposal for commercial quotes.
-// Takes all data as props (environment-agnostic) so a future public
-// share route can reuse it without changes.
+// Takes a single ProposalPayload prop built by buildProposalPayload()
+// in src/lib/commercialProposalMapping.ts. Environment-agnostic so a
+// future public share route can reuse it without changes.
 //
-// This is the "system version" — content structure is the priority,
-// visual polish will follow. Print-friendly layout using a minimal
-// palette from the existing portal design language.
+// All data on this template comes from the payload — the helpers
+// (buildExecutiveSummary, buildSiteProfile, buildServiceSchedule,
+// groupScopeForProposal, splitToBullets, buildPricingSummary) are
+// called once at the route level. The contract is documented in
+// docs/commercial-proposals/field-map.md.
 
-import type {
-  CommercialQuoteDetails,
-  CommercialScopeItem,
-} from '@/lib/commercialQuote'
-import {
-  buildExecutiveSummary,
-  buildPricingSummary,
-  buildServiceSchedule,
-  buildSiteProfile,
-  fmtProposalDate,
-  groupScopeForProposal,
-  nzd,
-  splitToBullets,
-} from '@/lib/commercialProposalMapping'
+import { nzd } from '@/lib/commercialProposalMapping'
 import type {
   ProposalAddon,
   ProposalClient,
+  ProposalPayload,
   ProposalQuote,
 } from '@/lib/commercialProposalMapping'
 
 // Re-export so existing consumers can keep importing these types from
 // the template's path. Single source of truth lives in
 // commercialProposalMapping.ts.
-export type { ProposalAddon, ProposalClient, ProposalQuote }
+export type { ProposalAddon, ProposalClient, ProposalPayload, ProposalQuote }
 
 export interface CommercialProposalTemplateProps {
-  quote: ProposalQuote
-  client: ProposalClient | null
-  addons: readonly ProposalAddon[]
-  details: CommercialQuoteDetails
-  scope: readonly CommercialScopeItem[]
+  payload: ProposalPayload
 }
 
-const fmtDate = fmtProposalDate
+export function CommercialProposalTemplate({ payload }: CommercialProposalTemplateProps) {
+  const { meta, sano, client, executive_summary, site_profile, service_schedule,
+    scope_groups, assumptions, exclusions, pricing } = payload
 
-export function CommercialProposalTemplate({
-  quote,
-  client,
-  addons,
-  details,
-  scope,
-}: CommercialProposalTemplateProps) {
-  const summary = buildExecutiveSummary(details, scope, client?.name ?? client?.company_name ?? null)
-  const site = buildSiteProfile(details, quote.service_address ?? client?.service_address ?? null)
-  const schedule = buildServiceSchedule(details)
-  const groups = groupScopeForProposal(scope)
-  const pricing = buildPricingSummary(
-    quote.base_price ?? 0,
-    addons,
-    quote.discount ?? 0,
-    quote.gst_included,
-  )
-  const assumptions = splitToBullets(details.assumptions ?? null)
-  const exclusions = splitToBullets(details.exclusions ?? null)
+  // Cover-title fallback: when the aggregator couldn't resolve a real
+  // client name (returns the 'Client' sentinel), fall back to the
+  // sector-derived label. Preserves the pre-payload behaviour.
+  const coverTitle = client.company_name && client.company_name !== 'Client'
+    ? client.company_name
+    : `${site_profile.sector} site`
+
+  const isAccepted = meta.status === 'accepted' && !!meta.accepted_at
 
   return (
     <>
@@ -73,22 +51,22 @@ export function CommercialProposalTemplate({
           <div>
             <div className="proposal-eyebrow">Commercial Cleaning Proposal</div>
             <h1 className="proposal-cover-title">
-              Cleaning programme for {client?.company_name || client?.name || `${site.sector} site`}
+              Cleaning programme for {coverTitle}
             </h1>
             <div className="proposal-cover-sub">
-              Prepared by Sano Property Services Limited · {fmtDate(quote.date_issued)}
+              Prepared by {sano.company_name} · {meta.issued}
             </div>
           </div>
           <div className="proposal-cover-meta">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/sano-logo-print.png" alt="Sano" className="proposal-logo" />
+            <img src={sano.logo_src} alt={sano.trading_as} className="proposal-logo" />
             <table className="proposal-meta-table">
               <tbody>
-                <tr><th>Reference</th><td>{quote.quote_number}</td></tr>
-                <tr><th>Issued</th><td>{fmtDate(quote.date_issued)}</td></tr>
-                <tr><th>Valid until</th><td>{fmtDate(quote.valid_until)}</td></tr>
-                {quote.status === 'accepted' && quote.accepted_at && (
-                  <tr><th>Accepted</th><td>{fmtDate(quote.accepted_at)}</td></tr>
+                <tr><th>Reference</th><td>{meta.reference}</td></tr>
+                <tr><th>Issued</th><td>{meta.issued}</td></tr>
+                <tr><th>Valid until</th><td>{meta.valid_until}</td></tr>
+                {isAccepted && (
+                  <tr><th>Accepted</th><td>{meta.accepted_at}</td></tr>
                 )}
               </tbody>
             </table>
@@ -99,54 +77,61 @@ export function CommercialProposalTemplate({
         <section className="proposal-parties">
           <div>
             <div className="proposal-sub-label">Prepared by</div>
-            <div className="proposal-party-name">Sano Property Services Limited</div>
-            <div className="proposal-party-line">hello@sano.nz</div>
-            <div className="proposal-party-line">022 394 3982</div>
-            <div className="proposal-party-line">GST 141-577-062</div>
+            <div className="proposal-party-name">{sano.company_name}</div>
+            <div className="proposal-party-line">{sano.email}</div>
+            <div className="proposal-party-line">{sano.mobile_phone}</div>
+            <div className="proposal-party-line">GST {sano.gst_number}</div>
           </div>
           <div>
             <div className="proposal-sub-label">Prepared for</div>
-            <div className="proposal-party-name">{client?.name ?? '—'}</div>
-            {client?.company_name && <div className="proposal-party-line">{client.company_name}</div>}
-            {site.service_address && <div className="proposal-party-line">{site.service_address}</div>}
-            {client?.phone && <div className="proposal-party-line">{client.phone}</div>}
-            {client?.email && <div className="proposal-party-line">{client.email}</div>}
+            <div className="proposal-party-name">{client.contact_name ?? '—'}</div>
+            {/* Suppress the company line when it would duplicate the contact name
+                (the aggregator falls back company_name → name → 'Client', so a
+                missing raw company_name surfaces as the contact name here). */}
+            {client.company_name
+              && client.company_name !== 'Client'
+              && client.company_name !== client.contact_name && (
+              <div className="proposal-party-line">{client.company_name}</div>
+            )}
+            {site_profile.service_address && <div className="proposal-party-line">{site_profile.service_address}</div>}
+            {client.phone && <div className="proposal-party-line">{client.phone}</div>}
+            {client.email && <div className="proposal-party-line">{client.email}</div>}
           </div>
         </section>
 
         {/* 2. Executive Summary */}
         <Section title="Executive Summary">
-          <p className="proposal-prose">{summary}</p>
+          <p className="proposal-prose">{executive_summary}</p>
         </Section>
 
         {/* 3. Site / Project Details */}
         <Section title="Site &amp; Project Details">
           <dl className="proposal-kv">
-            <KV label="Sector"        value={site.sector} />
-            <KV label="Building type" value={site.building_type} />
-            <KV label="Address"       value={site.service_address ?? ''} />
-            <KV label="Total area"    value={site.total_area} />
-            <KV label="Floors"        value={site.floors} />
-            <KV label="Occupancy"     value={site.occupancy} />
-            <KV label="Traffic"       value={site.traffic} />
+            <KV label="Sector"        value={site_profile.sector} />
+            <KV label="Building type" value={site_profile.building_type} />
+            <KV label="Address"       value={site_profile.service_address ?? ''} />
+            <KV label="Total area"    value={site_profile.total_area} />
+            <KV label="Floors"        value={site_profile.floors} />
+            <KV label="Occupancy"     value={site_profile.occupancy} />
+            <KV label="Traffic"       value={site_profile.traffic} />
           </dl>
-          {site.fixtures_summary && (
+          {site_profile.fixtures_summary && (
             <div className="proposal-callout">
               <div className="proposal-sub-label">Fixtures &amp; spaces</div>
-              <div>{site.fixtures_summary}</div>
+              <div>{site_profile.fixtures_summary}</div>
             </div>
           )}
         </Section>
 
         {/* 4. Scope of Works */}
         <Section title="Scope of Works">
-          {groups.length === 0 ? (
+          {scope_groups.length === 0 ? (
             <p className="proposal-prose proposal-muted">
               Scope will be confirmed with the client and incorporated prior to mobilisation.
             </p>
           ) : (
             <div className="proposal-scope">
-              {groups.map((g) => (
+              {scope_groups.map((g) => (
                 <div key={g.key} className="proposal-scope-group">
                   <h3 className="proposal-scope-title">{g.label}</h3>
                   <ul className="proposal-scope-list">
@@ -172,17 +157,17 @@ export function CommercialProposalTemplate({
         {/* 5. Service Schedule */}
         <Section title="Service Schedule">
           <dl className="proposal-kv">
-            <KV label="Service days"   value={schedule.service_days} />
-            <KV label="Service window" value={schedule.service_window} />
-            <KV label="Consumables"    value={schedule.consumables} />
+            <KV label="Service days"   value={service_schedule.service_days} />
+            <KV label="Service window" value={service_schedule.service_window} />
+            <KV label="Consumables"    value={service_schedule.consumables} />
           </dl>
-          {schedule.access_requirements && (
+          {service_schedule.access_requirements && (
             <div className="proposal-callout">
               <div className="proposal-sub-label">Access requirements</div>
-              <div>{schedule.access_requirements}</div>
+              <div>{service_schedule.access_requirements}</div>
             </div>
           )}
-          {!schedule.service_days && !schedule.service_window && !schedule.consumables && (
+          {!service_schedule.service_days && !service_schedule.service_window && !service_schedule.consumables && (
             <p className="proposal-prose proposal-muted">
               Service schedule to be confirmed with the client.
             </p>
@@ -241,7 +226,9 @@ export function CommercialProposalTemplate({
           </Section>
         )}
 
-        {/* 9. Why Sano */}
+        {/* 9. Why Sano — hardcoded prose for now; payload.why_sano carries
+              the bulleted variant used by the static HTML / PDF template.
+              See docs/commercial-proposals/field-map.md. */}
         <Section title="Why Sano">
           <p className="proposal-prose">
             Sano delivers commercial cleaning with a detail-led, accountable approach.
@@ -257,11 +244,11 @@ export function CommercialProposalTemplate({
           </p>
         </Section>
 
-        {/* 10. Next Steps */}
+        {/* 10. Next Steps — hardcoded prose, status-aware via payload.meta */}
         <Section title="Next Steps">
           <p className="proposal-prose">
-            {quote.status === 'accepted'
-              ? `This proposal was accepted on ${fmtDate(quote.accepted_at)}. We look forward to mobilising and delivering a strong ongoing programme.`
+            {isAccepted
+              ? `This proposal was accepted on ${meta.accepted_at}. We look forward to mobilising and delivering a strong ongoing programme.`
               : `If you would like to proceed, please confirm acceptance. A member of the Sano team will be in touch within one business day to schedule mobilisation.`}
           </p>
           <p className="proposal-prose proposal-muted">
@@ -271,7 +258,7 @@ export function CommercialProposalTemplate({
         </Section>
 
         <footer className="proposal-footer">
-          Sano Property Services Limited · hello@sano.nz · 022 394 3982 · GST 141-577-062
+          {sano.company_name} · {sano.email} · {sano.mobile_phone} · GST {sano.gst_number}
         </footer>
       </div>
     </>
