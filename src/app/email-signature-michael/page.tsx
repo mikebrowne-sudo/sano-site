@@ -15,13 +15,14 @@ export default function EmailSignatureMichael() {
         </div>
 
         <a href="https://sano.nz" target="_blank" rel="noreferrer" style={{ display: 'block' }}>
- <img
+<img
   src="/email/email-banner-michael.jpg"
   alt="Sano Email Banner"
-  width="850"
+  width="900"
   style={{
     display: 'block',
-    width: '850px',
+    width: '900px',
+    maxWidth: '100%',
     height: 'auto',
     border: 0,
   }}
