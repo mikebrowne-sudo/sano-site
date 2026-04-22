@@ -311,15 +311,22 @@ export const DEFAULT_LABOUR_COST_BASIS = 65
 // How many times a given scope frequency repeats per week. `per_visit`
 // is handled specially (multiplied by visits_per_week); `as_required`
 // contributes nothing to the recurring estimate.
-const FREQ_PER_WEEK: Record<Exclude<ScopeFrequency, 'per_visit'>, number> = {
-  daily:       7,
-  weekly:      1,
-  fortnightly: 0.5,
-  monthly:     1 / WEEKS_PER_MONTH,
-  quarterly:   1 / (WEEKS_PER_MONTH * 3),
-  six_monthly: 1 / (WEEKS_PER_MONTH * 6),
-  annual:      1 / 52,
-  as_required: 0,
+//
+// Phase 3A: monthly / quarterly / six_monthly depend on weeks_per_month,
+// which is now settings-driven. The table is therefore built inside
+// computeCommercialPreview (see freqPerWeek below). This function is
+// exported so any caller that needs the same mapping stays consistent.
+function buildFreqPerWeek(weeksPerMonth: number): Record<Exclude<ScopeFrequency, 'per_visit'>, number> {
+  return {
+    daily:       7,
+    weekly:      1,
+    fortnightly: 0.5,
+    monthly:     1 / weeksPerMonth,
+    quarterly:   1 / (weeksPerMonth * 3),
+    six_monthly: 1 / (weeksPerMonth * 6),
+    annual:      1 / 52,
+    as_required: 0,
+  }
 }
 
 // Narrowed inputs the preview consumes. UI form shapes can adapt to
@@ -388,22 +395,47 @@ function visitsPerWeek(serviceDays: string[] | null | undefined): number {
   return serviceDays.length
 }
 
+/**
+ * Phase 3A settings shape consumed by computeCommercialPreview. Mirrors
+ * src/lib/pricingSettings.ts PricingSettings — defined here as well to
+ * keep this module free of any circular imports and so the `settings`
+ * arg can be constructed by any caller (tests, snapshots, etc.).
+ */
+export interface CommercialPreviewSettings {
+  marginTiers:            Record<MarginTier, MarginTierSpec>
+  sectorMultipliers:      Record<SectorCategory, number>
+  trafficMultipliers:     Record<TrafficLevel, number>
+  weeksPerMonth:          number
+  labourCostBasisDefault: number
+}
+
 export function computeCommercialPreview(
   details: CommercialPreviewDetails,
   scope: readonly CommercialPreviewScopeRow[],
+  settings?: CommercialPreviewSettings,
 ): CommercialPreview {
+  // Phase 3A: pull each knob from `settings` when provided, else fall
+  // back to the module-level constants (pre-Phase-3A behaviour).
+  const sectorTable    = settings?.sectorMultipliers      ?? SECTOR_MULTIPLIER
+  const trafficTable   = settings?.trafficMultipliers     ?? TRAFFIC_MULTIPLIER
+  const tiersTable     = settings?.marginTiers            ?? MARGIN_TIERS
+  const weeksPerMonth  = settings?.weeksPerMonth          ?? WEEKS_PER_MONTH
+  const labourDefault  = settings?.labourCostBasisDefault ?? DEFAULT_LABOUR_COST_BASIS
+
+  const freqPerWeek = buildFreqPerWeek(weeksPerMonth)
+
   const visits_per_week = visitsPerWeek(details.service_days)
   const sector_multiplier = details.sector_category
-    ? SECTOR_MULTIPLIER[details.sector_category as SectorCategory]
+    ? sectorTable[details.sector_category as SectorCategory]
     : 1.00
   const traffic_multiplier = details.traffic_level
-    ? TRAFFIC_MULTIPLIER[details.traffic_level as TrafficLevel]
+    ? trafficTable[details.traffic_level as TrafficLevel]
     : 1.00
   const margin_tier = (details.selected_margin_tier || null) as MarginTier | null
-  const margin_default = margin_tier ? MARGIN_TIERS[margin_tier].default : null
+  const margin_default = margin_tier ? tiersTable[margin_tier].default : null
   const labour_cost_basis = details.labour_cost_basis && details.labour_cost_basis > 0
     ? details.labour_cost_basis
-    : DEFAULT_LABOUR_COST_BASIS
+    : labourDefault
 
   // Walk the scope and accumulate weekly minutes.
   //
@@ -456,7 +488,7 @@ export function computeCommercialPreview(
     if (!row.frequency || row.frequency === 'per_visit') {
       executions_per_week = visits_per_week
     } else {
-      executions_per_week = FREQ_PER_WEEK[row.frequency]
+      executions_per_week = freqPerWeek[row.frequency]
       if (executions_per_week === 0) continue // as_required: not recurring
     }
 
@@ -466,7 +498,7 @@ export function computeCommercialPreview(
 
   const base_weekly_hours = base_weekly_minutes / 60
   const estimated_weekly_hours = base_weekly_hours * sector_multiplier * traffic_multiplier
-  const estimated_monthly_hours = estimated_weekly_hours * WEEKS_PER_MONTH
+  const estimated_monthly_hours = estimated_weekly_hours * weeksPerMonth
   const estimated_service_hours = visits_per_week > 0
     ? estimated_weekly_hours / visits_per_week
     : 0
@@ -475,7 +507,7 @@ export function computeCommercialPreview(
   const estimated_monthly_sell_price = margin_default != null && estimated_monthly_cost > 0
     ? estimated_monthly_cost / (1 - margin_default)
     : 0
-  const estimated_weekly_sell_price = estimated_monthly_sell_price / WEEKS_PER_MONTH
+  const estimated_weekly_sell_price = estimated_monthly_sell_price / weeksPerMonth
   const estimated_per_visit_sell_price = visits_per_week > 0
     ? estimated_weekly_sell_price / visits_per_week
     : 0
