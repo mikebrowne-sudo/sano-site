@@ -267,6 +267,7 @@ export async function createQuote(input: CreateQuoteInput) {
         quantity_value: i.quantity_value ?? null,
         unit_minutes: i.unit_minutes ?? null,
         production_rate: i.production_rate ?? null,
+        input_mode: i.input_mode ?? 'measured',
         included: i.included ?? true,
         notes: i.notes ?? null,
         display_order: i.display_order ?? idx,

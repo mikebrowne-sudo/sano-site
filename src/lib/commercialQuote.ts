@@ -106,6 +106,7 @@ export interface CommercialScopeItem {
   quantity_value: number | null
   unit_minutes: number | null
   production_rate: number | null
+  input_mode: ScopeInputMode        // Phase 2: persisted, DB-enforced NOT NULL DEFAULT 'measured'
   included: boolean
   notes: string | null
   display_order: number

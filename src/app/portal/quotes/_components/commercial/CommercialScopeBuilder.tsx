@@ -58,11 +58,16 @@ export function emptyScopeRow(): CommercialScopeFormRow {
   }
 }
 
-// Phase 1 hydration heuristic (from the Phase 1 spec):
+// Phase 1 hydration heuristic — kept as a defensive fallback only.
+// Phase 2 persists input_mode in the DB (NOT NULL DEFAULT 'measured').
+// This helper is used when a row somehow arrives without input_mode set
+// (e.g. data written by an older client, or a local environment that
+// hasn't run the Phase 2 SQL migration yet).
+//
+// Rules (unchanged from Phase 1):
 //   - unit_minutes set            → measured
 //   - only production_rate set    → time_based (legacy mapping; value not converted)
 //   - both set or neither set     → measured (safe default)
-// No auto-correction of row data — only mode assignment.
 function inferInputMode(row: CommercialScopeItem): ScopeInputMode {
   const hasUnitMins = row.unit_minutes != null && row.unit_minutes > 0
   const hasRate     = row.production_rate != null && row.production_rate > 0
@@ -81,7 +86,10 @@ export function hydrateScopeRows(
     .map((r) => ({
       _key: r.id,
       id: r.id,
-      input_mode: inferInputMode(r),
+      // Phase 2: prefer the persisted input_mode. Fall back to the Phase 1
+      // heuristic only when the field is missing (pre-migration rows or
+      // data written by an older client).
+      input_mode: r.input_mode ?? inferInputMode(r),
       area_type: r.area_type ?? '',
       task_group: r.task_group ?? '',
       task_name: r.task_name,
@@ -128,6 +136,7 @@ export function toScopeItemsInput(rows: CommercialScopeFormRow[]): CommercialSco
       if (r.input_mode === 'time_based') {
         return {
           ...base,
+          input_mode: 'time_based',
           quantity_type: null,
           quantity_value: 1,
           unit_minutes: toNum(r.unit_minutes),
@@ -137,6 +146,7 @@ export function toScopeItemsInput(rows: CommercialScopeFormRow[]): CommercialSco
       // measured
       return {
         ...base,
+        input_mode: 'measured',
         quantity_type: (r.quantity_type || null) as QuantityType | null,
         quantity_value: toNum(r.quantity_value),
         unit_minutes: toNum(r.unit_minutes),

@@ -19,6 +19,7 @@ import type {
   MarginTier,
   QuantityType,
   ScopeFrequency,
+  ScopeInputMode,
 } from '@/lib/commercialQuote'
 import { isMarginTier, isSectorCategory } from '@/lib/commercialQuote'
 
@@ -164,6 +165,7 @@ export interface CommercialScopeItemInput {
   quantity_value?: number | null
   unit_minutes?: number | null
   production_rate?: number | null
+  input_mode?: ScopeInputMode
   included?: boolean
   notes?: string | null
   display_order?: number
@@ -219,6 +221,7 @@ export async function saveCommercialScope(
     quantity_value: i.quantity_value ?? null,
     unit_minutes: i.unit_minutes ?? null,
     production_rate: i.production_rate ?? null,
+    input_mode: i.input_mode ?? 'measured',
     included: i.included ?? true,
     notes: i.notes ?? null,
     display_order: i.display_order ?? idx,
