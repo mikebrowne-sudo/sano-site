@@ -382,3 +382,237 @@ export function buildPricingSummary(
       : 'Pricing shown excludes GST. GST is added at 15%.',
   }
 }
+
+// ── Aggregator input shapes ────────────────────────────────────────
+// Loose row shapes the aggregator (and the React proposal template)
+// consume. They're intentionally narrow — only the fields the proposal
+// renders. Defined here so any caller can build the input without
+// importing UI types.
+
+export interface ProposalQuote {
+  id: string
+  quote_number: string
+  status: string | null
+  date_issued: string | null
+  valid_until: string | null
+  accepted_at: string | null
+  service_address: string | null
+  notes: string | null
+  base_price: number
+  discount: number | null
+  gst_included: boolean
+  payment_type: string | null
+}
+
+export interface ProposalClient {
+  name: string | null
+  company_name: string | null
+  service_address: string | null
+  phone: string | null
+  email: string | null
+}
+
+export interface ProposalAddon {
+  label: string
+  price: number
+  sort_order: number
+}
+
+// ── Date formatting (shared by all proposal renderers) ─────────────
+
+export function fmtProposalDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+export function fmtProposalDateOrNull(iso: string | null | undefined): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+// ── Standard Sano content blocks ───────────────────────────────────
+// These are the issuer block + fixed-content sections the proposal
+// always carries unless overridden per-quote (not yet supported).
+// Wording must respect the brand voice rules in CLAUDE.md:
+//   never "premium", "eco-friendly", "industry-leading"; no fake
+//   testimonials; tone is reliable, detail-focused, easy to deal with.
+
+export interface ProposalIssuer {
+  company_name: string
+  trading_as: string
+  phone: string
+  email: string
+  website: string
+  address_line: string
+  logo_src: string
+}
+
+export const SANO_ISSUER: ProposalIssuer = {
+  company_name: 'Sano Property Services Limited',
+  trading_as: 'Sano',
+  phone: '0800 726 686',
+  email: 'hello@sano.nz',
+  website: 'sano.nz',
+  address_line: 'Auckland, New Zealand',
+  logo_src: '/brand/sano-logo-print.png',
+}
+
+export const SANO_WHY_BULLETS: readonly string[] = [
+  'Local Auckland team — one consistent crew, one point of contact.',
+  'Inducted, photo-ID staff with documented procedures for every site.',
+  'Transparent scope: every task is listed, scheduled, and auditable.',
+  'Easy to deal with — quick to quote, fast to respond, no lock-ins.',
+]
+
+export interface ProposalAcceptanceBlock {
+  blurb: string
+  next_steps: readonly string[]
+}
+
+export const SANO_ACCEPTANCE_BLOCK: ProposalAcceptanceBlock = {
+  blurb:
+    'To accept this proposal, reply to this email confirming you would like to proceed, or sign and return the bottom of this document. We will then arrange a short on-site walk-through, confirm a start date, and issue a service schedule.',
+  next_steps: [
+    'Confirm acceptance (email or signed return).',
+    'On-site walk-through — typically within 5 working days.',
+    'First service date confirmed in writing.',
+    'Monthly invoicing on the 1st, 7-day terms.',
+  ],
+}
+
+// ── Aggregated payload shape ───────────────────────────────────────
+// Matches docs/commercial-proposals/field-map.md exactly. This payload
+// is what feeds:
+//   1. CommercialProposalTemplate.tsx (React render)
+//   2. docs/commercial-proposals/templates/commercial-proposal-template.html
+//      (static HTML render, hydrated via window.PROPOSAL_DATA)
+//   3. Future PDF route
+//
+// Internal-only fields (margin tier, labour cost basis, estimated
+// hours, scope quantities / unit_minutes / production_rate, the
+// `included` flag, sector_fields JSONB) are *deliberately* not in this
+// shape — the contract is what's safe to show a client.
+
+export interface ProposalMeta {
+  reference: string
+  issued: string                 // pre-formatted: "22 April 2026" or "—"
+  valid_until: string            // pre-formatted: "22 May 2026" or "—"
+  accepted_at: string | null     // pre-formatted, null when not accepted
+  status: string | null
+  version: number                // reserved for proposal-versioning
+}
+
+export interface ProposalClientView {
+  company_name: string
+  contact_name: string | null
+  site_address: string | null
+  phone: string | null
+  email: string | null
+}
+
+export interface ProposalPayload {
+  meta: ProposalMeta
+  sano: ProposalIssuer
+  client: ProposalClientView
+  executive_summary: string
+  site_profile: SiteProfileView
+  service_schedule: ServiceScheduleView
+  scope_groups: ProposalScopeGroup[]
+  assumptions: string[]
+  exclusions: string[]
+  compliance_notes: string | null
+  pricing: ProposalPricingView
+  why_sano: readonly string[]
+  acceptance: ProposalAcceptanceBlock
+}
+
+export interface BuildProposalPayloadInput {
+  quote: ProposalQuote
+  client: ProposalClient | null
+  addons: readonly ProposalAddon[]
+  details: CommercialQuoteDetails
+  scope: readonly CommercialScopeItem[]
+  // Optional overrides — defaults to the SANO_* constants. Useful for
+  // tests and for any future per-quote overrides.
+  issuer?: ProposalIssuer
+  whyBullets?: readonly string[]
+  acceptance?: ProposalAcceptanceBlock
+  proposalVersion?: number
+}
+
+/**
+ * buildProposalPayload
+ *
+ * One aggregator that turns the live commercial-quote rows into the
+ * single client-safe JSON payload documented in
+ * docs/commercial-proposals/field-map.md. Pure — no Supabase, no React,
+ * no formatting beyond what the existing helpers provide.
+ *
+ * The returned object is structurally a drop-in for both:
+ *   - CommercialProposalTemplate.tsx (the React renderer)
+ *   - docs/commercial-proposals/templates/commercial-proposal-template.html
+ *     (the static Mustache renderer — JSON.stringify the payload into
+ *      the <script id="proposal-data"> block, or set window.PROPOSAL_DATA)
+ *
+ * Internal-only pricing / labour / scope-time fields are excluded by
+ * construction: every field is sourced from a helper that already
+ * narrows to client-safe output.
+ */
+export function buildProposalPayload(input: BuildProposalPayloadInput): ProposalPayload {
+  const {
+    quote,
+    client,
+    addons,
+    details,
+    scope,
+    issuer = SANO_ISSUER,
+    whyBullets = SANO_WHY_BULLETS,
+    acceptance = SANO_ACCEPTANCE_BLOCK,
+    proposalVersion = 1,
+  } = input
+
+  const siteAddress = quote.service_address ?? client?.service_address ?? null
+  const clientLabel = client?.name ?? client?.company_name ?? null
+
+  const meta: ProposalMeta = {
+    reference: quote.quote_number,
+    issued: fmtProposalDate(quote.date_issued),
+    valid_until: fmtProposalDate(quote.valid_until),
+    accepted_at: fmtProposalDateOrNull(quote.accepted_at),
+    status: quote.status,
+    version: proposalVersion,
+  }
+
+  const clientView: ProposalClientView = {
+    company_name: client?.company_name ?? client?.name ?? 'Client',
+    contact_name: client?.name ?? null,
+    site_address: siteAddress,
+    phone: client?.phone ?? null,
+    email: client?.email ?? null,
+  }
+
+  return {
+    meta,
+    sano: issuer,
+    client: clientView,
+    executive_summary: buildExecutiveSummary(details, scope, clientLabel),
+    site_profile:     buildSiteProfile(details, siteAddress),
+    service_schedule: buildServiceSchedule(details),
+    scope_groups:     groupScopeForProposal(scope),
+    assumptions:      splitToBullets(details.assumptions),
+    exclusions:       splitToBullets(details.exclusions),
+    compliance_notes: details.compliance_notes?.trim() ? details.compliance_notes.trim() : null,
+    pricing:          buildPricingSummary(
+                        quote.base_price ?? 0,
+                        addons,
+                        quote.discount ?? 0,
+                        quote.gst_included,
+                      ),
+    why_sano:         whyBullets,
+    acceptance,
+  }
+}

@@ -17,42 +17,21 @@ import {
   buildPricingSummary,
   buildServiceSchedule,
   buildSiteProfile,
+  fmtProposalDate,
   groupScopeForProposal,
   nzd,
   splitToBullets,
 } from '@/lib/commercialProposalMapping'
+import type {
+  ProposalAddon,
+  ProposalClient,
+  ProposalQuote,
+} from '@/lib/commercialProposalMapping'
 
-// ── Prop shapes (loose, so both internal and future public routes
-//   can load the data with their own clients and pass it through) ──
-
-export interface ProposalQuote {
-  id: string
-  quote_number: string
-  status: string | null
-  date_issued: string | null
-  valid_until: string | null
-  accepted_at: string | null
-  service_address: string | null
-  notes: string | null
-  base_price: number
-  discount: number | null
-  gst_included: boolean
-  payment_type: string | null
-}
-
-export interface ProposalClient {
-  name: string | null
-  company_name: string | null
-  service_address: string | null
-  phone: string | null
-  email: string | null
-}
-
-export interface ProposalAddon {
-  label: string
-  price: number
-  sort_order: number
-}
+// Re-export so existing consumers can keep importing these types from
+// the template's path. Single source of truth lives in
+// commercialProposalMapping.ts.
+export type { ProposalAddon, ProposalClient, ProposalQuote }
 
 export interface CommercialProposalTemplateProps {
   quote: ProposalQuote
@@ -62,10 +41,7 @@ export interface CommercialProposalTemplateProps {
   scope: readonly CommercialScopeItem[]
 }
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
-}
+const fmtDate = fmtProposalDate
 
 export function CommercialProposalTemplate({
   quote,
