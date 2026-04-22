@@ -150,6 +150,27 @@ function emptyToNull(v: string): string | null {
   return t === '' ? null : t
 }
 
+// Row-level guidance string for the operator. Returns null when the
+// row is OK for its active mode, or a short sentence when it's not.
+// Non-blocking — save still works; the pricing preview skips the row.
+// Only surfaces a warning for rows the operator has committed to
+// (has a task_name AND is included) so blank rows aren't noisy.
+function rowModeWarning(row: CommercialScopeFormRow): string | null {
+  if (!row.included) return null
+  if (row.task_name.trim() === '') return null
+  const hasUnitMins = row.unit_minutes.trim() !== ''
+  const hasQty      = row.quantity_value.trim() !== ''
+  if (row.input_mode === 'time_based') {
+    if (!hasUnitMins) return 'Enter time per visit to include in pricing.'
+    return null
+  }
+  // measured
+  if (!hasQty || !hasUnitMins) {
+    return 'Complete quantity and unit minutes to include in pricing.'
+  }
+  return null
+}
+
 // ── Dropdown options ───────────────────────────────────────────────
 
 const FREQ_OPTIONS: readonly { value: ScopeFrequency; label: string }[] = [
@@ -287,39 +308,41 @@ export function CommercialScopeBuilder({
                   </div>
 
                   {/* Mode toggle — locks which inputs the operator can edit. */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-sage-600">Input mode</span>
-                    <div className="inline-flex rounded-lg border border-sage-200 bg-sage-50 p-0.5">
-                      <button
-                        type="button"
-                        onClick={() => updateRow(idx, { input_mode: 'measured' })}
-                        disabled={disabled}
-                        className={
-                          row.input_mode === 'measured'
-                            ? 'px-3 py-1 rounded-md text-xs font-semibold bg-white text-sage-800 shadow-sm'
-                            : 'px-3 py-1 rounded-md text-xs font-medium text-sage-600 hover:text-sage-800'
-                        }
-                      >
-                        Measured
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => updateRow(idx, { input_mode: 'time_based' })}
-                        disabled={disabled}
-                        className={
-                          row.input_mode === 'time_based'
-                            ? 'px-3 py-1 rounded-md text-xs font-semibold bg-white text-sage-800 shadow-sm'
-                            : 'px-3 py-1 rounded-md text-xs font-medium text-sage-600 hover:text-sage-800'
-                        }
-                      >
-                        Time-based
-                      </button>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-sage-600">Input mode</span>
+                      <div className="inline-flex rounded-lg border border-sage-200 bg-sage-50 p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => updateRow(idx, { input_mode: 'measured' })}
+                          disabled={disabled}
+                          className={
+                            row.input_mode === 'measured'
+                              ? 'px-3 py-1 rounded-md text-xs font-semibold bg-white text-sage-800 shadow-sm'
+                              : 'px-3 py-1 rounded-md text-xs font-medium text-sage-600 hover:text-sage-800'
+                          }
+                        >
+                          Measured
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateRow(idx, { input_mode: 'time_based' })}
+                          disabled={disabled}
+                          className={
+                            row.input_mode === 'time_based'
+                              ? 'px-3 py-1 rounded-md text-xs font-semibold bg-white text-sage-800 shadow-sm'
+                              : 'px-3 py-1 rounded-md text-xs font-medium text-sage-600 hover:text-sage-800'
+                          }
+                        >
+                          Time-based
+                        </button>
+                      </div>
                     </div>
-                    <span className="text-xs text-sage-500 italic">
+                    <p className="mt-1 text-xs text-sage-500">
                       {row.input_mode === 'measured'
-                        ? 'quantity × unit mins'
-                        : 'fixed time per visit'}
-                    </span>
+                        ? 'Use for floors and counted items (m² or quantities).'
+                        : 'Use for general tasks (fixed time per visit).'}
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -364,6 +387,20 @@ export function CommercialScopeBuilder({
                       </div>
                     )}
                   </div>
+
+                  {/* Guidance (non-blocking) — flag rows that are incomplete for
+                      their active mode so they're obvious to the operator but
+                      the save still works. Pricing preview already skips them. */}
+                  {(() => {
+                    const warning = rowModeWarning(row)
+                    if (!warning) return null
+                    return (
+                      <div className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">
+                        <span aria-hidden="true">⚠</span>
+                        <span>{warning}</span>
+                      </div>
+                    )
+                  })()}
 
                   <RowText
                     label="Notes"
