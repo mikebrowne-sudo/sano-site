@@ -1,0 +1,953 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+  <meta charset="utf-8" />
+  <title>{{client.company_name}} — Commercial Cleaning Proposal — Sano</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+
+  <!--
+    Master JSON-driven proposal template.
+    See: docs/commercial-proposals/README.md
+    Field map: docs/commercial-proposals/field-map.md
+
+    PLACEHOLDER SYNTAX (Mustache-compatible):
+      {{path.to.value}}        — substitute (HTML-escaped)
+      {{{path.to.value}}}      — substitute (raw, no escape — use sparingly)
+      {{#array}}…{{/array}}    — iterate; inside, use {{.}} for primitives
+                                  or {{prop}} for object properties
+      {{^value}}…{{/value}}    — render if value is falsy / empty array
+      {{#object}}…{{/object}}  — render once if object is truthy
+
+    DATA SHAPE: see <script id="proposal-data"> below for the full
+    example payload. The same shape is documented in field-map.md.
+
+    RENDERING:
+      Browser  → open this file directly. The inline renderer below
+                 hydrates the template using window.PROPOSAL_DATA, or
+                 falls back to the example payload in #proposal-data.
+      Server   → render with any Mustache / Handlebars engine; replace
+                 the example payload with the real one (or strip the
+                 <script id="proposal-data"> block entirely).
+      PDF      → render to HTML server-side, then drive Puppeteer /
+                 Playwright with `page.pdf({ format: 'A4' })`.
+  -->
+
+  <style>
+    /* ── Design tokens (matches tailwind.config.ts sage palette) ── */
+    :root {
+      --sage-50:  #F7F9F7;
+      --sage-100: #E0EAE3;
+      --sage-200: #C7D6CC;
+      --sage-300: #7EC87A;
+      --sage-500: #076653;
+      --sage-600: #5C6B64;
+      --sage-700: #06392E;
+      --sage-800: #06231D;
+      --ink:      #1F2A26;
+      --muted:    #6B7872;
+      --rule:     #E0EAE3;
+      --bg:       #FFFFFF;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ECEEEC;
+      color: var(--ink);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+      font-size: 11pt;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Page (A4) ────────────────────────────────────────────── */
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 16mm auto;
+      padding: 18mm 18mm 16mm 18mm;
+      background: var(--bg);
+      box-shadow: 0 1px 4px rgba(0,0,0,.06), 0 8px 32px rgba(0,0,0,.08);
+      page-break-after: always;
+    }
+    .page:last-child { page-break-after: auto; }
+
+    /* ── Headings ─────────────────────────────────────────────── */
+    h1, h2, h3, h4 { font-family: 'Noto Serif', Georgia, 'Times New Roman', serif; color: var(--sage-800); margin: 0; }
+    h1 { font-size: 28pt; line-height: 1.1; letter-spacing: -0.01em; font-weight: 700; }
+    h2 { font-size: 16pt; line-height: 1.2; font-weight: 700; margin: 0 0 10pt 0; }
+    h3 { font-size: 12pt; line-height: 1.25; font-weight: 700; margin: 0 0 6pt 0; }
+    h4 { font-size: 10.5pt; line-height: 1.3; font-weight: 600; margin: 0 0 4pt 0; color: var(--sage-700); }
+    p { margin: 0 0 8pt 0; }
+
+    .eyebrow {
+      font-family: 'Inter', sans-serif;
+      font-size: 8pt;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--sage-500);
+    }
+
+    /* ── Cover ────────────────────────────────────────────────── */
+    .cover-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24pt;
+      align-items: start;
+      margin-bottom: 28pt;
+    }
+    .cover-meta {
+      text-align: right;
+      min-width: 180pt;
+    }
+    .cover-logo {
+      max-width: 140pt;
+      max-height: 60pt;
+      margin-bottom: 12pt;
+    }
+    .meta-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9pt;
+    }
+    .meta-table th {
+      text-align: right;
+      color: var(--muted);
+      font-weight: 500;
+      padding: 3pt 8pt 3pt 0;
+      white-space: nowrap;
+    }
+    .meta-table td {
+      text-align: right;
+      color: var(--sage-800);
+      font-weight: 600;
+      padding: 3pt 0;
+    }
+    .cover-title { margin: 4pt 0 6pt 0; }
+    .cover-sub { color: var(--muted); font-size: 10pt; }
+    .cover-divider {
+      height: 2pt;
+      background: var(--sage-500);
+      width: 56pt;
+      margin: 10pt 0 18pt 0;
+    }
+
+    /* ── Section frame ────────────────────────────────────────── */
+    section {
+      margin-bottom: 22pt;
+      page-break-inside: avoid;
+    }
+    section.scope, section.pricing { page-break-inside: auto; }
+
+    .section-rule {
+      border: 0;
+      border-top: 1px solid var(--rule);
+      margin: 18pt 0 14pt 0;
+    }
+
+    /* ── Parties block ───────────────────────────────────────── */
+    .parties {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16pt;
+    }
+    .party-card {
+      border: 1px solid var(--rule);
+      border-radius: 6pt;
+      padding: 10pt 12pt;
+      background: var(--sage-50);
+    }
+    .party-card .label { font-size: 8pt; text-transform: uppercase; color: var(--sage-500); letter-spacing: 0.14em; font-weight: 600; }
+    .party-card .name  { font-size: 11.5pt; font-weight: 600; color: var(--sage-800); margin-top: 3pt; }
+    .party-card .line  { font-size: 9.5pt; color: var(--ink); margin-top: 1pt; }
+    .party-card .muted { color: var(--muted); }
+
+    /* ── Profile + schedule (definition lists) ────────────────── */
+    dl.profile {
+      display: grid;
+      grid-template-columns: 35% 65%;
+      gap: 4pt 12pt;
+      margin: 0;
+      font-size: 10pt;
+    }
+    dl.profile dt {
+      color: var(--muted);
+      font-weight: 500;
+      padding: 3pt 0;
+      border-bottom: 1px solid var(--rule);
+    }
+    dl.profile dd {
+      color: var(--sage-800);
+      font-weight: 600;
+      margin: 0;
+      padding: 3pt 0;
+      border-bottom: 1px solid var(--rule);
+    }
+    dl.profile dt:last-of-type, dl.profile dd:last-of-type { border-bottom: 0; }
+
+    /* ── Scope groups ─────────────────────────────────────────── */
+    .scope-group {
+      margin-bottom: 14pt;
+      page-break-inside: avoid;
+    }
+    .scope-group h3 {
+      padding-bottom: 4pt;
+      border-bottom: 2px solid var(--sage-500);
+      margin-bottom: 8pt;
+    }
+    .scope-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10pt;
+    }
+    .scope-table th, .scope-table td {
+      text-align: left;
+      vertical-align: top;
+      padding: 5pt 6pt;
+      border-bottom: 1px solid var(--rule);
+    }
+    .scope-table th {
+      font-weight: 600;
+      color: var(--sage-700);
+      background: var(--sage-50);
+      font-size: 9pt;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .scope-table td.task { width: 56%; }
+    .scope-table td.area { width: 22%; color: var(--muted); }
+    .scope-table td.freq { width: 22%; font-weight: 600; color: var(--sage-700); white-space: nowrap; }
+    .scope-table td .notes { font-size: 9pt; color: var(--muted); margin-top: 2pt; font-style: italic; }
+
+    /* ── Assumptions / exclusions / compliance ────────────────── */
+    .pillars {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14pt;
+    }
+    .pillar {
+      border: 1px solid var(--rule);
+      border-radius: 6pt;
+      padding: 10pt 12pt;
+    }
+    .pillar h4 { color: var(--sage-700); margin-bottom: 6pt; }
+    .pillar ul { margin: 0; padding-left: 16pt; }
+    .pillar ul li { margin-bottom: 3pt; font-size: 10pt; }
+    .pillar p { font-size: 10pt; color: var(--ink); }
+    .compliance-block {
+      margin-top: 12pt;
+      padding: 10pt 12pt;
+      border-left: 3pt solid var(--sage-500);
+      background: var(--sage-50);
+      font-size: 10pt;
+    }
+
+    /* ── Pricing summary ──────────────────────────────────────── */
+    .pricing-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10.5pt;
+    }
+    .pricing-table td {
+      padding: 6pt 8pt;
+      border-bottom: 1px solid var(--rule);
+    }
+    .pricing-table td.label { color: var(--ink); }
+    .pricing-table td.value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+    .pricing-table tr.subtotal td { font-weight: 600; color: var(--sage-700); }
+    .pricing-table tr.discount td.value { color: #B14B3D; }
+    .pricing-table tr.total td {
+      font-size: 13pt;
+      font-weight: 700;
+      color: var(--sage-800);
+      border-bottom: 0;
+      border-top: 2px solid var(--sage-500);
+      padding-top: 9pt;
+    }
+    .pricing-table tr.annual td {
+      font-size: 9.5pt;
+      color: var(--muted);
+      font-weight: 500;
+      border-bottom: 0;
+      padding-top: 2pt;
+    }
+    .gst-note {
+      font-size: 9pt;
+      color: var(--muted);
+      margin-top: 8pt;
+      font-style: italic;
+    }
+
+    /* ── Why Sano ─────────────────────────────────────────────── */
+    .why-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12pt 16pt;
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .why-list li {
+      font-size: 10pt;
+      padding-left: 14pt;
+      position: relative;
+    }
+    .why-list li::before {
+      content: "";
+      width: 6pt; height: 6pt;
+      background: var(--sage-500);
+      border-radius: 50%;
+      position: absolute;
+      left: 0; top: 5pt;
+    }
+
+    /* ── Acceptance ───────────────────────────────────────────── */
+    .acceptance-blurb {
+      background: var(--sage-50);
+      border: 1px solid var(--sage-100);
+      border-radius: 6pt;
+      padding: 14pt 16pt;
+      font-size: 10.5pt;
+    }
+    .signature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16pt;
+      margin-top: 18pt;
+    }
+    .sig-block { font-size: 9.5pt; }
+    .sig-line {
+      border-bottom: 1px solid var(--ink);
+      height: 28pt;
+      margin-bottom: 4pt;
+    }
+    .sig-block .label { color: var(--muted); }
+
+    /* ── Footer (every page) ─────────────────────────────────── */
+    .page-footer {
+      margin-top: 18pt;
+      padding-top: 8pt;
+      border-top: 1px solid var(--rule);
+      display: flex;
+      justify-content: space-between;
+      font-size: 8.5pt;
+      color: var(--muted);
+    }
+
+    /* ── Print rules ─────────────────────────────────────────── */
+    @page { size: A4; margin: 0; }
+
+    @media print {
+      html, body { background: #FFFFFF; }
+      .page {
+        width: auto;
+        min-height: auto;
+        margin: 0;
+        padding: 18mm 18mm 16mm 18mm;
+        box-shadow: none;
+      }
+      .scope-group { page-break-inside: avoid; }
+      section { page-break-inside: avoid; }
+      .preview-banner { display: none !important; }
+    }
+
+    /* ── Preview-only banner (hidden in print) ────────────────── */
+    .preview-banner {
+      max-width: 210mm;
+      margin: 16mm auto -8mm auto;
+      padding: 8pt 14pt;
+      background: #FFF8E0;
+      border: 1px solid #F2D88A;
+      border-radius: 6pt;
+      font-size: 9pt;
+      color: #6B5A1A;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!--
+    SAMPLE DATA — represents one fully-populated proposal.
+    In production: replace this entire <script> block with the
+    proposal's real JSON (or override window.PROPOSAL_DATA before
+    the renderer runs). Field shapes are pinned by field-map.md.
+  -->
+  <script type="application/json" id="proposal-data">
+  {
+    "meta": {
+      "reference": "Q-2026-0084",
+      "issued": "22 April 2026",
+      "valid_until": "22 May 2026",
+      "accepted_at": null,
+      "status": "sent",
+      "version": 1
+    },
+    "sano": {
+      "company_name": "Sano Property Services Limited",
+      "trading_as": "Sano",
+      "phone": "0800 726 686",
+      "email": "hello@sano.nz",
+      "website": "sano.nz",
+      "logo_src": "../assets/logos/sano-logo-print.png",
+      "address_line": "Auckland, New Zealand"
+    },
+    "client": {
+      "company_name": "Riverstone Property Group",
+      "contact_name": "Anita Patel",
+      "site_address": "Level 3, 88 Albert Street, Auckland CBD 1010",
+      "phone": "09 555 1234",
+      "email": "anita@riverstone.co.nz"
+    },
+    "executive_summary": "Sano has prepared this commercial cleaning proposal for Riverstone Property Group. The site is a multi tenant office site covering approximately 1,250 m² across 3 floors with high occupancy and medium traffic. Service is delivered weekdays (mon–fri), 17:00–22:00. The programme covers 18 defined tasks across the agreed areas, designed to maintain a consistent office cleaning standard.",
+    "site_profile": {
+      "sector": "Office",
+      "building_type": "Multi Tenant",
+      "service_address": "Level 3, 88 Albert Street, Auckland CBD 1010",
+      "total_area": "1,250 m²",
+      "floors": "3 floors",
+      "traffic": "Medium",
+      "occupancy": "High",
+      "fixtures_summary": "8 toilets · 4 urinals · 8 basins · 2 kitchens · 60 desks · 4 meeting rooms · 1 reception area"
+    },
+    "service_schedule": {
+      "frequency_summary": "Weekdays (Mon–Fri), 17:00–22:00",
+      "service_days": "Weekdays (Mon–Fri)",
+      "service_window": "17:00–22:00",
+      "access_requirements": "After-hours access via building security desk. Sano team carry photo ID and use the service lift. Alarm code provided on appointment.",
+      "consumables": "Provided by Sano"
+    },
+    "scope_groups": [
+      {
+        "key": "general_areas",
+        "label": "General Areas",
+        "tasks": [
+          { "task_name": "Vacuum carpeted floors and edges", "frequency_label": "Weekly", "area_type": "Open plan", "notes": null },
+          { "task_name": "Mop hard floors with neutral cleaner", "frequency_label": "Weekly", "area_type": "Hard floor zones", "notes": null },
+          { "task_name": "Empty all rubbish + recycling bins", "frequency_label": "Weekly", "area_type": null, "notes": "Replace liners as needed." },
+          { "task_name": "Spot clean glass partitions and entry doors", "frequency_label": "Weekly", "area_type": "Internal glass", "notes": null }
+        ]
+      },
+      {
+        "key": "offices_workstations",
+        "label": "Offices / Workstations",
+        "tasks": [
+          { "task_name": "Wipe desks (clear surfaces only) and sanitise touchpoints", "frequency_label": "Weekly", "area_type": null, "notes": null },
+          { "task_name": "Dust monitors, accessories, and side furniture", "frequency_label": "Fortnightly", "area_type": null, "notes": null },
+          { "task_name": "Reset meeting rooms — clear cups, wipe tables, replace whiteboard markers", "frequency_label": "Weekly", "area_type": "Meeting rooms", "notes": null }
+        ]
+      },
+      {
+        "key": "kitchens_breakout",
+        "label": "Kitchens / Breakout Areas",
+        "tasks": [
+          { "task_name": "Wipe benches, splashbacks, and appliance fronts", "frequency_label": "Weekly", "area_type": null, "notes": null },
+          { "task_name": "Clean sinks, taps, and drains", "frequency_label": "Weekly", "area_type": null, "notes": null },
+          { "task_name": "Sanitise high-touch points (handles, switches, fridge handles)", "frequency_label": "Weekly", "area_type": null, "notes": null },
+          { "task_name": "Empty bins and replace liners; restock dishwasher tablets", "frequency_label": "Weekly", "area_type": null, "notes": "Sano supplies tablets and detergent." }
+        ]
+      },
+      {
+        "key": "bathrooms_washrooms",
+        "label": "Bathrooms / Washrooms",
+        "tasks": [
+          { "task_name": "Clean and disinfect toilets, urinals, and seats", "frequency_label": "Weekly", "area_type": null, "notes": null },
+          { "task_name": "Clean basins, mirrors, and tapware", "frequency_label": "Weekly", "area_type": null, "notes": null },
+          { "task_name": "Mop floors with disinfectant", "frequency_label": "Weekly", "area_type": null, "notes": null },
+          { "task_name": "Restock soap, hand towels, and toilet paper", "frequency_label": "Weekly", "area_type": null, "notes": "Consumables supplied by Sano." }
+        ]
+      },
+      {
+        "key": "common_areas",
+        "label": "Common Areas",
+        "tasks": [
+          { "task_name": "Clean reception desk, lobby seating, and front-of-house glass", "frequency_label": "Weekly", "area_type": "Reception", "notes": null },
+          { "task_name": "Vacuum stair runners and dust handrails", "frequency_label": "Weekly", "area_type": "Stairwell", "notes": null },
+          { "task_name": "Wipe lift interior — buttons, mirrors, and floor", "frequency_label": "Weekly", "area_type": "Lift", "notes": null }
+        ]
+      }
+    ],
+    "assumptions": [
+      "Sano staff are inducted to site once and badged thereafter.",
+      "Power and water are made available for the duration of each service.",
+      "Pricing assumes the site is generally tidy at the start of each shift; one-off remediation cleans are quoted separately.",
+      "All consumables (chemicals, paper goods, soap) are supplied by Sano unless noted otherwise."
+    ],
+    "exclusions": [
+      "External windows above ground floor (quoted separately as needed).",
+      "Carpet steam cleaning beyond agreed schedule.",
+      "Strip-and-seal of hard floors.",
+      "Any work requiring elevated work platforms or specialist access.",
+      "Hazardous spills, biohazard, or post-incident cleans."
+    ],
+    "compliance_notes": "Sano holds public liability insurance ($2M), workers compensation, and operates under documented SDS / SWMS for all chemicals used on site. All staff carry photo ID and complete site-specific induction.",
+    "pricing": {
+      "base_label": "Monthly service fee",
+      "base_amount": 1850.00,
+      "addons": [
+        { "label": "Quarterly internal glass deep clean", "amount": 220.00 }
+      ],
+      "discount": 0,
+      "subtotal_ex_gst": 2070.00,
+      "gst_amount": 310.50,
+      "total_inc_gst": 2380.50,
+      "annualised_inc_gst": 28566.00,
+      "gst_included": false,
+      "gst_note": "Pricing shown excludes GST. GST is added at 15%."
+    },
+    "why_sano": [
+      "Local Auckland team — one consistent crew, one point of contact.",
+      "Inducted, photo-ID staff with documented procedures for every site.",
+      "Transparent scope: every task is listed, scheduled, and auditable.",
+      "Easy to deal with — quick to quote, fast to respond, no lock-ins."
+    ],
+    "acceptance": {
+      "blurb": "To accept this proposal, reply to this email confirming you'd like to proceed, or sign and return the bottom of this document. We'll then arrange a short on-site walk-through, confirm a start date, and issue a service schedule.",
+      "next_steps": [
+        "Confirm acceptance (email or signed return).",
+        "On-site walk-through — typically within 5 working days.",
+        "First service date confirmed in writing.",
+        "Monthly invoicing on the 1st, 7-day terms."
+      ]
+    }
+  }
+  </script>
+
+  <div class="preview-banner">
+    Local preview using example data. In production, the same template is hydrated from the live commercial quote — see <code>docs/commercial-proposals/field-map.md</code>.
+  </div>
+
+  <main id="rendered-target">
+    <!-- Renderer writes the hydrated proposal here. The <template> below
+         is the source. Keeping it in a <template> tag means browsers
+         do not parse its placeholders as broken HTML. -->
+  </main>
+
+  <template id="proposal-template">
+
+    <!-- ── PAGE 1 ── Cover · Parties · Executive summary ─────── -->
+    <article class="page">
+      <div class="cover-grid">
+        <div>
+          <div class="eyebrow">Commercial Cleaning Proposal</div>
+          <h1 class="cover-title">Cleaning programme for {{client.company_name}}</h1>
+          <div class="cover-divider"></div>
+          <div class="cover-sub">Prepared by {{sano.company_name}} · {{meta.issued}}</div>
+        </div>
+        <div class="cover-meta">
+          {{#sano.logo_src}}<img class="cover-logo" src="{{sano.logo_src}}" alt="{{sano.trading_as}}" />{{/sano.logo_src}}
+          <table class="meta-table">
+            <tbody>
+              <tr><th>Reference</th><td>{{meta.reference}}</td></tr>
+              <tr><th>Issued</th><td>{{meta.issued}}</td></tr>
+              <tr><th>Valid until</th><td>{{meta.valid_until}}</td></tr>
+              {{#meta.accepted_at}}<tr><th>Accepted</th><td>{{meta.accepted_at}}</td></tr>{{/meta.accepted_at}}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <hr class="section-rule" />
+
+      <section>
+        <h2>Parties</h2>
+        <div class="parties">
+          <div class="party-card">
+            <div class="label">Prepared for</div>
+            <div class="name">{{client.company_name}}</div>
+            {{#client.contact_name}}<div class="line">{{client.contact_name}}</div>{{/client.contact_name}}
+            {{#client.site_address}}<div class="line muted">{{client.site_address}}</div>{{/client.site_address}}
+            {{#client.phone}}<div class="line muted">{{client.phone}}</div>{{/client.phone}}
+            {{#client.email}}<div class="line muted">{{client.email}}</div>{{/client.email}}
+          </div>
+          <div class="party-card">
+            <div class="label">Prepared by</div>
+            <div class="name">{{sano.company_name}}</div>
+            {{#sano.address_line}}<div class="line muted">{{sano.address_line}}</div>{{/sano.address_line}}
+            {{#sano.phone}}<div class="line muted">{{sano.phone}}</div>{{/sano.phone}}
+            {{#sano.email}}<div class="line muted">{{sano.email}}</div>{{/sano.email}}
+            {{#sano.website}}<div class="line muted">{{sano.website}}</div>{{/sano.website}}
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Executive summary</h2>
+        <p>{{executive_summary}}</p>
+      </section>
+
+      <div class="page-footer">
+        <span>{{sano.trading_as}} · Commercial cleaning proposal · {{meta.reference}}</span>
+        <span>Page 1</span>
+      </div>
+    </article>
+
+    <!-- ── PAGE 2 ── Site profile · Service schedule ─────────── -->
+    <article class="page">
+      <section>
+        <h2>Site &amp; service profile</h2>
+        <dl class="profile">
+          <dt>Sector</dt>             <dd>{{site_profile.sector}}</dd>
+          {{#site_profile.building_type}}<dt>Building type</dt> <dd>{{site_profile.building_type}}</dd>{{/site_profile.building_type}}
+          {{#site_profile.service_address}}<dt>Service address</dt> <dd>{{site_profile.service_address}}</dd>{{/site_profile.service_address}}
+          {{#site_profile.total_area}}<dt>Total area</dt>      <dd>{{site_profile.total_area}}</dd>{{/site_profile.total_area}}
+          {{#site_profile.floors}}<dt>Floors</dt>              <dd>{{site_profile.floors}}</dd>{{/site_profile.floors}}
+          {{#site_profile.traffic}}<dt>Traffic level</dt>      <dd>{{site_profile.traffic}}</dd>{{/site_profile.traffic}}
+          {{#site_profile.occupancy}}<dt>Occupancy</dt>        <dd>{{site_profile.occupancy}}</dd>{{/site_profile.occupancy}}
+          {{#site_profile.fixtures_summary}}<dt>Fixtures &amp; rooms</dt> <dd>{{site_profile.fixtures_summary}}</dd>{{/site_profile.fixtures_summary}}
+        </dl>
+      </section>
+
+      <section>
+        <h2>Service schedule</h2>
+        <dl class="profile">
+          {{#service_schedule.frequency_summary}}<dt>Frequency</dt>        <dd>{{service_schedule.frequency_summary}}</dd>{{/service_schedule.frequency_summary}}
+          {{#service_schedule.service_days}}<dt>Service days</dt>          <dd>{{service_schedule.service_days}}</dd>{{/service_schedule.service_days}}
+          {{#service_schedule.service_window}}<dt>Service window</dt>      <dd>{{service_schedule.service_window}}</dd>{{/service_schedule.service_window}}
+          {{#service_schedule.consumables}}<dt>Consumables</dt>            <dd>{{service_schedule.consumables}}</dd>{{/service_schedule.consumables}}
+          {{#service_schedule.access_requirements}}<dt>Access</dt>         <dd>{{service_schedule.access_requirements}}</dd>{{/service_schedule.access_requirements}}
+        </dl>
+      </section>
+
+      <div class="page-footer">
+        <span>{{sano.trading_as}} · Commercial cleaning proposal · {{meta.reference}}</span>
+        <span>Page 2</span>
+      </div>
+    </article>
+
+    <!-- ── PAGE 3+ ── Scope of works ─────────────────────────── -->
+    <article class="page scope">
+      <section>
+        <h2>Scope of works</h2>
+
+        {{#scope_groups}}
+        <div class="scope-group">
+          <h3>{{label}}</h3>
+          <table class="scope-table">
+            <thead>
+              <tr>
+                <th>Task</th>
+                <th>Area</th>
+                <th>Frequency</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{#tasks}}
+              <tr>
+                <td class="task">
+                  {{task_name}}
+                  {{#notes}}<div class="notes">{{notes}}</div>{{/notes}}
+                </td>
+                <td class="area">{{#area_type}}{{area_type}}{{/area_type}}{{^area_type}}—{{/area_type}}</td>
+                <td class="freq">{{frequency_label}}</td>
+              </tr>
+              {{/tasks}}
+            </tbody>
+          </table>
+        </div>
+        {{/scope_groups}}
+
+        {{^scope_groups}}
+        <p class="muted">No scope items captured yet.</p>
+        {{/scope_groups}}
+      </section>
+
+      <div class="page-footer">
+        <span>{{sano.trading_as}} · Commercial cleaning proposal · {{meta.reference}}</span>
+        <span>Scope of works</span>
+      </div>
+    </article>
+
+    <!-- ── PAGE ── Assumptions / Exclusions / Compliance ─────── -->
+    <article class="page">
+      <section>
+        <h2>Assumptions, exclusions &amp; compliance</h2>
+        <div class="pillars">
+          <div class="pillar">
+            <h4>Assumptions</h4>
+            {{#assumptions.length}}
+            <ul>
+              {{#assumptions}}<li>{{.}}</li>{{/assumptions}}
+            </ul>
+            {{/assumptions.length}}
+            {{^assumptions.length}}<p class="muted">No assumptions recorded.</p>{{/assumptions.length}}
+          </div>
+          <div class="pillar">
+            <h4>Exclusions</h4>
+            {{#exclusions.length}}
+            <ul>
+              {{#exclusions}}<li>{{.}}</li>{{/exclusions}}
+            </ul>
+            {{/exclusions.length}}
+            {{^exclusions.length}}<p class="muted">No exclusions recorded.</p>{{/exclusions.length}}
+          </div>
+        </div>
+
+        {{#compliance_notes}}
+        <div class="compliance-block">
+          <h4>Compliance &amp; insurance</h4>
+          <p>{{compliance_notes}}</p>
+        </div>
+        {{/compliance_notes}}
+      </section>
+
+      <div class="page-footer">
+        <span>{{sano.trading_as}} · Commercial cleaning proposal · {{meta.reference}}</span>
+        <span>Assumptions · Exclusions · Compliance</span>
+      </div>
+    </article>
+
+    <!-- ── PAGE ── Pricing summary · Why Sano ────────────────── -->
+    <article class="page pricing">
+      <section>
+        <h2>Pricing summary</h2>
+        <table class="pricing-table">
+          <tbody>
+            <tr>
+              <td class="label">{{pricing.base_label}}</td>
+              <td class="value">{{pricing.base_amount_fmt}}</td>
+            </tr>
+            {{#pricing.addons}}
+            <tr>
+              <td class="label">{{label}}</td>
+              <td class="value">{{amount_fmt}}</td>
+            </tr>
+            {{/pricing.addons}}
+            {{#pricing.discount_positive}}
+            <tr class="discount">
+              <td class="label">Discount</td>
+              <td class="value">−{{pricing.discount_fmt}}</td>
+            </tr>
+            {{/pricing.discount_positive}}
+            <tr class="subtotal">
+              <td class="label">Subtotal (excl. GST)</td>
+              <td class="value">{{pricing.subtotal_ex_gst_fmt}}</td>
+            </tr>
+            <tr>
+              <td class="label">GST (15%)</td>
+              <td class="value">{{pricing.gst_amount_fmt}}</td>
+            </tr>
+            <tr class="total">
+              <td class="label">Monthly total (incl. GST)</td>
+              <td class="value">{{pricing.total_inc_gst_fmt}}</td>
+            </tr>
+            <tr class="annual">
+              <td class="label">Indicative annualised value (× 12)</td>
+              <td class="value">{{pricing.annualised_inc_gst_fmt}}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="gst-note">{{pricing.gst_note}}</p>
+      </section>
+
+      {{#why_sano.length}}
+      <section>
+        <h2>Why Sano</h2>
+        <ul class="why-list">
+          {{#why_sano}}<li>{{.}}</li>{{/why_sano}}
+        </ul>
+      </section>
+      {{/why_sano.length}}
+
+      <div class="page-footer">
+        <span>{{sano.trading_as}} · Commercial cleaning proposal · {{meta.reference}}</span>
+        <span>Pricing</span>
+      </div>
+    </article>
+
+    <!-- ── PAGE ── Acceptance & next steps ───────────────────── -->
+    <article class="page">
+      <section>
+        <h2>Acceptance &amp; next steps</h2>
+
+        {{#acceptance.blurb}}
+        <div class="acceptance-blurb">
+          <p>{{acceptance.blurb}}</p>
+        </div>
+        {{/acceptance.blurb}}
+
+        {{#acceptance.next_steps.length}}
+        <div style="margin-top: 14pt;">
+          <h4>What happens next</h4>
+          <ul style="padding-left: 18pt; margin: 0;">
+            {{#acceptance.next_steps}}<li style="margin-bottom: 4pt; font-size: 10pt;">{{.}}</li>{{/acceptance.next_steps}}
+          </ul>
+        </div>
+        {{/acceptance.next_steps.length}}
+
+        <div class="signature-grid">
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div class="label">Signed for and on behalf of</div>
+            <div><strong>{{client.company_name}}</strong></div>
+            <div class="label" style="margin-top: 12pt;">Name &amp; title</div>
+            <div class="sig-line" style="height: 18pt;"></div>
+            <div class="label">Date</div>
+            <div class="sig-line" style="height: 18pt;"></div>
+          </div>
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div class="label">Signed for and on behalf of</div>
+            <div><strong>{{sano.company_name}}</strong></div>
+            <div class="label" style="margin-top: 12pt;">Name &amp; title</div>
+            <div class="sig-line" style="height: 18pt;"></div>
+            <div class="label">Date</div>
+            <div class="sig-line" style="height: 18pt;"></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="page-footer">
+        <span>{{sano.trading_as}} · {{sano.phone}} · {{sano.email}}</span>
+        <span>Reference {{meta.reference}}</span>
+      </div>
+    </article>
+
+  </template>
+
+  <!--
+    Mustache-lite renderer (~80 lines, dependency-free).
+    Supports: {{path}}, {{{raw}}}, {{#section}}…{{/section}},
+              {{^inverted}}…{{/inverted}}, {{.}}
+    Sections iterate arrays, render once for truthy objects, skip
+    falsy/empty values.
+
+    For server-side rendering you can ignore this script and feed the
+    template body to any Mustache or Handlebars engine — the syntax is
+    a strict subset of Mustache 3.x.
+  -->
+  <script>
+    (function () {
+      'use strict'
+
+      function get(ctx, path) {
+        if (path === '.') return ctx
+        // Support array.length on arrays (used by {{#assumptions.length}}).
+        if (path.endsWith('.length')) {
+          const base = get(ctx, path.slice(0, -'.length'.length))
+          return Array.isArray(base) ? base.length : (base ? base.length || 0 : 0)
+        }
+        const parts = path.split('.')
+        let v = ctx
+        for (const p of parts) {
+          if (v == null) return undefined
+          v = v[p]
+        }
+        return v
+      }
+
+      function escapeHtml(s) {
+        return String(s)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+      }
+
+      function isTruthySection(v) {
+        if (v == null || v === false || v === '' || v === 0) return false
+        if (Array.isArray(v)) return v.length > 0
+        return true
+      }
+
+      // Tokenise into a flat list: text | var | rawvar | section-open | inverted-open | section-close
+      function tokenise(tpl) {
+        const re = /\{\{\{([^}]+)\}\}\}|\{\{([#^/])?\s*([^}]+?)\s*\}\}/g
+        const tokens = []
+        let last = 0, m
+        while ((m = re.exec(tpl)) !== null) {
+          if (m.index > last) tokens.push({ type: 'text', value: tpl.slice(last, m.index) })
+          if (m[1] != null) {
+            tokens.push({ type: 'rawvar', name: m[1].trim() })
+          } else {
+            const sigil = m[2], name = m[3]
+            if (sigil === '#')      tokens.push({ type: 'section', name: name })
+            else if (sigil === '^') tokens.push({ type: 'inverted', name: name })
+            else if (sigil === '/') tokens.push({ type: 'close', name: name })
+            else                    tokens.push({ type: 'var', name: name })
+          }
+          last = re.lastIndex
+        }
+        if (last < tpl.length) tokens.push({ type: 'text', value: tpl.slice(last) })
+        return tokens
+      }
+
+      // Recursive render against a context object.
+      function render(tokens, ctx, start, end) {
+        let out = ''
+        let i = start
+        while (i < end) {
+          const t = tokens[i]
+          if (t.type === 'text') { out += t.value; i++ }
+          else if (t.type === 'var')    { const v = get(ctx, t.name); out += v == null ? '' : escapeHtml(v); i++ }
+          else if (t.type === 'rawvar') { const v = get(ctx, t.name); out += v == null ? '' : String(v); i++ }
+          else if (t.type === 'section' || t.type === 'inverted') {
+            // Find matching close
+            let depth = 1, j = i + 1
+            while (j < end && depth > 0) {
+              if ((tokens[j].type === 'section' || tokens[j].type === 'inverted') && tokens[j].name === t.name) depth++
+              else if (tokens[j].type === 'close' && tokens[j].name === t.name) depth--
+              if (depth > 0) j++
+            }
+            const v = get(ctx, t.name)
+            if (t.type === 'inverted') {
+              if (!isTruthySection(v)) out += render(tokens, ctx, i + 1, j)
+            } else {
+              if (Array.isArray(v)) {
+                for (const item of v) {
+                  const childCtx = (typeof item === 'object' && item !== null) ? item : { '.': item }
+                  out += render(tokens, Object.assign({}, ctx, childCtx, { '.': item }), i + 1, j)
+                }
+              } else if (isTruthySection(v)) {
+                const childCtx = (typeof v === 'object') ? Object.assign({}, ctx, v) : ctx
+                out += render(tokens, childCtx, i + 1, j)
+              }
+            }
+            i = j + 1
+          }
+          else { i++ } // stray close
+        }
+        return out
+      }
+
+      // ── NZD formatting helper applied to pricing block ────────
+      function nzd(n) {
+        if (n == null || isNaN(n)) return ''
+        return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
+      }
+      function decoratePricing(data) {
+        if (!data || !data.pricing) return data
+        const p = data.pricing
+        p.base_amount_fmt       = nzd(p.base_amount)
+        p.subtotal_ex_gst_fmt   = nzd(p.subtotal_ex_gst)
+        p.gst_amount_fmt        = nzd(p.gst_amount)
+        p.total_inc_gst_fmt     = nzd(p.total_inc_gst)
+        p.annualised_inc_gst_fmt = nzd(p.annualised_inc_gst)
+        p.discount_fmt          = nzd(p.discount)
+        p.discount_positive     = (p.discount || 0) > 0 ? true : false
+        p.addons = (p.addons || []).map(function (a) {
+          return Object.assign({}, a, { amount_fmt: nzd(a.amount) })
+        })
+        return data
+      }
+
+      function loadData() {
+        if (window.PROPOSAL_DATA) return window.PROPOSAL_DATA
+        const el = document.getElementById('proposal-data')
+        if (!el) return {}
+        try { return JSON.parse(el.textContent) } catch (e) { return {} }
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        const data = decoratePricing(loadData())
+        const tpl = document.getElementById('proposal-template').innerHTML
+        const tokens = tokenise(tpl)
+        document.getElementById('rendered-target').innerHTML = render(tokens, data, 0, tokens.length)
+      })
+    })()
+  </script>
+
+</body>
+</html>
