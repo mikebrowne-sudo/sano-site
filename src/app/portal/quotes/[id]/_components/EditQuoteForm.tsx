@@ -208,7 +208,9 @@ export function EditQuoteForm({
   })
   const [overrideErrors, setOverrideErrors] = useState<OverrideValidationErrors>({})
 
-  const isLocked = quote.status === 'sent' || quote.status === 'accepted'
+  // Only an accepted quote locks pricing — staff need to negotiate sent quotes.
+  // To edit an accepted quote, change its status to draft first.
+  const isLocked = quote.status === 'accepted'
 
   // Add-ons — seed from existing items
   const [addons, setAddons] = useState<Addon[]>(
