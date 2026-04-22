@@ -19,10 +19,10 @@ export default function EmailSignature() {
           <img
             src="/email/email-banner-carol.jpg"
             alt="Sano Email Banner"
-            width="800"
+            width="850"
             style={{
               display: 'block',
-              width: '800px',
+              width: '850px',
               maxWidth: '100%',
               height: 'auto',
               border: 0,
