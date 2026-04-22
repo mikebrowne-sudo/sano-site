@@ -5,6 +5,7 @@ import type {
   CommercialScopeItem,
   ScopeFrequency,
   QuantityType,
+  ScopeInputMode,
 } from '@/lib/commercialQuote'
 import type { CommercialScopeItemInput } from '@/app/portal/quotes/_actions-commercial'
 
@@ -13,9 +14,15 @@ import type { CommercialScopeItemInput } from '@/app/portal/quotes/_actions-comm
 // Numeric fields held as strings; converted on submit. `id` is present
 // for existing rows so the server can UPDATE rather than INSERT, and a
 // UI-only `_key` keeps React happy when reordering new rows.
+//
+// Phase 1: input_mode locks which fields the operator can edit, and
+// which fields the preview / save include. UI-only for this phase —
+// derived on hydrate, applied at save. Not persisted to DB yet.
+// TODO: persist input_mode in DB (Phase 2)
 export interface CommercialScopeFormRow {
   _key: string
   id?: string
+  input_mode: ScopeInputMode
   area_type: string
   task_group: string
   task_name: string
@@ -37,6 +44,7 @@ function newScopeKey(): string {
 export function emptyScopeRow(): CommercialScopeFormRow {
   return {
     _key: newScopeKey(),
+    input_mode: 'measured',
     area_type: '',
     task_group: '',
     task_name: '',
@@ -50,6 +58,19 @@ export function emptyScopeRow(): CommercialScopeFormRow {
   }
 }
 
+// Phase 1 hydration heuristic (from the Phase 1 spec):
+//   - unit_minutes set            → measured
+//   - only production_rate set    → time_based (legacy mapping; value not converted)
+//   - both set or neither set     → measured (safe default)
+// No auto-correction of row data — only mode assignment.
+function inferInputMode(row: CommercialScopeItem): ScopeInputMode {
+  const hasUnitMins = row.unit_minutes != null && row.unit_minutes > 0
+  const hasRate     = row.production_rate != null && row.production_rate > 0
+  if (hasUnitMins) return 'measured'
+  if (!hasUnitMins && hasRate) return 'time_based'
+  return 'measured'
+}
+
 export function hydrateScopeRows(
   rows: CommercialScopeItem[] | null | undefined,
 ): CommercialScopeFormRow[] {
@@ -60,6 +81,7 @@ export function hydrateScopeRows(
     .map((r) => ({
       _key: r.id,
       id: r.id,
+      input_mode: inferInputMode(r),
       area_type: r.area_type ?? '',
       task_group: r.task_group ?? '',
       task_name: r.task_name,
@@ -82,23 +104,45 @@ function toNum(v: string): number | null {
 // Form rows → payload for saveCommercialScope / createQuote's commercial_scope.
 // Also filters out rows that have neither an id nor a task_name (fully empty
 // rows from the user clicking Add but not typing anything).
+//
+// Phase 1 save-time field nulling:
+//   measured   → keep quantity + unit_minutes; null production_rate
+//   time_based → force quantity_value = 1; null quantity_type + production_rate;
+//                keep unit_minutes ("Time per visit (mins)")
+// Form state keeps all typed values (non-destructive mode switching);
+// this function applies the lock when persisting.
 export function toScopeItemsInput(rows: CommercialScopeFormRow[]): CommercialScopeItemInput[] {
   return rows
     .filter((r) => r.task_name.trim() !== '' || r.id)
-    .map((r, idx) => ({
-      ...(r.id ? { id: r.id } : {}),
-      area_type: emptyToNull(r.area_type),
-      task_group: emptyToNull(r.task_group),
-      task_name: r.task_name.trim(),
-      frequency: (r.frequency || null) as ScopeFrequency | null,
-      quantity_type: (r.quantity_type || null) as QuantityType | null,
-      quantity_value: toNum(r.quantity_value),
-      unit_minutes: toNum(r.unit_minutes),
-      production_rate: toNum(r.production_rate),
-      included: r.included,
-      notes: emptyToNull(r.notes),
-      display_order: idx,
-    }))
+    .map((r, idx) => {
+      const base = {
+        ...(r.id ? { id: r.id } : {}),
+        area_type: emptyToNull(r.area_type),
+        task_group: emptyToNull(r.task_group),
+        task_name: r.task_name.trim(),
+        frequency: (r.frequency || null) as ScopeFrequency | null,
+        included: r.included,
+        notes: emptyToNull(r.notes),
+        display_order: idx,
+      }
+      if (r.input_mode === 'time_based') {
+        return {
+          ...base,
+          quantity_type: null,
+          quantity_value: 1,
+          unit_minutes: toNum(r.unit_minutes),
+          production_rate: null,
+        }
+      }
+      // measured
+      return {
+        ...base,
+        quantity_type: (r.quantity_type || null) as QuantityType | null,
+        quantity_value: toNum(r.quantity_value),
+        unit_minutes: toNum(r.unit_minutes),
+        production_rate: null,
+      }
+    })
 }
 
 function emptyToNull(v: string): string | null {
@@ -242,7 +286,43 @@ export function CommercialScopeBuilder({
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  {/* Mode toggle — locks which inputs the operator can edit. */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-sage-600">Input mode</span>
+                    <div className="inline-flex rounded-lg border border-sage-200 bg-sage-50 p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => updateRow(idx, { input_mode: 'measured' })}
+                        disabled={disabled}
+                        className={
+                          row.input_mode === 'measured'
+                            ? 'px-3 py-1 rounded-md text-xs font-semibold bg-white text-sage-800 shadow-sm'
+                            : 'px-3 py-1 rounded-md text-xs font-medium text-sage-600 hover:text-sage-800'
+                        }
+                      >
+                        Measured
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateRow(idx, { input_mode: 'time_based' })}
+                        disabled={disabled}
+                        className={
+                          row.input_mode === 'time_based'
+                            ? 'px-3 py-1 rounded-md text-xs font-semibold bg-white text-sage-800 shadow-sm'
+                            : 'px-3 py-1 rounded-md text-xs font-medium text-sage-600 hover:text-sage-800'
+                        }
+                      >
+                        Time-based
+                      </button>
+                    </div>
+                    <span className="text-xs text-sage-500 italic">
+                      {row.input_mode === 'measured'
+                        ? 'quantity × unit mins'
+                        : 'fixed time per visit'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <RowSelect
                       label="Frequency"
                       value={row.frequency}
@@ -250,31 +330,39 @@ export function CommercialScopeBuilder({
                       options={[{ value: '', label: '—' }, ...FREQ_OPTIONS]}
                       disabled={disabled}
                     />
-                    <RowSelect
-                      label="Quantity type"
-                      value={row.quantity_type}
-                      onChange={(v) => updateRow(idx, { quantity_type: v as QuantityType | '' })}
-                      options={[{ value: '', label: '—' }, ...QTY_OPTIONS]}
-                      disabled={disabled}
-                    />
-                    <RowNumber
-                      label="Quantity"
-                      value={row.quantity_value}
-                      onChange={(v) => updateRow(idx, { quantity_value: v })}
-                      disabled={disabled}
-                    />
-                    <RowNumber
-                      label="Unit mins"
-                      value={row.unit_minutes}
-                      onChange={(v) => updateRow(idx, { unit_minutes: v })}
-                      disabled={disabled}
-                    />
-                    <RowNumber
-                      label="Rate / hr"
-                      value={row.production_rate}
-                      onChange={(v) => updateRow(idx, { production_rate: v })}
-                      disabled={disabled}
-                    />
+
+                    {row.input_mode === 'measured' ? (
+                      <>
+                        <RowSelect
+                          label="Quantity type"
+                          value={row.quantity_type}
+                          onChange={(v) => updateRow(idx, { quantity_type: v as QuantityType | '' })}
+                          options={[{ value: '', label: '—' }, ...QTY_OPTIONS]}
+                          disabled={disabled}
+                        />
+                        <RowNumber
+                          label="Quantity"
+                          value={row.quantity_value}
+                          onChange={(v) => updateRow(idx, { quantity_value: v })}
+                          disabled={disabled}
+                        />
+                        <RowNumber
+                          label="Unit mins"
+                          value={row.unit_minutes}
+                          onChange={(v) => updateRow(idx, { unit_minutes: v })}
+                          disabled={disabled}
+                        />
+                      </>
+                    ) : (
+                      <div className="sm:col-span-3">
+                        <RowNumber
+                          label="Time per visit (mins)"
+                          value={row.unit_minutes}
+                          onChange={(v) => updateRow(idx, { unit_minutes: v })}
+                          disabled={disabled}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <RowText
@@ -314,8 +402,9 @@ export function CommercialScopeBuilder({
       )}
 
       <p className="mt-3 text-xs text-sage-500">
-        Set <em>unit minutes</em> OR <em>rate per hour</em> (not both) depending on whether the task is measured per fixture or per m² / per hour.
-        Reordering is via the up/down arrows; drag-and-drop can come later.
+        <em>Measured</em> multiplies a quantity by unit minutes (e.g. 8 toilets × 6 min).
+        <em> Time-based</em> uses a single fixed time per visit (e.g. 20 min for dusting).
+        Pick the mode per row — inactive fields are ignored by pricing and cleared when saved.
       </p>
     </section>
   )
