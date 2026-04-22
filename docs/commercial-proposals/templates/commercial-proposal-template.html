@@ -63,17 +63,77 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Page (A4) ────────────────────────────────────────────── */
+    /* ── Page counter (drives "Page N" in every footer) ──────────
+       counter-reset on the body so the count starts at 1 for the
+       cover and increments by one per <article class="page">.
+       Works in browser preview AND in Puppeteer / Playwright PDF
+       output — no per-page hardcoding. */
+    body { counter-reset: page-num; }
+
+    /* ── Page (A4) ───────────────────────────────────────────────
+       Flex column so a fixed header strip and footer strip sit at
+       the top and bottom of every A4 sheet, with the main content
+       filling the space between. Padding lives on each child so the
+       three strips share consistent left / right margins without
+       re-declaring them. */
     .page {
+      display: flex;
+      flex-direction: column;
       width: 210mm;
       min-height: 297mm;
       margin: 16mm auto;
-      padding: 18mm 18mm 16mm 18mm;
+      padding: 0;
       background: var(--bg);
       box-shadow: 0 1px 4px rgba(0,0,0,.06), 0 8px 32px rgba(0,0,0,.08);
       page-break-after: always;
+      counter-increment: page-num;
     }
     .page:last-child { page-break-after: auto; }
+
+    /* ── Per-page header strip ───────────────────────────────────
+       Small running header rendered on every interior page. Hidden
+       on the cover (the cover has its own larger brand block).
+       Three-column flex: logo · title · client + date. */
+    .page-header {
+      display: flex;
+      align-items: center;
+      gap: 14pt;
+      padding: 10mm 18mm 5mm;
+      border-bottom: 1px solid var(--rule);
+    }
+    .page.cover .page-header { display: none; }
+    .header-logo {
+      height: 28pt;
+      width: auto;
+      flex: 0 0 auto;
+    }
+    .header-meta {
+      flex: 1 1 auto;
+      text-align: right;
+      line-height: 1.3;
+    }
+    .header-title {
+      font-family: 'Inter', sans-serif;
+      font-size: 8pt;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--sage-500);
+    }
+    .header-sub {
+      font-size: 9pt;
+      color: var(--muted);
+      margin-top: 2pt;
+    }
+
+    /* ── Page content ────────────────────────────────────────────
+       Flex grow so short pages still push the footer to the
+       bottom of the A4 sheet in the browser preview, and long
+       pages let the browser / Puppeteer paginate naturally. */
+    .page-content {
+      flex: 1 1 auto;
+      padding: 8mm 18mm;
+    }
 
     /* ── Headings ─────────────────────────────────────────────── */
     h1, h2, h3, h4 { font-family: 'Noto Serif', Georgia, 'Times New Roman', serif; color: var(--sage-800); margin: 0; }
@@ -350,14 +410,21 @@
 
     /* ── Footer (every page) ─────────────────────────────────── */
     .page-footer {
-      margin-top: 18pt;
-      padding-top: 8pt;
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 8pt;
+      padding: 6mm 18mm 10mm;
       border-top: 1px solid var(--rule);
-      display: flex;
-      justify-content: space-between;
       font-size: 8.5pt;
       color: var(--muted);
     }
+    .footer-company { text-align: left; }
+    .footer-page    { text-align: center; font-variant-numeric: tabular-nums; }
+    .footer-website { text-align: right; }
+    /* CSS counter populates "Page N" without per-page hardcoding. */
+    .page-number::before { content: "Page " counter(page-num); }
 
     /* ── Print rules ─────────────────────────────────────────── */
     @page { size: A4; margin: 0; }
@@ -368,11 +435,22 @@
         width: auto;
         min-height: auto;
         margin: 0;
-        padding: 18mm 18mm 16mm 18mm;
+        padding: 0;
         box-shadow: none;
       }
-      .scope-group { page-break-inside: avoid; }
-      section { page-break-inside: avoid; }
+      /* Keep critical blocks intact across page breaks. */
+      .scope-group        { page-break-inside: avoid; break-inside: avoid; }
+      .scope-paragraph    { page-break-inside: avoid; break-inside: avoid; }
+      .optional-paragraph { page-break-inside: avoid; break-inside: avoid; }
+      .pricing-table      { page-break-inside: avoid; break-inside: avoid; }
+      .totals             { page-break-inside: avoid; break-inside: avoid; }
+      .party-card         { page-break-inside: avoid; break-inside: avoid; }
+      .pillar             { page-break-inside: avoid; break-inside: avoid; }
+      .sig-block          { page-break-inside: avoid; break-inside: avoid; }
+      section             { page-break-inside: avoid; break-inside: avoid; }
+      /* Override avoid for sections that legitimately span multiple
+         pages so long scope and pricing lists can flow naturally. */
+      section.scope, section.pricing { page-break-inside: auto; break-inside: auto; }
       .preview-banner { display: none !important; }
     }
 
@@ -568,137 +646,164 @@
   <template id="proposal-template">
 
     <!-- ── PAGE 1 ── Cover · Parties · Executive summary ─────── -->
-    <article class="page">
-      <div class="cover-grid">
-        <div>
-          <div class="eyebrow">Commercial Cleaning Proposal</div>
-          <h1 class="cover-title">Cleaning programme for {{client.company_name}}</h1>
-          <div class="cover-divider"></div>
-          <div class="cover-sub">Prepared by {{sano.company_name}} · {{meta.issued}}</div>
+    <article class="page cover">
+      <header class="page-header">
+        {{#sano.logo_src}}<img class="header-logo" src="{{sano.logo_src}}" alt="{{sano.trading_as}}" />{{/sano.logo_src}}
+        <div class="header-meta">
+          <div class="header-title">Commercial Cleaning Proposal</div>
+          <div class="header-sub">{{client.company_name}} · {{meta.issued}}</div>
         </div>
-        <div class="cover-meta">
-          {{#sano.logo_src}}<img class="cover-logo" src="{{sano.logo_src}}" alt="{{sano.trading_as}}" />{{/sano.logo_src}}
-          <table class="meta-table">
-            <tbody>
-              <tr><th>Reference</th><td>{{meta.reference}}</td></tr>
-              <tr><th>Issued</th><td>{{meta.issued}}</td></tr>
-              <tr><th>Valid until</th><td>{{meta.valid_until}}</td></tr>
-              {{#meta.accepted_at}}<tr><th>Accepted</th><td>{{meta.accepted_at}}</td></tr>{{/meta.accepted_at}}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <hr class="section-rule" />
-
-      <section>
-        <h2>Parties</h2>
-        <div class="parties">
-          <div class="party-card">
-            <div class="label">Prepared for</div>
-            <div class="name">{{client.company_name}}</div>
-            {{#client.contact_name}}<div class="line">{{client.contact_name}}</div>{{/client.contact_name}}
-            {{#client.site_address}}<div class="line muted">{{client.site_address}}</div>{{/client.site_address}}
-            {{#client.phone}}<div class="line muted">{{client.phone}}</div>{{/client.phone}}
-            {{#client.email}}<div class="line muted">{{client.email}}</div>{{/client.email}}
+      </header>
+      <main class="page-content">
+        <div class="cover-grid">
+          <div>
+            <div class="eyebrow">Commercial Cleaning Proposal</div>
+            <h1 class="cover-title">Cleaning programme for {{client.company_name}}</h1>
+            <div class="cover-divider"></div>
+            <div class="cover-sub">Prepared by {{sano.company_name}} · {{meta.issued}}</div>
           </div>
-          <div class="party-card">
-            <div class="label">Prepared by</div>
-            <div class="name">{{sano.company_name}}</div>
-            {{#sano.address_line}}<div class="line muted">{{sano.address_line}}</div>{{/sano.address_line}}
-            {{#sano.phone}}<div class="line muted">{{sano.phone}}</div>{{/sano.phone}}
-            {{#sano.email}}<div class="line muted">{{sano.email}}</div>{{/sano.email}}
-            {{#sano.website}}<div class="line muted">{{sano.website}}</div>{{/sano.website}}
+          <div class="cover-meta">
+            {{#sano.logo_src}}<img class="cover-logo" src="{{sano.logo_src}}" alt="{{sano.trading_as}}" />{{/sano.logo_src}}
+            <table class="meta-table">
+              <tbody>
+                <tr><th>Reference</th><td>{{meta.reference}}</td></tr>
+                <tr><th>Issued</th><td>{{meta.issued}}</td></tr>
+                <tr><th>Valid until</th><td>{{meta.valid_until}}</td></tr>
+                {{#meta.accepted_at}}<tr><th>Accepted</th><td>{{meta.accepted_at}}</td></tr>{{/meta.accepted_at}}
+              </tbody>
+            </table>
           </div>
         </div>
-      </section>
 
-      <section>
-        <h2>Executive summary</h2>
-        <p>{{executive_summary}}</p>
-      </section>
+        <hr class="section-rule" />
 
-      <div class="page-footer">
-        <span>{{sano.trading_as}} · Commercial cleaning proposal · {{meta.reference}}</span>
-        <span>Page 1</span>
-      </div>
+        <section>
+          <h2>Parties</h2>
+          <div class="parties">
+            <div class="party-card">
+              <div class="label">Prepared for</div>
+              <div class="name">{{client.company_name}}</div>
+              {{#client.contact_name}}<div class="line">{{client.contact_name}}</div>{{/client.contact_name}}
+              {{#client.site_address}}<div class="line muted">{{client.site_address}}</div>{{/client.site_address}}
+              {{#client.phone}}<div class="line muted">{{client.phone}}</div>{{/client.phone}}
+              {{#client.email}}<div class="line muted">{{client.email}}</div>{{/client.email}}
+            </div>
+            <div class="party-card">
+              <div class="label">Prepared by</div>
+              <div class="name">{{sano.company_name}}</div>
+              {{#sano.address_line}}<div class="line muted">{{sano.address_line}}</div>{{/sano.address_line}}
+              {{#sano.phone}}<div class="line muted">{{sano.phone}}</div>{{/sano.phone}}
+              {{#sano.email}}<div class="line muted">{{sano.email}}</div>{{/sano.email}}
+              {{#sano.website}}<div class="line muted">{{sano.website}}</div>{{/sano.website}}
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2>Executive summary</h2>
+          <p>{{executive_summary}}</p>
+        </section>
+      </main>
+      <footer class="page-footer">
+        <span class="footer-company">{{sano.company_name}}</span>
+        <span class="footer-page page-number"></span>
+        <span class="footer-website">{{sano.website}}</span>
+      </footer>
     </article>
 
     <!-- ── PAGE 2 ── Site profile · Service schedule ─────────── -->
     <article class="page">
-      <section>
-        <h2>Site &amp; service profile</h2>
-        <dl class="profile">
-          <dt>Sector</dt>             <dd>{{site_profile.sector}}</dd>
-          {{#site_profile.building_type}}<dt>Building type</dt> <dd>{{site_profile.building_type}}</dd>{{/site_profile.building_type}}
-          {{#site_profile.service_address}}<dt>Service address</dt> <dd>{{site_profile.service_address}}</dd>{{/site_profile.service_address}}
-          {{#site_profile.total_area}}<dt>Total area</dt>      <dd>{{site_profile.total_area}}</dd>{{/site_profile.total_area}}
-          {{#site_profile.floors}}<dt>Floors</dt>              <dd>{{site_profile.floors}}</dd>{{/site_profile.floors}}
-          {{#site_profile.traffic}}<dt>Traffic level</dt>      <dd>{{site_profile.traffic}}</dd>{{/site_profile.traffic}}
-          {{#site_profile.occupancy}}<dt>Occupancy</dt>        <dd>{{site_profile.occupancy}}</dd>{{/site_profile.occupancy}}
-          {{#site_profile.fixtures_summary}}<dt>Fixtures &amp; rooms</dt> <dd>{{site_profile.fixtures_summary}}</dd>{{/site_profile.fixtures_summary}}
-        </dl>
-      </section>
+      <header class="page-header">
+        {{#sano.logo_src}}<img class="header-logo" src="{{sano.logo_src}}" alt="{{sano.trading_as}}" />{{/sano.logo_src}}
+        <div class="header-meta">
+          <div class="header-title">Commercial Cleaning Proposal</div>
+          <div class="header-sub">{{client.company_name}} · {{meta.issued}}</div>
+        </div>
+      </header>
+      <main class="page-content">
+        <section>
+          <h2>Site &amp; service profile</h2>
+          <dl class="profile">
+            <dt>Sector</dt>             <dd>{{site_profile.sector}}</dd>
+            {{#site_profile.building_type}}<dt>Building type</dt> <dd>{{site_profile.building_type}}</dd>{{/site_profile.building_type}}
+            {{#site_profile.service_address}}<dt>Service address</dt> <dd>{{site_profile.service_address}}</dd>{{/site_profile.service_address}}
+            {{#site_profile.total_area}}<dt>Total area</dt>      <dd>{{site_profile.total_area}}</dd>{{/site_profile.total_area}}
+            {{#site_profile.floors}}<dt>Floors</dt>              <dd>{{site_profile.floors}}</dd>{{/site_profile.floors}}
+            {{#site_profile.traffic}}<dt>Traffic level</dt>      <dd>{{site_profile.traffic}}</dd>{{/site_profile.traffic}}
+            {{#site_profile.occupancy}}<dt>Occupancy</dt>        <dd>{{site_profile.occupancy}}</dd>{{/site_profile.occupancy}}
+            {{#site_profile.fixtures_summary}}<dt>Fixtures &amp; rooms</dt> <dd>{{site_profile.fixtures_summary}}</dd>{{/site_profile.fixtures_summary}}
+          </dl>
+        </section>
 
-      <section>
-        <h2>Service schedule</h2>
-        <dl class="profile">
-          {{#service_schedule.frequency_summary}}<dt>Frequency</dt>        <dd>{{service_schedule.frequency_summary}}</dd>{{/service_schedule.frequency_summary}}
-          {{#service_schedule.service_days}}<dt>Service days</dt>          <dd>{{service_schedule.service_days}}</dd>{{/service_schedule.service_days}}
-          {{#service_schedule.service_window}}<dt>Service window</dt>      <dd>{{service_schedule.service_window}}</dd>{{/service_schedule.service_window}}
-          {{#service_schedule.consumables}}<dt>Consumables</dt>            <dd>{{service_schedule.consumables}}</dd>{{/service_schedule.consumables}}
-          {{#service_schedule.access_requirements}}<dt>Access</dt>         <dd>{{service_schedule.access_requirements}}</dd>{{/service_schedule.access_requirements}}
-        </dl>
-      </section>
-
-      <div class="page-footer">
-        <span>{{sano.trading_as}} · Commercial cleaning proposal · {{meta.reference}}</span>
-        <span>Page 2</span>
-      </div>
+        <section>
+          <h2>Service schedule</h2>
+          <dl class="profile">
+            {{#service_schedule.frequency_summary}}<dt>Frequency</dt>        <dd>{{service_schedule.frequency_summary}}</dd>{{/service_schedule.frequency_summary}}
+            {{#service_schedule.service_days}}<dt>Service days</dt>          <dd>{{service_schedule.service_days}}</dd>{{/service_schedule.service_days}}
+            {{#service_schedule.service_window}}<dt>Service window</dt>      <dd>{{service_schedule.service_window}}</dd>{{/service_schedule.service_window}}
+            {{#service_schedule.consumables}}<dt>Consumables</dt>            <dd>{{service_schedule.consumables}}</dd>{{/service_schedule.consumables}}
+            {{#service_schedule.access_requirements}}<dt>Access</dt>         <dd>{{service_schedule.access_requirements}}</dd>{{/service_schedule.access_requirements}}
+          </dl>
+        </section>
+      </main>
+      <footer class="page-footer">
+        <span class="footer-company">{{sano.company_name}}</span>
+        <span class="footer-page page-number"></span>
+        <span class="footer-website">{{sano.website}}</span>
+      </footer>
     </article>
 
     <!-- ── PAGE 3+ ── Scope of works ─────────────────────────── -->
     <article class="page scope">
-      <section>
-        <h2>Scope of works</h2>
-
-        {{#scope_groups}}
-        <div class="scope-group">
-          <h3>{{label}}</h3>
-          {{#paragraph}}<p class="scope-paragraph">{{paragraph}}</p>{{/paragraph}}
-          <table class="scope-table">
-            <thead>
-              <tr>
-                <th>Task</th>
-                <th>Area</th>
-                <th>Frequency</th>
-              </tr>
-            </thead>
-            <tbody>
-              {{#tasks}}
-              <tr>
-                <td class="task">
-                  {{task_name}}
-                  {{#notes}}<div class="notes">{{notes}}</div>{{/notes}}
-                </td>
-                <td class="area">{{#area_type}}{{area_type}}{{/area_type}}{{^area_type}}—{{/area_type}}</td>
-                <td class="freq">{{frequency_label}}</td>
-              </tr>
-              {{/tasks}}
-            </tbody>
-          </table>
+      <header class="page-header">
+        {{#sano.logo_src}}<img class="header-logo" src="{{sano.logo_src}}" alt="{{sano.trading_as}}" />{{/sano.logo_src}}
+        <div class="header-meta">
+          <div class="header-title">Commercial Cleaning Proposal</div>
+          <div class="header-sub">{{client.company_name}} · {{meta.issued}}</div>
         </div>
-        {{/scope_groups}}
+      </header>
+      <main class="page-content">
+        <section>
+          <h2>Scope of works</h2>
 
-        {{^scope_groups}}
-        <p class="muted">No scope items captured yet.</p>
-        {{/scope_groups}}
-      </section>
+          {{#scope_groups}}
+          <div class="scope-group">
+            <h3>{{label}}</h3>
+            {{#paragraph}}<p class="scope-paragraph">{{paragraph}}</p>{{/paragraph}}
+            <table class="scope-table">
+              <thead>
+                <tr>
+                  <th>Task</th>
+                  <th>Area</th>
+                  <th>Frequency</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{#tasks}}
+                <tr>
+                  <td class="task">
+                    {{task_name}}
+                    {{#notes}}<div class="notes">{{notes}}</div>{{/notes}}
+                  </td>
+                  <td class="area">{{#area_type}}{{area_type}}{{/area_type}}{{^area_type}}—{{/area_type}}</td>
+                  <td class="freq">{{frequency_label}}</td>
+                </tr>
+                {{/tasks}}
+              </tbody>
+            </table>
+          </div>
+          {{/scope_groups}}
 
-      <div class="page-footer">
-        <span>{{sano.trading_as}} · Commercial cleaning proposal · {{meta.reference}}</span>
-        <span>Scope of works</span>
-      </div>
+          {{^scope_groups}}
+          <p class="muted">No scope items captured yet.</p>
+          {{/scope_groups}}
+        </section>
+      </main>
+      <footer class="page-footer">
+        <span class="footer-company">{{sano.company_name}}</span>
+        <span class="footer-page page-number"></span>
+        <span class="footer-website">{{sano.website}}</span>
+      </footer>
     </article>
 
     <!-- ── PAGE ── Service notes (Phase 4B parity) ─────────────
@@ -708,166 +813,202 @@
          heading above the prose body. -->
     {{#optional_paragraphs.length}}
     <article class="page">
-      <section>
-        <h2>Service notes</h2>
-        {{#optional_paragraphs}}
-        <div class="optional-paragraph">
-          <h4>{{heading}}</h4>
-          <p>{{text}}</p>
+      <header class="page-header">
+        {{#sano.logo_src}}<img class="header-logo" src="{{sano.logo_src}}" alt="{{sano.trading_as}}" />{{/sano.logo_src}}
+        <div class="header-meta">
+          <div class="header-title">Commercial Cleaning Proposal</div>
+          <div class="header-sub">{{client.company_name}} · {{meta.issued}}</div>
         </div>
-        {{/optional_paragraphs}}
-      </section>
-
-      <div class="page-footer">
-        <span>{{sano.trading_as}} · Commercial cleaning proposal · {{meta.reference}}</span>
-        <span>Service notes</span>
-      </div>
+      </header>
+      <main class="page-content">
+        <section>
+          <h2>Service notes</h2>
+          {{#optional_paragraphs}}
+          <div class="optional-paragraph">
+            <h4>{{heading}}</h4>
+            <p>{{text}}</p>
+          </div>
+          {{/optional_paragraphs}}
+        </section>
+      </main>
+      <footer class="page-footer">
+        <span class="footer-company">{{sano.company_name}}</span>
+        <span class="footer-page page-number"></span>
+        <span class="footer-website">{{sano.website}}</span>
+      </footer>
     </article>
     {{/optional_paragraphs.length}}
 
     <!-- ── PAGE ── Assumptions / Exclusions / Compliance ─────── -->
     <article class="page">
-      <section>
-        <h2>Assumptions, exclusions &amp; compliance</h2>
-        <div class="pillars">
-          <div class="pillar">
-            <h4>Assumptions</h4>
-            {{#assumptions.length}}
-            <ul>
-              {{#assumptions}}<li>{{.}}</li>{{/assumptions}}
-            </ul>
-            {{/assumptions.length}}
-            {{^assumptions.length}}<p class="muted">No assumptions recorded.</p>{{/assumptions.length}}
-          </div>
-          <div class="pillar">
-            <h4>Exclusions</h4>
-            {{#exclusions.length}}
-            <ul>
-              {{#exclusions}}<li>{{.}}</li>{{/exclusions}}
-            </ul>
-            {{/exclusions.length}}
-            {{^exclusions.length}}<p class="muted">No exclusions recorded.</p>{{/exclusions.length}}
-          </div>
+      <header class="page-header">
+        {{#sano.logo_src}}<img class="header-logo" src="{{sano.logo_src}}" alt="{{sano.trading_as}}" />{{/sano.logo_src}}
+        <div class="header-meta">
+          <div class="header-title">Commercial Cleaning Proposal</div>
+          <div class="header-sub">{{client.company_name}} · {{meta.issued}}</div>
         </div>
+      </header>
+      <main class="page-content">
+        <section>
+          <h2>Assumptions, exclusions &amp; compliance</h2>
+          <div class="pillars">
+            <div class="pillar">
+              <h4>Assumptions</h4>
+              {{#assumptions.length}}
+              <ul>
+                {{#assumptions}}<li>{{.}}</li>{{/assumptions}}
+              </ul>
+              {{/assumptions.length}}
+              {{^assumptions.length}}<p class="muted">No assumptions recorded.</p>{{/assumptions.length}}
+            </div>
+            <div class="pillar">
+              <h4>Exclusions</h4>
+              {{#exclusions.length}}
+              <ul>
+                {{#exclusions}}<li>{{.}}</li>{{/exclusions}}
+              </ul>
+              {{/exclusions.length}}
+              {{^exclusions.length}}<p class="muted">No exclusions recorded.</p>{{/exclusions.length}}
+            </div>
+          </div>
 
-        {{#compliance_notes}}
-        <div class="compliance-block">
-          <h4>Compliance &amp; insurance</h4>
-          <p>{{compliance_notes}}</p>
-        </div>
-        {{/compliance_notes}}
-      </section>
-
-      <div class="page-footer">
-        <span>{{sano.trading_as}} · Commercial cleaning proposal · {{meta.reference}}</span>
-        <span>Assumptions · Exclusions · Compliance</span>
-      </div>
+          {{#compliance_notes}}
+          <div class="compliance-block">
+            <h4>Compliance &amp; insurance</h4>
+            <p>{{compliance_notes}}</p>
+          </div>
+          {{/compliance_notes}}
+        </section>
+      </main>
+      <footer class="page-footer">
+        <span class="footer-company">{{sano.company_name}}</span>
+        <span class="footer-page page-number"></span>
+        <span class="footer-website">{{sano.website}}</span>
+      </footer>
     </article>
 
     <!-- ── PAGE ── Pricing summary · Why Sano ────────────────── -->
     <article class="page pricing">
-      <section>
-        <h2>Pricing summary</h2>
-        <table class="pricing-table">
-          <tbody>
-            <tr>
-              <td class="label">{{pricing.base_label}}</td>
-              <td class="value">{{pricing.base_amount_fmt}}</td>
-            </tr>
-            {{#pricing.addons}}
-            <tr>
-              <td class="label">{{label}}</td>
-              <td class="value">{{amount_fmt}}</td>
-            </tr>
-            {{/pricing.addons}}
-            {{#pricing.discount_positive}}
-            <tr class="discount">
-              <td class="label">Discount</td>
-              <td class="value">−{{pricing.discount_fmt}}</td>
-            </tr>
-            {{/pricing.discount_positive}}
-            <tr class="subtotal">
-              <td class="label">Subtotal (excl. GST)</td>
-              <td class="value">{{pricing.subtotal_ex_gst_fmt}}</td>
-            </tr>
-            <tr>
-              <td class="label">GST (15%)</td>
-              <td class="value">{{pricing.gst_amount_fmt}}</td>
-            </tr>
-            <tr class="total">
-              <td class="label">Monthly total (incl. GST)</td>
-              <td class="value">{{pricing.total_inc_gst_fmt}}</td>
-            </tr>
-            <tr class="annual">
-              <td class="label">Indicative annualised value (× 12)</td>
-              <td class="value">{{pricing.annualised_inc_gst_fmt}}</td>
-            </tr>
-          </tbody>
-        </table>
-        <p class="gst-note">{{pricing.gst_note}}</p>
-      </section>
+      <header class="page-header">
+        {{#sano.logo_src}}<img class="header-logo" src="{{sano.logo_src}}" alt="{{sano.trading_as}}" />{{/sano.logo_src}}
+        <div class="header-meta">
+          <div class="header-title">Commercial Cleaning Proposal</div>
+          <div class="header-sub">{{client.company_name}} · {{meta.issued}}</div>
+        </div>
+      </header>
+      <main class="page-content">
+        <section>
+          <h2>Pricing summary</h2>
+          <table class="pricing-table">
+            <tbody>
+              <tr>
+                <td class="label">{{pricing.base_label}}</td>
+                <td class="value">{{pricing.base_amount_fmt}}</td>
+              </tr>
+              {{#pricing.addons}}
+              <tr>
+                <td class="label">{{label}}</td>
+                <td class="value">{{amount_fmt}}</td>
+              </tr>
+              {{/pricing.addons}}
+              {{#pricing.discount_positive}}
+              <tr class="discount">
+                <td class="label">Discount</td>
+                <td class="value">−{{pricing.discount_fmt}}</td>
+              </tr>
+              {{/pricing.discount_positive}}
+              <tr class="subtotal">
+                <td class="label">Subtotal (excl. GST)</td>
+                <td class="value">{{pricing.subtotal_ex_gst_fmt}}</td>
+              </tr>
+              <tr>
+                <td class="label">GST (15%)</td>
+                <td class="value">{{pricing.gst_amount_fmt}}</td>
+              </tr>
+              <tr class="total">
+                <td class="label">Monthly total (incl. GST)</td>
+                <td class="value">{{pricing.total_inc_gst_fmt}}</td>
+              </tr>
+              <tr class="annual">
+                <td class="label">Indicative annualised value (× 12)</td>
+                <td class="value">{{pricing.annualised_inc_gst_fmt}}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="gst-note">{{pricing.gst_note}}</p>
+        </section>
 
-      {{#why_sano.length}}
-      <section>
-        <h2>Why Sano</h2>
-        <ul class="why-list">
-          {{#why_sano}}<li>{{.}}</li>{{/why_sano}}
-        </ul>
-      </section>
-      {{/why_sano.length}}
-
-      <div class="page-footer">
-        <span>{{sano.trading_as}} · Commercial cleaning proposal · {{meta.reference}}</span>
-        <span>Pricing</span>
-      </div>
+        {{#why_sano.length}}
+        <section>
+          <h2>Why Sano</h2>
+          <ul class="why-list">
+            {{#why_sano}}<li>{{.}}</li>{{/why_sano}}
+          </ul>
+        </section>
+        {{/why_sano.length}}
+      </main>
+      <footer class="page-footer">
+        <span class="footer-company">{{sano.company_name}}</span>
+        <span class="footer-page page-number"></span>
+        <span class="footer-website">{{sano.website}}</span>
+      </footer>
     </article>
 
     <!-- ── PAGE ── Acceptance & next steps ───────────────────── -->
     <article class="page">
-      <section>
-        <h2>Acceptance &amp; next steps</h2>
-
-        {{#acceptance.blurb}}
-        <div class="acceptance-blurb">
-          <p>{{acceptance.blurb}}</p>
+      <header class="page-header">
+        {{#sano.logo_src}}<img class="header-logo" src="{{sano.logo_src}}" alt="{{sano.trading_as}}" />{{/sano.logo_src}}
+        <div class="header-meta">
+          <div class="header-title">Commercial Cleaning Proposal</div>
+          <div class="header-sub">{{client.company_name}} · {{meta.issued}}</div>
         </div>
-        {{/acceptance.blurb}}
+      </header>
+      <main class="page-content">
+        <section>
+          <h2>Acceptance &amp; next steps</h2>
 
-        {{#acceptance.next_steps.length}}
-        <div style="margin-top: 14pt;">
-          <h4>What happens next</h4>
-          <ul style="padding-left: 18pt; margin: 0;">
-            {{#acceptance.next_steps}}<li style="margin-bottom: 4pt; font-size: 10pt;">{{.}}</li>{{/acceptance.next_steps}}
-          </ul>
-        </div>
-        {{/acceptance.next_steps.length}}
-
-        <div class="signature-grid">
-          <div class="sig-block">
-            <div class="sig-line"></div>
-            <div class="label">Signed for and on behalf of</div>
-            <div><strong>{{client.company_name}}</strong></div>
-            <div class="label" style="margin-top: 12pt;">Name &amp; title</div>
-            <div class="sig-line" style="height: 18pt;"></div>
-            <div class="label">Date</div>
-            <div class="sig-line" style="height: 18pt;"></div>
+          {{#acceptance.blurb}}
+          <div class="acceptance-blurb">
+            <p>{{acceptance.blurb}}</p>
           </div>
-          <div class="sig-block">
-            <div class="sig-line"></div>
-            <div class="label">Signed for and on behalf of</div>
-            <div><strong>{{sano.company_name}}</strong></div>
-            <div class="label" style="margin-top: 12pt;">Name &amp; title</div>
-            <div class="sig-line" style="height: 18pt;"></div>
-            <div class="label">Date</div>
-            <div class="sig-line" style="height: 18pt;"></div>
-          </div>
-        </div>
-      </section>
+          {{/acceptance.blurb}}
 
-      <div class="page-footer">
-        <span>{{sano.trading_as}} · {{sano.phone}} · {{sano.email}}</span>
-        <span>Reference {{meta.reference}}</span>
-      </div>
+          {{#acceptance.next_steps.length}}
+          <div style="margin-top: 14pt;">
+            <h4>What happens next</h4>
+            <ul style="padding-left: 18pt; margin: 0;">
+              {{#acceptance.next_steps}}<li style="margin-bottom: 4pt; font-size: 10pt;">{{.}}</li>{{/acceptance.next_steps}}
+            </ul>
+          </div>
+          {{/acceptance.next_steps.length}}
+
+          <div class="signature-grid">
+            <div class="sig-block">
+              <div class="sig-line"></div>
+              <div class="label">Signed for and on behalf of</div>
+              <div><strong>{{client.company_name}}</strong></div>
+              <div class="label" style="margin-top: 12pt;">Name &amp; title</div>
+              <div class="sig-line" style="height: 18pt;"></div>
+              <div class="label">Date</div>
+              <div class="sig-line" style="height: 18pt;"></div>
+            </div>
+            <div class="sig-block">
+              <div class="sig-line"></div>
+              <div class="label">Signed for and on behalf of</div>
+              <div><strong>{{sano.company_name}}</strong></div>
+              <div class="label" style="margin-top: 12pt;">Name &amp; title</div>
+              <div class="sig-line" style="height: 18pt;"></div>
+              <div class="label">Date</div>
+              <div class="sig-line" style="height: 18pt;"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+      <footer class="page-footer">
+        <span class="footer-company">{{sano.company_name}}</span>
+        <span class="footer-page page-number"></span>
+        <span class="footer-website">{{sano.website}}</span>
+      </footer>
     </article>
 
   </template>
