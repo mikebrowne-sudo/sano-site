@@ -29,6 +29,7 @@ import {
 } from '../../_components/commercial/CommercialScopeBuilder'
 import { CommercialPricingPreview } from '../../_components/commercial/CommercialPricingPreview'
 import { computeCommercialPreview, type CommercialPreviewScopeRow, type ScopeFrequency } from '@/lib/commercialQuote'
+import type { PricingSettings } from '@/lib/pricingSettings'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -142,12 +143,17 @@ export function EditQuoteForm({
   items,
   commercialDetails: commercialDetailsRow = null,
   commercialScope: commercialScopeRows = [],
+  pricingSettings,
 }: {
   quote: Quote
   clients: Client[]
   items: QuoteItem[]
   commercialDetails?: CommercialQuoteDetails | null
   commercialScope?: CommercialScopeItem[]
+  /** Phase 3B.1: DB-backed commercial pricing knobs, forwarded to
+   *  CommercialPricingPreview. Optional — falls back to in-code
+   *  constants when absent. */
+  pricingSettings?: PricingSettings
 }) {
   // Client
   const [clientId, setClientId] = useState(quote.client_id)
@@ -550,6 +556,7 @@ export function EditQuoteForm({
               scope={commercialScope}
               onApplyToBasePrice={isLocked ? undefined : (price) => setBasePrice(String(price))}
               disabled={isLocked}
+              pricingSettings={pricingSettings}
             />
           </div>
         </Section>

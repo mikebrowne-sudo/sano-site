@@ -17,6 +17,7 @@ import {
   type CommercialPreviewScopeRow,
   type ScopeFrequency,
 } from '@/lib/commercialQuote'
+import type { PricingSettings } from '@/lib/pricingSettings'
 import type { CommercialDetailsFormState } from './CommercialDetailsSection'
 import type { CommercialScopeFormRow } from './CommercialScopeBuilder'
 
@@ -37,11 +38,15 @@ export function CommercialPricingPreview({
   scope,
   onApplyToBasePrice,
   disabled = false,
+  pricingSettings,
 }: {
   details: CommercialDetailsFormState
   scope: readonly CommercialScopeFormRow[]
   onApplyToBasePrice?: (price: number) => void
   disabled?: boolean
+  /** Phase 3B.1: DB-backed pricing knobs. When omitted the engine
+   *  falls back to the in-code constants — behaviour matches pre-3B. */
+  pricingSettings?: PricingSettings
 }) {
   const preview = useMemo(() => {
     const scopeRows: CommercialPreviewScopeRow[] = scope.map((r) => ({
@@ -61,6 +66,7 @@ export function CommercialPricingPreview({
         service_days: details.service_days.length > 0 ? details.service_days : null,
       },
       scopeRows,
+      pricingSettings,
     )
   }, [
     details.sector_category,
@@ -69,6 +75,7 @@ export function CommercialPricingPreview({
     details.labour_cost_basis,
     details.service_days,
     scope,
+    pricingSettings,
   ])
 
   const hasSellPrice = preview.estimated_monthly_sell_price > 0
