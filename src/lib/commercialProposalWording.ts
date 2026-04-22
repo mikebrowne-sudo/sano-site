@@ -44,44 +44,44 @@ export interface AreaWordingSpec {
 export const AREA_WORDING_SPECS: Record<ProposalGroupKey, AreaWordingSpec> = {
   general_areas: {
     opening:
-      'General areas covered by the programme are maintained to a consistent baseline on each service. The tasks listed below are carried out on the cadence shown alongside each line.',
+      'General areas are kept to a consistent baseline. Each task below runs on the cadence shown alongside it.',
     triggers: [
-      { rank: 10, pattern: /vacuum|carpet/i,             sentence: 'Carpeted floors are vacuumed with attention to edges and under-furniture zones.' },
-      { rank: 20, pattern: /mop|hard.?floor/i,           sentence: 'Hard-floor zones are mopped using a neutral cleaner.' },
-      { rank: 30, pattern: /dust/i,                       sentence: 'Surfaces and fittings are dusted as part of the scheduled rotation.' },
-      { rank: 40, pattern: /glass|window/i,               sentence: 'Internal glass is spot-cleaned to remove visible marks.' },
+      { rank: 10, pattern: /vacuum|carpet/i,             sentence: 'Carpets are vacuumed, with edges and under-furniture zones included.' },
+      { rank: 20, pattern: /mop|hard.?floor/i,           sentence: 'Hard floors are mopped with a neutral cleaner.' },
+      { rank: 30, pattern: /dust/i,                       sentence: 'Surfaces and fittings are dusted on rotation.' },
+      { rank: 40, pattern: /glass|window/i,               sentence: 'Internal glass is spot-cleaned to keep it mark-free.' },
     ],
-    closing: 'Waste is removed and bins are relined as part of each service.',
+    closing: 'Bins are emptied and relined every visit.',
   },
 
   offices_workstations: {
     opening:
-      'Workstations and office areas are cleaned to a consistent, low-disruption standard. The team follows a repeatable rhythm so surfaces, floors, and high-touch points stay at a reliable baseline every visit.',
+      'Offices and workstations are cleaned quietly and consistently, without disrupting the day. Surfaces, floors, and high-touch points stay at a reliable baseline every visit.',
     triggers: [
       {
         rank: 10,
         pattern: /desk.*(wipe|clear)|clear.*surface|workstation/i,
-        sentence: 'Clear desk surfaces are wiped and sanitised on each service, with high-touch zones (keyboard area, mouse, phone, chair armrests) prioritised.',
+        sentence: 'Clear desk surfaces are wiped and sanitised every visit, with high-touch zones — keyboard area, mouse, phone, chair armrests — covered first.',
       },
       {
         rank: 20,
         pattern: /dust.*(monitor|accessor|shelv|furniture)/i,
-        sentence: 'Monitors, accessories, and side furniture are dusted as part of the scheduled rotation.',
+        sentence: 'Monitors, accessories, and side furniture are dusted on rotation.',
       },
       {
         rank: 30,
         pattern: /vacuum|carpet/i,
-        sentence: 'Carpeted zones are vacuumed with attention to edges and under-desk areas.',
+        sentence: 'Carpets are vacuumed, with edges and under-desk areas included.',
       },
       {
         rank: 40,
         pattern: /mop|hard.?floor/i,
-        sentence: 'Hard-floor zones are mopped using a neutral cleaner.',
+        sentence: 'Hard floors are mopped with a neutral cleaner.',
       },
       {
         rank: 50,
         pattern: /meeting|boardroom/i,
-        sentence: 'Meeting and boardrooms are reset between visits — tables wiped, chairs restored, whiteboards prepared.',
+        sentence: 'Meeting and boardrooms are reset between bookings — tables wiped, chairs returned, whiteboards prepared.',
       },
     ],
     closing: 'Office bins are emptied and relined every visit.',
@@ -89,12 +89,12 @@ export const AREA_WORDING_SPECS: Record<ProposalGroupKey, AreaWordingSpec> = {
 
   kitchens_breakout: {
     opening:
-      'Kitchen and breakout areas are kept presentable and hygienic for staff use. The programme covers surface cleaning, appliance exteriors, touchpoint sanitation, and waste management on every visit.',
+      'Kitchens and breakout areas are kept clean and hygienic for daily staff use. Surfaces, appliances, touchpoints, and waste are all covered every visit.',
     triggers: [
       {
         rank: 10,
         pattern: /bench|splashback/i,
-        sentence: 'Benches and splashbacks are wiped down and sanitised.',
+        sentence: 'Benches and splashbacks are wiped and sanitised.',
       },
       {
         rank: 20,
@@ -104,35 +104,35 @@ export const AREA_WORDING_SPECS: Record<ProposalGroupKey, AreaWordingSpec> = {
       {
         rank: 30,
         pattern: /fridge|microwave|dishwasher.*front|coffee|appliance/i,
-        sentence: 'Appliance fronts — including fridge, microwave, dishwasher, and coffee machine — are wiped clean.',
+        sentence: 'Appliance fronts — fridge, microwave, dishwasher, coffee machine — are wiped down.',
       },
       {
         rank: 40,
         pattern: /dishwasher.*(load|run|cycle|unload)/i,
-        sentence: 'The dishwasher is loaded, run, and unloaded as part of each service where the site is staffed.',
+        sentence: 'Where Sano is staffed on site, the dishwasher is loaded, run, and unloaded each shift.',
       },
       {
         rank: 50,
         pattern: /touchpoint|sanitise.*(handle|switch)|handle.*switch/i,
-        sentence: 'High-touch points (handles, switches, appliance handles) are sanitised.',
+        sentence: 'Door handles, light switches, and appliance handles are sanitised.',
       },
       {
         rank: 60,
         pattern: /mop|kitchen.?floor/i,
-        sentence: 'Kitchen floors are mopped with a suitable cleaner.',
+        sentence: 'Kitchen floors are mopped with a food-safe cleaner.',
       },
     ],
-    closing: 'Bins are emptied and kitchen consumables (dishwasher tablets, detergent, hand soap) are restocked where supplied by Sano.',
+    closing: 'Bins are emptied, and kitchen consumables — dishwasher tablets, detergent, hand soap — are restocked when supplied by Sano.',
   },
 
   bathrooms_washrooms: {
     opening:
-      'Bathrooms and washrooms are maintained to a hygienic standard. All fixtures, surfaces, and high-touch points are cleaned and disinfected on every service.',
+      'Bathrooms and washrooms are disinfected on every visit. Fixtures, surfaces, and high-touch points are all covered.',
     triggers: [
       {
         rank: 10,
         pattern: /toilet|urinal/i,
-        sentence: 'Toilets and urinals are cleaned and disinfected inside and out, with attention to seat fixings, pan rims, and flush mechanisms.',
+        sentence: 'Toilets and urinals are cleaned inside and out, with seat fixings, pan rims, and flush mechanisms all checked.',
       },
       {
         rank: 20,
@@ -142,22 +142,22 @@ export const AREA_WORDING_SPECS: Record<ProposalGroupKey, AreaWordingSpec> = {
       {
         rank: 30,
         pattern: /(mop|floor).*disinfect|disinfect.*floor|bathroom.?floor/i,
-        sentence: 'Floors are mopped with a bathroom-appropriate disinfectant.',
+        sentence: 'Floors are mopped with a bathroom-grade disinfectant.',
       },
       {
         rank: 40,
         pattern: /restock|consumable|soap|hand.?towel|toilet.?paper/i,
-        sentence: 'Consumables — hand soap, paper towels, and toilet paper — are checked and restocked from Sano-supplied stock.',
+        sentence: 'Hand soap, paper towels, and toilet paper are checked and refilled from Sano stock.',
       },
       {
         rank: 50,
         pattern: /sanitary/i,
-        sentence: 'Sanitary bins are emptied and relined as required.',
+        sentence: 'Sanitary bins are emptied and relined.',
       },
       {
         rank: 60,
         pattern: /touchpoint|handle|flush|switch/i,
-        sentence: 'Touchpoints — door handles, flush buttons, light switches, and taps — are sanitised on each visit.',
+        sentence: 'Door handles, flush buttons, light switches, and taps are sanitised every visit.',
       },
     ],
     closing: null,
@@ -165,12 +165,12 @@ export const AREA_WORDING_SPECS: Record<ProposalGroupKey, AreaWordingSpec> = {
 
   common_areas: {
     opening:
-      'Shared areas — reception, corridors, stairwells, and lifts — are kept presentable on the same rhythm as the main programme so the path between workspaces stays tidy.',
+      'Shared areas — reception, corridors, stairwells, and lifts — are kept tidy on the same rotation as the rest of the programme.',
     triggers: [
       {
         rank: 10,
         pattern: /reception|lobby|front.?of.?house|entry/i,
-        sentence: 'Reception and lobby surfaces (desk, seating, entry doors) are kept presentable as the first impression of the site.',
+        sentence: 'Reception and lobby surfaces — desk, seating, entry doors — are kept presentable for first impressions.',
       },
       {
         rank: 20,
@@ -180,17 +180,17 @@ export const AREA_WORDING_SPECS: Record<ProposalGroupKey, AreaWordingSpec> = {
       {
         rank: 30,
         pattern: /lift|elevator/i,
-        sentence: 'Lift interiors — panels, buttons, mirrors, handrails, and floor — are wiped on each visit.',
+        sentence: 'Lift interiors — panels, buttons, mirrors, handrails, and floor — are wiped every visit.',
       },
       {
         rank: 40,
         pattern: /glass|partition/i,
-        sentence: 'Internal glass partitions and lobby doors are spot-cleaned to remove visible marks.',
+        sentence: 'Internal glass partitions and lobby doors are spot-cleaned as needed.',
       },
       {
         rank: 50,
         pattern: /mat|entrance.?mat|entry.?mat/i,
-        sentence: 'Entry mats are cleaned and repositioned as part of the floor-care routine.',
+        sentence: 'Entry mats are cleaned and repositioned with the rest of the floor care.',
       },
     ],
     closing: null,
@@ -198,22 +198,22 @@ export const AREA_WORDING_SPECS: Record<ProposalGroupKey, AreaWordingSpec> = {
 
   specialist_areas: {
     opening:
-      'Specialist areas are maintained under restricted protocols appropriate to the space.',
+      'Specialist areas follow protocols appropriate to the space.',
     triggers: [
       {
         rank: 10,
         pattern: /server|it.?room|data.?room/i,
-        sentence: 'Server and IT rooms are cleaned dry — dust only, no liquids used near equipment.',
+        sentence: 'Server and IT rooms are cleaned dry — dust only, no liquids near equipment.',
       },
       {
         rank: 20,
         pattern: /archive|storage/i,
-        sentence: 'Archive and storage rooms are kept orderly with scheduled floor maintenance and waste removal.',
+        sentence: 'Archive and storage rooms receive scheduled floor care and waste removal.',
       },
       {
         rank: 30,
         pattern: /lab|clinical|sterile|clean.?room|workshop|machinery|plant.?room/i,
-        sentence: 'Other specialist areas are cleaned to the site-specific protocols agreed with the client.',
+        sentence: 'Other specialist areas follow site-specific protocols agreed with the client.',
       },
     ],
     closing: null,
@@ -298,21 +298,21 @@ export function buildOptionalParagraphs(
       key: 'consumables_by_sano',
       heading: 'Consumables',
       text:
-        'Consumables — chemicals, cloths, hand soap, paper towels, and toilet paper — are supplied by Sano as part of the agreed service fee. Stock is monitored on each visit and replenished ahead of running low.',
+        'Sano supplies all consumables — chemicals, cloths, hand soap, paper towels, and toilet paper — as part of the service fee. Stock is checked every visit and replenished before it runs low.',
     })
   } else if (details.consumables_by === 'client') {
     out.push({
       key: 'consumables_by_client',
       heading: 'Consumables',
       text:
-        'Consumables are supplied by the client. Sano uses what is on site and will flag low stock in the service report so the site stays supplied without surprises.',
+        "The client supplies all consumables. Sano uses what's on site and flags low stock in the service report so nothing runs out unexpectedly.",
     })
   } else if (details.consumables_by === 'shared') {
     out.push({
       key: 'consumables_shared',
       heading: 'Consumables',
       text:
-        'Consumables are supplied on a shared basis: cleaning chemicals and cloths by Sano; paper goods and hand soap by the client. The split is confirmed in writing before service starts, and stock is monitored on both sides.',
+        'Consumables are split: Sano supplies cleaning chemicals and cloths; the client supplies paper goods and hand soap. The arrangement is confirmed in writing before service starts, and stock is monitored on both sides.',
     })
   }
 
@@ -324,7 +324,7 @@ export function buildOptionalParagraphs(
       key: 'security_alarm',
       heading: 'Site access and security',
       text:
-        'Site access is handled through the nominated Sano supervisor, who holds the current alarm code and any building swipe access. Access details are rotated whenever a team member leaves Sano so the client retains confidence in who holds the codes.',
+        'Site access is held by the nominated Sano supervisor, including the alarm code and any building swipe access. Codes are rotated whenever a team member leaves Sano, so you always know who holds current access.',
     })
   }
 
