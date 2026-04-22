@@ -20,13 +20,14 @@ export const HOURLY_RATES: Record<PricingMode, number> = {
   premium: HOURLY_RATE_PREMIUM,
 }
 
-const BED_BASE_HOURS: Record<1 | 2 | 3 | 4 | 5 | 6, number> = {
+const BED_BASE_HOURS: Record<1 | 2 | 3 | 4 | 5 | 6 | 7, number> = {
   1: 2.0,
   2: 2.75,
   3: 3.5,
   4: 5.0,
   5: 6.0,
   6: 7.5,
+  7: 9.0,   // continues the +1.5 step from 5→6
 }
 
 const SERVICE_TYPE_MULTIPLIERS: Record<string, number> = {
@@ -168,10 +169,10 @@ function round2(n: number): number {
 
 function resolveBedCount(
   bedrooms: number | null,
-): { used: 1 | 2 | 3 | 4 | 5 | 6; clamped: boolean; fallback: boolean } {
+): { used: 1 | 2 | 3 | 4 | 5 | 6 | 7; clamped: boolean; fallback: boolean } {
   if (bedrooms == null || bedrooms <= 0) return { used: 1, clamped: false, fallback: true }
-  if (bedrooms > 6) return { used: 6, clamped: true, fallback: false }
-  return { used: Math.floor(bedrooms) as 1 | 2 | 3 | 4 | 5 | 6, clamped: false, fallback: false }
+  if (bedrooms > 7) return { used: 7, clamped: true, fallback: false }
+  return { used: Math.floor(bedrooms) as 1 | 2 | 3 | 4 | 5 | 6 | 7, clamped: false, fallback: false }
 }
 
 export function isPricingEligible(
