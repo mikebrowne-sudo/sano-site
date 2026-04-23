@@ -28,9 +28,11 @@ export const PROPOSAL_CSS = `
 
   /* Accent — used sparingly: cover tagline, section-title underline,
      page eyebrows, pricing figure, bullet / icon tint. Never a
-     structural surface colour. */
-  --sano-green:    #6FBF4A;
-  --sano-green-08: rgba(111, 191, 74, 0.08);
+     structural surface colour.
+     Muted matt green per locked brand spec (was #6FBF4A — now toned
+     down for a more refined, less vivid feel). */
+  --sano-green:    #6F8458;
+  --sano-green-08: rgba(111, 132, 88, 0.10);
 
   /* Supporting neutrals */
   --sano-bg-soft:  #F5F5F5;
@@ -350,36 +352,39 @@ export const PROPOSAL_CSS = `
   margin: 0 0 5mm;
 }
 
-/* Service overview — labelled cell grid. Even rhythm: fixed 9mm
-   row gap, 10mm column gap. */
+/* Service overview — labelled cell grid. Even rhythm: fixed 10mm
+   row gap, 12mm column gap. Tile column widened for the larger
+   icon tile below. */
 .proposal-meta-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 9mm 10mm;
+  gap: 10mm 12mm;
   margin-top: 2mm;
 }
 .proposal-meta-cell {
   display: grid;
-  grid-template-columns: 11mm 1fr;
-  gap: 4mm;
+  grid-template-columns: 13mm 1fr;
+  gap: 5mm;
   align-items: start;
 }
 
 /* Shared icon tile — same dimensions on Service Overview AND Scope
-   of Works. Glyphs are stroke-only line drawings at 1.4px. */
+   of Works. Glyphs are stroke-only line drawings at 1.4px with
+   rounded line caps. Sized to read with the weight shown in the
+   example-layout reference. */
 .proposal-icon-tile {
-  width: 11mm;
-  height: 11mm;
+  width: 13mm;
+  height: 13mm;
   background: var(--sano-green-08);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 2.5mm;
+  border-radius: 3mm;
   color: var(--sano-green);
   flex-shrink: 0;
 }
 .proposal-icon-tile svg {
-  width: 5mm; height: 5mm;
+  width: 6mm; height: 6mm;
   stroke: var(--sano-green);
   stroke-width: 1.4;
   fill: none;
@@ -419,7 +424,7 @@ export const PROPOSAL_CSS = `
 }
 .proposal-scope-row {
   display: grid;
-  grid-template-columns: 11mm 1fr;   /* matches service-overview tile */
+  grid-template-columns: 13mm 1fr;   /* matches service-overview tile */
   gap: 5mm;
   align-items: start;
 }
