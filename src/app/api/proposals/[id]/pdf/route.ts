@@ -1,38 +1,33 @@
 // Proposal Phase 2.3 — server-side PDF generation via Puppeteer.
 //
 // GET /api/proposals/[id]/pdf
-//   • Auth-gated to authenticated staff (mirrors the preview route).
-//   • Loads the same payload via loadProposalForQuote — preview and
-//     PDF are byte-equivalent in their data path.
-//   • Renders <ProposalDocument /> server-side via renderToStaticMarkup.
-//   • Wraps in a full HTML doc with <base href> so /images/* and
-//     /brand/* resolve back to this same Next.js server, plus a
-//     Google Fonts <link> for Inter.
-//   • Launches Puppeteer, page.setContent(html), page.pdf({format: 'A4'}).
-//   • Returns the buffer with Content-Disposition: attachment.
+//   • Auth-gated to authenticated staff.
+//   • Confirms the quote exists + is commercial via the shared loader
+//     (returns 404 otherwise — same gate as the print route).
+//   • Forwards the request's cookies into a Puppeteer browser
+//     context so the print route's Supabase session is recognised.
+//   • Puppeteer navigates to /proposals/print/[id] (a route OUTSIDE
+//     /portal/ so it has no portal sidebar / topbar) and snapshots
+//     the result to PDF.
 //
-// Why setContent instead of page.goto(previewUrl):
-//   • No need to forward Supabase auth cookies into headless Chromium.
-//   • One fewer HTTP round-trip.
-//   • Easier to add a <base> for image resolution.
+// Why navigate to a print route instead of rendering React inside
+// this route handler:
+//   • Next.js 14 App Router rejects route handlers that import
+//     react-dom/server — the previous version of this file failed
+//     to build for that exact reason.
+//   • Lets the print route reuse the same React tree that the
+//     in-portal preview already renders, so preview + PDF stay
+//     byte-equivalent by construction.
 //
-// Deployment note (see end-of-phase summary):
-//   This file imports `puppeteer` (full, with bundled Chromium). Works
-//   locally and in any container with Chromium dependencies installed.
-//   For Netlify Functions / Vercel serverless, swap to puppeteer-core
-//   + @sparticuz/chromium per the phase-summary instructions.
+// Deployment caveats live at the bottom of the file in a comment.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
-import { renderToStaticMarkup } from 'react-dom/server'
-import { createElement } from 'react'
 import puppeteer from 'puppeteer'
-import { ProposalDocument } from '@/components/proposals/ProposalDocument'
 import { loadProposalForQuote } from '@/lib/proposals/loadProposalForQuote'
 
 export const dynamic = 'force-dynamic'
-// PDF generation is slow — bump the route timeout. Default Vercel
-// limit is 10s; this opts into 60s on platforms that respect it.
+// PDF generation is slow — opt into 60s on platforms that respect this.
 export const maxDuration = 60
 
 export async function GET(
@@ -41,63 +36,64 @@ export async function GET(
 ) {
   const supabase = createClient()
 
-  // Auth gate — same shape as the preview route.
+  // Auth gate — must be a logged-in staff user.
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Build the proposal payload.
-  const result = await loadProposalForQuote(supabase, params.id)
-  if (!result) {
+  // Eagerly resolve the quote so we can fail fast with a clean 404
+  // before paying the cost of launching Chromium. Also gives us the
+  // quote_number for the download filename.
+  const probe = await loadProposalForQuote(supabase, params.id)
+  if (!probe) {
     return NextResponse.json(
       { error: 'Proposal not available for this quote' },
       { status: 404 },
     )
   }
 
-  // Render the React tree to an HTML string. ProposalDocument is a
-  // server component that already injects the proposal CSS via a
-  // <style> tag, so the resulting markup is self-contained styling-wise.
-  const reactHtml = renderToStaticMarkup(
-    createElement(ProposalDocument, { payload: result.payload }),
-  )
+  const url = new URL(request.url)
+  const printUrl = `${url.origin}/proposals/print/${params.id}`
 
-  // Wrap in a full HTML doc so Puppeteer renders cleanly.
-  //   • <base href> makes the existing /images/* and /brand/* paths
-  //     resolve back to this Next.js server during rendering.
-  //   • Inter font preconnect + stylesheet — the proposal CSS uses
-  //     Inter as its primary font; without this, headless Chromium
-  //     falls back to the secondary 'Arial' which slightly changes
-  //     metrics.
-  const origin = new URL(request.url).origin
-  const fullHtml = `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <base href="${origin}/" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-</head>
-<body>${reactHtml}</body>
-</html>`
+  // Forward the request's cookies into Puppeteer's browser context so
+  // the print route sees the same Supabase session and renders the
+  // same data. We parse the Cookie header by hand — it's a simple
+  // "name=value; name=value" list — then map to puppeteer's cookie
+  // shape with the request hostname.
+  const cookieHeader = request.headers.get('cookie') ?? ''
+  const cookies = parseCookieHeader(cookieHeader, url.hostname)
 
-  // Launch headless Chromium and render to PDF.
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null
   try {
     browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     })
+
     const page = await browser.newPage()
 
-    // setContent + waitUntil 'networkidle0' so background images and
-    // the Inter stylesheet finish loading before the PDF snapshot.
-    await page.setContent(fullHtml, {
+    // Set cookies BEFORE the first navigation so the request to the
+    // print route is authenticated.
+    if (cookies.length > 0) {
+      await page.setCookie(...cookies)
+    }
+
+    // Navigate. waitUntil 'networkidle0' ensures background images,
+    // the Inter font (loaded by the print page if needed), and any
+    // late-load assets finish before the snapshot.
+    const navResponse = await page.goto(printUrl, {
       waitUntil: 'networkidle0',
       timeout: 30000,
     })
+
+    if (!navResponse || !navResponse.ok()) {
+      const status = navResponse?.status() ?? 0
+      return NextResponse.json(
+        { error: `Print route returned ${status}` },
+        { status: 502 },
+      )
+    }
 
     // preferCSSPageSize lets the proposal-styles.ts @page { size: A4 }
     // rule control the sheet size; format: 'A4' is a fallback.
@@ -108,11 +104,10 @@ export async function GET(
       margin: { top: '0', right: '0', bottom: '0', left: '0' },
     })
 
-    const filename = `proposal-${result.quoteNumber}.pdf`.replace(/[^\w.\-]+/g, '_')
+    const filename = `proposal-${probe.quoteNumber}.pdf`.replace(/[^\w.\-]+/g, '_')
 
-    // Wrap in Buffer so NextResponse's BodyInit accepts it cleanly
-    // (puppeteer 24 returns Uint8Array<ArrayBufferLike> which the
-    // strict typing on Response doesn't match directly).
+    // puppeteer 24 returns Uint8Array<ArrayBufferLike>; wrap in Buffer
+    // so NextResponse's BodyInit type-narrows cleanly.
     return new NextResponse(Buffer.from(pdfBuffer), {
       status: 200,
       headers: {
@@ -131,3 +126,53 @@ export async function GET(
     if (browser) await browser.close()
   }
 }
+
+// ── Helpers ────────────────────────────────────────────────────────
+
+interface PuppeteerCookie {
+  name: string
+  value: string
+  domain: string
+  path: string
+}
+
+function parseCookieHeader(header: string, hostname: string): PuppeteerCookie[] {
+  if (!header) return []
+  const out: PuppeteerCookie[] = []
+  for (const raw of header.split(';')) {
+    const pair = raw.trim()
+    if (!pair) continue
+    const eq = pair.indexOf('=')
+    if (eq < 0) continue
+    const name = pair.slice(0, eq).trim()
+    const value = pair.slice(eq + 1).trim()
+    if (!name) continue
+    out.push({ name, value, domain: hostname, path: '/' })
+  }
+  return out
+}
+
+// ── Deployment notes ───────────────────────────────────────────────
+//
+// This file imports `puppeteer` (the full package, with bundled
+// Chromium ~280 MB). Works fine locally and in any container with
+// Chromium dependencies installed. For Netlify Functions / Vercel
+// serverless, swap to puppeteer-core + @sparticuz/chromium:
+//
+//   npm install puppeteer-core @sparticuz/chromium
+//   npm uninstall puppeteer
+//
+// Then the launch block becomes:
+//
+//   import puppeteer from 'puppeteer-core'
+//   import chromium from '@sparticuz/chromium'
+//
+//   browser = await puppeteer.launch({
+//     args: chromium.args,
+//     executablePath: await chromium.executablePath(),
+//     headless: chromium.headless,
+//   })
+//
+// Netlify Functions default to a 10s timeout; this route declares
+// maxDuration = 60. For long renders, switch to a Background
+// Function or upgrade plan.

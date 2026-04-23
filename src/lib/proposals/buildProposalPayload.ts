@@ -237,12 +237,16 @@ export function fromCommercialProposalPayload(
     || p.pricing.gst_note
     || 'Pricing valid for 30 days from issue.'
 
-  // Terms precedence: structured terms derived from quote → settings
-  // terms HTML → minimal fallback.
-  const quoteDerivedTerms = renderTermsHtml(p)
-  const termsHtml = quoteDerivedTerms.trim().length > 0
-    ? quoteDerivedTerms
-    : settings.terms.terms_and_conditions_html
+  // Terms: ALWAYS the approved settings.terms_and_conditions_html.
+  //
+  // Earlier versions auto-rendered a "Commercial terms / Assumptions /
+  // Exclusions / Compliance" block from the legacy ProposalPayload's
+  // operational metadata when present, which silently REPLACED the
+  // approved 19-section terms. That metadata is project-management
+  // information, not legal terms — it shouldn't sit on the Terms &
+  // Conditions page. If we want to surface it later it belongs in
+  // its own section.
+  const termsHtml = settings.terms.terms_and_conditions_html
 
   return {
     coverTagline: 'CLEAN SPACES. BETTER PLACES.',
@@ -292,54 +296,6 @@ export function fromCommercialProposalPayload(
   }
 }
 
-// Render terms HTML from the legacy payload's structured data. Plain
-// string concat with HTML entities pre-escaped at the source helpers.
-function renderTermsHtml(p: LegacyProposalPayload): string {
-  const parts: string[] = []
-
-  if (p.commercial_terms?.rows?.length) {
-    parts.push('<h3>Commercial terms</h3><ul>')
-    for (const row of p.commercial_terms.rows) {
-      parts.push(`<li><strong>${escapeHtml(row.label)}:</strong> ${escapeHtml(row.value)}</li>`)
-    }
-    parts.push('</ul>')
-    if (p.commercial_terms.closing) {
-      parts.push(`<p>${escapeHtml(p.commercial_terms.closing)}</p>`)
-    }
-  }
-
-  if (p.assumptions.length > 0) {
-    parts.push('<h3>Assumptions</h3><ul>')
-    for (const a of p.assumptions) parts.push(`<li>${escapeHtml(a)}</li>`)
-    parts.push('</ul>')
-  }
-
-  if (p.exclusions.length > 0) {
-    parts.push('<h3>Exclusions</h3><ul>')
-    for (const e of p.exclusions) parts.push(`<li>${escapeHtml(e)}</li>`)
-    parts.push('</ul>')
-  }
-
-  if (p.compliance_notes) {
-    parts.push(`<h3>Compliance</h3><p>${escapeHtml(p.compliance_notes)}</p>`)
-  }
-
-  // Return empty string when nothing was derived from the quote so
-  // the caller can fall back to settings.terms_and_conditions_html.
-  if (parts.length === 0) return ''
-
-  return parts.join('\n')
-}
-
 function nzd(dollars: number): string {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD', maximumFractionDigits: 0 }).format(dollars)
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 }
