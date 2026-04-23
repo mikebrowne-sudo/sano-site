@@ -8,10 +8,14 @@ import {
   type ConsumablesBy,
   type BuildingType,
   type MarginTier,
+  type ContractTerm,
+  type CleaningStandard,
   MARGIN_TIERS,
   SECTOR_FIELD_PACKS,
   isSectorCategory,
   isMarginTier,
+  isContractTerm,
+  isCleaningStandard,
 } from '@/lib/commercialQuote'
 import type { CommercialDetailsInput } from '@/app/portal/quotes/_actions-commercial'
 import { SectorFieldPack } from './SectorFieldPack'
@@ -56,6 +60,28 @@ export interface CommercialDetailsFormState {
 
   selected_margin_tier: MarginTier | ''
   labour_cost_basis: string
+
+  // Phase 5A — tender fields. Form state mirrors DB shape: text/date
+  // as string (HTML inputs are strings), booleans as boolean.
+  contact_name: string
+  contact_email: string
+  contact_phone: string
+  accounts_email: string
+  accounts_contact_name: string
+
+  client_reference: string
+  requires_po: boolean
+
+  contract_term: ContractTerm | ''
+  notice_period_days: string
+  service_start_date: string
+
+  cleaning_standard: CleaningStandard | ''
+
+  security_sensitive: boolean
+  induction_required: boolean
+  restricted_areas: boolean
+  restricted_areas_notes: string
 }
 
 export function emptyCommercialDetails(): CommercialDetailsFormState {
@@ -90,6 +116,22 @@ export function emptyCommercialDetails(): CommercialDetailsFormState {
     sector_fields: {},
     selected_margin_tier: '',
     labour_cost_basis: '',
+    // Phase 5A
+    contact_name: '',
+    contact_email: '',
+    contact_phone: '',
+    accounts_email: '',
+    accounts_contact_name: '',
+    client_reference: '',
+    requires_po: false,
+    contract_term: '',
+    notice_period_days: '',
+    service_start_date: '',
+    cleaning_standard: '',
+    security_sensitive: false,
+    induction_required: false,
+    restricted_areas: false,
+    restricted_areas_notes: '',
   }
 }
 
@@ -129,6 +171,23 @@ export function hydrateCommercialDetails(
     sector_fields: row.sector_fields ?? {},
     selected_margin_tier: isMarginTier(row.selected_margin_tier) ? row.selected_margin_tier : '',
     labour_cost_basis: toStr(row.labour_cost_basis),
+    // Phase 5A — tender fields. Defensive against pre-migration rows
+    // that may not yet carry these columns.
+    contact_name:           row.contact_name           ?? '',
+    contact_email:          row.contact_email          ?? '',
+    contact_phone:          row.contact_phone          ?? '',
+    accounts_email:         row.accounts_email         ?? '',
+    accounts_contact_name:  row.accounts_contact_name  ?? '',
+    client_reference:       row.client_reference       ?? '',
+    requires_po:            row.requires_po            ?? false,
+    contract_term:          isContractTerm(row.contract_term) ? row.contract_term : '',
+    notice_period_days:     toStr(row.notice_period_days),
+    service_start_date:     row.service_start_date     ?? '',
+    cleaning_standard:      isCleaningStandard(row.cleaning_standard) ? row.cleaning_standard : '',
+    security_sensitive:     row.security_sensitive     ?? false,
+    induction_required:     row.induction_required     ?? false,
+    restricted_areas:       row.restricted_areas       ?? false,
+    restricted_areas_notes: row.restricted_areas_notes ?? '',
   }
 }
 
@@ -197,6 +256,23 @@ export function toCommercialDetailsInput(
     estimated_service_hours: preview?.estimated_service_hours ?? null,
     estimated_weekly_hours: preview?.estimated_weekly_hours ?? null,
     estimated_monthly_hours: preview?.estimated_monthly_hours ?? null,
+
+    // Phase 5A — tender fields
+    contact_name:           emptyToNull(state.contact_name),
+    contact_email:          emptyToNull(state.contact_email),
+    contact_phone:          emptyToNull(state.contact_phone),
+    accounts_email:         emptyToNull(state.accounts_email),
+    accounts_contact_name:  emptyToNull(state.accounts_contact_name),
+    client_reference:       emptyToNull(state.client_reference),
+    requires_po:            state.requires_po,
+    contract_term:          state.contract_term || null,
+    notice_period_days:     toInt(state.notice_period_days),
+    service_start_date:     emptyToNull(state.service_start_date),
+    cleaning_standard:      state.cleaning_standard || null,
+    security_sensitive:     state.security_sensitive,
+    induction_required:     state.induction_required,
+    restricted_areas:       state.restricted_areas,
+    restricted_areas_notes: emptyToNull(state.restricted_areas_notes),
   }
 }
 
@@ -242,6 +318,21 @@ const LEVEL_OPTIONS: readonly { value: 'low' | 'medium' | 'high'; label: string 
   { value: 'high',   label: 'High' },
 ]
 
+// ── Phase 5A enum options ──────────────────────────────────────────
+
+const CONTRACT_TERM_OPTIONS: readonly { value: ContractTerm; label: string }[] = [
+  { value: '3_months',  label: '3 months' },
+  { value: '6_months',  label: '6 months' },
+  { value: '12_months', label: '12 months' },
+  { value: 'open',      label: 'Open / no fixed term' },
+]
+
+const CLEANING_STANDARD_OPTIONS: readonly { value: CleaningStandard; label: string }[] = [
+  { value: 'maintenance',       label: 'Maintenance — baseline standard' },
+  { value: 'high_presentation', label: 'High presentation — visible spaces prioritised' },
+  { value: 'premium',           label: 'Premium — top tier finish' },
+]
+
 export function CommercialDetailsSection({
   value,
   onChange,
@@ -276,6 +367,55 @@ export function CommercialDetailsSection({
         <span className="text-xs text-sage-500">Shown because this quote is commercial.</span>
       </div>
 
+      {/* ── 0. Contact details (Phase 5A) ────────────────────────
+           Quote-level overrides. Do not replace the client record;
+           used when the on-site contact differs from the billing
+           contact, or when a specific accounts inbox handles invoices. */}
+      <Fieldset title="Contact details">
+        <p className="text-xs text-sage-500 mb-3">
+          Optional overrides for this quote. The client record on file is used unless these are filled in.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <TextInput
+            label="Primary contact name"
+            value={value.contact_name}
+            onChange={(v) => set('contact_name', v)}
+            placeholder="Site contact"
+            disabled={disabled}
+          />
+          <TextInput
+            label="Primary contact email"
+            value={value.contact_email}
+            onChange={(v) => set('contact_email', v)}
+            placeholder="name@client.co.nz"
+            disabled={disabled}
+          />
+          <TextInput
+            label="Primary contact phone"
+            value={value.contact_phone}
+            onChange={(v) => set('contact_phone', v)}
+            placeholder="021 …"
+            disabled={disabled}
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+          <TextInput
+            label="Accounts contact name (optional)"
+            value={value.accounts_contact_name}
+            onChange={(v) => set('accounts_contact_name', v)}
+            placeholder="Finance / accounts contact"
+            disabled={disabled}
+          />
+          <TextInput
+            label="Accounts email"
+            value={value.accounts_email}
+            onChange={(v) => set('accounts_email', v)}
+            placeholder="accounts@client.co.nz"
+            disabled={disabled}
+          />
+        </div>
+      </Fieldset>
+
       {/* ── 1. Overview ─────────────────────────────────────── */}
       <Fieldset title="Commercial overview">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -309,6 +449,58 @@ export function CommercialDetailsSection({
             disabled={disabled}
             min={0}
           />
+        </div>
+
+        {/* Phase 5A — service level + PO/reference + contract terms */}
+        <div className="mt-6 pt-5 border-t border-sage-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Select
+              label="Cleaning standard"
+              value={value.cleaning_standard}
+              onChange={(v) => set('cleaning_standard', v as CleaningStandard | '')}
+              options={[{ value: '', label: '—' }, ...CLEANING_STANDARD_OPTIONS]}
+              disabled={disabled}
+            />
+            <TextInput
+              label="Client reference / PO number"
+              value={value.client_reference}
+              onChange={(v) => set('client_reference', v)}
+              placeholder="e.g. PO-12345"
+              disabled={disabled}
+            />
+          </div>
+          <div className="mt-3">
+            <CheckboxInput
+              label="Client requires a PO before invoicing"
+              checked={value.requires_po}
+              onChange={(v) => set('requires_po', v)}
+              disabled={disabled}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-5">
+            <Select
+              label="Contract term"
+              value={value.contract_term}
+              onChange={(v) => set('contract_term', v as ContractTerm | '')}
+              options={[{ value: '', label: '—' }, ...CONTRACT_TERM_OPTIONS]}
+              disabled={disabled}
+            />
+            <NumberInput
+              label="Notice period (days)"
+              value={value.notice_period_days}
+              onChange={(v) => set('notice_period_days', v)}
+              disabled={disabled}
+              integer
+              min={0}
+            />
+            <DateInput
+              label="Service start date"
+              value={value.service_start_date}
+              onChange={(v) => set('service_start_date', v)}
+              disabled={disabled}
+            />
+          </div>
         </div>
       </Fieldset>
 
@@ -424,6 +616,46 @@ export function CommercialDetailsSection({
             disabled={disabled}
           />
         </div>
+      </Fieldset>
+
+      {/* ── 2b. Site constraints (Phase 5A) ──────────────────────
+           Operational flags that drive scheduling, briefing, and
+           insurance logic downstream. Sit between site profile and
+           the sector pack so the operator captures site-wide
+           operational constraints in one place. */}
+      <Fieldset title="Site constraints">
+        <div className="space-y-2">
+          <CheckboxInput
+            label="Security-sensitive site (sign-in protocol, rotated keys, restricted hours)"
+            checked={value.security_sensitive}
+            onChange={(v) => set('security_sensitive', v)}
+            disabled={disabled}
+          />
+          <CheckboxInput
+            label="Formal site induction required before first visit"
+            checked={value.induction_required}
+            onChange={(v) => set('induction_required', v)}
+            disabled={disabled}
+          />
+          <CheckboxInput
+            label="Restricted / off-limits areas on site"
+            checked={value.restricted_areas}
+            onChange={(v) => set('restricted_areas', v)}
+            disabled={disabled}
+          />
+        </div>
+        {value.restricted_areas && (
+          <div className="mt-4">
+            <TextareaInput
+              label="Restricted areas — notes"
+              value={value.restricted_areas_notes}
+              onChange={(v) => set('restricted_areas_notes', v)}
+              rows={2}
+              placeholder="Where, why, and any access conditions"
+              disabled={disabled}
+            />
+          </div>
+        )}
       </Fieldset>
 
       {/* ── 3. Sector pack ───────────────────────────────────── */}
@@ -577,6 +809,44 @@ function Select({
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>
+    </label>
+  )
+}
+
+function DateInput({
+  label, value, onChange, disabled,
+}: {
+  label: string; value: string; onChange: (v: string) => void; disabled?: boolean
+}) {
+  return (
+    <label className="block">
+      <span className="block text-sm font-semibold text-sage-800 mb-1.5">{label}</span>
+      <input
+        type="date"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className="w-full rounded-lg border border-sage-200 px-3 py-2 text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500 text-sm disabled:opacity-50 disabled:bg-sage-50"
+      />
+    </label>
+  )
+}
+
+function CheckboxInput({
+  label, checked, onChange, disabled,
+}: {
+  label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean
+}) {
+  return (
+    <label className={`flex items-start gap-2.5 text-sm text-sage-800 ${disabled ? 'opacity-50' : 'cursor-pointer'}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        disabled={disabled}
+        className="mt-0.5 h-4 w-4 rounded border-sage-300 text-sage-600 focus:ring-sage-500"
+      />
+      <span>{label}</span>
     </label>
   )
 }

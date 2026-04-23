@@ -21,7 +21,7 @@ import type {
   ScopeFrequency,
   ScopeInputMode,
 } from '@/lib/commercialQuote'
-import { isMarginTier, isSectorCategory } from '@/lib/commercialQuote'
+import { isMarginTier, isSectorCategory, isContractTerm, isCleaningStandard } from '@/lib/commercialQuote'
 
 const ADMIN_EMAIL = 'michael@sano.nz'
 
@@ -66,6 +66,27 @@ export interface CommercialDetailsInput {
   estimated_service_hours?: number | null
   estimated_weekly_hours?: number | null
   estimated_monthly_hours?: number | null
+
+  // Phase 5A — tender fields
+  contact_name?: string | null
+  contact_email?: string | null
+  contact_phone?: string | null
+  accounts_email?: string | null
+  accounts_contact_name?: string | null
+
+  client_reference?: string | null
+  requires_po?: boolean | null
+
+  contract_term?: string | null
+  notice_period_days?: number | null
+  service_start_date?: string | null
+
+  cleaning_standard?: string | null
+
+  security_sensitive?: boolean | null
+  induction_required?: boolean | null
+  restricted_areas?: boolean | null
+  restricted_areas_notes?: string | null
 }
 
 export type SaveCommercialDetailsResult =
@@ -84,6 +105,12 @@ export async function saveCommercialDetails(
   }
   if (input.selected_margin_tier != null && !isMarginTier(input.selected_margin_tier)) {
     return { error: `Invalid selected_margin_tier: ${input.selected_margin_tier}` }
+  }
+  if (input.contract_term != null && input.contract_term !== '' && !isContractTerm(input.contract_term)) {
+    return { error: `Invalid contract_term: ${input.contract_term}` }
+  }
+  if (input.cleaning_standard != null && input.cleaning_standard !== '' && !isCleaningStandard(input.cleaning_standard)) {
+    return { error: `Invalid cleaning_standard: ${input.cleaning_standard}` }
   }
 
   // Verify the quote exists, is commercial, and isn't soft-deleted.
@@ -134,6 +161,24 @@ export async function saveCommercialDetails(
     estimated_service_hours: input.estimated_service_hours ?? null,
     estimated_weekly_hours: input.estimated_weekly_hours ?? null,
     estimated_monthly_hours: input.estimated_monthly_hours ?? null,
+
+    // Phase 5A — tender fields
+    contact_name:           input.contact_name           ?? null,
+    contact_email:          input.contact_email          ?? null,
+    contact_phone:          input.contact_phone          ?? null,
+    accounts_email:         input.accounts_email         ?? null,
+    accounts_contact_name:  input.accounts_contact_name  ?? null,
+    client_reference:       input.client_reference       ?? null,
+    requires_po:            input.requires_po            ?? false,
+    contract_term:          input.contract_term          ?? null,
+    notice_period_days:     input.notice_period_days     ?? null,
+    service_start_date:     input.service_start_date     ?? null,
+    cleaning_standard:      input.cleaning_standard      ?? null,
+    security_sensitive:     input.security_sensitive     ?? false,
+    induction_required:     input.induction_required     ?? false,
+    restricted_areas:       input.restricted_areas       ?? false,
+    restricted_areas_notes: input.restricted_areas_notes ?? null,
+
     updated_at: now,
   }
 
