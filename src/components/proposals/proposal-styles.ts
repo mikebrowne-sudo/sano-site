@@ -28,9 +28,11 @@ export const PROPOSAL_CSS = `
 
   /* Accent — used sparingly: cover tagline, section-title underline,
      page eyebrows, pricing figure, bullet / icon tint. Never a
-     structural surface colour. */
-  --sano-green:    #6FBF4A;
-  --sano-green-08: rgba(111, 191, 74, 0.08);
+     structural surface colour.
+     Muted matt green per locked brand spec (was #6FBF4A — now toned
+     down for a more refined, less vivid feel). */
+  --sano-green:    #6F8458;
+  --sano-green-08: rgba(111, 132, 88, 0.10);
 
   /* Supporting neutrals */
   --sano-bg-soft:  #F5F5F5;
@@ -191,22 +193,18 @@ export const PROPOSAL_CSS = `
     rgba(15, 17, 19, 0.30) 100%
   );
 }
-.proposal-cover__inner {
+/* Cover top — logo + tagline LEFT ALIGNED in the upper-left dark
+   panel area (same 105mm column extent as __main). Logo + tagline
+   share the same left edge as the title block below, so the
+   entire left panel reads as one consistent left-aligned stack. */
+.proposal-cover__top {
   position: relative;
   z-index: 1;
+  max-width: 105mm;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  max-width: 105mm;                   /* keeps text in the left panel */
-}
-
-/* Cover top — centered logo + tagline. The asymmetry vs the
-   left-aligned title block below is intentional and locked. */
-.proposal-cover__top {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
+  text-align: left;
   margin-bottom: 22mm;
 }
 .proposal-cover__logo {
@@ -223,8 +221,11 @@ export const PROPOSAL_CSS = `
   font-weight: 600;
 }
 
-/* Cover main — left-aligned title + fields. */
+/* Cover main — left-aligned, capped to the dark left column. */
 .proposal-cover__main {
+  position: relative;
+  z-index: 1;
+  max-width: 105mm;
   display: flex;
   flex-direction: column;
 }
@@ -328,19 +329,36 @@ export const PROPOSAL_CSS = `
   flex: 1;
   display: grid;
   grid-template-columns: 1fr 75mm;
-  gap: 12mm;
-  align-items: stretch;          /* image cell stretches full height */
+  gap: 8mm;
+  align-items: stretch;
+  /* The right grid column is reserved as empty space — the image
+     renders absolutely (see below) so the text column (1fr) keeps
+     its proper width. */
 }
 .proposal-exec-grid__copy {
   display: flex;
   flex-direction: column;
 }
+
+/* Image is positioned absolutely against .proposal-page so a single
+   --exec-gap value drives all three visible gaps. This avoids
+   fighting the asymmetric body padding (12mm/14mm/20mm) with
+   mismatched negative margins.
+   Header (28mm) and footer (12mm) are added to the top/bottom
+   offsets so the gap is measured from the header line / footer
+   line, not the page edges. */
 .proposal-exec-grid__image {
-  width: 100%;
-  height: 100%;
+  --exec-gap: 5mm;
+  position: absolute;
+  top:    calc(28mm + var(--exec-gap));
+  right:  var(--exec-gap);
+  bottom: calc(12mm + var(--exec-gap));
+  /* Left aligned with the natural grid image-column boundary
+     (page width − body right padding − image column width). */
+  left: calc(210mm - 14mm - 75mm);
   background-size: cover;
   background-position: center;
-  border-radius: 2px;
+  border-radius: 0;
 }
 .proposal-exec-opener {
   font-size: 12pt;
@@ -350,36 +368,39 @@ export const PROPOSAL_CSS = `
   margin: 0 0 5mm;
 }
 
-/* Service overview — labelled cell grid. Even rhythm: fixed 9mm
-   row gap, 10mm column gap. */
+/* Service overview — labelled cell grid. Even rhythm: fixed 10mm
+   row gap, 12mm column gap. Tile column widened for the larger
+   icon tile below. */
 .proposal-meta-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 9mm 10mm;
+  gap: 10mm 12mm;
   margin-top: 2mm;
 }
 .proposal-meta-cell {
   display: grid;
-  grid-template-columns: 11mm 1fr;
-  gap: 4mm;
+  grid-template-columns: 13mm 1fr;
+  gap: 5mm;
   align-items: start;
 }
 
 /* Shared icon tile — same dimensions on Service Overview AND Scope
-   of Works. Glyphs are stroke-only line drawings at 1.4px. */
+   of Works. Glyphs are stroke-only line drawings at 1.4px with
+   rounded line caps. Sized to read with the weight shown in the
+   example-layout reference. */
 .proposal-icon-tile {
-  width: 11mm;
-  height: 11mm;
+  width: 13mm;
+  height: 13mm;
   background: var(--sano-green-08);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 2.5mm;
+  border-radius: 3mm;
   color: var(--sano-green);
   flex-shrink: 0;
 }
 .proposal-icon-tile svg {
-  width: 5mm; height: 5mm;
+  width: 6mm; height: 6mm;
   stroke: var(--sano-green);
   stroke-width: 1.4;
   fill: none;
@@ -419,7 +440,7 @@ export const PROPOSAL_CSS = `
 }
 .proposal-scope-row {
   display: grid;
-  grid-template-columns: 11mm 1fr;   /* matches service-overview tile */
+  grid-template-columns: 13mm 1fr;   /* matches service-overview tile */
   gap: 5mm;
   align-items: start;
 }
