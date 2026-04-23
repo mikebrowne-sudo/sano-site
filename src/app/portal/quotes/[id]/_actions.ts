@@ -58,6 +58,15 @@ interface UpdateQuoteInput {
   override_reason?: string | null
   override_confirmed?: boolean
   calculated_price?: number | null
+
+  // Phase 5D — universal contact / billing / reference fields
+  contact_name?: string | null
+  contact_email?: string | null
+  contact_phone?: string | null
+  accounts_contact_name?: string | null
+  accounts_email?: string | null
+  client_reference?: string | null
+  requires_po?: boolean
 }
 
 export async function updateQuote(input: UpdateQuoteInput) {
@@ -143,6 +152,14 @@ export async function updateQuote(input: UpdateQuoteInput) {
       discount: input.discount,
       gst_included: input.gst_included,
       payment_type: input.payment_type || 'cash_sale',
+      // Phase 5D — universal contact / billing / reference fields
+      contact_name:           input.contact_name           ?? null,
+      contact_email:          input.contact_email          ?? null,
+      contact_phone:          input.contact_phone          ?? null,
+      accounts_contact_name:  input.accounts_contact_name  ?? null,
+      accounts_email:         input.accounts_email         ?? null,
+      client_reference:       input.client_reference       ?? null,
+      requires_po:            input.requires_po            ?? false,
     })
     .eq('id', input.id)
 

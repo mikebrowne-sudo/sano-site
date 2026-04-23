@@ -61,17 +61,9 @@ export interface CommercialDetailsFormState {
   selected_margin_tier: MarginTier | ''
   labour_cost_basis: string
 
-  // Phase 5A — tender fields. Form state mirrors DB shape: text/date
-  // as string (HTML inputs are strings), booleans as boolean.
-  contact_name: string
-  contact_email: string
-  contact_phone: string
-  accounts_email: string
-  accounts_contact_name: string
-
-  client_reference: string
-  requires_po: boolean
-
+  // Phase 5A — tender fields, less the contact / billing / reference
+  // group which Phase 5D promoted to the universal ContactBillingSection
+  // (lives on the quotes table, applies to all categories).
   contract_term: ContractTerm | ''
   notice_period_days: string
   service_start_date: string
@@ -116,14 +108,7 @@ export function emptyCommercialDetails(): CommercialDetailsFormState {
     sector_fields: {},
     selected_margin_tier: '',
     labour_cost_basis: '',
-    // Phase 5A
-    contact_name: '',
-    contact_email: '',
-    contact_phone: '',
-    accounts_email: '',
-    accounts_contact_name: '',
-    client_reference: '',
-    requires_po: false,
+    // Phase 5A (commercial-only tender fields)
     contract_term: '',
     notice_period_days: '',
     service_start_date: '',
@@ -171,15 +156,8 @@ export function hydrateCommercialDetails(
     sector_fields: row.sector_fields ?? {},
     selected_margin_tier: isMarginTier(row.selected_margin_tier) ? row.selected_margin_tier : '',
     labour_cost_basis: toStr(row.labour_cost_basis),
-    // Phase 5A — tender fields. Defensive against pre-migration rows
-    // that may not yet carry these columns.
-    contact_name:           row.contact_name           ?? '',
-    contact_email:          row.contact_email          ?? '',
-    contact_phone:          row.contact_phone          ?? '',
-    accounts_email:         row.accounts_email         ?? '',
-    accounts_contact_name:  row.accounts_contact_name  ?? '',
-    client_reference:       row.client_reference       ?? '',
-    requires_po:            row.requires_po            ?? false,
+    // Phase 5A — commercial-only tender fields. Defensive against
+    // pre-migration rows that may not yet carry these columns.
     contract_term:          isContractTerm(row.contract_term) ? row.contract_term : '',
     notice_period_days:     toStr(row.notice_period_days),
     service_start_date:     row.service_start_date     ?? '',
@@ -257,14 +235,10 @@ export function toCommercialDetailsInput(
     estimated_weekly_hours: preview?.estimated_weekly_hours ?? null,
     estimated_monthly_hours: preview?.estimated_monthly_hours ?? null,
 
-    // Phase 5A — tender fields
-    contact_name:           emptyToNull(state.contact_name),
-    contact_email:          emptyToNull(state.contact_email),
-    contact_phone:          emptyToNull(state.contact_phone),
-    accounts_email:         emptyToNull(state.accounts_email),
-    accounts_contact_name:  emptyToNull(state.accounts_contact_name),
-    client_reference:       emptyToNull(state.client_reference),
-    requires_po:            state.requires_po,
+    // Phase 5A — commercial-only tender fields. Phase 5D moved
+    // contact / billing / reference up to the universal quotes
+    // table (and ContactBillingSection), so they no longer flow
+    // through this commercial-details payload.
     contract_term:          state.contract_term || null,
     notice_period_days:     toInt(state.notice_period_days),
     service_start_date:     emptyToNull(state.service_start_date),
@@ -367,54 +341,10 @@ export function CommercialDetailsSection({
         <span className="text-xs text-sage-500">Shown because this quote is commercial.</span>
       </div>
 
-      {/* ── 0. Contact details (Phase 5A) ────────────────────────
-           Quote-level overrides. Do not replace the client record;
-           used when the on-site contact differs from the billing
-           contact, or when a specific accounts inbox handles invoices. */}
-      <Fieldset title="Contact details">
-        <p className="text-xs text-sage-500 mb-3">
-          Optional overrides for this quote. The client record on file is used unless these are filled in.
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <TextInput
-            label="Primary contact name"
-            value={value.contact_name}
-            onChange={(v) => set('contact_name', v)}
-            placeholder="Site contact"
-            disabled={disabled}
-          />
-          <TextInput
-            label="Primary contact email"
-            value={value.contact_email}
-            onChange={(v) => set('contact_email', v)}
-            placeholder="name@client.co.nz"
-            disabled={disabled}
-          />
-          <TextInput
-            label="Primary contact phone"
-            value={value.contact_phone}
-            onChange={(v) => set('contact_phone', v)}
-            placeholder="021 …"
-            disabled={disabled}
-          />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-          <TextInput
-            label="Accounts contact name (optional)"
-            value={value.accounts_contact_name}
-            onChange={(v) => set('accounts_contact_name', v)}
-            placeholder="Finance / accounts contact"
-            disabled={disabled}
-          />
-          <TextInput
-            label="Accounts email"
-            value={value.accounts_email}
-            onChange={(v) => set('accounts_email', v)}
-            placeholder="accounts@client.co.nz"
-            disabled={disabled}
-          />
-        </div>
-      </Fieldset>
+      {/* Phase 5D — the previous "Contact details" Fieldset block was
+           removed from here. Contact / accounts / client-reference
+           inputs now live in the universal ContactBillingSection at
+           the top of the parent form (residential + commercial both). */}
 
       {/* ── 1. Overview ─────────────────────────────────────── */}
       <Fieldset title="Commercial overview">
@@ -453,7 +383,7 @@ export function CommercialDetailsSection({
 
         {/* Phase 5A — service level + PO/reference + contract terms */}
         <div className="mt-6 pt-5 border-t border-sage-100">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="mb-4">
             <Select
               label="Cleaning standard"
               value={value.cleaning_standard}
@@ -461,24 +391,9 @@ export function CommercialDetailsSection({
               options={[{ value: '', label: '—' }, ...CLEANING_STANDARD_OPTIONS]}
               disabled={disabled}
             />
-            <TextInput
-              label="Client reference / PO number"
-              value={value.client_reference}
-              onChange={(v) => set('client_reference', v)}
-              placeholder="e.g. PO-12345"
-              disabled={disabled}
-            />
-          </div>
-          <div className="mt-3">
-            <CheckboxInput
-              label="Client requires a PO before invoicing"
-              checked={value.requires_po}
-              onChange={(v) => set('requires_po', v)}
-              disabled={disabled}
-            />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Select
               label="Contract term"
               value={value.contract_term}
@@ -501,6 +416,9 @@ export function CommercialDetailsSection({
               disabled={disabled}
             />
           </div>
+          {/* Phase 5D — client_reference + requires_po now live in
+               the universal ContactBillingSection at the top of the
+               parent form. */}
         </div>
       </Fieldset>
 

@@ -15,7 +15,10 @@ export async function convertToInvoice(quoteId: string) {
       base_price, discount, gst_included, payment_type,
       scheduled_clean_date, date_issued,
       is_price_overridden, override_price, override_reason, override_confirmed,
-      override_confirmed_by, override_confirmed_at, calculated_price
+      override_confirmed_by, override_confirmed_at, calculated_price,
+      contact_name, contact_email, contact_phone,
+      accounts_contact_name, accounts_email,
+      client_reference, requires_po
     `)
     .eq('id', quoteId)
     .single()
@@ -74,6 +77,15 @@ export async function convertToInvoice(quoteId: string) {
       override_confirmed_by: quote.override_confirmed_by ?? null,
       override_confirmed_at: quote.override_confirmed_at ?? null,
       calculated_price: quote.calculated_price ?? null,
+      // Phase 5D — snapshot universal contact / billing / reference fields.
+      // accounts_email is what the invoice email logic prefers when set.
+      contact_name:           quote.contact_name           ?? null,
+      contact_email:          quote.contact_email          ?? null,
+      contact_phone:          quote.contact_phone          ?? null,
+      accounts_contact_name:  quote.accounts_contact_name  ?? null,
+      accounts_email:         quote.accounts_email         ?? null,
+      client_reference:       quote.client_reference       ?? null,
+      requires_po:            quote.requires_po            ?? false,
     })
     .select('id')
     .single()
