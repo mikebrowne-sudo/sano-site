@@ -163,6 +163,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
                 href={`/portal/quotes/${params.id}/proposal`}
                 target="_blank"
                 rel="noopener noreferrer"
+                title="Legacy commercial proposal template"
                 className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
               >
                 <FileText size={16} />
@@ -172,11 +173,18 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
                 href={`/portal/quotes/${params.id}/proposal/preview`}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="New proposal template (Proposal Phase 1 preview)"
                 className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
               >
                 <FileText size={16} />
-                Preview (new template)
+                Preview Proposal
+              </a>
+              <a
+                href={`/api/proposals/${params.id}/pdf`}
+                title="Download PDF (rendered server-side via Puppeteer)"
+                className="inline-flex items-center gap-2 bg-sage-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
+              >
+                <FileText size={16} />
+                Download PDF
               </a>
             </>
           )}
