@@ -1,7 +1,13 @@
-// Proposal Phase 1 — Executive Summary inner page.
+// Executive Summary — green opener, headline paragraph + supporting
+// text on the left, commercial-interior image on the right. Matches
+// the approved mockup.
 
 import { ProposalLayout } from './ProposalLayout'
 import type { ProposalTemplatePayload } from '@/lib/proposals/buildProposalPayload'
+
+// Shared inner-page image (same environment rule). Update once in
+// ProposalHeader.tsx if the asset changes.
+const SIDE_IMAGE = '/images/proposal-banner.jpg'
 
 export function ExecutiveSummaryPage({
   payload,
@@ -19,29 +25,26 @@ export function ExecutiveSummaryPage({
       totalPages={totalPages}
       contact={payload.contact}
     >
-      <div className="proposal-content proposal-content--prose">
-        <p className="proposal-eyebrow">Prepared for {payload.clientName}</p>
-        <h2 className="proposal-h2">A reliable team for your site</h2>
-        <p className="proposal-lead">
-          {payload.executiveSummary}
-        </p>
-
-        <div className="proposal-callout-grid">
-          <Callout label="Service rhythm" value={payload.serviceFrequency || '—'} />
-          <Callout label="Site address" value={payload.siteAddress || '—'} />
-          <Callout label="Start date" value={payload.serviceStartDate || '—'} />
-          <Callout label="Reference" value={payload.referenceNumber} />
+      <div className="proposal-content">
+        <div className="proposal-intro-grid">
+          <div>
+            <p className="proposal-eyebrow" style={{ color: 'var(--sano-green)', marginBottom: '4mm' }}>
+              Thank you for the opportunity to work with {payload.clientName}.
+            </p>
+            <p className="proposal-lead">
+              {payload.executiveSummary}
+            </p>
+            <p className="proposal-lead" style={{ marginTop: '5mm', marginBottom: 0 }}>
+              The following outlines the proposed service structure, scope, and pricing.
+            </p>
+          </div>
+          <div
+            className="proposal-intro-image"
+            style={{ backgroundImage: `url(${SIDE_IMAGE})` }}
+            aria-hidden
+          />
         </div>
       </div>
     </ProposalLayout>
-  )
-}
-
-function Callout({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="proposal-callout">
-      <div className="proposal-callout__label">{label}</div>
-      <div className="proposal-callout__value">{value}</div>
-    </div>
   )
 }

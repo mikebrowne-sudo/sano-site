@@ -32,9 +32,12 @@ export interface ProposalContact {
 
 export interface ProposalTemplatePayload {
   // Cover
+  coverTagline: string          // e.g. "CLEAN SPACES. BETTER PLACES."
+  coverTitle: string            // e.g. "Commercial Cleaning Proposal"
+  preparedForLabel: string      // e.g. "Sansom Construction"
   clientName: string
   siteAddress: string
-  proposalDate: string          // pre-formatted, e.g. "23 April 2026"
+  proposalDate: string          // pre-formatted, e.g. "24 April 2026"
   referenceNumber: string
 
   // Executive summary
@@ -72,10 +75,13 @@ export const SANO_PROPOSAL_CONTACT: ProposalContact = {
 
 export function proposalFixture(): ProposalTemplatePayload {
   return {
-    clientName: 'Auckland Commercial Group',
-    siteAddress: '120 Customs Street West, Auckland CBD 1010',
-    proposalDate: '23 April 2026',
-    referenceNumber: 'Q-2026-0142',
+    coverTagline: 'CLEAN SPACES. BETTER PLACES.',
+    coverTitle: 'Commercial Cleaning Proposal',
+    preparedForLabel: 'Sansom Construction',
+    clientName: 'Sansom Construction',
+    siteAddress: '18 & 32 Burleigh Street, Parnell, Auckland 1052',
+    proposalDate: '24 April 2026',
+    referenceNumber: 'Q-1024',
 
     executiveSummary:
       'Sano is pleased to present this proposal for ongoing commercial cleaning at your Customs Street office. Our approach combines a stable, vetted team with measurable cleaning standards, designed for low-disruption after-hours service. We back every contract with named site supervision, scheduled inspections, and a single point of contact for any issue.',
@@ -193,6 +199,9 @@ export function fromCommercialProposalPayload(p: LegacyProposalPayload): Proposa
   const termsHtml = renderTermsHtml(p)
 
   return {
+    coverTagline: 'CLEAN SPACES. BETTER PLACES.',
+    coverTitle: 'Commercial Cleaning Proposal',
+    preparedForLabel: p.client.company_name || 'Client',
     clientName: p.client.company_name || 'Client',
     siteAddress: p.client.site_address || '',
     proposalDate: p.meta.issued,
