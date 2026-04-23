@@ -34,7 +34,7 @@ export default async function ModuleDetailPage({ params }: { params: { id: strin
 
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-sage-800">{mod.title}</h1>
+          <h1 className="text-3xl tracking-tight font-bold text-sage-800">{mod.title}</h1>
           <div className="flex items-center gap-2 mt-1">
             <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', CAT_STYLES[mod.category] ?? CAT_STYLES.other)}>{mod.category.replace(/_/g, ' ')}</span>
             <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', mod.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600')}>{mod.status}</span>
@@ -54,7 +54,7 @@ export default async function ModuleDetailPage({ params }: { params: { id: strin
         {mod.content && (
           <div>
             <h2 className="text-lg font-semibold text-sage-800 mb-2">Content</h2>
-            <div className="bg-white rounded-xl border border-sage-100 p-5 text-sage-700 text-sm whitespace-pre-wrap leading-relaxed">{mod.content}</div>
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-sage-700 text-sm whitespace-pre-wrap leading-relaxed">{mod.content}</div>
           </div>
         )}
 

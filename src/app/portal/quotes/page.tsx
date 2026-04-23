@@ -82,7 +82,7 @@ export default async function QuotesPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-sage-800">Quotes</h1>
+        <h1 className="text-3xl font-bold text-sage-800 tracking-tight">Quotes</h1>
         <Link
           href="/portal/quotes/new"
           className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
@@ -93,7 +93,7 @@ export default async function QuotesPage() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="bg-white rounded-xl border border-sage-100 p-10 text-center">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
           <FileText size={32} className="text-sage-200 mx-auto mb-3" />
           <p className="text-sage-600 text-sm mb-4">No quotes yet.</p>
           <Link
@@ -105,12 +105,12 @@ export default async function QuotesPage() {
           </Link>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-sage-100 overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-sage-100 text-left text-sage-600">
+                <tr className="border-b border-gray-100 text-left text-sage-600">
                   <th className="px-5 py-3 font-semibold">Quote #</th>
                   <th className="px-5 py-3 font-semibold">Client</th>
                   <th className="px-5 py-3 font-semibold">Address</th>
@@ -123,11 +123,11 @@ export default async function QuotesPage() {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} className="border-b border-sage-50 last:border-0 group">
-                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors font-medium text-sage-800">{row.quoteNumber}</Link></td>
-                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-700">{row.clientName}</Link></td>
+                  <tr key={row.id} className="border-b border-gray-50 last:border-0 group">
+                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors font-medium text-sage-800">{row.quoteNumber}</Link></td>
+                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-700">{row.clientName}</Link></td>
                     <td className="p-0">
-                      <Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">
+                      <Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-600">
                         {row.address ? (
                           <span className="block max-w-[180px] truncate" title={row.address}>{row.address}</span>
                         ) : (
@@ -135,10 +135,10 @@ export default async function QuotesPage() {
                         )}
                       </Link>
                     </td>
-                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors"><StatusBadge kind="quote" status={row.status} /></Link></td>
-                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{formatDate(row.dateIssued)}</Link></td>
-                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{formatDate(row.validUntil)}</Link></td>
-                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-right font-medium text-sage-800">{formatCurrency(row.total)}</Link></td>
+                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors"><StatusBadge kind="quote" status={row.status} /></Link></td>
+                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-600">{formatDate(row.dateIssued)}</Link></td>
+                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-600">{formatDate(row.validUntil)}</Link></td>
+                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-right font-medium text-sage-800">{formatCurrency(row.total)}</Link></td>
                     <td className="px-3 py-3 text-right">
                       {row.isCommercial && (
                         <Link
@@ -159,9 +159,9 @@ export default async function QuotesPage() {
           </div>
 
           {/* Mobile cards */}
-          <div className="md:hidden divide-y divide-sage-100">
+          <div className="md:hidden divide-y divide-gray-100">
             {rows.map((row) => (
-              <Link key={row.id} href={`/portal/quotes/${row.id}`} className="block px-4 py-4 hover:bg-sage-50/50 transition-colors">
+              <Link key={row.id} href={`/portal/quotes/${row.id}`} className="block px-4 py-4 hover:bg-gray-50 transition-colors">
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-medium text-sage-800">{row.quoteNumber}</span>
                   <StatusBadge kind="quote" status={row.status} />

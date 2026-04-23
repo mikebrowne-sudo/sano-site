@@ -170,7 +170,7 @@ export default async function CalendarPage({
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-sage-800">Calendar</h1>
+          <h1 className="text-3xl tracking-tight font-bold text-sage-800">Calendar</h1>
           <Link href="/portal/jobs" className="inline-flex items-center gap-1.5 border border-sage-200 text-sage-600 font-medium px-3 py-1.5 rounded-lg text-xs hover:bg-sage-50 transition-colors">
             <List size={14} /> List view
           </Link>
@@ -228,7 +228,7 @@ export default async function CalendarPage({
 
       {/* Calendar body */}
       {view === 'day' && (
-        <div className="bg-white rounded-xl border border-sage-100 p-5">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
           {jobsByDate[selectedDate].length === 0 ? (
             <div className="text-center py-10">
               <p className="text-sage-500 text-sm mb-3">No jobs scheduled for this day.</p>

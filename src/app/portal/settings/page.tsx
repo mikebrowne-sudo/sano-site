@@ -11,13 +11,13 @@ export default async function SettingsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-sage-800 mb-6">Settings</h1>
+      <h1 className="text-3xl tracking-tight font-bold text-sage-800 mb-8">Settings</h1>
 
       {isAdmin && (
         <>
           <Link
             href="/portal/settings/pricing-engine"
-            className="block bg-white rounded-xl border border-sage-100 p-5 mb-4 hover:border-sage-200 hover:shadow-sm transition-all"
+            className="block bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4 hover:border-sage-200 hover:shadow-sm transition-all"
           >
             <div className="flex items-start gap-3">
               <SlidersHorizontal size={20} className="text-sage-500 mt-0.5" />
@@ -31,7 +31,7 @@ export default async function SettingsPage() {
           </Link>
           <Link
             href="/portal/settings/archive"
-            className="block bg-white rounded-xl border border-sage-100 p-5 mb-4 hover:border-sage-200 hover:shadow-sm transition-all"
+            className="block bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4 hover:border-sage-200 hover:shadow-sm transition-all"
           >
             <div className="flex items-start gap-3">
               <ArchiveRestore size={20} className="text-sage-500 mt-0.5" />
@@ -46,7 +46,7 @@ export default async function SettingsPage() {
         </>
       )}
 
-      <div className="bg-white rounded-xl border border-sage-100 p-10 text-center">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
         <Settings size={32} className="text-sage-200 mx-auto mb-3" />
         <p className="text-sage-600 text-sm">More account and portal settings coming soon.</p>
       </div>

@@ -105,7 +105,7 @@ export function VersionHistoryPanel({
   }
 
   return (
-    <div className="bg-white border border-sage-100 rounded-xl p-5 mb-6">
+    <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 mb-6">
       <div className="flex items-center gap-2 mb-4">
         <History size={16} className="text-sage-500" />
         <h3 className="text-sm font-semibold text-sage-800">Version history</h3>

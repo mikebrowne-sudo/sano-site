@@ -32,7 +32,7 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-sage-800">{fmtDate(run.pay_period_start)} – {fmtDate(run.pay_period_end)}</h1>
+          <h1 className="text-3xl tracking-tight font-bold text-sage-800">{fmtDate(run.pay_period_start)} – {fmtDate(run.pay_period_end)}</h1>
           <p className="text-sage-600 text-sm mt-1">Pay date: {fmtDate(run.pay_date)}</p>
         </div>
         <div className="flex items-center gap-3">
@@ -43,19 +43,19 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
 
       {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
-        <div className="bg-white rounded-xl border border-sage-100 p-4"><p className="text-xs text-sage-500">Employees</p><p className="text-lg font-bold text-sage-800">{(lines ?? []).length}</p></div>
-        <div className="bg-white rounded-xl border border-sage-100 p-4"><p className="text-xs text-sage-500">Gross</p><p className="text-lg font-bold text-sage-800">{fmt(totalGross)}</p></div>
-        <div className="bg-white rounded-xl border border-sage-100 p-4"><p className="text-xs text-sage-500">PAYE</p><p className="text-lg font-bold text-red-600">{fmt(totalPaye)}</p></div>
-        <div className="bg-white rounded-xl border border-sage-100 p-4"><p className="text-xs text-sage-500">KiwiSaver</p><p className="text-lg font-bold text-sage-700">{fmt(totalKsEmp + totalKsEr)}</p></div>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4"><p className="text-xs text-sage-500">Employees</p><p className="text-lg font-bold text-sage-800">{(lines ?? []).length}</p></div>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4"><p className="text-xs text-sage-500">Gross</p><p className="text-lg font-bold text-sage-800">{fmt(totalGross)}</p></div>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4"><p className="text-xs text-sage-500">PAYE</p><p className="text-lg font-bold text-red-600">{fmt(totalPaye)}</p></div>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4"><p className="text-xs text-sage-500">KiwiSaver</p><p className="text-lg font-bold text-sage-700">{fmt(totalKsEmp + totalKsEr)}</p></div>
         <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-4"><p className="text-xs text-emerald-600">Net pay</p><p className="text-lg font-bold text-emerald-700">{fmt(totalNet)}</p></div>
       </div>
 
       {/* Lines */}
-      <div className="bg-white rounded-xl border border-sage-100 overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-sage-100 text-left text-sage-600">
+              <tr className="border-b border-gray-100 text-left text-sage-600">
                 <th className="px-4 py-3 font-semibold">Employee</th>
                 <th className="px-4 py-3 font-semibold text-right">Hours</th>
                 <th className="px-4 py-3 font-semibold text-right">Rate</th>
@@ -71,7 +71,7 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
                 const name = (l.contractors as unknown as { full_name: string } | null)?.full_name ?? '—'
                 const ps = payslipMap.get(l.id)
                 return (
-                  <tr key={l.id} className="border-b border-sage-50 last:border-0">
+                  <tr key={l.id} className="border-b border-gray-50 last:border-0">
                     <td className="px-4 py-3 font-medium text-sage-800">{name}</td>
                     <td className="px-4 py-3 text-right text-sage-700">{l.hours_worked}</td>
                     <td className="px-4 py-3 text-right text-sage-600">{fmt(l.hourly_rate)}</td>

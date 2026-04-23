@@ -111,7 +111,7 @@ export default async function FinancePage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-sage-800 mb-6">Finance</h1>
+      <h1 className="text-3xl tracking-tight font-bold text-sage-800 mb-8">Finance</h1>
 
       <PeriodFilter current={periodKey} customFrom={searchParams.from} customTo={searchParams.to} />
 
@@ -130,7 +130,7 @@ export default async function FinancePage({
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-sage-100 text-left text-sage-600">
+                <tr className="border-b border-gray-100 text-left text-sage-600">
                   <th className="px-4 py-2.5 font-semibold">Month</th>
                   <th className="px-4 py-2.5 font-semibold text-right">Invoiced</th>
                   <th className="px-4 py-2.5 font-semibold text-right">Paid</th>
@@ -142,7 +142,7 @@ export default async function FinancePage({
               </thead>
               <tbody>
                 {monthlyData.map((m) => (
-                  <tr key={m.label} className="border-b border-sage-50">
+                  <tr key={m.label} className="border-b border-gray-50">
                     <td className="px-4 py-2.5 font-medium text-sage-800">{m.label}</td>
                     <td className="px-4 py-2.5 text-right text-sage-700">{fmt(m.revenue)}</td>
                     <td className="px-4 py-2.5 text-right text-emerald-700">{fmt(m.paid)}</td>
@@ -186,7 +186,7 @@ export default async function FinancePage({
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-sage-100 text-left text-sage-600">
+                <tr className="border-b border-gray-100 text-left text-sage-600">
                   <th className="px-4 py-2.5 font-semibold">Invoice</th>
                   <th className="px-4 py-2.5 font-semibold">Client</th>
                   <th className="px-4 py-2.5 font-semibold">Issued</th>
@@ -198,14 +198,14 @@ export default async function FinancePage({
               </thead>
               <tbody>
                 {invoiceRows.map((inv) => (
-                  <tr key={inv.id} className="border-b border-sage-50 group">
-                    <td className="p-0"><Link href={`/portal/invoices/${inv.id}`} className="block px-4 py-2.5 group-hover:bg-sage-50/50 transition-colors font-medium text-sage-800">{inv.invoiceNumber}</Link></td>
-                    <td className="p-0"><Link href={`/portal/invoices/${inv.id}`} className="block px-4 py-2.5 group-hover:bg-sage-50/50 transition-colors text-sage-700">{inv.clientName}</Link></td>
-                    <td className="p-0"><Link href={`/portal/invoices/${inv.id}`} className="block px-4 py-2.5 group-hover:bg-sage-50/50 transition-colors text-sage-600">{fmtDate(inv.dateIssued)}</Link></td>
-                    <td className="p-0"><Link href={`/portal/invoices/${inv.id}`} className="block px-4 py-2.5 group-hover:bg-sage-50/50 transition-colors text-sage-600">{fmtDate(inv.dueDate)}</Link></td>
-                    <td className="p-0"><Link href={`/portal/invoices/${inv.id}`} className="block px-4 py-2.5 group-hover:bg-sage-50/50 transition-colors"><InvStatus status={inv.status} dueDate={inv.dueDate} today={today} /></Link></td>
-                    <td className="p-0"><Link href={`/portal/invoices/${inv.id}`} className="block px-4 py-2.5 group-hover:bg-sage-50/50 transition-colors text-sage-600">{fmtDate(inv.datePaid)}</Link></td>
-                    <td className="p-0"><Link href={`/portal/invoices/${inv.id}`} className="block px-4 py-2.5 group-hover:bg-sage-50/50 transition-colors text-right font-medium text-sage-800">{fmt(inv.total)}</Link></td>
+                  <tr key={inv.id} className="border-b border-gray-50 group">
+                    <td className="p-0"><Link href={`/portal/invoices/${inv.id}`} className="block px-4 py-2.5 group-hover:bg-gray-50 transition-colors font-medium text-sage-800">{inv.invoiceNumber}</Link></td>
+                    <td className="p-0"><Link href={`/portal/invoices/${inv.id}`} className="block px-4 py-2.5 group-hover:bg-gray-50 transition-colors text-sage-700">{inv.clientName}</Link></td>
+                    <td className="p-0"><Link href={`/portal/invoices/${inv.id}`} className="block px-4 py-2.5 group-hover:bg-gray-50 transition-colors text-sage-600">{fmtDate(inv.dateIssued)}</Link></td>
+                    <td className="p-0"><Link href={`/portal/invoices/${inv.id}`} className="block px-4 py-2.5 group-hover:bg-gray-50 transition-colors text-sage-600">{fmtDate(inv.dueDate)}</Link></td>
+                    <td className="p-0"><Link href={`/portal/invoices/${inv.id}`} className="block px-4 py-2.5 group-hover:bg-gray-50 transition-colors"><InvStatus status={inv.status} dueDate={inv.dueDate} today={today} /></Link></td>
+                    <td className="p-0"><Link href={`/portal/invoices/${inv.id}`} className="block px-4 py-2.5 group-hover:bg-gray-50 transition-colors text-sage-600">{fmtDate(inv.datePaid)}</Link></td>
+                    <td className="p-0"><Link href={`/portal/invoices/${inv.id}`} className="block px-4 py-2.5 group-hover:bg-gray-50 transition-colors text-right font-medium text-sage-800">{fmt(inv.total)}</Link></td>
                   </tr>
                 ))}
               </tbody>
@@ -228,7 +228,7 @@ export default async function FinancePage({
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-sage-100 text-left text-sage-600">
+                <tr className="border-b border-gray-100 text-left text-sage-600">
                   <th className="px-4 py-2.5 font-semibold">Job</th>
                   <th className="px-4 py-2.5 font-semibold">Title</th>
                   <th className="px-4 py-2.5 font-semibold">Date</th>
@@ -239,13 +239,13 @@ export default async function FinancePage({
               </thead>
               <tbody>
                 {jobRows.map((j) => (
-                  <tr key={j.id} className="border-b border-sage-50 group">
-                    <td className="p-0"><Link href={`/portal/jobs/${j.id}`} className="block px-4 py-2.5 group-hover:bg-sage-50/50 transition-colors font-medium text-sage-800">{j.jobNumber}</Link></td>
-                    <td className="p-0"><Link href={`/portal/jobs/${j.id}`} className="block px-4 py-2.5 group-hover:bg-sage-50/50 transition-colors text-sage-700 max-w-[180px] truncate">{j.title}</Link></td>
-                    <td className="p-0"><Link href={`/portal/jobs/${j.id}`} className="block px-4 py-2.5 group-hover:bg-sage-50/50 transition-colors text-sage-600">{fmtDate(j.scheduledDate)}</Link></td>
-                    <td className="p-0"><Link href={`/portal/jobs/${j.id}`} className="block px-4 py-2.5 group-hover:bg-sage-50/50 transition-colors text-sage-600">{j.assignedTo}</Link></td>
-                    <td className="p-0"><Link href={`/portal/jobs/${j.id}`} className="block px-4 py-2.5 group-hover:bg-sage-50/50 transition-colors"><JobStatus status={j.status} /></Link></td>
-                    <td className="p-0"><Link href={`/portal/jobs/${j.id}`} className="block px-4 py-2.5 group-hover:bg-sage-50/50 transition-colors text-right font-medium text-sage-800">{fmt(j.contractorPrice)}</Link></td>
+                  <tr key={j.id} className="border-b border-gray-50 group">
+                    <td className="p-0"><Link href={`/portal/jobs/${j.id}`} className="block px-4 py-2.5 group-hover:bg-gray-50 transition-colors font-medium text-sage-800">{j.jobNumber}</Link></td>
+                    <td className="p-0"><Link href={`/portal/jobs/${j.id}`} className="block px-4 py-2.5 group-hover:bg-gray-50 transition-colors text-sage-700 max-w-[180px] truncate">{j.title}</Link></td>
+                    <td className="p-0"><Link href={`/portal/jobs/${j.id}`} className="block px-4 py-2.5 group-hover:bg-gray-50 transition-colors text-sage-600">{fmtDate(j.scheduledDate)}</Link></td>
+                    <td className="p-0"><Link href={`/portal/jobs/${j.id}`} className="block px-4 py-2.5 group-hover:bg-gray-50 transition-colors text-sage-600">{j.assignedTo}</Link></td>
+                    <td className="p-0"><Link href={`/portal/jobs/${j.id}`} className="block px-4 py-2.5 group-hover:bg-gray-50 transition-colors"><JobStatus status={j.status} /></Link></td>
+                    <td className="p-0"><Link href={`/portal/jobs/${j.id}`} className="block px-4 py-2.5 group-hover:bg-gray-50 transition-colors text-right font-medium text-sage-800">{fmt(j.contractorPrice)}</Link></td>
                   </tr>
                 ))}
               </tbody>
@@ -261,7 +261,7 @@ export default async function FinancePage({
       </Section>
 
       {/* Margin summary */}
-      <div className="bg-white rounded-xl border border-sage-100 p-6 mt-6">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mt-6">
         <h2 className="text-sm font-semibold text-sage-500 uppercase tracking-wide mb-4">Estimated Margin Summary</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div>
@@ -285,7 +285,7 @@ export default async function FinancePage({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl border border-sage-100 p-5 mb-6">
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
       <h2 className="text-lg font-semibold text-sage-800 mb-4">{title}</h2>
       {children}
     </div>
@@ -294,7 +294,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Card({ icon: Icon, label, value, accent, sub }: { icon: React.ElementType; label: string; value: string; accent?: 'emerald' | 'amber' | 'red'; sub?: string }) {
   return (
-    <div className="bg-white rounded-xl border border-sage-100 p-5">
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
       <div className="flex items-center gap-2 mb-2">
         <Icon size={16} className={accent === 'emerald' ? 'text-emerald-600' : accent === 'amber' ? 'text-amber-600' : accent === 'red' ? 'text-red-600' : 'text-sage-500'} />
         <span className="text-sm font-medium text-sage-600">{label}</span>
