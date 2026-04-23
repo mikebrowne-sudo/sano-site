@@ -1,4 +1,4 @@
-export default function EmailSignatureMichael() {
+export default function EmailSignature() {
   return (
     <div style={{ padding: '40px', background: '#f5f5f5', minHeight: '100vh' }}>
       <h2 style={{ fontFamily: 'Arial, sans-serif', marginTop: 0 }}>
@@ -16,13 +16,12 @@ export default function EmailSignatureMichael() {
 
         <a href="https://sano.nz" target="_blank" rel="noreferrer" style={{ display: 'block' }}>
           <img
-            src="/email/email-banner-michael.jpg"
+            src="/email/email-banner-carol.jpg"
             alt="Sano Email Banner"
             width="850"
             style={{
               display: 'block',
               width: '850px',
-              maxWidth: '100%',
               height: 'auto',
               border: 0,
               margin: 0,
