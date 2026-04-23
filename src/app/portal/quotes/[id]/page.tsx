@@ -63,7 +63,14 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       override_confirmed,
       override_confirmed_by,
       override_confirmed_at,
-      calculated_price
+      calculated_price,
+      contact_name,
+      contact_email,
+      contact_phone,
+      accounts_contact_name,
+      accounts_email,
+      client_reference,
+      requires_po
     `)
     .eq('id', params.id)
     .single()

@@ -28,6 +28,12 @@ import {
   type CommercialScopeFormRow,
 } from '../../_components/commercial/CommercialScopeBuilder'
 import { CommercialPricingPreview } from '../../_components/commercial/CommercialPricingPreview'
+import {
+  ContactBillingSection,
+  hydrateContactBilling,
+  toContactBillingInput,
+  type ContactBillingFormState,
+} from '../../_components/ContactBillingSection'
 import { computeCommercialPreview, type CommercialPreviewScopeRow, type ScopeFrequency } from '@/lib/commercialQuote'
 import type { PricingSettings } from '@/lib/pricingSettings'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
@@ -105,6 +111,14 @@ interface Quote {
   override_confirmed_by?: string | null
   override_confirmed_at?: string | null
   calculated_price?: number | null
+  // Phase 5D — universal contact / billing / reference fields
+  contact_name?: string | null
+  contact_email?: string | null
+  contact_phone?: string | null
+  accounts_contact_name?: string | null
+  accounts_email?: string | null
+  client_reference?: string | null
+  requires_po?: boolean | null
 }
 
 interface Addon {
@@ -234,6 +248,11 @@ export function EditQuoteForm({
     () => hydrateScopeRows(commercialScopeRows),
   )
   const isCommercial = builder.service_category === 'commercial'
+
+  // Phase 5D — universal contact / billing fields. Visible for ALL quote categories.
+  const [contactBilling, setContactBilling] = useState<ContactBillingFormState>(
+    () => hydrateContactBilling(quote),
+  )
 
   // Commercial preview — same computation as NewQuoteForm; see that file
   // for the full explanation. Persisted hours go back onto commercial_
@@ -412,6 +431,8 @@ export function EditQuoteForm({
           ? savedBreakdown ?? undefined
           : (eligible ? engineResult?.breakdown ?? undefined : undefined),
         ...overridePayload,
+        // Phase 5D — universal contact / billing / reference fields
+        ...toContactBillingInput(contactBilling),
         discount: disc,
         gst_included: gstIncluded,
         payment_type: paymentType,
@@ -518,6 +539,13 @@ export function EditQuoteForm({
           placeholder="Choose a client…"
         />
       </Section>
+
+      {/* ── Section: Contact & Billing (Phase 5D — universal) ─── */}
+      <ContactBillingSection
+        value={contactBilling}
+        onChange={setContactBilling}
+        disabled={isLocked}
+      />
 
       {/* ── Section: Service details ────────────────── */}
       <Section title="Service Details">

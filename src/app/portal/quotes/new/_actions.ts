@@ -79,6 +79,16 @@ interface CreateQuoteInput {
   override_reason?: string | null
   override_confirmed?: boolean
 
+  // Phase 5D — universal contact / billing / reference fields. Apply
+  // to ALL quote categories. Optional. Persist on the quotes table.
+  contact_name?: string | null
+  contact_email?: string | null
+  contact_phone?: string | null
+  accounts_contact_name?: string | null
+  accounts_email?: string | null
+  client_reference?: string | null
+  requires_po?: boolean
+
   // Add-ons (priced line items — distinct from addons_wording)
   addons: AddonInput[]
 }
@@ -178,6 +188,14 @@ export async function createQuote(input: CreateQuoteInput) {
       payment_type: input.payment_type || 'cash_sale',
       date_issued: today,
       valid_until: validUntil,
+      // Phase 5D — universal contact / billing / reference fields
+      contact_name:           input.contact_name           ?? null,
+      contact_email:          input.contact_email          ?? null,
+      contact_phone:          input.contact_phone          ?? null,
+      accounts_contact_name:  input.accounts_contact_name  ?? null,
+      accounts_email:         input.accounts_email         ?? null,
+      client_reference:       input.client_reference       ?? null,
+      requires_po:            input.requires_po            ?? false,
     })
     .select('id')
     .single()
@@ -251,14 +269,9 @@ export async function createQuote(input: CreateQuoteInput) {
           estimated_weekly_hours: cd.estimated_weekly_hours ?? null,
           estimated_monthly_hours: cd.estimated_monthly_hours ?? null,
 
-          // Phase 5A — tender fields
-          contact_name:           cd.contact_name           ?? null,
-          contact_email:          cd.contact_email          ?? null,
-          contact_phone:          cd.contact_phone          ?? null,
-          accounts_email:         cd.accounts_email         ?? null,
-          accounts_contact_name:  cd.accounts_contact_name  ?? null,
-          client_reference:       cd.client_reference       ?? null,
-          requires_po:            cd.requires_po            ?? false,
+          // Phase 5A — commercial-only tender fields. Contact /
+          // billing / reference fields moved to the quotes table in
+          // Phase 5D and are no longer written into commercial_quote_details.
           contract_term:          cd.contract_term          ?? null,
           notice_period_days:     cd.notice_period_days     ?? null,
           service_start_date:     cd.service_start_date     ?? null,

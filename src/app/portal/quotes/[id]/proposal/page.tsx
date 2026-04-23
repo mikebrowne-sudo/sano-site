@@ -32,6 +32,9 @@ export default async function CommercialProposalPage({
       id, quote_number, status, accepted_at, date_issued, valid_until,
       service_category, service_address, notes,
       base_price, discount, gst_included, payment_type,
+      contact_name, contact_email, contact_phone,
+      accounts_contact_name, accounts_email,
+      client_reference, requires_po,
       clients ( name, company_name, service_address, phone, email )
     `)
     .eq('id', params.id)
@@ -141,6 +144,21 @@ export default async function CommercialProposalPage({
     updated_at: '',
   }
 
+  // Phase 5D — universal contact / billing / reference fields now live on
+  // quotes. Override the legacy commercial_quote_details columns so the
+  // proposal mappers (which read details.{field}) see the authoritative
+  // values. COALESCE-style precedence: quote first, fall back to details.
+  const detailsWithUniversal: CommercialQuoteDetails = {
+    ...detailsRow,
+    contact_name:          (quote.contact_name as string | null)          ?? detailsRow.contact_name,
+    contact_email:         (quote.contact_email as string | null)         ?? detailsRow.contact_email,
+    contact_phone:         (quote.contact_phone as string | null)         ?? detailsRow.contact_phone,
+    accounts_contact_name: (quote.accounts_contact_name as string | null) ?? detailsRow.accounts_contact_name,
+    accounts_email:        (quote.accounts_email as string | null)        ?? detailsRow.accounts_email,
+    client_reference:      (quote.client_reference as string | null)      ?? detailsRow.client_reference,
+    requires_po:           (quote.requires_po as boolean | null)          ?? detailsRow.requires_po,
+  }
+
   const client = quote.clients as unknown as {
     name: string | null
     company_name: string | null
@@ -170,7 +188,7 @@ export default async function CommercialProposalPage({
       price: (it.price as number) ?? 0,
       sort_order: (it.sort_order as number) ?? 0,
     })),
-    details: detailsRow,
+    details: detailsWithUniversal,
     scope: (scope as unknown as CommercialScopeItem[]) ?? [],
   })
 

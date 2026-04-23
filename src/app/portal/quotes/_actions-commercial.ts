@@ -67,16 +67,11 @@ export interface CommercialDetailsInput {
   estimated_weekly_hours?: number | null
   estimated_monthly_hours?: number | null
 
-  // Phase 5A — tender fields
-  contact_name?: string | null
-  contact_email?: string | null
-  contact_phone?: string | null
-  accounts_email?: string | null
-  accounts_contact_name?: string | null
-
-  client_reference?: string | null
-  requires_po?: boolean | null
-
+  // Phase 5A — commercial-only tender fields. Phase 5D moved
+  // contact_name / contact_email / contact_phone / accounts_email /
+  // accounts_contact_name / client_reference / requires_po up to
+  // the universal `quotes` table — they no longer flow through
+  // saveCommercialDetails.
   contract_term?: string | null
   notice_period_days?: number | null
   service_start_date?: string | null
@@ -162,14 +157,9 @@ export async function saveCommercialDetails(
     estimated_weekly_hours: input.estimated_weekly_hours ?? null,
     estimated_monthly_hours: input.estimated_monthly_hours ?? null,
 
-    // Phase 5A — tender fields
-    contact_name:           input.contact_name           ?? null,
-    contact_email:          input.contact_email          ?? null,
-    contact_phone:          input.contact_phone          ?? null,
-    accounts_email:         input.accounts_email         ?? null,
-    accounts_contact_name:  input.accounts_contact_name  ?? null,
-    client_reference:       input.client_reference       ?? null,
-    requires_po:            input.requires_po            ?? false,
+    // Phase 5A — commercial-only tender fields. Contact / billing /
+    // reference fields moved to the quotes table in Phase 5D and are
+    // no longer written to commercial_quote_details by this action.
     contract_term:          input.contract_term          ?? null,
     notice_period_days:     input.notice_period_days     ?? null,
     service_start_date:     input.service_start_date     ?? null,

@@ -28,6 +28,12 @@ import {
   type CommercialScopeFormRow,
 } from '../../_components/commercial/CommercialScopeBuilder'
 import { CommercialPricingPreview } from '../../_components/commercial/CommercialPricingPreview'
+import {
+  ContactBillingSection,
+  emptyContactBilling,
+  toContactBillingInput,
+  type ContactBillingFormState,
+} from '../../_components/ContactBillingSection'
 import { computeCommercialPreview, type CommercialPreviewScopeRow, type ScopeFrequency } from '@/lib/commercialQuote'
 import type { PricingSettings } from '@/lib/pricingSettings'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
@@ -140,6 +146,9 @@ export function NewQuoteForm({
   const [commercialDetails, setCommercialDetails] = useState<CommercialDetailsFormState>(emptyCommercialDetails)
   const [commercialScope, setCommercialScope] = useState<CommercialScopeFormRow[]>([])
   const isCommercial = builder.service_category === 'commercial'
+
+  // Phase 5D — universal contact / billing fields. Visible for ALL quote categories.
+  const [contactBilling, setContactBilling] = useState<ContactBillingFormState>(emptyContactBilling)
 
   // Commercial preview — re-computed on every commercial input change.
   // Used for the in-form pricing summary AND to persist the computed
@@ -414,6 +423,8 @@ export function NewQuoteForm({
             ) ?? undefined
           : undefined,
         commercial_scope: isCommercial ? toScopeItemsInput(commercialScope) : undefined,
+        // Phase 5D — universal contact / billing / reference fields
+        ...toContactBillingInput(contactBilling),
         discount: disc,
         gst_included: gstIncluded,
         payment_type: paymentType,
@@ -501,6 +512,9 @@ export function NewQuoteForm({
           <AddressField label="Billing address" value={billingAddress} onChange={setBillingAddress} className="mt-4" />
         )}
       </Section>
+
+      {/* ── Section 2b: Contact & Billing (Phase 5D — universal) ─── */}
+      <ContactBillingSection value={contactBilling} onChange={setContactBilling} />
 
       {/* ── Section 3: Service ──────────────────────── */}
       <Section title="Service">
