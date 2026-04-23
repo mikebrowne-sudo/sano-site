@@ -225,6 +225,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
         accountsEmail={quote.accounts_email ?? null}
         clientReference={quote.client_reference ?? null}
         requiresPo={quote.requires_po ?? null}
+        clientId={quote.client_id ?? null}
       />
 
       <VersionHistoryPanel chain={versionChain} currentId={quote.id} />

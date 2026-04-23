@@ -11,6 +11,8 @@ interface QuoteCustomerDetailsProps {
   accountsEmail?: string | null
   clientReference?: string | null
   requiresPo?: boolean | null
+  // To open the underlying client record (the panel is otherwise read-only).
+  clientId?: string | null
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -34,13 +36,25 @@ export function QuoteCustomerDetails({
   accountsEmail,
   clientReference,
   requiresPo,
+  clientId,
 }: QuoteCustomerDetailsProps) {
   const hasOverrides =
     !!(contactName || contactEmail || accountsEmail || clientReference || requiresPo)
 
   return (
     <div className="bg-white rounded-xl border border-sage-100 p-5 mb-6">
-      <h2 className="text-sm uppercase tracking-wider text-sage-600 font-semibold mb-4">Customer</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm uppercase tracking-wider text-sage-600 font-semibold">Customer</h2>
+        {clientId && (
+          <a
+            href={`/portal/clients/${clientId}`}
+            className="text-xs text-sage-500 hover:text-sage-700 hover:underline transition-colors"
+            title="The client record is shared across all quotes/invoices for this customer. Edits to per-quote contact overrides live in Contact &amp; Billing Details below."
+          >
+            Edit client record →
+          </a>
+        )}
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Row label="Name">{name ? name : MUTED_DASH}</Row>
         <Row label="Phone">
