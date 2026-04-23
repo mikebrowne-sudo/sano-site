@@ -15,10 +15,10 @@ export function PortalSidebar() {
         <span className="text-sage-200 text-xs ml-2">Portal</span>
       </div>
 
-      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+      <nav className="flex-1 px-3 py-5 overflow-y-auto">
         {NAV_GROUPS.map((group, i) => (
-          <div key={group.heading} className={clsx(i > 0 && 'mt-5')}>
-            <div className="px-3 pt-1 pb-2 text-[10px] uppercase tracking-[0.14em] font-semibold text-sage-400/80">
+          <div key={group.heading} className={clsx(i > 0 && 'mt-7')}>
+            <div className="px-3 pt-1 pb-2.5 text-[10px] uppercase tracking-[0.16em] font-semibold text-sage-400/80">
               {group.heading}
             </div>
             <ul className="space-y-0.5">
@@ -46,10 +46,10 @@ export function PortalSidebar() {
                     <Link
                       href={href}
                       className={clsx(
-                        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150',
                         active
-                          ? 'bg-sage-500 text-white shadow-sm'
-                          : 'text-sage-200 hover:bg-sage-700/50 hover:text-white',
+                          ? 'bg-sage-500 text-white shadow-sm ring-1 ring-sage-400/40'
+                          : 'text-sage-200 hover:bg-sage-700/60 hover:text-white',
                       )}
                     >
                       <Icon size={17} />

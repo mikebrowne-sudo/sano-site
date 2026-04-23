@@ -7,8 +7,11 @@ import {
   QUOTE_STATUS_STYLES,
   INVOICE_STATUS_LABELS,
   INVOICE_STATUS_STYLES,
+  JOB_STATUS_LABELS,
+  JOB_STATUS_STYLES,
   type QuoteStatus,
   type InvoiceStatus,
+  type JobStatus,
 } from '@/lib/quote-status'
 
 type Size = 'sm' | 'md'
@@ -24,25 +27,31 @@ export function StatusBadge({
   size = 'sm',
   className,
 }: {
-  kind: 'quote' | 'invoice'
+  kind: 'quote' | 'invoice' | 'job'
   status: string
   size?: Size
   className?: string
 }) {
+  const base = 'inline-block rounded-full font-medium whitespace-nowrap'
+
   if (kind === 'quote') {
     const s = (status as QuoteStatus) in QUOTE_STATUS_LABELS
       ? (status as QuoteStatus)
       : 'draft'
     return (
-      <span
-        className={clsx(
-          'inline-block rounded-full font-medium',
-          SIZE_CLASSES[size],
-          QUOTE_STATUS_STYLES[s],
-          className,
-        )}
-      >
+      <span className={clsx(base, SIZE_CLASSES[size], QUOTE_STATUS_STYLES[s], className)}>
         {QUOTE_STATUS_LABELS[s]}
+      </span>
+    )
+  }
+
+  if (kind === 'job') {
+    const s = (status as JobStatus) in JOB_STATUS_LABELS
+      ? (status as JobStatus)
+      : 'draft'
+    return (
+      <span className={clsx(base, SIZE_CLASSES[size], JOB_STATUS_STYLES[s], className)}>
+        {JOB_STATUS_LABELS[s]}
       </span>
     )
   }
@@ -51,14 +60,7 @@ export function StatusBadge({
     ? (status as InvoiceStatus)
     : 'draft'
   return (
-    <span
-      className={clsx(
-        'inline-block rounded-full font-medium capitalize',
-        SIZE_CLASSES[size],
-        INVOICE_STATUS_STYLES[s],
-        className,
-      )}
-    >
+    <span className={clsx(base, SIZE_CLASSES[size], INVOICE_STATUS_STYLES[s], className)}>
       {INVOICE_STATUS_LABELS[s]}
     </span>
   )
