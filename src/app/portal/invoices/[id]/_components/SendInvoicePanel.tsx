@@ -11,38 +11,62 @@ export function SendInvoicePanel({
   clientEmail,
   clientName,
   printUrl,
+  // Phase 5D — universal billing fields. Invoice routing rule:
+  //   default to = accounts email (falls back to primary contact, then client record)
+  //   optional CC = primary contact when present
+  accountsEmail = '',
+  primaryContactEmail = '',
+  clientReference = '',
+  requiresPo = false,
 }: {
   invoiceId: string
   invoiceNumber: string
   clientEmail: string
   clientName: string
   printUrl: string
+  accountsEmail?: string
+  primaryContactEmail?: string
+  clientReference?: string
+  requiresPo?: boolean
 }) {
   const greeting = clientName ? `Hi ${clientName},` : 'Hi there,'
+  const referenceLine = clientReference
+    ? `\n\nYour reference: ${clientReference}`
+    : ''
+  const defaultTo =
+    accountsEmail.trim() || primaryContactEmail.trim() || clientEmail.trim()
   const [open, setOpen] = useState(false)
-  const [to, setTo] = useState(clientEmail)
+  const [to, setTo] = useState(defaultTo)
+  const [ccPrimary, setCcPrimary] = useState(false)
   const [subject, setSubject] = useState(`Invoice ${invoiceNumber} from Sano`)
   const [message, setMessage] = useState(
-    `${greeting}\n\nPlease find your invoice ${invoiceNumber} from Sano via the link below.\n\nPayment details are included on the invoice. If you have any questions, just let us know.\n\nKind regards,\nThe Sano team`,
+    `${greeting}\n\nPlease find your invoice ${invoiceNumber} from Sano via the link below.${referenceLine}\n\nPayment details are included on the invoice. If you have any questions, just let us know.\n\nKind regards,\nThe Sano team`,
   )
 
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
 
+  const primaryTrimmed = primaryContactEmail.trim()
+  const showCcOption =
+    primaryTrimmed.length > 0 && primaryTrimmed.toLowerCase() !== to.trim().toLowerCase()
+
   function handleSend() {
     setError(null)
 
     if (!to.trim()) {
-      setError('Client email is required. Add an email to the client record first.')
+      setError('Recipient email is required. Add an accounts email or contact email.')
       return
     }
+
+    const cc = ccPrimary && showCcOption ? [primaryTrimmed] : undefined
 
     startTransition(async () => {
       const result = await sendInvoiceEmail({
         invoice_id: invoiceId,
         invoice_number: invoiceNumber,
         to: to.trim(),
+        cc,
         subject,
         message,
         print_url: printUrl,
@@ -61,7 +85,11 @@ export function SendInvoicePanel({
       <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3">
         <CheckCircle size={18} className="text-emerald-600 shrink-0" />
         <span className="text-sm text-emerald-700">
-          Invoice sent to <strong>{to}</strong>. Status updated to sent.
+          Invoice sent to <strong>{to}</strong>
+          {ccPrimary && showCcOption && (
+            <> · CC <strong>{primaryTrimmed}</strong></>
+          )}
+          . Status updated to sent.
         </span>
       </div>
     )
@@ -94,16 +122,48 @@ export function SendInvoicePanel({
         </button>
       </div>
 
+      {(clientReference || requiresPo) && (
+        <div className="text-xs text-sage-700 bg-sage-50 rounded-lg px-3 py-2 space-y-1">
+          {clientReference && (
+            <div>
+              Client reference / PO: <span className="font-medium text-sage-800">{clientReference}</span>
+            </div>
+          )}
+          {requiresPo && !clientReference && (
+            <div className="text-amber-700 font-medium">
+              ⚠ This client requires a PO number before invoicing — none captured on the quote.
+            </div>
+          )}
+        </div>
+      )}
+
       <label className="block">
         <span className="block text-sm font-semibold text-sage-800 mb-1.5">To</span>
         <input
           type="email"
           value={to}
           onChange={(e) => setTo(e.target.value)}
-          placeholder="client@example.com"
+          placeholder="accounts@example.com"
           className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm"
         />
+        <span className="block text-[11px] text-sage-500 mt-1">
+          Defaults to the accounts contact when one is set on the quote.
+        </span>
       </label>
+
+      {showCcOption && (
+        <label className="flex items-start gap-2.5 text-sm text-sage-800 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={ccPrimary}
+            onChange={(e) => setCcPrimary(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-sage-300 text-sage-600 focus:ring-sage-500"
+          />
+          <span>
+            CC primary contact (<span className="font-medium">{primaryTrimmed}</span>)
+          </span>
+        </label>
+      )}
 
       <label className="block">
         <span className="block text-sm font-semibold text-sage-800 mb-1.5">Subject</span>

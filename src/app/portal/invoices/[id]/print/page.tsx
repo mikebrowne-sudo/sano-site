@@ -25,6 +25,9 @@ export default async function PrintInvoicePage({ params }: { params: { id: strin
         property_category, type_of_clean, frequency, scope_size,
         service_address, scheduled_clean_date, notes,
         base_price, discount, gst_included, payment_type,
+        contact_name, contact_email, contact_phone,
+        accounts_contact_name, accounts_email,
+        client_reference, requires_po,
         clients ( name, company_name, service_address, phone, email )
       `)
       .eq('id', params.id)
@@ -86,8 +89,25 @@ export default async function PrintInvoicePage({ params }: { params: { id: strin
               <div className="print-addr-name">{client?.name ?? '—'}</div>
               {client?.company_name && <div className="print-addr-line">{client.company_name}</div>}
               {client?.service_address && <div className="print-addr-line">{client.service_address}</div>}
-              {client?.phone && <div className="print-addr-line">Phone: {client.phone}</div>}
-              {client?.email && <div className="print-addr-line">Email: {client.email}</div>}
+              {/* Phase 5D — invoice-level accounts/contact overrides win
+                  over the client record so the printed invoice mirrors
+                  the routing used to send it. */}
+              {(invoice.accounts_contact_name as string | null) && (
+                <div className="print-addr-line">Attn: {invoice.accounts_contact_name as string}</div>
+              )}
+              {((invoice.accounts_email as string | null) || (invoice.contact_email as string | null) || client?.email) && (
+                <div className="print-addr-line">
+                  Email: {(invoice.accounts_email as string | null) || (invoice.contact_email as string | null) || client?.email}
+                </div>
+              )}
+              {((invoice.contact_phone as string | null) || client?.phone) && (
+                <div className="print-addr-line">Phone: {(invoice.contact_phone as string | null) || client?.phone}</div>
+              )}
+              {(invoice.client_reference as string | null) && (
+                <div className="print-addr-line" style={{ marginTop: 4 }}>
+                  Your reference / PO: <strong>{invoice.client_reference as string}</strong>
+                </div>
+              )}
             </div>
           </div>
 
@@ -168,6 +188,12 @@ export default async function PrintInvoicePage({ params }: { params: { id: strin
               <div className="print-field-label">Reference</div>
               <div className="print-field-value">{invoice.invoice_number}</div>
             </div>
+            {(invoice.client_reference as string | null) && (
+              <div className="print-field">
+                <div className="print-field-label">Your Reference / PO</div>
+                <div className="print-field-value">{invoice.client_reference as string}</div>
+              </div>
+            )}
             <p className="print-payment-note">Please use the invoice number as your reference.</p>
           </section>
 

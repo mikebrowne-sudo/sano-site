@@ -44,6 +44,9 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         created_at,
         is_price_overridden, override_price, override_reason, override_confirmed,
         override_confirmed_by, override_confirmed_at, calculated_price,
+        contact_name, contact_email, contact_phone,
+        accounts_contact_name, accounts_email,
+        client_reference, requires_po,
         clients ( name, company_name )
       `)
       .eq('id', params.id)
@@ -132,6 +135,10 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             clientEmail={clientRecord?.email ?? ''}
             clientName={firstName(clientRecord?.name)}
             printUrl={shareUrl}
+            accountsEmail={invoice.accounts_email ?? ''}
+            primaryContactEmail={invoice.contact_email ?? ''}
+            clientReference={invoice.client_reference ?? ''}
+            requiresPo={invoice.requires_po ?? false}
           />
         </div>
       </div>
@@ -145,6 +152,47 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         <Section title="Client">
           <p className="font-medium text-sage-800">{client?.name ?? '—'}</p>
           {client?.company_name && <p className="text-sage-600 text-sm">{client.company_name}</p>}
+
+          {(invoice.contact_name || invoice.contact_email || invoice.accounts_email || invoice.client_reference || invoice.requires_po) && (
+            <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+              {invoice.contact_name && (
+                <div>
+                  <dt className="text-sage-500">Primary contact</dt>
+                  <dd className="text-sage-800">{invoice.contact_name}</dd>
+                </div>
+              )}
+              {invoice.contact_email && (
+                <div>
+                  <dt className="text-sage-500">Primary contact email</dt>
+                  <dd className="text-sage-800 break-all">{invoice.contact_email}</dd>
+                </div>
+              )}
+              {invoice.accounts_contact_name && (
+                <div>
+                  <dt className="text-sage-500">Accounts contact</dt>
+                  <dd className="text-sage-800">{invoice.accounts_contact_name}</dd>
+                </div>
+              )}
+              {invoice.accounts_email && (
+                <div>
+                  <dt className="text-sage-500">Accounts email</dt>
+                  <dd className="text-sage-800 break-all">{invoice.accounts_email}</dd>
+                </div>
+              )}
+              {invoice.client_reference && (
+                <div className="sm:col-span-2">
+                  <dt className="text-sage-500">Client reference / PO</dt>
+                  <dd className="text-sage-800 font-medium">{invoice.client_reference}</dd>
+                </div>
+              )}
+              {invoice.requires_po && !invoice.client_reference && (
+                <div className="sm:col-span-2">
+                  <dt className="text-sage-500">PO status</dt>
+                  <dd className="text-amber-700 font-medium">PO required — none captured on quote</dd>
+                </div>
+              )}
+            </dl>
+          )}
         </Section>
 
         {/* Dates */}

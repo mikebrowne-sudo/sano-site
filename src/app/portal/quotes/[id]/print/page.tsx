@@ -26,6 +26,9 @@ export default async function PrintQuotePage({ params }: { params: { id: string 
         generated_scope,
         service_address, scheduled_clean_date, notes,
         base_price, discount, gst_included, payment_type,
+        contact_name, contact_email, contact_phone,
+        accounts_contact_name, accounts_email,
+        client_reference,
         clients ( name, company_name, service_address, phone, email )
       `)
       .eq('id', params.id)
@@ -87,8 +90,23 @@ export default async function PrintQuotePage({ params }: { params: { id: string 
               <div className="print-addr-name">{client?.name ?? '—'}</div>
               {client?.company_name && <div className="print-addr-line">{client.company_name}</div>}
               {client?.service_address && <div className="print-addr-line">{client.service_address}</div>}
-              {client?.phone && <div className="print-addr-line">Phone: {client.phone}</div>}
-              {client?.email && <div className="print-addr-line">Email: {client.email}</div>}
+              {/* Phase 5D — quote-level contact overrides take precedence
+                  over client record fields so the printed quote matches
+                  the contact who'll actually be receiving it. */}
+              {(quote.contact_name as string | null) && (
+                <div className="print-addr-line">Attn: {quote.contact_name as string}</div>
+              )}
+              {((quote.contact_phone as string | null) || client?.phone) && (
+                <div className="print-addr-line">Phone: {(quote.contact_phone as string | null) || client?.phone}</div>
+              )}
+              {((quote.contact_email as string | null) || client?.email) && (
+                <div className="print-addr-line">Email: {(quote.contact_email as string | null) || client?.email}</div>
+              )}
+              {(quote.client_reference as string | null) && (
+                <div className="print-addr-line" style={{ marginTop: 4 }}>
+                  Your reference: <strong>{quote.client_reference as string}</strong>
+                </div>
+              )}
             </div>
           </div>
 

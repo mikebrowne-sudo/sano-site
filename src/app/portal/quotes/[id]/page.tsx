@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { EditQuoteForm } from './_components/EditQuoteForm'
 import { QuoteCustomerDetails } from './_components/QuoteCustomerDetails'
 import Link from 'next/link'
-import { ArrowLeft, Printer } from 'lucide-react'
+import { ArrowLeft, Printer, FileText } from 'lucide-react'
 import { SendQuotePanel } from './_components/SendQuotePanel'
 import { ConvertToInvoiceButton } from './_components/ConvertToInvoiceButton'
 import { MarkAsAcceptedButton } from './_components/MarkAsAcceptedButton'
@@ -132,6 +132,17 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-sage-800">{quote.quote_number}</h1>
         <div className="flex items-center gap-3">
+          {quote.service_category === 'commercial' && (
+            <a
+              href={`/portal/quotes/${params.id}/proposal`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
+            >
+              <FileText size={16} />
+              View Proposal
+            </a>
+          )}
           <a
             href={`/portal/quotes/${params.id}/print`}
             target="_blank"
@@ -149,6 +160,9 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
             clientEmail={currentClient?.email ?? ''}
             clientName={firstName(currentClient?.name)}
             printUrl={shareUrl}
+            primaryContactEmail={quote.contact_email ?? ''}
+            accountsEmail={quote.accounts_email ?? ''}
+            clientReference={quote.client_reference ?? ''}
           />
         </div>
       </div>
@@ -166,6 +180,11 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
         phone={currentClient?.phone ?? null}
         email={currentClient?.email ?? null}
         serviceAddress={quote.service_address ?? null}
+        contactName={quote.contact_name ?? null}
+        contactEmail={quote.contact_email ?? null}
+        accountsEmail={quote.accounts_email ?? null}
+        clientReference={quote.client_reference ?? null}
+        requiresPo={quote.requires_po ?? null}
       />
 
       <EditQuoteForm
