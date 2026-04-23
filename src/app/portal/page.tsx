@@ -43,8 +43,8 @@ export default async function PortalDashboard() {
   const hasAlerts = (unassignedJobs ?? 0) > 0 || overdueInvoices.length > 0 || (overdueTraining ?? 0) > 0
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-sage-800">Dashboard</h1>
+    <div className="space-y-10">
+      <h1 className="text-3xl font-bold text-sage-800 tracking-tight">Dashboard</h1>
 
       {/* Quick actions */}
       <div className="flex flex-wrap gap-3">
@@ -157,16 +157,24 @@ export default async function PortalDashboard() {
 }
 
 function SummaryCard({ icon: Icon, label, value, accent, href }: { icon: React.ElementType; label: string; value: number; accent?: 'emerald' | 'amber' | 'blue'; href?: string }) {
+  // Phase 1.3 — white-first: drop the visible border in favour of a
+  // very soft shadow that lifts the card off the near-white page bg.
   const content = (
-    <div className={clsx('bg-white rounded-xl border border-sage-100 p-4', href && 'hover:border-sage-300 transition-colors')}>
-      <div className="flex items-center gap-2 mb-1">
+    <div
+      className={clsx(
+        'bg-white rounded-xl p-5 border border-gray-100/80',
+        href && 'hover:shadow-[0_4px_16px_-4px_rgba(15,23,42,0.08)] transition-shadow',
+      )}
+      style={{ boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)' }}
+    >
+      <div className="flex items-center gap-2 mb-2">
         <Icon size={14} className={accent === 'emerald' ? 'text-emerald-600' : accent === 'amber' ? 'text-amber-600' : accent === 'blue' ? 'text-blue-600' : 'text-sage-500'} />
-        <span className="text-xs font-medium text-sage-600">{label}</span>
+        <span className="text-xs font-medium text-sage-600 uppercase tracking-wider">{label}</span>
       </div>
-      <p className={clsx('text-xl font-bold', accent === 'emerald' ? 'text-emerald-700' : accent === 'amber' ? 'text-amber-700' : accent === 'blue' ? 'text-blue-700' : 'text-sage-800')}>{value}</p>
+      <p className={clsx('text-2xl font-bold tabular-nums', accent === 'emerald' ? 'text-emerald-700' : accent === 'amber' ? 'text-amber-700' : accent === 'blue' ? 'text-blue-700' : 'text-sage-800')}>{value}</p>
     </div>
   )
-  return href ? <Link href={href}>{content}</Link> : content
+  return href ? <Link href={href} className="block">{content}</Link> : content
 }
 
 function MiniCard({ label, value, accent, href }: { label: string; value: number; accent?: 'amber' | 'red' | 'blue'; href: string }) {
@@ -180,17 +188,20 @@ function MiniCard({ label, value, accent, href }: { label: string; value: number
 
 function ActivityPanel({ title, href, empty, children }: { title: string; href: string; empty?: boolean; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl border border-sage-100 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-sage-100">
+    <div
+      className="bg-white rounded-xl border border-gray-100/80 overflow-hidden"
+      style={{ boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)' }}
+    >
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
         <h2 className="text-sm font-semibold text-sage-800">{title}</h2>
         <Link href={href} className="inline-flex items-center gap-1 text-xs text-sage-500 hover:text-sage-700 transition-colors">
           View all <ArrowRight size={12} />
         </Link>
       </div>
       {empty ? (
-        <div className="px-4 py-8 text-center text-sm text-sage-500">None yet</div>
+        <div className="px-5 py-10 text-center text-sm text-sage-500">None yet</div>
       ) : (
-        <div className="divide-y divide-sage-50">{children}</div>
+        <div className="divide-y divide-gray-50">{children}</div>
       )}
     </div>
   )
