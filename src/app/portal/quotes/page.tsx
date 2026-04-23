@@ -2,27 +2,43 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { FileText, Plus, FileSearch } from 'lucide-react'
 import { StatusBadge } from '../_components/StatusBadge'
+import { loadDisplaySettings, QUOTE_FIELDS } from '@/lib/portal-display-settings'
 
 function formatCurrency(dollars: number) {
-  return new Intl.NumberFormat('en-NZ', {
-    style: 'currency',
-    currency: 'NZD',
-  }).format(dollars)
+  return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
 }
 
 function formatDate(iso: string | null) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-NZ', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+  return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+// Phase 2 — sort key → Supabase order. Allowed keys constrained by
+// QUOTE_FIELDS.sortable, so this is always safe.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyQuoteSort(query: any, sortBy: string, sortDirection: 'asc' | 'desc') {
+  const ascending = sortDirection === 'asc'
+  switch (sortBy) {
+    case 'created_at':   return query.order('created_at',   { ascending })
+    case 'date_issued':  return query.order('date_issued',  { ascending, nullsFirst: false })
+    case 'valid_until':  return query.order('valid_until',  { ascending, nullsFirst: false })
+    case 'status':       return query.order('status',       { ascending })
+    case 'quote_number': return query.order('quote_number', { ascending })
+    // 'total' is computed (base + items - discount) and can't be
+    // ordered server-side without a view; fall back to created_at.
+    case 'total':        return query.order('created_at',   { ascending: false })
+    default:             return query.order('created_at',   { ascending: false })
+  }
 }
 
 export default async function QuotesPage() {
   const supabase = createClient()
 
-  const { data: quotes, error } = await supabase
+  const display = await loadDisplaySettings(supabase)
+  const quotesList = display.quotes.list
+  const visible = new Set(quotesList.visibleFields)
+
+  let query = supabase
     .from('quotes')
     .select(`
       id,
@@ -36,17 +52,21 @@ export default async function QuotesPage() {
       service_address,
       service_category,
       version_number,
-      clients ( name ),
+      client_reference,
+      clients ( name, company_name ),
       quote_items ( price )
     `)
     .is('deleted_at', null)
     .eq('is_latest_version', true)
-    .order('created_at', { ascending: false })
+
+  query = applyQuoteSort(query, quotesList.sortBy, quotesList.sortDirection)
+
+  const { data: quotes, error } = await query
 
   if (error) {
     return (
       <div>
-        <h1 className="text-2xl font-bold text-sage-800 mb-6">Quotes</h1>
+        <h1 className="text-3xl font-bold text-sage-800 tracking-tight mb-8">Quotes</h1>
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700 text-sm">
           Failed to load quotes: {error.message}
         </div>
@@ -55,7 +75,7 @@ export default async function QuotesPage() {
   }
 
   const rows = (quotes ?? []).map((q) => {
-    const client = q.clients as unknown as { name: string } | null
+    const client = q.clients as unknown as { name: string; company_name: string | null } | null
     const items = (q.quote_items ?? []) as { price: number }[]
     const addOns = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
     const total = (q.base_price ?? 0) + addOns - (q.discount ?? 0)
@@ -67,17 +87,64 @@ export default async function QuotesPage() {
 
     return {
       id: q.id,
-      quoteNumber: displayNumber,
+      quote_number: displayNumber,
       versionNumber,
-      clientName: client?.name ?? 'No client',
+      client: client?.name ?? 'No client',
+      company: client?.company_name ?? '—',
       address: q.service_address ?? null,
       status: q.status ?? 'draft',
-      dateIssued: q.date_issued,
-      validUntil: q.valid_until,
       total,
+      date_issued: q.date_issued,
+      valid_until: q.valid_until,
+      created_at: q.created_at,
+      client_reference: q.client_reference ?? null,
       isCommercial: q.service_category === 'commercial',
     }
   })
+
+  // Render-time helpers
+  function cell(row: typeof rows[number], key: string): React.ReactNode {
+    switch (key) {
+      case 'quote_number':     return <span className="font-medium text-sage-800">{row.quote_number}</span>
+      case 'client':           return row.client
+      case 'company':          return row.company === '—' ? <span className="text-sage-400">—</span> : row.company
+      case 'address':          return row.address ? <span className="block max-w-[200px] truncate" title={row.address}>{row.address}</span> : <span className="text-sage-400">—</span>
+      case 'status':           return <StatusBadge kind="quote" status={row.status} />
+      case 'total':            return <span className="font-medium text-sage-800">{formatCurrency(row.total)}</span>
+      case 'date_issued':      return formatDate(row.date_issued)
+      case 'valid_until':      return formatDate(row.valid_until)
+      case 'created_at':       return formatDate(row.created_at)
+      case 'client_reference': return row.client_reference || <span className="text-sage-400">—</span>
+      default:                 return null
+    }
+  }
+
+  function rawCell(row: typeof rows[number], key: string): string {
+    switch (key) {
+      case 'quote_number':     return row.quote_number
+      case 'client':           return row.client
+      case 'company':          return row.company
+      case 'address':          return row.address || '—'
+      case 'status':           return row.status
+      case 'total':            return formatCurrency(row.total)
+      case 'date_issued':      return formatDate(row.date_issued)
+      case 'valid_until':      return formatDate(row.valid_until)
+      case 'created_at':       return formatDate(row.created_at)
+      case 'client_reference': return row.client_reference || '—'
+      default:                 return ''
+    }
+  }
+
+  const orderedVisible = QUOTE_FIELDS
+    .filter((f) => f.contexts.includes('list') && visible.has(f.key))
+    .map((f) => f.key)
+
+  const primaryKey = quotesList.primaryField
+  const secondaryKey = quotesList.secondaryField
+
+  function alignFor(key: string): string {
+    return key === 'total' ? 'text-right' : 'text-left'
+  }
 
   return (
     <div>
@@ -106,39 +173,28 @@ export default async function QuotesPage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-left text-sage-600">
-                  <th className="px-5 py-3 font-semibold">Quote #</th>
-                  <th className="px-5 py-3 font-semibold">Client</th>
-                  <th className="px-5 py-3 font-semibold">Address</th>
-                  <th className="px-5 py-3 font-semibold">Status</th>
-                  <th className="px-5 py-3 font-semibold">Issued</th>
-                  <th className="px-5 py-3 font-semibold">Valid until</th>
-                  <th className="px-5 py-3 font-semibold text-right">Total</th>
+                  {orderedVisible.map((k) => (
+                    <th key={k} className={`px-5 py-3 font-semibold ${alignFor(k)}`}>
+                      {QUOTE_FIELDS.find((f) => f.key === k)?.label ?? k}
+                    </th>
+                  ))}
                   <th className="px-3 py-3 font-semibold text-right" aria-label="Actions"></th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.id} className="border-b border-gray-50 last:border-0 group">
-                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors font-medium text-sage-800">{row.quoteNumber}</Link></td>
-                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-700">{row.clientName}</Link></td>
-                    <td className="p-0">
-                      <Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-600">
-                        {row.address ? (
-                          <span className="block max-w-[180px] truncate" title={row.address}>{row.address}</span>
-                        ) : (
-                          <span className="text-sage-400">—</span>
-                        )}
-                      </Link>
-                    </td>
-                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors"><StatusBadge kind="quote" status={row.status} /></Link></td>
-                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-600">{formatDate(row.dateIssued)}</Link></td>
-                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-600">{formatDate(row.validUntil)}</Link></td>
-                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-right font-medium text-sage-800">{formatCurrency(row.total)}</Link></td>
+                    {orderedVisible.map((k) => (
+                      <td key={k} className="p-0">
+                        <Link href={`/portal/quotes/${row.id}`} className={`block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-700 ${alignFor(k)}`}>
+                          {cell(row, k)}
+                        </Link>
+                      </td>
+                    ))}
                     <td className="px-3 py-3 text-right">
                       {row.isCommercial && (
                         <Link
@@ -158,26 +214,31 @@ export default async function QuotesPage() {
             </table>
           </div>
 
-          {/* Mobile cards */}
           <div className="md:hidden divide-y divide-gray-100">
             {rows.map((row) => (
               <Link key={row.id} href={`/portal/quotes/${row.id}`} className="block px-4 py-4 hover:bg-gray-50 transition-colors">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-medium text-sage-800">{row.quoteNumber}</span>
+                  <span className="font-medium text-sage-800">{rawCell(row, primaryKey)}</span>
                   <StatusBadge kind="quote" status={row.status} />
                 </div>
-                <div className="text-sage-600 text-sm">{row.clientName}</div>
-                {row.address && (
+                <div className="text-sage-600 text-sm">{rawCell(row, secondaryKey)}</div>
+                {visible.has('address') && primaryKey !== 'address' && secondaryKey !== 'address' && row.address && (
                   <div className="text-sage-500 text-xs truncate">{row.address}</div>
                 )}
                 <div className="flex items-center justify-between mt-2 text-xs text-sage-500">
-                  <span>{formatDate(row.dateIssued)}</span>
+                  <span>{formatDate(row.date_issued)}</span>
                   <span className="font-medium text-sage-800 text-sm">{formatCurrency(row.total)}</span>
                 </div>
               </Link>
             ))}
           </div>
         </div>
+      )}
+
+      {quotesList.groupBy !== 'none' && (
+        <p className="text-[11px] text-sage-400 mt-3 italic">
+          Group-by ({quotesList.groupBy}) will be wired in the next phase. Setting persists.
+        </p>
       )}
     </div>
   )
