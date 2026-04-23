@@ -306,7 +306,61 @@ function consumablesLabel(c: string | null | undefined): string {
   return c
 }
 
-// ── Executive summary ─────────────────────────────────────────────
+// ── Cleaning standard label (Phase 5B) ─────────────────────────────
+
+function cleaningStandardLabel(s: string | null | undefined): string {
+  if (s === 'maintenance')       return 'maintenance-grade'
+  if (s === 'high_presentation') return 'high-presentation'
+  if (s === 'premium')           return 'premium'
+  return ''
+}
+
+function cleaningStandardSummary(s: string | null | undefined): string {
+  if (s === 'maintenance')       return 'a consistent maintenance-grade clean'
+  if (s === 'high_presentation') return 'a high-presentation finish across visible spaces'
+  if (s === 'premium')           return 'a premium finish across the full site'
+  return 'a consistent cleaning standard'
+}
+
+// ── Sector field access (Phase 5B) ─────────────────────────────────
+// commercial_quote_details.sector_fields is a free-form JSONB driven
+// by SECTOR_FIELD_PACKS. Read with a small typed helper so the
+// content layer can pull staff_count, public_facing_areas, etc.
+// without fighting `unknown`.
+
+function readSectorString(details: CommercialQuoteDetails, key: string): string {
+  const raw = details.sector_fields?.[key]
+  if (typeof raw === 'string') return raw.trim()
+  return ''
+}
+function readSectorNumber(details: CommercialQuoteDetails, key: string): number | null {
+  const raw = details.sector_fields?.[key]
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    const n = Number(raw)
+    if (Number.isFinite(n)) return n
+  }
+  return null
+}
+function readSectorBool(details: CommercialQuoteDetails, key: string): boolean {
+  return details.sector_fields?.[key] === true
+}
+function readSectorChips(details: CommercialQuoteDetails, key: string): string[] {
+  const raw = details.sector_fields?.[key]
+  if (!Array.isArray(raw)) return []
+  return raw.filter((v): v is string => typeof v === 'string')
+}
+
+function joinList(items: string[]): string {
+  if (items.length === 0) return ''
+  if (items.length === 1) return items[0]
+  if (items.length === 2) return `${items[0]} and ${items[1]}`
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`
+}
+
+// ── Executive summary (Phase 5B refresh) ──────────────────────────
+// Tighter opening, sector-subtype aware, cleaning-standard aware.
+// Drops generic "across all agreed areas" filler.
 
 export function buildExecutiveSummary(
   details: CommercialQuoteDetails,
@@ -314,39 +368,254 @@ export function buildExecutiveSummary(
   clientName: string | null,
 ): string {
   const sector = sectorLabel(details.sector_category).toLowerCase()
+  const subtype = details.sector_subtype?.trim() ?? ''
+  const standardLabel = cleaningStandardLabel(details.cleaning_standard)
+  const standardSummary = cleaningStandardSummary(details.cleaning_standard)
   const who = clientName ? ` for ${clientName}` : ''
 
-  // Opening
-  const opening = `Sano has prepared this commercial cleaning proposal${who}.`
+  // Opening — names the site type and what's being proposed in one go
+  const sectorPhrase = subtype ? `${subtype} ${sector}` : sector
+  const standardPrefix = standardLabel ? `${standardLabel} ` : ''
+  const opening = `This proposal sets out a ${standardPrefix}commercial cleaning programme${who} at the ${sectorPhrase} site below.`
 
-  // Site sentence — pieces it together from what's captured
+  // Site sentence — only built from what's captured; never reaches
+  // for filler when fields are sparse.
   const siteBits: string[] = []
   const building = buildingTypeLabel(details.building_type).toLowerCase()
-  siteBits.push(building ? `a ${building} ${sector} site` : `a ${sector} site`)
+  if (building) siteBits.push(`The building is ${building}`)
   const area = fmtArea(details.total_area_m2)
   if (area) siteBits.push(`covering approximately ${area}`)
   const floors = fmtCount(details.floor_count, 'floor')
   if (floors) siteBits.push(`across ${floors}`)
   const occ = occupancyLabel(details.occupancy_level).toLowerCase()
   const traf = trafficLabel(details.traffic_level).toLowerCase()
-  if (occ && traf) siteBits.push(`with ${occ} occupancy and ${traf} traffic`)
+  if (occ && traf) siteBits.push(`with ${occ} occupancy and ${traf} foot traffic`)
   else if (occ) siteBits.push(`with ${occ} occupancy`)
-  else if (traf) siteBits.push(`with ${traf} traffic`)
-  const site = `The site is ${siteBits.join(' ')}.`
+  else if (traf) siteBits.push(`with ${traf} foot traffic`)
+  const site = siteBits.length > 0 ? `${siteBits.join(' ')}.` : ''
 
-  // Rhythm sentence
+  // Rhythm — schedule + standard in one sentence so the reader has
+  // both rhythm and quality bar in one breath.
   const schedule = buildServiceSchedule(details)
   const rhythm = schedule.frequency_summary
-    ? `Service is delivered ${schedule.frequency_summary.toLowerCase()}.`
-    : ''
+    ? `Service runs ${schedule.frequency_summary.toLowerCase()}, delivered to ${standardSummary}.`
+    : `Service is delivered to ${standardSummary}.`
 
-  // Scope
+  // Scope — concrete count when present, restrained fallback otherwise.
   const includedCount = scope.filter((r) => r.included).length
   const scopeLine = includedCount > 0
-    ? `The programme covers ${includedCount} defined ${includedCount === 1 ? 'task' : 'tasks'} across the agreed areas, designed to maintain a consistent ${sector} cleaning standard.`
-    : `The programme will cover all agreed areas to maintain a consistent ${sector} cleaning standard.`
+    ? `The programme covers ${includedCount} defined ${includedCount === 1 ? 'task' : 'tasks'} across the agreed areas, set out in the scope of works below.`
+    : ''
 
   return [opening, site, rhythm, scopeLine].filter(Boolean).join(' ')
+}
+
+// ── Site Understanding (Phase 5B) ──────────────────────────────────
+// One short paragraph that demonstrates the operational read of the
+// site — staff density, what's public-facing, which constraints
+// matter. Returns '' when there's nothing useful to say.
+
+export function buildSiteUnderstanding(
+  details: CommercialQuoteDetails,
+): string {
+  const sentences: string[] = []
+
+  const staffCount = readSectorNumber(details, 'staff_count')
+  const publicAreas = readSectorString(details, 'public_facing_areas')
+  const wasteStreams = readSectorChips(details, 'waste_streams')
+  const internalGlass = readSectorString(details, 'internal_glass_frequency')
+  const deskSanitation = readSectorBool(details, 'desk_sanitation_required')
+
+  // 1. Density / public profile
+  const densityBits: string[] = []
+  if (staffCount && staffCount > 0) {
+    densityBits.push(`The site supports around ${staffCount} staff`)
+  }
+  if (publicAreas) {
+    densityBits.push(densityBits.length === 0
+      ? `Public-facing areas include ${publicAreas.toLowerCase()}`
+      : `with public-facing areas including ${publicAreas.toLowerCase()}`)
+  }
+  if (densityBits.length > 0) sentences.push(densityBits.join(' ') + '.')
+
+  // 2. Operational rhythm influences (waste, glass, desks)
+  const rhythmBits: string[] = []
+  if (wasteStreams.length > 0) {
+    const labelled = wasteStreams.map((w) => w.replace(/_/g, ' '))
+    rhythmBits.push(`waste streams covering ${joinList(labelled)}`)
+  }
+  if (internalGlass && internalGlass !== 'as_required') {
+    const glassLabel = internalGlass.replace(/_/g, ' ')
+    rhythmBits.push(`internal glass on a ${glassLabel} rotation`)
+  }
+  if (deskSanitation) rhythmBits.push('desk-touchpoint sanitisation as part of the routine')
+  if (rhythmBits.length > 0) {
+    sentences.push(`The programme accounts for ${joinList(rhythmBits)}.`)
+  }
+
+  // 3. Constraint flags (operational reality) — keep client-safe.
+  const constraintBits: string[] = []
+  if (details.security_sensitive)  constraintBits.push('security-sensitive areas')
+  if (details.induction_required)  constraintBits.push('a formal site induction before first visit')
+  if (details.restricted_areas)    constraintBits.push('restricted zones held outside the cleaning scope')
+  if (constraintBits.length > 0) {
+    sentences.push(`Operational constraints noted on this site include ${joinList(constraintBits)}, all built into the planning and briefing of the assigned crew.`)
+  }
+
+  return sentences.join(' ')
+}
+
+// ── Service Plan (Phase 5B) ────────────────────────────────────────
+// Tight paragraph describing rhythm + quality bar + the few
+// operational hooks that shape how the work happens.
+
+export function buildServicePlan(
+  details: CommercialQuoteDetails,
+): string {
+  const schedule = buildServiceSchedule(details)
+  const standard = cleaningStandardSummary(details.cleaning_standard)
+
+  const sentences: string[] = []
+
+  // 1. Rhythm
+  if (schedule.service_days && schedule.service_window) {
+    sentences.push(`The crew works ${schedule.service_days.toLowerCase()} during the ${schedule.service_window} window.`)
+  } else if (schedule.service_days) {
+    sentences.push(`The crew works ${schedule.service_days.toLowerCase()}.`)
+  } else if (schedule.service_window) {
+    sentences.push(`The crew operates during the ${schedule.service_window} service window.`)
+  }
+
+  // 2. Standard & focus
+  sentences.push(`Each visit is delivered to ${standard}, with the same crew on site so they learn the building and its rhythms.`)
+
+  // 3. Consumables, if specified
+  if (schedule.consumables) {
+    sentences.push(`Consumables are ${schedule.consumables.toLowerCase()}.`)
+  }
+
+  // 4. Reporting hook — kept generic, no internal jargon
+  sentences.push('Issues noted during a visit are flagged to the nominated site contact promptly so nothing surprises the client at month end.')
+
+  return sentences.join(' ')
+}
+
+// ── Pricing support text (Phase 5B) ────────────────────────────────
+// One short, confident line that frames the pricing block. Never
+// mentions margin, labour basis, hours, or any internal logic.
+
+export function buildPricingSupport(
+  details: CommercialQuoteDetails,
+): string {
+  const standard = cleaningStandardLabel(details.cleaning_standard)
+  const standardClause = standard
+    ? ` for the ${standard} programme set out above`
+    : ' for the programme set out above'
+  return `The monthly service fee below reflects the recurring service${standardClause}. Add-ons are listed separately. Pricing is held for the validity period shown on the cover.`
+}
+
+// ── Commercial terms (Phase 5B) ────────────────────────────────────
+// Structured rows for a small "Commercial Terms" block. Each entry
+// is rendered only when the underlying field is set — empty rows
+// never surface.
+
+const CONTRACT_TERM_LABEL: Record<string, string> = {
+  '3_months':  'Initial 3-month term',
+  '6_months':  'Initial 6-month term',
+  '12_months': 'Initial 12-month term',
+  open:        'Open-ended (no fixed term)',
+}
+
+export interface CommercialTermsRow {
+  label: string
+  value: string
+}
+
+export interface CommercialTermsView {
+  rows: CommercialTermsRow[]
+  /** Short closing line tied to the contract / start data, or '' when
+   *  nothing useful can be said. Surfaces under the rows. */
+  closing: string
+}
+
+export function buildCommercialTerms(
+  details: CommercialQuoteDetails,
+): CommercialTermsView {
+  const rows: CommercialTermsRow[] = []
+
+  const startDate = fmtProposalDateOrNull(details.service_start_date)
+  if (startDate) rows.push({ label: 'Proposed service start', value: startDate })
+
+  if (details.contract_term && CONTRACT_TERM_LABEL[details.contract_term]) {
+    rows.push({ label: 'Engagement term', value: CONTRACT_TERM_LABEL[details.contract_term] })
+  }
+
+  if (details.notice_period_days != null && details.notice_period_days > 0) {
+    rows.push({
+      label: 'Notice period',
+      value: `${details.notice_period_days} day${details.notice_period_days === 1 ? '' : 's'} written notice either side`,
+    })
+  }
+
+  if (details.client_reference?.trim()) {
+    rows.push({ label: 'Client reference / PO', value: details.client_reference.trim() })
+  } else if (details.requires_po) {
+    rows.push({ label: 'Purchase order', value: 'Client to issue a PO before invoicing — invoices held until received' })
+  }
+
+  if (details.accounts_email?.trim()) {
+    const accountsContact = details.accounts_contact_name?.trim()
+    rows.push({
+      label: 'Invoicing contact',
+      value: accountsContact ? `${accountsContact} — ${details.accounts_email.trim()}` : details.accounts_email.trim(),
+    })
+  }
+
+  // Closing line — short, only when there's a meaningful operational
+  // detail to anchor it against.
+  let closing = ''
+  if (details.induction_required && startDate) {
+    closing = `A site induction is held before the first scheduled visit so the team is operational on the ${startDate} start.`
+  } else if (details.induction_required) {
+    closing = 'A site induction is held before the first scheduled visit so the team is operational from day one.'
+  }
+
+  return { rows, closing }
+}
+
+// ── Next Steps (Phase 5B) ──────────────────────────────────────────
+// Replaces the hard-coded acceptance prose with copy that uses real
+// data when present (start date, term length).
+
+export function buildNextStepsText(
+  details: CommercialQuoteDetails,
+  status: string | null,
+  acceptedAtFormatted: string | null,
+): string {
+  if (status === 'accepted' && acceptedAtFormatted) {
+    return `This proposal was accepted on ${acceptedAtFormatted}. We will confirm the mobilisation plan in writing and proceed to the start date below.`
+  }
+
+  const startDate = fmtProposalDateOrNull(details.service_start_date)
+  const termLabel = details.contract_term && CONTRACT_TERM_LABEL[details.contract_term]
+    ? CONTRACT_TERM_LABEL[details.contract_term].toLowerCase()
+    : ''
+
+  // Build a short, forward-looking paragraph from whatever's known.
+  const bits: string[] = []
+  bits.push('To proceed, please confirm acceptance and a Sano coordinator will follow up within one business day.')
+
+  if (startDate) {
+    bits.push(`Mobilisation is scheduled around the proposed start of ${startDate}.`)
+  } else {
+    bits.push('A start date will be confirmed in writing once accepted.')
+  }
+
+  if (termLabel) {
+    bits.push(`The agreement runs on an ${termLabel} basis from the agreed start.`)
+  }
+
+  return bits.join(' ')
 }
 
 // ── Pricing summary (client-safe) ─────────────────────────────────
@@ -548,6 +817,16 @@ export interface ProposalPayload {
    *  rendered between Scope and Assumptions. Optional for backward
    *  compatibility — renderers that don't know the field skip it. */
   optional_paragraphs?: OptionalParagraph[]
+
+  /** Phase 5B — content quality additions. All optional so older
+   *  payloads keep rendering. Each is non-empty only when the source
+   *  data made saying something worthwhile. Renderers should skip
+   *  the corresponding section/paragraph when missing or empty. */
+  site_understanding?: string
+  service_plan?: string
+  pricing_support?: string
+  commercial_terms?: CommercialTermsView
+  next_steps_text?: string
 }
 
 export interface BuildProposalPayloadInput {
@@ -623,6 +902,15 @@ export function buildProposalPayload(input: BuildProposalPayloadInput): Proposal
     paragraph: buildAreaParagraph(g, details),
   }))
 
+  // Phase 5B — content paragraphs from existing data. Each helper
+  // returns '' / empty rows when the source data is sparse, so the
+  // template can skip rendering cleanly.
+  const siteUnderstanding = buildSiteUnderstanding(details)
+  const servicePlan       = buildServicePlan(details)
+  const pricingSupport    = buildPricingSupport(details)
+  const commercialTerms   = buildCommercialTerms(details)
+  const nextStepsText     = buildNextStepsText(details, quote.status, fmtProposalDateOrNull(quote.accepted_at))
+
   return {
     meta,
     sano: issuer,
@@ -642,6 +930,16 @@ export function buildProposalPayload(input: BuildProposalPayloadInput): Proposal
                       ),
     why_sano:         whyBullets,
     optional_paragraphs: buildOptionalParagraphs(details),
+
+    // Phase 5B — only attach when the helper produced content,
+    // so absent fields surface as undefined (template can skip).
+    site_understanding: siteUnderstanding || undefined,
+    service_plan:       servicePlan || undefined,
+    pricing_support:    pricingSupport,
+    commercial_terms:   commercialTerms.rows.length > 0 || commercialTerms.closing
+                          ? commercialTerms
+                          : undefined,
+    next_steps_text:    nextStepsText,
     acceptance,
   }
 }
