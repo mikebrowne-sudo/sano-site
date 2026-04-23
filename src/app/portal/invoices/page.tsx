@@ -1,15 +1,8 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { Receipt } from 'lucide-react'
-import clsx from 'clsx'
-
-const STATUS_STYLES: Record<string, string> = {
-  draft:     'bg-gray-100 text-gray-700',
-  sent:      'bg-blue-50 text-blue-700',
-  paid:      'bg-emerald-50 text-emerald-700',
-  overdue:   'bg-amber-50 text-amber-700',
-  cancelled: 'bg-red-50 text-red-700',
-}
+import { StatusBadge } from '../_components/StatusBadge'
+import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 
 function fmt(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
@@ -31,6 +24,7 @@ export default async function InvoicesPage() {
       clients ( name ),
       invoice_items ( price )
     `)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -44,21 +38,17 @@ export default async function InvoicesPage() {
     )
   }
 
-  const today = new Date().toISOString().slice(0, 10)
-
   const rows = (invoices ?? []).map((inv) => {
     const client = inv.clients as unknown as { name: string } | null
     const items = (inv.invoice_items ?? []) as { price: number }[]
     const addOns = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
     const total = (inv.base_price ?? 0) + addOns - (inv.discount ?? 0)
-    const dbStatus = inv.status ?? 'draft'
-    const isOverdue = dbStatus === 'sent' && inv.due_date && inv.due_date < today
 
     return {
       id: inv.id,
       invoiceNumber: inv.invoice_number,
       clientName: client?.name ?? 'No client',
-      status: isOverdue ? 'overdue' : dbStatus,
+      status: computeInvoiceDisplayStatus(inv.status, inv.due_date),
       dateIssued: inv.date_issued,
       dueDate: inv.due_date,
       total,
@@ -101,7 +91,7 @@ export default async function InvoicesPage() {
                   <tr key={row.id} className="border-b border-sage-50 last:border-0 group">
                     <td className="p-0"><Link href={`/portal/invoices/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors font-medium text-sage-800">{row.invoiceNumber}</Link></td>
                     <td className="p-0"><Link href={`/portal/invoices/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-700">{row.clientName}</Link></td>
-                    <td className="p-0"><Link href={`/portal/invoices/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors"><span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', STATUS_STYLES[row.status] ?? STATUS_STYLES.draft)}>{row.status}</span></Link></td>
+                    <td className="p-0"><Link href={`/portal/invoices/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors"><StatusBadge kind="invoice" status={row.status} /></Link></td>
                     <td className="p-0"><Link href={`/portal/invoices/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{fmtDate(row.dateIssued)}</Link></td>
                     <td className="p-0"><Link href={`/portal/invoices/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{fmtDate(row.dueDate)}</Link></td>
                     <td className="p-0"><Link href={`/portal/invoices/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-right font-medium text-sage-800">{fmt(row.total)}</Link></td>
@@ -116,9 +106,7 @@ export default async function InvoicesPage() {
               <Link key={row.id} href={`/portal/invoices/${row.id}`} className="block px-4 py-4 hover:bg-sage-50/50 transition-colors">
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-medium text-sage-800">{row.invoiceNumber}</span>
-                  <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', STATUS_STYLES[row.status] ?? STATUS_STYLES.draft)}>
-                    {row.status}
-                  </span>
+                  <StatusBadge kind="invoice" status={row.status} />
                 </div>
                 <div className="text-sage-600 text-sm">{row.clientName}</div>
                 <div className="flex items-center justify-between mt-2 text-xs text-sage-500">

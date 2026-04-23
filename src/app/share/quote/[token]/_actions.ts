@@ -3,6 +3,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { revalidatePath } from 'next/cache'
+import { getServiceSupabase } from '@/lib/supabase-service'
 
 function getPublicSupabase() {
   return createClient(
@@ -52,6 +53,21 @@ export async function acceptQuote(shareToken: string) {
   if (updateErr) {
     return { error: `Failed to accept: ${updateErr.message}` }
   }
+
+  // Phase 6 — audit the public-share acceptance. actor_id is NULL because
+  // there's no auth session on the share route; actor_role distinguishes
+  // it from staff acceptance flows. Uses the service-role client because
+  // audit_log INSERT is restricted to authenticated.
+  const service = getServiceSupabase()
+  await service.from('audit_log').insert({
+    actor_id: null,
+    actor_role: 'public_share',
+    action: 'quote.status-changed',
+    entity_table: 'quotes',
+    entity_id: quote.id,
+    before: { status: quote.status },
+    after: { status: 'accepted', accepted_at: quote.accepted_at || now, source: 'share_page_accept' },
+  })
 
   // Send confirmation email
   const client = quote.clients as unknown as { name: string; email: string | null } | null

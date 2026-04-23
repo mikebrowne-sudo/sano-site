@@ -1,16 +1,18 @@
 'use client'
 
+// Hard-delete control kept for clients / jobs / contractors only.
+// Quotes and invoices switched to soft-delete (archive) in Phase 6 —
+// see ArchiveQuoteButton + ArchiveInvoiceButton.
+
 import { useState, useTransition } from 'react'
 import {
-  deleteQuote,
-  deleteInvoice,
   deleteClient,
   deleteJob,
   deleteContractor,
 } from '../_actions/delete-record'
 import { Trash2 } from 'lucide-react'
 
-type DeleteType = 'quote' | 'invoice' | 'client' | 'job' | 'contractor'
+type DeleteType = 'client' | 'job' | 'contractor'
 
 const CONFIRM_HEADLINE: Partial<Record<DeleteType, string>> = {
   job: 'This will permanently delete this job.',
@@ -26,9 +28,7 @@ export function DeleteButton({ type, id }: { type: DeleteType; id: string }) {
     setError(null)
     startTransition(async () => {
       const result =
-        type === 'quote' ? await deleteQuote(id)
-        : type === 'invoice' ? await deleteInvoice(id)
-        : type === 'client' ? await deleteClient(id)
+        type === 'client' ? await deleteClient(id)
         : type === 'job' ? await deleteJob(id)
         : await deleteContractor(id)
 

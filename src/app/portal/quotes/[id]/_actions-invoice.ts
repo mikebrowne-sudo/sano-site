@@ -112,11 +112,33 @@ export async function convertToInvoice(quoteId: string) {
     }
   }
 
-  // 6. Mark quote as accepted
+  // 6. Phase 6 — mark quote as converted (was 'accepted'). accepted_at
+  // is preserved untouched. Audit the transition.
+  const { data: priorQuote } = await supabase
+    .from('quotes')
+    .select('status, accepted_at')
+    .eq('id', quoteId)
+    .single()
+
   await supabase
     .from('quotes')
-    .update({ status: 'accepted' })
+    .update({ status: 'converted' })
     .eq('id', quoteId)
+
+  const { data: { user } } = await supabase.auth.getUser()
+  await supabase.from('audit_log').insert({
+    actor_id: user?.id ?? null,
+    actor_role: 'staff',
+    action: 'quote.converted',
+    entity_table: 'quotes',
+    entity_id: quoteId,
+    before: { status: priorQuote?.status ?? null },
+    after: {
+      status: 'converted',
+      accepted_at_preserved: priorQuote?.accepted_at ?? null,
+      invoice_id: invoice.id,
+    },
+  })
 
   redirect(`/portal/invoices/${invoice.id}`)
 }

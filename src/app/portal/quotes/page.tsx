@@ -1,14 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { FileText, Plus, FileSearch } from 'lucide-react'
-import clsx from 'clsx'
-
-const STATUS_STYLES: Record<string, string> = {
-  draft:    'bg-gray-100 text-gray-700',
-  sent:     'bg-blue-50 text-blue-700',
-  accepted: 'bg-emerald-50 text-emerald-700',
-  declined: 'bg-red-50 text-red-700',
-}
+import { StatusBadge } from '../_components/StatusBadge'
 
 function formatCurrency(dollars: number) {
   return new Intl.NumberFormat('en-NZ', {
@@ -42,9 +35,12 @@ export default async function QuotesPage() {
       created_at,
       service_address,
       service_category,
+      version_number,
       clients ( name ),
       quote_items ( price )
     `)
+    .is('deleted_at', null)
+    .eq('is_latest_version', true)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -64,9 +60,15 @@ export default async function QuotesPage() {
     const addOns = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
     const total = (q.base_price ?? 0) + addOns - (q.discount ?? 0)
 
+    const versionNumber = (q.version_number as number | null) ?? 1
+    const displayNumber = versionNumber > 1
+      ? `${q.quote_number}-v${versionNumber}`
+      : q.quote_number
+
     return {
       id: q.id,
-      quoteNumber: q.quote_number,
+      quoteNumber: displayNumber,
+      versionNumber,
       clientName: client?.name ?? 'No client',
       address: q.service_address ?? null,
       status: q.status ?? 'draft',
@@ -133,7 +135,7 @@ export default async function QuotesPage() {
                         )}
                       </Link>
                     </td>
-                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors"><span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', STATUS_STYLES[row.status] ?? STATUS_STYLES.draft)}>{row.status}</span></Link></td>
+                    <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors"><StatusBadge kind="quote" status={row.status} /></Link></td>
                     <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{formatDate(row.dateIssued)}</Link></td>
                     <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{formatDate(row.validUntil)}</Link></td>
                     <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-right font-medium text-sage-800">{formatCurrency(row.total)}</Link></td>
@@ -162,9 +164,7 @@ export default async function QuotesPage() {
               <Link key={row.id} href={`/portal/quotes/${row.id}`} className="block px-4 py-4 hover:bg-sage-50/50 transition-colors">
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-medium text-sage-800">{row.quoteNumber}</span>
-                  <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', STATUS_STYLES[row.status] ?? STATUS_STYLES.draft)}>
-                    {row.status}
-                  </span>
+                  <StatusBadge kind="quote" status={row.status} />
                 </div>
                 <div className="text-sage-600 text-sm">{row.clientName}</div>
                 {row.address && (

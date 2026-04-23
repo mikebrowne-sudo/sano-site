@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { updateQuote } from '../_actions'
+import { createNewVersion } from '../../_actions-versioning'
+import { useRouter } from 'next/navigation'
 import { AddressField } from '../../../_components/AddressField'
 import { QuoteBuilder, emptyBuilderState, type QuoteBuilderState } from '../../_components/QuoteBuilder'
 import { PricingSummary, type PricingSummaryValue } from '../../_components/PricingSummary'
@@ -11,6 +13,7 @@ import { computeFinalPrice } from '../../new/_components/final-price'
 import { calculateQuotePrice, isPricingEligible, type PricingBreakdown, type PricingMode } from '@/lib/quote-pricing'
 import { SERVICE_TYPES_BY_CATEGORY, type ServiceCategory } from '@/lib/quote-wording'
 import type { CommercialQuoteDetails, CommercialScopeItem } from '@/lib/commercialQuote'
+import { QUOTE_STATUS_STYLES as STATUS_STYLES, isQuoteLocked } from '@/lib/quote-status'
 import {
   saveCommercialDetails,
   saveCommercialScope,
@@ -39,19 +42,16 @@ import type { PricingSettings } from '@/lib/pricingSettings'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 
+// Phase 6 — status options shown in the manual status switcher.
+// Note that 'viewed' is set automatically by the share-page open handler
+// and 'converted' is set automatically by the convert-to-invoice flow,
+// so they're not selectable here. They DO render in the badge though.
 const STATUSES = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'sent', label: 'Sent' },
+  { value: 'draft',    label: 'Draft' },
+  { value: 'sent',     label: 'Sent' },
   { value: 'accepted', label: 'Accepted' },
   { value: 'declined', label: 'Declined' },
 ]
-
-const STATUS_STYLES: Record<string, string> = {
-  draft:    'bg-gray-100 text-gray-700',
-  sent:     'bg-blue-50 text-blue-700',
-  accepted: 'bg-emerald-50 text-emerald-700',
-  declined: 'bg-red-50 text-red-700',
-}
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -111,6 +111,14 @@ interface Quote {
   override_confirmed_by?: string | null
   override_confirmed_at?: string | null
   calculated_price?: number | null
+  // Phase 6 — versioning fields. Used to lock the form on non-latest /
+  // accepted / converted / declined / archived rows, and to branch the
+  // save behaviour between in-place update and new-version creation.
+  version_number?: number
+  parent_quote_id?: string | null
+  is_latest_version?: boolean
+  version_note?: string | null
+  deleted_at?: string | null
   // Phase 5D — universal contact / billing / reference fields
   contact_name?: string | null
   contact_email?: string | null
@@ -228,9 +236,19 @@ export function EditQuoteForm({
   })
   const [overrideErrors, setOverrideErrors] = useState<OverrideValidationErrors>({})
 
-  // Only an accepted quote locks pricing — staff need to negotiate sent quotes.
-  // To edit an accepted quote, change its status to draft first.
-  const isLocked = quote.status === 'accepted'
+  // Phase 6 — lock the form when:
+  //   1. the row is archived, OR
+  //   2. it isn't the latest version of its chain (history is read-only), OR
+  //   3. its status is one of accepted / declined / converted.
+  // Sent / viewed are NOT locked — saving from those creates a new draft
+  // version (handled in handleSubmit).
+  const isLocked =
+    !!quote.deleted_at ||
+    quote.is_latest_version === false ||
+    isQuoteLocked(quote.status)
+
+  const willCreateNewVersion =
+    !isLocked && (quote.status === 'sent' || quote.status === 'viewed')
 
   // Add-ons — seed from existing items
   const [addons, setAddons] = useState<Addon[]>(
@@ -332,6 +350,7 @@ export function EditQuoteForm({
   })
 
   // Submit state
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -392,10 +411,31 @@ export function EditQuoteForm({
         }
 
     startTransition(async () => {
+      // Phase 6 — branch on whether saving requires a new version. For
+      // sent / viewed quotes we clone first, then write the form's edits
+      // onto the new draft, then redirect the operator to it. For draft
+      // quotes (in-place edit) and locked rows (no edits anyway), the
+      // existing target is just `quote.id`.
+      let targetId = quote.id
+      let targetStatus = status
+      if (willCreateNewVersion) {
+        const versionResult = await createNewVersion(quote.id, {
+          version_note: 'Edit while sent — auto-created on save',
+        })
+        if ('error' in versionResult && versionResult.error) {
+          setError(versionResult.error)
+          return
+        }
+        if (versionResult.new_quote_id) {
+          targetId = versionResult.new_quote_id
+          targetStatus = 'draft'
+        }
+      }
+
       const result = await updateQuote({
-        id: quote.id,
+        id: targetId,
         client_id: clientId,
-        status,
+        status: targetStatus,
         date_issued: dateIssued || undefined,
         valid_until: validUntil || undefined,
         // Legacy label for pricing/items renderer
@@ -461,18 +501,24 @@ export function EditQuoteForm({
             : undefined,
         )
         if (detailsInput) {
-          const detailsResult = await saveCommercialDetails(quote.id, detailsInput)
+          const detailsResult = await saveCommercialDetails(targetId, detailsInput)
           if ('error' in detailsResult) {
             setError(`Quote saved but commercial details failed: ${detailsResult.error}`)
             return
           }
         }
         const scopeInput = toScopeItemsInput(commercialScope)
-        const scopeResult = await saveCommercialScope(quote.id, scopeInput)
+        const scopeResult = await saveCommercialScope(targetId, scopeInput)
         if ('error' in scopeResult) {
           setError(`Quote saved but commercial scope failed: ${scopeResult.error}`)
           return
         }
+      }
+
+      // If we created a new version, take the operator to it.
+      if (willCreateNewVersion && targetId !== quote.id) {
+        router.push(`/portal/quotes/${targetId}`)
+        return
       }
 
       setSaved(true)
@@ -499,7 +545,7 @@ export function EditQuoteForm({
               className={clsx(
                 'px-4 py-2 rounded-lg text-sm font-medium transition-colors border',
                 status === s.value
-                  ? `${STATUS_STYLES[s.value]} border-current`
+                  ? `${STATUS_STYLES[s.value as keyof typeof STATUS_STYLES]} border-current`
                   : 'bg-white text-sage-600 border-sage-200 hover:bg-sage-50',
               )}
             >
@@ -770,14 +816,21 @@ export function EditQuoteForm({
       <div className="flex items-center gap-4">
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || isLocked}
           className="bg-sage-500 text-white font-semibold px-6 py-3 rounded-lg hover:bg-sage-700 transition-colors disabled:opacity-50"
         >
-          {isPending ? 'Saving…' : 'Save Changes'}
+          {isPending
+            ? (willCreateNewVersion ? 'Creating new version…' : 'Saving…')
+            : (willCreateNewVersion ? 'Save as new version' : 'Save Changes')}
         </button>
         <a href="/portal/quotes" className="text-sm text-sage-600 hover:text-sage-800 transition-colors">
           Back to quotes
         </a>
+        {willCreateNewVersion && (
+          <span className="text-xs text-sage-500 italic">
+            This quote has been sent — saving will create a new draft version (v{(quote.version_number ?? 1) + 1}).
+          </span>
+        )}
       </div>
     </form>
   )

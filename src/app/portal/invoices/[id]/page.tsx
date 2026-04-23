@@ -5,18 +5,12 @@ import { ArrowLeft, Printer } from 'lucide-react'
 import { SendInvoicePanel } from './_components/SendInvoicePanel'
 import { MarkAsPaidButton } from './_components/MarkAsPaidButton'
 import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
-import { DeleteButton } from '../../_components/DeleteButton'
+import { ArchiveInvoiceButton } from './_components/ArchiveInvoiceButton'
 import { InvoiceJobButton } from './_components/InvoiceJobButton'
 import { firstName } from '@/lib/doc-helpers'
+import { StatusBadge } from '../../_components/StatusBadge'
+import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 import clsx from 'clsx'
-
-const STATUS_STYLES: Record<string, string> = {
-  draft:     'bg-gray-100 text-gray-700',
-  sent:      'bg-blue-50 text-blue-700',
-  paid:      'bg-emerald-50 text-emerald-700',
-  overdue:   'bg-amber-50 text-amber-700',
-  cancelled: 'bg-red-50 text-red-700',
-}
 
 function fmt(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
@@ -47,6 +41,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         contact_name, contact_email, contact_phone,
         accounts_contact_name, accounts_email,
         client_reference, requires_po,
+        deleted_at,
         clients ( name, company_name )
       `)
       .eq('id', params.id)
@@ -90,9 +85,8 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   if (invoice.service_address) serviceLines.push({ label: 'Address', value: invoice.service_address })
 
   // Overdue logic (UI only)
-  const today = new Date().toISOString().slice(0, 10)
-  const isOverdue = invoice.status === 'sent' && invoice.due_date && invoice.due_date < today
-  const displayStatus = isOverdue ? 'overdue' : invoice.status
+  const displayStatus = computeInvoiceDisplayStatus(invoice.status, invoice.due_date)
+  const isOverdue = displayStatus === 'overdue'
   const showMarkPaid = displayStatus !== 'paid' && displayStatus !== 'cancelled'
 
   return (
@@ -115,9 +109,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
           )}
         </div>
         <div className="flex items-center gap-3">
-          <span className={clsx('inline-block px-3 py-1 rounded-full text-sm font-medium capitalize', STATUS_STYLES[displayStatus] ?? STATUS_STYLES.draft)}>
-            {displayStatus}
-          </span>
+          <StatusBadge kind="invoice" status={displayStatus} size="md" />
           {showMarkPaid && <MarkAsPaidButton invoiceId={invoice.id} />}
           <InvoiceJobButton invoiceId={invoice.id} linkedJob={linkedJob ?? null} />
           <a
@@ -142,10 +134,26 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
           />
         </div>
       </div>
-      <div className="flex justify-end mb-6">
+      <div className="flex justify-end mb-6 gap-2">
         <RegenerateShareLink table="invoices" id={invoice.id} />
-        {isAdmin && <DeleteButton type="invoice" id={invoice.id} />}
+        {isAdmin && !invoice.deleted_at && (
+          <ArchiveInvoiceButton
+            invoiceId={invoice.id}
+            invoiceNumber={invoice.invoice_number}
+            invoiceStatus={displayStatus}
+          />
+        )}
       </div>
+
+      {invoice.deleted_at && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 mb-6">
+          <p className="text-sm text-red-900 font-semibold">This invoice is archived.</p>
+          <p className="text-xs text-red-800 mt-0.5">
+            Archived on {new Date(invoice.deleted_at).toLocaleString('en-NZ')}.
+            Restore it from <strong>Settings → Archived Records</strong>.
+          </p>
+        </div>
+      )}
 
       <div className="max-w-2xl space-y-8">
         {/* Client */}

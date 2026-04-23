@@ -9,7 +9,6 @@
 // Exposed:
 //   saveCommercialDetails(quote_id, input)  — upsert commercial_quote_details
 //   saveCommercialScope(quote_id, items)    — replace commercial_scope_items
-//   softDeleteQuote(input)                  — admin-only soft-delete with audit trail
 
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
@@ -22,8 +21,6 @@ import type {
   ScopeInputMode,
 } from '@/lib/commercialQuote'
 import { isMarginTier, isSectorCategory, isContractTerm, isCleaningStandard } from '@/lib/commercialQuote'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
 
 // ── saveCommercialDetails ──────────────────────────────────────────
 
@@ -303,125 +300,6 @@ export async function saveCommercialScope(
   return { ok: true, items: (fresh ?? []) as CommercialScopeItem[] }
 }
 
-// ── softDeleteQuote ────────────────────────────────────────────────
-// Admin-only. Block + confirm pattern: refuses when linked to
-// invoices / jobs unless the caller explicitly sets confirm_linked.
-// Writes a record_snapshots row + audit_log entry on every delete.
-
-export interface SoftDeleteQuoteInput {
-  quote_id: string
-  confirm_linked?: boolean
-}
-
-export type SoftDeleteQuoteResult =
-  | { ok: true }
-  | {
-      error: string
-      reason?:
-        | 'not_authenticated'
-        | 'not_admin'
-        | 'not_found'
-        | 'already_deleted'
-        | 'blocked_status'
-        | 'linked_records'
-      linked?: { invoice_ids: string[]; job_ids: string[] }
-    }
-
-export async function softDeleteQuote(
-  input: SoftDeleteQuoteInput,
-): Promise<SoftDeleteQuoteResult> {
-  const supabase = createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated.', reason: 'not_authenticated' }
-  if (user.email !== ADMIN_EMAIL) {
-    return { error: 'Only admin can delete quotes.', reason: 'not_admin' }
-  }
-
-  if (!input.quote_id) return { error: 'quote_id is required.' }
-
-  // Load current row snapshot BEFORE the mutation.
-  const { data: current, error: curErr } = await supabase
-    .from('quotes')
-    .select('*')
-    .eq('id', input.quote_id)
-    .single()
-  if (curErr || !current) return { error: 'Quote not found.', reason: 'not_found' }
-
-  if (current.deleted_at != null) {
-    return { ok: true } // idempotent
-  }
-  if (current.status === 'sent' || current.status === 'accepted') {
-    return {
-      error: `Cannot delete a ${current.status} quote. Mark it draft first if deletion is genuinely required.`,
-      reason: 'blocked_status',
-    }
-  }
-
-  // Check for linked invoices and jobs.
-  const [invoicesRes, jobsRes] = await Promise.all([
-    supabase.from('invoices').select('id').eq('quote_id', input.quote_id),
-    supabase.from('jobs').select('id').eq('quote_id', input.quote_id),
-  ])
-
-  const invoice_ids = (invoicesRes.data ?? []).map((r) => r.id)
-  const job_ids = (jobsRes.data ?? []).map((r) => r.id)
-  const hasLinked = invoice_ids.length > 0 || job_ids.length > 0
-
-  if (hasLinked && !input.confirm_linked) {
-    return {
-      error: `Quote is linked to ${invoice_ids.length} invoice(s) and ${job_ids.length} job(s). Re-submit with confirm_linked=true to soft-delete anyway.`,
-      reason: 'linked_records',
-      linked: { invoice_ids, job_ids },
-    }
-  }
-
-  // Record the pre-mutation state so the quote can be reconstructed.
-  const { error: snapErr } = await supabase.from('record_snapshots').insert({
-    entity_table: 'quotes',
-    entity_id: input.quote_id,
-    reason: 'quote.soft-delete',
-    snapshot: current as unknown as Record<string, unknown>,
-    created_by: user.id,
-  })
-  if (snapErr) {
-    return { error: `Pre-delete snapshot failed: ${snapErr.message}` }
-  }
-
-  // Apply the soft-delete.
-  const now = new Date().toISOString()
-  const { error: delErr } = await supabase
-    .from('quotes')
-    .update({ deleted_at: now, deleted_by: user.id })
-    .eq('id', input.quote_id)
-    .is('deleted_at', null) // race guard
-  if (delErr) {
-    return { error: `Failed to soft-delete: ${delErr.message}` }
-  }
-
-  // Append to audit log. Include linked record IDs so the audit trail
-  // captures what the operator was warned about.
-  const { error: auditErr } = await supabase.from('audit_log').insert({
-    actor_id: user.id,
-    actor_role: 'admin',
-    action: 'quote.soft-delete',
-    entity_table: 'quotes',
-    entity_id: input.quote_id,
-    before: { deleted_at: null, deleted_by: null },
-    after: {
-      deleted_at: now,
-      deleted_by: user.id,
-      confirm_linked: !!input.confirm_linked,
-      linked_invoice_ids: invoice_ids,
-      linked_job_ids: job_ids,
-    },
-  })
-  if (auditErr) {
-    // Don't roll back the delete for an audit failure, but surface it.
-    console.error('[softDeleteQuote] audit_log insert failed', auditErr)
-  }
-
-  revalidatePath('/portal/quotes')
-  revalidatePath(`/portal/quotes/${input.quote_id}`)
-  return { ok: true }
-}
+// Phase 6 — softDeleteQuote moved to src/app/portal/_actions/archive.ts
+// as `archiveQuote` (now also handles invoices). Importers should use the
+// new module.
