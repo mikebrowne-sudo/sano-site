@@ -56,19 +56,19 @@ export function CoverPage({
 
           <dl className="proposal-cover__fields">
             <div className="proposal-cover__field">
-              <dt>Prepared for:</dt>
+              <dt>{payload.preparedForFieldLabel}</dt>
               <dd>{payload.preparedForLabel}</dd>
             </div>
             <div className="proposal-cover__field">
-              <dt>Site address:</dt>
+              <dt>{payload.siteAddressFieldLabel}</dt>
               <dd>{payload.siteAddress || '—'}</dd>
             </div>
             <div className="proposal-cover__field">
-              <dt>Date:</dt>
+              <dt>{payload.dateFieldLabel}</dt>
               <dd>{payload.proposalDate}</dd>
             </div>
             <div className="proposal-cover__field">
-              <dt>Reference:</dt>
+              <dt>{payload.referenceFieldLabel}</dt>
               <dd>{payload.referenceNumber}</dd>
             </div>
           </dl>

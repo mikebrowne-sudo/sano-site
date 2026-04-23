@@ -9,6 +9,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { ProposalDocument } from '@/components/proposals/ProposalDocument'
 import { proposalFixture } from '@/lib/proposals/buildProposalPayload'
+import { loadProposalSettings } from '@/lib/proposals/proposal-settings'
 
 export const metadata: Metadata = {
   title: 'Proposal preview — Sano',
@@ -22,6 +23,7 @@ export default async function ProposalPreviewPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) notFound()
 
-  const payload = proposalFixture()
+  const settings = await loadProposalSettings(supabase)
+  const payload = proposalFixture(settings)
   return <ProposalDocument payload={payload} />
 }

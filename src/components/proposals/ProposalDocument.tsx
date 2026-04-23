@@ -1,10 +1,13 @@
 // Proposal Phase 1 — assembled document.
 //
-// Renders the full 6-page proposal in order, threading page-number /
-// total-pages through each page. Stylesheet is co-located via a
-// styled-jsx-style <style> tag injected once at the top of the doc;
-// keeps the page wrappers self-contained for preview routes and any
-// future PDF render path.
+// Renders the proposal pages in order, threading page-number /
+// total-pages through each. Section visibility comes from the
+// payload (settings-driven): executive summary and terms can be
+// hidden via the proposal-settings admin UI. Cover, service
+// overview, scope of works, and pricing summary are always shown.
+//
+// Page numbering recalculates from the actually-rendered pages so
+// "Page X of N" stays accurate when sections are toggled off.
 
 import { CoverPage } from './CoverPage'
 import { ExecutiveSummaryPage } from './ExecutiveSummaryPage'
@@ -16,27 +19,33 @@ import { PROPOSAL_CSS } from './proposal-styles'
 import type { ProposalTemplatePayload } from '@/lib/proposals/buildProposalPayload'
 
 export function ProposalDocument({ payload }: { payload: ProposalTemplatePayload }) {
-  // Order is fixed and explicit so page numbering stays predictable.
-  const pages = [
-    'cover',
-    'executive',
-    'overview',
-    'scope',
-    'pricing',
-    'terms',
-  ] as const
-  const total = pages.length
+  // Build the active page list from section toggles (cover, service
+  // overview, scope, pricing are always rendered; exec summary +
+  // terms are togglable). Acceptance is reserved for a future page
+  // and skipped here even when the toggle is on.
+  type PageKey = 'cover' | 'executive' | 'overview' | 'scope' | 'pricing' | 'terms'
+  const active: PageKey[] = ['cover']
+  if (payload.sections.executiveSummary) active.push('executive')
+  active.push('overview', 'scope', 'pricing')
+  if (payload.sections.terms) active.push('terms')
+
+  const total = active.length
+  const pageNum = (key: PageKey) => active.indexOf(key) + 1
 
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: PROPOSAL_CSS }} />
       <div className="proposal-document">
-        <CoverPage              payload={payload} pageNumber={1} totalPages={total} />
-        <ExecutiveSummaryPage   payload={payload} pageNumber={2} totalPages={total} />
-        <ServiceOverviewPage    payload={payload} pageNumber={3} totalPages={total} />
-        <ScopeOfWorksPage       payload={payload} pageNumber={4} totalPages={total} />
-        <PricingSummaryPage     payload={payload} pageNumber={5} totalPages={total} />
-        <TermsAndConditionsPage payload={payload} pageNumber={6} totalPages={total} />
+        <CoverPage             payload={payload} pageNumber={pageNum('cover')}     totalPages={total} />
+        {payload.sections.executiveSummary && (
+          <ExecutiveSummaryPage payload={payload} pageNumber={pageNum('executive')} totalPages={total} />
+        )}
+        <ServiceOverviewPage   payload={payload} pageNumber={pageNum('overview')}  totalPages={total} />
+        <ScopeOfWorksPage      payload={payload} pageNumber={pageNum('scope')}     totalPages={total} />
+        <PricingSummaryPage    payload={payload} pageNumber={pageNum('pricing')}   totalPages={total} />
+        {payload.sections.terms && (
+          <TermsAndConditionsPage payload={payload} pageNumber={pageNum('terms')} totalPages={total} />
+        )}
       </div>
     </>
   )

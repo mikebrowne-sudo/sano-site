@@ -14,6 +14,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { ProposalDocument } from '@/components/proposals/ProposalDocument'
 import { fromCommercialProposalPayload } from '@/lib/proposals/buildProposalPayload'
+import { loadProposalSettings } from '@/lib/proposals/proposal-settings'
 import { buildProposalPayload } from '@/lib/commercialProposalMapping'
 import type { CommercialQuoteDetails, CommercialScopeItem } from '@/lib/commercialQuote'
 
@@ -134,6 +135,7 @@ export default async function CommercialProposalPreviewPage({
     scope: (scope as unknown as CommercialScopeItem[]) ?? [],
   })
 
-  const payload = fromCommercialProposalPayload(legacy)
+  const settings = await loadProposalSettings(supabase)
+  const payload = fromCommercialProposalPayload(legacy, settings)
   return <ProposalDocument payload={payload} />
 }
