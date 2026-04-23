@@ -83,7 +83,7 @@ export default async function AlertsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-sage-800 mb-6">Alerts & Reminders</h1>
+      <h1 className="text-3xl tracking-tight font-bold text-sage-800 mb-8">Alerts & Reminders</h1>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
@@ -260,7 +260,7 @@ export default async function AlertsPage() {
 
 function Section({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl border border-sage-100 p-5 mb-6">
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
       <div className="flex items-center gap-2 mb-4">
         <Icon size={16} className="text-sage-500" />
         <h2 className="text-lg font-semibold text-sage-800">{title}</h2>
@@ -272,7 +272,7 @@ function Section({ title, icon: Icon, children }: { title: string; icon: React.E
 
 function SummaryCard({ icon: Icon, label, value, accent }: { icon: React.ElementType; label: string; value: number; accent?: 'amber' | 'red' }) {
   return (
-    <div className="bg-white rounded-xl border border-sage-100 p-5">
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
       <div className="flex items-center gap-2 mb-2">
         <Icon size={16} className={accent === 'red' ? 'text-red-500' : accent === 'amber' ? 'text-amber-500' : 'text-sage-500'} />
         <span className="text-sm font-medium text-sage-600">{label}</span>

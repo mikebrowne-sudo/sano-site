@@ -42,7 +42,7 @@ export function QuoteCustomerDetails({
     !!(contactName || contactEmail || accountsEmail || clientReference || requiresPo)
 
   return (
-    <div className="bg-white rounded-xl border border-sage-100 p-5 mb-6">
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm uppercase tracking-wider text-sage-600 font-semibold">Customer</h2>
         {clientId && (
@@ -79,7 +79,7 @@ export function QuoteCustomerDetails({
       </div>
 
       {hasOverrides && (
-        <div className="mt-4 pt-4 border-t border-sage-100 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-4">
           {contactName && <Row label="Primary contact">{contactName}</Row>}
           {contactEmail && (
             <Row label="Primary contact email">

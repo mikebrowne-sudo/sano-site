@@ -110,7 +110,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
       <div className="flex items-center justify-between mb-8">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-sage-800">{job.job_number}</h1>
+            <h1 className="text-3xl tracking-tight font-bold text-sage-800">{job.job_number}</h1>
             {invoiceNumber && (
               <Link href={`/portal/invoices/${job.invoice_id}`} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sage-100 text-sage-700 text-xs font-medium hover:bg-sage-200 transition-colors">
                 {invoiceNumber}
@@ -269,7 +269,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
                 <div className="overflow-x-auto mb-4">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-left text-sage-500 border-b border-sage-100">
+                      <tr className="text-left text-sage-500 border-b border-gray-100">
                         <th className="py-2 pr-4"></th>
                         <th className="py-2 pr-4 text-right">Estimated</th>
                         {hasActuals && <th className="py-2 pr-4 text-right">Actual</th>}
@@ -277,29 +277,29 @@ export default async function JobDetailPage({ params }: { params: { id: string }
                       </tr>
                     </thead>
                     <tbody>
-                      <tr className="border-b border-sage-50">
+                      <tr className="border-b border-gray-50">
                         <td className="py-2 pr-4 text-sage-600">Job value</td>
                         <td className="py-2 pr-4 text-right font-bold text-sage-800" colSpan={hasActuals ? 3 : 1}>{fmtCurrency(job.job_price)}</td>
                       </tr>
-                      <tr className="border-b border-sage-50">
+                      <tr className="border-b border-gray-50">
                         <td className="py-2 pr-4 text-sage-600">Hours</td>
                         <td className="py-2 pr-4 text-right text-sage-800">{v.estimated.totalHours.toFixed(1)}h</td>
                         {hasActuals && <td className="py-2 pr-4 text-right text-sage-800">{v.actual.totalHours.toFixed(1)}h</td>}
                         {hasActuals && <td className="py-2 text-right"><VarCell value={v.hoursVariance} suffix="h" /></td>}
                       </tr>
-                      <tr className="border-b border-sage-50">
+                      <tr className="border-b border-gray-50">
                         <td className="py-2 pr-4 text-sage-600">Labour cost</td>
                         <td className="py-2 pr-4 text-right text-sage-800">{fmtCurrency(v.estimated.totalLabourCost)}</td>
                         {hasActuals && <td className="py-2 pr-4 text-right text-sage-800">{fmtCurrency(v.actual.totalLabourCost)}</td>}
                         {hasActuals && <td className="py-2 text-right"><VarCell value={v.costVariance} currency /></td>}
                       </tr>
-                      <tr className="border-b border-sage-50">
+                      <tr className="border-b border-gray-50">
                         <td className="py-2 pr-4 text-sage-600">Employer KS</td>
                         <td className="py-2 pr-4 text-right text-sage-600">{fmtCurrency(v.estimated.totalEmployerKs)}</td>
                         {hasActuals && <td className="py-2 pr-4 text-right text-sage-600">{fmtCurrency(v.actual.totalEmployerKs)}</td>}
                         {hasActuals && <td className="py-2 text-right"></td>}
                       </tr>
-                      <tr className="border-b border-sage-50">
+                      <tr className="border-b border-gray-50">
                         <td className="py-2 pr-4 text-sage-600">ACC (1.7%)</td>
                         <td className="py-2 pr-4 text-right text-sage-600">{fmtCurrency(v.estimated.totalAccCost)}</td>
                         {hasActuals && <td className="py-2 pr-4 text-right text-sage-600">{fmtCurrency(v.actual.totalAccCost)}</td>}
@@ -330,7 +330,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
                     <div className="overflow-x-auto mt-2">
                       <table className="w-full text-xs">
                         <thead>
-                          <tr className="text-left text-sage-500 border-b border-sage-100">
+                          <tr className="text-left text-sage-500 border-b border-gray-100">
                             <th className="py-2 pr-2">Worker</th>
                             <th className="py-2 pr-2">Type</th>
                             <th className="py-2 pr-2 text-right">Est. hrs</th>
@@ -346,7 +346,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
                             const aw = v.actual.workers[i]
                             const costVar = aw ? aw.totalCost - ew.totalCost : 0
                             return (
-                              <tr key={ew.contractorId} className="border-b border-sage-50">
+                              <tr key={ew.contractorId} className="border-b border-gray-50">
                                 <td className="py-2 pr-2 font-medium text-sage-800">{ew.fullName}</td>
                                 <td className="py-2 pr-2 text-sage-600 capitalize">{ew.workerType.replace('_', ' ')}</td>
                                 <td className="py-2 pr-2 text-right text-sage-700">{ew.hours.toFixed(1)}</td>

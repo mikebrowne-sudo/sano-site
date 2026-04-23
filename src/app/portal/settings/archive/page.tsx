@@ -96,7 +96,7 @@ export default async function ArchivedRecordsPage() {
 
       <div className="flex items-center gap-3 mb-2">
         <ArchiveRestore size={24} className="text-sage-500" />
-        <h1 className="text-2xl font-bold text-sage-800">Archived Records</h1>
+        <h1 className="text-3xl tracking-tight font-bold text-sage-800">Archived Records</h1>
       </div>
       <p className="text-sm text-sage-600 mb-8">
         Quotes and invoices that have been archived. Restore returns them to the active list.
@@ -107,14 +107,14 @@ export default async function ArchivedRecordsPage() {
           <FileText size={14} /> Quotes ({quoteRows.length})
         </h2>
         {quoteRows.length === 0 ? (
-          <div className="bg-white rounded-xl border border-sage-100 p-6 text-sm text-sage-500 text-center">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 text-sm text-sage-500 text-center">
             No archived quotes.
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-sage-100 overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-sage-100 text-left text-sage-600">
+                <tr className="border-b border-gray-100 text-left text-sage-600">
                   <th className="px-5 py-3 font-semibold">Quote</th>
                   <th className="px-5 py-3 font-semibold">Client</th>
                   <th className="px-5 py-3 font-semibold">Status at archive</th>
@@ -125,7 +125,7 @@ export default async function ArchivedRecordsPage() {
               </thead>
               <tbody>
                 {quoteRows.map((q) => (
-                  <tr key={q.id} className="border-b border-sage-50 last:border-0">
+                  <tr key={q.id} className="border-b border-gray-50 last:border-0">
                     <td className="px-5 py-3 font-medium text-sage-800">
                       <Link href={`/portal/quotes/${q.id}`} className="hover:underline">{q.displayNumber}</Link>
                     </td>
@@ -149,14 +149,14 @@ export default async function ArchivedRecordsPage() {
           <Receipt size={14} /> Invoices ({invoiceRows.length})
         </h2>
         {invoiceRows.length === 0 ? (
-          <div className="bg-white rounded-xl border border-sage-100 p-6 text-sm text-sage-500 text-center">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 text-sm text-sage-500 text-center">
             No archived invoices.
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-sage-100 overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-sage-100 text-left text-sage-600">
+                <tr className="border-b border-gray-100 text-left text-sage-600">
                   <th className="px-5 py-3 font-semibold">Invoice</th>
                   <th className="px-5 py-3 font-semibold">Client</th>
                   <th className="px-5 py-3 font-semibold">Status at archive</th>
@@ -167,7 +167,7 @@ export default async function ArchivedRecordsPage() {
               </thead>
               <tbody>
                 {invoiceRows.map((inv) => (
-                  <tr key={inv.id} className="border-b border-sage-50 last:border-0">
+                  <tr key={inv.id} className="border-b border-gray-50 last:border-0">
                     <td className="px-5 py-3 font-medium text-sage-800">
                       <Link href={`/portal/invoices/${inv.id}`} className="hover:underline">{inv.invoiceNumber}</Link>
                     </td>
