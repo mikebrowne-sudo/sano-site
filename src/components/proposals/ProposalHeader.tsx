@@ -10,7 +10,7 @@
 // residential/lifestyle scene, swap the file via the BG_IMAGE
 // constant below. One change, updates every inner page.
 
-const BG_IMAGE = '/images/sano-commercial-clean-auckland.jpeg'
+const BG_IMAGE = '/images/proposal-banner.jpg'
 const LOGO = '/brand/sano-logo-white.png'
 
 export function ProposalHeader({ title }: { title: string }) {

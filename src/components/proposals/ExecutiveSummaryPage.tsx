@@ -7,7 +7,7 @@ import type { ProposalTemplatePayload } from '@/lib/proposals/buildProposalPaylo
 
 // Shared inner-page image (same environment rule). Update once in
 // ProposalHeader.tsx if the asset changes.
-const SIDE_IMAGE = '/images/sano-commercial-clean-auckland.jpeg'
+const SIDE_IMAGE = '/images/proposal-banner.jpg'
 
 export function ExecutiveSummaryPage({
   payload,
