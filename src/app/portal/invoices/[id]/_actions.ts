@@ -8,6 +8,7 @@ interface SendInvoiceInput {
   invoice_id: string
   invoice_number: string
   to: string
+  cc?: string[]
   subject: string
   message: string
   print_url: string
@@ -30,9 +31,14 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
     <p style="color:#888;font-size:13px;margin-top:24px;">Sano Property Services Limited</p>
   `
 
+  const ccList = (input.cc ?? [])
+    .map((e) => e.trim())
+    .filter((e) => e.length > 0 && e.toLowerCase() !== input.to.trim().toLowerCase())
+
   const { error: emailErr } = await resend.emails.send({
     from: 'Sano <noreply@sano.nz>',
     to: input.to.trim(),
+    ...(ccList.length > 0 ? { cc: ccList } : {}),
     subject: input.subject,
     html,
   })

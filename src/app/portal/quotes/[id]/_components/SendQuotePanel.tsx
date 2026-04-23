@@ -11,38 +11,59 @@ export function SendQuotePanel({
   clientEmail,
   clientName,
   printUrl,
+  // Phase 5D — universal billing fields. Quote routing rule:
+  //   default to = primary contact email (falls back to client record email)
+  //   optional CC = accounts email when present
+  primaryContactEmail = '',
+  accountsEmail = '',
+  clientReference = '',
 }: {
   quoteId: string
   quoteNumber: string
   clientEmail: string
   clientName: string
   printUrl: string
+  primaryContactEmail?: string
+  accountsEmail?: string
+  clientReference?: string
 }) {
   const greeting = clientName ? `Hi ${clientName},` : 'Hi there,'
+  const referenceLine = clientReference
+    ? `\n\nYour reference: ${clientReference}`
+    : ''
+  const defaultTo = primaryContactEmail.trim() || clientEmail.trim()
   const [open, setOpen] = useState(false)
-  const [to, setTo] = useState(clientEmail)
+  const [to, setTo] = useState(defaultTo)
+  const [ccAccounts, setCcAccounts] = useState(false)
   const [subject, setSubject] = useState(`Quote ${quoteNumber} from Sano`)
   const [message, setMessage] = useState(
-    `${greeting}\n\nPlease find your quote ${quoteNumber} from Sano via the link below.\n\nIf you have any questions or would like to go ahead, just let us know.\n\nKind regards,\nThe Sano team`,
+    `${greeting}\n\nPlease find your quote ${quoteNumber} from Sano via the link below.${referenceLine}\n\nIf you have any questions or would like to go ahead, just let us know.\n\nKind regards,\nThe Sano team`,
   )
 
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
 
+  const accountsTrimmed = accountsEmail.trim()
+  const showCcOption =
+    accountsTrimmed.length > 0 && accountsTrimmed.toLowerCase() !== to.trim().toLowerCase()
+
   function handleSend() {
     setError(null)
 
     if (!to.trim()) {
-      setError('Client email is required. Add an email to the client record first.')
+      setError('Recipient email is required. Add a contact email or update the client record.')
       return
     }
+
+    const cc = ccAccounts && showCcOption ? [accountsTrimmed] : undefined
 
     startTransition(async () => {
       const result = await sendQuoteEmail({
         quote_id: quoteId,
         quote_number: quoteNumber,
         to: to.trim(),
+        cc,
         subject,
         message,
         print_url: printUrl,
@@ -61,7 +82,11 @@ export function SendQuotePanel({
       <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3">
         <CheckCircle size={18} className="text-emerald-600 shrink-0" />
         <span className="text-sm text-emerald-700">
-          Quote sent to <strong>{to}</strong>. Status updated to sent.
+          Quote sent to <strong>{to}</strong>
+          {ccAccounts && showCcOption && (
+            <> · CC <strong>{accountsTrimmed}</strong></>
+          )}
+          . Status updated to sent.
         </span>
       </div>
     )
@@ -94,16 +119,39 @@ export function SendQuotePanel({
         </button>
       </div>
 
+      {clientReference && (
+        <div className="text-xs text-sage-600 bg-sage-50 rounded-lg px-3 py-2">
+          Client reference / PO: <span className="font-medium text-sage-800">{clientReference}</span>
+        </div>
+      )}
+
       <label className="block">
         <span className="block text-sm font-semibold text-sage-800 mb-1.5">To</span>
         <input
           type="email"
           value={to}
           onChange={(e) => setTo(e.target.value)}
-          placeholder="client@example.com"
+          placeholder="primary-contact@example.com"
           className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm"
         />
+        <span className="block text-[11px] text-sage-500 mt-1">
+          Defaults to the primary contact for this quote.
+        </span>
       </label>
+
+      {showCcOption && (
+        <label className="flex items-start gap-2.5 text-sm text-sage-800 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={ccAccounts}
+            onChange={(e) => setCcAccounts(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-sage-300 text-sage-600 focus:ring-sage-500"
+          />
+          <span>
+            CC accounts contact (<span className="font-medium">{accountsTrimmed}</span>)
+          </span>
+        </label>
+      )}
 
       <label className="block">
         <span className="block text-sm font-semibold text-sage-800 mb-1.5">Subject</span>

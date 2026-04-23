@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
-import { FileText, Plus } from 'lucide-react'
+import { FileText, Plus, FileSearch } from 'lucide-react'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -41,6 +41,7 @@ export default async function QuotesPage() {
       valid_until,
       created_at,
       service_address,
+      service_category,
       clients ( name ),
       quote_items ( price )
     `)
@@ -72,6 +73,7 @@ export default async function QuotesPage() {
       dateIssued: q.date_issued,
       validUntil: q.valid_until,
       total,
+      isCommercial: q.service_category === 'commercial',
     }
   })
 
@@ -114,6 +116,7 @@ export default async function QuotesPage() {
                   <th className="px-5 py-3 font-semibold">Issued</th>
                   <th className="px-5 py-3 font-semibold">Valid until</th>
                   <th className="px-5 py-3 font-semibold text-right">Total</th>
+                  <th className="px-3 py-3 font-semibold text-right" aria-label="Actions"></th>
                 </tr>
               </thead>
               <tbody>
@@ -134,6 +137,19 @@ export default async function QuotesPage() {
                     <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{formatDate(row.dateIssued)}</Link></td>
                     <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{formatDate(row.validUntil)}</Link></td>
                     <td className="p-0"><Link href={`/portal/quotes/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-right font-medium text-sage-800">{formatCurrency(row.total)}</Link></td>
+                    <td className="px-3 py-3 text-right">
+                      {row.isCommercial && (
+                        <Link
+                          href={`/portal/quotes/${row.id}/proposal`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="View Commercial Proposal"
+                          className="inline-flex items-center justify-center h-7 w-7 rounded-md text-sage-500 hover:text-sage-800 hover:bg-sage-100 transition-colors"
+                        >
+                          <FileSearch size={15} />
+                        </Link>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
