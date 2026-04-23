@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
 import { AcceptQuote } from './_components/AcceptQuote'
+import { getServiceSupabase } from '@/lib/supabase-service'
 
 export const metadata: Metadata = { robots: 'noindex, nofollow' }
 
@@ -36,9 +37,36 @@ export default async function PublicQuotePage({ params }: { params: { token: str
       clients ( name, company_name, service_address, phone, email )
     `)
     .eq('share_token', params.token)
+    .is('deleted_at', null)
     .single()
 
   if (error || !quote) notFound()
+
+  // Phase 6 — first-view tracking. When the share page is opened by the
+  // client and the quote is currently `sent`, promote to `viewed` and
+  // write an audit row. Idempotent: only fires while status === 'sent'.
+  // Internal portal views never set this status (they hit /portal/quotes/[id],
+  // not the share route).
+  if (quote.status === 'sent') {
+    // Use the service-role client for the status flip + audit. The public
+    // anon key can't satisfy the audit_log RLS policy, and the quotes
+    // policy only allows status updates from authenticated staff.
+    const service = getServiceSupabase()
+    await service
+      .from('quotes')
+      .update({ status: 'viewed' })
+      .eq('id', quote.id)
+      .eq('status', 'sent') // race guard
+    await service.from('audit_log').insert({
+      actor_id: null,
+      actor_role: 'public_share',
+      action: 'quote.status-changed',
+      entity_table: 'quotes',
+      entity_id: quote.id,
+      before: { status: 'sent' },
+      after: { status: 'viewed', source: 'share_page_open' },
+    })
+  }
 
   const { data: items } = await supabase
     .from('quote_items')

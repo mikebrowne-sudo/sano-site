@@ -321,6 +321,18 @@ export async function markQuoteAccepted(quoteId: string) {
     return { error: `Failed to update quote: ${error.message}` }
   }
 
+  // Phase 6 — audit the staff acceptance.
+  const { data: { user } } = await supabase.auth.getUser()
+  await supabase.from('audit_log').insert({
+    actor_id: user?.id ?? null,
+    actor_role: 'staff',
+    action: 'quote.status-changed',
+    entity_table: 'quotes',
+    entity_id: quoteId,
+    before: { status: current?.status ?? null },
+    after: { status: 'accepted', accepted_at: current?.accepted_at || now, source: 'mark_as_accepted' },
+  })
+
   revalidatePath(`/portal/quotes/${quoteId}`)
   revalidatePath('/portal/quotes')
   if (current?.share_token) {

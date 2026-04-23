@@ -8,10 +8,15 @@ import { SendQuotePanel } from './_components/SendQuotePanel'
 import { ConvertToInvoiceButton } from './_components/ConvertToInvoiceButton'
 import { MarkAsAcceptedButton } from './_components/MarkAsAcceptedButton'
 import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
-import { DeleteButton } from '../../_components/DeleteButton'
-import { CommercialDeleteButton } from '../_components/commercial/CommercialDeleteButton'
 import { firstName } from '@/lib/doc-helpers'
 import { loadPricingSettings } from '@/lib/pricingSettings'
+import { loadVersionChain } from '../_actions-versioning'
+import { NotLatestBanner, ArchivedBanner } from './_components/NotLatestBanner'
+import { VersionHistoryPanel } from './_components/VersionHistoryPanel'
+import { ArchiveQuoteButton } from './_components/ArchiveQuoteButton'
+import { StatusBadge } from '../../_components/StatusBadge'
+import { displayQuoteNumber } from '@/lib/quote-versioning'
+import { isQuoteConvertible } from '@/lib/quote-status'
 
 export default async function QuoteDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -70,7 +75,13 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       accounts_contact_name,
       accounts_email,
       client_reference,
-      requires_po
+      requires_po,
+      version_number,
+      parent_quote_id,
+      is_latest_version,
+      version_note,
+      deleted_at,
+      deleted_by
     `)
     .eq('id', params.id)
     .single()
@@ -116,8 +127,19 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
     loadPricingSettings(supabase),
   ])
 
+  // Phase 6 — load the version chain so we can render the history panel
+  // and resolve where to point the "Open vN" CTA when this isn't the latest.
+  const versionChain = await loadVersionChain(quote.id)
+  const latestVersion = versionChain.find((v) => v.is_latest_version) ?? null
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
   const shareUrl = `${siteUrl}/share/quote/${quote.share_token}`
+  const displayNumber = displayQuoteNumber({
+    quote_number: quote.quote_number as string,
+    version_number: quote.version_number as number,
+  })
+  const isArchived = quote.deleted_at != null
+  const canConvert = quote.is_latest_version && isQuoteConvertible(quote.status, true)
 
   return (
     <div>
@@ -130,7 +152,10 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       </Link>
 
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-sage-800">{quote.quote_number}</h1>
+        <div className="flex items-center gap-3 min-w-0">
+          <h1 className="text-2xl font-bold text-sage-800 truncate">{displayNumber}</h1>
+          <StatusBadge kind="quote" status={quote.status ?? 'draft'} size="md" />
+        </div>
         <div className="flex items-center gap-3">
           {quote.service_category === 'commercial' && (
             <a
@@ -152,28 +177,43 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
             <Printer size={16} />
             Print / PDF
           </a>
-          {quote.status !== 'accepted' && <MarkAsAcceptedButton quoteId={quote.id} />}
-          <ConvertToInvoiceButton quoteId={quote.id} />
-          <SendQuotePanel
-            quoteId={quote.id}
-            quoteNumber={quote.quote_number}
-            clientEmail={currentClient?.email ?? ''}
-            clientName={firstName(currentClient?.name)}
-            printUrl={shareUrl}
-            primaryContactEmail={quote.contact_email ?? ''}
-            accountsEmail={quote.accounts_email ?? ''}
-            clientReference={quote.client_reference ?? ''}
-          />
+          {!isArchived && quote.is_latest_version && quote.status !== 'accepted' && quote.status !== 'converted' && (
+            <MarkAsAcceptedButton quoteId={quote.id} />
+          )}
+          {!isArchived && canConvert && <ConvertToInvoiceButton quoteId={quote.id} />}
+          {!isArchived && quote.is_latest_version && (
+            <SendQuotePanel
+              quoteId={quote.id}
+              quoteNumber={displayNumber}
+              clientEmail={currentClient?.email ?? ''}
+              clientName={firstName(currentClient?.name)}
+              printUrl={shareUrl}
+              primaryContactEmail={quote.contact_email ?? ''}
+              accountsEmail={quote.accounts_email ?? ''}
+              clientReference={quote.client_reference ?? ''}
+            />
+          )}
         </div>
       </div>
-      <div className="flex justify-end mb-6">
+      <div className="flex justify-end mb-6 gap-2">
         <RegenerateShareLink table="quotes" id={quote.id} />
-        {isAdmin && (
-          quote.service_category === 'commercial'
-            ? <CommercialDeleteButton quoteId={quote.id} />
-            : <DeleteButton type="quote" id={quote.id} />
+        {isAdmin && !isArchived && (
+          <ArchiveQuoteButton
+            quoteId={quote.id}
+            quoteDisplayNumber={displayNumber}
+            quoteStatus={quote.status ?? 'draft'}
+          />
         )}
       </div>
+
+      {isArchived && <ArchivedBanner deletedAt={quote.deleted_at as string} />}
+      {!quote.is_latest_version && latestVersion && (
+        <NotLatestBanner
+          currentVersion={quote.version_number as number}
+          latestVersionId={latestVersion.id as string}
+          latestVersionNumber={latestVersion.version_number as number}
+        />
+      )}
 
       <QuoteCustomerDetails
         name={currentClient?.name ?? null}
@@ -186,6 +226,8 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
         clientReference={quote.client_reference ?? null}
         requiresPo={quote.requires_po ?? null}
       />
+
+      <VersionHistoryPanel chain={versionChain} currentId={quote.id} />
 
       <EditQuoteForm
         quote={quote}

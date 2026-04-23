@@ -35,6 +35,7 @@ export default async function PublicInvoicePage({ params, searchParams }: { para
       clients ( name, company_name, service_address, phone, email )
     `)
     .eq('share_token', params.token)
+    .is('deleted_at', null)
     .single()
 
   if (error || !invoice) notFound()
