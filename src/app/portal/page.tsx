@@ -9,11 +9,12 @@
 import { createClient } from '@/lib/supabase-server'
 import Link from 'next/link'
 import {
-  FileText, Receipt, Plus, ArrowRight, DollarSign, Clock,
+  FileText, Receipt, ArrowRight, DollarSign, Clock,
   AlertTriangle, Bell, CalendarDays,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { StatusBadge } from './_components/StatusBadge'
+import { CreateMenu } from './_components/CreateMenu'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 
 export default async function PortalDashboard() {
@@ -85,31 +86,23 @@ export default async function PortalDashboard() {
           <h1 className="text-3xl font-bold text-sage-800 tracking-tight">Dashboard</h1>
           <p className="mt-1.5 text-sm text-sage-500">{todayLabel}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {/* Secondary actions — quieter ghost style so the primary
+              "Create" button is the only thing the eye lands on first. */}
           <Link
             href="/portal/jobs/calendar"
-            className="inline-flex items-center gap-1.5 border border-gray-200 text-sage-700 font-medium px-3 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sage-600 hover:text-sage-800 hover:bg-gray-100/70 font-medium px-3 py-2 rounded-lg text-sm transition-colors duration-150"
           >
             <CalendarDays size={15} /> Calendar
           </Link>
           <Link
             href="/portal/alerts"
-            className="inline-flex items-center gap-1.5 border border-gray-200 text-sage-700 font-medium px-3 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sage-600 hover:text-sage-800 hover:bg-gray-100/70 font-medium px-3 py-2 rounded-lg text-sm transition-colors duration-150"
           >
             <Bell size={15} /> Alerts
           </Link>
-          <Link
-            href="/portal/jobs/new"
-            className="inline-flex items-center gap-1.5 bg-white border border-gray-200 text-sage-800 font-semibold px-3 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
-          >
-            <Plus size={15} /> Job
-          </Link>
-          <Link
-            href="/portal/quotes/new"
-            className="inline-flex items-center gap-1.5 bg-sage-500 text-white font-semibold px-3.5 py-2 rounded-lg text-sm shadow-sm hover:bg-sage-700 transition-colors"
-          >
-            <Plus size={15} /> New Quote
-          </Link>
+          <div className="w-px h-6 bg-gray-200 mx-1 hidden sm:block" aria-hidden />
+          <CreateMenu />
         </div>
       </header>
 
@@ -154,18 +147,21 @@ export default async function PortalDashboard() {
             icon={FileText}
             label="Active quotes"
             value={totalQuotes ?? 0}
+            hint="latest versions"
             href="/portal/quotes"
           />
           <KpiCard
             icon={Receipt}
             label="Active invoices"
             value={totalInvoices ?? 0}
+            hint="all-time"
             href="/portal/invoices"
           />
           <KpiCard
             icon={DollarSign}
             label="Paid"
             value={paidInvoices ?? 0}
+            hint="invoices closed"
             accent="emerald"
             href="/portal/finance"
           />
@@ -173,6 +169,7 @@ export default async function PortalDashboard() {
             icon={Clock}
             label="Outstanding"
             value={outstandingCount}
+            hint={outstandingCount > 0 ? 'awaiting payment' : 'all clear'}
             accent={outstandingCount > 0 ? 'amber' : undefined}
             href="/portal/invoices"
           />
@@ -212,7 +209,7 @@ export default async function PortalDashboard() {
                 <Link
                   key={q.id}
                   href={`/portal/quotes/${q.id}`}
-                  className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50/70 transition-colors"
+                  className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50/70 transition-colors duration-150"
                 >
                   <div className="min-w-0">
                     <div className="text-sm font-medium text-sage-800 truncate">{q.quote_number}</div>
@@ -232,7 +229,7 @@ export default async function PortalDashboard() {
                 <Link
                   key={inv.id}
                   href={`/portal/invoices/${inv.id}`}
-                  className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50/70 transition-colors"
+                  className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50/70 transition-colors duration-150"
                 >
                   <div className="min-w-0">
                     <div className="text-sm font-medium text-sage-800 truncate">{inv.invoice_number}</div>
@@ -249,7 +246,7 @@ export default async function PortalDashboard() {
               <Link
                 key={j.id}
                 href={`/portal/jobs/${j.id}`}
-                className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50/70 transition-colors"
+                className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50/70 transition-colors duration-150"
               >
                 <div className="min-w-0">
                   <div className="text-sm font-medium text-sage-800 truncate">{j.job_number}</div>
@@ -268,11 +265,12 @@ export default async function PortalDashboard() {
 // ── Components ──────────────────────────────────────────
 
 function KpiCard({
-  icon: Icon, label, value, accent, href,
+  icon: Icon, label, value, hint, accent, href,
 }: {
   icon: React.ElementType
   label: string
   value: number
+  hint?: string
   accent?: 'emerald' | 'amber' | 'blue'
   href?: string
 }) {
@@ -282,28 +280,41 @@ function KpiCard({
     accent === 'blue'    ? 'text-blue-700'    :
     'text-sage-800'
   const iconColor =
-    accent === 'emerald' ? 'text-emerald-500' :
-    accent === 'amber'   ? 'text-amber-500'   :
-    accent === 'blue'    ? 'text-blue-500'    :
-    'text-sage-400'
+    accent === 'emerald' ? 'text-emerald-600' :
+    accent === 'amber'   ? 'text-amber-600'   :
+    accent === 'blue'    ? 'text-blue-600'    :
+    'text-sage-500'
+  // Phase 1.7 — small tinted "tile" behind each KPI icon. Unifies the
+  // icon language across the row and gives the dashboard a small
+  // signature element without leaning on decoration.
+  const iconTileBg =
+    accent === 'emerald' ? 'bg-emerald-50' :
+    accent === 'amber'   ? 'bg-amber-50'   :
+    accent === 'blue'    ? 'bg-blue-50'    :
+    'bg-sage-50'
 
   const content = (
     <div
       className={clsx(
         'group bg-white rounded-xl p-5 border border-gray-100 shadow-sm h-full',
-        href && 'hover:shadow-md hover:border-gray-200 transition-all',
+        href && 'hover:shadow-md hover:border-gray-200 transition-all duration-150',
       )}
     >
       <div className="flex items-start justify-between gap-3 mb-4">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-sage-500">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-sage-500 mt-1">
           {label}
         </span>
-        <Icon size={16} className={clsx(iconColor, 'shrink-0 transition-colors')} />
+        <span className={clsx('shrink-0 inline-flex items-center justify-center h-8 w-8 rounded-lg', iconTileBg)}>
+          <Icon size={15} className={iconColor} />
+        </span>
       </div>
       <div className="flex items-baseline gap-2">
-        <p className={clsx('text-3xl font-bold tabular-nums tracking-tight', valueColor)}>
+        <p className={clsx('text-3xl font-bold tabular-nums tracking-tight leading-none', valueColor)}>
           {value}
         </p>
+        {hint && (
+          <span className="text-[11px] text-sage-500 leading-none">{hint}</span>
+        )}
       </div>
     </div>
   )
@@ -318,28 +329,44 @@ function OpStat({
   href: string
   tone?: 'amber' | 'red' | 'blue'
 }) {
+  const alerting = value > 0 && !!tone
   const dotColor =
     tone === 'red'   ? 'bg-red-500'   :
     tone === 'amber' ? 'bg-amber-500' :
     tone === 'blue'  ? 'bg-blue-500'  :
     'bg-transparent'
+  // Phase 1.7 — soft halo around the dot so alerting cells read at a
+  // glance without resorting to coloured backgrounds (which fight the
+  // gap-px hairline trick used by the parent grid).
+  const dotRing =
+    tone === 'red'   ? 'ring-2 ring-red-100'   :
+    tone === 'amber' ? 'ring-2 ring-amber-100' :
+    tone === 'blue'  ? 'ring-2 ring-blue-100'  :
+    ''
   const valueColor =
     tone === 'red'   ? 'text-red-700'   :
     tone === 'amber' ? 'text-amber-700' :
     tone === 'blue'  ? 'text-blue-700'  :
     'text-sage-800'
+  // Phase 1.7 — when alerting, hover tints to the alert tone instead
+  // of generic gray. Quiet by default, smarter on engagement.
+  const hoverBg =
+    !alerting        ? 'hover:bg-gray-50'   :
+    tone === 'red'   ? 'hover:bg-red-50'    :
+    tone === 'amber' ? 'hover:bg-amber-50'  :
+    'hover:bg-blue-50'
 
   return (
     <Link
       href={href}
-      className="block bg-white px-5 py-4 hover:bg-gray-50 transition-colors"
+      className={clsx('block bg-white px-5 py-4 transition-colors duration-150', hoverBg)}
     >
       <div className="text-[11px] font-medium uppercase tracking-wider text-sage-500 mb-1.5">
         {label}
       </div>
       <div className="flex items-center gap-2">
-        {value > 0 && tone && (
-          <span className={clsx('h-1.5 w-1.5 rounded-full shrink-0', dotColor)} />
+        {alerting && (
+          <span className={clsx('h-2 w-2 rounded-full shrink-0', dotColor, dotRing)} />
         )}
         <span className={clsx('text-xl font-bold tabular-nums', valueColor)}>{value}</span>
       </div>
