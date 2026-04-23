@@ -2,23 +2,11 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { Briefcase, Plus, CalendarDays } from 'lucide-react'
 import { JobFilters } from './_components/JobFilters'
-import clsx from 'clsx'
-
-const STATUS_STYLES: Record<string, string> = {
-  draft:       'bg-gray-100 text-gray-700',
-  assigned:    'bg-blue-50 text-blue-700',
-  in_progress: 'bg-amber-50 text-amber-700',
-  completed:   'bg-emerald-50 text-emerald-700',
-  invoiced:    'bg-purple-50 text-purple-700',
-}
+import { StatusBadge } from '../_components/StatusBadge'
 
 function fmtDate(iso: string | null) {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-function statusLabel(s: string) {
-  return s.replace('_', ' ')
 }
 
 function todayStr() {
@@ -178,7 +166,7 @@ export default async function JobsPage({
                     <td className="p-0"><Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-700 max-w-[200px] truncate">{row.title}</Link></td>
                     <td className="p-0"><Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600 max-w-[200px] truncate">{row.address || '—'}</Link></td>
                     <td className="p-0"><Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{row.assignedTo || <span className="text-sage-300">Unassigned</span>}</Link></td>
-                    <td className="p-0"><Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors"><span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', STATUS_STYLES[row.status] ?? STATUS_STYLES.draft)}>{statusLabel(row.status)}</span></Link></td>
+                    <td className="p-0"><Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors"><StatusBadge kind="job" status={row.status} /></Link></td>
                     <td className="p-0"><Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-sage-50/50 transition-colors text-sage-600">{fmtDate(row.scheduledDate)}{row.scheduledTime ? <span className="text-sage-400 ml-1.5">{row.scheduledTime}</span> : ''}</Link></td>
                   </tr>
                 ))}
@@ -192,7 +180,7 @@ export default async function JobsPage({
               <Link key={row.id} href={`/portal/jobs/${row.id}`} className="block px-4 py-4 hover:bg-sage-50/50 transition-colors">
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-medium text-sage-800">{row.jobNumber}</span>
-                  <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', STATUS_STYLES[row.status] ?? STATUS_STYLES.draft)}>{statusLabel(row.status)}</span>
+                  <StatusBadge kind="job" status={row.status} />
                 </div>
                 <div className="text-sage-700 text-sm">{row.title}</div>
                 {row.address && <div className="text-sage-500 text-xs mt-1">{row.address}</div>}

@@ -110,3 +110,31 @@ export function computeInvoiceDisplayStatus(
   const today = new Date().toISOString().slice(0, 10)
   return dueDate < today ? 'overdue' : status
 }
+
+// ── Job ────────────────────────────────────────────────────────────
+
+export const JOB_STATUSES = [
+  'draft',
+  'assigned',
+  'in_progress',
+  'completed',
+  'invoiced',
+] as const
+
+export type JobStatus = (typeof JOB_STATUSES)[number]
+
+export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
+  draft:       'Draft',
+  assigned:    'Assigned',
+  in_progress: 'In progress',
+  completed:   'Completed',
+  invoiced:    'Invoiced',
+}
+
+export const JOB_STATUS_STYLES: Record<JobStatus, string> = {
+  draft:       'bg-gray-100 text-gray-700',
+  assigned:    'bg-blue-50 text-blue-700',
+  in_progress: 'bg-amber-50 text-amber-700',
+  completed:   'bg-emerald-50 text-emerald-700',
+  invoiced:    'bg-violet-50 text-violet-700',
+}

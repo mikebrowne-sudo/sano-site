@@ -2,20 +2,8 @@ import { createClient } from '@/lib/supabase-server'
 import Link from 'next/link'
 import { FileText, Receipt, Briefcase, Plus, ArrowRight, DollarSign, Clock, AlertTriangle, Bell, CalendarDays } from 'lucide-react'
 import clsx from 'clsx'
-
-const QUOTE_STATUS: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-700', sent: 'bg-blue-50 text-blue-700',
-  accepted: 'bg-emerald-50 text-emerald-700', declined: 'bg-red-50 text-red-700',
-}
-const INVOICE_STATUS: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-700', sent: 'bg-blue-50 text-blue-700',
-  paid: 'bg-emerald-50 text-emerald-700', overdue: 'bg-amber-50 text-amber-700',
-}
-const JOB_STATUS: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-700', assigned: 'bg-blue-50 text-blue-700',
-  in_progress: 'bg-amber-50 text-amber-700', completed: 'bg-emerald-50 text-emerald-700',
-  invoiced: 'bg-purple-50 text-purple-700',
-}
+import { StatusBadge } from './_components/StatusBadge'
+import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 
 export default async function PortalDashboard() {
   const supabase = createClient()
@@ -52,19 +40,14 @@ export default async function PortalDashboard() {
   const outstandingCount = sentInvoices?.length ?? 0
   const overdueInvoices = (sentInvoices ?? []).filter((i) => i.due_date && i.due_date < today)
 
-  function invoiceDisplayStatus(status: string, dueDate: string | null) {
-    if (status === 'sent' && dueDate && dueDate < today) return 'overdue'
-    return status
-  }
-
   const hasAlerts = (unassignedJobs ?? 0) > 0 || overdueInvoices.length > 0 || (overdueTraining ?? 0) > 0
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-sage-800 mb-6">Dashboard</h1>
+    <div className="space-y-8">
+      <h1 className="text-2xl font-bold text-sage-800">Dashboard</h1>
 
       {/* Quick actions */}
-      <div className="flex flex-wrap gap-3 mb-8">
+      <div className="flex flex-wrap gap-3">
         <Link href="/portal/quotes/new" className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors">
           <Plus size={16} /> New Quote
         </Link>
@@ -81,7 +64,7 @@ export default async function PortalDashboard() {
 
       {/* Attention needed */}
       {hasAlerts && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-8">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
           <h2 className="text-sm font-semibold text-amber-800 mb-2 flex items-center gap-2"><AlertTriangle size={14} /> Needs attention</h2>
           <div className="flex flex-wrap gap-4 text-sm">
             {(unassignedJobs ?? 0) > 0 && (
@@ -104,7 +87,7 @@ export default async function PortalDashboard() {
       )}
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-10">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <SummaryCard icon={FileText} label="Quotes" value={totalQuotes ?? 0} href="/portal/quotes" />
         <SummaryCard icon={Receipt} label="Invoices" value={totalInvoices ?? 0} href="/portal/invoices" />
         <SummaryCard icon={DollarSign} label="Paid" value={paidInvoices ?? 0} accent="emerald" href="/portal/finance" />
@@ -114,7 +97,7 @@ export default async function PortalDashboard() {
       </div>
 
       {/* Operational row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <MiniCard label="Unassigned" value={unassignedJobs ?? 0} accent={unassignedJobs ? 'amber' : undefined} href="/portal/jobs?view=unassigned" />
         <MiniCard label="In progress" value={inProgressJobs ?? 0} accent={inProgressJobs ? 'blue' : undefined} href="/portal/jobs?view=in_progress" />
         <MiniCard label="Overdue invoices" value={overdueInvoices.length} accent={overdueInvoices.length > 0 ? 'red' : undefined} href="/portal/alerts" />
@@ -128,12 +111,12 @@ export default async function PortalDashboard() {
           {(recentQuotes ?? []).map((q) => {
             const client = q.clients as unknown as { name: string } | null
             return (
-              <Link key={q.id} href={`/portal/quotes/${q.id}`} className="flex items-center justify-between px-4 py-2.5 hover:bg-sage-50/50 transition-colors">
+              <Link key={q.id} href={`/portal/quotes/${q.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-sage-50/50 transition-colors">
                 <div className="min-w-0">
                   <span className="text-sm font-medium text-sage-800">{q.quote_number}</span>
                   <span className="text-sage-500 text-xs ml-2">{client?.name ?? '—'}</span>
                 </div>
-                <span className={clsx('shrink-0 inline-block px-2 py-0.5 rounded-full text-xs font-medium capitalize', QUOTE_STATUS[q.status] ?? QUOTE_STATUS.draft)}>{q.status}</span>
+                <StatusBadge kind="quote" status={q.status} />
               </Link>
             )
           })}
@@ -143,14 +126,14 @@ export default async function PortalDashboard() {
         <ActivityPanel title="Recent Invoices" href="/portal/invoices" empty={!recentInvoices?.length}>
           {(recentInvoices ?? []).map((inv) => {
             const client = inv.clients as unknown as { name: string } | null
-            const status = invoiceDisplayStatus(inv.status, inv.due_date)
+            const status = computeInvoiceDisplayStatus(inv.status, inv.due_date)
             return (
-              <Link key={inv.id} href={`/portal/invoices/${inv.id}`} className="flex items-center justify-between px-4 py-2.5 hover:bg-sage-50/50 transition-colors">
+              <Link key={inv.id} href={`/portal/invoices/${inv.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-sage-50/50 transition-colors">
                 <div className="min-w-0">
                   <span className="text-sm font-medium text-sage-800">{inv.invoice_number}</span>
                   <span className="text-sage-500 text-xs ml-2">{client?.name ?? '—'}</span>
                 </div>
-                <span className={clsx('shrink-0 inline-block px-2 py-0.5 rounded-full text-xs font-medium capitalize', INVOICE_STATUS[status] ?? INVOICE_STATUS.draft)}>{status}</span>
+                <StatusBadge kind="invoice" status={status} />
               </Link>
             )
           })}
@@ -159,12 +142,12 @@ export default async function PortalDashboard() {
         {/* Recent Jobs */}
         <ActivityPanel title="Recent Jobs" href="/portal/jobs" empty={!recentJobs?.length}>
           {(recentJobs ?? []).map((j) => (
-            <Link key={j.id} href={`/portal/jobs/${j.id}`} className="flex items-center justify-between px-4 py-2.5 hover:bg-sage-50/50 transition-colors">
+            <Link key={j.id} href={`/portal/jobs/${j.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-sage-50/50 transition-colors">
               <div className="min-w-0">
                 <span className="text-sm font-medium text-sage-800">{j.job_number}</span>
                 <span className="text-sage-500 text-xs ml-2">{j.assigned_to || 'Unassigned'}</span>
               </div>
-              <span className={clsx('shrink-0 inline-block px-2 py-0.5 rounded-full text-xs font-medium capitalize', JOB_STATUS[j.status] ?? JOB_STATUS.draft)}>{j.status.replace('_', ' ')}</span>
+              <StatusBadge kind="job" status={j.status ?? 'draft'} />
             </Link>
           ))}
         </ActivityPanel>
