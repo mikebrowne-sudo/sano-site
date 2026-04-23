@@ -13,7 +13,13 @@ import { computeFinalPrice } from '../../new/_components/final-price'
 import { calculateQuotePrice, isPricingEligible, type PricingBreakdown, type PricingMode } from '@/lib/quote-pricing'
 import { SERVICE_TYPES_BY_CATEGORY, type ServiceCategory } from '@/lib/quote-wording'
 import type { CommercialQuoteDetails, CommercialScopeItem } from '@/lib/commercialQuote'
-import { QUOTE_STATUS_STYLES as STATUS_STYLES, isQuoteLocked } from '@/lib/quote-status'
+import {
+  QUOTE_STATUS_STYLES as STATUS_STYLES,
+  QUOTE_STATUS_LABELS,
+  isQuoteLocked,
+  type QuoteStatus,
+} from '@/lib/quote-status'
+import { StatusBadge } from '../../../_components/StatusBadge'
 import {
   saveCommercialDetails,
   saveCommercialScope,
@@ -535,24 +541,63 @@ export function EditQuoteForm({
       </div>
 
       {/* ── Section: Status ─────────────────────────── */}
-      <Section title="Status">
-        <div className="flex flex-wrap gap-2">
-          {STATUSES.map((s) => (
-            <button
-              key={s.value}
-              type="button"
-              onClick={() => setStatus(s.value)}
-              className={clsx(
-                'px-4 py-2 rounded-lg text-sm font-medium transition-colors border',
-                status === s.value
-                  ? `${STATUS_STYLES[s.value as keyof typeof STATUS_STYLES]} border-current`
-                  : 'bg-white text-sage-600 border-sage-200 hover:bg-sage-50',
-              )}
-            >
-              {s.label}
-            </button>
-          ))}
+      {/*
+        The status section always shows the current status as a badge,
+        regardless of whether it's manually switchable. The 4-button
+        manual switcher (draft/sent/accepted/declined) only renders when:
+          • the quote isn't locked (accepted/declined/converted/non-latest/archived)
+          • the current status is one we let staff toggle directly.
+        For 'viewed' (system-set on share-page open) and 'converted'
+        (system-set on convert-to-invoice), we show a one-line explanation
+        instead so the operator isn't confused by unhighlighted buttons.
+      */}
+      <Section title="Status" disabled={isLocked}>
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-xs uppercase tracking-wider text-sage-500 font-semibold">
+            Current
+          </span>
+          <StatusBadge kind="quote" status={status} size="md" />
         </div>
+
+        {(() => {
+          const switchable = STATUSES.some((s) => s.value === status)
+          if (isLocked) {
+            return (
+              <div className="bg-sage-50 border border-sage-100 rounded-lg px-4 py-3 text-xs text-sage-700">
+                <strong>{QUOTE_STATUS_LABELS[status as QuoteStatus] ?? status}</strong> quotes are read-only.{' '}
+                {!quote.is_latest_version
+                  ? 'You\u2019re viewing a historical version — open the latest or restore from this one to edit.'
+                  : 'Use the version history below to restore from this version, which creates a new editable draft.'}
+              </div>
+            )
+          }
+          if (!switchable) {
+            return (
+              <div className="bg-sage-50 border border-sage-100 rounded-lg px-4 py-3 text-xs text-sage-700">
+                <strong>{QUOTE_STATUS_LABELS[status as QuoteStatus] ?? status}</strong> is set automatically by the system and isn\u2019t changed manually here.
+              </div>
+            )
+          }
+          return (
+            <div className="flex flex-wrap gap-2">
+              {STATUSES.map((s) => (
+                <button
+                  key={s.value}
+                  type="button"
+                  onClick={() => setStatus(s.value)}
+                  className={clsx(
+                    'px-4 py-2 rounded-lg text-sm font-medium transition-colors border',
+                    status === s.value
+                      ? `${STATUS_STYLES[s.value as keyof typeof STATUS_STYLES]} border-current`
+                      : 'bg-white text-sage-600 border-sage-200 hover:bg-sage-50',
+                  )}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )
+        })()}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <Field
@@ -573,7 +618,7 @@ export function EditQuoteForm({
       </Section>
 
       {/* ── Section: Client ─────────────────────────── */}
-      <Section title="Client">
+      <Section title="Client" disabled={isLocked}>
         <Select
           label="Client"
           value={clientId}
@@ -594,7 +639,7 @@ export function EditQuoteForm({
       />
 
       {/* ── Section: Service details ────────────────── */}
-      <Section title="Service Details">
+      <Section title="Service Details" disabled={isLocked}>
         {hasLegacyOnly && (
           <div className="bg-sage-50 border border-sage-200 rounded-lg px-4 py-3 mb-5 text-xs text-sage-700">
             This quote was created before the structured scope builder.
@@ -613,7 +658,7 @@ export function EditQuoteForm({
 
       {/* ── Section: Commercial details + scope (commercial only) ── */}
       {isCommercial && (
-        <Section title="Commercial details">
+        <Section title="Commercial details" disabled={isLocked}>
           <div className="space-y-4">
             <CommercialDetailsSection
               value={commercialDetails}
@@ -637,7 +682,7 @@ export function EditQuoteForm({
       )}
 
       {/* ── Section: Pricing ────────────────────────── */}
-      <Section title="Pricing">
+      <Section title="Pricing" disabled={isLocked}>
         {/* Final-price banner — always visible */}
         <div className="mb-4 bg-white rounded-xl border border-sage-100 p-4 flex items-center justify-between">
           <div>
@@ -733,7 +778,7 @@ export function EditQuoteForm({
       </Section>
 
       {/* ── Section: Add-ons ────────────────────────── */}
-      <Section title="Add-ons">
+      <Section title="Add-ons" disabled={isLocked}>
         {addons.length > 0 && (
           <div className="space-y-3 mb-4">
             {addons.map((a) => (
@@ -838,9 +883,20 @@ export function EditQuoteForm({
 
 // ── Form primitives ───────────────────────────────────────────
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+  disabled = false,
+}: {
+  title: string
+  children: React.ReactNode
+  disabled?: boolean
+}) {
+  // fieldset[disabled] cascades to every native input/button inside, so a
+  // single prop here is enough to lock down a whole section's controls
+  // (QuoteBuilder, Field, Select, addon inputs, payment toggles, …).
   return (
-    <fieldset>
+    <fieldset disabled={disabled} className="contents">
       <legend className="text-lg font-semibold text-sage-800 mb-4">{title}</legend>
       {children}
     </fieldset>
