@@ -193,20 +193,18 @@ export const PROPOSAL_CSS = `
     rgba(15, 17, 19, 0.30) 100%
   );
 }
-/* Cover top — logo + tagline centred WITHIN the 105mm dark left
-   panel column (same column extent as __main, so the block sits
-   in the upper-left panel area, NOT centred across the full page).
-   The locked offset between "centred-within-panel" and
-   "left-edge-of-panel" produces the intentional asymmetry per
-   Cover page v1 reference. */
+/* Cover top — logo + tagline LEFT ALIGNED in the upper-left dark
+   panel area (same 105mm column extent as __main). Logo + tagline
+   share the same left edge as the title block below, so the
+   entire left panel reads as one consistent left-aligned stack. */
 .proposal-cover__top {
   position: relative;
   z-index: 1;
   max-width: 105mm;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
+  text-align: left;
   margin-bottom: 22mm;
 }
 .proposal-cover__logo {

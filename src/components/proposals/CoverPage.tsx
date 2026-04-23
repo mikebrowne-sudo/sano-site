@@ -15,7 +15,9 @@ import { ProposalLayout } from './ProposalLayout'
 import type { ProposalTemplatePayload } from '@/lib/proposals/buildProposalPayload'
 
 const COVER_IMAGE = '/images/cleaned-by-sano.jpg'
-const LOGO_WHITE = '/brand/sano-logo-white.png'
+// Locked: full white Sano logo (with tagline baked into the artwork).
+// File source: F:\Sano\10-Branding\Logos\Exports\White\sano-full-white.png
+const LOGO_WHITE = '/brand/sano-full-white.png'
 
 export function CoverPage({
   payload,
