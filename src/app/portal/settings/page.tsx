@@ -1,4 +1,4 @@
-import { Settings, SlidersHorizontal, ArchiveRestore } from 'lucide-react'
+import { Settings, SlidersHorizontal, ArchiveRestore, LayoutGrid } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 
@@ -25,6 +25,20 @@ export default async function SettingsPage() {
                 <div className="text-sage-800 font-semibold text-sm">Pricing engine</div>
                 <div className="text-sage-600 text-xs mt-1">
                   Commercial margin tiers and multipliers. Admin-only.
+                </div>
+              </div>
+            </div>
+          </Link>
+          <Link
+            href="/portal/settings/display"
+            className="block bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4 hover:border-sage-200 hover:shadow-sm transition-all"
+          >
+            <div className="flex items-start gap-3">
+              <LayoutGrid size={20} className="text-sage-500 mt-0.5" />
+              <div>
+                <div className="text-sage-800 font-semibold text-sm">Display settings</div>
+                <div className="text-sage-600 text-xs mt-1">
+                  Choose which fields appear in Jobs and Quotes lists, and the default sort. Admin-only.
                 </div>
               </div>
             </div>
