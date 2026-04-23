@@ -158,15 +158,27 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
         </div>
         <div className="flex items-center gap-3">
           {quote.service_category === 'commercial' && (
-            <a
-              href={`/portal/quotes/${params.id}/proposal`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
-            >
-              <FileText size={16} />
-              View Proposal
-            </a>
+            <>
+              <a
+                href={`/portal/quotes/${params.id}/proposal`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
+              >
+                <FileText size={16} />
+                View Proposal
+              </a>
+              <a
+                href={`/portal/quotes/${params.id}/proposal/preview`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="New proposal template (Proposal Phase 1 preview)"
+                className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
+              >
+                <FileText size={16} />
+                Preview (new template)
+              </a>
+            </>
           )}
           <a
             href={`/portal/quotes/${params.id}/print`}
