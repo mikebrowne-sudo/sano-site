@@ -1,13 +1,14 @@
-// Executive Summary — green opener, headline paragraph + supporting
-// text on the left, commercial-interior image on the right. Matches
-// the approved mockup.
+// Executive Summary — green opener, lead paragraph + supporting line
+// on the left, full-height commercial-interior image on the right.
+// Right-column image runs from just under the header to the footer
+// line, matching the cover-page proportion / treatment.
 
 import { ProposalLayout } from './ProposalLayout'
 import type { ProposalTemplatePayload } from '@/lib/proposals/buildProposalPayload'
 
-// Shared inner-page image (same environment rule). Update once in
-// ProposalHeader.tsx if the asset changes.
-const SIDE_IMAGE = '/images/proposal-banner.jpg'
+// Locked side image for this page only. Drop the file into
+// public/images/ — keep the path stable.
+const SIDE_IMAGE = '/images/executive-summary.jpg'
 
 export function ExecutiveSummaryPage({
   payload,
@@ -25,10 +26,10 @@ export function ExecutiveSummaryPage({
       totalPages={totalPages}
       contact={payload.contact}
     >
-      <div className="proposal-content">
-        <div className="proposal-intro-grid">
-          <div>
-            <p className="proposal-eyebrow" style={{ color: 'var(--sano-green)', marginBottom: '4mm' }}>
+      <div className="proposal-content proposal-content--exec">
+        <div className="proposal-exec-grid">
+          <div className="proposal-exec-grid__copy">
+            <p className="proposal-exec-opener">
               Thank you for the opportunity to work with {payload.clientName}.
             </p>
             <p className="proposal-lead">
@@ -39,7 +40,7 @@ export function ExecutiveSummaryPage({
             </p>
           </div>
           <div
-            className="proposal-intro-image"
+            className="proposal-exec-grid__image"
             style={{ backgroundImage: `url(${SIDE_IMAGE})` }}
             aria-hidden
           />
