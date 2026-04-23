@@ -11,6 +11,7 @@
 // settings.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { APPROVED_TERMS_HTML } from './terms-and-conditions'
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -74,26 +75,15 @@ export const DEFAULT_PROPOSAL_SETTINGS: ProposalSettings = {
       'By signing below, the client accepts the scope, pricing, and terms set out in this proposal.',
   },
   terms: {
-    terms_and_conditions_html: `
-      <p>This proposal is valid for 30 days from the date of issue. Pricing assumes the scope and service-frequency described above; material changes (additional areas, frequency, or hours) may attract a revised fee on 30 days' written notice.</p>
-
-      <h3>Service standard</h3>
-      <p>Sano will deliver the agreed scope to a measurable cleaning standard, with site supervision and scheduled inspections.</p>
-
-      <h3>Insurance &amp; compliance</h3>
-      <p>Sano carries public-liability insurance to NZ$2 million and statutory liability cover. All cleaners are vetted, inducted, and trained on site-specific procedures.</p>
-
-      <h3>Payment</h3>
-      <p>Invoices are issued monthly in arrears, payable on the 20th of the month following invoice date.</p>
-
-      <h3>Termination</h3>
-      <p>Either party may terminate this agreement on 30 days' written notice.</p>
-    `.trim(),
-    default_contract_term_months: 12,
-    default_payment_term_days: 20,
-    default_notice_period_days: 30,
+    // Approved Sano Property Services Limited commercial terms
+    // (locked 2026-04-26). Source-of-truth string lives in
+    // src/lib/proposals/terms-and-conditions.ts.
+    terms_and_conditions_html: APPROVED_TERMS_HTML,
+    default_contract_term_months: 12,   // matches approved §2 Contract Term
+    default_payment_term_days: 14,      // matches approved §5 Pricing & Payment Terms
+    default_notice_period_days: 30,     // matches approved §17 Termination & Notice
     liability_clause:
-      'Sano carries public-liability insurance to NZ$2 million and statutory liability cover.',
+      'Sano Property Services Limited maintains appropriate insurance cover, including public liability insurance. Liability is limited to the value of services provided within the preceding three-month period, except where required by law.',
   },
   commercial: {
     proposal_validity_days: 30,

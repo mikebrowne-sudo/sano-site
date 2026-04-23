@@ -526,7 +526,8 @@ export const PROPOSAL_CSS = `
   fill: none;
 }
 
-/* Terms prose */
+/* Terms prose — default (single-column, looser) used by ad-hoc
+   terms callers. */
 .proposal-prose {
   font-size: 10pt;
   line-height: 1.6;
@@ -544,6 +545,71 @@ export const PROPOSAL_CSS = `
 .proposal-prose p { margin: 0 0 3mm; }
 .proposal-prose ul { margin: 0 0 3mm; padding-left: 5mm; }
 .proposal-prose li { margin-bottom: 1mm; }
+
+/* ── Terms & Conditions — compact 2-column variant ──────────────
+   Designed to fit the locked 19-section approved Sano commercial
+   terms on a single A4 page.
+
+   Tightening knob: change --terms-shrink to a positive number to
+   shave that many points off the body type. e.g. 0.5 nudges body
+   from 8.5pt → 8pt and h3 from 9pt → 8.5pt without touching markup.
+   Keep at 0 for the documented "comfortable" rendering.
+
+   break-inside: avoid-column keeps each heading + its paragraphs +
+   bullet list together — no orphaned headings at the bottom of
+   column 1. column-fill: balance gives even column heights. */
+
+.proposal-content--terms {
+  flex: 1;
+}
+
+.proposal-prose--terms {
+  --terms-shrink: 0;
+  font-size: calc(8.5pt - var(--terms-shrink) * 1pt);
+  line-height: 1.45;
+  color: var(--sano-ink-2);
+  max-width: none;
+  columns: 2;
+  column-gap: 8mm;
+  column-fill: balance;
+}
+
+.proposal-prose--terms h3 {
+  font-size: calc(9pt - var(--terms-shrink) * 1pt);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--sano-ink);
+  font-weight: 700;
+  margin: 0 0 1mm;
+  break-after: avoid-column;
+  break-inside: avoid-column;
+}
+.proposal-prose--terms h3:first-child { margin-top: 0; }
+.proposal-prose--terms > h3 + p,
+.proposal-prose--terms > h3 + ul { margin-top: 0; }
+
+.proposal-prose--terms p {
+  margin: 0 0 1.6mm;
+  break-inside: avoid-column;
+}
+.proposal-prose--terms ul {
+  margin: 0 0 2mm;
+  padding-left: 4mm;
+  break-inside: avoid-column;
+  list-style: disc;
+}
+.proposal-prose--terms li {
+  margin-bottom: 0.4mm;
+}
+
+/* Add a small breath between sections without growing the heading
+   margin (which would orphan headings). */
+.proposal-prose--terms > h3 {
+  margin-top: 2.5mm;
+}
+.proposal-prose--terms > h3:first-child {
+  margin-top: 0;
+}
 
 /* ── Print ─────────────────────────────────────────────────────── */
 
