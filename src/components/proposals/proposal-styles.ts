@@ -564,42 +564,50 @@ export const PROPOSAL_CSS = `
 }
 
 .proposal-prose--terms {
-  --terms-shrink: 0;
+  --terms-shrink: 1.3;
   font-size: calc(8.5pt - var(--terms-shrink) * 1pt);
-  line-height: 1.45;
+  line-height: 1.3;
   color: var(--sano-ink-2);
   max-width: none;
   columns: 2;
-  column-gap: 8mm;
+  column-gap: 5mm;
   column-fill: balance;
 }
 
 .proposal-prose--terms h3 {
   font-size: calc(9pt - var(--terms-shrink) * 1pt);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   text-transform: none;
   color: var(--sano-ink);
   font-weight: 700;
-  margin: 0 0 1mm;
+  margin: 0 0 0.6mm;
   break-after: avoid-column;
   break-inside: avoid-column;
 }
-.proposal-prose--terms h3:first-child { margin-top: 0; }
+
+.proposal-prose--terms h3:first-child {
+  margin-top: 0;
+}
+
 .proposal-prose--terms > h3 + p,
-.proposal-prose--terms > h3 + ul { margin-top: 0; }
+.proposal-prose--terms > h3 + ul {
+  margin-top: 0;
+}
 
 .proposal-prose--terms p {
-  margin: 0 0 1.6mm;
+  margin: 0 0 0.6mm;
   break-inside: avoid-column;
 }
+
 .proposal-prose--terms ul {
-  margin: 0 0 2mm;
-  padding-left: 4mm;
+  margin: 0 0 0.6mm;
+  padding-left: 3mm;
   break-inside: avoid-column;
   list-style: disc;
 }
+
 .proposal-prose--terms li {
-  margin-bottom: 0.4mm;
+  margin-bottom: 0.2mm;
 }
 
 /* Add a small breath between sections without growing the heading
