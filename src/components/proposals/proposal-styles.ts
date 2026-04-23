@@ -193,18 +193,14 @@ export const PROPOSAL_CSS = `
     rgba(15, 17, 19, 0.30) 100%
   );
 }
-.proposal-cover__inner {
+/* Cover top — centered horizontally on the FULL page width.
+   Sibling of __main (no shared 105mm wrapper) so it can centre
+   relative to the page, while __main stays in the left column.
+   This produces the locked intentional offset between centred
+   logo / tagline and left-aligned title. */
+.proposal-cover__top {
   position: relative;
   z-index: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  max-width: 105mm;                   /* keeps text in the left panel */
-}
-
-/* Cover top — centered logo + tagline. The asymmetry vs the
-   left-aligned title block below is intentional and locked. */
-.proposal-cover__top {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -225,8 +221,11 @@ export const PROPOSAL_CSS = `
   font-weight: 600;
 }
 
-/* Cover main — left-aligned title + fields. */
+/* Cover main — left-aligned, capped to the dark left column. */
 .proposal-cover__main {
+  position: relative;
+  z-index: 1;
+  max-width: 105mm;
   display: flex;
   flex-direction: column;
 }
@@ -330,19 +329,29 @@ export const PROPOSAL_CSS = `
   flex: 1;
   display: grid;
   grid-template-columns: 1fr 75mm;
-  gap: 12mm;
-  align-items: stretch;          /* image cell stretches full height */
+  gap: 8mm;                      /* tighter copy ↔ image rhythm */
+  align-items: stretch;
 }
 .proposal-exec-grid__copy {
   display: flex;
   flex-direction: column;
 }
+
+/* Image cell breaks out of the body padding on top / right /
+   bottom so the asset hugs the header line, page right edge, and
+   footer divider. Left edge stays at the natural grid column so
+   the text column is untouched. Body padding is 12mm 14mm 20mm;
+   negative margins below leave ~2mm gaps where the spec asks for
+   "8–12px". */
 .proposal-exec-grid__image {
   width: 100%;
   height: 100%;
+  margin-top:    -10mm;
+  margin-right:  -14mm;
+  margin-bottom: -18mm;
   background-size: cover;
   background-position: center;
-  border-radius: 2px;
+  border-radius: 0;
 }
 .proposal-exec-opener {
   font-size: 12pt;
