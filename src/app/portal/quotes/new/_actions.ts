@@ -250,6 +250,23 @@ export async function createQuote(input: CreateQuoteInput) {
           estimated_service_hours: cd.estimated_service_hours ?? null,
           estimated_weekly_hours: cd.estimated_weekly_hours ?? null,
           estimated_monthly_hours: cd.estimated_monthly_hours ?? null,
+
+          // Phase 5A — tender fields
+          contact_name:           cd.contact_name           ?? null,
+          contact_email:          cd.contact_email          ?? null,
+          contact_phone:          cd.contact_phone          ?? null,
+          accounts_email:         cd.accounts_email         ?? null,
+          accounts_contact_name:  cd.accounts_contact_name  ?? null,
+          client_reference:       cd.client_reference       ?? null,
+          requires_po:            cd.requires_po            ?? false,
+          contract_term:          cd.contract_term          ?? null,
+          notice_period_days:     cd.notice_period_days     ?? null,
+          service_start_date:     cd.service_start_date     ?? null,
+          cleaning_standard:      cd.cleaning_standard      ?? null,
+          security_sensitive:     cd.security_sensitive     ?? false,
+          induction_required:     cd.induction_required     ?? false,
+          restricted_areas:       cd.restricted_areas       ?? false,
+          restricted_areas_notes: cd.restricted_areas_notes ?? null,
         })
       if (detailsErr) {
         return { error: `Quote created but commercial details failed: ${detailsErr.message}` }

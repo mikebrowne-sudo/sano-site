@@ -29,6 +29,18 @@ export type ConsumablesBy = 'sano' | 'client' | 'shared'
 
 export type MarginTier = 'win_the_work' | 'standard' | 'premium' | 'specialist'
 
+// ── Phase 5A — Tender field enums ──────────────────────────────────
+
+export type ContractTerm = '3_months' | '6_months' | '12_months' | 'open'
+export type CleaningStandard = 'maintenance' | 'high_presentation' | 'premium'
+
+export function isContractTerm(v: unknown): v is ContractTerm {
+  return v === '3_months' || v === '6_months' || v === '12_months' || v === 'open'
+}
+export function isCleaningStandard(v: unknown): v is CleaningStandard {
+  return v === 'maintenance' || v === 'high_presentation' || v === 'premium'
+}
+
 export type ScopeFrequency =
   | 'per_visit'
   | 'daily'
@@ -90,6 +102,28 @@ export interface CommercialQuoteDetails {
   estimated_service_hours: number | null
   estimated_weekly_hours: number | null
   estimated_monthly_hours: number | null
+
+  // Phase 5A — tender fields. All additive, all nullable except the
+  // booleans, which DEFAULT false at the DB layer.
+  contact_name: string | null
+  contact_email: string | null
+  contact_phone: string | null
+  accounts_email: string | null
+  accounts_contact_name: string | null
+
+  client_reference: string | null
+  requires_po: boolean
+
+  contract_term: ContractTerm | null
+  notice_period_days: number | null
+  service_start_date: string | null
+
+  cleaning_standard: CleaningStandard | null
+
+  security_sensitive: boolean
+  induction_required: boolean
+  restricted_areas: boolean
+  restricted_areas_notes: string | null
 
   created_at: string
   updated_at: string
