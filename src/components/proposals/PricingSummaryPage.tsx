@@ -1,12 +1,10 @@
 // Pricing Summary — centered bordered card, green hero amount with
-// "+ GST" suffix, supporting note. Prominent but not oversized —
-// the card width is capped and the typography aligns to the locked
-// scale.
+// the GST suffix below + monthly suffix as the smaller line, and a
+// supporting note. Suffixes are settings-driven (Phase 2).
 //
-// Splits the payload's monthlyServiceFee into amount + "+GST" pair
-// when it ends with "+GST per month" (the default output of the
-// adapter). Falls back gracefully when the source string has a
-// different shape.
+// Both suffixes come straight from settings via the payload, so an
+// operator can change "+ GST" to "(GST included)" or "per month" to
+// "per visit" without touching code.
 
 import { ProposalLayout } from './ProposalLayout'
 import type { ProposalTemplatePayload } from '@/lib/proposals/buildProposalPayload'
@@ -20,8 +18,6 @@ export function PricingSummaryPage({
   pageNumber: number
   totalPages: number
 }) {
-  const { amount, suffix } = splitPrice(payload.monthlyServiceFee)
-
   return (
     <ProposalLayout
       headerTitle="Pricing summary"
@@ -33,8 +29,13 @@ export function PricingSummaryPage({
         <div className="proposal-pricing-wrap">
           <div className="proposal-pricing-card">
             <div className="proposal-pricing-card__label">Monthly service fee</div>
-            <div className="proposal-pricing-card__amount">{amount}</div>
-            {suffix && <div className="proposal-pricing-card__suffix">{suffix}</div>}
+            <div className="proposal-pricing-card__amount">{payload.monthlyServiceFee}</div>
+            {payload.gstSuffix && (
+              <div className="proposal-pricing-card__suffix">
+                {payload.gstSuffix}
+                {payload.monthlyFeeSuffix ? ` · ${payload.monthlyFeeSuffix}` : ''}
+              </div>
+            )}
             <div className="proposal-pricing-card__note">
               Based on agreed scope and service frequency.
             </div>
@@ -49,24 +50,9 @@ export function PricingSummaryPage({
         </div>
 
         <p className="proposal-pricing-support">
-          {payload.pricingNote || 'Pricing reflects a consistent, well-managed service with trained staff and quality control processes in place.'}
+          {payload.pricingNote}
         </p>
       </div>
     </ProposalLayout>
   )
-}
-
-// Pull a trailing "+GST …" off the fee string so the hero figure
-// reads as just the dollar amount, with "+ GST" as a smaller suffix
-// underneath.
-function splitPrice(fee: string): { amount: string; suffix: string } {
-  const trimmed = fee.trim()
-  const gstMatch = trimmed.match(/^(.*?)\s*\+\s*GST\s*(.*)$/i)
-  if (gstMatch) {
-    const amount = gstMatch[1].trim()
-    const trailing = gstMatch[2].trim()
-    const suffix = trailing ? `+ GST · ${trailing}` : '+ GST'
-    return { amount, suffix }
-  }
-  return { amount: trimmed, suffix: '' }
 }

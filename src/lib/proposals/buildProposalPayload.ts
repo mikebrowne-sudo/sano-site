@@ -16,6 +16,10 @@
 //        new template without re-doing the DB → presentation mapping.
 
 import type { ProposalPayload as LegacyProposalPayload } from '@/lib/commercialProposalMapping'
+import {
+  DEFAULT_PROPOSAL_SETTINGS,
+  type ProposalSettings,
+} from './proposal-settings'
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -30,38 +34,57 @@ export interface ProposalContact {
   phone: string
 }
 
+export interface ProposalSectionToggles {
+  executiveSummary: boolean
+  terms: boolean
+  acceptance: boolean
+}
+
 export interface ProposalTemplatePayload {
-  // Cover
+  // Cover values
   coverTagline: string          // e.g. "CLEAN SPACES. BETTER PLACES."
   coverTitle: string            // e.g. "Commercial Cleaning Proposal"
-  preparedForLabel: string      // e.g. "Sansom Construction"
+  preparedForLabel: string      // VALUE: e.g. "Sansom Construction"
   clientName: string
   siteAddress: string
   proposalDate: string          // pre-formatted, e.g. "24 April 2026"
   referenceNumber: string
 
+  // Cover field LABELS (from settings — operator-editable)
+  preparedForFieldLabel: string  // e.g. "Prepared for:"
+  siteAddressFieldLabel: string  // e.g. "Site address:"
+  dateFieldLabel: string         // e.g. "Date:"
+  referenceFieldLabel: string    // e.g. "Reference:"
+
   // Executive summary
   executiveSummary: string
 
   // Service overview
-  serviceFrequency: string      // e.g. "5 nights / week"
-  serviceDays: string           // e.g. "Mon–Fri"
-  serviceTimes: string          // e.g. "After 6 pm"
-  serviceStartDate: string      // pre-formatted
-  areasCovered: string[]        // bulleted list of areas
+  serviceFrequency: string
+  serviceDays: string
+  serviceTimes: string
+  serviceStartDate: string
+  areasCovered: string[]
 
   // Scope
   scopeSections: ProposalScopeSection[]
 
   // Pricing
-  monthlyServiceFee: string     // pre-formatted "$2,450 +GST per month"
-  pricingNote: string           // single-line note shown under the fee box
+  monthlyServiceFee: string     // pre-formatted hero amount, e.g. "$2,450"
+  pricingNote: string
+  gstSuffix: string             // settings — e.g. "+ GST"
+  monthlyFeeSuffix: string      // settings — e.g. "per month"
 
-  // Terms — safe HTML. The author of this string is the source of
-  // truth for sanitisation; the template injects via dangerouslySetInnerHTML.
+  // Terms
   termsAndConditionsHtml: string
 
-  // Footer (optional — defaults applied by the template)
+  // Acceptance (page not rendered yet — Phase 2 follow-up)
+  acceptanceWording: string
+
+  // Section toggles (from settings)
+  sections: ProposalSectionToggles
+
+  // Footer
   contact?: ProposalContact
 }
 
@@ -73,7 +96,14 @@ export const SANO_PROPOSAL_CONTACT: ProposalContact = {
 
 // ── Fixture ──────────────────────────────────────────────────────
 
-export function proposalFixture(): ProposalTemplatePayload {
+/**
+ * Fixture — static data for the preview route. Optional `settings`
+ * parameter applies operator-edited defaults (labels, footer contact,
+ * pricing suffixes, terms, section toggles). Without settings, the
+ * fixture uses DEFAULT_PROPOSAL_SETTINGS in their place — preview
+ * still renders correctly on a fresh DB.
+ */
+export function proposalFixture(settings: ProposalSettings = DEFAULT_PROPOSAL_SETTINGS): ProposalTemplatePayload {
   return {
     coverTagline: 'CLEAN SPACES. BETTER PLACES.',
     coverTitle: 'Commercial Cleaning Proposal',
@@ -82,6 +112,11 @@ export function proposalFixture(): ProposalTemplatePayload {
     siteAddress: '18 & 32 Burleigh Street, Parnell, Auckland 1052',
     proposalDate: '24 April 2026',
     referenceNumber: 'Q-1024',
+
+    preparedForFieldLabel:  settings.content.prepared_for_label,
+    siteAddressFieldLabel:  settings.content.site_address_label,
+    dateFieldLabel:         settings.content.date_label,
+    referenceFieldLabel:    settings.content.reference_label,
 
     executiveSummary:
       'Sano is pleased to present this proposal for ongoing commercial cleaning at your Customs Street office. Our approach combines a stable, vetted team with measurable cleaning standards, designed for low-disruption after-hours service. We back every contract with named site supervision, scheduled inspections, and a single point of contact for any issue.',
@@ -131,24 +166,26 @@ export function proposalFixture(): ProposalTemplatePayload {
       },
     ],
 
-    monthlyServiceFee: '$2,450 +GST per month',
-    pricingNote: 'Includes consumables (toilet paper, hand soap, hand towel). 30 days written notice for any contract change.',
+    monthlyServiceFee: '$2,450',
+    pricingNote: settings.content.pricing_note,
+    gstSuffix: settings.commercial.gst_suffix_text,
+    monthlyFeeSuffix: settings.commercial.monthly_fee_suffix_text,
 
-    termsAndConditionsHtml: `
-      <p>This proposal is valid for 30 days from the date of issue. Pricing assumes the scope and service-frequency described above; material changes (additional areas, frequency, or hours) may attract a revised fee on 30 days' written notice.</p>
+    termsAndConditionsHtml: settings.terms.terms_and_conditions_html,
 
-      <h3>Service standard</h3>
-      <p>Sano will deliver the agreed scope to a measurable cleaning standard, with site supervision and scheduled inspections. Any issue raised by the client is acknowledged within one business day and resolved or replanned before the following service.</p>
+    acceptanceWording: settings.content.acceptance_wording,
 
-      <h3>Insurance &amp; compliance</h3>
-      <p>Sano carries public-liability insurance to NZ$2 million and statutory liability cover. All cleaners are vetted, inducted, and trained on site-specific procedures. Compliance documents are available on request.</p>
+    sections: {
+      executiveSummary: settings.sections.show_executive_summary,
+      terms:            settings.sections.show_terms,
+      acceptance:       settings.sections.show_acceptance,
+    },
 
-      <h3>Payment</h3>
-      <p>Invoices are issued monthly in arrears, payable on the 20th of the month following invoice date. Sano accepts direct credit; account details are included on every invoice.</p>
-
-      <h3>Termination</h3>
-      <p>Either party may terminate this agreement on 30 days' written notice. Outstanding service delivered up to the termination date is invoiced in the normal cycle.</p>
-    `,
+    contact: {
+      email:   settings.footer.footer_email,
+      website: settings.footer.footer_website,
+      phone:   settings.footer.footer_phone,
+    },
   }
 }
 
@@ -157,9 +194,14 @@ export function proposalFixture(): ProposalTemplatePayload {
 /**
  * Map the existing ProposalPayload (built by buildProposalPayload in
  * commercialProposalMapping.ts) onto the slim template payload. Live
- * quote → new template render path.
+ * quote → new template render path. Optional settings override the
+ * editable defaults (labels, footer, terms, etc.); quote-specific
+ * data still wins where present.
  */
-export function fromCommercialProposalPayload(p: LegacyProposalPayload): ProposalTemplatePayload {
+export function fromCommercialProposalPayload(
+  p: LegacyProposalPayload,
+  settings: ProposalSettings = DEFAULT_PROPOSAL_SETTINGS,
+): ProposalTemplatePayload {
   // Scope groups → template sections. Legacy uses .label and .tasks;
   // each task carries task_name + frequency_label.
   const scopeSections: ProposalScopeSection[] = p.scope_groups.map((g) => ({
@@ -184,19 +226,23 @@ export function fromCommercialProposalPayload(p: LegacyProposalPayload): Proposa
   // checklist on the Service Overview page.
   const areasCovered = scopeSections.map((s) => s.title)
 
-  // Pricing — single hero figure. Legacy carries base, addons, totals;
-  // we present the (incl. GST or excl. GST as configured) total as
-  // "$X +GST per month" to match the mockup pricing card.
-  const fee = nzd(p.pricing.gst_included ? p.pricing.subtotal_ex_gst : p.pricing.total_inc_gst - p.pricing.gst_amount)
-  const monthlyServiceFee = `${fee} +GST per month`
+  // Pricing — single hero figure (just the dollar amount). The
+  // template renders the GST + monthly suffixes from settings.
+  const monthlyServiceFee = nzd(p.pricing.gst_included ? p.pricing.subtotal_ex_gst : p.pricing.total_inc_gst - p.pricing.gst_amount)
 
+  // pricingNote precedence: quote-specific support text → settings
+  // pricing_note → legacy gst_note as last resort.
   const pricingNote = p.pricing_support?.trim()
+    || settings.content.pricing_note
     || p.pricing.gst_note
     || 'Pricing valid for 30 days from issue.'
 
-  // Terms — prefer the structured commercial_terms when present,
-  // otherwise the assumptions list. Both render as safe HTML.
-  const termsHtml = renderTermsHtml(p)
+  // Terms precedence: structured terms derived from quote → settings
+  // terms HTML → minimal fallback.
+  const quoteDerivedTerms = renderTermsHtml(p)
+  const termsHtml = quoteDerivedTerms.trim().length > 0
+    ? quoteDerivedTerms
+    : settings.terms.terms_and_conditions_html
 
   return {
     coverTagline: 'CLEAN SPACES. BETTER PLACES.',
@@ -207,7 +253,13 @@ export function fromCommercialProposalPayload(p: LegacyProposalPayload): Proposa
     proposalDate: p.meta.issued,
     referenceNumber: p.meta.reference,
 
-    executiveSummary: p.executive_summary || '',
+    preparedForFieldLabel: settings.content.prepared_for_label,
+    siteAddressFieldLabel: settings.content.site_address_label,
+    dateFieldLabel:        settings.content.date_label,
+    referenceFieldLabel:   settings.content.reference_label,
+
+    // Quote-specific exec summary wins; settings default fills in.
+    executiveSummary: p.executive_summary?.trim() || settings.content.executive_summary_default,
 
     serviceFrequency,
     serviceDays,
@@ -219,8 +271,24 @@ export function fromCommercialProposalPayload(p: LegacyProposalPayload): Proposa
 
     monthlyServiceFee,
     pricingNote,
+    gstSuffix:        settings.commercial.gst_suffix_text,
+    monthlyFeeSuffix: settings.commercial.monthly_fee_suffix_text,
 
     termsAndConditionsHtml: termsHtml,
+
+    acceptanceWording: settings.content.acceptance_wording,
+
+    sections: {
+      executiveSummary: settings.sections.show_executive_summary,
+      terms:            settings.sections.show_terms,
+      acceptance:       settings.sections.show_acceptance,
+    },
+
+    contact: {
+      email:   settings.footer.footer_email,
+      website: settings.footer.footer_website,
+      phone:   settings.footer.footer_phone,
+    },
   }
 }
 
@@ -256,9 +324,9 @@ function renderTermsHtml(p: LegacyProposalPayload): string {
     parts.push(`<h3>Compliance</h3><p>${escapeHtml(p.compliance_notes)}</p>`)
   }
 
-  if (parts.length === 0) {
-    return '<p>This proposal is valid for 30 days from the date of issue.</p>'
-  }
+  // Return empty string when nothing was derived from the quote so
+  // the caller can fall back to settings.terms_and_conditions_html.
+  if (parts.length === 0) return ''
 
   return parts.join('\n')
 }
