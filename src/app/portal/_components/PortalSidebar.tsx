@@ -2,56 +2,64 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, FileText, Receipt, Briefcase, RefreshCw, Users, HardHat, BookOpen, DollarSign, FileInput, Wallet, Bell, Settings, Calculator } from 'lucide-react'
 import clsx from 'clsx'
-
-const links = [
-  { href: '/portal', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/portal/quotes', label: 'Quotes', icon: FileText },
-  { href: '/portal/commercial-calculator', label: 'Commercial calc', icon: Calculator },
-  { href: '/portal/invoices', label: 'Invoices', icon: Receipt },
-  { href: '/portal/jobs', label: 'Jobs', icon: Briefcase },
-  { href: '/portal/recurring-jobs', label: 'Recurring', icon: RefreshCw },
-  { href: '/portal/clients', label: 'Clients', icon: Users },
-  { href: '/portal/contractors', label: 'Contractors', icon: HardHat },
-  { href: '/portal/training', label: 'Training', icon: BookOpen },
-  { href: '/portal/contractor-invoices', label: 'Contractor Inv.', icon: FileInput },
-  { href: '/portal/payroll', label: 'Payroll', icon: Wallet },
-  { href: '/portal/finance', label: 'Finance', icon: DollarSign },
-  { href: '/portal/alerts', label: 'Alerts', icon: Bell },
-  { href: '/portal/settings', label: 'Settings', icon: Settings },
-]
+import { NAV_GROUPS, isNavActive } from './nav-config'
 
 export function PortalSidebar() {
   const pathname = usePathname()
 
-  function isActive(href: string) {
-    if (href === '/portal') return pathname === '/portal'
-    return pathname.startsWith(href)
-  }
-
   return (
-    <aside className="hidden md:flex md:w-56 flex-col bg-sage-800 text-white min-h-screen">
-      <div className="px-5 py-6 border-b border-sage-700">
+    <aside className="hidden md:flex md:w-60 flex-col bg-sage-800 text-white min-h-screen">
+      <div className="px-5 py-6 border-b border-sage-700/60">
         <span className="font-display font-bold text-lg tracking-tight">Sano</span>
         <span className="text-sage-200 text-xs ml-2">Portal</span>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {links.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className={clsx(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-              isActive(href)
-                ? 'bg-sage-700 text-white'
-                : 'text-sage-200 hover:bg-sage-700/50 hover:text-white',
-            )}
-          >
-            <Icon size={18} />
-            {label}
-          </Link>
+      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+        {NAV_GROUPS.map((group, i) => (
+          <div key={group.heading} className={clsx(i > 0 && 'mt-5')}>
+            <div className="px-3 pt-1 pb-2 text-[10px] uppercase tracking-[0.14em] font-semibold text-sage-400/80">
+              {group.heading}
+            </div>
+            <ul className="space-y-0.5">
+              {group.items.map(({ href, label, icon: Icon, placeholder }) => {
+                const active = isNavActive(pathname, { href, label, icon: Icon, placeholder })
+                if (placeholder) {
+                  return (
+                    <li key={label}>
+                      <span
+                        aria-disabled="true"
+                        title="Coming soon"
+                        className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-sage-300/50 cursor-not-allowed select-none"
+                      >
+                        <Icon size={17} />
+                        <span className="flex-1">{label}</span>
+                        <span className="text-[9px] uppercase tracking-wider bg-sage-700/60 text-sage-300/80 px-1.5 py-0.5 rounded">
+                          Soon
+                        </span>
+                      </span>
+                    </li>
+                  )
+                }
+                return (
+                  <li key={href}>
+                    <Link
+                      href={href}
+                      className={clsx(
+                        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                        active
+                          ? 'bg-sage-500 text-white shadow-sm'
+                          : 'text-sage-200 hover:bg-sage-700/50 hover:text-white',
+                      )}
+                    >
+                      <Icon size={17} />
+                      <span className="flex-1">{label}</span>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
         ))}
       </nav>
     </aside>

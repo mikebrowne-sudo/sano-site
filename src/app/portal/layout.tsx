@@ -22,7 +22,9 @@ export default async function PortalLayout({ children }: { children: React.React
       <PortalSidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <PortalTopbar email={user.email} />
-        <main className="flex-1 p-4 md:p-8">{children}</main>
+        <main className="flex-1 p-4 md:p-8">
+          <div className="max-w-7xl mx-auto w-full">{children}</div>
+        </main>
       </div>
     </div>
   )
