@@ -32,6 +32,12 @@ export function CommercialProposalTemplate({ payload }: CommercialProposalTempla
   const { meta, sano, client, executive_summary, site_profile, service_schedule,
     scope_groups, assumptions, exclusions, pricing } = payload
   const optionalParagraphs = payload.optional_paragraphs ?? []
+  // Phase 5B — content paragraphs and structured terms.
+  const siteUnderstanding = payload.site_understanding ?? ''
+  const servicePlan       = payload.service_plan ?? ''
+  const pricingSupport    = payload.pricing_support ?? ''
+  const commercialTerms   = payload.commercial_terms
+  const nextStepsText     = payload.next_steps_text
 
   // Cover-title fallback: when the aggregator couldn't resolve a real
   // client name (returns the 'Client' sentinel), fall back to the
@@ -107,6 +113,10 @@ export function CommercialProposalTemplate({ payload }: CommercialProposalTempla
 
         {/* 3. Site / Project Details */}
         <Section title="Site &amp; Project Details">
+          {/* Phase 5B — Site understanding paragraph (only when populated) */}
+          {siteUnderstanding && (
+            <p className="proposal-prose proposal-section-lead">{siteUnderstanding}</p>
+          )}
           <dl className="proposal-kv">
             <KV label="Sector"        value={site_profile.sector} />
             <KV label="Building type" value={site_profile.building_type} />
@@ -175,6 +185,10 @@ export function CommercialProposalTemplate({ payload }: CommercialProposalTempla
 
         {/* 5. Service Schedule */}
         <Section title="Service Schedule">
+          {/* Phase 5B — Service plan paragraph (only when populated) */}
+          {servicePlan && (
+            <p className="proposal-prose proposal-section-lead">{servicePlan}</p>
+          )}
           <dl className="proposal-kv">
             <KV label="Service days"   value={service_schedule.service_days} />
             <KV label="Service window" value={service_schedule.service_window} />
@@ -195,6 +209,12 @@ export function CommercialProposalTemplate({ payload }: CommercialProposalTempla
 
         {/* 6. Pricing Summary */}
         <Section title="Pricing Summary">
+          {/* Phase 5B — pricing support text. Always present from
+              buildPricingSupport, so no nullish guard needed; falls
+              back to a neutral line for older payloads. */}
+          {pricingSupport && (
+            <p className="proposal-prose proposal-section-lead">{pricingSupport}</p>
+          )}
           <table className="proposal-pricing">
             <tbody>
               {pricing.base_amount > 0 && (
@@ -245,6 +265,26 @@ export function CommercialProposalTemplate({ payload }: CommercialProposalTempla
           </Section>
         )}
 
+        {/* 8b. Commercial Terms (Phase 5B) — short, practical engagement
+              terms surfaced from the tender fields when populated.
+              Skipped entirely if no rows + no closing line. */}
+        {commercialTerms && (commercialTerms.rows.length > 0 || commercialTerms.closing) && (
+          <Section title="Commercial Terms">
+            {commercialTerms.rows.length > 0 && (
+              <dl className="proposal-kv">
+                {commercialTerms.rows.map((r) => (
+                  <KV key={r.label} label={r.label} value={r.value} />
+                ))}
+              </dl>
+            )}
+            {commercialTerms.closing && (
+              <p className="proposal-prose proposal-muted proposal-terms-closing">
+                {commercialTerms.closing}
+              </p>
+            )}
+          </Section>
+        )}
+
         {/* 9. Why Sano — hardcoded prose for now; payload.why_sano carries
               the bulleted variant used by the static HTML / PDF template.
               See docs/commercial-proposals/field-map.md. */}
@@ -263,12 +303,17 @@ export function CommercialProposalTemplate({ payload }: CommercialProposalTempla
           </p>
         </Section>
 
-        {/* 10. Next Steps — hardcoded prose, status-aware via payload.meta */}
+        {/* 10. Next Steps — Phase 5B: prefer the data-driven copy from
+              buildNextStepsText when present (it knows about start
+              date / contract term). Falls back to the hardcoded
+              status-aware line for older payloads. */}
         <Section title="Next Steps">
           <p className="proposal-prose">
-            {isAccepted
-              ? `This proposal was accepted on ${meta.accepted_at}. We look forward to mobilising and delivering a strong ongoing programme.`
-              : `If you would like to proceed, please confirm acceptance. A member of the Sano team will be in touch within one business day to schedule mobilisation.`}
+            {nextStepsText
+              ? nextStepsText
+              : isAccepted
+                ? `This proposal was accepted on ${meta.accepted_at}. We look forward to mobilising and delivering a strong ongoing programme.`
+                : `If you would like to proceed, please confirm acceptance. A member of the Sano team will be in touch within one business day to schedule mobilisation.`}
           </p>
           <p className="proposal-prose proposal-muted">
             By accepting this proposal you agree to our{' '}
@@ -469,6 +514,18 @@ const PROPOSAL_CSS = `
     color: #06231D;
     margin: 0 0 4px;
     letter-spacing: 0.01em;
+  }
+
+  /* Phase 5B — section lead paragraphs (site understanding, service
+     plan, pricing support) sit at the top of an existing section,
+     above the structured data (kv list / table). */
+  .proposal-section-lead {
+    margin: 0 0 12px;
+    color: #1a1a1a;
+  }
+  .proposal-terms-closing {
+    margin: 10px 0 0;
+    font-size: 9.5pt;
   }
   .proposal-scope-list { margin: 0; padding-left: 0; list-style: none; }
   .proposal-scope-list li {
