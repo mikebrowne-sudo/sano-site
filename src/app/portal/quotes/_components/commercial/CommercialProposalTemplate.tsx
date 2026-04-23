@@ -51,34 +51,57 @@ export function CommercialProposalTemplate({ payload }: CommercialProposalTempla
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: PROPOSAL_CSS }} />
-      <div className="proposal-page">
+      <div className="proposal-page proposal-page--cover">
 
-        {/* 1. Cover */}
-        <header className="proposal-cover">
-          <div>
-            <div className="proposal-eyebrow">Commercial Cleaning Proposal</div>
-            <h1 className="proposal-cover-title">
-              Cleaning programme for {coverTitle}
-            </h1>
-            <div className="proposal-cover-sub">
-              Prepared by {sano.company_name} · {meta.issued}
-            </div>
-          </div>
-          <div className="proposal-cover-meta">
+        {/* 1. Hero (Phase 5C) — full-width premium tender header.
+             Office image + dark overlay concentrated on the left,
+             white logo, stacked title, sage accent line, left-aligned
+             metadata. Replaces the previous cover-grid block. */}
+        <header className="proposal-hero">
+          <div className="proposal-hero-bg" aria-hidden="true">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={sano.logo_src} alt={sano.trading_as} className="proposal-logo" />
-            <table className="proposal-meta-table">
-              <tbody>
-                <tr><th>Reference</th><td>{meta.reference}</td></tr>
-                <tr><th>Issued</th><td>{meta.issued}</td></tr>
-                <tr><th>Valid until</th><td>{meta.valid_until}</td></tr>
-                {isAccepted && (
-                  <tr><th>Accepted</th><td>{meta.accepted_at}</td></tr>
-                )}
-              </tbody>
-            </table>
+            <img src="/images/sano-commercial-clean-auckland.jpeg" alt="" />
+          </div>
+          <div className="proposal-hero-overlay" aria-hidden="true"></div>
+          <div className="proposal-hero-inner">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="proposal-hero-logo" src="/brand/sano-logo-white.png" alt={sano.trading_as} />
+            <div className="proposal-hero-eyebrow">Commercial Cleaning Proposal</div>
+            <h1 className="proposal-hero-title">
+              <span>Commercial</span>
+              <span>Cleaning</span>
+              <span>Proposal</span>
+            </h1>
+            <div className="proposal-hero-accent" aria-hidden="true"></div>
+            <dl className="proposal-hero-meta">
+              <dt>Prepared for</dt>
+              <dd>{coverTitle}</dd>
+              {site_profile.service_address && (
+                <>
+                  <dt>Site</dt>
+                  <dd>{site_profile.service_address}</dd>
+                </>
+              )}
+              <dt>Date issued</dt>
+              <dd>{meta.issued}</dd>
+              <dt>Reference</dt>
+              <dd>{meta.reference}</dd>
+              <dt>Valid until</dt>
+              <dd>{meta.valid_until}</dd>
+              {isAccepted && (
+                <>
+                  <dt>Accepted</dt>
+                  <dd>{meta.accepted_at}</dd>
+                </>
+              )}
+            </dl>
           </div>
         </header>
+
+        {/* Cover-page body — Parties + Executive summary live here so
+             they pick up the same horizontal padding the rest of the
+             document uses. */}
+        <div className="proposal-cover-body">
 
         {/* Parties */}
         <section className="proposal-parties">
@@ -110,6 +133,8 @@ export function CommercialProposalTemplate({ payload }: CommercialProposalTempla
         <Section title="Executive Summary">
           <p className="proposal-prose">{executive_summary}</p>
         </Section>
+
+        </div>{/* /.proposal-cover-body */}
 
         {/* 3. Site / Project Details */}
         <Section title="Site &amp; Project Details">
@@ -215,6 +240,24 @@ export function CommercialProposalTemplate({ payload }: CommercialProposalTempla
           {pricingSupport && (
             <p className="proposal-prose proposal-section-lead">{pricingSupport}</p>
           )}
+
+          {/* Phase 5C — Headline monthly figure. The grand total
+              (incl. GST) is what lands on the recurring invoice, so
+              that's what we lead with. The breakdown table beneath
+              shows how it composes. No internal pricing logic exposed. */}
+          {pricing.total_inc_gst > 0 && (
+            <div className="pricing-headline">
+              <div className="pricing-headline-label">Monthly service fee</div>
+              <div className="pricing-headline-value">{nzd(pricing.total_inc_gst)}</div>
+              <div className="pricing-headline-sub">
+                {pricing.gst_included ? 'incl. GST' : 'incl. GST at 15%'}
+                {pricing.annualised_inc_gst > 0 && (
+                  <> · {nzd(pricing.annualised_inc_gst)} indicative annual value</>
+                )}
+              </div>
+            </div>
+          )}
+
           <table className="proposal-pricing">
             <tbody>
               {pricing.base_amount > 0 && (
@@ -265,11 +308,12 @@ export function CommercialProposalTemplate({ payload }: CommercialProposalTempla
           </Section>
         )}
 
-        {/* 8b. Commercial Terms (Phase 5B) — short, practical engagement
-              terms surfaced from the tender fields when populated.
-              Skipped entirely if no rows + no closing line. */}
+        {/* 8b. Commercial Terms (Phase 5B + 5C card) — short, practical
+              engagement terms. Wrapped in a subtle sage-tinted card so
+              it reads as a distinct commercial / contractual block,
+              visually separated from the bullet sections above. */}
         {commercialTerms && (commercialTerms.rows.length > 0 || commercialTerms.closing) && (
-          <Section title="Commercial Terms">
+          <Section title="Commercial Terms" variant="card">
             {commercialTerms.rows.length > 0 && (
               <dl className="proposal-kv">
                 {commercialTerms.rows.map((r) => (
@@ -306,8 +350,9 @@ export function CommercialProposalTemplate({ payload }: CommercialProposalTempla
         {/* 10. Next Steps — Phase 5B: prefer the data-driven copy from
               buildNextStepsText when present (it knows about start
               date / contract term). Falls back to the hardcoded
-              status-aware line for older payloads. */}
-        <Section title="Next Steps">
+              status-aware line for older payloads. Phase 5C card
+              treatment so it reads as the close of the document. */}
+        <Section title="Next Steps" variant="card">
           <p className="proposal-prose">
             {nextStepsText
               ? nextStepsText
@@ -331,9 +376,22 @@ export function CommercialProposalTemplate({ payload }: CommercialProposalTempla
 
 // ── Small composable primitives ─────────────────────────────────
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+  variant,
+}: {
+  title: string
+  children: React.ReactNode
+  /** Phase 5C — `card` wraps the section in a subtle background tile so
+   *  it reads as visually distinct from prose / bullet sections. */
+  variant?: 'card'
+}) {
+  const className = variant === 'card'
+    ? 'proposal-section proposal-section--card'
+    : 'proposal-section'
   return (
-    <section className="proposal-section">
+    <section className={className}>
       <h2 className="proposal-section-title">{title}</h2>
       {children}
     </section>
@@ -392,33 +450,94 @@ const PROPOSAL_CSS = `
     margin-bottom: 10px;
   }
 
-  /* Cover */
-  .proposal-cover {
+  /* ── Phase 5C — Cover hero ─────────────────────────────────────
+     The cover-page article drops its top padding so the hero can
+     stretch full-width. Parties + Executive summary sit inside
+     .proposal-cover-body, which restores the standard horizontal
+     padding for body content. */
+  .proposal-page--cover { padding-top: 0; }
+  .proposal-cover-body  { padding: 32px 0 0; }
+
+  .proposal-hero {
+    position: relative;
+    overflow: hidden;
+    margin: 0 -60px 36px;          /* break out of page padding */
+    min-height: 320px;
+    color: #fff;
+    background: #06231D;            /* fallback if image fails */
+    break-inside: avoid;
+    page-break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .proposal-hero-bg { position: absolute; inset: 0; z-index: 1; }
+  .proposal-hero-bg img {
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: 70% center;
+    filter: grayscale(0.15) contrast(1.05);
+  }
+  .proposal-hero-overlay {
+    position: absolute; inset: 0; z-index: 2;
+    background:
+      linear-gradient(90deg,
+        rgba(6,35,29,0.94) 0%,
+        rgba(6,35,29,0.88) 35%,
+        rgba(6,35,29,0.55) 70%,
+        rgba(6,35,29,0.20) 100%);
+  }
+  .proposal-hero-inner {
+    position: relative; z-index: 3;
+    padding: 56px 60px 52px;
+    display: flex; flex-direction: column;
+    max-width: 75%;
+  }
+  .proposal-hero-logo {
+    height: 36px; width: auto;
+    margin-bottom: 32px;
+  }
+  .proposal-hero-eyebrow {
+    font-family: 'Inter', sans-serif;
+    font-size: 8.5pt; font-weight: 600;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: #C6F6D5;
+    margin-bottom: 14px;
+  }
+  .proposal-hero-title {
+    margin: 0 0 22px;
+    display: flex; flex-direction: column;
+    font-family: 'Noto Serif', Georgia, 'Times New Roman', serif;
+    font-size: 42pt; line-height: 0.98;
+    letter-spacing: -0.02em; font-weight: 700;
+    color: #fff;
+  }
+  .proposal-hero-title span { display: block; }
+  .proposal-hero-accent {
+    width: 56px; height: 3px;
+    background: #7EC87A;
+    margin: 0 0 26px;
+    border-radius: 2px;
+  }
+  .proposal-hero-meta {
     display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 40px;
-    padding-bottom: 28px;
-    margin-bottom: 40px;
-    border-bottom: 3px solid #076653;
-    align-items: start;
+    grid-template-columns: auto 1fr;
+    column-gap: 22px;
+    row-gap: 6px;
+    margin: 0;
+    max-width: 480px;
+    font-size: 9.5pt;
   }
-  .proposal-cover-title {
-    font-size: 22pt;
-    font-weight: 800;
-    color: #06231D;
-    line-height: 1.15;
-    letter-spacing: -0.01em;
-    margin: 0 0 10px;
+  .proposal-hero-meta dt {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600; font-size: 7.5pt;
+    text-transform: uppercase; letter-spacing: 0.16em;
+    color: #C6F6D5; opacity: 0.75;
+    align-self: center;
   }
-  .proposal-cover-sub { font-size: 9.5pt; color: #5C6B64; }
-  .proposal-cover-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 14px; }
-  .proposal-logo { height: 64px; width: auto; }
-  .proposal-meta-table { font-size: 8.5pt; border-spacing: 0; }
-  .proposal-meta-table th {
-    font-size: 7.5pt; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em;
-    color: #888; text-align: right; padding: 2px 12px 2px 0; font-weight: 500;
+  .proposal-hero-meta dd {
+    margin: 0;
+    color: #fff; font-weight: 500;
+    line-height: 1.4;
   }
-  .proposal-meta-table td { padding: 2px 0; color: #1a1a1a; font-weight: 600; }
 
   /* Parties */
   .proposal-parties {
@@ -438,17 +557,39 @@ const PROPOSAL_CSS = `
   .proposal-party-name { font-size: 11pt; font-weight: 700; color: #06231D; margin-bottom: 3px; }
   .proposal-party-line { font-size: 9pt; color: #5C6B64; }
 
-  /* Section */
-  .proposal-section { margin-bottom: 28px; }
+  /* Section — Phase 5C tightened hierarchy. Slightly more breathing
+     room above each section + a heavier accent bar under each title
+     so the eye lands on it cleanly. */
+  .proposal-section {
+    margin-bottom: 32px;
+    break-inside: avoid;
+  }
   .proposal-section-title {
+    font-family: 'Inter', sans-serif;
     font-size: 10pt;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     color: #076653;
-    padding-bottom: 6px;
-    border-bottom: 1px solid #e0eae3;
-    margin: 0 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #076653;
+    margin: 0 0 18px;
+    position: relative;
+  }
+
+  /* Card variant — subtle sage tile around the section. Used for
+     Commercial Terms + Next Steps so they read as distinct
+     contractual / closing blocks. */
+  .proposal-section--card {
+    background: #f7f9f7;
+    border: 1px solid #e0eae3;
+    border-radius: 8px;
+    padding: 22px 26px 24px;
+    break-inside: avoid;
+  }
+  .proposal-section--card .proposal-section-title {
+    border-bottom-color: #cdd9d2;
+    margin-bottom: 14px;
   }
 
   .proposal-prose { font-size: 10pt; color: #1a1a1a; margin: 0 0 8px; line-height: 1.7; }
@@ -550,6 +691,41 @@ const PROPOSAL_CSS = `
   .proposal-task-area { color: #5C6B64; font-size: 9pt; }
   .proposal-task-note { font-size: 8.5pt; color: #5C6B64; margin-top: 3px; line-height: 1.5; }
 
+  /* Phase 5C — Pricing headline. Lifts the monthly figure that
+     lands on the recurring invoice. Sits above the breakdown table
+     so a reader gets the answer in two seconds without parsing
+     subtotals. No internal logic exposed. */
+  .pricing-headline {
+    background: #06231D;
+    color: #fff;
+    border-radius: 10px;
+    padding: 22px 26px 20px;
+    margin: 6px 0 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .pricing-headline-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 8.5pt; font-weight: 600;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: #C6F6D5;
+  }
+  .pricing-headline-value {
+    font-family: 'Noto Serif', Georgia, serif;
+    font-size: 28pt; font-weight: 700;
+    line-height: 1.1; letter-spacing: -0.015em;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+  }
+  .pricing-headline-sub {
+    font-size: 9pt;
+    color: rgba(255,255,255,0.72);
+  }
+
   /* Pricing */
   .proposal-pricing { width: 100%; border-collapse: collapse; font-size: 10pt; margin-bottom: 10px; }
   .proposal-pricing td { padding: 9px 0; border-bottom: 1px solid #f0f0f0; }
@@ -594,9 +770,29 @@ const PROPOSAL_CSS = `
 
   @media print {
     body { background: #fff; }
-    .proposal-page { margin: 0; padding: 0; box-shadow: none; max-width: none; }
-    .proposal-section { break-inside: avoid; }
-    .proposal-scope-group { break-inside: avoid; }
-    @page { margin: 16mm 14mm; size: A4; }
+    .proposal-page { margin: 0; padding: 16mm 14mm; box-shadow: none; max-width: none; }
+    /* Cover variant — drop top padding so the hero touches the
+       sheet edge, but keep horizontal padding so the body content
+       below stays inset from the edges. */
+    .proposal-page--cover { padding: 0 14mm 16mm; }
+    .proposal-cover-body  { padding-top: 24px; }
+    /* Hero stretches to the printed sheet edges via negative
+       horizontal margins that match the print padding. */
+    .proposal-hero {
+      margin: 0 -14mm 26px;
+      min-height: 240px;
+    }
+    .proposal-hero-inner { padding: 38px 22mm 36px; }
+    .proposal-hero-title { font-size: 36pt; }
+    /* Breaks: keep critical blocks intact across page boundaries. */
+    .proposal-section,
+    .proposal-section--card,
+    .proposal-scope-group,
+    .proposal-optional-paragraph,
+    .pricing-headline,
+    .proposal-totals,
+    .proposal-callout,
+    .proposal-parties { break-inside: avoid; page-break-inside: avoid; }
+    @page { margin: 0; size: A4; }
   }
 `
