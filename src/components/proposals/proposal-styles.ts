@@ -193,14 +193,16 @@ export const PROPOSAL_CSS = `
     rgba(15, 17, 19, 0.30) 100%
   );
 }
-/* Cover top — centered horizontally on the FULL page width.
-   Sibling of __main (no shared 105mm wrapper) so it can centre
-   relative to the page, while __main stays in the left column.
-   This produces the locked intentional offset between centred
-   logo / tagline and left-aligned title. */
+/* Cover top — logo + tagline centred WITHIN the 105mm dark left
+   panel column (same column extent as __main, so the block sits
+   in the upper-left panel area, NOT centred across the full page).
+   The locked offset between "centred-within-panel" and
+   "left-edge-of-panel" produces the intentional asymmetry per
+   Cover page v1 reference. */
 .proposal-cover__top {
   position: relative;
   z-index: 1;
+  max-width: 105mm;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -329,26 +331,33 @@ export const PROPOSAL_CSS = `
   flex: 1;
   display: grid;
   grid-template-columns: 1fr 75mm;
-  gap: 8mm;                      /* tighter copy ↔ image rhythm */
+  gap: 8mm;
   align-items: stretch;
+  /* The right grid column is reserved as empty space — the image
+     renders absolutely (see below) so the text column (1fr) keeps
+     its proper width. */
 }
 .proposal-exec-grid__copy {
   display: flex;
   flex-direction: column;
 }
 
-/* Image cell breaks out of the body padding on top / right /
-   bottom so the asset hugs the header line, page right edge, and
-   footer divider. Left edge stays at the natural grid column so
-   the text column is untouched. Body padding is 12mm 14mm 20mm;
-   negative margins below leave ~2mm gaps where the spec asks for
-   "8–12px". */
+/* Image is positioned absolutely against .proposal-page so a single
+   --exec-gap value drives all three visible gaps. This avoids
+   fighting the asymmetric body padding (12mm/14mm/20mm) with
+   mismatched negative margins.
+   Header (28mm) and footer (12mm) are added to the top/bottom
+   offsets so the gap is measured from the header line / footer
+   line, not the page edges. */
 .proposal-exec-grid__image {
-  width: 100%;
-  height: 100%;
-  margin-top:    -10mm;
-  margin-right:  -14mm;
-  margin-bottom: -18mm;
+  --exec-gap: 5mm;
+  position: absolute;
+  top:    calc(28mm + var(--exec-gap));
+  right:  var(--exec-gap);
+  bottom: calc(12mm + var(--exec-gap));
+  /* Left aligned with the natural grid image-column boundary
+     (page width − body right padding − image column width). */
+  left: calc(210mm - 14mm - 75mm);
   background-size: cover;
   background-position: center;
   border-radius: 0;
