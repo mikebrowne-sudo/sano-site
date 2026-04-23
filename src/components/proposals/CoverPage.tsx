@@ -1,9 +1,10 @@
 // Cover page — locked to the brand design system.
 //
-// Full-bleed interior background image with dark overlay, structured
-// left-aligned content stack: Sano logo top-left, green tagline,
-// large title with green rule, labelled field stack (prepared for /
-// site / date / reference).
+// Layout asymmetry is INTENTIONAL and must be preserved:
+//   • Logo + green tagline centered horizontally at the top
+//   • Title + green rule + field stack stay LEFT aligned
+// The slight visual offset between the centered top block and the
+// left-aligned content below is per Cover page v1 reference.
 //
 // The cover image is the brand-locked "cleaned-by-sano.jpg". Do not
 // substitute; if you need a different cover image, replace the file
@@ -35,30 +36,37 @@ export function CoverPage({
         />
         <div className="proposal-cover__overlay" aria-hidden />
         <div className="proposal-cover__inner">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={LOGO_WHITE} alt="Sano" className="proposal-cover__logo" />
-          <div className="proposal-cover__tagline">{payload.coverTagline}</div>
-          <h1 className="proposal-cover__title">{payload.coverTitle}</h1>
-          <div className="proposal-cover__title-rule" aria-hidden />
+          {/* Top block — centered logo + tagline */}
+          <div className="proposal-cover__top">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={LOGO_WHITE} alt="Sano" className="proposal-cover__logo" />
+            <div className="proposal-cover__tagline">{payload.coverTagline}</div>
+          </div>
 
-          <dl className="proposal-cover__fields">
-            <div className="proposal-cover__field">
-              <dt>Prepared for:</dt>
-              <dd>{payload.preparedForLabel}</dd>
-            </div>
-            <div className="proposal-cover__field">
-              <dt>Site address:</dt>
-              <dd>{payload.siteAddress || '—'}</dd>
-            </div>
-            <div className="proposal-cover__field">
-              <dt>Date:</dt>
-              <dd>{payload.proposalDate}</dd>
-            </div>
-            <div className="proposal-cover__field">
-              <dt>Reference:</dt>
-              <dd>{payload.referenceNumber}</dd>
-            </div>
-          </dl>
+          {/* Main block — left-aligned title + fields */}
+          <div className="proposal-cover__main">
+            <h1 className="proposal-cover__title">{payload.coverTitle}</h1>
+            <div className="proposal-cover__title-rule" aria-hidden />
+
+            <dl className="proposal-cover__fields">
+              <div className="proposal-cover__field">
+                <dt>Prepared for:</dt>
+                <dd>{payload.preparedForLabel}</dd>
+              </div>
+              <div className="proposal-cover__field">
+                <dt>Site address:</dt>
+                <dd>{payload.siteAddress || '—'}</dd>
+              </div>
+              <div className="proposal-cover__field">
+                <dt>Date:</dt>
+                <dd>{payload.proposalDate}</dd>
+              </div>
+              <div className="proposal-cover__field">
+                <dt>Reference:</dt>
+                <dd>{payload.referenceNumber}</dd>
+              </div>
+            </dl>
+          </div>
         </div>
       </div>
     </ProposalLayout>

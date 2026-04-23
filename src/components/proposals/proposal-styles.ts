@@ -199,11 +199,21 @@ export const PROPOSAL_CSS = `
   height: 100%;
   max-width: 105mm;                   /* keeps text in the left panel */
 }
+
+/* Cover top — centered logo + tagline. The asymmetry vs the
+   left-aligned title block below is intentional and locked. */
+.proposal-cover__top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 22mm;
+}
 .proposal-cover__logo {
   height: 16mm;
   width: auto;
   object-fit: contain;
-  margin-bottom: 6mm;
+  margin-bottom: 4mm;
 }
 .proposal-cover__tagline {
   font-size: 10.5pt;
@@ -211,7 +221,12 @@ export const PROPOSAL_CSS = `
   text-transform: uppercase;
   color: var(--sano-green);           /* sparing green */
   font-weight: 600;
-  margin-bottom: 28mm;
+}
+
+/* Cover main — left-aligned title + fields. */
+.proposal-cover__main {
+  display: flex;
+  flex-direction: column;
 }
 .proposal-cover__title {
   font-size: 42pt;                    /* mockup scale */
@@ -299,49 +314,77 @@ export const PROPOSAL_CSS = `
   font-weight: 500;
 }
 
-/* Executive summary — intro paragraph + right image placeholder */
-.proposal-intro-grid {
-  display: grid;
-  grid-template-columns: 1fr 85mm;
-  gap: 12mm;
-  align-items: start;
+/* Executive summary — copy left, full-height image right.
+   The body wrapper is a flex column with proposal-content--exec
+   stretching to fill remaining space, so the grid below inherits a
+   real height and the right column can stretch top-to-bottom of
+   the page body. */
+.proposal-content--exec {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
-.proposal-intro-image {
+.proposal-exec-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 75mm;
+  gap: 12mm;
+  align-items: stretch;          /* image cell stretches full height */
+}
+.proposal-exec-grid__copy {
+  display: flex;
+  flex-direction: column;
+}
+.proposal-exec-grid__image {
   width: 100%;
-  height: 100mm;
+  height: 100%;
   background-size: cover;
   background-position: center;
   border-radius: 2px;
 }
+.proposal-exec-opener {
+  font-size: 12pt;
+  font-weight: 600;
+  color: var(--sano-green);
+  line-height: 1.4;
+  margin: 0 0 5mm;
+}
 
-/* Service overview — labelled cell grid with green icon tile */
+/* Service overview — labelled cell grid. Even rhythm: fixed 9mm
+   row gap, 10mm column gap. */
 .proposal-meta-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8mm 12mm;
+  gap: 9mm 10mm;
+  margin-top: 2mm;
 }
 .proposal-meta-cell {
   display: grid;
-  grid-template-columns: 10mm 1fr;
+  grid-template-columns: 11mm 1fr;
   gap: 4mm;
   align-items: start;
 }
+
+/* Shared icon tile — same dimensions on Service Overview AND Scope
+   of Works. Glyphs are stroke-only line drawings at 1.4px. */
 .proposal-icon-tile {
-  width: 10mm;
-  height: 10mm;
+  width: 11mm;
+  height: 11mm;
   background: var(--sano-green-08);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 2px;
+  border-radius: 2.5mm;
   color: var(--sano-green);
   flex-shrink: 0;
 }
 .proposal-icon-tile svg {
-  width: 4.5mm; height: 4.5mm;
+  width: 5mm; height: 5mm;
   stroke: var(--sano-green);
-  stroke-width: 1.6;
+  stroke-width: 1.4;
   fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .proposal-meta-cell__body {
   padding-top: 0.5mm;
@@ -372,11 +415,11 @@ export const PROPOSAL_CSS = `
 .proposal-scope-stack {
   display: flex;
   flex-direction: column;
-  gap: 6mm;
+  gap: 7mm;
 }
 .proposal-scope-row {
   display: grid;
-  grid-template-columns: 10mm 1fr;
+  grid-template-columns: 11mm 1fr;   /* matches service-overview tile */
   gap: 5mm;
   align-items: start;
 }
