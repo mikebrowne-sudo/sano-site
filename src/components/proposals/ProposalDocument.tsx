@@ -12,6 +12,7 @@
 
 import { CoverPage } from './CoverPage'
 import { ExecutiveSummaryPage } from './ExecutiveSummaryPage'
+import { WhySanoPage } from './WhySanoPage'
 import { ServiceOverviewPage } from './ServiceOverviewPage'
 import { ScopeOfWorksPage } from './ScopeOfWorksPage'
 import { PricingSummaryPage } from './PricingSummaryPage'
@@ -21,13 +22,14 @@ import { PROPOSAL_CSS } from './proposal-styles'
 import type { ProposalTemplatePayload } from '@/lib/proposals/buildProposalPayload'
 
 export function ProposalDocument({ payload }: { payload: ProposalTemplatePayload }) {
-  // Build the active page list from section toggles. Cover, service
-  // overview, scope, and pricing are always rendered. Executive
-  // summary, terms, and acceptance are togglable via settings.
-  type PageKey = 'cover' | 'executive' | 'overview' | 'scope' | 'pricing' | 'terms' | 'acceptance'
+  // Build the active page list. Cover, Why Sano, service overview,
+  // scope, and pricing are always rendered. Executive summary, terms,
+  // and acceptance are togglable via settings. Why Sano is core
+  // differentiation and therefore unconditional.
+  type PageKey = 'cover' | 'executive' | 'why' | 'overview' | 'scope' | 'pricing' | 'terms' | 'acceptance'
   const active: PageKey[] = ['cover']
   if (payload.sections.executiveSummary) active.push('executive')
-  active.push('overview', 'scope', 'pricing')
+  active.push('why', 'overview', 'scope', 'pricing')
   if (payload.sections.terms) active.push('terms')
   if (payload.sections.acceptance) active.push('acceptance')
 
@@ -42,6 +44,7 @@ export function ProposalDocument({ payload }: { payload: ProposalTemplatePayload
         {payload.sections.executiveSummary && (
           <ExecutiveSummaryPage payload={payload} pageNumber={pageNum('executive')} totalPages={total} />
         )}
+        <WhySanoPage           payload={payload} pageNumber={pageNum('why')}       totalPages={total} />
         <ServiceOverviewPage   payload={payload} pageNumber={pageNum('overview')}  totalPages={total} />
         <ScopeOfWorksPage      payload={payload} pageNumber={pageNum('scope')}     totalPages={total} />
         <PricingSummaryPage    payload={payload} pageNumber={pageNum('pricing')}   totalPages={total} />

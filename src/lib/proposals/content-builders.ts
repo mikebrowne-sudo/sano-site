@@ -61,6 +61,19 @@ export function formatServiceWindow(window: string): string {
   return s
 }
 
+/** "1600-2200" → "4:00 pm – 10:00 pm" (en-dash range, for meta grids). */
+export function formatServiceWindowRange(window: string): string {
+  const s = window.trim()
+  if (!s) return ''
+  const split = s.split(/\s*[-–—]\s*|\s+to\s+/i)
+  if (split.length === 2) {
+    const a = parseClock(split[0])
+    const b = parseClock(split[1])
+    if (a && b) return `${formatClock12(a)} – ${formatClock12(b)}`
+  }
+  return s
+}
+
 function parseClock(raw: string): { h: number; m: number } | null {
   const s = raw.trim().toLowerCase()
   // "5:00pm" / "5:00 pm" / "17:00"
@@ -119,12 +132,10 @@ export function countDaysPerWeek(days: string): number {
 /** Short schedule descriptor for prose. */
 export function scheduleDescriptor(daysPerWeek: number): string {
   if (daysPerWeek <= 0) return 'agreed service schedule'
-  if (daysPerWeek === 7) return 'daily schedule'
-  if (daysPerWeek === 5) return 'weekday schedule'
-  if (daysPerWeek === 1) return 'weekly schedule'
-  if (daysPerWeek === 2) return 'two-day weekly schedule'
+  if (daysPerWeek === 7) return 'daily service schedule'
+  if (daysPerWeek === 1) return 'one scheduled visit per week'
   const w = NUM_WORDS[daysPerWeek] ?? String(daysPerWeek)
-  return `${w}-day weekly schedule`
+  return `${w} scheduled visits per week`
 }
 
 /** "three times per week", "daily", etc. */
@@ -135,6 +146,16 @@ export function cadencePhrase(daysPerWeek: number): string {
   if (daysPerWeek === 2) return 'twice per week'
   const w = NUM_WORDS[daysPerWeek] ?? String(daysPerWeek)
   return `${w} times per week`
+}
+
+/** Service-overview grid label — capitalised "Three visits per week". */
+export function visitsPerWeekLabel(daysPerWeek: number): string {
+  if (daysPerWeek <= 0) return ''
+  if (daysPerWeek === 7) return 'Daily service'
+  if (daysPerWeek === 1) return 'One visit per week'
+  const w = NUM_WORDS[daysPerWeek] ?? String(daysPerWeek)
+  const capitalised = w.charAt(0).toUpperCase() + w.slice(1)
+  return `${capitalised} visits per week`
 }
 
 /** Classify a service window as "evening" / "daytime" / "overnight" /
@@ -293,9 +314,17 @@ export function buildServiceOverviewText(payload: ProposalTemplatePayload): stri
   const kind = windowDescriptor(payload.serviceTimes || '')
   const windowRef = kind ? `the ${kind} service window` : 'the agreed service window'
 
-  const p1 = daysPerWeek > 0
-    ? `The service is structured around a ${schedule}, with cleaning carried out during ${windowRef} so the site is ready for the next working day.`
-    : `The service is structured around the agreed service schedule, with cleaning carried out during ${windowRef} so the site is ready for the next working day.`
+  // schedule output is either "daily service schedule",
+  // "one scheduled visit per week", or "three scheduled visits per
+  // week" — the first two take "a/an" naturally, the count forms
+  // read better without an article.
+  const scheduleClause = daysPerWeek > 0
+    ? (daysPerWeek === 7
+        ? 'around a daily service schedule'
+        : `around ${schedule}`)
+    : 'around the agreed service schedule'
+
+  const p1 = `The service is structured ${scheduleClause}, with cleaning carried out during ${windowRef} so the site is ready for the next working day.`
 
   const p2 = 'Core tasks are completed at each visit, with additional detail work and less frequent tasks scheduled across the service cycle to maintain a consistent overall standard.'
 
@@ -331,6 +360,7 @@ export function buildScopeIntro(): ScopeIntroContent {
 export interface PricingSummaryContent {
   intro: string
   inclusionsNote: string
+  positioningNote: string
   included: string[]
   closingNote: string
 }
@@ -339,6 +369,10 @@ export function buildPricingSummaryText(payload: ProposalTemplatePayload): Prici
   const intro = 'The monthly service fee reflects the agreed scope of works and service frequency, structured to ensure consistent delivery across the full term of the contract.'
 
   const inclusionsNote = 'Pricing includes all labour, equipment, and service management required to maintain the standard outlined in this proposal.'
+
+  // Phase 4 — subtle positioning line. Sits below the included list,
+  // above the closing payment-terms note.
+  const positioningNote = 'The service is structured to support consistency and reliability over time, rather than short-term or variable results.'
 
   const included: string[] = [
     'Trained cleaning staff, inducted for the site',
@@ -351,5 +385,5 @@ export function buildPricingSummaryText(payload: ProposalTemplatePayload): Prici
   const paymentDays = payload.siteContext.paymentTermDays || 14
   const closingNote = `Invoices are issued monthly in arrears with ${paymentDays}-day payment terms. Any changes to the agreed scope are confirmed in writing prior to being carried out.`
 
-  return { intro, inclusionsNote, included, closingNote }
+  return { intro, inclusionsNote, positioningNote, included, closingNote }
 }
