@@ -98,7 +98,11 @@ export const DEFAULT_PROPOSAL_SETTINGS: ProposalSettings = {
   sections: {
     show_executive_summary: true,
     show_terms: true,
-    show_acceptance: false, // page not rendered yet — flag persists
+    // Final polish — Acceptance is now part of the closing flow, so
+    // default to on for fresh installs. Any existing `proposal_settings`
+    // row with `show_acceptance: false` wins over this default and
+    // must be toggled via /portal/settings/proposals.
+    show_acceptance: true,
   },
 }
 

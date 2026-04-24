@@ -1,14 +1,21 @@
-// Proposal Phase 4.1 — Why Sano page (final content lock).
+// Proposal Phase 4.1 / final polish — Why Sano page.
 //
-// Six short prose paragraphs, not bullets. Tone is calm and
-// confident; no marketing voice. "Sano crew" appears once, in the
-// third paragraph, and nowhere else in the document.
+// Six short prose paragraphs followed by a bottom crew image. Tone
+// is calm and confident; no marketing voice. "Sano crew" appears
+// once, in the third paragraph, and nowhere else in the document.
+//
+// The image block reuses the Executive Summary image treatment
+// (background-image, cover fit, no border-radius, clean edges) but
+// is placed below the text instead of beside it so the Why Sano
+// page reads top-to-bottom as prose.
 //
 // Placement: between Executive Summary and Service Overview. Always
 // rendered; ProposalDocument manages page numbering.
 
 import { ProposalLayout } from './ProposalLayout'
 import type { ProposalTemplatePayload } from '@/lib/proposals/buildProposalPayload'
+
+const CREW_IMAGE = '/images/Sano-crew-auckland.jpeg'
 
 const WHY_SANO_PARAGRAPHS: readonly string[] = [
   'Cleaning is not just about how a site looks on the day, but how consistently it is maintained over time.',
@@ -35,16 +42,25 @@ export function WhySanoPage({
       totalPages={totalPages}
       contact={payload.contact}
     >
-      <div className="proposal-content">
-        {WHY_SANO_PARAGRAPHS.map((para, i) => (
-          <p
-            key={i}
-            className="proposal-why-paragraph"
-            style={i === WHY_SANO_PARAGRAPHS.length - 1 ? { marginBottom: 0 } : undefined}
-          >
-            {para}
-          </p>
-        ))}
+      <div className="proposal-content proposal-content--why">
+        <div className="proposal-why-copy">
+          {WHY_SANO_PARAGRAPHS.map((para, i) => (
+            <p
+              key={i}
+              className="proposal-why-paragraph"
+              style={i === WHY_SANO_PARAGRAPHS.length - 1 ? { marginBottom: 0 } : undefined}
+            >
+              {para}
+            </p>
+          ))}
+        </div>
+
+        <div
+          className="proposal-why-image"
+          style={{ backgroundImage: `url(${CREW_IMAGE})` }}
+          role="img"
+          aria-label="Sano crew"
+        />
       </div>
     </ProposalLayout>
   )

@@ -746,7 +746,19 @@ export const PROPOSAL_CSS = `
 /* Why Sano — Phase 4.1 lock: six short prose paragraphs, no grid.
    Matches .proposal-lead rhythm on the Executive Summary so both
    pages read in the same voice. First paragraph carries a slight
-   green tint as the lead. */
+   green tint as the lead.
+   Final polish — image block at the bottom. Flex layout: copy
+   sits at natural height, image fills remaining vertical space
+   with a safe minimum height so the block always reads. Cover
+   fit, no border-radius — same treatment as the executive
+   summary image, just placed below the text instead of beside
+   it. */
+.proposal-content--why {
+  flex: 1;
+}
+.proposal-why-copy {
+  flex: 0 0 auto;
+}
 .proposal-why-paragraph {
   font-size: 11.5pt;
   line-height: 1.6;
@@ -759,8 +771,37 @@ export const PROPOSAL_CSS = `
   font-weight: 500;
   margin-bottom: 6mm;
 }
+.proposal-why-image {
+  flex: 1 1 auto;
+  min-height: 70mm;
+  margin-top: 6mm;
+  background-size: cover;
+  background-position: center;
+  border-radius: 0;
+  overflow: hidden;
+}
 
-/* Acceptance page — title, wording, signature block. */
+/* Acceptance page — title, wording, signature block.
+   Final polish — flex column so the confirmation note can anchor
+   to the bottom of the page body. Copy block sits at top, grid
+   sits in the middle, note sits at the bottom (margin-top: auto).
+   No form-like density; each block has generous whitespace so the
+   page reads as a warm close rather than a contract. */
+.proposal-content--acceptance {
+  flex: 1;
+}
+.proposal-acceptance-copy {
+  flex: 0 0 auto;
+  margin-top: 4mm;
+}
+.proposal-acceptance-intro {
+  font-size: 12pt;
+  line-height: 1.5;
+  color: var(--sano-green);
+  font-weight: 500;
+  margin: 0 0 6mm;
+  max-width: 165mm;
+}
 .proposal-acceptance-wording {
   font-size: 11.5pt;                  /* Phase 3.2 — +1pt */
   line-height: 1.6;
@@ -801,7 +842,11 @@ export const PROPOSAL_CSS = `
 }
 .proposal-acceptance-field--wide { grid-column: span 2; }
 .proposal-acceptance-note {
-  margin-top: 10mm;
+  /* Anchor to the bottom of the page body (flex parent). Gives the
+     grid breathing room and places the short confirmation line
+     just above the proposal footer line. */
+  margin-top: auto;
+  padding-top: 10mm;
   font-size: 10pt;                    /* Phase 3.2 — +1pt */
   color: var(--sano-muted);
   line-height: 1.55;
