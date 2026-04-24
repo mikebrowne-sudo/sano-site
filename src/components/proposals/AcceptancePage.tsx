@@ -14,10 +14,12 @@
 import { ProposalLayout } from './ProposalLayout'
 import type { ProposalTemplatePayload } from '@/lib/proposals/buildProposalPayload'
 
-const DEFAULT_AGREEMENT_WORDING =
-  'By accepting this proposal, the client agrees to the scope, pricing, and terms outlined in this document.'
 const INTRO_WORDING =
   'Thank you for considering Sano for your commercial cleaning services.'
+const SUPPORTIVE_WORDING =
+  'We would be pleased to work with you and support the ongoing presentation, cleanliness, and care of your site.'
+const DEFAULT_AGREEMENT_WORDING =
+  'By accepting this proposal, the client agrees to the scope, pricing, and terms set out in this document.'
 const VALIDITY_WORDING =
   'This proposal remains valid until the stated validity date and is subject to the Terms & Conditions included.'
 const CLOSE_WORDING =
@@ -46,6 +48,7 @@ export function AcceptancePage({
       <div className="proposal-content proposal-content--acceptance">
         <div className="proposal-acceptance-copy">
           <p className="proposal-acceptance-intro">{INTRO_WORDING}</p>
+          <p className="proposal-acceptance-wording">{SUPPORTIVE_WORDING}</p>
           <p className="proposal-acceptance-wording">{agreementWording}</p>
           <p className="proposal-acceptance-wording">{VALIDITY_WORDING}</p>
           <p className="proposal-acceptance-wording proposal-acceptance-wording--close">
