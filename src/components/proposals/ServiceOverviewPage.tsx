@@ -23,7 +23,7 @@ export function ServiceOverviewPage({
   pageNumber: number
   totalPages: number
 }) {
-  const summaryText = buildServiceOverviewText(payload)
+  const summaryParagraphs = buildServiceOverviewText(payload)
 
   return (
     <ProposalLayout
@@ -33,7 +33,9 @@ export function ServiceOverviewPage({
       contact={payload.contact}
     >
       <div className="proposal-content">
-        <p className="proposal-service-summary">{summaryText}</p>
+        {summaryParagraphs.map((para, i) => (
+          <p key={i} className="proposal-service-summary">{para}</p>
+        ))}
 
         <div className="proposal-meta-grid">
           <MetaCell icon="location"  label="Site address"       value={payload.siteAddress || '—'} />
