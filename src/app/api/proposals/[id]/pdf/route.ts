@@ -97,11 +97,15 @@ export async function GET(
 
     // preferCSSPageSize lets the proposal-styles.ts @page { size: A4 }
     // rule control the sheet size; format: 'A4' is a fallback.
+    // printBackground: true + the @media print color-adjust block in
+    // proposal-styles.ts keep accent colours and tinted blocks
+    // rendering cleanly in the PDF. Zero margin — the proposal pages
+    // carry their own internal padding.
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
       preferCSSPageSize: true,
-      margin: { top: '0', right: '0', bottom: '0', left: '0' },
+      margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
     })
 
     const filename = `proposal-${probe.quoteNumber}.pdf`.replace(/[^\w.\-]+/g, '_')

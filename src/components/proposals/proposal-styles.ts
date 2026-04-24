@@ -45,7 +45,12 @@ export const PROPOSAL_CSS = `
 }
 
 .proposal-document {
-  font-family: 'Inter', 'Arial', sans-serif;
+  /* Phase 3.2 — Poppins is loaded globally via next/font (see
+     src/lib/fonts.ts). --font-poppins is always available under the
+     root <html>. Falls back to system-ui if the variable can't be
+     resolved (e.g. isolated print preview). Portal UI outside this
+     scoped selector is unaffected. */
+  font-family: var(--font-poppins), 'Poppins', system-ui, -apple-system, sans-serif;
   background: var(--sano-bg-soft);
   color: var(--sano-ink);
   padding: 24px 0;
@@ -302,7 +307,7 @@ export const PROPOSAL_CSS = `
   margin: 0 0 3mm;
 }
 .proposal-lead {
-  font-size: 10.5pt;                  /* ≈ 14px — body */
+  font-size: 11.5pt;                  /* Phase 3.2 — +1pt for readability */
   line-height: 1.6;
   color: var(--sano-ink-2);
   margin: 0 0 5mm;
@@ -419,19 +424,19 @@ export const PROPOSAL_CSS = `
   margin-bottom: 1.5mm;
 }
 .proposal-meta-cell__value {
-  font-size: 10.5pt;
+  font-size: 11pt;                    /* Phase 3.2 — +0.5pt */
   color: var(--sano-ink);
   font-weight: 500;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 /* Scope page — green icon bullets per section */
 .proposal-scope-intro {
-  font-size: 10pt;
+  font-size: 11pt;                    /* Phase 3.2 — +1pt */
   color: var(--sano-green);
   font-weight: 500;
   margin: 0 0 6mm;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 .proposal-scope-stack {
   display: flex;
@@ -456,9 +461,9 @@ export const PROPOSAL_CSS = `
   margin: 0;
   padding-left: 4mm;
   list-style: disc;
-  font-size: 10pt;
+  font-size: 11pt;                    /* Phase 3.2 — +1pt */
   color: var(--sano-ink-2);
-  line-height: 1.5;
+  line-height: 1.55;
 }
 .proposal-scope-row__list li {
   margin-bottom: 0.5mm;
@@ -507,10 +512,10 @@ export const PROPOSAL_CSS = `
 }
 .proposal-pricing-support {
   text-align: center;
-  font-size: 9.5pt;
+  font-size: 10.5pt;                  /* Phase 3.2 — +1pt */
   color: var(--sano-muted);
   line-height: 1.6;
-  max-width: 130mm;
+  max-width: 140mm;
   margin: 6mm auto 0;
 }
 .proposal-pricing-shield {
@@ -625,11 +630,11 @@ export const PROPOSAL_CSS = `
 
 /* Short intro paragraph above the service-overview meta grid. */
 .proposal-service-summary {
-  font-size: 10pt;
-  line-height: 1.55;
+  font-size: 11pt;                    /* Phase 3.2 — +1pt */
+  line-height: 1.6;
   color: var(--sano-ink-2);
-  margin: 0 0 6mm;
-  max-width: 160mm;
+  margin: 0 0 5mm;
+  max-width: 165mm;
 }
 
 /* "What this means" benefits block — sits below the meta grid. */
@@ -661,8 +666,8 @@ export const PROPOSAL_CSS = `
   grid-template-columns: 5mm 1fr;
   gap: 2mm;
   align-items: start;
-  font-size: 9.5pt;
-  line-height: 1.45;
+  font-size: 10.5pt;                  /* Phase 3.2 — +1pt */
+  line-height: 1.55;
   color: var(--sano-ink-2);
 }
 .proposal-benefits__check {
@@ -680,11 +685,11 @@ export const PROPOSAL_CSS = `
 /* Pricing "What's included" list + basis paragraph. */
 .proposal-pricing-basis {
   text-align: center;
-  font-size: 9.5pt;
+  font-size: 10.5pt;                  /* Phase 3.2 — +1pt */
   color: var(--sano-ink-2);
-  line-height: 1.55;
-  max-width: 150mm;
-  margin: 0 auto 6mm;
+  line-height: 1.6;
+  max-width: 155mm;
+  margin: 0 auto 5mm;
 }
 .proposal-pricing-included {
   max-width: 150mm;
@@ -714,9 +719,9 @@ export const PROPOSAL_CSS = `
   grid-template-columns: 5mm 1fr;
   gap: 2mm;
   align-items: start;
-  font-size: 9.5pt;
+  font-size: 10.5pt;                  /* Phase 3.2 — +1pt */
   color: var(--sano-ink-2);
-  line-height: 1.45;
+  line-height: 1.55;
 }
 .proposal-pricing-included__check {
   width: 4mm;
@@ -732,11 +737,11 @@ export const PROPOSAL_CSS = `
 
 /* Acceptance page — title, wording, signature block. */
 .proposal-acceptance-wording {
-  font-size: 10.5pt;
+  font-size: 11.5pt;                  /* Phase 3.2 — +1pt */
   line-height: 1.6;
   color: var(--sano-ink-2);
-  max-width: 160mm;
-  margin: 0 0 10mm;
+  max-width: 165mm;
+  margin: 0 0 6mm;
 }
 .proposal-acceptance-grid {
   display: grid;
@@ -763,24 +768,68 @@ export const PROPOSAL_CSS = `
 .proposal-acceptance-field--wide { grid-column: span 2; }
 .proposal-acceptance-note {
   margin-top: 10mm;
-  font-size: 9pt;
+  font-size: 10pt;                    /* Phase 3.2 — +1pt */
   color: var(--sano-muted);
-  line-height: 1.5;
-  max-width: 160mm;
+  line-height: 1.55;
+  max-width: 165mm;
 }
 
 /* ── Print ─────────────────────────────────────────────────────── */
 
 @media print {
-  html, body { background: #fff !important; margin: 0; padding: 0; }
-  .proposal-document { background: #fff; padding: 0; }
+  /* Keep colours (green accents, background tints on benefits /
+     included blocks, cover overlay gradient) when Chrome / Puppeteer
+     renders the page to PDF. Without these properties browsers
+     strip backgrounds and colour fills on print by default. */
+  html, body {
+    background: #fff !important;
+    margin: 0;
+    padding: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  /* Re-assert Poppins at the body level so the print stylesheet
+     doesn't fall back to a browser default when --font-poppins is
+     not yet resolved at print time. */
+  body {
+    font-family: var(--font-poppins), 'Poppins', system-ui, -apple-system, sans-serif;
+  }
+
+  .proposal-document {
+    background: #fff;
+    padding: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   .proposal-page {
     box-shadow: none;
     margin: 0;
     page-break-after: always;
+    break-after: page;
     page-break-inside: avoid;
+    break-inside: avoid;
   }
-  .proposal-page:last-child { page-break-after: auto; }
+  .proposal-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  /* Let page-level colour tints (benefits block, pricing card accent
+     border, cover gradient) render in print. */
+  .proposal-benefits,
+  .proposal-pricing-card,
+  .proposal-pricing-included,
+  .proposal-cover__bg,
+  .proposal-cover__overlay,
+  .proposal-header__bg,
+  .proposal-header__overlay,
+  .proposal-icon-tile {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 
   @page {
     size: A4;
