@@ -5,7 +5,7 @@
 // take care of audit + revalidation.
 
 import { useTransition, useState } from 'react'
-import { restoreQuote, restoreInvoice } from '../../../_actions/archive'
+import { restoreQuote, restoreInvoice, restoreJob } from '../../../_actions/archive'
 import { useRouter } from 'next/navigation'
 import { ArchiveRestore } from 'lucide-react'
 
@@ -62,6 +62,26 @@ export function RestoreInvoiceAction({ invoiceId }: { invoiceId: string }) {
     setError(null)
     startTransition(async () => {
       const result = await restoreInvoice({ invoice_id: invoiceId })
+      if ('error' in result && result.error) {
+        setError(result.error)
+        return
+      }
+      router.refresh()
+    })
+  }
+
+  return <Button isPending={isPending} error={error} onClick={handleRestore}>Restore</Button>
+}
+
+export function RestoreJobAction({ jobId }: { jobId: string }) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  function handleRestore() {
+    setError(null)
+    startTransition(async () => {
+      const result = await restoreJob({ job_id: jobId })
       if ('error' in result && result.error) {
         setError(result.error)
         return

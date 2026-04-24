@@ -73,9 +73,12 @@ export default async function JobsPage({
 
   // Build query — keep the same select shape so the underlying data
   // never changes. Settings only controls which columns we render.
+  // Phase D.2 — exclude soft-deleted rows from every jobs query so
+  // archived jobs never appear in any list or count.
   let query = supabase
     .from('jobs')
     .select('id, job_number, title, address, status, scheduled_date, scheduled_time, assigned_to, contractor_id, created_at, clients ( name, company_name )')
+    .is('deleted_at', null)
 
   if (view === 'today') query = query.eq('scheduled_date', today)
   else if (view === 'tomorrow') query = query.eq('scheduled_date', tomorrow)
@@ -94,10 +97,10 @@ export default async function JobsPage({
   const [{ data: jobs, error }, { data: contractors }, todayCount, tomorrowCount, unassignedCount, inProgressCount] = await Promise.all([
     query,
     supabase.from('contractors').select('id, full_name').eq('status', 'active').order('full_name'),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('scheduled_date', today),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('scheduled_date', tomorrow),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('contractor_id', null).neq('status', 'completed').neq('status', 'invoiced'),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('status', 'in_progress'),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('scheduled_date', today),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('scheduled_date', tomorrow),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).is('contractor_id', null).neq('status', 'completed').neq('status', 'invoiced'),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('status', 'in_progress'),
   ])
 
   if (error) {

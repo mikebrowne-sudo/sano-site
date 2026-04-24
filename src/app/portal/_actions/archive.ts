@@ -293,3 +293,109 @@ export async function restoreInvoice(input: RestoreInvoiceInput) {
   revalidatePath('/portal/settings/archive')
   return { ok: true }
 }
+
+// ─── Jobs ─────────────────────────────────────────────────────────
+// Phase D.2 — jobs now support soft-delete. Mirrors the quote +
+// invoice archive/restore surface, with a record_snapshot taken
+// before the mutation so restore is fully reversible.
+
+export interface ArchiveJobInput {
+  job_id: string
+}
+
+export async function archiveJob(input: ArchiveJobInput) {
+  const supabase = createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  if (user.email !== ADMIN_EMAIL) return { error: 'Only admin can archive jobs.' }
+  if (!input.job_id) return { error: 'job_id is required.' }
+
+  const { data: current, error: curErr } = await supabase
+    .from('jobs')
+    .select('*')
+    .eq('id', input.job_id)
+    .single()
+  if (curErr || !current) return { error: 'Job not found.' }
+
+  if (current.deleted_at != null) return { ok: true }
+
+  await supabase.from('record_snapshots').insert({
+    entity_table: 'jobs',
+    entity_id: input.job_id,
+    reason: 'job.archived',
+    snapshot: current as unknown as Record<string, unknown>,
+    created_by: user.id,
+  })
+
+  const now = new Date().toISOString()
+  const { error: delErr } = await supabase
+    .from('jobs')
+    .update({ deleted_at: now, deleted_by: user.id })
+    .eq('id', input.job_id)
+    .is('deleted_at', null)
+  if (delErr) return { error: `Failed to archive: ${delErr.message}` }
+
+  await supabase.from('audit_log').insert({
+    actor_id: user.id,
+    actor_role: 'admin',
+    action: 'job.archived',
+    entity_table: 'jobs',
+    entity_id: input.job_id,
+    before: { deleted_at: null, deleted_by: null, status: current.status },
+    after: {
+      deleted_at: now,
+      deleted_by: user.id,
+      status_at_archive: current.status,
+    },
+  })
+
+  revalidatePath('/portal/jobs')
+  revalidatePath(`/portal/jobs/${input.job_id}`)
+  revalidatePath('/portal/settings/archive')
+  return { ok: true }
+}
+
+export interface RestoreJobInput {
+  job_id: string
+}
+
+export async function restoreJob(input: RestoreJobInput) {
+  const supabase = createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.email !== ADMIN_EMAIL) {
+    return { error: 'Only admin can restore jobs.' }
+  }
+  if (!input.job_id) return { error: 'job_id is required.' }
+
+  const { data: current, error: curErr } = await supabase
+    .from('jobs')
+    .select('id, deleted_at, status')
+    .eq('id', input.job_id)
+    .single()
+  if (curErr || !current) return { error: 'Job not found.' }
+
+  if (current.deleted_at == null) return { ok: true }
+
+  const { error: restoreErr } = await supabase
+    .from('jobs')
+    .update({ deleted_at: null, deleted_by: null })
+    .eq('id', input.job_id)
+  if (restoreErr) return { error: `Failed to restore: ${restoreErr.message}` }
+
+  await supabase.from('audit_log').insert({
+    actor_id: user.id,
+    actor_role: 'admin',
+    action: 'job.restored',
+    entity_table: 'jobs',
+    entity_id: input.job_id,
+    before: { deleted_at: current.deleted_at, status: current.status },
+    after: { deleted_at: null, deleted_by: null },
+  })
+
+  revalidatePath('/portal/jobs')
+  revalidatePath(`/portal/jobs/${input.job_id}`)
+  revalidatePath('/portal/settings/archive')
+  return { ok: true }
+}

@@ -9,7 +9,7 @@ import { DuplicateJobButton } from './_components/DuplicateJobButton'
 import { CreateRecurringButton } from './_components/CreateRecurringButton'
 import { calculateVariance } from '@/lib/labour-calc'
 import { ActualHoursEditor } from './_components/ActualHoursEditor'
-import { DeleteButton } from '../../_components/DeleteButton'
+import { ArchiveJobButton } from './_components/ArchiveJobButton'
 import { JobWorkflowBar } from './_components/JobWorkflowBar'
 import { MarkJobReviewedButton } from './_components/MarkJobReviewedButton'
 import clsx from 'clsx'
@@ -73,6 +73,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
       started_at, completed_at,
       payment_status, reviewed_at, reviewed_by, access_instructions,
       internal_notes, contractor_notes,
+      deleted_at, deleted_by,
       created_at, updated_at,
       clients ( name, company_name )
     `)
@@ -104,12 +105,15 @@ export default async function JobDetailPage({ params }: { params: { id: string }
     linkedInvoiceStatus = data?.status ?? null
   }
 
-  // Delete eligibility: draft/assigned only, AND not linked to a sent/paid invoice.
-  // Server-side `deleteJob` re-checks these; this controls UI visibility only.
-  const canDeleteJob =
-    isAdmin &&
-    ['draft', 'assigned'].includes(job.status) &&
-    (!job.invoice_id || !['sent', 'paid'].includes(linkedInvoiceStatus ?? ''))
+  // Phase D.2 — archive (soft-delete) is admin-only. No status/linked
+  // guards since the row can always be restored from
+  // /portal/settings/archive, and the server action is idempotent
+  // when the row is already archived.
+  const isArchived = job.deleted_at != null
+  const canArchiveJob = isAdmin && !isArchived
+  // Silence lint — retained temporarily for downstream references
+  // once we reintroduce hard-delete UI behind an admin override.
+  void linkedInvoiceStatus
 
   const { data: contractors } = await supabase
     .from('contractors')
@@ -219,9 +223,16 @@ export default async function JobDetailPage({ params }: { params: { id: string }
         </div>
       </div>
 
-      {canDeleteJob && (
+      {canArchiveJob && (
         <div className="flex justify-end mb-6">
-          <DeleteButton type="job" id={job.id} />
+          <ArchiveJobButton jobId={job.id} jobNumber={job.job_number} />
+        </div>
+      )}
+      {isArchived && (
+        <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 mb-6">
+          This job is archived. Restore it from{' '}
+          <Link href="/portal/settings/archive" className="underline hover:text-amber-900">Settings → Archive</Link>{' '}
+          to make changes.
         </div>
       )}
 
