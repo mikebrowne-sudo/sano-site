@@ -23,8 +23,45 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
-import puppeteer from 'puppeteer'
+import puppeteer from 'puppeteer-core'
+import chromium from '@sparticuz/chromium'
 import { loadProposalForQuote } from '@/lib/proposals/loadProposalForQuote'
+
+/**
+ * Resolve a Puppeteer browser instance.
+ *
+ * Production (Netlify Functions / any AWS-Lambda-like sandbox) —
+ * @sparticuz/chromium ships a Linux-x64 Chromium binary built for
+ * Lambda's ~50 MB function size limit. puppeteer-core drives it.
+ *
+ * Development — the Lambda binary does not run on Windows / macOS,
+ * so we fall back to the OS's installed Chrome via an explicit
+ * executable path. Set PUPPETEER_EXECUTABLE_PATH in .env.local to
+ * opt in. Without the env var we still try @sparticuz/chromium so
+ * Linux devs see the same path as production.
+ */
+async function resolveBrowser() {
+  const isDev = process.env.NODE_ENV === 'development'
+  const localPath = process.env.PUPPETEER_EXECUTABLE_PATH
+
+  if (isDev && localPath) {
+    return puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      executablePath: localPath,
+    })
+  }
+
+  return puppeteer.launch({
+    args: chromium.args,
+    executablePath: await chromium.executablePath(),
+    // @sparticuz/chromium v147+ only exposes `args` + `executablePath`
+    // on its public API; `defaultViewport` / `headless` were removed.
+    // Headless is the default for modern Chromium, but we pass `true`
+    // explicitly so the legacy-compatible flag is set.
+    headless: true,
+  })
+}
 
 export const dynamic = 'force-dynamic'
 // PDF generation is slow — opt into 60s on platforms that respect this.
@@ -66,10 +103,7 @@ export async function GET(
 
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null
   try {
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    })
+    browser = await resolveBrowser()
 
     const page = await browser.newPage()
 
@@ -158,24 +192,22 @@ function parseCookieHeader(header: string, hostname: string): PuppeteerCookie[] 
 
 // ── Deployment notes ───────────────────────────────────────────────
 //
-// This file imports `puppeteer` (the full package, with bundled
-// Chromium ~280 MB). Works fine locally and in any container with
-// Chromium dependencies installed. For Netlify Functions / Vercel
-// serverless, swap to puppeteer-core + @sparticuz/chromium:
+// Runtime = Netlify Functions (AWS Lambda under the hood). We use
+// puppeteer-core + @sparticuz/chromium so a Lambda-compatible
+// Chromium binary ships with the function bundle — the previous
+// full `puppeteer` package tried to download Chromium to
+// ~/.cache/puppeteer at runtime, which fails in the sandbox user
+// env (/home/sbx_user.../.cache/puppeteer doesn't exist / isn't
+// writable).
 //
-//   npm install puppeteer-core @sparticuz/chromium
-//   npm uninstall puppeteer
-//
-// Then the launch block becomes:
-//
-//   import puppeteer from 'puppeteer-core'
-//   import chromium from '@sparticuz/chromium'
-//
-//   browser = await puppeteer.launch({
-//     args: chromium.args,
-//     executablePath: await chromium.executablePath(),
-//     headless: chromium.headless,
-//   })
+// Local dev:
+//   • Linux: works out of the box (same Chromium as prod).
+//   • Windows / macOS: set PUPPETEER_EXECUTABLE_PATH in
+//     .env.local to your installed Chrome, e.g.
+//     PUPPETEER_EXECUTABLE_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe"
+//     or `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
+//     on macOS. Without the env var the code still tries the
+//     Lambda binary, which won't run on Win/Mac.
 //
 // Netlify Functions default to a 10s timeout; this route declares
 // maxDuration = 60. For long renders, switch to a Background
