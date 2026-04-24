@@ -8,6 +8,7 @@
 import { ProposalLayout } from './ProposalLayout'
 import type { ProposalTemplatePayload } from '@/lib/proposals/buildProposalPayload'
 import { ProposalIcon, type ProposalIconName } from './ServiceOverviewPage'
+import { buildScopeIntro } from '@/lib/proposals/content-builders'
 
 const SCOPE_ICONS: ProposalIconName[] = ['doorway', 'clipboard', 'building', 'utensils', 'spray']
 
@@ -28,9 +29,7 @@ export function ScopeOfWorksPage({
       contact={payload.contact}
     >
       <div className="proposal-content">
-        <p className="proposal-scope-intro">
-          The following services will be carried out by Sano Property Services at the agreed frequency.
-        </p>
+        <p className="proposal-scope-intro">{buildScopeIntro(payload)}</p>
 
         <div className="proposal-scope-stack">
           {payload.scopeSections.map((section, i) => (

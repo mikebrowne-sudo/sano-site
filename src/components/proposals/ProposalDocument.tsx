@@ -2,9 +2,10 @@
 //
 // Renders the proposal pages in order, threading page-number /
 // total-pages through each. Section visibility comes from the
-// payload (settings-driven): executive summary and terms can be
-// hidden via the proposal-settings admin UI. Cover, service
-// overview, scope of works, and pricing summary are always shown.
+// payload (settings-driven): executive summary, terms, and the
+// Phase 3 acceptance page can each be hidden via the
+// proposal-settings admin UI. Cover, service overview, scope of
+// works, and pricing summary are always shown.
 //
 // Page numbering recalculates from the actually-rendered pages so
 // "Page X of N" stays accurate when sections are toggled off.
@@ -15,19 +16,20 @@ import { ServiceOverviewPage } from './ServiceOverviewPage'
 import { ScopeOfWorksPage } from './ScopeOfWorksPage'
 import { PricingSummaryPage } from './PricingSummaryPage'
 import { TermsAndConditionsPage } from './TermsAndConditionsPage'
+import { AcceptancePage } from './AcceptancePage'
 import { PROPOSAL_CSS } from './proposal-styles'
 import type { ProposalTemplatePayload } from '@/lib/proposals/buildProposalPayload'
 
 export function ProposalDocument({ payload }: { payload: ProposalTemplatePayload }) {
-  // Build the active page list from section toggles (cover, service
-  // overview, scope, pricing are always rendered; exec summary +
-  // terms are togglable). Acceptance is reserved for a future page
-  // and skipped here even when the toggle is on.
-  type PageKey = 'cover' | 'executive' | 'overview' | 'scope' | 'pricing' | 'terms'
+  // Build the active page list from section toggles. Cover, service
+  // overview, scope, and pricing are always rendered. Executive
+  // summary, terms, and acceptance are togglable via settings.
+  type PageKey = 'cover' | 'executive' | 'overview' | 'scope' | 'pricing' | 'terms' | 'acceptance'
   const active: PageKey[] = ['cover']
   if (payload.sections.executiveSummary) active.push('executive')
   active.push('overview', 'scope', 'pricing')
   if (payload.sections.terms) active.push('terms')
+  if (payload.sections.acceptance) active.push('acceptance')
 
   const total = active.length
   const pageNum = (key: PageKey) => active.indexOf(key) + 1
@@ -45,6 +47,9 @@ export function ProposalDocument({ payload }: { payload: ProposalTemplatePayload
         <PricingSummaryPage    payload={payload} pageNumber={pageNum('pricing')}   totalPages={total} />
         {payload.sections.terms && (
           <TermsAndConditionsPage payload={payload} pageNumber={pageNum('terms')} totalPages={total} />
+        )}
+        {payload.sections.acceptance && (
+          <AcceptancePage payload={payload} pageNumber={pageNum('acceptance')} totalPages={total} />
         )}
       </div>
     </>
