@@ -11,6 +11,7 @@ import { calculateVariance } from '@/lib/labour-calc'
 import { ActualHoursEditor } from './_components/ActualHoursEditor'
 import { DeleteButton } from '../../_components/DeleteButton'
 import { JobWorkflowBar } from './_components/JobWorkflowBar'
+import { MarkJobReviewedButton } from './_components/MarkJobReviewedButton'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -19,6 +20,23 @@ const STATUS_STYLES: Record<string, string> = {
   in_progress: 'bg-amber-50 text-amber-700',
   completed:   'bg-emerald-50 text-emerald-700',
   invoiced:    'bg-purple-50 text-purple-700',
+}
+
+// Phase D — payment status pill styling. Operational state only;
+// does not gate workflow transitions.
+const PAYMENT_STATUS_STYLES: Record<string, string> = {
+  not_required:    'bg-gray-100 text-gray-600',
+  on_account:      'bg-sage-50 text-sage-700',
+  invoice_sent:    'bg-blue-50 text-blue-700',
+  payment_pending: 'bg-amber-50 text-amber-700',
+  paid:            'bg-emerald-50 text-emerald-700',
+}
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  not_required:    'No payment required',
+  on_account:      'On account',
+  invoice_sent:    'Invoice sent',
+  payment_pending: 'Payment pending',
+  paid:            'Paid',
 }
 
 function fmtDate(iso: string | null) {
@@ -53,6 +71,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
       scheduled_date, scheduled_time, duration_estimate,
       contractor_id, contractor_price, job_price, allowed_hours,
       started_at, completed_at,
+      payment_status, reviewed_at, reviewed_by, access_instructions,
       internal_notes, contractor_notes,
       created_at, updated_at,
       clients ( name, company_name )
@@ -141,10 +160,31 @@ export default async function JobDetailPage({ params }: { params: { id: string }
             ) : 'Unassigned'}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 md:gap-3 justify-end">
           <span className={clsx('inline-block px-3 py-1 rounded-full text-sm font-medium capitalize', STATUS_STYLES[job.status] ?? STATUS_STYLES.draft)}>
             {statusLabel(job.status)}
           </span>
+          {/* Phase D — payment status pill sits alongside the status
+              badge so operators see billing state at a glance. */}
+          {(() => {
+            const ps = (job.payment_status ?? 'on_account') as string
+            return (
+              <span
+                className={clsx(
+                  'inline-block px-3 py-1 rounded-full text-xs font-medium',
+                  PAYMENT_STATUS_STYLES[ps] ?? PAYMENT_STATUS_STYLES.on_account,
+                )}
+                title="Payment status — operational only; does not gate job workflow."
+              >
+                {PAYMENT_STATUS_LABELS[ps] ?? 'On account'}
+              </span>
+            )
+          })()}
+          {job.reviewed_at && (
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-sage-50 text-sage-700">
+              Reviewed
+            </span>
+          )}
           <AssignJobButton jobId={job.id} currentAssignee={job.assigned_to} currentContractorId={job.contractor_id} contractors={contractors ?? []} />
           <Link
             href={`/portal/jobs/${params.id}/edit`}
@@ -156,6 +196,11 @@ export default async function JobDetailPage({ params }: { params: { id: string }
           <DuplicateJobButton jobId={job.id} />
           {!job.recurring_job_id && <CreateRecurringButton jobId={job.id} />}
           <JobStatusActions jobId={job.id} status={job.status} />
+          {/* Phase D — Mark as Reviewed. Visible only when the job
+              is completed/invoiced and hasn't been reviewed yet. */}
+          {(job.status === 'completed' || job.status === 'invoiced') && !job.reviewed_at && (
+            <MarkJobReviewedButton jobId={job.id} />
+          )}
           <JobInvoiceButton
             jobId={job.id}
             invoiceId={job.invoice_id}
@@ -174,7 +219,11 @@ export default async function JobDetailPage({ params }: { params: { id: string }
           Draft → Scheduled → Assigned → In Progress → Completed →
           Reviewed → Invoiced. Derived from the existing job.status
           enum plus scheduled_date; no DB changes required. */}
-      <JobWorkflowBar status={job.status} scheduledDate={job.scheduled_date} />
+      <JobWorkflowBar
+        status={job.status}
+        scheduledDate={job.scheduled_date}
+        reviewedAt={job.reviewed_at}
+      />
 
       <div className="max-w-2xl space-y-8 mt-6">
 

@@ -126,7 +126,9 @@ export async function createJobFromQuote(quoteId: string) {
     || quote.notes
     || null
 
-  // 4. Insert the job.
+  // 4. Insert the job. Phase D — payment_status defaults to
+  // 'on_account' for the job-first path; we're agreeing to the work
+  // now and invoicing later.
   const { data: job, error: jErr } = await supabase
     .from('jobs')
     .insert({
@@ -138,7 +140,8 @@ export async function createJobFromQuote(quoteId: string) {
       scheduled_date: quote.scheduled_clean_date ?? null,
       allowed_hours: quote.estimated_hours ?? null,
       internal_notes: quote.notes ?? null,
-      status: quote.scheduled_clean_date ? 'draft' : 'draft',
+      status: 'draft',
+      payment_status: 'on_account',
       scope_snapshot: scopeSnapshot,
     })
     .select('id, job_number')
