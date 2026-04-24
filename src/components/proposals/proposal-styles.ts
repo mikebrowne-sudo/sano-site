@@ -790,6 +790,40 @@ export const PROPOSAL_CSS = `
     color-adjust: exact;
   }
 
+  /* Portal chrome hide — when the proposal is rendered inside the
+     portal preview route (/portal/quotes/[id]/proposal/preview) the
+     page is wrapped in the portal sidebar + topbar. Without this
+     rule the portal chrome occupies the first printed sheet and
+     pushes the cover page to page 2. Safe no-op on the dedicated
+     /proposals/print/[id] route because no shell elements exist
+     there.
+     header:not(.proposal-header) keeps the per-page proposal
+     banner; only the portal topbar is hidden. */
+  aside,
+  header:not(.proposal-header),
+  nav {
+    display: none !important;
+  }
+
+  /* Strip the min-height / padding / max-width that the portal
+     layout applies to <main> and its container, so the proposal
+     document sits flush at the top-left of page 1. Each
+     .proposal-page already carries its own internal padding. */
+  main {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    flex: none !important;
+    min-height: 0 !important;
+    background: transparent !important;
+  }
+  main > div {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: auto !important;
+  }
+
   /* Re-assert Poppins at the body level so the print stylesheet
      doesn't fall back to a browser default when --font-poppins is
      not yet resolved at print time. */
