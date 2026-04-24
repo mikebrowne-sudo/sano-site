@@ -45,5 +45,6 @@ function pickMessage(status: string | null, itemCount: number, isArchived: boole
   if (itemCount === 0) {
     return 'This quote is still being prepared. Add line items or scope before sending.'
   }
-  return 'This quote is still being prepared. Review details before sending.'
+  // "Ready" — draft with scope in place.
+  return 'This quote is ready to send. Give the details a final review, then send it to the client.'
 }

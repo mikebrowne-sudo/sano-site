@@ -10,6 +10,7 @@ import { CreateRecurringButton } from './_components/CreateRecurringButton'
 import { calculateVariance } from '@/lib/labour-calc'
 import { ActualHoursEditor } from './_components/ActualHoursEditor'
 import { DeleteButton } from '../../_components/DeleteButton'
+import { JobWorkflowBar } from './_components/JobWorkflowBar'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -169,7 +170,13 @@ export default async function JobDetailPage({ params }: { params: { id: string }
         </div>
       )}
 
-      <div className="max-w-2xl space-y-8">
+      {/* Phase C — workflow bar. Seven-stage visual spanning
+          Draft → Scheduled → Assigned → In Progress → Completed →
+          Reviewed → Invoiced. Derived from the existing job.status
+          enum plus scheduled_date; no DB changes required. */}
+      <JobWorkflowBar status={job.status} scheduledDate={job.scheduled_date} />
+
+      <div className="max-w-2xl space-y-8 mt-6">
 
         {/* Client */}
         <Section title="Client">
