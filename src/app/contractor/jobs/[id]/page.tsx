@@ -40,12 +40,15 @@ function fmtCurrency(dollars: number | null) {
 export default async function ContractorJobDetailPage({ params }: { params: { id: string } }) {
   const { supabase, contractor } = await getContractor()
 
-  // Safe fields only — no job_price, internal_notes, quote/invoice data
+  // Safe fields only — no job_price, internal_notes, quote/invoice data.
+  // Phase D.1 adds allowed_hours + access_instructions; both are safe
+  // for the contractor to see (not margin / not client pricing).
   const { data: job, error } = await supabase
     .from('jobs')
     .select(`
       id, job_number, title, description, address,
       scheduled_date, scheduled_time, duration_estimate,
+      allowed_hours, access_instructions,
       status, contractor_notes, contractor_price,
       started_at, completed_at
     `)
@@ -123,6 +126,15 @@ export default async function ContractorJobDetailPage({ params }: { params: { id
             </div>
           </div>
         )}
+        {job.allowed_hours != null && (
+          <div className="flex items-start gap-3">
+            <Timer size={18} className="text-sage-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-xs text-sage-500 font-medium">Allowed hours</p>
+              <p className="text-sage-800 font-medium">{job.allowed_hours} hr{job.allowed_hours === 1 ? '' : 's'}</p>
+            </div>
+          </div>
+        )}
         {job.address && (
           <div className="flex items-start gap-3">
             <MapPin size={18} className="text-sage-400 mt-0.5 shrink-0" />
@@ -139,6 +151,16 @@ export default async function ContractorJobDetailPage({ params }: { params: { id
         <div className="bg-white rounded-2xl border border-sage-100 p-5 mt-4">
           <h2 className="text-xs text-sage-500 font-semibold uppercase tracking-wide mb-2">Description</h2>
           <p className="text-sage-700 text-sm whitespace-pre-wrap leading-relaxed">{job.description}</p>
+        </div>
+      )}
+
+      {/* Phase D.1 — access instructions. Captured during assignment;
+          surfaced here so the contractor has keys / alarm / parking
+          info at the top of their own page before starting the job. */}
+      {job.access_instructions && (
+        <div className="bg-white rounded-2xl border border-sage-100 p-5 mt-4">
+          <h2 className="text-xs text-sage-500 font-semibold uppercase tracking-wide mb-2">Access instructions</h2>
+          <p className="text-sage-700 text-sm whitespace-pre-wrap leading-relaxed">{job.access_instructions}</p>
         </div>
       )}
 
