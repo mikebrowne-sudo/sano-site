@@ -619,6 +619,156 @@ export const PROPOSAL_CSS = `
   margin-top: 0;
 }
 
+/* ── Phase 3: tailored content blocks (additive — no existing rules
+      changed). Service-summary paragraph, "What this means" benefits
+      grid, pricing "What's included" checklist, acceptance page. ── */
+
+/* Short intro paragraph above the service-overview meta grid. */
+.proposal-service-summary {
+  font-size: 10pt;
+  line-height: 1.55;
+  color: var(--sano-ink-2);
+  margin: 0 0 6mm;
+  max-width: 160mm;
+}
+
+/* "What this means" benefits block — sits below the meta grid. */
+.proposal-benefits {
+  margin-top: 8mm;
+  padding: 6mm 7mm;
+  background: var(--sano-green-08);
+  border-left: 2px solid var(--sano-green);
+  border-radius: 1mm;
+}
+.proposal-benefits__head {
+  font-size: 8pt;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sano-green);
+  font-weight: 600;
+  margin: 0 0 3mm;
+}
+.proposal-benefits__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3mm 8mm;
+}
+.proposal-benefits__item {
+  display: grid;
+  grid-template-columns: 5mm 1fr;
+  gap: 2mm;
+  align-items: start;
+  font-size: 9.5pt;
+  line-height: 1.45;
+  color: var(--sano-ink-2);
+}
+.proposal-benefits__check {
+  width: 4mm;
+  height: 4mm;
+  stroke: var(--sano-green);
+  stroke-width: 1.6;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  margin-top: 0.5mm;
+  flex-shrink: 0;
+}
+
+/* Pricing "What's included" list + basis paragraph. */
+.proposal-pricing-basis {
+  text-align: center;
+  font-size: 9.5pt;
+  color: var(--sano-ink-2);
+  line-height: 1.55;
+  max-width: 150mm;
+  margin: 0 auto 6mm;
+}
+.proposal-pricing-included {
+  max-width: 150mm;
+  margin: 0 auto 5mm;
+  padding: 5mm 7mm;
+  border: 1px solid var(--sano-line);
+  border-radius: 1mm;
+}
+.proposal-pricing-included__head {
+  font-size: 8pt;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sano-ink);
+  font-weight: 600;
+  margin: 0 0 3mm;
+}
+.proposal-pricing-included__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2mm;
+}
+.proposal-pricing-included__item {
+  display: grid;
+  grid-template-columns: 5mm 1fr;
+  gap: 2mm;
+  align-items: start;
+  font-size: 9.5pt;
+  color: var(--sano-ink-2);
+  line-height: 1.45;
+}
+.proposal-pricing-included__check {
+  width: 4mm;
+  height: 4mm;
+  stroke: var(--sano-green);
+  stroke-width: 1.6;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  margin-top: 0.5mm;
+  flex-shrink: 0;
+}
+
+/* Acceptance page — title, wording, signature block. */
+.proposal-acceptance-wording {
+  font-size: 10.5pt;
+  line-height: 1.6;
+  color: var(--sano-ink-2);
+  max-width: 160mm;
+  margin: 0 0 10mm;
+}
+.proposal-acceptance-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8mm 10mm;
+  margin-top: 6mm;
+}
+.proposal-acceptance-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2mm;
+}
+.proposal-acceptance-field__label {
+  font-size: 8pt;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sano-green);
+  font-weight: 600;
+}
+.proposal-acceptance-field__line {
+  border-bottom: 1px solid var(--sano-ink);
+  height: 10mm;
+}
+.proposal-acceptance-field--wide { grid-column: span 2; }
+.proposal-acceptance-note {
+  margin-top: 10mm;
+  font-size: 9pt;
+  color: var(--sano-muted);
+  line-height: 1.5;
+  max-width: 160mm;
+}
+
 /* ── Print ─────────────────────────────────────────────────────── */
 
 @media print {

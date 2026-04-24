@@ -40,6 +40,23 @@ export interface ProposalSectionToggles {
   acceptance: boolean
 }
 
+// Phase 3 — slim site/commercial context used by content-builders to
+// produce tailored executive summary / service overview / pricing
+// paragraphs. All strings may be empty; number fields fall back to
+// settings defaults. Builders must degrade gracefully.
+export interface ProposalSiteContext {
+  sector: string              // e.g. "Office" — may be empty
+  buildingType: string        // e.g. "Commercial office" — may be empty
+  totalArea: string           // preformatted, e.g. "1,200 m²" — may be empty
+  floors: string              // preformatted, e.g. "3 floors" — may be empty
+  trafficLevel: string        // preformatted label — may be empty
+  occupancyLevel: string      // preformatted label — may be empty
+  fixturesSummary: string     // joined details — may be empty
+  contractTermMonths: number  // from settings
+  paymentTermDays: number     // from settings
+  noticePeriodDays: number    // from settings
+}
+
 export interface ProposalTemplatePayload {
   // Cover values
   coverTagline: string          // e.g. "CLEAN SPACES. BETTER PLACES."
@@ -83,6 +100,9 @@ export interface ProposalTemplatePayload {
 
   // Section toggles (from settings)
   sections: ProposalSectionToggles
+
+  // Phase 3 — structured site/commercial context for content-builders
+  siteContext: ProposalSiteContext
 
   // Footer
   contact?: ProposalContact
@@ -179,6 +199,19 @@ export function proposalFixture(settings: ProposalSettings = DEFAULT_PROPOSAL_SE
       executiveSummary: settings.sections.show_executive_summary,
       terms:            settings.sections.show_terms,
       acceptance:       settings.sections.show_acceptance,
+    },
+
+    siteContext: {
+      sector:             'Office',
+      buildingType:       'Commercial office',
+      totalArea:          '1,200 m²',
+      floors:             '4 floors',
+      trafficLevel:       'High traffic',
+      occupancyLevel:     'High occupancy',
+      fixturesSummary:    '6 toilets · 2 kitchens · 45 desks · 4 meeting rooms',
+      contractTermMonths: settings.terms.default_contract_term_months,
+      paymentTermDays:    settings.terms.default_payment_term_days,
+      noticePeriodDays:   settings.terms.default_notice_period_days,
     },
 
     contact: {
@@ -286,6 +319,19 @@ export function fromCommercialProposalPayload(
       executiveSummary: settings.sections.show_executive_summary,
       terms:            settings.sections.show_terms,
       acceptance:       settings.sections.show_acceptance,
+    },
+
+    siteContext: {
+      sector:             p.site_profile.sector || '',
+      buildingType:       p.site_profile.building_type || '',
+      totalArea:          p.site_profile.total_area || '',
+      floors:             p.site_profile.floors || '',
+      trafficLevel:       p.site_profile.traffic || '',
+      occupancyLevel:     p.site_profile.occupancy || '',
+      fixturesSummary:    p.site_profile.fixtures_summary || '',
+      contractTermMonths: settings.terms.default_contract_term_months,
+      paymentTermDays:    settings.terms.default_payment_term_days,
+      noticePeriodDays:   settings.terms.default_notice_period_days,
     },
 
     contact: {
