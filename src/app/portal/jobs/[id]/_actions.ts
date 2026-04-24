@@ -5,6 +5,60 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { notifyContractorAssigned } from '@/lib/notify-contractor'
 
+// Phase D — mark a completed job as reviewed. Captures reviewed_at
+// + reviewed_by (FK to auth.users) and audit-logs the transition.
+// The workflow bar reads reviewed_at to advance to the Reviewed
+// stage. Does not change jobs.status itself — review is a layer on
+// top of the existing status enum, not a replacement.
+export async function markJobReviewed(jobId: string) {
+  const supabase = createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { error: 'Not authenticated.' }
+  }
+
+  const { data: priorJob, error: readErr } = await supabase
+    .from('jobs')
+    .select('status, reviewed_at')
+    .eq('id', jobId)
+    .single()
+
+  if (readErr || !priorJob) {
+    return { error: `Job not found: ${readErr?.message ?? 'missing row'}` }
+  }
+  if (priorJob.status !== 'completed' && priorJob.status !== 'invoiced') {
+    return { error: 'Only completed jobs can be marked as reviewed.' }
+  }
+  if (priorJob.reviewed_at) {
+    return { error: 'This job has already been reviewed.' }
+  }
+
+  const now = new Date().toISOString()
+
+  const { error: updErr } = await supabase
+    .from('jobs')
+    .update({ reviewed_at: now, reviewed_by: user.id })
+    .eq('id', jobId)
+
+  if (updErr) {
+    return { error: `Failed to mark reviewed: ${updErr.message}` }
+  }
+
+  await supabase.from('audit_log').insert({
+    actor_id: user.id,
+    actor_role: 'staff',
+    action: 'job.reviewed',
+    entity_table: 'jobs',
+    entity_id: jobId,
+    before: { reviewed_at: null },
+    after: { reviewed_at: now, reviewed_by: user.id },
+  })
+
+  revalidatePath(`/portal/jobs/${jobId}`)
+  return { ok: true }
+}
+
 export async function createInvoiceFromJob(jobId: string) {
   const supabase = createClient()
 

@@ -46,10 +46,13 @@ const STAGES: readonly Stage[] = [
 export interface JobWorkflowBarProps {
   status: string | null
   scheduledDate: string | null
+  /** Phase D — when set, the Reviewed stage is advanced past
+   *  Completed. Timestamp is captured by markJobReviewed. */
+  reviewedAt?: string | null
 }
 
-export function JobWorkflowBar({ status, scheduledDate }: JobWorkflowBarProps) {
-  const markers = buildMarkers(status, scheduledDate)
+export function JobWorkflowBar({ status, scheduledDate, reviewedAt }: JobWorkflowBarProps) {
+  const markers = buildMarkers(status, scheduledDate, reviewedAt ?? null)
 
   return (
     <nav
@@ -128,17 +131,28 @@ function StageMarker({ marker }: { marker: Marker }) {
   )
 }
 
-function buildMarkers(status: string | null, scheduledDate: string | null): Marker[] {
+function buildMarkers(
+  status: string | null,
+  scheduledDate: string | null,
+  reviewedAt: string | null,
+): Marker[] {
   const s = (status ?? 'draft').toLowerCase()
   const scheduled = scheduledDate != null && scheduledDate !== ''
+  const reviewed = reviewedAt != null && reviewedAt !== ''
 
   if (s === 'invoiced') {
-    // Every prior stage done — including Reviewed even though we
-    // don't capture it explicitly yet. Reviewed sits between
-    // Completed and Invoiced as a journey marker.
+    // Journey complete. Reviewed is marked done whether or not
+    // reviewed_at is set — an invoiced job is past the review
+    // gate by definition.
     return ['done', 'done', 'done', 'done', 'done', 'done', 'current']
   }
   if (s === 'completed') {
+    // After completion the workflow advances to Reviewed only once
+    // markJobReviewed has captured reviewed_at. Without that
+    // timestamp the current stage stays on Completed.
+    if (reviewed) {
+      return ['done', 'done', 'done', 'done', 'done', 'current', 'upcoming']
+    }
     return ['done', 'done', 'done', 'done', 'current', 'upcoming', 'upcoming']
   }
   if (s === 'in_progress') {

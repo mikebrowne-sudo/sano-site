@@ -1,35 +1,27 @@
-// Phase B / Phase C — Next Step panel.
+// Phase B / C / D — Next Step panel.
 //
-// Full-width panel that replaces the sticky action bar when the
-// quote has been accepted. Three clearly-separated options so the
-// user doesn't have to guess what happens after "Accepted":
+// Full-width panel shown when the quote has been accepted. Phase D
+// reshapes the three cards to reflect the flexible "choose your
+// own path" billing model used by real property managers:
 //
-//   1. Create Invoice First — cash / one-off jobs where payment is
-//      expected before the job starts. Uses the existing
-//      ConvertToInvoiceButton (which triggers the invoice creation
-//      server action), so the underlying logic is unchanged.
+//   1. Create Job        — account clients / commercial. No invoice
+//                          yet; job.payment_status = 'on_account'.
+//   2. Create Invoice    — cash / one-off residential work. Invoice
+//                          created; no job row. Matches the legacy
+//                          convertToInvoice flow.
+//   3. Create Job + Invoice — organise the work now AND send the
+//                          invoice. Job links to the new invoice;
+//                          job.payment_status = 'payment_pending'.
 //
-//   2. Create Job — account clients / commercial work where
-//      invoicing happens after the work. Phase C: calls the new
-//      createJobFromQuote server action via CreateJobButton, which
-//      snapshots the quote scope onto a fresh job row and redirects
-//      to the job page.
-//
-//   3. Create Recurring Job — placeholder for the ongoing-service
-//      path used for commercial contracts. Still disabled with a
-//      "This option will be available shortly" note until its
-//      server action exists.
-//
-// Visual emphasis — Phase C adds a subtle primary outline to the
-// recommended card based on the quote's service category:
-//   residential → Invoice First
-//   commercial  → Recurring Job
-// All three cards still render for both categories per the brief —
-// the emphasis is a hint, not a constraint.
+// All three cards render for both service categories. "Recommended"
+// emphasis shifts based on category — residential defaults to
+// Create Invoice (cash-first), commercial defaults to Create Job +
+// Invoice (work is planned and billed together).
 
 import { ConvertToInvoiceButton } from './ConvertToInvoiceButton'
 import { CreateJobButton } from './CreateJobButton'
-import { Receipt, Briefcase, Repeat } from 'lucide-react'
+import { CreateJobAndInvoiceButton } from './CreateJobAndInvoiceButton'
+import { Briefcase, Receipt, FilePlus } from 'lucide-react'
 
 export interface QuoteNextStepPanelProps {
   quoteId: string
@@ -38,7 +30,13 @@ export interface QuoteNextStepPanelProps {
 }
 
 export function QuoteNextStepPanel({ quoteId, isConvertible, isCommercial }: QuoteNextStepPanelProps) {
-  const primary: 'invoice' | 'recurring' = isCommercial ? 'recurring' : 'invoice'
+  // Residential → "Create Invoice" recommended (typical cash job).
+  // Commercial   → "Create Job + Invoice" recommended (organise the
+  //                 work and send the bill together).
+  // "Create Job" is never the default recommendation per the brief,
+  // but stays fully available and styled the same as the others.
+  const recommended: 'job' | 'invoice' | 'both' = isCommercial ? 'both' : 'invoice'
+  const jobRecommended = (recommended as string) === 'job'
 
   return (
     <section
@@ -57,24 +55,10 @@ export function QuoteNextStepPanel({ quoteId, isConvertible, isCommercial }: Quo
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <NextStepCard
-          icon={<Receipt size={20} />}
-          title="Create Invoice First"
-          description="Use this when payment is required before the job starts."
-          emphasised={primary === 'invoice'}
-          action={
-            isConvertible ? (
-              <ConvertToInvoiceButton quoteId={quoteId} />
-            ) : (
-              <DisabledAction label="Create Invoice + Job" note="Not available for this quote" />
-            )
-          }
-        />
-
-        <NextStepCard
           icon={<Briefcase size={20} />}
           title="Create Job"
-          description="Use this for ongoing or account clients where invoicing happens later."
-          emphasised={false}
+          description="Use for account clients or when the job needs to be scheduled immediately. No invoice is raised yet."
+          emphasised={jobRecommended}
           action={
             isConvertible ? (
               <CreateJobButton quoteId={quoteId} />
@@ -85,11 +69,31 @@ export function QuoteNextStepPanel({ quoteId, isConvertible, isCommercial }: Quo
         />
 
         <NextStepCard
-          icon={<Repeat size={20} />}
-          title="Create Recurring Job"
-          description="Set up a repeating service schedule for ongoing services."
-          emphasised={primary === 'recurring'}
-          action={<DisabledAction label="Create Recurring Job" note="This option will be available shortly" />}
+          icon={<Receipt size={20} />}
+          title="Create Invoice"
+          description="Use when payment is required before work begins. An invoice is raised; no job is scheduled yet."
+          emphasised={recommended === 'invoice'}
+          action={
+            isConvertible ? (
+              <ConvertToInvoiceButton quoteId={quoteId} />
+            ) : (
+              <DisabledAction label="Create Invoice" note="Not available for this quote" />
+            )
+          }
+        />
+
+        <NextStepCard
+          icon={<FilePlus size={20} />}
+          title="Create Job + Invoice"
+          description="Use when the job needs to be organised now, but payment also needs to be requested."
+          emphasised={recommended === 'both'}
+          action={
+            isConvertible ? (
+              <CreateJobAndInvoiceButton quoteId={quoteId} />
+            ) : (
+              <DisabledAction label="Create Job + Invoice" note="Not available for this quote" />
+            )
+          }
         />
       </div>
     </section>
