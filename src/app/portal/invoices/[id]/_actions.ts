@@ -64,8 +64,19 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
     })
     .eq('id', input.invoice_id)
 
+  // Phase D.3 — sync jobs.payment_status on the linked job(s) so
+  // the job page shows an accurate payment state. A job is only
+  // considered linked when it points at this invoice_id and hasn't
+  // been archived.
+  await supabase
+    .from('jobs')
+    .update({ payment_status: 'invoice_sent' })
+    .eq('invoice_id', input.invoice_id)
+    .is('deleted_at', null)
+
   revalidatePath(`/portal/invoices/${input.invoice_id}`)
   revalidatePath('/portal/invoices')
+  revalidatePath('/portal/jobs', 'layout')
   return { success: true }
 }
 
@@ -82,7 +93,16 @@ export async function markInvoicePaid(invoiceId: string) {
     return { error: `Failed to update invoice: ${error.message}` }
   }
 
+  // Phase D.3 — sync jobs.payment_status to 'paid' on the linked
+  // job(s). Same scoping rule as the send path.
+  await supabase
+    .from('jobs')
+    .update({ payment_status: 'paid' })
+    .eq('invoice_id', invoiceId)
+    .is('deleted_at', null)
+
   revalidatePath(`/portal/invoices/${invoiceId}`)
   revalidatePath('/portal/invoices')
+  revalidatePath('/portal/jobs', 'layout')
   return { success: true }
 }

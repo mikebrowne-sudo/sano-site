@@ -19,11 +19,14 @@ function fmtDate(iso: string | null) {
 export default async function ContractorJobsPage() {
   const { supabase, contractor } = await getContractor()
 
-  // Only select safe fields — no job_price, no internal_notes
+  // Only select safe fields — no job_price, no internal_notes.
+  // Phase D.3 — also exclude archived jobs so contractors never see
+  // jobs that have been soft-deleted by staff.
   const { data: jobs } = await supabase
     .from('jobs')
     .select('id, job_number, title, address, scheduled_date, scheduled_time, duration_estimate, status')
     .eq('contractor_id', contractor.id)
+    .is('deleted_at', null)
     .order('scheduled_date', { ascending: true, nullsFirst: false })
 
   const rows = jobs ?? []

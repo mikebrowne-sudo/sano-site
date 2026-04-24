@@ -106,4 +106,20 @@ export async function loadJobSettings(
   return mergeJobSettings(data.value)
 }
 
+/**
+ * Phase D.3 — convenience wrapper around `loadJobSettings` that
+ * creates its own server-side Supabase client. Use this from server
+ * actions + server components that just want the current settings
+ * without plumbing a client through themselves.
+ *
+ * Lives alongside loadJobSettings (which still exists for callers
+ * that already have a client) so consumers have their pick.
+ */
+export async function getJobSettings(): Promise<JobSettings> {
+  // Dynamic import so this file stays importable from any context
+  // without pulling supabase-server into client bundles.
+  const { createClient } = await import('./supabase-server')
+  return loadJobSettings(createClient())
+}
+
 export { SETTINGS_KEY }

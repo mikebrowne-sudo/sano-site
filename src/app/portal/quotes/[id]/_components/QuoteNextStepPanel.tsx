@@ -27,9 +27,20 @@ export interface QuoteNextStepPanelProps {
   quoteId: string
   isConvertible: boolean
   isCommercial: boolean
+  /** Phase D.3 — mirror of job_settings.allow_job_before_payment.
+   *  When false, the "Create Job" card is disabled for staff with
+   *  a "Payment required" hint. Admins bypass the gate. */
+  allowJobBeforePayment?: boolean
+  isAdmin?: boolean
 }
 
-export function QuoteNextStepPanel({ quoteId, isConvertible, isCommercial }: QuoteNextStepPanelProps) {
+export function QuoteNextStepPanel({
+  quoteId,
+  isConvertible,
+  isCommercial,
+  allowJobBeforePayment = true,
+  isAdmin = false,
+}: QuoteNextStepPanelProps) {
   // Residential → "Create Invoice" recommended (typical cash job).
   // Commercial   → "Create Job + Invoice" recommended (organise the
   //                 work and send the bill together).
@@ -37,6 +48,7 @@ export function QuoteNextStepPanel({ quoteId, isConvertible, isCommercial }: Quo
   // but stays fully available and styled the same as the others.
   const recommended: 'job' | 'invoice' | 'both' = isCommercial ? 'both' : 'invoice'
   const jobRecommended = (recommended as string) === 'job'
+  const jobBlockedByPayment = !allowJobBeforePayment && !isAdmin
 
   return (
     <section
@@ -60,10 +72,15 @@ export function QuoteNextStepPanel({ quoteId, isConvertible, isCommercial }: Quo
           description="Use for account clients or when the job needs to be scheduled immediately. No invoice is raised yet."
           emphasised={jobRecommended}
           action={
-            isConvertible ? (
-              <CreateJobButton quoteId={quoteId} />
-            ) : (
+            !isConvertible ? (
               <DisabledAction label="Create Job" note="Not available for this quote" />
+            ) : jobBlockedByPayment ? (
+              <DisabledAction
+                label="Create Job"
+                note="Payment required before job creation"
+              />
+            ) : (
+              <CreateJobButton quoteId={quoteId} />
             )
           }
         />

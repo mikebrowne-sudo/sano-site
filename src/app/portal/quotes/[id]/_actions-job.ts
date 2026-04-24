@@ -26,6 +26,8 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
+import { loadJobSettings } from '@/lib/job-settings'
+import { isAdminEmail } from '@/lib/is-admin'
 
 type ResidentialItemRow = {
   label: string | null
@@ -69,6 +71,17 @@ export async function createJobFromQuote(quoteId: string) {
   }
   if (!quote.is_latest_version) {
     return { error: 'Only the latest quote version can be converted to a job.' }
+  }
+
+  // Phase D.3 — respect allow_job_before_payment. When off, the
+  // job-only path is blocked for non-admin staff; the user must use
+  // Create Invoice or Create Job + Invoice instead. Admin bypasses
+  // the guard so the control is still editable without self-locking.
+  const settings = await loadJobSettings(supabase)
+  const { data: { user } } = await supabase.auth.getUser()
+  const userIsAdmin = isAdminEmail(user?.email)
+  if (!settings.allow_job_before_payment && !userIsAdmin) {
+    return { error: 'Job cannot be created until payment is confirmed. Use "Create Invoice" or "Create Job + Invoice" instead.' }
   }
 
   // 2. Pull both scope shapes in parallel. Residential quotes use
@@ -126,9 +139,9 @@ export async function createJobFromQuote(quoteId: string) {
     || quote.notes
     || null
 
-  // 4. Insert the job. Phase D — payment_status defaults to
-  // 'on_account' for the job-first path; we're agreeing to the work
-  // now and invoicing later.
+  // 4. Insert the job. Phase D.3 — payment_status comes from the
+  // admin job_settings.default_payment_status (on_account by
+  // default, editable to not_required for free/no-charge work).
   const { data: job, error: jErr } = await supabase
     .from('jobs')
     .insert({
@@ -141,7 +154,7 @@ export async function createJobFromQuote(quoteId: string) {
       allowed_hours: quote.estimated_hours ?? null,
       internal_notes: quote.notes ?? null,
       status: 'draft',
-      payment_status: 'on_account',
+      payment_status: settings.default_payment_status,
       scope_snapshot: scopeSnapshot,
     })
     .select('id, job_number')
@@ -167,7 +180,8 @@ export async function createJobFromQuote(quoteId: string) {
 
   // 6. Audit-log. Mirrors the structure used by convertToInvoice so
   //    both conversion paths leave a discoverable trace.
-  const { data: { user } } = await supabase.auth.getUser()
+  // (auth.getUser already called earlier for the admin-override
+  // check; re-use the same user here.)
   await supabase.from('audit_log').insert({
     actor_id: user?.id ?? null,
     actor_role: 'staff',

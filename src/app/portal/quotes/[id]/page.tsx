@@ -7,6 +7,7 @@ import { ArrowLeft, Printer, FileText } from 'lucide-react'
 import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
 import { firstName } from '@/lib/doc-helpers'
 import { loadPricingSettings } from '@/lib/pricingSettings'
+import { loadJobSettings } from '@/lib/job-settings'
 import { loadVersionChain } from '../_actions-versioning'
 import { NotLatestBanner, ArchivedBanner } from './_components/NotLatestBanner'
 import { VersionHistoryPanel } from './_components/VersionHistoryPanel'
@@ -129,6 +130,11 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
     loadPricingSettings(supabase),
   ])
 
+  // Phase D.3 — load job settings so the Next Step panel can
+  // disable the Create Job card when allow_job_before_payment is off.
+  // Cheap — tiny single-row read with in-code defaults on failure.
+  const jobSettings = await loadJobSettings(supabase)
+
   // Phase 6 — load the version chain so we can render the history panel
   // and resolve where to point the "Open vN" CTA when this isn't the latest.
   const versionChain = await loadVersionChain(quote.id)
@@ -229,6 +235,8 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
           quoteId={quote.id}
           isConvertible={canConvert}
           isCommercial={isCommercial}
+          allowJobBeforePayment={jobSettings.allow_job_before_payment}
+          isAdmin={isAdmin}
         />
       )}
 

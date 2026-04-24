@@ -40,15 +40,18 @@ export default async function PortalDashboard() {
   ] = await Promise.all([
     supabase.from('quotes').select('id, quote_number, status, created_at, clients ( name )').is('deleted_at', null).eq('is_latest_version', true).order('created_at', { ascending: false }).limit(5),
     supabase.from('invoices').select('id, invoice_number, status, due_date, created_at, clients ( name )').is('deleted_at', null).order('created_at', { ascending: false }).limit(5),
-    supabase.from('jobs').select('id, job_number, title, status, scheduled_date, assigned_to').order('created_at', { ascending: false }).limit(5),
+    // Phase D.3 — include .is('deleted_at', null) on every jobs query
+    // so archived jobs never show up in the dashboard counts or the
+    // recent-activity list.
+    supabase.from('jobs').select('id, job_number, title, status, scheduled_date, assigned_to').is('deleted_at', null).order('created_at', { ascending: false }).limit(5),
     supabase.from('quotes').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_latest_version', true),
     supabase.from('invoices').select('*', { count: 'exact', head: true }).is('deleted_at', null),
     supabase.from('invoices').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('status', 'paid'),
     supabase.from('invoices').select('id, due_date').is('deleted_at', null).eq('status', 'sent'),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('contractor_id', null).neq('status', 'completed').neq('status', 'invoiced'),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('scheduled_date', today).neq('status', 'completed').neq('status', 'invoiced'),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('status', 'in_progress'),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).is('contractor_id', null).neq('status', 'completed').neq('status', 'invoiced'),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('scheduled_date', today).neq('status', 'completed').neq('status', 'invoiced'),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('status', 'in_progress'),
     supabase.from('worker_training_assignments').select('*', { count: 'exact', head: true }).neq('status', 'completed').not('due_date', 'is', null).lt('due_date', today),
   ])
 

@@ -54,6 +54,7 @@ export default async function ContractorJobDetailPage({ params }: { params: { id
     `)
     .eq('id', params.id)
     .eq('contractor_id', contractor.id)
+    .is('deleted_at', null)
     .single()
 
   // Job doesn't exist or doesn't belong to this contractor → back to list

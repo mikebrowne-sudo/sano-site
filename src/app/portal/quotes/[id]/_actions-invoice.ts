@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
+import { loadJobSettings } from '@/lib/job-settings'
 
 export async function convertToInvoice(quoteId: string) {
   const supabase = createClient()
@@ -126,6 +127,50 @@ export async function convertToInvoice(quoteId: string) {
     .eq('id', quoteId)
 
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Phase D.3 — auto-create job on invoice. When the admin setting
+  // is on AND the quote doesn't already have a linked job, spawn a
+  // job row tied to the new invoice. Snapshot shape is intentionally
+  // minimal here (vs createJobFromQuote) — the full scope snapshot
+  // is built by that path; this hook is a fallback for the
+  // "Invoice First" flow so an orphaned job doesn't appear.
+  // Idempotent: skip when a job already exists for this quote.
+  const jobSettings = await loadJobSettings(supabase)
+  let autoCreatedJobId: string | null = null
+  if (jobSettings.auto_create_job_on_invoice) {
+    const { data: existingJob } = await supabase
+      .from('jobs')
+      .select('id')
+      .eq('quote_id', quoteId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (!existingJob) {
+      const title = quote.property_category === 'commercial'
+        ? `Commercial clean${quote.service_address ? ' — ' + quote.service_address : ''}`
+        : `Clean${quote.service_address ? ' — ' + quote.service_address : ''}`
+      const { data: autoJob } = await supabase
+        .from('jobs')
+        .insert({
+          client_id: quote.client_id,
+          quote_id: quoteId,
+          invoice_id: invoice.id,
+          title,
+          description: quote.notes ?? null,
+          address: quote.service_address ?? null,
+          scheduled_date: quote.scheduled_clean_date ?? null,
+          internal_notes: quote.notes ?? null,
+          status: 'draft',
+          // Invoice is being created alongside the job, so the job
+          // enters the pipeline in "invoice_sent" state once the
+          // invoice is actually emailed. For now it's payment_pending.
+          payment_status: 'payment_pending',
+        })
+        .select('id')
+        .single()
+      autoCreatedJobId = autoJob?.id ?? null
+    }
+  }
+
   await supabase.from('audit_log').insert({
     actor_id: user?.id ?? null,
     actor_role: 'staff',
@@ -137,6 +182,7 @@ export async function convertToInvoice(quoteId: string) {
       status: 'converted',
       accepted_at_preserved: priorQuote?.accepted_at ?? null,
       invoice_id: invoice.id,
+      auto_created_job_id: autoCreatedJobId,
     },
   })
 

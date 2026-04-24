@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { notifyContractorAssigned } from '@/lib/notify-contractor'
+import { loadJobSettings } from '@/lib/job-settings'
+import { isAdminEmail } from '@/lib/is-admin'
 
 // Phase D — mark a completed job as reviewed. Captures reviewed_at
 // + reviewed_by (FK to auth.users) and audit-logs the transition.
@@ -65,7 +67,7 @@ export async function createInvoiceFromJob(jobId: string) {
   // 1. Load job
   const { data: job, error: jErr } = await supabase
     .from('jobs')
-    .select('client_id, quote_id, invoice_id, title, description, address, scheduled_date, job_price')
+    .select('client_id, quote_id, invoice_id, title, description, address, scheduled_date, job_price, reviewed_at')
     .eq('id', jobId)
     .single()
 
@@ -79,6 +81,19 @@ export async function createInvoiceFromJob(jobId: string) {
 
   if (job.job_price == null) {
     return { error: 'Job price must be set before creating an invoice.' }
+  }
+
+  // Phase D.3 — require-review-before-invoicing guard. When the
+  // admin setting is on AND the job hasn't been reviewed, block
+  // the invoice. Admin bypasses so the control stays editable.
+  const settings = await loadJobSettings(supabase)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (
+    settings.require_review_before_invoicing
+    && !job.reviewed_at
+    && !isAdminEmail(user?.email)
+  ) {
+    return { error: 'This job must be reviewed before invoicing. Mark the job as reviewed first.' }
   }
 
   // 2. Create invoice
@@ -354,7 +369,13 @@ export async function assignJob(input: AssignJobInput) {
   // Notify contractor. Skipped when the caller opts out via
   // notify:false (Assign Only) or when the contractor hasn't
   // actually changed.
-  if (notify && contractorChanged) {
+  // Phase D.3 — also gate on the admin contractor_notification_method
+  // setting. Today only 'email' is supported, so the gate is
+  // effectively "notify if method is 'email'". Kept as a check so
+  // SMS / portal-notification options can extend cleanly later.
+  const jobSettings = await loadJobSettings(supabase)
+  const methodOk = jobSettings.contractor_notification_method === 'email'
+  if (notify && contractorChanged && methodOk) {
     // Effective scheduling values for the email — prefer the fields
     // the modal just set, otherwise fall back to what was on the job.
     const effectiveDate     = scheduledDate       !== undefined ? scheduledDate       : job.scheduled_date
