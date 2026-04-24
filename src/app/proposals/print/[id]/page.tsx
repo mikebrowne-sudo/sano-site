@@ -1,15 +1,15 @@
-// Proposal Phase 2 — live commercial-quote preview using the new
-// reusable proposal template.
+// Proposal print route — used by the PDF endpoint and any direct
+// human "print this proposal" link.
 //
-// Reads the same data the existing /proposal route does (quote +
-// client + commercial details + scope items + addons + settings),
-// runs it through the existing buildProposalPayload, then maps it
-// into the new template payload. All of this is now centralised in
-// loadProposalForQuote so the /api/proposals/[id]/pdf endpoint
-// uses the exact same data path.
+// Lives OUTSIDE /portal/ so it doesn't inherit the portal layout
+// (sidebar + topbar). The root layout still wraps it but that only
+// adds <html><body> + brand font variables — no chrome — which is
+// exactly what we want for PDF capture.
 //
-// Sits next to the existing /proposal route — does NOT replace it.
-// The existing CommercialProposalTemplate is unchanged.
+// Auth: same Supabase staff gate as the in-portal preview route.
+// Puppeteer reaches this route over HTTP from inside the same
+// Next.js server, with the user's auth cookies forwarded by the
+// PDF API endpoint, so getUser() returns the same session.
 
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
@@ -20,14 +20,13 @@ import { loadProposalForQuote } from '@/lib/proposals/loadProposalForQuote'
 export const metadata: Metadata = { robots: 'noindex, nofollow' }
 export const dynamic = 'force-dynamic'
 
-export default async function CommercialProposalPreviewPage({
+export default async function ProposalPrintPage({
   params,
 }: {
   params: { id: string }
 }) {
   const supabase = createClient()
 
-  // Auth: staff only.
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) notFound()
 
