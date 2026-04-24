@@ -44,7 +44,7 @@ export function AcceptancePage({
 
         <div className="proposal-acceptance-grid">
           <div className="proposal-acceptance-field">
-            <div className="proposal-acceptance-field__label">Client name</div>
+            <div className="proposal-acceptance-field__label">Client Name</div>
             <div className="proposal-acceptance-field__line" aria-hidden />
           </div>
 
@@ -70,8 +70,7 @@ export function AcceptancePage({
         </div>
 
         <p className="proposal-acceptance-note">
-          Acceptance can be confirmed by signed copy or written confirmation via email to{' '}
-          {payload.contact?.email || 'hello@sano.nz'}.
+          Acceptance can be confirmed by signed copy or written confirmation via email.
         </p>
       </div>
     </ProposalLayout>
