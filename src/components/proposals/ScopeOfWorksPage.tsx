@@ -21,6 +21,7 @@ export function ScopeOfWorksPage({
   pageNumber: number
   totalPages: number
 }) {
+  const { lead, follow } = buildScopeIntro()
   return (
     <ProposalLayout
       headerTitle="Scope of works"
@@ -29,7 +30,8 @@ export function ScopeOfWorksPage({
       contact={payload.contact}
     >
       <div className="proposal-content">
-        <p className="proposal-scope-intro">{buildScopeIntro(payload)}</p>
+        <p className="proposal-scope-intro">{lead}</p>
+        <p className="proposal-scope-intro">{follow}</p>
 
         <div className="proposal-scope-stack">
           {payload.scopeSections.map((section, i) => (

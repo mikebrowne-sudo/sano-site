@@ -1,194 +1,355 @@
-// Proposal Phase 3 — Professional content engine.
+// Proposal Phase 3.1 — Professional content engine (rewrite).
 //
 // Pure content-builder functions: turn the slim ProposalTemplatePayload
 // into the tailored paragraphs, bullet lists, and supporting copy that
-// the proposal page components render. No React, no DB, no side effects
-// — everything is a deterministic function of the payload.
+// the proposal page components render.
 //
-// Each builder degrades gracefully when fields are missing (empty
-// strings from the legacy mapping, fresh quote with no commercial
-// details, etc.) — every paragraph is conditional on the data that
-// would make it substantive.
-//
-// Tone rules (brand):
-//   • natural, professional, confident
-//   • no hype words ("premium", "industry-leading", "eco-friendly")
-//   • no invented stats or unsupported claims
-//   • short sentences, plain language
+// Design rules:
+//   • natural, professional, confident — never defensive, never salesy
+//   • never expose raw machine values ("tue, thu, sat, 1600-2200")
+//   • never repeat data already shown in the service-summary grid
+//   • degrade gracefully when fields are missing — omit rather than
+//     emit awkward fragments
+//   • no brand buzzwords ("premium", "industry-leading", "eco-friendly")
 
 import type { ProposalTemplatePayload } from './buildProposalPayload'
 
+// ── Formatters ────────────────────────────────────────────────────
+
+const NUM_WORDS: readonly string[] = [
+  'zero', 'one', 'two', 'three', 'four', 'five',
+  'six', 'seven', 'eight', 'nine', 'ten',
+]
+
+const DAY_LONG: Record<string, string> = {
+  mon: 'Monday',   tue: 'Tuesday',  wed: 'Wednesday',
+  thu: 'Thursday', fri: 'Friday',   sat: 'Saturday', sun: 'Sunday',
+}
+
+/** "Tue, Thu, Sat" / "Weekdays (Mon–Fri)" / "Every day" → readable prose. */
+export function formatServiceDays(days: string): string {
+  const s = days.trim()
+  if (!s) return ''
+  if (/every\s*day/i.test(s)) return 'every day'
+  if (/weekdays/i.test(s))    return 'Monday to Friday'
+  if (/weekends/i.test(s))    return 'Saturday and Sunday'
+
+  const parts = s
+    .split(/[,/·]+|\s+and\s+|\s+&\s+/i)
+    .map((p) => p.trim().toLowerCase())
+    .filter(Boolean)
+    .map((p) => DAY_LONG[p.slice(0, 3)] ?? null)
+    .filter((p): p is string => !!p)
+
+  if (parts.length === 0) return s
+  if (parts.length === 1) return parts[0]
+  const head = parts.slice(0, -1).join(', ')
+  return `${head} and ${parts[parts.length - 1]}`
+}
+
+/** "1600-2200" / "16:00-22:00" / "5:00 pm - 10:00 pm" → "between 4:00 pm and 10:00 pm". */
+export function formatServiceWindow(window: string): string {
+  const s = window.trim()
+  if (!s) return ''
+
+  const split = s.split(/\s*[-–—]\s*|\s+to\s+/i)
+  if (split.length === 2) {
+    const a = parseClock(split[0])
+    const b = parseClock(split[1])
+    if (a && b) return `between ${formatClock12(a)} and ${formatClock12(b)}`
+  }
+  return s
+}
+
+function parseClock(raw: string): { h: number; m: number } | null {
+  const s = raw.trim().toLowerCase()
+  // "5:00pm" / "5:00 pm" / "17:00"
+  const withSuffix = s.match(/^(\d{1,2}):?(\d{2})?\s*(am|pm)$/)
+  if (withSuffix) {
+    let h = Number(withSuffix[1])
+    const m = Number(withSuffix[2] ?? '0')
+    const suf = withSuffix[3]
+    if (suf === 'pm' && h !== 12) h += 12
+    if (suf === 'am' && h === 12) h = 0
+    if (inRange(h, m)) return { h, m }
+    return null
+  }
+  // "HH:mm" / "H:mm"
+  const hm = s.match(/^(\d{1,2}):(\d{2})$/)
+  if (hm) {
+    const h = Number(hm[1])
+    const m = Number(hm[2])
+    if (inRange(h, m)) return { h, m }
+    return null
+  }
+  // "HHmm" / "HMM" / "H"
+  if (/^\d{1,4}$/.test(s)) {
+    const padded = s.padStart(4, '0')
+    const h = Number(padded.slice(0, 2))
+    const m = Number(padded.slice(2))
+    if (inRange(h, m)) return { h, m }
+  }
+  return null
+}
+
+function inRange(h: number, m: number): boolean {
+  return h >= 0 && h <= 23 && m >= 0 && m <= 59
+}
+
+function formatClock12(t: { h: number; m: number }): string {
+  const suffix = t.h >= 12 ? 'pm' : 'am'
+  const hr = t.h % 12 === 0 ? 12 : t.h % 12
+  const mm = t.m.toString().padStart(2, '0')
+  return `${hr}:${mm} ${suffix}`
+}
+
+/** Count cleaning days per week from a days string. */
+export function countDaysPerWeek(days: string): number {
+  const s = days.trim()
+  if (!s) return 0
+  if (/every\s*day/i.test(s)) return 7
+  if (/weekdays/i.test(s))    return 5
+  if (/weekends/i.test(s))    return 2
+  const tokens = s.split(/[,/·]+|\s+and\s+|\s+&\s+|\s+/i)
+    .map((t) => t.trim().slice(0, 3).toLowerCase())
+    .filter((t) => t in DAY_LONG)
+  return new Set(tokens).size
+}
+
+/** Short schedule descriptor for prose. */
+export function scheduleDescriptor(daysPerWeek: number): string {
+  if (daysPerWeek <= 0) return 'agreed service schedule'
+  if (daysPerWeek === 7) return 'daily schedule'
+  if (daysPerWeek === 5) return 'weekday schedule'
+  if (daysPerWeek === 1) return 'weekly schedule'
+  if (daysPerWeek === 2) return 'two-day weekly schedule'
+  const w = NUM_WORDS[daysPerWeek] ?? String(daysPerWeek)
+  return `${w}-day weekly schedule`
+}
+
+/** "three times per week", "daily", etc. */
+export function cadencePhrase(daysPerWeek: number): string {
+  if (daysPerWeek <= 0) return ''
+  if (daysPerWeek === 7) return 'every day'
+  if (daysPerWeek === 1) return 'once per week'
+  if (daysPerWeek === 2) return 'twice per week'
+  const w = NUM_WORDS[daysPerWeek] ?? String(daysPerWeek)
+  return `${w} times per week`
+}
+
+/** Classify a service window as "evening" / "daytime" / "overnight" /
+ *  "" (unknown). Used to modify "agreed service window" prose. */
+export function windowDescriptor(window: string): '' | 'evening' | 'daytime' | 'overnight' {
+  const s = window.trim()
+  if (!s) return ''
+  const split = s.split(/\s*[-–—]\s*|\s+to\s+/i)
+  const start = split.length >= 1 ? parseClock(split[0]) : null
+  if (!start) return ''
+  if (start.h >= 16 || start.h < 5) return 'evening'
+  return 'daytime'
+}
+
+/** Pick "a" or "an" based on the leading vowel sound (best-effort). */
+export function articleFor(word: string): string {
+  const w = word.trim()
+  if (!w) return 'a'
+  return /^[aeiou]/i.test(w[0]) ? 'an' : 'a'
+}
+
+/** "3 floors" → "three floors", "1 floor" → "a single floor". */
+export function floorsToWords(floors: string): string {
+  const s = floors.trim()
+  if (!s) return ''
+  const m = s.match(/^(\d+)\s*floors?/i)
+  if (!m) return s
+  const n = Number(m[1])
+  if (n === 1) return 'a single floor'
+  const w = NUM_WORDS[n] ?? String(n)
+  return `${w} floors`
+}
+
+/** Map Sano sector/buildingType to a natural "{type} site" phrase. */
+export function formatSiteType(sector: string, buildingType: string): string {
+  const sec = sector.trim().toLowerCase()
+  if (sec) return `${sec} site`
+  const bt = buildingType.trim().toLowerCase()
+  if (bt) return bt.endsWith('site') ? bt : `${bt} site`
+  return 'commercial site'
+}
+
+/** Map a scope item frequency label to a clean parenthesised suffix.
+ *  "Per visit" → "(each visit)", "Weekly" → "(weekly)", etc. */
+export function formatScopeFrequency(label: string): string {
+  const s = (label || '').trim().toLowerCase()
+  if (!s) return ''
+  if (s === 'per visit')   return '(each visit)'
+  if (s === 'daily')       return '(daily)'
+  if (s === 'weekly')      return '(weekly)'
+  if (s === 'fortnightly') return '(fortnightly)'
+  if (s === 'monthly')     return '(monthly)'
+  if (s === 'quarterly')   return '(quarterly)'
+  if (s === 'six-monthly' || s === 'sixmonthly' || s === 'six monthly') return '(six-monthly)'
+  if (s === 'annually' || s === 'annual' || s === 'yearly') return '(annually)'
+  if (s === 'as required' || s === 'as needed') return '(as required)'
+  if (s === 'as scheduled') return ''
+  return `(${s})`
+}
+
 // ── Executive summary ─────────────────────────────────────────────
-// Returns a green opener + 4–5 short body paragraphs:
-//   opener          — thanks + site-specific context
-//   body paragraphs — understanding, approach, cadence, consistency,
-//                     closing. Each paragraph is conditional on the
-//                     source data so missing fields don't produce
-//                     empty or awkward sentences.
 
 export interface ExecutiveSummaryContent {
   opener: string
   body: string[]
 }
 
+/**
+ * Structure:
+ *   opener (green) — P1: "This proposal outlines the commercial
+ *                        cleaning services for {client} at {address},
+ *                        {a|an} {descriptor}."
+ *   body [0]       — P2: approach framed around site use
+ *   body [1]       — P3: structured, repeatable delivery
+ *   body [2]       — P4: cadence + briefed staff
+ *   body [3]       — P5: small team + communication
+ *   body [4]       — closing pointer to the rest of the document
+ */
 export function buildExecutiveSummary(payload: ProposalTemplatePayload): ExecutiveSummaryContent {
-  const { clientName, siteAddress, siteContext, serviceFrequency, serviceDays, scopeSections } = payload
+  const { clientName, siteAddress, siteContext, serviceDays, serviceTimes } = payload
 
-  // Opener — green lead line.
-  const opener = clientName
-    ? `Thank you for the opportunity to present this proposal for commercial cleaning services at ${clientName}.`
-    : 'Thank you for the opportunity to present this proposal for commercial cleaning services at your site.'
+  // ── P1 / opener ──
+  const siteTypePhrase = formatSiteType(siteContext.sector, siteContext.buildingType)
+  const floorCount = parseFloorCount(siteContext.floors)
+  const multiLevel = floorCount != null && floorCount >= 2 ? 'multi-level ' : ''
+  const base = `${multiLevel}${siteTypePhrase}`.trim()
+  const art = articleFor(base)
 
+  const clauses: string[] = []
+  if (siteContext.totalArea) clauses.push(`of approximately ${siteContext.totalArea}`)
+  if (floorCount && floorCount >= 2) {
+    clauses.push(`across ${floorsToWords(siteContext.floors)}`)
+  }
+  const descriptor = `${art} ${base}${clauses.length ? ' ' + clauses.join(' ') : ''}`
+
+  const whoClause = clientName ? `for ${clientName}` : 'at your site'
+  const whereClause = siteAddress ? (clientName ? ` at ${siteAddress}` : ` ${siteAddress}`) : ''
+  const siteBit = (base || clauses.length) ? `, ${descriptor}` : ''
+  const opener = `This proposal outlines the commercial cleaning services ${whoClause}${whereClause}${siteBit}.`
+
+  // ── Body paragraphs ──
   const body: string[] = []
 
-  // Paragraph 1 — site understanding.
-  const sitePieces: string[] = []
-  if (siteContext.sector)            sitePieces.push(`${siteContext.sector.toLowerCase()} site`)
-  else if (siteContext.buildingType) sitePieces.push(siteContext.buildingType.toLowerCase())
-  if (siteContext.totalArea)         sitePieces.push(`approximately ${siteContext.totalArea}`)
-  if (siteContext.floors)            sitePieces.push(`across ${siteContext.floors.toLowerCase()}`)
-
-  if (sitePieces.length || siteAddress) {
-    const where = siteAddress ? `${siteAddress} is ` : 'The property is '
-    const descriptor = sitePieces.length ? `a ${joinWithCommas(sitePieces)}` : 'a commercial workplace'
-    body.push(`${where}${descriptor}. The service plan has been shaped around how the site is used, so the areas that matter most to staff and visitors are looked after every visit.`)
-  } else {
-    body.push('The service plan has been shaped around how the site is used, so the areas that matter most to staff and visitors are looked after every visit.')
-  }
-
-  // Paragraph 2 — cleaning approach, shaped by traffic/occupancy.
-  const approachPieces: string[] = []
-  const t = siteContext.trafficLevel.toLowerCase()
-  const o = siteContext.occupancyLevel.toLowerCase()
-  if (t.includes('high'))       approachPieces.push('high-traffic areas are prioritised on every visit')
-  else if (t.includes('low'))   approachPieces.push('quieter areas still receive the same attention to detail as the rest of the site')
-  if (o.includes('high'))       approachPieces.push('shared spaces are kept visibly clean and hygienic for daily occupancy')
-
-  const approachSentence = approachPieces.length
-    ? `Our approach is straightforward — ${joinWithCommas(approachPieces)}.`
-    : 'Our approach is straightforward — every task in the scope is delivered at the agreed frequency, to a consistent standard, visit after visit.'
-  body.push(`${approachSentence} We build the routine around the scope of work and hold ourselves to it, without skipping steps when things get busy.`)
-
-  // Paragraph 3 — service cadence.
-  const cadenceParts: string[] = []
-  if (serviceFrequency) cadenceParts.push(serviceFrequency.toLowerCase())
-  const freqLower = (serviceFrequency || '').toLowerCase()
-  if (serviceDays && !freqLower.includes(serviceDays.toLowerCase())) cadenceParts.push(serviceDays.toLowerCase())
-  const cadence = cadenceParts.length ? cadenceParts.join(', ') : 'to the agreed schedule'
-  const sc = scopeSections.length
-  const scopeNote = sc > 0
-    ? ` The scope covers ${sc} defined area${sc === 1 ? '' : 's'}, each with its own checklist and frequency.`
-    : ''
-  body.push(`Services are delivered ${cadence}, using trained staff briefed on the site before their first shift.${scopeNote}`)
-
-  // Paragraph 4 — consistency + single contact.
   body.push(
-    'You will have a single point of contact for day-to-day matters, and the same small team returning to site each visit. Where a shift changes, the incoming cleaner is briefed against the same checklist — so the standard does not drop.',
+    'The service has been structured around how the site is used day to day, with a focus on maintaining presentation across workspaces, shared areas, and amenities.',
   )
 
-  // Paragraph 5 — closing.
   body.push(
-    'The pages that follow set out the service schedule, scope of works, pricing, and commercial terms. We are happy to walk through any section with you before acceptance.',
+    'Our approach is based on structured, repeatable delivery. Each visit follows a defined scope, ensuring agreed tasks are completed to a consistent standard.',
+  )
+
+  // Cadence paragraph — only include the parts we can format cleanly.
+  const daysPerWeek = countDaysPerWeek(serviceDays || '')
+  const cadence = cadencePhrase(daysPerWeek)
+  const win = formatServiceWindow(serviceTimes || '')
+  const winKind = windowDescriptor(serviceTimes || '')
+  const winSuffix = winKind ? `agreed ${winKind} service window` : 'agreed service window'
+  const winClause = win ? `within the ${winSuffix} (${win})` : (serviceTimes ? `within the ${winSuffix}` : '')
+
+  if (cadence && winClause) {
+    body.push(`Services are delivered ${cadence} ${winClause}, using trained staff who are briefed on the site before their first visit.`)
+  } else if (cadence) {
+    body.push(`Services are delivered ${cadence}, using trained staff who are briefed on the site before their first visit.`)
+  } else if (winClause) {
+    body.push(`Services are carried out ${winClause}, using trained staff who are briefed on the site before their first visit.`)
+  } else {
+    body.push('Services are delivered to the agreed schedule by trained staff who are briefed on the site before their first visit.')
+  }
+
+  body.push(
+    'A consistent small team is assigned to the site, supported by clear communication and oversight.',
+  )
+
+  body.push(
+    'The following pages set out the full service structure, including scope, pricing, and commercial terms.',
   )
 
   return { opener, body }
 }
 
-// ── Service overview ──────────────────────────────────────────────
-// Short paragraph summarising what the service plan delivers, drawn
-// from frequency/days/times + site traffic.
-
-export function buildServiceOverviewText(payload: ProposalTemplatePayload): string {
-  const { serviceFrequency, serviceDays, serviceTimes, siteContext } = payload
-
-  const cadence = [serviceFrequency, serviceDays].filter((s) => s && s.trim()).join(' · ')
-  const window = serviceTimes?.trim()
-
-  const sentences: string[] = []
-  if (cadence && window) {
-    sentences.push(`The service plan is built around a ${cadence.toLowerCase()} cadence, with cleaning carried out ${window.toLowerCase()} so the site is ready for the next working day.`)
-  } else if (cadence) {
-    sentences.push(`The service plan runs to a ${cadence.toLowerCase()} cadence that fits the rhythm of the site.`)
-  } else if (window) {
-    sentences.push(`Cleaning is carried out ${window.toLowerCase()} so the site is ready for the next working day.`)
-  } else {
-    sentences.push('The service plan is built around the agreed schedule and scope.')
-  }
-
-  if (siteContext.trafficLevel.toLowerCase().includes('high')) {
-    sentences.push('High-traffic areas are attended every visit, with rotating deep-clean tasks scheduled so nothing is overlooked.')
-  } else {
-    sentences.push('Core tasks are attended every visit, with rotating deep-clean tasks scheduled so nothing is overlooked.')
-  }
-
-  return sentences.join(' ')
+function parseFloorCount(floors: string): number | null {
+  const m = floors.trim().match(/^(\d+)\s*floors?/i)
+  if (!m) return null
+  const n = Number(m[1])
+  return Number.isFinite(n) && n > 0 ? n : null
 }
 
-// Short, on-brand bullet points rendered below the service overview.
-// Each point describes the concrete value of the plan — not a promise.
+// ── Service overview ──────────────────────────────────────────────
+// Does NOT repeat the data already rendered in the meta grid (days,
+// times, frequency). Instead, explains the shape of the plan and the
+// way visits are carried out.
+
+export function buildServiceOverviewText(payload: ProposalTemplatePayload): string[] {
+  const daysPerWeek = countDaysPerWeek(payload.serviceDays || '')
+  const schedule = scheduleDescriptor(daysPerWeek)
+  const kind = windowDescriptor(payload.serviceTimes || '')
+  const windowRef = kind ? `the ${kind} service window` : 'the agreed service window'
+
+  const p1 = daysPerWeek > 0
+    ? `The service is structured around a ${schedule}, with cleaning carried out during ${windowRef} so the site is ready for the next working day.`
+    : `The service is structured around the agreed service schedule, with cleaning carried out during ${windowRef} so the site is ready for the next working day.`
+
+  const p2 = 'Core tasks are completed at each visit, with additional detail work and less frequent tasks scheduled across the service cycle to maintain a consistent overall standard.'
+
+  const p3 = 'Cleaning is delivered by trained staff who are familiar with the site and follow a clear, structured scope. Each visit is carried out against a defined checklist.'
+
+  return [p1, p2, p3]
+}
+
+/** Short benefit points shown below the meta grid. */
 export const SERVICE_OVERVIEW_BENEFITS: readonly string[] = [
-  'Consistent cleaning delivered by the same small team each visit',
-  'Reliable service attendance with same-day cover when needed',
-  'Clear, direct communication with a single point of contact',
-  'Low-disruption scheduling — we work around the way the site is used',
+  'Consistent cleaning delivered by a small, familiar team',
+  'Reliable service attendance, with cover arranged if required',
+  'Clear, direct communication through a single point of contact',
+  'Low-disruption scheduling aligned with how the site operates',
 ]
 
 // ── Scope of works ────────────────────────────────────────────────
-// A short professional intro paragraph that sits above the scope list.
 
-export function buildScopeIntro(payload: ProposalTemplatePayload): string {
-  const groupCount = payload.scopeSections.length
-  const sectorBit = payload.siteContext.sector
-    ? `${payload.siteContext.sector.toLowerCase()} site`
-    : 'site'
-  if (groupCount === 0) {
-    return `The scope below covers the agreed cleaning tasks for the ${sectorBit}. Every task is carried out at the agreed frequency by staff briefed on the site.`
+export interface ScopeIntroContent {
+  lead: string
+  follow: string
+}
+
+export function buildScopeIntro(): ScopeIntroContent {
+  return {
+    lead: 'The following scope outlines the cleaning tasks across each area of the site. Tasks are grouped by function and delivered at the agreed frequency to maintain a consistent standard across all spaces.',
+    follow: 'Core cleaning tasks are completed at every visit, with additional detail and less frequent tasks scheduled across the service cycle to ensure no area is overlooked.',
   }
-  return `The following scope sets out the cleaning tasks for each area of the ${sectorBit}, grouped by function and ordered by priority. Each task runs to the frequency shown, and is tracked against a site-specific checklist on every visit.`
 }
 
 // ── Pricing summary ───────────────────────────────────────────────
-// Short pricing-basis paragraph plus the "What's included" checklist.
 
 export interface PricingSummaryContent {
   intro: string
+  inclusionsNote: string
   included: string[]
   closingNote: string
 }
 
 export function buildPricingSummaryText(payload: ProposalTemplatePayload): PricingSummaryContent {
-  const { serviceFrequency, siteContext, monthlyFeeSuffix } = payload
-  const unit = (monthlyFeeSuffix || 'per month').toLowerCase().replace(/^\s*per\s+/i, '')
+  const intro = 'The monthly service fee reflects the agreed scope of works and service frequency, structured to ensure consistent delivery across the full term of the contract.'
 
-  const introParts: string[] = []
-  introParts.push(
-    `Pricing is based on the defined scope of works and the agreed service frequency${serviceFrequency ? ` (${serviceFrequency.toLowerCase()})` : ''}, billed ${monthlyFeeSuffix || 'per month'}.`,
-  )
-  introParts.push(
-    `The figure reflects labour, equipment, consumables where agreed, and the supervision needed to keep the service consistent over the ${siteContext.contractTermMonths}-month term.`,
-  )
-  const intro = introParts.join(' ')
+  const inclusionsNote = 'Pricing includes all labour, equipment, and service management required to maintain the standard outlined in this proposal.'
 
   const included: string[] = [
-    'Trained cleaning staff and site-specific inductions',
-    'All cleaning equipment and materials required for the scope',
-    'Consumables (soap, paper, bin liners) when agreed as part of the service',
-    'On-site supervision and scheduled quality checks',
-    'Responsive communication and single point of contact',
+    'Trained cleaning staff, inducted for the site',
+    'All cleaning equipment and materials required',
+    'Consumables where agreed as part of the service',
+    'Ongoing supervision and quality checks',
+    'Direct communication and service support',
   ]
 
-  const closingNote = `Invoicing is monthly in arrears with ${siteContext.paymentTermDays}-day payment terms. Any variation to scope is agreed in writing before it is actioned, so the price you see is the price you pay per ${unit}.`
+  const paymentDays = payload.siteContext.paymentTermDays || 14
+  const closingNote = `Invoices are issued monthly in arrears with ${paymentDays}-day payment terms. Any changes to the agreed scope are confirmed in writing prior to being carried out.`
 
-  return { intro, included, closingNote }
-}
-
-// ── Helpers ───────────────────────────────────────────────────────
-
-function joinWithCommas(pieces: string[]): string {
-  if (pieces.length === 0) return ''
-  if (pieces.length === 1) return pieces[0]
-  if (pieces.length === 2) return `${pieces[0]} ${pieces[1]}`
-  const head = pieces.slice(0, -1).join(', ')
-  const tail = pieces[pieces.length - 1]
-  return `${head}, ${tail}`
+  return { intro, inclusionsNote, included, closingNote }
 }

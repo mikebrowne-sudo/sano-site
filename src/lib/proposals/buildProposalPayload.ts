@@ -20,6 +20,7 @@ import {
   DEFAULT_PROPOSAL_SETTINGS,
   type ProposalSettings,
 } from './proposal-settings'
+import { formatScopeFrequency } from './content-builders'
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -236,12 +237,14 @@ export function fromCommercialProposalPayload(
   settings: ProposalSettings = DEFAULT_PROPOSAL_SETTINGS,
 ): ProposalTemplatePayload {
   // Scope groups → template sections. Legacy uses .label and .tasks;
-  // each task carries task_name + frequency_label.
+  // each task carries task_name + frequency_label. Frequency is
+  // rendered as a lowercase parenthesised suffix — "Vacuum carpets
+  // (weekly)" — so the scope reads as prose, not raw data.
   const scopeSections: ProposalScopeSection[] = p.scope_groups.map((g) => ({
     title: g.label,
     items: g.tasks.map((t) => {
-      const freq = t.frequency_label?.trim()
-      return freq ? `${t.task_name} — ${freq}` : t.task_name
+      const freq = formatScopeFrequency(t.frequency_label ?? '')
+      return freq ? `${t.task_name} ${freq}` : t.task_name
     }),
   }))
 
