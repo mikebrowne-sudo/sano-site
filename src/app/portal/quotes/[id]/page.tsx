@@ -225,7 +225,11 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
           form. Non-accepted quotes keep the standard editing surface
           with the sticky action bar at the bottom. */}
       {isAccepted && !isArchived && (
-        <QuoteNextStepPanel quoteId={quote.id} isConvertible={canConvert} />
+        <QuoteNextStepPanel
+          quoteId={quote.id}
+          isConvertible={canConvert}
+          isCommercial={isCommercial}
+        />
       )}
 
       <QuoteCustomerDetails
