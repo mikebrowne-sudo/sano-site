@@ -4,13 +4,17 @@
 // is calm and confident; no marketing voice. "Sano crew" appears
 // once, in the third paragraph, and nowhere else in the document.
 //
-// The image is rendered as a real <img> element (not a
-// background-image) so Chrome + Puppeteer handle the photo
-// natively — reliable in print, no risk of the print stylesheet
-// dropping a background asset. Fixed height + object-fit: cover +
-// top-biased object-position crop is used so faces aren't clipped
-// at the bottom edge. Margin 6mm on all sides frames the image as
-// a supporting element rather than a dominant panel.
+// Image anchoring: the body is a flex column. Text sits at the top.
+// The image wrapper is pushed to the bottom with margin-top: auto,
+// which means it always hugs the footer line regardless of how
+// much copy sits above. The image itself is a real <img> element
+// (not a background-image) so Chrome + Puppeteer handle it
+// natively in print — no risk of the print stylesheet dropping a
+// background asset — and uses width:100% / height:auto /
+// object-fit:contain so the full photo is visible, no aggressive
+// crop. Wrapper margin: 6px L + 6px R (minimal side breathing
+// room) + 6mm above the footer. No absolute positioning — the
+// flex flow keeps the PDF identical to the preview.
 //
 // Placement: between Executive Summary and Service Overview. Always
 // rendered; ProposalDocument manages page numbering.
@@ -58,12 +62,14 @@ export function WhySanoPage({
           ))}
         </div>
 
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={CREW_IMAGE}
-          alt="Sano crew"
-          className="proposal-why-image"
-        />
+        <div className="proposal-why-image-wrap">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={CREW_IMAGE}
+            alt="Sano crew"
+            className="proposal-why-image"
+          />
+        </div>
       </div>
     </ProposalLayout>
   )
