@@ -7,8 +7,8 @@
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ArchiveRestore, FileText, Receipt } from 'lucide-react'
-import { RestoreQuoteAction, RestoreInvoiceAction } from './_components/RestoreActions'
+import { ArrowLeft, ArchiveRestore, FileText, Receipt, Briefcase } from 'lucide-react'
+import { RestoreQuoteAction, RestoreInvoiceAction, RestoreJobAction } from './_components/RestoreActions'
 import { displayQuoteNumber } from '@/lib/quote-versioning'
 import { StatusBadge } from '../../_components/StatusBadge'
 
@@ -27,7 +27,7 @@ export default async function ArchivedRecordsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || user.email !== ADMIN_EMAIL) notFound()
 
-  const [{ data: quotes }, { data: invoices }] = await Promise.all([
+  const [{ data: quotes }, { data: invoices }, { data: jobs }] = await Promise.all([
     supabase
       .from('quotes')
       .select(`
@@ -44,12 +44,22 @@ export default async function ArchivedRecordsPage() {
       `)
       .not('deleted_at', 'is', null)
       .order('deleted_at', { ascending: false }),
+    // Phase D.2 — archived jobs.
+    supabase
+      .from('jobs')
+      .select(`
+        id, job_number, title, status, deleted_at, deleted_by,
+        clients ( name )
+      `)
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false }),
   ])
 
   // Resolve actor names (one fetch per unique deleter id).
   const deleterIds = Array.from(new Set([
     ...(quotes ?? []).map((q) => q.deleted_by).filter(Boolean),
     ...(invoices ?? []).map((i) => i.deleted_by).filter(Boolean),
+    ...(jobs ?? []).map((j) => j.deleted_by).filter(Boolean),
   ])) as string[]
 
   const userMap = new Map<string, string>()
@@ -84,6 +94,16 @@ export default async function ArchivedRecordsPage() {
     deletedBy: i.deleted_by ? userMap.get(i.deleted_by as string) ?? 'Unknown' : 'Unknown',
   }))
 
+  const jobRows = (jobs ?? []).map((j) => ({
+    id: j.id as string,
+    jobNumber: j.job_number as string,
+    title: (j.title as string | null) ?? '',
+    status: (j.status as string) ?? 'draft',
+    clientName: (j.clients as unknown as { name: string } | null)?.name ?? 'No client',
+    deletedAt: j.deleted_at as string,
+    deletedBy: j.deleted_by ? userMap.get(j.deleted_by as string) ?? 'Unknown' : 'Unknown',
+  }))
+
   return (
     <div>
       <Link
@@ -99,7 +119,7 @@ export default async function ArchivedRecordsPage() {
         <h1 className="text-3xl tracking-tight font-bold text-sage-800">Archived Records</h1>
       </div>
       <p className="text-sm text-sage-600 mb-8">
-        Quotes and invoices that have been archived. Restore returns them to the active list.
+        Quotes, invoices, and jobs that have been archived. Restore returns them to the active list.
       </p>
 
       <section className="mb-10">
@@ -144,7 +164,7 @@ export default async function ArchivedRecordsPage() {
         )}
       </section>
 
-      <section>
+      <section className="mb-10">
         <h2 className="text-sm font-semibold text-sage-800 uppercase tracking-wider mb-3 flex items-center gap-2">
           <Receipt size={14} /> Invoices ({invoiceRows.length})
         </h2>
@@ -177,6 +197,50 @@ export default async function ArchivedRecordsPage() {
                     <td className="px-5 py-3 text-sage-600 text-xs">{inv.deletedBy}</td>
                     <td className="px-5 py-3 text-right">
                       <RestoreInvoiceAction invoiceId={inv.id} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-sage-800 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <Briefcase size={14} /> Jobs ({jobRows.length})
+        </h2>
+        {jobRows.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 text-sm text-sage-500 text-center">
+            No archived jobs.
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-left text-sage-600">
+                  <th className="px-5 py-3 font-semibold">Job</th>
+                  <th className="px-5 py-3 font-semibold">Title</th>
+                  <th className="px-5 py-3 font-semibold">Client</th>
+                  <th className="px-5 py-3 font-semibold">Status at archive</th>
+                  <th className="px-5 py-3 font-semibold">Archived</th>
+                  <th className="px-5 py-3 font-semibold">By</th>
+                  <th className="px-5 py-3 font-semibold text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jobRows.map((job) => (
+                  <tr key={job.id} className="border-b border-gray-50 last:border-0">
+                    <td className="px-5 py-3 font-medium text-sage-800">
+                      <Link href={`/portal/jobs/${job.id}`} className="hover:underline">{job.jobNumber}</Link>
+                    </td>
+                    <td className="px-5 py-3 text-sage-700">{job.title || '—'}</td>
+                    <td className="px-5 py-3 text-sage-700">{job.clientName}</td>
+                    <td className="px-5 py-3"><StatusBadge kind="job" status={job.status} /></td>
+                    <td className="px-5 py-3 text-sage-600 text-xs">{fmtDate(job.deletedAt)}</td>
+                    <td className="px-5 py-3 text-sage-600 text-xs">{job.deletedBy}</td>
+                    <td className="px-5 py-3 text-right">
+                      <RestoreJobAction jobId={job.id} />
                     </td>
                   </tr>
                 ))}
