@@ -4,9 +4,6 @@ import { EditQuoteForm } from './_components/EditQuoteForm'
 import { QuoteCustomerDetails } from './_components/QuoteCustomerDetails'
 import Link from 'next/link'
 import { ArrowLeft, Printer, FileText } from 'lucide-react'
-import { SendQuotePanel } from './_components/SendQuotePanel'
-import { ConvertToInvoiceButton } from './_components/ConvertToInvoiceButton'
-import { MarkAsAcceptedButton } from './_components/MarkAsAcceptedButton'
 import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
 import { firstName } from '@/lib/doc-helpers'
 import { loadPricingSettings } from '@/lib/pricingSettings'
@@ -17,6 +14,11 @@ import { ArchiveQuoteButton } from './_components/ArchiveQuoteButton'
 import { StatusBadge } from '../../_components/StatusBadge'
 import { displayQuoteNumber } from '@/lib/quote-versioning'
 import { isQuoteConvertible } from '@/lib/quote-status'
+import { QuoteWorkflowBar } from './_components/QuoteWorkflowBar'
+import { QuoteStatusMessage } from './_components/QuoteStatusMessage'
+import { QuoteActionBar } from './_components/QuoteActionBar'
+import { QuoteNextStepPanel } from './_components/QuoteNextStepPanel'
+import { BackToTopButton } from './_components/BackToTopButton'
 
 export default async function QuoteDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -140,6 +142,10 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
   })
   const isArchived = quote.deleted_at != null
   const canConvert = quote.is_latest_version && isQuoteConvertible(quote.status, true)
+  const isCommercial = quote.service_category === 'commercial'
+  const quoteStatus = (quote.status as string | null) ?? 'draft'
+  const itemCount = (items?.length ?? 0) + (commercialScope?.length ?? 0)
+  const isAccepted = quoteStatus === 'accepted'
 
   return (
     <div>
@@ -151,24 +157,19 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
         Back to quotes
       </Link>
 
-      <div className="flex items-center justify-between mb-4">
+      {/* Quote header — number + status badge + supplementary buttons
+          for document-view actions (preview / PDF / print / regen /
+          archive). Primary workflow actions (Send, Mark Accepted,
+          Convert) are now hosted by the sticky QuoteActionBar at the
+          bottom of the viewport so they're always within reach. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-3 min-w-0">
           <h1 className="text-2xl font-bold text-sage-800 truncate">{displayNumber}</h1>
           <StatusBadge kind="quote" status={quote.status ?? 'draft'} size="md" />
         </div>
-        <div className="flex items-center gap-3">
-          {quote.service_category === 'commercial' && (
+        <div className="flex flex-wrap items-center gap-2">
+          {isCommercial && (
             <>
-              <a
-                href={`/portal/quotes/${params.id}/proposal`}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Legacy commercial proposal template"
-                className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
-              >
-                <FileText size={16} />
-                View Proposal
-              </a>
               <a
                 href={`/portal/quotes/${params.id}/proposal/preview`}
                 target="_blank"
@@ -181,7 +182,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
               <a
                 href={`/api/proposals/${params.id}/pdf`}
                 title="Download PDF (rendered server-side via Puppeteer)"
-                className="inline-flex items-center gap-2 bg-sage-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
+                className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
               >
                 <FileText size={16} />
                 Download PDF
@@ -195,36 +196,21 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
             className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
           >
             <Printer size={16} />
-            Print / PDF
+            Print
           </a>
-          {!isArchived && quote.is_latest_version && quote.status !== 'accepted' && quote.status !== 'converted' && (
-            <MarkAsAcceptedButton quoteId={quote.id} />
-          )}
-          {!isArchived && canConvert && <ConvertToInvoiceButton quoteId={quote.id} />}
-          {!isArchived && quote.is_latest_version && (
-            <SendQuotePanel
+          <RegenerateShareLink table="quotes" id={quote.id} />
+          {isAdmin && !isArchived && (
+            <ArchiveQuoteButton
               quoteId={quote.id}
-              quoteNumber={displayNumber}
-              clientEmail={currentClient?.email ?? ''}
-              clientName={firstName(currentClient?.name)}
-              printUrl={shareUrl}
-              primaryContactEmail={quote.contact_email ?? ''}
-              accountsEmail={quote.accounts_email ?? ''}
-              clientReference={quote.client_reference ?? ''}
+              quoteDisplayNumber={displayNumber}
+              quoteStatus={quote.status ?? 'draft'}
             />
           )}
         </div>
       </div>
-      <div className="flex justify-end mb-6 gap-2">
-        <RegenerateShareLink table="quotes" id={quote.id} />
-        {isAdmin && !isArchived && (
-          <ArchiveQuoteButton
-            quoteId={quote.id}
-            quoteDisplayNumber={displayNumber}
-            quoteStatus={quote.status ?? 'draft'}
-          />
-        )}
-      </div>
+
+      <QuoteWorkflowBar status={quoteStatus} itemCount={itemCount} />
+      <QuoteStatusMessage status={quoteStatus} itemCount={itemCount} isArchived={isArchived} />
 
       {isArchived && <ArchivedBanner deletedAt={quote.deleted_at as string} />}
       {!quote.is_latest_version && latestVersion && (
@@ -233,6 +219,13 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
           latestVersionId={latestVersion.id as string}
           latestVersionNumber={latestVersion.version_number as number}
         />
+      )}
+
+      {/* Accepted quotes get the full "What next?" panel above the
+          form. Non-accepted quotes keep the standard editing surface
+          with the sticky action bar at the bottom. */}
+      {isAccepted && !isArchived && (
+        <QuoteNextStepPanel quoteId={quote.id} isConvertible={canConvert} />
       )}
 
       <QuoteCustomerDetails
@@ -250,14 +243,33 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
 
       <VersionHistoryPanel chain={versionChain} currentId={quote.id} />
 
-      <EditQuoteForm
-        quote={quote}
-        clients={clients ?? []}
-        items={items ?? []}
-        commercialDetails={commercialDetails ?? null}
-        commercialScope={commercialScope ?? []}
-        pricingSettings={pricingSettings}
+      <div id="edit-quote-form">
+        <EditQuoteForm
+          quote={quote}
+          clients={clients ?? []}
+          items={items ?? []}
+          commercialDetails={commercialDetails ?? null}
+          commercialScope={commercialScope ?? []}
+          pricingSettings={pricingSettings}
+        />
+      </div>
+
+      <QuoteActionBar
+        quoteId={quote.id}
+        quoteDisplayNumber={displayNumber}
+        status={quoteStatus}
+        isArchived={isArchived}
+        isLatestVersion={quote.is_latest_version as boolean}
+        isCommercial={isCommercial}
+        shareUrl={shareUrl}
+        clientEmail={currentClient?.email ?? ''}
+        clientName={firstName(currentClient?.name)}
+        primaryContactEmail={quote.contact_email ?? ''}
+        accountsEmail={quote.accounts_email ?? ''}
+        clientReference={quote.client_reference ?? ''}
       />
+
+      <BackToTopButton />
     </div>
   )
 }
