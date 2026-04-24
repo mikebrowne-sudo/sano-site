@@ -540,7 +540,16 @@ export function NewQuoteForm({
             <CommercialPricingPreview
               details={commercialDetails}
               scope={commercialScope}
-              onApplyToBasePrice={(price) => setBasePrice(String(price))}
+              onApplyToBasePrice={(price) => {
+                // Always update the base price state.
+                setBasePrice(String(price))
+                // If override is on, also push the price into override_price
+                // so the displayed final price reflects the click without
+                // forcing the operator out of override mode.
+                if (override.is_price_overridden) {
+                  setOverride({ ...override, override_price: String(price) })
+                }
+              }}
               pricingSettings={pricingSettings}
             />
           </div>

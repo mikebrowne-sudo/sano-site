@@ -348,10 +348,19 @@ export function EditQuoteForm({
     }
   }, [serviceSelected, eligible, isCommercial, override.is_price_overridden, engineResult?.calculated_price])
 
+  // Final-price precedence (mirrors NewQuoteForm exactly):
+  //   override → engine result → manual basePrice state.
+  // engineFinalPrice falls back to null (NOT to quote.base_price) so
+  // that for commercial quotes — where the residential engine is
+  // ineligible and engineResult is null — manualBasePrice is the
+  // source of truth. The basePrice state already initialises from
+  // quote.base_price on mount (useState above), so the value is
+  // present from page-load AND tracks user edits like "Apply to
+  // base price" from the commercial pricing preview.
   const finalPrice = computeFinalPrice({
     is_price_overridden: override.is_price_overridden,
     override_price: override.override_price,
-    engineFinalPrice: engineResult?.final_price ?? quote.base_price ?? null,
+    engineFinalPrice: engineResult?.final_price ?? null,
     manualBasePrice: parseFloat(basePrice) || 0,
   })
 
@@ -673,7 +682,18 @@ export function EditQuoteForm({
             <CommercialPricingPreview
               details={commercialDetails}
               scope={commercialScope}
-              onApplyToBasePrice={isLocked ? undefined : (price) => setBasePrice(String(price))}
+              onApplyToBasePrice={isLocked ? undefined : (price) => {
+                // Always update the base price state — that's the source
+                // of truth for finalPrice when override is off.
+                setBasePrice(String(price))
+                // If override is on, the displayed final price is driven
+                // by override_price, not base_price. Update both so the
+                // click never silently no-ops AND we don't force override
+                // off (the operator chose to be in override mode).
+                if (override.is_price_overridden) {
+                  setOverride({ ...override, override_price: String(price) })
+                }
+              }}
               disabled={isLocked}
               pricingSettings={pricingSettings}
             />
