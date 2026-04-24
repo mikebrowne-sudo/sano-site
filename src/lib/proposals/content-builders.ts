@@ -257,17 +257,22 @@ export function buildExecutiveSummary(payload: ProposalTemplatePayload): Executi
   const opener = `This proposal outlines the commercial cleaning services ${whoClause}${whereClause}${siteBit}.`
 
   // ── Body paragraphs ──
+  // Phase 4.1 — compressed. Executive Summary now covers only:
+  //   • site framing (how the service maps to how the site is used)
+  //   • cadence (when visits happen)
+  //   • short team line
+  //   • closing pointer to the rest of the document
+  // The "why we're good" / "structured, repeatable delivery" /
+  // "single point of contact" language has moved to Why Sano so the
+  // two pages don't echo each other.
   const body: string[] = []
 
   body.push(
     'The service has been structured around how the site is used day to day, with a focus on maintaining presentation across workspaces, shared areas, and amenities.',
   )
 
-  body.push(
-    'Our approach is based on structured, repeatable delivery. Each visit follows a defined scope, ensuring agreed tasks are completed to a consistent standard.',
-  )
-
-  // Cadence paragraph — only include the parts we can format cleanly.
+  // Cadence — single short sentence. No "trained staff / checklist"
+  // coda; that lives in Why Sano.
   const daysPerWeek = countDaysPerWeek(serviceDays || '')
   const cadence = cadencePhrase(daysPerWeek)
   const win = formatServiceWindow(serviceTimes || '')
@@ -276,18 +281,18 @@ export function buildExecutiveSummary(payload: ProposalTemplatePayload): Executi
   const winClause = win ? `within the ${winSuffix} (${win})` : (serviceTimes ? `within the ${winSuffix}` : '')
 
   if (cadence && winClause) {
-    body.push(`Services are delivered ${cadence} ${winClause}, using trained staff who are briefed on the site before their first visit.`)
+    body.push(`Services are delivered ${cadence} ${winClause}.`)
   } else if (cadence) {
-    body.push(`Services are delivered ${cadence}, using trained staff who are briefed on the site before their first visit.`)
+    body.push(`Services are delivered ${cadence}.`)
   } else if (winClause) {
-    body.push(`Services are carried out ${winClause}, using trained staff who are briefed on the site before their first visit.`)
+    body.push(`Services are carried out ${winClause}.`)
   } else {
-    body.push('Services are delivered to the agreed schedule by trained staff who are briefed on the site before their first visit.')
+    body.push('Services are delivered to the agreed schedule.')
   }
 
-  body.push(
-    'A consistent small team is assigned to the site, supported by clear communication and oversight.',
-  )
+  // One short team line. "Sano crew" branding is reserved for the
+  // Why Sano page so the phrase appears exactly once in the document.
+  body.push('A consistent small team is assigned to the site.')
 
   body.push(
     'The following pages set out the full service structure, including scope, pricing, and commercial terms.',
@@ -324,22 +329,16 @@ export function buildServiceOverviewText(payload: ProposalTemplatePayload): stri
         : `around ${schedule}`)
     : 'around the agreed service schedule'
 
+  // Phase 4.1 — Service Overview now describes only how the service
+  // operates. "Trained staff follow a checklist" / "consistent team"
+  // language has moved to Why Sano so the pages don't echo each
+  // other. Two paragraphs is enough above the meta grid.
   const p1 = `The service is structured ${scheduleClause}, with cleaning carried out during ${windowRef} so the site is ready for the next working day.`
 
-  const p2 = 'Core tasks are completed at each visit, with additional detail work and less frequent tasks scheduled across the service cycle to maintain a consistent overall standard.'
+  const p2 = 'Core tasks are completed at each visit, with additional detail work scheduled across the service cycle.'
 
-  const p3 = 'Cleaning is delivered by trained staff who are familiar with the site and follow a clear, structured scope. Each visit is carried out against a defined checklist.'
-
-  return [p1, p2, p3]
+  return [p1, p2]
 }
-
-/** Short benefit points shown below the meta grid. */
-export const SERVICE_OVERVIEW_BENEFITS: readonly string[] = [
-  'Consistent cleaning delivered by a small, familiar team',
-  'Reliable service attendance, with cover arranged if required',
-  'Clear, direct communication through a single point of contact',
-  'Low-disruption scheduling aligned with how the site operates',
-]
 
 // ── Scope of works ────────────────────────────────────────────────
 
@@ -366,7 +365,9 @@ export interface PricingSummaryContent {
 }
 
 export function buildPricingSummaryText(payload: ProposalTemplatePayload): PricingSummaryContent {
-  const intro = 'The monthly service fee reflects the agreed scope of works and service frequency, structured to ensure consistent delivery across the full term of the contract.'
+  // Phase 4.1 — intro deliberately avoids "consistent / over time"
+  // language so the positioning line below owns that theme.
+  const intro = 'The monthly service fee reflects the agreed scope of works and service frequency, set for the full term of the contract.'
 
   const inclusionsNote = 'Pricing includes all labour, equipment, and service management required to maintain the standard outlined in this proposal.'
 

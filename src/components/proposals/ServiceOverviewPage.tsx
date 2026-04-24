@@ -11,7 +11,6 @@ import { ProposalLayout } from './ProposalLayout'
 import type { ProposalTemplatePayload } from '@/lib/proposals/buildProposalPayload'
 import {
   buildServiceOverviewText,
-  SERVICE_OVERVIEW_BENEFITS,
   formatServiceDays,
   formatServiceWindowRange,
   countDaysPerWeek,
@@ -57,20 +56,6 @@ export function ServiceOverviewPage({
           <MetaCell icon="calendar"  label="Service frequency"  value={frequencyValue} />
           <MetaCell icon="building"  label="Areas covered"      value={payload.areasCovered.join(', ') || '—'} />
           <MetaCell icon="cal-start" label="Service start date" value={payload.serviceStartDate || '—'} />
-        </div>
-
-        <div className="proposal-benefits">
-          <div className="proposal-benefits__head">What this means</div>
-          <ul className="proposal-benefits__list">
-            {SERVICE_OVERVIEW_BENEFITS.map((b, i) => (
-              <li key={i} className="proposal-benefits__item">
-                <svg className="proposal-benefits__check" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                  <path d="M4.5 12.5l4.5 4.5L20 6.5" />
-                </svg>
-                <span>{b}</span>
-              </li>
-            ))}
-          </ul>
         </div>
       </div>
     </ProposalLayout>

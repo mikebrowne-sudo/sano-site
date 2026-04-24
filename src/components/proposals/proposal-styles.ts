@@ -743,38 +743,21 @@ export const PROPOSAL_CSS = `
   flex-shrink: 0;
 }
 
-/* Why Sano — lead intro + 2×2 grid of green-accented points. Additive
-   in Phase 4, no existing rule modified. */
-.proposal-why-intro {
+/* Why Sano — Phase 4.1 lock: six short prose paragraphs, no grid.
+   Matches .proposal-lead rhythm on the Executive Summary so both
+   pages read in the same voice. First paragraph carries a slight
+   green tint as the lead. */
+.proposal-why-paragraph {
   font-size: 11.5pt;
   line-height: 1.6;
   color: var(--sano-ink-2);
-  margin: 0 0 8mm;
+  margin: 0 0 5mm;
   max-width: 170mm;
 }
-.proposal-why-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8mm 12mm;
-  margin-top: 2mm;
-}
-.proposal-why-item {
-  padding-left: 5mm;
-  border-left: 2px solid var(--sano-green);
-}
-.proposal-why-item__label {
-  font-size: 10pt;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+.proposal-why-paragraph:first-child {
   color: var(--sano-green);
-  font-weight: 600;
-  margin-bottom: 2.5mm;
-}
-.proposal-why-item__body {
-  font-size: 10.5pt;
-  line-height: 1.55;
-  color: var(--sano-ink-2);
-  margin: 0;
+  font-weight: 500;
+  margin-bottom: 6mm;
 }
 
 /* Acceptance page — title, wording, signature block. */
