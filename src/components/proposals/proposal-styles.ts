@@ -747,17 +747,15 @@ export const PROPOSAL_CSS = `
    Matches .proposal-lead rhythm on the Executive Summary so both
    pages read in the same voice. First paragraph carries a slight
    green tint as the lead.
-   Final polish — image block at the bottom. Flex layout: copy
-   sits at natural height, image fills remaining vertical space
-   with a safe minimum height so the block always reads. Cover
-   fit, no border-radius — same treatment as the executive
-   summary image, just placed below the text instead of beside
-   it. */
+   Image crop refinement — image is now a real <img> element sized
+   to 75mm tall with 6mm margins on all sides, acting as a
+   supporting photo plate rather than a dominant panel. Top-biased
+   object-position keeps faces in frame across typical landscape
+   crew photos. No border-radius — matches the Exec Summary image
+   treatment. */
 .proposal-content--why {
-  flex: 1;
-}
-.proposal-why-copy {
-  flex: 0 0 auto;
+  /* Natural flex column; image is fixed-height so no forced
+     vertical stretch is required. */
 }
 .proposal-why-paragraph {
   font-size: 11.5pt;
@@ -772,13 +770,13 @@ export const PROPOSAL_CSS = `
   margin-bottom: 6mm;
 }
 .proposal-why-image {
-  flex: 1 1 auto;
-  min-height: 70mm;
-  margin-top: 6mm;
-  background-size: cover;
-  background-position: center;
+  display: block;
+  width: calc(100% - 12mm);
+  height: 75mm;
+  margin: 6mm;
+  object-fit: cover;
+  object-position: center 30%;
   border-radius: 0;
-  overflow: hidden;
 }
 
 /* Acceptance page — title, wording, signature block.
