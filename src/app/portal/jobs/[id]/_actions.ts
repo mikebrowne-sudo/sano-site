@@ -124,16 +124,41 @@ export async function createInvoiceFromJob(jobId: string) {
   redirect(`/portal/invoices/${invoice.id}`)
 }
 
+// Phase D.1 — staff-side start/complete now also sync the assigned
+// worker's job_workers row (actual_start_time / actual_end_time /
+// actual_hours) so the Allowed vs Actual variance stays accurate
+// regardless of whether the contractor self-closes the job or staff
+// closes it from the portal. Mirrors contractorStartJob +
+// contractorCompleteJob in src/app/contractor/jobs/[id]/_actions.ts.
 export async function startJob(jobId: string) {
   const supabase = createClient()
+  const now = new Date().toISOString()
+
+  const { data: priorJob, error: readErr } = await supabase
+    .from('jobs')
+    .select('contractor_id')
+    .eq('id', jobId)
+    .single()
+  if (readErr || !priorJob) {
+    return { error: `Job not found: ${readErr?.message ?? 'missing row'}` }
+  }
 
   const { error } = await supabase
     .from('jobs')
-    .update({ status: 'in_progress', started_at: new Date().toISOString() })
+    .update({ status: 'in_progress', started_at: now })
     .eq('id', jobId)
 
   if (error) {
     return { error: `Failed to start job: ${error.message}` }
+  }
+
+  // Mirror to job_workers for the primary assigned contractor.
+  if (priorJob.contractor_id) {
+    await supabase
+      .from('job_workers')
+      .update({ actual_start_time: now })
+      .eq('job_id', jobId)
+      .eq('contractor_id', priorJob.contractor_id)
   }
 
   revalidatePath(`/portal/jobs/${jobId}`)
@@ -143,14 +168,54 @@ export async function startJob(jobId: string) {
 
 export async function completeJob(jobId: string) {
   const supabase = createClient()
+  const now = new Date().toISOString()
+
+  const { data: priorJob, error: readErr } = await supabase
+    .from('jobs')
+    .select('contractor_id')
+    .eq('id', jobId)
+    .single()
+  if (readErr || !priorJob) {
+    return { error: `Job not found: ${readErr?.message ?? 'missing row'}` }
+  }
 
   const { error } = await supabase
     .from('jobs')
-    .update({ status: 'completed', completed_at: new Date().toISOString() })
+    .update({ status: 'completed', completed_at: now })
     .eq('id', jobId)
 
   if (error) {
     return { error: `Failed to complete job: ${error.message}` }
+  }
+
+  // Mirror to job_workers for the primary assigned contractor. If
+  // actual_start_time was captured (by either this action's start
+  // pair or contractorStartJob), compute actual_hours from the
+  // elapsed window rounded to 2dp. Otherwise just set the end time
+  // and let ActualHoursEditor fill in actual_hours manually.
+  if (priorJob.contractor_id) {
+    const { data: worker } = await supabase
+      .from('job_workers')
+      .select('actual_start_time, actual_hours')
+      .eq('job_id', jobId)
+      .eq('contractor_id', priorJob.contractor_id)
+      .single()
+
+    const updates: { actual_end_time: string; actual_hours?: number } = {
+      actual_end_time: now,
+    }
+    if (worker?.actual_start_time && worker.actual_hours == null) {
+      const elapsedMs = new Date(now).getTime() - new Date(worker.actual_start_time).getTime()
+      if (Number.isFinite(elapsedMs) && elapsedMs > 0) {
+        updates.actual_hours = Math.round((elapsedMs / 3_600_000) * 100) / 100
+      }
+    }
+
+    await supabase
+      .from('job_workers')
+      .update(updates)
+      .eq('job_id', jobId)
+      .eq('contractor_id', priorJob.contractor_id)
   }
 
   revalidatePath(`/portal/jobs/${jobId}`)
@@ -173,8 +238,35 @@ export async function updateWorkerActualHours(jobId: string, contractorId: strin
   return { success: true }
 }
 
-export async function assignJob(jobId: string, contractorId: string) {
+// Phase D.1 — assignJob now accepts optional schedule / hours /
+// access / notes fields set from the assignment modal, plus a
+// `notify` flag so the modal can offer "Assign Only" vs "Assign +
+// Notify". Backward compatible when the caller only supplies
+// jobId + contractorId — notify defaults to true to match prior
+// behaviour.
+export interface AssignJobInput {
+  jobId: string
+  contractorId: string
+  scheduledDate?: string | null
+  scheduledTime?: string | null
+  allowedHours?: number | null
+  accessInstructions?: string | null
+  internalNotes?: string | null
+  notify?: boolean
+}
+
+export async function assignJob(input: AssignJobInput) {
   const supabase = createClient()
+  const {
+    jobId,
+    contractorId,
+    scheduledDate,
+    scheduledTime,
+    allowedHours,
+    accessInstructions,
+    internalNotes,
+    notify = true,
+  } = input
 
   if (!contractorId) {
     return { error: 'Please select a contractor.' }
@@ -203,7 +295,7 @@ export async function assignJob(jobId: string, contractorId: string) {
   // Load current job to detect contractor change and get job details
   const { data: job } = await supabase
     .from('jobs')
-    .select('status, contractor_id, job_number, title, address, scheduled_date, scheduled_time, duration_estimate')
+    .select('status, contractor_id, job_number, title, address, scheduled_date, scheduled_time, duration_estimate, description')
     .eq('id', jobId)
     .single()
 
@@ -214,29 +306,75 @@ export async function assignJob(jobId: string, contractorId: string) {
   const contractorChanged = contractorId !== (job.contractor_id ?? '')
   const newStatus = job.status === 'draft' ? 'assigned' : job.status
 
+  // Only overwrite schedule / hours / access / notes fields when the
+  // caller explicitly supplied them (not null/undefined). This lets
+  // the legacy bare-bones reassign flow keep working without
+  // clobbering previously-set values.
+  type JobUpdate = {
+    contractor_id: string
+    assigned_to: string
+    status: string
+    scheduled_date?: string | null
+    scheduled_time?: string | null
+    allowed_hours?: number | null
+    access_instructions?: string | null
+    internal_notes?: string | null
+  }
+  const updates: JobUpdate = {
+    contractor_id: contractorId,
+    assigned_to: contractor.full_name,
+    status: newStatus,
+  }
+  if (scheduledDate       !== undefined) updates.scheduled_date       = scheduledDate || null
+  if (scheduledTime       !== undefined) updates.scheduled_time       = scheduledTime || null
+  if (allowedHours        !== undefined) updates.allowed_hours        = allowedHours
+  if (accessInstructions  !== undefined) updates.access_instructions  = accessInstructions || null
+  if (internalNotes       !== undefined) updates.internal_notes       = internalNotes || null
+
   const { error } = await supabase
     .from('jobs')
-    .update({
-      contractor_id: contractorId,
-      assigned_to: contractor.full_name,
-      status: newStatus,
-    })
+    .update(updates)
     .eq('id', jobId)
 
   if (error) {
     return { error: `Failed to assign job: ${error.message}` }
   }
 
-  // Notify contractor if assignment is new or changed
-  if (contractorChanged) {
+  // Ensure a matching job_workers row exists so actual-hours
+  // tracking (allocated by the staff ActualHoursEditor or captured
+  // by contractorStartJob/contractorCompleteJob) has a record to
+  // write against. Idempotent via upsert on the composite key.
+  await supabase
+    .from('job_workers')
+    .upsert(
+      { job_id: jobId, contractor_id: contractorId, hours_allocated: allowedHours ?? null },
+      { onConflict: 'job_id,contractor_id' },
+    )
+
+  // Notify contractor. Skipped when the caller opts out via
+  // notify:false (Assign Only) or when the contractor hasn't
+  // actually changed.
+  if (notify && contractorChanged) {
+    // Effective scheduling values for the email — prefer the fields
+    // the modal just set, otherwise fall back to what was on the job.
+    const effectiveDate     = scheduledDate       !== undefined ? scheduledDate       : job.scheduled_date
+    const effectiveTime     = scheduledTime       !== undefined ? scheduledTime       : job.scheduled_time
+    const effectiveHours    = allowedHours        !== undefined ? allowedHours        : null
+    const effectiveAccess   = accessInstructions  !== undefined ? accessInstructions  : null
+    const effectiveNotes    = internalNotes       !== undefined ? internalNotes       : null
+
     await notifyContractorAssigned(contractor, {
       id: jobId,
       job_number: job.job_number,
       title: job.title,
       address: job.address,
-      scheduled_date: job.scheduled_date,
-      scheduled_time: job.scheduled_time,
+      scheduled_date: effectiveDate ?? null,
+      scheduled_time: effectiveTime ?? null,
       duration_estimate: job.duration_estimate,
+      allowed_hours: effectiveHours ?? null,
+      access_instructions: effectiveAccess ?? null,
+      notes: effectiveNotes ?? null,
+      scope_summary: job.description ?? null,
     })
   }
 

@@ -185,7 +185,17 @@ export default async function JobDetailPage({ params }: { params: { id: string }
               Reviewed
             </span>
           )}
-          <AssignJobButton jobId={job.id} currentAssignee={job.assigned_to} currentContractorId={job.contractor_id} contractors={contractors ?? []} />
+          <AssignJobButton
+            jobId={job.id}
+            currentAssignee={job.assigned_to}
+            currentContractorId={job.contractor_id}
+            currentScheduledDate={job.scheduled_date}
+            currentScheduledTime={job.scheduled_time}
+            currentAllowedHours={job.allowed_hours}
+            currentAccessInstructions={job.access_instructions}
+            currentInternalNotes={job.internal_notes}
+            contractors={contractors ?? []}
+          />
           <Link
             href={`/portal/jobs/${params.id}/edit`}
             className="inline-flex items-center gap-2 bg-sage-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
@@ -291,6 +301,15 @@ export default async function JobDetailPage({ params }: { params: { id: string }
         {job.description && (
           <Section title="Description">
             <p className="text-sage-600 text-sm whitespace-pre-wrap">{job.description}</p>
+          </Section>
+        )}
+
+        {/* Phase D.1 — access instructions captured during assignment.
+            Only rendered when set so jobs without access notes stay
+            uncluttered. */}
+        {job.access_instructions && (
+          <Section title="Access instructions">
+            <p className="text-sage-600 text-sm whitespace-pre-wrap">{job.access_instructions}</p>
           </Section>
         )}
 
