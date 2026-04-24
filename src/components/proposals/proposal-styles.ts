@@ -747,15 +747,17 @@ export const PROPOSAL_CSS = `
    Matches .proposal-lead rhythm on the Executive Summary so both
    pages read in the same voice. First paragraph carries a slight
    green tint as the lead.
-   Image crop refinement — image is now a real <img> element sized
-   to 75mm tall with 6mm margins on all sides, acting as a
-   supporting photo plate rather than a dominant panel. Top-biased
-   object-position keeps faces in frame across typical landscape
-   crew photos. No border-radius — matches the Exec Summary image
-   treatment. */
+
+   Image anchoring — the Why Sano body is a flex column that fills
+   the full content height (flex: 1). Text sits at the top at its
+   natural height. The image wrapper carries margin-top: auto so
+   it's pushed to the bottom of the content area, a fixed 6mm
+   above the footer line, regardless of how many paragraphs sit
+   above it. 6px of side breathing room keeps the photo just
+   inside the body padding. Image renders full natural proportions
+   (height: auto + object-fit: contain) so nothing is cropped. */
 .proposal-content--why {
-  /* Natural flex column; image is fixed-height so no forced
-     vertical stretch is required. */
+  flex: 1;
 }
 .proposal-why-paragraph {
   font-size: 11.5pt;
@@ -769,14 +771,18 @@ export const PROPOSAL_CSS = `
   font-weight: 500;
   margin-bottom: 6mm;
 }
+.proposal-why-image-wrap {
+  margin-top: auto;
+  margin-left: 6px;
+  margin-right: 6px;
+  margin-bottom: 6mm;
+  width: calc(100% - 12px);
+}
 .proposal-why-image {
   display: block;
-  width: calc(100% - 12mm);
-  height: 75mm;
-  margin: 6mm;
-  object-fit: cover;
-  object-position: center 30%;
-  border-radius: 0;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 
 /* Acceptance page — title, wording, signature block.
