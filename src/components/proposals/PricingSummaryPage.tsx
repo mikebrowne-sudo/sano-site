@@ -20,7 +20,7 @@ export function PricingSummaryPage({
   pageNumber: number
   totalPages: number
 }) {
-  const { intro, inclusionsNote, included, closingNote } = buildPricingSummaryText(payload)
+  const { intro, inclusionsNote, positioningNote, included, closingNote } = buildPricingSummaryText(payload)
 
   return (
     <ProposalLayout
@@ -62,6 +62,10 @@ export function PricingSummaryPage({
             ))}
           </ul>
         </div>
+
+        <p className="proposal-pricing-support proposal-pricing-support--accent">
+          {positioningNote}
+        </p>
 
         <p className="proposal-pricing-support">{closingNote}</p>
       </div>

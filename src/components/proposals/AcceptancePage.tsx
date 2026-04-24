@@ -30,7 +30,7 @@ export function AcceptancePage({
 
   return (
     <ProposalLayout
-      headerTitle="Acceptance of proposal"
+      headerTitle="Acceptance of Proposal"
       pageNumber={pageNumber}
       totalPages={totalPages}
       contact={payload.contact}
@@ -38,6 +38,9 @@ export function AcceptancePage({
       <div className="proposal-content">
         <p className="proposal-acceptance-wording">{wording}</p>
         <p className="proposal-acceptance-wording">{VALIDITY_WORDING}</p>
+        <p className="proposal-acceptance-wording proposal-acceptance-wording--close">
+          We look forward to working with you.
+        </p>
 
         <div className="proposal-acceptance-grid">
           <div className="proposal-acceptance-field">
@@ -67,7 +70,7 @@ export function AcceptancePage({
         </div>
 
         <p className="proposal-acceptance-note">
-          Acceptance can be confirmed via signed copy or written confirmation by email to{' '}
+          Acceptance can be confirmed by signed copy or written confirmation via email to{' '}
           {payload.contact?.email || 'hello@sano.nz'}.
         </p>
       </div>

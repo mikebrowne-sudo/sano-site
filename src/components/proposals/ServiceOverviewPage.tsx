@@ -12,6 +12,10 @@ import type { ProposalTemplatePayload } from '@/lib/proposals/buildProposalPaylo
 import {
   buildServiceOverviewText,
   SERVICE_OVERVIEW_BENEFITS,
+  formatServiceDays,
+  formatServiceWindowRange,
+  countDaysPerWeek,
+  visitsPerWeekLabel,
 } from '@/lib/proposals/content-builders'
 
 export function ServiceOverviewPage({
@@ -24,6 +28,15 @@ export function ServiceOverviewPage({
   totalPages: number
 }) {
   const summaryParagraphs = buildServiceOverviewText(payload)
+
+  // Phase 4 — cleaned meta grid. Each cell is now fed by a formatter
+  // so the client-facing value is always prose, never raw machine
+  // strings like "tue, thu, sat, 1600-2200". Fall back to "Agreed …"
+  // when upstream data is missing.
+  const scheduleValue  = formatServiceDays(payload.serviceDays || '') || 'Agreed schedule'
+  const windowValue    = formatServiceWindowRange(payload.serviceTimes || '') || 'Agreed service window'
+  const daysPerWeek    = countDaysPerWeek(payload.serviceDays || '')
+  const frequencyValue = visitsPerWeekLabel(daysPerWeek) || 'Agreed frequency'
 
   return (
     <ProposalLayout
@@ -39,10 +52,10 @@ export function ServiceOverviewPage({
 
         <div className="proposal-meta-grid">
           <MetaCell icon="location"  label="Site address"       value={payload.siteAddress || '—'} />
-          <MetaCell icon="calendar"  label="Service frequency"  value={payload.serviceFrequency || '—'} />
-          <MetaCell icon="check-cal" label="Service days"       value={payload.serviceDays || '—'} />
+          <MetaCell icon="check-cal" label="Service schedule"   value={scheduleValue} />
+          <MetaCell icon="clock"     label="Service window"     value={windowValue} />
+          <MetaCell icon="calendar"  label="Service frequency"  value={frequencyValue} />
           <MetaCell icon="building"  label="Areas covered"      value={payload.areasCovered.join(', ') || '—'} />
-          <MetaCell icon="clock"     label="Service times"      value={payload.serviceTimes || '—'} />
           <MetaCell icon="cal-start" label="Service start date" value={payload.serviceStartDate || '—'} />
         </div>
 

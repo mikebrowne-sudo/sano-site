@@ -118,9 +118,9 @@ export type ProposalGroupKey =
 
 export const PROPOSAL_GROUP_LABEL: Record<ProposalGroupKey, string> = {
   general_areas:         'General Areas',
-  offices_workstations:  'Offices / Workstations',
-  kitchens_breakout:     'Kitchens / Breakout Areas',
-  bathrooms_washrooms:   'Bathrooms / Washrooms',
+  offices_workstations:  'Workstations',
+  kitchens_breakout:     'Kitchens & Breakout Areas',
+  bathrooms_washrooms:   'Bathrooms & Washrooms',
   common_areas:          'Common Areas',
   specialist_areas:      'Specialist Areas',
 }

@@ -518,6 +518,14 @@ export const PROPOSAL_CSS = `
   max-width: 140mm;
   margin: 6mm auto 0;
 }
+/* Phase 4 — subtle accent positioning line, slightly darker and
+   italicised so it sits between the structural copy and the
+   invoice-terms note without shouting. */
+.proposal-pricing-support--accent {
+  color: var(--sano-ink-2);
+  font-style: italic;
+  margin-top: 5mm;
+}
 .proposal-pricing-shield {
   display: flex;
   justify-content: center;
@@ -735,6 +743,40 @@ export const PROPOSAL_CSS = `
   flex-shrink: 0;
 }
 
+/* Why Sano — lead intro + 2×2 grid of green-accented points. Additive
+   in Phase 4, no existing rule modified. */
+.proposal-why-intro {
+  font-size: 11.5pt;
+  line-height: 1.6;
+  color: var(--sano-ink-2);
+  margin: 0 0 8mm;
+  max-width: 170mm;
+}
+.proposal-why-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8mm 12mm;
+  margin-top: 2mm;
+}
+.proposal-why-item {
+  padding-left: 5mm;
+  border-left: 2px solid var(--sano-green);
+}
+.proposal-why-item__label {
+  font-size: 10pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sano-green);
+  font-weight: 600;
+  margin-bottom: 2.5mm;
+}
+.proposal-why-item__body {
+  font-size: 10.5pt;
+  line-height: 1.55;
+  color: var(--sano-ink-2);
+  margin: 0;
+}
+
 /* Acceptance page — title, wording, signature block. */
 .proposal-acceptance-wording {
   font-size: 11.5pt;                  /* Phase 3.2 — +1pt */
@@ -742,6 +784,15 @@ export const PROPOSAL_CSS = `
   color: var(--sano-ink-2);
   max-width: 165mm;
   margin: 0 0 6mm;
+}
+/* Phase 4 — optional close line. Slightly dimmer, italicised so it
+   reads as a friendly sign-off rather than a clause. */
+.proposal-acceptance-wording--close {
+  color: var(--sano-green);
+  font-style: italic;
+  font-weight: 500;
+  margin-top: 2mm;
+  margin-bottom: 8mm;
 }
 .proposal-acceptance-grid {
   display: grid;
