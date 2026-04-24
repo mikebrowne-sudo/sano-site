@@ -4,10 +4,13 @@
 // is calm and confident; no marketing voice. "Sano crew" appears
 // once, in the third paragraph, and nowhere else in the document.
 //
-// The image block reuses the Executive Summary image treatment
-// (background-image, cover fit, no border-radius, clean edges) but
-// is placed below the text instead of beside it so the Why Sano
-// page reads top-to-bottom as prose.
+// The image is rendered as a real <img> element (not a
+// background-image) so Chrome + Puppeteer handle the photo
+// natively — reliable in print, no risk of the print stylesheet
+// dropping a background asset. Fixed height + object-fit: cover +
+// top-biased object-position crop is used so faces aren't clipped
+// at the bottom edge. Margin 6mm on all sides frames the image as
+// a supporting element rather than a dominant panel.
 //
 // Placement: between Executive Summary and Service Overview. Always
 // rendered; ProposalDocument manages page numbering.
@@ -55,11 +58,11 @@ export function WhySanoPage({
           ))}
         </div>
 
-        <div
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={CREW_IMAGE}
+          alt="Sano crew"
           className="proposal-why-image"
-          style={{ backgroundImage: `url(${CREW_IMAGE})` }}
-          role="img"
-          aria-label="Sano crew"
         />
       </div>
     </ProposalLayout>
