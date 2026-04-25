@@ -91,19 +91,36 @@ export async function saveNotificationTemplate(input: SaveTemplateInput):
 }
 
 // ── Test SMS ────────────────────────────────────────────────────
+//
+// Switched to a FormData-based signature so the panel uses
+// React's `<form action={sendTestSms}>` + `useFormState` pattern.
+// Progressive-enhancement: works without JS, and avoids the
+// "click does nothing" failure mode where an onClick handler
+// silently never fires (hydration mismatch, stripped event
+// handler, etc.).
+//
+// Returns shape compatible with React's useFormState:
+//   { ok?: true; logId?: string; error?: string; sentTo?: string }
 
-export interface SendTestSmsInput {
-  to: string
-  body: string
+export interface TestSmsState {
+  ok?: true
+  logId?: string
+  sentTo?: string
+  error?: string
 }
 
-export async function sendTestSms(input: SendTestSmsInput):
-  Promise<{ ok: true; logId?: string } | { error: string }> {
+export async function sendTestSms(
+  _prev: TestSmsState | undefined,
+  formData: FormData,
+): Promise<TestSmsState> {
+  const to   = String(formData.get('phone')   ?? '').trim()
+  const body = String(formData.get('message') ?? '').trim()
+
   const auth = await requireAdmin()
   if ('error' in auth) return { error: auth.error as string }
 
-  if (!input.to.trim())   return { error: 'Phone number is required.' }
-  if (!input.body.trim()) return { error: 'Message body is required.' }
+  if (!to)   return { error: 'Phone number is required.' }
+  if (!body) return { error: 'Message body is required.' }
 
   const result = await sendNotification(auth.supabase, {
     type: 'job_assigned' as const,    // arbitrary — bypassed by source:'test'
@@ -111,14 +128,14 @@ export async function sendTestSms(input: SendTestSmsInput):
     audience: 'staff',
     source: 'test',
     recipientName: 'Admin test',
-    recipientPhone: input.to,
+    recipientPhone: to,
     variables: {},
-    testBody: input.body,
+    testBody: body,
   })
 
   if (result.status === 'sent') {
     revalidatePath('/portal/settings/notifications')
-    return { ok: true, logId: result.logId }
+    return { ok: true, logId: result.logId, sentTo: to }
   }
   return { error: result.reason ?? `Test send ${result.status}.` }
 }
