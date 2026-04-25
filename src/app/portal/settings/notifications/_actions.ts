@@ -10,7 +10,6 @@ import {
   type NotificationSettings,
   SETTINGS_KEY as NOTIFICATION_SETTINGS_KEY,
 } from '@/lib/notifications/settings'
-import { sendNotification } from '@/lib/notifications/send'
 
 async function requireAdmin() {
   const supabase = createClient()
@@ -92,50 +91,13 @@ export async function saveNotificationTemplate(input: SaveTemplateInput):
 
 // ── Test SMS ────────────────────────────────────────────────────
 //
-// Switched to a FormData-based signature so the panel uses
-// React's `<form action={sendTestSms}>` + `useFormState` pattern.
-// Progressive-enhancement: works without JS, and avoids the
-// "click does nothing" failure mode where an onClick handler
-// silently never fires (hydration mismatch, stripped event
-// handler, etc.).
+// The Test SMS UI now POSTs to /api/notifications/test-sms (a
+// plain Next.js route handler) rather than calling a server
+// action. Server actions were not invoking on the deployed build
+// for an unknown reason — the route-handler path is reliable
+// across every Netlify deploy shape we hit. The route owns the
+// admin gate + sendNotification call; this module is left
+// without a test-SMS export to avoid two divergent code paths.
 //
-// Returns shape compatible with React's useFormState:
-//   { ok?: true; logId?: string; error?: string; sentTo?: string }
-
-export interface TestSmsState {
-  ok?: true
-  logId?: string
-  sentTo?: string
-  error?: string
-}
-
-export async function sendTestSms(
-  _prev: TestSmsState | undefined,
-  formData: FormData,
-): Promise<TestSmsState> {
-  const to   = String(formData.get('phone')   ?? '').trim()
-  const body = String(formData.get('message') ?? '').trim()
-
-  const auth = await requireAdmin()
-  if ('error' in auth) return { error: auth.error as string }
-
-  if (!to)   return { error: 'Phone number is required.' }
-  if (!body) return { error: 'Message body is required.' }
-
-  const result = await sendNotification(auth.supabase, {
-    type: 'job_assigned' as const,    // arbitrary — bypassed by source:'test'
-    channel: 'sms',
-    audience: 'staff',
-    source: 'test',
-    recipientName: 'Admin test',
-    recipientPhone: to,
-    variables: {},
-    testBody: body,
-  })
-
-  if (result.status === 'sent') {
-    revalidatePath('/portal/settings/notifications')
-    return { ok: true, logId: result.logId, sentTo: to }
-  }
-  return { error: result.reason ?? `Test send ${result.status}.` }
-}
+// If you need to re-add a server action later, mirror the route
+// handler's body and re-export here.

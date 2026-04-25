@@ -9,12 +9,9 @@
 //   D. Template editor + Test SMS panel
 
 import { useState, useTransition } from 'react'
-import { useFormState, useFormStatus } from 'react-dom'
 import {
   saveNotificationSettings,
   saveNotificationTemplate,
-  sendTestSms,
-  type TestSmsState,
 } from '../_actions'
 import type { NotificationSettings } from '@/lib/notifications/settings'
 
@@ -380,30 +377,76 @@ function TemplateEditor({
 }
 
 function TestSmsPanel() {
-  // Switched to form-action + useFormState so the submit always
-  // wires up cleanly. The previous onClick handler approach
-  // (useTransition + direct call) silently failed in the deployed
-  // build for at least one user — likely a hydration / event-
-  // handler mismatch. The progressive-enhancement form pattern
-  // works even without JS.
-  const initialState: TestSmsState = {}
-  const [state, formAction] = useFormState(sendTestSms, initialState)
+  // Final-debug rewrite: bypasses the React server-action
+  // transport entirely (which was silently failing in the
+  // deployed build) and posts to a plain Next.js route handler
+  // at /api/notifications/test-sms. Any environment where fetch
+  // works will fire the action.
+  const [phone, setPhone] = useState('')
+  const [message, setMessage] = useState('Hello from Sano portal — Twilio test.')
+  const [isPending, startTransition] = useTransition()
+  const [result, setResult] = useState<
+    | { kind: 'idle' }
+    | { kind: 'sent'; sentTo: string; logId: string | null }
+    | { kind: 'skipped' | 'failed'; reason: string; logId: string | null }
+    | { kind: 'error'; message: string }
+  >({ kind: 'idle' })
+
+  function send(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setResult({ kind: 'idle' })
+    startTransition(async () => {
+      try {
+        const res = await fetch('/api/notifications/test-sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, message }),
+        })
+        const data = (await res.json().catch(() => ({}))) as {
+          ok?: boolean
+          status?: 'sent' | 'failed' | 'skipped'
+          reason?: string | null
+          logId?: string | null
+          sentTo?: string | null
+          error?: string
+        }
+        if (!res.ok) {
+          setResult({ kind: 'error', message: data.error ?? `Request failed (${res.status}).` })
+          return
+        }
+        if (data.status === 'sent') {
+          setResult({ kind: 'sent', sentTo: data.sentTo ?? phone, logId: data.logId ?? null })
+        } else if (data.status === 'skipped' || data.status === 'failed') {
+          setResult({ kind: data.status, reason: data.reason ?? 'No reason returned.', logId: data.logId ?? null })
+        } else {
+          setResult({ kind: 'error', message: data.error ?? 'Unknown response.' })
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Unknown network error.'
+        setResult({ kind: 'error', message: msg })
+      }
+    })
+  }
 
   return (
     <section className="bg-white rounded-xl border border-sage-100 p-6 md:p-8 space-y-4">
       <h2 className="text-base font-semibold text-sage-800">Test SMS</h2>
       <p className="text-xs text-sage-500">
+        Posts to <code className="bg-sage-50 px-1 rounded">/api/notifications/test-sms</code>.
         Bypasses channel + type toggles. Still requires SMS enabled and Twilio configured.
+        A <code className="bg-sage-50 px-1 rounded">notification_logs</code> row is written
+        whether the send succeeds, fails, or is skipped.
       </p>
 
-      <form action={formAction} className="space-y-4">
+      <form onSubmit={send} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="block">
             <span className="block text-sm font-semibold text-sage-800 mb-1.5">Phone number</span>
             <input
               type="tel"
               name="phone"
-              defaultValue=""
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
               placeholder="+64 21 …"
               required
               className="w-full rounded-lg border border-sage-200 px-3 py-2 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm"
@@ -414,37 +457,38 @@ function TestSmsPanel() {
           <span className="block text-sm font-semibold text-sage-800 mb-1.5">Message</span>
           <textarea
             name="message"
-            defaultValue="Hello from Sano portal — Twilio test."
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
             rows={2}
             required
             className="w-full rounded-lg border border-sage-200 px-3 py-2 text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm"
           />
         </label>
-        <div className="flex items-center gap-3">
-          <TestSmsSubmit />
-          {state.error && (
-            <span className="text-xs text-red-600">{state.error}</span>
-          )}
-          {state.ok && (
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="submit"
+            disabled={isPending}
+            className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2 rounded-lg text-sm hover:bg-sage-700 transition-colors disabled:opacity-50"
+          >
+            {isPending ? 'Sending…' : 'Send test SMS'}
+          </button>
+
+          {result.kind === 'sent' && (
             <span className="text-xs text-emerald-700">
-              Test SMS sent{state.sentTo ? ` to ${state.sentTo}` : ''}.
+              SMS sent to {result.sentTo}{result.logId ? ` · log ${result.logId.slice(0, 8)}…` : ''}.
             </span>
+          )}
+          {(result.kind === 'skipped' || result.kind === 'failed') && (
+            <span className="text-xs text-amber-700">
+              {result.kind === 'skipped' ? 'Skipped' : 'Failed'} — {result.reason}
+              {result.logId ? ` · log ${result.logId.slice(0, 8)}…` : ''}
+            </span>
+          )}
+          {result.kind === 'error' && (
+            <span className="text-xs text-red-600">{result.message}</span>
           )}
         </div>
       </form>
     </section>
-  )
-}
-
-function TestSmsSubmit() {
-  const { pending } = useFormStatus()
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2 rounded-lg text-sm hover:bg-sage-700 transition-colors disabled:opacity-50"
-    >
-      {pending ? 'Sending…' : 'Send test SMS'}
-    </button>
   )
 }
