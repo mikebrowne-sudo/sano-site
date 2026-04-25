@@ -7,3 +7,9 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Phase H.4 — daily SMS cron. Schedule is also declared inside
+# netlify/functions/daily-notifications.mts via `export const config`;
+# this entry mirrors it so it remains visible in the deployment config.
+[functions."daily-notifications"]
+  schedule = "0 21 * * *"
