@@ -159,6 +159,57 @@ commit-level detail).
   missing / expired insurance across create, update, and quick-
   assign paths.
 
+### Payroll (Phase E + E.1)
+
+- Existing employee salary path (`pay_runs` + `pay_run_lines` +
+  `payslips` via `nz-paye`) untouched — handles holiday pay,
+  PAYE, KiwiSaver, ACC for salaried workers.
+- New contractor hours-approval path layered on top: admin
+  approves actual job hours per worker; rate is snapshotted at
+  approval time; rows surface on
+  `/portal/payroll/contractor-pending`.
+- Contractor pay run lifecycle: bundle approved hours into a
+  `pay_runs` row of kind `'contractor'`, list at
+  `/portal/payroll/contractor-runs`, approve, mark paid, export
+  CSV. Job-worker pay status flows
+  `pending → approved → included_in_pay_run → paid`.
+
+### Recurring contracts (Phase F)
+
+- `recurring_jobs` table extended into a contract layer for
+  commercial agreements: source quote linkage, scope snapshot,
+  contract term + notice period, monthly value, renewal status.
+- Renewal reminders 6 / 4 / 2 weeks before contract end_date,
+  rendered in-portal with mark-done / dismiss actions.
+- Multi-week job generation (Next 1 / 2 / 4 weeks) with
+  duplicate prevention by (recurring_job_id, scheduled_date).
+- Renew / Extend admin action — sets new end_date + recreates
+  pending reminders against the new date.
+- "Create Recurring Job" card wired on the Quote Next Step
+  panel — accepted commercial quotes pre-fill term, monthly
+  value, and reminders.
+
+### Notifications (Phase H)
+
+- Twilio SMS via the central `sendNotification` helper. Admin-
+  only settings page at `/portal/settings/notifications` with
+  provider config status (env vars present / missing without
+  exposing values), channel toggles, type toggles, template
+  editor with placeholder hints, and a Test SMS panel that
+  POSTs to a route handler.
+- TWILIO_MESSAGING_SERVICE_SID is the preferred sender (Sano
+  Notifications messaging service); TWILIO_FROM_NUMBER is the
+  fallback for direct-from-a-single-number sends. Either one is
+  sufficient.
+- Every send writes a `notification_logs` row — sent / failed /
+  skipped with the gate reason, so all attempts are visible.
+- Manual contractor + customer SMS buttons on the staff job
+  page when phone numbers are present.
+- One automated trigger live: contractor SMS auto-fires on
+  Assign + Notify alongside the existing email.
+- Default templates seeded: contractor `job_assigned`, customer
+  `booking_confirmation`. Both admin-editable.
+
 ---
 
 ## Data structure
@@ -371,9 +422,75 @@ created_at. Used for restore from Archive.
 
 ### audit_log
 Append-only activity log. Columns: actor_id, actor_role, action
-(e.g. `quote.archived`, `quote.converted`, `job.reviewed`),
+(e.g. `quote.archived`, `quote.converted`, `job.reviewed`,
+`job_worker.hours_approved`, `pay_run.created`,
+`pay_run.approved`, `pay_run.paid`,
+`recurring_contract.renewed`, `recurring_contract_reminder.completed`),
 entity_table, entity_id, before (jsonb), after (jsonb),
 created_at.
+
+### job_workers (Phase E pay snapshot)
+Existing junction (job_id, contractor_id, hours_allocated,
+actual_start_time, actual_end_time, actual_hours) extended with:
+- pay_rate (numeric — rate at approval; never overwritten)
+- pay_type (currently 'hourly')
+- approved_hours (numeric — admin-adjustable, defaults to actual)
+- approved_at (timestamptz)
+- approved_by (uuid → auth.users)
+- pay_status text default 'pending', CHECK in (pending,
+  approved, included_in_pay_run, paid)
+
+### pay_runs (Phase E.1 lifecycle additions)
+Existing employee-payroll table extended with:
+- kind text default 'employee', CHECK in (employee, contractor)
+- approved_at + approved_by
+- paid_at + paid_by
+
+### pay_run_items (Phase E)
+Contractor-side pay run lines. One row per (pay_run_id, job_id,
+contractor_id) — composite UNIQUE prevents the same worker's
+job hours from landing in two pay runs. Columns: pay_run_id,
+job_id, contractor_id, approved_hours, pay_rate, amount, status
+(CHECK in pending/approved/paid/void), note, created_at. RLS
+staff read / admin write.
+
+### recurring_jobs (Phase F contract additions)
+Existing manual-generator table extended with:
+- quote_id (uuid → quotes, on delete set null)
+- service_category, service_days, service_window
+- scope_snapshot jsonb (point-in-time copy of the quote scope)
+- contract_term_months, notice_period_days, monthly_value
+- renewal_status text default 'not_started', CHECK in (
+  not_started, review_due, renewal_sent, renewed, ending)
+- renewal_notes
+- created_by, updated_at
+
+### recurring_contract_reminders (Phase F)
+Renewal touchpoints. Columns: id, recurring_job_id (FK cascade),
+reminder_type (CHECK: six_weeks | four_weeks | two_weeks),
+due_date, status (CHECK: pending | completed | dismissed),
+completed_at, completed_by, created_at. RLS staff read / admin
+write.
+
+### notification_settings (Phase H, singleton)
+Key/value/jsonb. `value.provider`, `value.channels` (contractor_sms,
+customer_sms, email, manual, automated), `value.types` (per-
+audience-and-type enable map). Staff read; admin write.
+
+### notification_templates (Phase H)
+One row per (type, channel, audience). Columns: id, type,
+channel (CHECK: sms | email), audience (CHECK: contractor |
+customer | staff), subject (nullable, for email), body, enabled,
+updated_at, updated_by. Staff read; admin write.
+
+### notification_logs (Phase H, append-only)
+Every notification attempt — sent, failed, or skipped — gets a
+row. Columns: id, type, channel, audience, recipient_name,
+recipient_phone, recipient_email, status (CHECK: pending | sent
+| failed | skipped), provider, provider_message_id,
+error_message, payload jsonb, related_{job,client,contractor,
+invoice}_id, created_at, sent_at. Indexed on created_at desc +
+status + related_job_id (partial). Staff read.
 
 ---
 
@@ -609,32 +726,57 @@ Implementation note:
 
 ## Next priorities
 
-### 1. Complete the quote → job flow
-- Wire the third Next Step card: `createRecurringJobFromQuote`
-  for ongoing commercial contracts. Currently renders as "This
-  option will be available shortly".
-- Optional: unify the scope snapshot between `createJobFromQuote`
-  and the `auto_create_job_on_invoice` path so the invoice-first
-  branch also carries a full snapshot.
+### 1. Complete the notifications surface
+- Customer-side automated triggers: `booking_confirmation` on
+  quote acceptance / job creation, `cleaner_on_the_way`,
+  `job_completed`, `invoice_sent`, `payment_reminder`. Settings
+  + templates exist; only the trigger code is missing.
+- Scheduled reminders (`job_reminder_day_before` for both
+  contractor + customer). Needs a cron / scheduled function.
+- STOP / opt-out keyword handling + Twilio inbound + delivery-
+  status webhooks.
+- Email-channel notification types (the schema supports it; the
+  send path currently only routes `sms`).
 
-### 2. Notifications + reminders
-- SMS / portal-notification options for contractor assignment
-  (the `contractor_notification_method` setting is wired; only
-  `email` is implemented so far).
-- Job reminders, overdue invoice reminders, training /
-  compliance reminders, admin alerts.
-- Global toast primitive to unify the inline-flash feedback
-  across actions.
+### 2. Payroll polish
+- Cancel / void a draft contractor pay run (rolls
+  job_workers.pay_status back to `approved`).
+- Email payslips to contractors for paid pay runs (template
+  surface ready via `contractor-email-template.ts`).
+- Settings additions: `default_contractor_pay_type`,
+  `require_reviewed_job_before_pay`,
+  `allow_non_admin_payroll_access`.
+- Pay status CHECK on `pay_runs.status` once the employee +
+  contractor paths' allowed values are unified.
 
-### 3. Admin role + RLS hardening
+### 3. Recurring contracts polish
+- Auto-generation cron — fill the next 1 week of contractor
+  jobs nightly instead of waiting for manual generation.
+- Email/SMS renewal reminders on the existing in-portal
+  reminder rows (Phase H notification engine has the plumbing).
+- Pause / End / Activate quick actions on the contract detail
+  page (today still goes through the edit form).
+- List-page columns for renewal status, monthly value, end_date.
+- Linked-job guard before End (warn when pending future jobs
+  exist).
+
+### 4. Admin role + RLS hardening
 - Migrate remaining inline `user.email === 'michael@sano.nz'`
-  checks to `isAdminEmail()` from `src/lib/is-admin.ts`.
-- Consider `USING (deleted_at IS NULL)` RLS on `jobs` (+ quotes,
-  invoices) so archived rows are excluded at the DB level, not
+  checks to `isAdminEmail()` from `src/lib/is-admin.ts` (still
+  scattered across ~10 files).
+- Consider `USING (deleted_at IS NULL)` RLS on `jobs` / quotes /
+  invoices so archived rows are excluded at the DB level, not
   only via app-level filters.
 - Eventually: move admin from hardcoded email to a role claim.
 
-### 4. System hardening
+### 5. Wire job_settings into behaviour (carry-over from D.3)
+- Phase D.3's wiring branch for the five operational toggles
+  (`default_payment_status`, `allow_job_before_payment`,
+  `auto_create_job_on_invoice`, `require_review_before_invoicing`,
+  `contractor_notification_method`) was prepared but not merged.
+  Re-land or rebuild on top of E + F + H.
+
+### 6. System hardening
 - testing across all features
 - edge case handling
 - UI polish
@@ -642,16 +784,20 @@ Implementation note:
 - verify Labour & Margin save states behave correctly under
   success and failure cases
 
-### 5. Reporting improvements
-- deeper financial insights
-- contractor performance
+### 7. Reporting improvements
+- deeper financial insights (revenue, cost, margin trends)
+- contractor performance (variance, on-time rate)
+- pay run summaries (this period vs last, contractor vs
+  contractor)
 - job trends
 
-### 6. UX improvements
+### 8. UX improvements
 - faster workflows
 - better dashboards
 - minor automation
 - photos on job completion (requires storage-bucket decision)
+- global toast primitive to unify the inline-flash feedback
+  across actions
 
 ---
 
@@ -996,3 +1142,212 @@ Converts accepted quotes into operational records.
   with the invoice_id link.
 - Archive filter hardening: contractor job list + detail +
   portal dashboard all now filter `.is('deleted_at', null)`.
+
+---
+
+## Payroll foundation — shipped (Phase E)
+
+`feat/payroll-foundation-phase-e` — adds the contractor hours-
+approval layer on top of the existing employee payroll path.
+The legacy salary runs (pay_run_lines / payslips via nz-paye)
+are untouched.
+
+DB migration — `docs/db/2026-04-25-phase-e-payroll-foundation.sql`
+- `job_workers` pay snapshot columns + CHECK on pay_status.
+- `pay_runs.kind` text default 'employee' with CHECK in
+  ('employee', 'contractor').
+- New `pay_run_items` table (composite UNIQUE on pay_run_id +
+  job_id + contractor_id; RLS staff read / admin write).
+
+Server action — `approveJobWorkerHours`
+- Admin-only; gates on job status in {'completed','invoiced'},
+  contractor having an `hourly_rate`, and (when on)
+  `require_review_before_invoicing`.
+- Snapshots `contractors.hourly_rate` to `job_workers.pay_rate`
+  at approval; future rate changes never alter historical pay.
+- Audit-logs `job_worker.hours_approved`.
+
+UI
+- `ApproveHoursButton` on the staff job page Labour & Margin
+  section. Modal shows allowed / actual / variance + rate +
+  calculated pay; admin can adjust approved_hours.
+- New `/portal/payroll/contractor-pending` admin route lists
+  approved-but-unbundled rows grouped by contractor with totals.
+- Payroll hub adds a Contractor approvals card with live count.
+
+---
+
+## Contractor pay runs — shipped (Phase E.1)
+
+`feat/contractor-pay-runs-phase-e1` — full pay run lifecycle for
+contractor hours.
+
+DB migration — `docs/db/2026-04-25-phase-e1-contractor-pay-runs.sql`
+- `pay_runs` adds `approved_at`, `approved_by`, `paid_at`,
+  `paid_by` (all nullable).
+- `pay_runs_kind_status_idx` for the contractor list query.
+
+Server actions (`src/app/portal/payroll/contractor-runs/_actions.ts`)
+- `createContractorPayRun(period_start, period_end, notes?)` —
+  picks job_workers with `pay_status='approved'` and
+  `approved_at` in the inclusive window (jobs not archived),
+  inserts the pay_runs header (kind='contractor', status=
+  'draft'), bulk-inserts pay_run_items, flips eligible
+  job_workers to 'included_in_pay_run' with race-guarded equality
+  check. Rolls the empty header back if items insert fails.
+- `approveContractorPayRun(payRunId)` — draft → approved with
+  approved_at + approved_by + audit log.
+- `markContractorPayRunPaid(payRunId)` — approved → paid; flips
+  pay_run_items to 'paid' and linked job_workers to 'paid' +
+  audit log.
+- `submitNewContractorPayRun(formData)` — FormData wrapper that
+  creates + redirects.
+
+Pages
+- `/portal/payroll/contractor-runs` — admin list (period · status
+  · contractor count · item count · total).
+- `/portal/payroll/contractor-runs/new` — form, defaults to last
+  Mon–Sun.
+- `/portal/payroll/contractor-runs/[id]` — admin detail with
+  items grouped by contractor + Approve / Mark Paid buttons +
+  CSV export link.
+
+CSV export
+- Route handler `/portal/payroll/contractor-runs/[id]/csv` —
+  admin-gated, RFC 4180 quoting, columns Contractor name ·
+  Email · Job number · Title · Date · Hours · Rate · Amount.
+- Filename: `contractor-pay-run-{start}-to-{end}.csv`.
+
+Eligibility rule (documented choice): inclusion is matched on
+`approved_at BETWEEN period_start AND period_end` rather than
+job.completed_at. approved_at is always set on eligible rows so
+the rule is predictable.
+
+---
+
+## Recurring contracts — shipped (Phase F)
+
+`feat/recurring-contracts-phase-f` — extends the existing
+`recurring_jobs` (manual single-job generator) into a contract
+layer for commercial agreements. Single-job generation +
+list/edit pages stay as-is.
+
+DB migration — `docs/db/2026-04-25-phase-f-recurring-contracts.sql`
+- 11 new columns on `recurring_jobs` (quote_id, service_category,
+  scope_snapshot, service_days/window, contract_term_months,
+  notice_period_days, monthly_value, renewal_status with CHECK,
+  renewal_notes, created_by, updated_at).
+- New `recurring_contract_reminders` table + CHECKs + indexes +
+  RLS.
+- `recurring_jobs_end_date_idx` partial index.
+
+Server actions (`src/app/portal/recurring-jobs/_actions-phase-f.ts`)
+- `createRecurringJobFromQuote(quoteId)` — accepted-latest-version
+  guard, pulls quote + commercial scope + commercial details,
+  builds scope_snapshot, derives end_date from start + term
+  (commercial defaults: 12 months / 30 days notice; residential
+  leaves both null), inserts recurring_jobs row + 6/4/2-week
+  reminders when end_date is set, marks quote converted, audit
+  log, redirect.
+- `generateUpcomingRecurringJobs({ recurringJobId, weeks })` —
+  walks the schedule from next_due_date in 1/2/4-week (or
+  custom) windows, skips dates already inserted (duplicate-
+  guard via `.in()` match on scheduled_date), inserts jobs with
+  scope_snapshot + default payment_status from job_settings.
+  Returns `createdCount` + `skippedCount`.
+- `updateRecurringReminder({ reminderId, status })` — completed
+  or dismissed + completed_at + completed_by + audit log.
+- `extendRecurringContract({ recurringJobId, newEndDate,
+  newTermMonths?, notes? })` — admin-only, sets new end_date +
+  optional new term, replaces pending reminders with a fresh
+  set tied to the new end date; completed/dismissed history
+  preserved. Audit log.
+
+UI
+- 4th card on the Quote Next Step panel: "Create Recurring Job"
+  via `CreateRecurringJobButton`. Grid widened to md:2 / lg:4.
+- `/portal/recurring-jobs/[id]` gets a Contract terms section
+  (term, notice, monthly value, renewal status, renewal notes)
+  and a Renewal reminders section (`RemindersPanel` with mark-
+  done / dismiss).
+- New action buttons: `GenerateUpcomingButton` (Next 1 / 2 / 4
+  weeks menu) alongside the existing single-next-due
+  `GenerateJobButton`, plus admin-only `ExtendContractButton`
+  modal.
+
+---
+
+## Notifications — shipped (Phase H)
+
+`feat/notifications-twilio-phase-h` + follow-ups: Twilio SMS
+foundation with admin gates, templates, log, manual + automated
+sends.
+
+DB migration — `docs/db/2026-04-25-phase-h-notifications.sql`
+- `notification_settings` (singleton key='default' jsonb).
+- `notification_templates` ((type, channel, audience) UNIQUE,
+  body, enabled).
+- `notification_logs` (append-only, status pending|sent|failed
+  |skipped).
+- RLS staff read / admin write on settings + templates; logs
+  staff read.
+- Default templates seeded for `contractor.job_assigned` +
+  `customer.booking_confirmation`.
+
+Notifications lib — `src/lib/notifications/`
+- `types.ts` — channels + audiences + closed type sets +
+  TEMPLATE_PLACEHOLDERS.
+- `settings.ts` — DEFAULT + merge + validate + load +
+  isTypeEnabled.
+- `render-template.ts` — pure renderer with placeholder /
+  unknown-token reporting + 160-char single-segment warning.
+- `twilio.ts` — `getTwilioConfigStatus()` /
+  `isTwilioConfigured()` / `sendTwilioSms()`. Server-only via
+  fetch + HTTP basic auth + 15s `AbortSignal.timeout()`. No SDK
+  dep. Sender precedence: `TWILIO_MESSAGING_SERVICE_SID`
+  preferred → falls back to `TWILIO_FROM_NUMBER`.
+- `send.ts` — `sendNotification()` central gate runner. Applies:
+  provider configured → SMS enabled globally → audience channel
+  enabled → type enabled → manual/automated source enabled →
+  template exists & enabled → recipient phone present → Twilio
+  send. Writes `notification_logs` for every outcome including
+  skipped + the gate reason in `error_message`.
+
+Settings page — `/portal/settings/notifications` (admin-only)
+- Provider section shows env-var presence (configured / missing /
+  fallback) without revealing values + global SMS enable.
+- Channel toggles (contractor SMS, customer SMS, email, manual,
+  automated).
+- Type toggles for the closed audience+type set.
+- Template editor per-(type, channel, audience) with placeholder
+  hint chips + char counter + 160-char warning + per-template
+  enabled flag.
+- Test SMS panel posts to a route handler (see below).
+
+Test SMS via API route
+- `src/app/api/notifications/test-sms/route.ts` — admin-gated
+  POST. Parses `{ phone, message }` JSON, calls
+  `sendNotification(source: 'test')`, returns
+  `{ ok, status, reason, logId, sentTo }`. Used by the panel
+  via `fetch()` instead of a server action — server-action
+  transport was silently failing on the deployed build, the
+  route handler is reliable.
+
+Job page — manual SMS
+- `JobNotificationsPanel` admin-only on `/portal/jobs/[id]`,
+  visible when contractor or client phone is present. Two
+  buttons (Send contractor SMS / Send customer SMS). Both call
+  the central send path; gating + logging identical to the
+  automated trigger.
+
+Automated trigger
+- `assignJob` notify branch fires the contractor SMS via
+  `sendNotification(source: 'automated', type: 'job_assigned')`
+  alongside the existing email. Failures don't block assignment;
+  outcome is captured in `notification_logs`.
+
+Required env vars
+- `TWILIO_ACCOUNT_SID` (required)
+- `TWILIO_AUTH_TOKEN` (required, server-only — never exposed)
+- `TWILIO_MESSAGING_SERVICE_SID` (preferred sender)
+- `TWILIO_FROM_NUMBER` (fallback sender — set either)
