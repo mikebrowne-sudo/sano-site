@@ -1,4 +1,4 @@
-import { Settings, SlidersHorizontal, ArchiveRestore, LayoutGrid, FileText, Briefcase } from 'lucide-react'
+import { Settings, SlidersHorizontal, ArchiveRestore, LayoutGrid, FileText, Briefcase, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 
@@ -67,6 +67,20 @@ export default async function SettingsPage() {
                 <div className="text-sage-800 font-semibold text-sm">Display settings</div>
                 <div className="text-sage-600 text-xs mt-1">
                   Choose which fields appear in Jobs and Quotes lists, and the default sort. Admin-only.
+                </div>
+              </div>
+            </div>
+          </Link>
+          <Link
+            href="/portal/settings/notifications"
+            className="block bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4 hover:border-sage-200 hover:shadow-sm transition-all"
+          >
+            <div className="flex items-start gap-3">
+              <MessageCircle size={20} className="text-sage-500 mt-0.5" />
+              <div>
+                <div className="text-sage-800 font-semibold text-sm">Notifications</div>
+                <div className="text-sage-600 text-xs mt-1">
+                  Twilio SMS provider, channel + type toggles, message templates, test SMS panel. Admin-only.
                 </div>
               </div>
             </div>
