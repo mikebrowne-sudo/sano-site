@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
-import { DollarSign, Plus, ClipboardCheck } from 'lucide-react'
+import { DollarSign, Plus, ClipboardCheck, FileSpreadsheet, FilePlus } from 'lucide-react'
 import clsx from 'clsx'
 import { isAdminEmail } from '@/lib/is-admin'
 
@@ -22,6 +22,17 @@ export default async function PayrollPage() {
         .select('*', { count: 'exact', head: true })
         .eq('pay_status', 'approved')
     : { count: 0 as number | null }
+
+  // Phase E.1 — counts for the new contractor-run cards.
+  const [
+    { count: draftContractorRuns },
+    { count: approvedContractorRuns },
+  ] = isAdmin
+    ? await Promise.all([
+        supabase.from('pay_runs').select('*', { count: 'exact', head: true }).eq('kind', 'contractor').eq('status', 'draft'),
+        supabase.from('pay_runs').select('*', { count: 'exact', head: true }).eq('kind', 'contractor').eq('status', 'approved'),
+      ])
+    : [{ count: 0 as number | null }, { count: 0 as number | null }]
 
   const { data: runs, error } = await supabase
     .from('pay_runs')
@@ -50,20 +61,50 @@ export default async function PayrollPage() {
           the pending view. The count reflects job_worker rows with
           pay_status='approved' and no pay_run_item yet. */}
       {isAdmin && (
-        <Link
-          href="/portal/payroll/contractor-pending"
-          className="flex items-start gap-3 bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6 hover:border-sage-200 hover:shadow-sm transition-all"
-        >
-          <ClipboardCheck size={20} className="text-sage-500 mt-0.5" />
-          <div className="flex-1">
-            <div className="text-sage-800 font-semibold text-sm">Contractor pay approvals</div>
-            <div className="text-sage-600 text-xs mt-1">
-              {approvedContractorRows && approvedContractorRows > 0
-                ? `${approvedContractorRows} approved hour row${approvedContractorRows === 1 ? '' : 's'} waiting to be bundled into a pay run.`
-                : 'No approved hours waiting. Approve hours from a completed job\u2019s Labour \u0026 Margin section to populate this list.'}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <Link
+            href="/portal/payroll/contractor-pending"
+            className="flex items-start gap-3 bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:border-sage-200 hover:shadow-sm transition-all"
+          >
+            <ClipboardCheck size={20} className="text-sage-500 mt-0.5" />
+            <div className="flex-1">
+              <div className="text-sage-800 font-semibold text-sm">Pending contractor approvals</div>
+              <div className="text-sage-600 text-xs mt-1">
+                {approvedContractorRows && approvedContractorRows > 0
+                  ? `${approvedContractorRows} approved hour row${approvedContractorRows === 1 ? '' : 's'} waiting to be bundled into a pay run.`
+                  : 'No approved hours waiting. Approve hours from a completed job\u2019s Labour \u0026 Margin section to populate this list.'}
+              </div>
             </div>
-          </div>
-        </Link>
+          </Link>
+
+          <Link
+            href="/portal/payroll/contractor-runs"
+            className="flex items-start gap-3 bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:border-sage-200 hover:shadow-sm transition-all"
+          >
+            <FileSpreadsheet size={20} className="text-sage-500 mt-0.5" />
+            <div className="flex-1">
+              <div className="text-sage-800 font-semibold text-sm">Contractor pay runs</div>
+              <div className="text-sage-600 text-xs mt-1">
+                {((draftContractorRuns ?? 0) + (approvedContractorRuns ?? 0)) > 0
+                  ? `${draftContractorRuns ?? 0} draft, ${approvedContractorRuns ?? 0} approved awaiting payment.`
+                  : 'No active runs. Use Create contractor pay run to bundle approved hours.'}
+              </div>
+            </div>
+          </Link>
+
+          <Link
+            href="/portal/payroll/contractor-runs/new"
+            className="flex items-start gap-3 bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:border-sage-200 hover:shadow-sm transition-all"
+          >
+            <FilePlus size={20} className="text-sage-500 mt-0.5" />
+            <div className="flex-1">
+              <div className="text-sage-800 font-semibold text-sm">Create contractor pay run</div>
+              <div className="text-sage-600 text-xs mt-1">
+                Pick a date range to bundle approved contractor hours into a new pay run.
+              </div>
+            </div>
+          </Link>
+        </div>
       )}
 
       {(!runs || runs.length === 0) ? (

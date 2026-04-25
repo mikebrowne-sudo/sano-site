@@ -101,14 +101,22 @@ export default async function ContractorPendingPayPage() {
         Back to payroll
       </Link>
 
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-sage-800 tracking-tight">Contractor pay approvals</h1>
-        <p className="text-sm text-sage-600 mt-1.5 max-w-2xl">
-          Approved job hours waiting to be bundled into a contractor
-          pay run. Amounts use the rate that was snapshotted when the
-          hours were approved — later rate changes never alter
-          historical pay.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-sage-800 tracking-tight">Contractor pay approvals</h1>
+          <p className="text-sm text-sage-600 mt-1.5 max-w-2xl">
+            Approved job hours waiting to be bundled into a contractor
+            pay run. Amounts use the rate that was snapshotted when the
+            hours were approved — later rate changes never alter
+            historical pay.
+          </p>
+        </div>
+        <Link
+          href="/portal/payroll/contractor-runs/new"
+          className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
+        >
+          Create pay run
+        </Link>
       </div>
 
       {totalRows === 0 ? (
@@ -188,9 +196,6 @@ export default async function ContractorPendingPayPage() {
             ))}
           </div>
 
-          <p className="text-xs text-sage-500 mt-6">
-            Contractor pay run creation from these approvals lands in Phase E.1.
-          </p>
         </>
       )}
     </div>
