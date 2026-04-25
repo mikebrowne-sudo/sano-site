@@ -21,7 +21,8 @@
 import { ConvertToInvoiceButton } from './ConvertToInvoiceButton'
 import { CreateJobButton } from './CreateJobButton'
 import { CreateJobAndInvoiceButton } from './CreateJobAndInvoiceButton'
-import { Briefcase, Receipt, FilePlus } from 'lucide-react'
+import { CreateRecurringJobButton } from './CreateRecurringJobButton'
+import { Briefcase, Receipt, FilePlus, Repeat } from 'lucide-react'
 
 export interface QuoteNextStepPanelProps {
   quoteId: string
@@ -33,10 +34,11 @@ export function QuoteNextStepPanel({ quoteId, isConvertible, isCommercial }: Quo
   // Residential → "Create Invoice" recommended (typical cash job).
   // Commercial   → "Create Job + Invoice" recommended (organise the
   //                 work and send the bill together).
-  // "Create Job" is never the default recommendation per the brief,
-  // but stays fully available and styled the same as the others.
-  const recommended: 'job' | 'invoice' | 'both' = isCommercial ? 'both' : 'invoice'
+  // "Create Job" + "Create Recurring Job" stay fully available
+  // for both categories but never the default recommendation.
+  const recommended: 'job' | 'invoice' | 'both' | 'recurring' = isCommercial ? 'both' : 'invoice'
   const jobRecommended = (recommended as string) === 'job'
+  const recurringRecommended = (recommended as string) === 'recurring'
 
   return (
     <section
@@ -53,7 +55,7 @@ export function QuoteNextStepPanel({ quoteId, isConvertible, isCommercial }: Quo
         This quote has been accepted. Choose how to proceed with the work.
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <NextStepCard
           icon={<Briefcase size={20} />}
           title="Create Job"
@@ -92,6 +94,24 @@ export function QuoteNextStepPanel({ quoteId, isConvertible, isCommercial }: Quo
               <CreateJobAndInvoiceButton quoteId={quoteId} />
             ) : (
               <DisabledAction label="Create Job + Invoice" note="Not available for this quote" />
+            )
+          }
+        />
+
+        {/* Phase F — Create Recurring Job (commercial-aware contract).
+            Always rendered for both service categories; for residential
+            the contract term + reminder defaults are skipped, leaving a
+            simple recurring-jobs row. */}
+        <NextStepCard
+          icon={<Repeat size={20} />}
+          title="Create Recurring Job"
+          description="Set up an ongoing service for this client. For commercial quotes the contract term, monthly value, and renewal reminders are pre-filled."
+          emphasised={recurringRecommended}
+          action={
+            isConvertible ? (
+              <CreateRecurringJobButton quoteId={quoteId} />
+            ) : (
+              <DisabledAction label="Create Recurring Job" note="Not available for this quote" />
             )
           }
         />
