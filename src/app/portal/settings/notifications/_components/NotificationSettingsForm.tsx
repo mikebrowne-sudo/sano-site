@@ -37,7 +37,9 @@ interface TwilioStatus {
   configured: boolean
   has_account_sid: boolean
   has_auth_token: boolean
+  has_messaging_service_sid: boolean
   has_from_number: boolean
+  has_sender: boolean
 }
 
 export function NotificationSettingsForm({
@@ -97,10 +99,24 @@ export function NotificationSettingsForm({
           Twilio SMS. Auth token is server-only — values are never shown here.
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
           <StatusPill ok={twilioStatus.has_account_sid} label="TWILIO_ACCOUNT_SID" />
           <StatusPill ok={twilioStatus.has_auth_token}  label="TWILIO_AUTH_TOKEN"  />
-          <StatusPill ok={twilioStatus.has_from_number} label="TWILIO_FROM_NUMBER" />
+        </div>
+        <p className="text-xs text-sage-500 mb-1.5">
+          Sender — set either (Messaging Service preferred):
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <StatusPill
+            ok={twilioStatus.has_messaging_service_sid}
+            label="TWILIO_MESSAGING_SERVICE_SID"
+            optional={!twilioStatus.has_messaging_service_sid && twilioStatus.has_from_number}
+          />
+          <StatusPill
+            ok={twilioStatus.has_from_number}
+            label="TWILIO_FROM_NUMBER"
+            optional={!twilioStatus.has_from_number && twilioStatus.has_messaging_service_sid}
+          />
         </div>
 
         <Toggle
@@ -194,18 +210,41 @@ export function NotificationSettingsForm({
   )
 }
 
-function StatusPill({ ok, label }: { ok: boolean; label: string }) {
+function StatusPill({
+  ok,
+  label,
+  /** When true, the env var is missing but the *other* sender
+   *  option covers it — render in muted neutral instead of amber
+   *  so the operator sees that nothing is broken. */
+  optional = false,
+}: {
+  ok: boolean
+  label: string
+  optional?: boolean
+}) {
+  if (ok) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+        <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
+        <code className="font-mono">{label}</code>
+        <span className="ml-auto font-semibold">configured</span>
+      </div>
+    )
+  }
+  if (optional) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+        <span className="inline-block w-2 h-2 rounded-full bg-gray-400" />
+        <code className="font-mono">{label}</code>
+        <span className="ml-auto font-semibold">not set (fallback)</span>
+      </div>
+    )
+  }
   return (
-    <div
-      className={
-        ok
-          ? 'flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700'
-          : 'flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700'
-      }
-    >
-      <span className={ok ? 'inline-block w-2 h-2 rounded-full bg-emerald-500' : 'inline-block w-2 h-2 rounded-full bg-amber-500'} />
+    <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+      <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
       <code className="font-mono">{label}</code>
-      <span className="ml-auto font-semibold">{ok ? 'configured' : 'missing'}</span>
+      <span className="ml-auto font-semibold">missing</span>
     </div>
   )
 }

@@ -1,29 +1,43 @@
 // Phase H — Twilio SMS helper.
 //
-// Server-only — pulls auth from env vars (TWILIO_ACCOUNT_SID +
-// TWILIO_AUTH_TOKEN + TWILIO_FROM_NUMBER). Never exposes the auth
+// Server-only — pulls auth from env vars. Never exposes the auth
 // token to the browser. Uses the REST API directly via fetch so we
 // don't need to take on the Twilio SDK as a dependency for the one
 // endpoint we hit.
+//
+// Sender: TWILIO_MESSAGING_SERVICE_SID is preferred (lets Twilio
+// pool numbers + handle compliance routing). TWILIO_FROM_NUMBER is
+// the fallback for direct-from-a-single-number sends. Either one
+// is sufficient — having both is fine and the messaging service
+// wins.
 
 export interface TwilioConfigStatus {
+  /** Convenience flag: true when SID + token + at least one
+   *  sender (messaging service or from number) are present. */
   configured: boolean
   /** Per-var presence so the settings UI can flag exactly what's
    *  missing without exposing values. */
   has_account_sid: boolean
   has_auth_token: boolean
+  has_messaging_service_sid: boolean
   has_from_number: boolean
+  /** True when at least one of the two senders is configured. */
+  has_sender: boolean
 }
 
 export function getTwilioConfigStatus(): TwilioConfigStatus {
   const sid    = process.env.TWILIO_ACCOUNT_SID?.trim()
   const token  = process.env.TWILIO_AUTH_TOKEN?.trim()
+  const msgSid = process.env.TWILIO_MESSAGING_SERVICE_SID?.trim()
   const from   = process.env.TWILIO_FROM_NUMBER?.trim()
+  const hasSender = !!msgSid || !!from
   return {
-    configured: !!sid && !!token && !!from,
+    configured: !!sid && !!token && hasSender,
     has_account_sid: !!sid,
     has_auth_token:  !!token,
+    has_messaging_service_sid: !!msgSid,
     has_from_number: !!from,
+    has_sender: hasSender,
   }
 }
 
@@ -53,10 +67,14 @@ export async function sendTwilioSms(input: SendTwilioSmsInput): Promise<SendTwil
   const { to, body } = input
   const sid    = process.env.TWILIO_ACCOUNT_SID?.trim()
   const token  = process.env.TWILIO_AUTH_TOKEN?.trim()
+  const msgSid = process.env.TWILIO_MESSAGING_SERVICE_SID?.trim()
   const from   = process.env.TWILIO_FROM_NUMBER?.trim()
 
-  if (!sid || !token || !from) {
-    return { ok: false, error: 'Twilio not configured (missing env vars).' }
+  if (!sid || !token) {
+    return { ok: false, error: 'Twilio not configured (missing TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN).' }
+  }
+  if (!msgSid && !from) {
+    return { ok: false, error: 'Twilio sender not configured (set TWILIO_MESSAGING_SERVICE_SID or TWILIO_FROM_NUMBER).' }
   }
   if (!to.trim())   return { ok: false, error: 'Recipient phone number is required.' }
   if (!body.trim()) return { ok: false, error: 'Message body is required.' }
@@ -64,9 +82,15 @@ export async function sendTwilioSms(input: SendTwilioSmsInput): Promise<SendTwil
   const auth = Buffer.from(`${sid}:${token}`).toString('base64')
   const url  = `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Messages.json`
 
+  // Sender precedence: Messaging Service wins. The two params are
+  // mutually exclusive on Twilio's side — sending both is rejected.
   const form = new URLSearchParams()
-  form.set('To',   to.trim())
-  form.set('From', from)
+  form.set('To', to.trim())
+  if (msgSid) {
+    form.set('MessagingServiceSid', msgSid)
+  } else {
+    form.set('From', from!)
+  }
   form.set('Body', body)
 
   try {
