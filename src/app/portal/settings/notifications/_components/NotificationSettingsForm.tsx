@@ -9,10 +9,12 @@
 //   D. Template editor + Test SMS panel
 
 import { useState, useTransition } from 'react'
+import { useFormState, useFormStatus } from 'react-dom'
 import {
   saveNotificationSettings,
   saveNotificationTemplate,
   sendTestSms,
+  type TestSmsState,
 } from '../_actions'
 import type { NotificationSettings } from '@/lib/notifications/settings'
 
@@ -205,7 +207,7 @@ export function NotificationSettingsForm({
       </section>
 
       {/* Test SMS panel */}
-      <TestSmsPanel onSavedFlash={flash} />
+      <TestSmsPanel />
     </div>
   )
 }
@@ -377,20 +379,15 @@ function TemplateEditor({
   )
 }
 
-function TestSmsPanel({ onSavedFlash }: { onSavedFlash: (msg: string) => void }) {
-  const [to, setTo] = useState('')
-  const [body, setBody] = useState('Hello from Sano portal — Twilio test.')
-  const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
-
-  function send() {
-    setError(null)
-    startTransition(async () => {
-      const result = await sendTestSms({ to, body })
-      if ('error' in result) { setError(result.error); return }
-      onSavedFlash('Test SMS sent.')
-    })
-  }
+function TestSmsPanel() {
+  // Switched to form-action + useFormState so the submit always
+  // wires up cleanly. The previous onClick handler approach
+  // (useTransition + direct call) silently failed in the deployed
+  // build for at least one user — likely a hydration / event-
+  // handler mismatch. The progressive-enhancement form pattern
+  // works even without JS.
+  const initialState: TestSmsState = {}
+  const [state, formAction] = useFormState(sendTestSms, initialState)
 
   return (
     <section className="bg-white rounded-xl border border-sage-100 p-6 md:p-8 space-y-4">
@@ -398,38 +395,56 @@ function TestSmsPanel({ onSavedFlash }: { onSavedFlash: (msg: string) => void })
       <p className="text-xs text-sage-500">
         Bypasses channel + type toggles. Still requires SMS enabled and Twilio configured.
       </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+      <form action={formAction} className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="block text-sm font-semibold text-sage-800 mb-1.5">Phone number</span>
+            <input
+              type="tel"
+              name="phone"
+              defaultValue=""
+              placeholder="+64 21 …"
+              required
+              className="w-full rounded-lg border border-sage-200 px-3 py-2 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm"
+            />
+          </label>
+        </div>
         <label className="block">
-          <span className="block text-sm font-semibold text-sage-800 mb-1.5">Phone number</span>
-          <input
-            type="tel"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            placeholder="+64 21 …"
-            className="w-full rounded-lg border border-sage-200 px-3 py-2 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm"
+          <span className="block text-sm font-semibold text-sage-800 mb-1.5">Message</span>
+          <textarea
+            name="message"
+            defaultValue="Hello from Sano portal — Twilio test."
+            rows={2}
+            required
+            className="w-full rounded-lg border border-sage-200 px-3 py-2 text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm"
           />
         </label>
-      </div>
-      <label className="block">
-        <span className="block text-sm font-semibold text-sage-800 mb-1.5">Message</span>
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={2}
-          className="w-full rounded-lg border border-sage-200 px-3 py-2 text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm"
-        />
-      </label>
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={send}
-          disabled={isPending}
-          className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2 rounded-lg text-sm hover:bg-sage-700 transition-colors disabled:opacity-50"
-        >
-          {isPending ? 'Sending…' : 'Send test SMS'}
-        </button>
-        {error && <span className="text-xs text-red-600">{error}</span>}
-      </div>
+        <div className="flex items-center gap-3">
+          <TestSmsSubmit />
+          {state.error && (
+            <span className="text-xs text-red-600">{state.error}</span>
+          )}
+          {state.ok && (
+            <span className="text-xs text-emerald-700">
+              Test SMS sent{state.sentTo ? ` to ${state.sentTo}` : ''}.
+            </span>
+          )}
+        </div>
+      </form>
     </section>
+  )
+}
+
+function TestSmsSubmit() {
+  const { pending } = useFormStatus()
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2 rounded-lg text-sm hover:bg-sage-700 transition-colors disabled:opacity-50"
+    >
+      {pending ? 'Sending…' : 'Send test SMS'}
+    </button>
   )
 }
