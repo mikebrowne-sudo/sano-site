@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { notifyContractorAssigned } from '@/lib/notify-contractor'
+import { sendNotification } from '@/lib/notifications/send'
 
 // Phase D — mark a completed job as reviewed. Captures reviewed_at
 // + reviewed_by (FK to auth.users) and audit-logs the transition.
@@ -272,10 +273,11 @@ export async function assignJob(input: AssignJobInput) {
     return { error: 'Please select a contractor.' }
   }
 
-  // Look up contractor details
+  // Look up contractor details. Phase H also reads phone for the
+  // automated SMS branch.
   const { data: contractor } = await supabase
     .from('contractors')
-    .select('full_name, email, insurance_expiry')
+    .select('full_name, email, phone, insurance_expiry')
     .eq('id', contractorId)
     .single()
 
@@ -375,6 +377,38 @@ export async function assignJob(input: AssignJobInput) {
       access_instructions: effectiveAccess ?? null,
       notes: effectiveNotes ?? null,
       scope_summary: job.description ?? null,
+    })
+
+    // Phase H — also fire the contractor SMS via the central
+    // sendNotification path. Every gate (provider, channel, type,
+    // automated source, template, recipient phone) is enforced
+    // there + every attempt is logged. Failures don't block the
+    // assignment; a skipped/failed notification just leaves a row
+    // in notification_logs.
+    const fmtDate = (iso: string | null) => iso
+      ? new Date(iso).toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short' })
+      : ''
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
+    await sendNotification(supabase, {
+      type: 'job_assigned',
+      channel: 'sms',
+      audience: 'contractor',
+      source: 'automated',
+      recipientName: contractor.full_name,
+      recipientPhone: (contractor as unknown as { phone?: string | null }).phone ?? null,
+      variables: {
+        contractor_name: (contractor.full_name ?? '').split(/\s+/)[0],
+        job_title:       job.title ?? job.job_number,
+        job_number:      job.job_number,
+        site_address:    job.address ?? '',
+        scheduled_date:  fmtDate(effectiveDate ?? null),
+        scheduled_time:  effectiveTime ?? '',
+        job_link:        `${siteUrl}/contractor/jobs/${jobId}`,
+        business_name:   'Sano',
+        business_phone:  '0800 726 686',
+      },
+      jobId,
+      contractorId,
     })
   }
 

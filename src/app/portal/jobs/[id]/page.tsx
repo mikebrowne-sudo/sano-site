@@ -13,6 +13,7 @@ import { ArchiveJobButton } from './_components/ArchiveJobButton'
 import { JobWorkflowBar } from './_components/JobWorkflowBar'
 import { MarkJobReviewedButton } from './_components/MarkJobReviewedButton'
 import { ApproveHoursButton } from './_components/ApproveHoursButton'
+import { JobNotificationsPanel } from './_components/JobNotificationsPanel'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -114,6 +115,30 @@ export default async function JobDetailPage({ params }: { params: { id: string }
   // when the row is already archived.
   const isArchived = job.deleted_at != null
   const canArchiveJob = isAdmin && !isArchived
+
+  // Phase H — pull recipient phones for the manual SMS panel.
+  // Cheap, only runs for admin; falls back to nothing if the job
+  // has no contractor / client.
+  let hasContractorPhone = false
+  let hasCustomerPhone = false
+  if (isAdmin && !isArchived) {
+    if (job.contractor_id) {
+      const { data: c } = await supabase
+        .from('contractors')
+        .select('phone')
+        .eq('id', job.contractor_id)
+        .single()
+      hasContractorPhone = !!(c?.phone && String(c.phone).trim())
+    }
+    if (job.client_id) {
+      const { data: cl } = await supabase
+        .from('clients')
+        .select('phone')
+        .eq('id', job.client_id)
+        .single()
+      hasCustomerPhone = !!(cl?.phone && String(cl.phone).trim())
+    }
+  }
   // Silence lint — retained temporarily for downstream references
   // once we reintroduce hard-delete UI behind an admin override.
   void linkedInvoiceStatus
@@ -225,6 +250,19 @@ export default async function JobDetailPage({ params }: { params: { id: string }
           />
         </div>
       </div>
+
+      {/* Phase H — manual SMS panel. Admin-only, hidden on archived
+          jobs. Renders only when a phone number actually exists for
+          the contractor or client. */}
+      {isAdmin && !isArchived && (hasContractorPhone || hasCustomerPhone) && (
+        <div className="flex justify-end mb-3">
+          <JobNotificationsPanel
+            jobId={job.id}
+            hasContractorPhone={hasContractorPhone}
+            hasCustomerPhone={hasCustomerPhone}
+          />
+        </div>
+      )}
 
       {canArchiveJob && (
         <div className="flex justify-end mb-6">
