@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
-import { DollarSign, Plus } from 'lucide-react'
+import { DollarSign, Plus, ClipboardCheck } from 'lucide-react'
 import clsx from 'clsx'
+import { isAdminEmail } from '@/lib/is-admin'
 
 function fmtDate(iso: string | null) {
   if (!iso) return '—'
@@ -10,6 +11,17 @@ function fmtDate(iso: string | null) {
 
 export default async function PayrollPage() {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const isAdmin = isAdminEmail(user?.email)
+
+  // Phase E — count approved-but-not-yet-in-pay-run job_worker rows
+  // for the Contractor approvals card. Small head-only count; cheap.
+  const { count: approvedContractorRows } = isAdmin
+    ? await supabase
+        .from('job_workers')
+        .select('*', { count: 'exact', head: true })
+        .eq('pay_status', 'approved')
+    : { count: 0 as number | null }
 
   const { data: runs, error } = await supabase
     .from('pay_runs')
@@ -33,6 +45,26 @@ export default async function PayrollPage() {
           <Plus size={16} /> New Pay Run
         </Link>
       </div>
+
+      {/* Phase E — contractor approvals card. Admin-only link into
+          the pending view. The count reflects job_worker rows with
+          pay_status='approved' and no pay_run_item yet. */}
+      {isAdmin && (
+        <Link
+          href="/portal/payroll/contractor-pending"
+          className="flex items-start gap-3 bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6 hover:border-sage-200 hover:shadow-sm transition-all"
+        >
+          <ClipboardCheck size={20} className="text-sage-500 mt-0.5" />
+          <div className="flex-1">
+            <div className="text-sage-800 font-semibold text-sm">Contractor pay approvals</div>
+            <div className="text-sage-600 text-xs mt-1">
+              {approvedContractorRows && approvedContractorRows > 0
+                ? `${approvedContractorRows} approved hour row${approvedContractorRows === 1 ? '' : 's'} waiting to be bundled into a pay run.`
+                : 'No approved hours waiting. Approve hours from a completed job\u2019s Labour \u0026 Margin section to populate this list.'}
+            </div>
+          </div>
+        </Link>
+      )}
 
       {(!runs || runs.length === 0) ? (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">

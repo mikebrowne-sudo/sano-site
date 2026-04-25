@@ -12,6 +12,7 @@ import { ActualHoursEditor } from './_components/ActualHoursEditor'
 import { ArchiveJobButton } from './_components/ArchiveJobButton'
 import { JobWorkflowBar } from './_components/JobWorkflowBar'
 import { MarkJobReviewedButton } from './_components/MarkJobReviewedButton'
+import { ApproveHoursButton } from './_components/ApproveHoursButton'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -82,10 +83,12 @@ export default async function JobDetailPage({ params }: { params: { id: string }
 
   if (error || !job) notFound()
 
-  // Load assigned workers with payroll fields for costing
+  // Load assigned workers with payroll fields for costing.
+  // Phase E — also select the pay snapshot columns so ApproveHours
+  // can render its read-only summary once approval has happened.
   const { data: jobWorkers } = await supabase
     .from('job_workers')
-    .select('contractor_id, hours_allocated, actual_start_time, actual_end_time, actual_hours, contractors ( full_name, hourly_rate, worker_type, holiday_pay_method, holiday_pay_percent, kiwisaver_enrolled, kiwisaver_employer_rate )')
+    .select('contractor_id, hours_allocated, actual_start_time, actual_end_time, actual_hours, pay_rate, pay_type, approved_hours, approved_at, approved_by, pay_status, contractors ( full_name, hourly_rate, worker_type, holiday_pay_method, holiday_pay_percent, kiwisaver_enrolled, kiwisaver_employer_rate )')
     .eq('job_id', params.id)
 
   const client = job.clients as unknown as { name: string; company_name: string | null } | null
@@ -448,6 +451,37 @@ export default async function JobDetailPage({ params }: { params: { id: string }
                           })}
                         </tbody>
                       </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Phase E — Approve Hours for Pay. Admin only. Only
+                    renders for completed / invoiced jobs. Each worker
+                    gets its own approval control using the snapshot
+                    fields we loaded above. */}
+                {isAdmin && (job.status === 'completed' || job.status === 'invoiced') && workers.length > 0 && (
+                  <div className="border-t border-sage-100 pt-3 mt-4">
+                    <span className="text-xs text-sage-500 font-semibold uppercase tracking-wide">Pay approvals</span>
+                    <div className="mt-2 space-y-2">
+                      {workers.map((w, i) => {
+                        const raw = jobWorkers?.[i]
+                        return (
+                          <div key={w.contractor_id} className="flex flex-wrap items-center gap-2 text-xs">
+                            <span className="text-sage-700 font-medium">{w.full_name}</span>
+                            <ApproveHoursButton
+                              jobId={job.id}
+                              contractorId={w.contractor_id}
+                              contractorName={w.full_name}
+                              allowedHours={w.hours_allocated ?? job.allowed_hours ?? null}
+                              actualHours={w.actual_hours ?? null}
+                              hourlyRate={w.hourly_rate ?? null}
+                              payStatus={(raw?.pay_status as string | null) ?? 'pending'}
+                              approvedHours={(raw?.approved_hours as number | null) ?? null}
+                              payRate={(raw?.pay_rate as number | null) ?? null}
+                            />
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )}
