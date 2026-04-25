@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft, MapPin, Calendar, Clock, Timer } from 'lucide-react'
 import { ContractorJobActions } from './_components/ContractorJobActions'
 import { ContractorNotesForm } from './_components/ContractorNotesForm'
+import { OnTheWayButton } from './_components/OnTheWayButton'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -96,6 +97,12 @@ export default async function ContractorJobDetailPage({ params }: { params: { id
 
       {/* Primary action — large, prominent, mobile-friendly */}
       <ContractorJobActions jobId={job.id} status={job.status} />
+
+      {/* Phase H.3 — informational SMS to the customer; only meaningful
+          before the contractor has started the job on site. */}
+      {(job.status === 'draft' || job.status === 'assigned') && (
+        <OnTheWayButton jobId={job.id} />
+      )}
 
       {/* Schedule card */}
       <div className="bg-white rounded-2xl border border-sage-100 p-5 mt-5 space-y-4">
