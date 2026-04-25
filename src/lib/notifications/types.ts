@@ -56,4 +56,10 @@ export const TEMPLATE_PLACEHOLDERS = [
   '{{job_link}}',
   '{{business_name}}',
   '{{business_phone}}',
+  // Phase H.1 — invoice + scheduling additions
+  '{{invoice_number}}',
+  '{{invoice_total}}',
+  '{{due_date}}',
+  '{{invoice_link}}',
+  '{{allowed_hours}}',
 ] as const
