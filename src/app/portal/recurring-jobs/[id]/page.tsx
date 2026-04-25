@@ -3,6 +3,10 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { GenerateJobButton } from './_components/GenerateJobButton'
+import { GenerateUpcomingButton } from './_components/GenerateUpcomingButton'
+import { RemindersPanel, type ReminderRow } from './_components/RemindersPanel'
+import { ExtendContractButton } from './_components/ExtendContractButton'
+import { isAdminEmail } from '@/lib/is-admin'
 import clsx from 'clsx'
 
 function fmtDate(iso: string | null) {
@@ -17,6 +21,8 @@ function fmtCurrency(dollars: number | null) {
 
 export default async function RecurringJobDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const isAdmin = isAdminEmail(user?.email)
 
   const { data: rec, error } = await supabase
     .from('recurring_jobs')
@@ -35,6 +41,14 @@ export default async function RecurringJobDetailPage({ params }: { params: { id:
     .eq('recurring_job_id', params.id)
     .order('scheduled_date', { ascending: false })
     .limit(5)
+
+  // Phase F — reminders.
+  const { data: remindersRaw } = await supabase
+    .from('recurring_contract_reminders')
+    .select('id, reminder_type, due_date, status, completed_at')
+    .eq('recurring_job_id', params.id)
+    .order('due_date', { ascending: true })
+  const reminders = (remindersRaw ?? []) as ReminderRow[]
 
   const isActive = rec.status === 'active'
   const isPastEnd = rec.end_date && rec.next_due_date && rec.next_due_date > rec.end_date
@@ -58,7 +72,17 @@ export default async function RecurringJobDetailPage({ params }: { params: { id:
             <Pencil size={14} /> Edit
           </Link>
           {isActive && !isPastEnd && (
-            <GenerateJobButton recurringId={rec.id} nextDueDate={rec.next_due_date} />
+            <>
+              <GenerateJobButton recurringId={rec.id} nextDueDate={rec.next_due_date} />
+              <GenerateUpcomingButton recurringId={rec.id} />
+            </>
+          )}
+          {isAdmin && (
+            <ExtendContractButton
+              recurringId={rec.id}
+              currentEndDate={rec.end_date ?? null}
+              currentTermMonths={rec.contract_term_months ?? null}
+            />
           )}
         </div>
       </div>
@@ -76,6 +100,55 @@ export default async function RecurringJobDetailPage({ params }: { params: { id:
             <div><span className="text-sage-500">End date</span><p className="text-sage-800 font-medium">{fmtDate(rec.end_date)}</p></div>
             <div><span className="text-sage-500">Time</span><p className="text-sage-800 font-medium">{rec.scheduled_time ?? '—'}</p></div>
           </div>
+        </Section>
+
+        {/* Phase F — contract terms (only when populated). */}
+        {(rec.contract_term_months || rec.notice_period_days || rec.monthly_value || rec.renewal_status) && (
+          <Section title="Contract terms">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+              <div>
+                <span className="text-sage-500">Term</span>
+                <p className="text-sage-800 font-medium">
+                  {rec.contract_term_months ? `${rec.contract_term_months} months` : '—'}
+                </p>
+              </div>
+              <div>
+                <span className="text-sage-500">Notice period</span>
+                <p className="text-sage-800 font-medium">
+                  {rec.notice_period_days ? `${rec.notice_period_days} days` : '—'}
+                </p>
+              </div>
+              <div>
+                <span className="text-sage-500">Monthly value</span>
+                <p className="text-sage-800 font-medium">{fmtCurrency(rec.monthly_value)}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mt-3">
+              <div>
+                <span className="text-sage-500">Renewal status</span>
+                <p className="text-sage-800 font-medium capitalize">
+                  {(rec.renewal_status ?? 'not_started').replace('_', ' ')}
+                </p>
+              </div>
+              {rec.service_category && (
+                <div>
+                  <span className="text-sage-500">Service category</span>
+                  <p className="text-sage-800 font-medium capitalize">{rec.service_category}</p>
+                </div>
+              )}
+            </div>
+            {rec.renewal_notes && (
+              <div className="mt-3">
+                <span className="text-sage-500 text-sm">Renewal notes</span>
+                <p className="text-sage-700 text-sm whitespace-pre-wrap mt-1">{rec.renewal_notes}</p>
+              </div>
+            )}
+          </Section>
+        )}
+
+        {/* Phase F — renewal reminders. */}
+        <Section title="Renewal reminders">
+          <RemindersPanel reminders={reminders} />
         </Section>
 
         <Section title="Client">
