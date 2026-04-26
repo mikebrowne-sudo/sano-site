@@ -8,7 +8,7 @@
 
 ## Current Active Work
 
-**Primary focus:** Notifications Phase H.5 — SMS inbound + delivery + compliance (STOP/HELP). Once shipped, `customer_sms_enabled` can be flipped back on for live customer SMS.
+**Primary focus:** Phase 5 — Applicant pipeline foundation. Public Join Our Team submissions land in `applicants` table; staff portal at `/portal/applicants` for triage. Future phases: interview scheduling, applicant → contractor conversion, online contracts, training assignment, onboarding checklist.
 
 *Convention: this section reflects the ONE active focus. Each major phase (Notifications, Payroll, Recurring, etc.) supports an "In Flight" subsection below its "shipped" section. Shipped sections remain unchanged; in-flight sections track real-time development state and update only at phase boundaries (push → PR → merge → verified).*
 
@@ -221,6 +221,24 @@ commit-level detail).
 ---
 
 ## Data structure
+
+### applicants (Phase 5)
+Inbound recruitment funnel rows from the public Join Our Team form (`/api/submit-application`).
+- status (CHECK in: new | reviewing | interview | approved | rejected | converted_to_contractor) + status_updated_at + status_updated_by
+- staff_notes (internal only)
+- first_name / last_name / phone / email / suburb / date_of_birth (optional)
+- application_type (CHECK in: contractor | employee)
+- has_license / has_vehicle / can_travel
+- has_experience / experience_types[] / experience_notes
+- has_equipment
+- available_days[] / preferred_hours / travel_areas
+- independent_work / work_rights_nz / has_insurance / willing_to_get_insurance
+- why_join_sano (optional motivation)
+- confirm_truth (declaration checkbox)
+- converted_contractor_id (FK → contractors, set null on delete) + converted_at
+- created_at + updated_at (trigger-managed)
+
+Indexes: status, created_at desc, lower(email), partial on converted_contractor_id is not null. RLS: staff read; admin update/delete; public form INSERT goes via service-role and bypasses RLS.
 
 ### clients
 - name
@@ -1395,8 +1413,59 @@ Production state
 - Real-SMS end-to-end validation intentionally deferred. `notification_settings.channels.customer_sms_enabled = false` acts as a deliberate safety net while operator opt-out (STOP/HELP) handling is still pending.
 - No real customer SMS sent at any point during validation.
 
+### SMS inbound + delivery + compliance — shipped (Phase H.5)
+
+Adds inbound SMS handling, delivery-status callbacks, and an opt-out gate. Deployed via PR #82 → `main@b9077e43` (2026-04-26).
+
+DB migration — `docs/db/2026-04-26-phase-h5-sms-inbound-compliance.sql`
+- `clients.opted_out_sms boolean default false`, `opted_out_sms_at timestamptz`, `opted_out_sms_keyword text` + partial index.
+- `notification_logs.delivery_status text`, `delivery_updated_at timestamptz` for post-send Twilio callbacks. Internal `status` (sent/failed/skipped) untouched by callbacks.
+- New `notification_inbound_messages` table — append-only log of every inbound SMS, with detected keyword, action_taken, matched client, full Twilio payload jsonb. Staff read RLS.
+
+`src/lib/notifications/twilio-validate.ts`
+- HMAC-SHA1 signature validator. Validates `X-Twilio-Signature` against `TWILIO_AUTH_TOKEN` using the URL + alphabetised form params, base64-compared in constant time.
+
+`src/lib/notifications/inbound-handler.ts`
+- Keyword classifier: `STOP`/`STOPALL`/`UNSUBSCRIBE`/`CANCEL`/`END`/`QUIT` and `HELP`/`INFO`. Exact-token match after trim+upper, so conversational replies don't false-positive.
+- Help reply body directs to phone + email (`hello@sano.nz`) — does NOT promote SMS opt-out keywords because reliable inbound replies aren't supported on the current US long-code sender to NZ mobiles. Email is the authoritative opt-out path.
+
+`src/app/api/twilio/inbound-sms/route.ts`
+- POST endpoint for the Messaging Service inbound webhook. Validates signature, classifies the body, looks up the client by phone, sets `opted_out_sms=true` on STOP, returns the help reply on HELP, always persists a row in `notification_inbound_messages`. GET → 405.
+
+`src/app/api/twilio/status/route.ts`
+- POST endpoint for the Messaging Service status callback. Updates `notification_logs.delivery_status` + `delivery_updated_at` by `provider_message_id`. GET → 405.
+
+`src/lib/notifications/send.ts` — gate 8
+- Customer opt-out gate added between recipient phone check and Twilio send. Direct PK lookup by `clientId` (preferred) with phone-based fallback. Skips with reason `"Client opted out (STOP)."` Contractor sends are not gated here. Test-source sends bypass.
+
+Production state — operational use is one-way SMS only
+- Twilio webhooks configured 2026-04-26 pointing at `https://sano.nz/api/twilio/inbound-sms` and `https://sano.nz/api/twilio/status`. Routes verified reachable in production (signature-validation 403 / GET 405 as expected).
+- Skip-path validation passed (cron returned `{ ok: true }`; overdue + invoice attempts logged `skipped` rows at the customer-channel gate).
+- **Reliable inbound replies from NZ mobiles to the current US long-code Twilio sender are not supported.** The inbound webhook code is in place for future sender / provider changes, but real STOP/HELP customer-reply validation is deferred until the sender is upgraded (NZ short code, alphanumeric sender id, or a different provider).
+- Current production posture: one-way operational SMS. `customer_sms_enabled` can be turned on for outbound customer SMS without depending on inbound SMS opt-out. Templates direct customers to email/phone for opt-out and questions.
+
 ### In Flight (Phase H.x)
 
 *Update only at phase boundaries (push → PR → merge → verified). Items move out of this section into "shipped" only after deployed and verified.*
 
-- **H.5 — SMS inbound + delivery + compliance (STOP/HELP)** — built on `feat/sms-inbound-compliance-phase-h5`. Adds `/api/twilio/inbound-sms` (STOP marks `clients.opted_out_sms=true`; HELP returns canned reply), `/api/twilio/status` (writes `notification_logs.delivery_status` from Twilio callbacks), and an opt-out gate in `sendNotification`. Migration `docs/db/2026-04-26-phase-h5-sms-inbound-compliance.sql` applied to Supabase. Pending: PR review + merge, Twilio Messaging Service inbound + status-callback URL configuration, then real-SMS validation. Once shipped + validated, `customer_sms_enabled` can be flipped back to `true`.
+None currently.
+
+---
+
+## Applicant pipeline (Phase 5)
+
+Inbound recruitment funnel — public Join Our Team submissions land in the `applicants` table; staff triage in `/portal/applicants`.
+
+### In Flight
+
+*Update only at phase boundaries (push → PR → merge → verified). Items move out of this section into "shipped" only after deployed and verified.*
+
+- **Phase 5 — Foundation** — built on `feat/applicant-pipeline-phase-5`. Migration `docs/db/2026-04-26-phase-5-applicants.sql` applied to Supabase. Public form (`/api/submit-application`) now inserts into `applicants` with `status='new'`. Staff portal at `/portal/applicants` (status filter list + detail page with status update + notes). Nav entry added under Workforce. "Convert to contractor" placeholder button on detail. Pending: PR + merge + production validation.
+
+### Future phases (planned, not yet started)
+
+- **Interview scheduling** — slot offers, applicant-side accept/decline, calendar integration.
+- **Applicant → contractor conversion** — wires `converted_contractor_id` + `converted_at`, copies name/email/phone, creates a contractor row, optionally an auth user.
+- **Online contracts / signing** — generate contractor agreement PDF, e-signature flow.
+- **Training / compliance assignment** — auto-assign required modules from `training_modules` on conversion.
+- **Onboarding checklist** — multi-step task list per converted applicant tracking insurance / right-to-work / training / equipment.
