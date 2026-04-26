@@ -24,6 +24,9 @@ export interface WorkforceSettings {
   // Phase 5.5.4 — mobile / PWA toggles for the contractor portal.
   enable_pwa_prompt: boolean
   contractor_mobile_bottom_nav_enabled: boolean
+  // Phase 5.5.5 — customer portal scaffold. Default off until the
+  // real surface is built; the placeholder page checks this flag.
+  enable_customer_portal: boolean
 }
 
 export const WORKFORCE_SETTINGS_DEFAULTS: WorkforceSettings = {
@@ -42,6 +45,7 @@ export const WORKFORCE_SETTINGS_DEFAULTS: WorkforceSettings = {
   enable_contractor_portal: true,
   enable_pwa_prompt: true,
   contractor_mobile_bottom_nav_enabled: true,
+  enable_customer_portal: false,
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

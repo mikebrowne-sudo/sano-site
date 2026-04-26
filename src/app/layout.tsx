@@ -13,7 +13,10 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: '/brand/sano-mark.svg',
-    apple: '/brand/sano-logo-stacked.png',
+    // Phase 5.5.5 — Apple touch icon points at the proper square 192px
+    // PNG generated from the brand mark; older fallback was a logo asset
+    // that wasn't square.
+    apple: '/icons/icon-192.png',
   },
   openGraph: {
     title: 'Sano Cleaning — Professional Cleaning in Auckland',
