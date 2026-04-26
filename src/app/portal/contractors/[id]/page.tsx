@@ -11,6 +11,8 @@ import { DeleteButton } from '../../_components/DeleteButton'
 import { computeComplianceStatus } from '@/lib/contractor-compliance'
 import clsx from 'clsx'
 import { OnboardingPanel } from './_components/OnboardingPanel'
+import { TrialPanel } from './_components/TrialPanel'
+import { loadOnboardingSettings } from '@/lib/onboarding-settings'
 
 // Phase 5.3 — worker_type now collapses to {contractor, employee};
 // the prior sub-classifications (casual / part_time / full_time)
@@ -52,7 +54,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
   const [{ data: contractor, error }, { data: jobs, count: jobCount }, { data: documents }, { data: trainingAssignments }, { data: incidents }] = await Promise.all([
     supabase
       .from('contractors')
-      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, employment_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate, insurance_provider, insurance_policy_number, insurance_expiry, insurance_liability_cover, company_name, business_structure, nzbn, gst_registered, gst_number, bank_account_name, bank_account_number, payment_terms_days, contract_signed_date, right_to_work_required, right_to_work_expiry, service_areas, approved_services, availability_notes, has_vehicle, provides_own_equipment, key_holding_approved, alarm_access_approved, pet_friendly, experience_level, can_lead_jobs, can_work_solo, can_supervise_others, invite_sent_at, portal_access_active, auth_user_id, onboarding_status, onboarding_started_at, onboarding_completed_at, trial_required, source_applicant_id')
+      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, employment_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate, insurance_provider, insurance_policy_number, insurance_expiry, insurance_liability_cover, company_name, business_structure, nzbn, gst_registered, gst_number, bank_account_name, bank_account_number, payment_terms_days, contract_signed_date, right_to_work_required, right_to_work_expiry, service_areas, approved_services, availability_notes, has_vehicle, provides_own_equipment, key_holding_approved, alarm_access_approved, pet_friendly, experience_level, can_lead_jobs, can_work_solo, can_supervise_others, invite_sent_at, portal_access_active, auth_user_id, onboarding_status, onboarding_started_at, onboarding_completed_at, trial_required, trial_status, trial_scheduled_for, trial_outcome_note, source_applicant_id')
       .eq('id', params.id)
       .single(),
     supabase
@@ -92,15 +94,38 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
     }
   }
 
-  const workerType = contractor.worker_type ?? 'contractor'
+  const workerType = (contractor.worker_type ?? 'contractor') as 'contractor' | 'employee'
   const employmentType = (contractor as { employment_type?: string | null }).employment_type ?? null
   const compliance = computeComplianceStatus(contractor)
   const onboardingStatus = (contractor as { onboarding_status?: string | null }).onboarding_status ?? null
-  const trialRequired = (contractor as { trial_required?: boolean | null }).trial_required ?? null
-  const inOnboarding = (contractor.status as string) === 'onboarding'
-    || (onboardingStatus && onboardingStatus !== 'complete')
+  const contractorStatus = contractor.status as string
+  const trialRequired = ((contractor as { trial_required?: boolean | null }).trial_required ?? false) as boolean
+  const trialStatus = ((contractor as { trial_status?: string | null }).trial_status ?? 'not_started') as string
+  const trialScheduledFor = (contractor as { trial_scheduled_for?: string | null }).trial_scheduled_for ?? null
+  const trialOutcomeNote = (contractor as { trial_outcome_note?: string | null }).trial_outcome_note ?? null
+  const inOnboarding = contractorStatus === 'onboarding'
+    || (!!onboardingStatus && onboardingStatus !== 'complete')
   const incidentList = incidents ?? []
   const openIncidentCount = incidentList.filter((i) => !i.resolved_at).length
+
+  // Phase 5.4 — insurance warning. Surface only for `contractor`
+  // worker_type with insurance_expiry within the configured warning
+  // window or already expired.
+  const onboardingSettings = await loadOnboardingSettings(supabase)
+  const insExpiry = (contractor as { insurance_expiry?: string | null }).insurance_expiry ?? null
+  let insuranceWarning: { kind: 'expired' | 'expiring' | 'missing'; message: string } | null = null
+  if (workerType === 'contractor') {
+    if (!insExpiry) {
+      insuranceWarning = { kind: 'missing', message: 'No public liability insurance on file.' }
+    } else {
+      const daysToExpiry = Math.floor((new Date(insExpiry).getTime() - Date.now()) / 86400000)
+      if (daysToExpiry < 0) {
+        insuranceWarning = { kind: 'expired', message: `Insurance expired ${-daysToExpiry} day${daysToExpiry === -1 ? '' : 's'} ago (${insExpiry}). Update before assigning jobs.` }
+      } else if (daysToExpiry <= onboardingSettings.insurance_expiry_warning_days) {
+        insuranceWarning = { kind: 'expiring', message: `Insurance expires in ${daysToExpiry} day${daysToExpiry === 1 ? '' : 's'} (${insExpiry}).` }
+      }
+    }
+  }
 
   return (
     <div>
@@ -145,36 +170,50 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
         </div>
       )}
 
-      {/* Phase 5.3 — Onboarding panel surfaces while the contractor is
-          in onboarding or has any pending checklist items. Once the
-          checklist hits 100%, contractors.status flips to active and
-          onboarding_status to complete; the panel still renders the
-          historical complete state for admin reference. */}
-      {(inOnboarding || onboardingStatus === 'complete') && (
-        <div className="max-w-2xl">
-          <OnboardingPanel contractorId={contractor.id} onboardingStatus={onboardingStatus} />
+      {/* Phase 5.4 — Insurance warning banner (contractor only). */}
+      {insuranceWarning && (
+        <div className={`max-w-2xl mb-6 rounded-xl border p-4 text-sm ${
+          insuranceWarning.kind === 'expired'
+            ? 'border-red-200 bg-red-50 text-red-800'
+            : insuranceWarning.kind === 'expiring'
+              ? 'border-amber-200 bg-amber-50 text-amber-800'
+              : 'border-amber-200 bg-amber-50 text-amber-800'
+        }`}>
+          <p className="font-semibold mb-0.5">
+            {insuranceWarning.kind === 'expired'
+              ? 'Insurance expired'
+              : insuranceWarning.kind === 'expiring'
+                ? 'Insurance expiring soon'
+                : 'Insurance not on file'}
+          </p>
+          <p>{insuranceWarning.message}</p>
         </div>
       )}
 
-      {/* Trial visibility */}
-      {((contractor as { trial_required?: boolean | null }).trial_required !== null
-        && (contractor as { trial_required?: boolean | null }).trial_required !== undefined) && (
-        <div className="max-w-2xl bg-white rounded-2xl border border-sage-100 shadow-sm p-6 mb-6">
-          <h2 className="text-base font-semibold text-sage-800 mb-1">Trial</h2>
-          {trialRequired ? (
-            <>
-              <p className="text-sm text-sage-700 mb-2">
-                <span className="inline-block px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium text-xs mr-2">Trial required</span>
-                A trial shift should be scheduled after onboarding completes.
-              </p>
-              <p className="text-xs text-sage-500">Trial scheduling UI lands in Phase 5.4.</p>
-            </>
-          ) : (
-            <p className="text-sm text-sage-700">
-              <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium text-xs mr-2">Trial skipped</span>
-              Marked trial-not-required at conversion (experienced applicant).
-            </p>
-          )}
+      {/* Phase 5.3 + 5.4 — Onboarding panel + activation gate. */}
+      {(inOnboarding || onboardingStatus === 'complete') && (
+        <div className="max-w-2xl">
+          <OnboardingPanel
+            contractorId={contractor.id}
+            workerType={workerType}
+            contractorStatus={contractorStatus}
+            onboardingStatus={onboardingStatus}
+            trialRequired={trialRequired}
+            trialStatus={trialStatus}
+          />
+        </div>
+      )}
+
+      {/* Phase 5.4 — Trial card with full scheduling + outcome. */}
+      {(inOnboarding || onboardingStatus === 'complete' || trialStatus === 'passed' || trialStatus === 'failed') && (
+        <div className="max-w-2xl">
+          <TrialPanel
+            contractorId={contractor.id}
+            trialRequired={trialRequired}
+            trialStatus={trialStatus}
+            trialScheduledFor={trialScheduledFor}
+            trialOutcomeNote={trialOutcomeNote}
+          />
         </div>
       )}
 

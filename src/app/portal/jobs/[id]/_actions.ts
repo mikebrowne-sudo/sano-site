@@ -274,10 +274,12 @@ export async function assignJob(input: AssignJobInput) {
   }
 
   // Look up contractor details. Phase H also reads phone for the
-  // automated SMS branch.
+  // automated SMS branch. Phase 5.4 adds the workflow-gate fields
+  // (status, onboarding_status, trial_required, trial_status,
+  // worker_type) for the new gate below.
   const { data: contractor } = await supabase
     .from('contractors')
-    .select('full_name, email, phone, insurance_expiry')
+    .select('full_name, email, phone, insurance_expiry, status, onboarding_status, trial_required, trial_status, worker_type')
     .eq('id', contractorId)
     .single()
 
@@ -285,7 +287,27 @@ export async function assignJob(input: AssignJobInput) {
     return { error: 'Contractor not found.' }
   }
 
-  // Block assignment if insurance is missing or expired
+  // Phase 5.4 — Workflow gate driven by onboarding_settings.
+  // block_assignment_until_onboarding_complete = true (default) →
+  // hard-block on incomplete onboarding / unfinished trial / non-active
+  // status. When the toggle is off, fall through to the existing
+  // insurance-expiry hard-block only.
+  const { loadOnboardingSettings } = await import('@/lib/onboarding-settings')
+  const onboardingSettings = await loadOnboardingSettings(supabase)
+  if (onboardingSettings.block_assignment_until_onboarding_complete) {
+    if (contractor.status !== 'active') {
+      return { error: `Cannot assign — ${contractor.full_name} is not active yet. Complete onboarding and trial requirements first.` }
+    }
+    if (contractor.onboarding_status && contractor.onboarding_status !== 'complete') {
+      return { error: `Cannot assign — ${contractor.full_name} has not finished onboarding. Complete the onboarding checklist first.` }
+    }
+    if (contractor.trial_required && contractor.trial_status !== 'passed') {
+      return { error: `Cannot assign — ${contractor.full_name} has not passed a trial shift yet. Record the trial outcome first.` }
+    }
+  }
+
+  // Insurance expiry remains a separate hard-stop (legal/compliance
+  // gate independent of the onboarding completeness toggle).
   const today = new Date().toISOString().slice(0, 10)
   if (!contractor.insurance_expiry) {
     return { error: `Cannot assign — ${contractor.full_name} has no insurance expiry on file. Update the contractor's insurance details first.` }

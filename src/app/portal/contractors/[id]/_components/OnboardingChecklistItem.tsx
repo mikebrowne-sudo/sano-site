@@ -7,12 +7,14 @@ export function OnboardingChecklistItem({
   itemId,
   contractorId,
   label,
+  required,
   complete,
   completedDateLabel,
 }: {
   itemId: string
   contractorId: string
   label: string
+  required: boolean
   complete: boolean
   completedAt: string | null
   completedDateLabel: string
@@ -29,7 +31,7 @@ export function OnboardingChecklistItem({
       const result = await setOnboardingItemStatus({ itemId, contractorId, status: next })
       if ('error' in result) {
         setErrorMessage(result.error)
-        setOptimistic(complete) // rollback
+        setOptimistic(complete)
       }
     })
   }
@@ -58,6 +60,11 @@ export function OnboardingChecklistItem({
       </span>
       <span className={`flex-1 text-sm ${optimistic ? 'text-sage-700 line-through decoration-sage-300' : 'text-sage-800 font-medium'}`}>
         {label}
+        {!required && (
+          <span className="ml-2 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide bg-gray-100 text-gray-500 align-middle">
+            Optional
+          </span>
+        )}
       </span>
       {optimistic && completedDateLabel && (
         <span className="text-[11px] text-sage-500 whitespace-nowrap">{completedDateLabel}</span>
