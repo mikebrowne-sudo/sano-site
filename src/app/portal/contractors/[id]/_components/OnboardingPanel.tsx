@@ -15,9 +15,9 @@ import { ONBOARDING_SECTIONS } from '@/lib/onboarding-checklist'
 import { SeedChecklistButton } from './SeedChecklistButton'
 import { MarkActiveButton } from './MarkActiveButton'
 import {
-  loadOnboardingSettings,
+  loadWorkforceSettings,
   requiredItemsForWorkerType,
-} from '@/lib/onboarding-settings'
+} from '@/lib/workforce-settings'
 
 type ItemRow = {
   id: string
@@ -68,7 +68,7 @@ export async function OnboardingPanel({
       .select('id, section, item_key, label, status, sort_order, completed_at')
       .eq('contractor_id', contractorId)
       .order('sort_order', { ascending: true }),
-    loadOnboardingSettings(supabase),
+    loadWorkforceSettings(supabase),
   ])
   const rows = (rowsData ?? []) as ItemRow[]
   const requiredKeys = new Set(requiredItemsForWorkerType(settings, workerType))

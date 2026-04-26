@@ -12,7 +12,8 @@ import { computeComplianceStatus } from '@/lib/contractor-compliance'
 import clsx from 'clsx'
 import { OnboardingPanel } from './_components/OnboardingPanel'
 import { TrialPanel } from './_components/TrialPanel'
-import { loadOnboardingSettings } from '@/lib/onboarding-settings'
+import { loadWorkforceSettings } from '@/lib/workforce-settings'
+import { AdminOverrideButton } from './_components/AdminOverrideButton'
 
 // Phase 5.3 — worker_type now collapses to {contractor, employee};
 // the prior sub-classifications (casual / part_time / full_time)
@@ -111,7 +112,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
   // Phase 5.4 — insurance warning. Surface only for `contractor`
   // worker_type with insurance_expiry within the configured warning
   // window or already expired.
-  const onboardingSettings = await loadOnboardingSettings(supabase)
+  const onboardingSettings = await loadWorkforceSettings(supabase)
   const insExpiry = (contractor as { insurance_expiry?: string | null }).insurance_expiry ?? null
   let insuranceWarning: { kind: 'expired' | 'expiring' | 'missing'; message: string } | null = null
   if (workerType === 'contractor') {
@@ -141,8 +142,13 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
         <div>
           <h1 className="text-2xl font-bold text-sage-800">{contractor.full_name}</h1>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', contractor.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600')}>
-              {contractor.status}
+            <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium',
+              contractorStatus === 'active'     ? 'bg-emerald-100 text-emerald-800'
+              : contractorStatus === 'ready'    ? 'bg-emerald-50 text-emerald-700'
+              : contractorStatus === 'onboarding' ? 'bg-amber-50 text-amber-700'
+              :                                   'bg-gray-100 text-gray-600',
+            )}>
+              {contractorStatus === 'ready' ? 'Ready' : contractorStatus.charAt(0).toUpperCase() + contractorStatus.slice(1)}
             </span>
             <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium', WORKER_TYPE_STYLES[workerType] ?? WORKER_TYPE_STYLES.contractor)}>
               {WORKER_TYPE_LABEL[workerType] ?? workerType}
@@ -191,7 +197,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
       )}
 
       {/* Phase 5.3 + 5.4 — Onboarding panel + activation gate. */}
-      {(inOnboarding || onboardingStatus === 'complete') && (
+      {(inOnboarding || contractorStatus === 'ready' || onboardingStatus === 'complete') && (
         <div className="max-w-2xl">
           <OnboardingPanel
             contractorId={contractor.id}
@@ -201,11 +207,16 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
             trialRequired={trialRequired}
             trialStatus={trialStatus}
           />
+          {isAdmin && contractorStatus !== 'active' && (
+            <div className="-mt-3 mb-6 px-1">
+              <AdminOverrideButton contractorId={contractor.id} />
+            </div>
+          )}
         </div>
       )}
 
       {/* Phase 5.4 — Trial card with full scheduling + outcome. */}
-      {(inOnboarding || onboardingStatus === 'complete' || trialStatus === 'passed' || trialStatus === 'failed') && (
+      {(inOnboarding || contractorStatus === 'ready' || onboardingStatus === 'complete' || trialStatus === 'passed' || trialStatus === 'failed') && (
         <div className="max-w-2xl">
           <TrialPanel
             contractorId={contractor.id}

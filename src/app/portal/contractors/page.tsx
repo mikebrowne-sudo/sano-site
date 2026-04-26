@@ -81,23 +81,16 @@ export default async function ContractorsPage() {
                         : 'Contractor'
                     }</Link></td>
                     <td className="p-0"><Link href={`/portal/contractors/${c.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors">{(() => {
-                      const readyForActivation = c.status === 'onboarding'
-                        && c.onboarding_status === 'complete'
-                        && (!c.trial_required || c.trial_status === 'passed')
-                      const label = readyForActivation
-                        ? 'Ready for activation'
-                        : c.status === 'onboarding'
-                          ? 'Onboarding'
-                          : c.status === 'active'
-                            ? 'Active'
-                            : c.status
-                      const tone = readyForActivation
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : c.status === 'active'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : c.status === 'onboarding'
-                            ? 'bg-amber-50 text-amber-700'
-                            : 'bg-gray-100 text-gray-600'
+                      // Phase 5.4 (locked) — 4-status model:
+                      //   onboarding → ready → active   (+ inactive fallback)
+                      const label = c.status === 'ready'    ? 'Ready'
+                                 : c.status === 'onboarding' ? 'Onboarding'
+                                 : c.status === 'active'     ? 'Active'
+                                 :                              c.status
+                      const tone = c.status === 'active'    ? 'bg-emerald-100 text-emerald-800'
+                                : c.status === 'ready'      ? 'bg-emerald-50 text-emerald-700'
+                                : c.status === 'onboarding' ? 'bg-amber-50 text-amber-700'
+                                :                              'bg-gray-100 text-gray-600'
                       return (
                         <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium', tone)}>
                           {label}
