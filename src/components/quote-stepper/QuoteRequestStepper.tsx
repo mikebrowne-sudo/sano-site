@@ -16,7 +16,7 @@
 //                          property type, frequency, extras, notes)
 // No backend / DB changes required.
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 
@@ -191,14 +191,14 @@ function isValidEmail(email: string) {
 
 function StepProgress({ current, total, title }: { current: number; total: number; title: string }) {
   const pct = Math.min(100, ((current + 1) / total) * 100)
+  const stepNumber = Math.min(current + 1, total)
   return (
     <div className="mb-6">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-medium text-sage-700">
-          Step {Math.min(current + 1, total)} of {total}
-        </p>
-        <p className="text-xs text-gray-500">{title}</p>
-      </div>
+      <p className="text-xs font-medium text-sage-700 mb-2">
+        Step {stepNumber} of {total}
+        <span className="text-gray-400 mx-1.5">·</span>
+        <span className="text-gray-500 font-normal">{title}</span>
+      </p>
       <div className="h-1 bg-sage-100 rounded-full overflow-hidden">
         <div
           className="h-full bg-sage-500 transition-all duration-300"
@@ -219,19 +219,38 @@ function OptionCard({
   disabled?: boolean
 }) {
   return (
-    <button
+    <motion.button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`w-full text-left rounded-2xl border p-4 transition-all duration-200 group ${
+      whileHover={!disabled && !active ? { y: -2 } : undefined}
+      whileTap={!disabled ? { scale: 0.985 } : undefined}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      className={`relative w-full text-left rounded-2xl border-2 p-4 pr-10 transition-[border-color,background-color,box-shadow] duration-200 ${
         active
-          ? 'border-sage-500 bg-sage-50/50 shadow-sm'
-          : 'border-sage-100 bg-white hover:border-sage-300 hover:shadow-md md:hover:-translate-y-0.5'
+          ? 'border-sage-500 bg-sage-50 shadow-md'
+          : 'border-sage-100 bg-white hover:border-sage-300 hover:shadow-sm'
       } disabled:opacity-50 disabled:cursor-not-allowed`}
     >
-      <p className={`font-semibold text-sm ${active ? 'text-sage-800' : 'text-sage-800'}`}>{label}</p>
+      <p className="font-semibold text-sm text-sage-800">{label}</p>
       {helper && <p className="text-gray-500 text-xs mt-1 leading-relaxed">{helper}</p>}
-    </button>
+      <SelectedCheck active={active} />
+    </motion.button>
+  )
+}
+
+function SelectedCheck({ active }: { active: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`absolute right-3 top-3 inline-flex w-5 h-5 items-center justify-center rounded-full transition-all duration-200 ${
+        active ? 'bg-sage-500 scale-100 opacity-100' : 'bg-transparent scale-75 opacity-0'
+      }`}
+    >
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+        <path d="M2 5.5L4.5 8L9 3" stroke="white" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
   )
 }
 
@@ -244,18 +263,21 @@ function CheckboxCard({
   helper?: string
 }) {
   return (
-    <button
+    <motion.button
       type="button"
       onClick={onToggle}
-      className={`w-full text-left rounded-2xl border p-4 transition-all duration-200 ${
+      whileHover={!checked ? { y: -2 } : undefined}
+      whileTap={{ scale: 0.985 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      className={`w-full text-left rounded-2xl border-2 p-4 transition-[border-color,background-color,box-shadow] duration-200 ${
         checked
-          ? 'border-sage-500 bg-sage-50/50 shadow-sm'
-          : 'border-sage-100 bg-white hover:border-sage-300 hover:shadow-md md:hover:-translate-y-0.5'
+          ? 'border-sage-500 bg-sage-50 shadow-md'
+          : 'border-sage-100 bg-white hover:border-sage-300 hover:shadow-sm'
       }`}
     >
       <div className="flex items-start gap-3">
         <span
-          className={`flex-shrink-0 w-5 h-5 rounded-md border-2 mt-0.5 flex items-center justify-center transition-colors ${
+          className={`flex-shrink-0 w-5 h-5 rounded-md border-2 mt-0.5 flex items-center justify-center transition-colors duration-200 ${
             checked ? 'bg-sage-500 border-sage-500' : 'border-sage-200 bg-white'
           }`}
         >
@@ -270,7 +292,190 @@ function CheckboxCard({
           {helper && <p className="text-gray-500 text-xs mt-0.5 leading-relaxed">{helper}</p>}
         </div>
       </div>
-    </button>
+    </motion.button>
+  )
+}
+
+// ── Address autocomplete (Mapbox) ─────────────────────────────────
+//
+// Reuses the existing repo pattern from src/app/portal/_components/
+// AddressField.tsx — same Mapbox endpoint, same NEXT_PUBLIC_MAPBOX_TOKEN
+// env var, same NZ filter. Re-implemented inline here to match the
+// stepper's input styling (rounded-xl, sage-100 borders) without
+// touching the portal component.
+//
+// Suburb extraction: when a user picks a suggestion, we try to derive
+// the suburb from Mapbox's `context` array (locality preferred,
+// neighborhood as fallback) and call onSuburbResolved if the field
+// is currently empty. The user can still override manually.
+//
+// Graceful degradation: if NEXT_PUBLIC_MAPBOX_TOKEN is missing, the
+// component renders as a plain text input — typing still works,
+// suggestions are simply never fetched.
+
+interface MapboxFeature {
+  id: string
+  place_name: string
+  text?: string
+  context?: { id: string; text: string }[]
+}
+
+const MAPBOX_ENDPOINT = 'https://api.mapbox.com/geocoding/v5/mapbox.places'
+
+function suburbFromFeature(f: MapboxFeature): string {
+  const ctx = f.context ?? []
+  const locality = ctx.find((c) => c.id.startsWith('locality.'))?.text
+  if (locality) return locality
+  const neighborhood = ctx.find((c) => c.id.startsWith('neighborhood.'))?.text
+  if (neighborhood) return neighborhood
+  // Fallback — second comma-separated chunk of place_name is usually
+  // the suburb on NZ addresses ("12 Example St, Mt Eden, Auckland …").
+  const parts = (f.place_name ?? '').split(', ')
+  return parts[1] ?? ''
+}
+
+function AddressAutocomplete({
+  id,
+  label,
+  value,
+  onChange,
+  onSuburbResolved,
+  placeholder,
+  required,
+}: {
+  id: string
+  label: string
+  value: string
+  onChange: (v: string) => void
+  onSuburbResolved: (suburb: string) => void
+  placeholder?: string
+  required?: boolean
+}) {
+  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+  const [suggestions, setSuggestions] = useState<MapboxFeature[]>([])
+  const [open, setOpen] = useState(false)
+  const [highlight, setHighlight] = useState(0)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastQueryRef = useRef<string>('')
+  const justSelectedRef = useRef<boolean>(false)
+
+  // Close on outside click. Listener is mounted once and torn down
+  // on unmount — navigating Back/Continue does not stack duplicates
+  // because React unmounts/remounts the component cleanly.
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
+
+  function runQuery(q: string) {
+    if (!token || q.trim().length < 3) {
+      setSuggestions([])
+      setOpen(false)
+      return
+    }
+    if (q === lastQueryRef.current) return
+    lastQueryRef.current = q
+    const url = `${MAPBOX_ENDPOINT}/${encodeURIComponent(q)}.json?country=nz&language=en&autocomplete=true&limit=5&types=address,place,postcode,locality,neighborhood&access_token=${token}`
+    fetch(url)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('mapbox'))))
+      .then((data: { features: MapboxFeature[] }) => {
+        setSuggestions(data.features ?? [])
+        setOpen((data.features?.length ?? 0) > 0)
+        setHighlight(0)
+      })
+      .catch(() => {
+        setSuggestions([])
+        setOpen(false)
+      })
+  }
+
+  function handleInput(next: string) {
+    onChange(next)
+    // If a selection just landed and the user keeps typing, re-enable
+    // queries. justSelectedRef guards against re-querying on the
+    // selection-injected onChange.
+    if (justSelectedRef.current) {
+      justSelectedRef.current = false
+      return
+    }
+    if (!token) return
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => runQuery(next), 200)
+  }
+
+  function handleSelect(feature: MapboxFeature) {
+    const chosen = feature.place_name || feature.text || ''
+    justSelectedRef.current = true
+    onChange(chosen)
+    const suburb = suburbFromFeature(feature)
+    if (suburb) onSuburbResolved(suburb)
+    setSuggestions([])
+    setOpen(false)
+    lastQueryRef.current = chosen
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!open || suggestions.length === 0) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setHighlight((h) => Math.min(h + 1, suggestions.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHighlight((h) => Math.max(h - 1, 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSelect(suggestions[highlight])
+    } else if (e.key === 'Escape') {
+      setOpen(false)
+    }
+  }
+
+  return (
+    <div>
+      <label htmlFor={id} className="block text-xs uppercase tracking-wide font-semibold text-sage-700 mb-1.5">
+        {label}{required && <span className="text-sage-500 ml-1">*</span>}
+      </label>
+      <div ref={wrapperRef} className="relative">
+        <input
+          id={id}
+          type="text"
+          value={value}
+          onChange={(e) => handleInput(e.target.value)}
+          onFocus={() => { if (suggestions.length > 0) setOpen(true) }}
+          onKeyDown={handleKeyDown}
+          required={required}
+          placeholder={placeholder}
+          autoComplete="street-address"
+          className="w-full border border-sage-100 bg-white rounded-xl px-4 py-2.5 text-sm text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-300 focus:border-sage-300 transition-colors"
+        />
+        {open && suggestions.length > 0 && (
+          <ul className="absolute z-20 mt-1 w-full rounded-xl border border-sage-100 bg-white shadow-lg overflow-hidden">
+            {suggestions.map((f, i) => (
+              <li
+                key={f.id}
+                onMouseDown={(e) => { e.preventDefault(); handleSelect(f) }}
+                onMouseEnter={() => setHighlight(i)}
+                className={`px-4 py-2 text-sm cursor-pointer border-b border-sage-50 last:border-b-0 ${
+                  i === highlight ? 'bg-sage-50 text-sage-800' : 'text-sage-800'
+                }`}
+              >
+                {f.place_name}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {!token && (
+        <p className="text-xs text-gray-400 mt-1">Type your address — autocomplete temporarily unavailable.</p>
+      )}
+    </div>
   )
 }
 
@@ -351,6 +556,12 @@ export function QuoteRequestStepper() {
   const [form, setForm] = useState<FormData>(emptyForm(searchParams.get('service') || ''))
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
+  const [suburbAutoFilled, setSuburbAutoFilled] = useState(false)
+
+  // Brief delay between an auto-advance card click and moving to the
+  // next step. Lets the green border + tap-scale animation finish so
+  // the choice feels confirmed.
+  const AUTO_ADVANCE_DELAY_MS = 120
 
   function update<K extends keyof FormData>(key: K, value: FormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -367,6 +578,9 @@ export function QuoteRequestStepper() {
 
   function goNext() {
     setStepIndex((i) => Math.min(i + 1, TOTAL_STEPS - 1))
+  }
+  function delayedNext() {
+    window.setTimeout(goNext, AUTO_ADVANCE_DELAY_MS)
   }
   function goBack() {
     setStepIndex((i) => Math.max(i - 1, 0))
@@ -445,13 +659,13 @@ export function QuoteRequestStepper() {
               <div className="grid gap-3">
                 <OptionCard
                   active={form.service_type === 'home'}
-                  onClick={() => { update('service_type', 'home'); goNext() }}
+                  onClick={() => { update('service_type', 'home'); delayedNext() }}
                   label="Home cleaning"
                   helper="Houses, apartments, townhouses — regular or one-off."
                 />
                 <OptionCard
                   active={form.service_type === 'commercial'}
-                  onClick={() => { update('service_type', 'commercial'); goNext() }}
+                  onClick={() => { update('service_type', 'commercial'); delayedNext() }}
                   label="Commercial cleaning"
                   helper="Offices, retail, medical, industrial, and more."
                 />
@@ -470,7 +684,7 @@ export function QuoteRequestStepper() {
                   <OptionCard
                     key={o.value}
                     active={form.home_clean_type === o.value}
-                    onClick={() => { update('home_clean_type', o.value); goNext() }}
+                    onClick={() => { update('home_clean_type', o.value); delayedNext() }}
                     label={o.label}
                     helper={o.helper}
                   />
@@ -488,7 +702,7 @@ export function QuoteRequestStepper() {
                   <OptionCard
                     key={o.value}
                     active={form.commercial_space_type === o.value}
-                    onClick={() => { update('commercial_space_type', o.value); goNext() }}
+                    onClick={() => { update('commercial_space_type', o.value); delayedNext() }}
                     label={o.label}
                     helper={o.helper}
                   />
@@ -504,23 +718,31 @@ export function QuoteRequestStepper() {
               <h3 className="text-lg font-bold text-sage-800 mb-1">Where is the property?</h3>
               <p className="text-sm text-gray-500 mb-5">We service all of Auckland.</p>
               <div className="space-y-4">
-                <TextField
+                <AddressAutocomplete
                   id="address"
                   label="Address"
                   value={form.address}
                   onChange={(v) => update('address', v)}
-                  placeholder="Street address"
+                  onSuburbResolved={(suburb) => {
+                    // Only auto-populate when the user hasn't typed
+                    // a suburb yet — never overwrite manual input.
+                    if (!form.suburb.trim()) {
+                      update('suburb', suburb)
+                      setSuburbAutoFilled(true)
+                    }
+                  }}
+                  placeholder="Start typing your street address"
                   required
-                  autoComplete="street-address"
                 />
                 <TextField
                   id="suburb"
                   label="Suburb"
                   value={form.suburb}
-                  onChange={(v) => update('suburb', v)}
+                  onChange={(v) => { setSuburbAutoFilled(false); update('suburb', v) }}
                   placeholder="e.g. Mt Eden"
                   required
                   autoComplete="address-level2"
+                  helper={suburbAutoFilled ? 'Suburb auto-filled from address' : undefined}
                 />
               </div>
               <NavButtons isFirst={false} onBack={goBack} onNext={goNext} nextDisabled={nextDisabled()} />
@@ -726,8 +948,8 @@ export function QuoteRequestStepper() {
               <p className="text-sm text-gray-600 leading-relaxed max-w-sm mx-auto">
                 We&apos;ll review the details and come back to you shortly with a quote.
               </p>
-              <p className="text-xs text-gray-500 mt-4">
-                If anything urgent, call us on <a href="tel:0800726686" className="text-sage-700 font-semibold underline-offset-2 hover:underline">0800 726 686</a>.
+              <p className="text-sm text-gray-600 leading-relaxed max-w-sm mx-auto mt-3">
+                If it&apos;s urgent, feel free to call us on <a href="tel:0800726686" className="text-sage-700 font-semibold underline-offset-2 hover:underline">0800 726 686</a>.
               </p>
             </div>
           )}
