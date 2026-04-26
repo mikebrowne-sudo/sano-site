@@ -162,6 +162,7 @@ export function Header() {
                 )}
               </div>
 
+              <NavLink href="/join-our-team" label="Join Our Team" pathname={pathname} />
               <NavLink href="/contact" label="Contact Us" pathname={pathname} />
             </nav>
 
@@ -217,6 +218,7 @@ export function Header() {
                 {link.label}
               </Link>
             ))}
+            <Link href="/join-our-team" className="block py-2 text-[15px] font-medium text-gray-700" onClick={() => setMobileOpen(false)}>Join Our Team</Link>
             <Link href="/contact" className="block py-2 text-[15px] font-medium text-gray-700" onClick={() => setMobileOpen(false)}>Contact Us</Link>
             <hr className="border-sage-100 my-2" />
             <div className="flex items-center gap-2 py-2">
