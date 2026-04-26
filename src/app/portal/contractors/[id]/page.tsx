@@ -14,6 +14,7 @@ import { OnboardingPanel } from './_components/OnboardingPanel'
 import { TrialPanel } from './_components/TrialPanel'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
 import { AdminOverrideButton } from './_components/AdminOverrideButton'
+import { ContractorAccessPanel } from './_components/ContractorAccessPanel'
 
 // Phase 5.3 — worker_type now collapses to {contractor, employee};
 // the prior sub-classifications (casual / part_time / full_time)
@@ -55,7 +56,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
   const [{ data: contractor, error }, { data: jobs, count: jobCount }, { data: documents }, { data: trainingAssignments }, { data: incidents }] = await Promise.all([
     supabase
       .from('contractors')
-      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, employment_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate, insurance_provider, insurance_policy_number, insurance_expiry, insurance_liability_cover, company_name, business_structure, nzbn, gst_registered, gst_number, bank_account_name, bank_account_number, payment_terms_days, contract_signed_date, right_to_work_required, right_to_work_expiry, service_areas, approved_services, availability_notes, has_vehicle, provides_own_equipment, key_holding_approved, alarm_access_approved, pet_friendly, experience_level, can_lead_jobs, can_work_solo, can_supervise_others, invite_sent_at, portal_access_active, auth_user_id, onboarding_status, onboarding_started_at, onboarding_completed_at, trial_required, trial_status, trial_scheduled_for, trial_outcome_note, source_applicant_id')
+      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, employment_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate, insurance_provider, insurance_policy_number, insurance_expiry, insurance_liability_cover, company_name, business_structure, nzbn, gst_registered, gst_number, bank_account_name, bank_account_number, payment_terms_days, contract_signed_date, right_to_work_required, right_to_work_expiry, service_areas, approved_services, availability_notes, has_vehicle, provides_own_equipment, key_holding_approved, alarm_access_approved, pet_friendly, experience_level, can_lead_jobs, can_work_solo, can_supervise_others, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, portal_access_active, auth_user_id, onboarding_status, onboarding_started_at, onboarding_completed_at, trial_required, trial_status, trial_scheduled_for, trial_outcome_note, source_applicant_id')
       .eq('id', params.id)
       .single(),
     supabase
@@ -499,27 +500,17 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
           </Section>
         )}
 
-        {/* Portal access — shared (Phase 2) */}
-        <Section title="Portal access">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-            <div>
-              <span className="text-sage-500">Portal access</span>
-              <p className={clsx('font-medium', contractor.portal_access_active ? 'text-emerald-700' : 'text-sage-500')}>
-                {contractor.portal_access_active ? 'Active' : 'Inactive'}
-              </p>
-            </div>
-            <div>
-              <span className="text-sage-500">Invite sent</span>
-              <p className="text-sage-800 font-medium">{contractor.invite_sent_at ? fmtDate((contractor.invite_sent_at as string).slice(0, 10)) : '—'}</p>
-            </div>
-            <div>
-              <span className="text-sage-500">Auth linked</span>
-              <p className={clsx('font-medium', contractor.auth_user_id ? 'text-emerald-700' : 'text-sage-500')}>
-                {contractor.auth_user_id ? 'Yes' : 'No'}
-              </p>
-            </div>
-          </div>
-        </Section>
+        {/* Phase 5.5.3 — Portal access panel (replaces the read-only chunk). */}
+        <ContractorAccessPanel
+          contractorId={contractor.id}
+          email={contractor.email ?? null}
+          authUserId={(contractor.auth_user_id as string | null) ?? null}
+          inviteSentAt={(contractor.invite_sent_at as string | null) ?? null}
+          inviteAcceptedAt={(contractor as { invite_accepted_at?: string | null }).invite_accepted_at ?? null}
+          accessDisabledAt={(contractor as { access_disabled_at?: string | null }).access_disabled_at ?? null}
+          accessDisabledReason={(contractor as { access_disabled_reason?: string | null }).access_disabled_reason ?? null}
+          featureEnabled={onboardingSettings.enable_contractor_portal}
+        />
 
         {/* Documents */}
         <Section title={`Documents${docs.length > 0 ? ` (${docs.length})` : ''}`}>
