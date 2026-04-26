@@ -11,7 +11,7 @@ import {
   LayoutDashboard, FileText, Receipt, Briefcase, RefreshCw, Users,
   HardHat, BookOpen, DollarSign, FileInput, Wallet, Bell, Settings,
   Calculator, Calendar, UserCog, ArchiveRestore, LayoutTemplate,
-  Wallet2,
+  Wallet2, UserPlus,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -49,6 +49,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     heading: 'Workforce',
     items: [
+      { href: '/portal/applicants',  label: 'Applicants',             icon: UserPlus },
       { href: '/portal/contractors', label: 'Contractors',            icon: HardHat },
       { href: '#',                   label: 'Staff',                  icon: UserCog,  placeholder: true },
       { href: '/portal/training',    label: 'Training & compliance',  icon: BookOpen },
