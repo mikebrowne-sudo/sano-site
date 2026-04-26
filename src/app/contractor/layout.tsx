@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase-server'
 import { ContractorTopbar } from './_components/ContractorTopbar'
+import { ContractorBottomNav } from './_components/ContractorBottomNav'
+import { InstallPrompt } from './_components/InstallPrompt'
+import { loadWorkforceSettings } from '@/lib/workforce-settings'
 
 export const metadata: Metadata = {
   title: 'Sano — Contractor Portal',
@@ -34,10 +37,17 @@ export default async function ContractorLayout({ children }: { children: React.R
     )
   }
 
+  const settings = await loadWorkforceSettings(supabase)
+
   return (
     <div className="min-h-screen bg-sage-50">
       <ContractorTopbar name={contractor.full_name} />
-      <main className="max-w-3xl mx-auto px-4 py-6">{children}</main>
+      {/* pb-24 reserves space for the mobile bottom nav so content
+          doesn't sit beneath it. md+ falls back to py-6 since the nav
+          is hidden. */}
+      <main className="max-w-3xl mx-auto px-4 pt-6 pb-24 md:pb-6">{children}</main>
+      {settings.contractor_mobile_bottom_nav_enabled && <ContractorBottomNav />}
+      {settings.enable_pwa_prompt && <InstallPrompt />}
     </div>
   )
 }

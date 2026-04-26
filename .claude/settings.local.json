@@ -17,7 +17,29 @@
       "Bash(git branch *)",
       "Bash(git pull *)",
       "Bash(git checkout *)",
-      "Bash(rm -rf src/app/portal/quotes/_components/commercial/proposal)"
+      "Bash(rm -rf src/app/portal/quotes/_components/commercial/proposal)",
+      "Bash(pip list *)",
+      "Bash(pdftotext -layout \"Citrus-Multi-Cleaner-SDS.pdf\" -)",
+      "Bash(pdftotext -layout \"Black-Ripper-SDS.pdf\" -)",
+      "Bash(pdftotext -layout \"Dish-Wash-Liquid-SDS.pdf\" -)",
+      "Bash(pdftotext -layout \"ENVIRO-AIR-FRESHNER-MSD-1.pdf\" -)",
+      "Bash(pdftotext -layout \"Glass-Cleaner-SDS.pdf\" -)",
+      "Bash(pdftotext -layout \"Good-As-Gold-SDS.pdf\" -)",
+      "Bash(pdftotext -layout \"Pine-Mop-SDS.pdf\" -)",
+      "Bash(pdftotext -layout \"Toilet-Bowl-Cleaner-SDS.pdf\" -)",
+      "Bash(pdftotext -layout \"liquidbleach_msd-1.pdf\" -)",
+      "Bash(node -e \"require\\('docx'\\); console.log\\('ok'\\)\")",
+      "Bash(npm install *)",
+      "Read(//c/Program Files/LibreOffice/program/**)",
+      "Read(//c/Program Files \\(x86\\)/LibreOffice/program/**)",
+      "Bash(python /c/Users/mbrowne_mammoth/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/74e64dbd-25cf-4fbe-b8c2-4f927c025148/fde3b0b8-7811-48c6-b222-6bab304b6bcf/skills/docx/scripts/office/validate.py 'F:/Sano/40-Business/Health-Safety/Sano - Hazardous Chemical Substance Register.docx')",
+      "Bash(python3 /c/Users/mbrowne_mammoth/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/74e64dbd-25cf-4fbe-b8c2-4f927c025148/fde3b0b8-7811-48c6-b222-6bab304b6bcf/skills/docx/scripts/office/validate.py 'F:/Sano/40-Business/Health-Safety/Sano - Hazardous Chemical Substance Register.docx')",
+      "Bash(base64 -w0 \"F:/Sano/01-Site/public/brand/sano-logo-horizontal.png\")",
+      "Read(//tmp/**)",
+      "Bash(base64 -w0 \"F:/Sano/10-Branding/Website images/proposal-banner.jpg\")",
+      "Bash(node _build_register_html.js)",
+      "Bash(py --version)",
+      "Read(//c/Users/mbrowne_mammoth/AppData/Local/Programs/**)"
     ]
   }
 }

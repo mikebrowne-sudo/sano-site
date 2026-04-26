@@ -68,7 +68,9 @@ export default async function ContractorJobDetailPage({ params }: { params: { id
   const price = fmtCurrency(job.contractor_price)
 
   return (
-    <div className="pb-8">
+    // Phase 5.5.4 — extra mobile bottom padding so the sticky action bar
+    // doesn't cover the last card. Desktop returns to pb-8.
+    <div className="pb-28 md:pb-8">
 
       {/* Back link */}
       <Link
@@ -95,8 +97,17 @@ export default async function ContractorJobDetailPage({ params }: { params: { id
         )}
       </div>
 
-      {/* Primary action — large, prominent, mobile-friendly */}
-      <ContractorJobActions jobId={job.id} status={job.status} />
+      {/* Primary action — Phase 5.5.4: inline on desktop, sticky bottom
+          (above the mobile bottom nav) on mobile so it's always within
+          thumb reach while the user scrolls the job detail. The
+          mobile bar reserves space via the safe-area inset so it sits
+          above the home indicator on iOS. */}
+      <div
+        className="md:static fixed inset-x-0 z-30 px-4 pt-3 pb-3 bg-white/95 backdrop-blur border-t border-sage-100 md:bg-transparent md:border-0 md:px-0 md:pt-0 md:pb-0"
+        style={{ bottom: 'calc(56px + env(safe-area-inset-bottom))' }}
+      >
+        <ContractorJobActions jobId={job.id} status={job.status} />
+      </div>
 
       {/* Phase H.3 — informational SMS to the customer; only meaningful
           before the contractor has started the job on site. */}
