@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-browser'
 import Image from 'next/image'
+import Link from 'next/link'
 
 export default function PortalLoginPage() {
   const router = useRouter()
@@ -88,6 +89,11 @@ export default function PortalLoginPage() {
           >
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
+          <p className="text-center text-xs text-sage-500 -mb-1">
+            <Link href="/portal/forgot-password" className="hover:text-sage-700 underline-offset-2 hover:underline">
+              Forgot password?
+            </Link>
+          </p>
         </form>
       </div>
     </div>
