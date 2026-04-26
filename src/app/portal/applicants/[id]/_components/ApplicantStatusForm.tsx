@@ -3,15 +3,20 @@
 import { useState, useTransition } from 'react'
 import { updateApplicantStatus } from '../_actions'
 
-type Status = 'new' | 'reviewing' | 'interview' | 'approved' | 'rejected' | 'converted_to_contractor'
+type Status =
+  | 'new' | 'reviewing' | 'phone_screen' | 'approved' | 'onboarding'
+  | 'trial' | 'ready_to_work' | 'on_hold' | 'rejected'
 
 const OPTIONS: { value: Status; label: string }[] = [
-  { value: 'new',                     label: 'New' },
-  { value: 'reviewing',               label: 'Reviewing' },
-  { value: 'interview',               label: 'Interview' },
-  { value: 'approved',                label: 'Approved' },
-  { value: 'rejected',                label: 'Rejected' },
-  { value: 'converted_to_contractor', label: 'Converted to contractor' },
+  { value: 'new',            label: 'New' },
+  { value: 'reviewing',      label: 'Reviewing' },
+  { value: 'phone_screen',   label: 'Phone screen' },
+  { value: 'approved',       label: 'Approved' },
+  { value: 'onboarding',     label: 'Onboarding' },
+  { value: 'trial',          label: 'Trial' },
+  { value: 'ready_to_work',  label: 'Ready to work' },
+  { value: 'on_hold',        label: 'On hold' },
+  { value: 'rejected',       label: 'Rejected' },
 ]
 
 export function ApplicantStatusForm({
@@ -19,7 +24,6 @@ export function ApplicantStatusForm({
   currentStatus,
 }: {
   applicantId: string
-  // Accept raw string from the DB; cast internally to the Status union.
   currentStatus: string
 }) {
   const initial = currentStatus as Status

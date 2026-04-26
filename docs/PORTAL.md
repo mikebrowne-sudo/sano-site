@@ -8,7 +8,7 @@
 
 ## Current Active Work
 
-**Primary focus:** Phase 5 — Applicant pipeline foundation. Public Join Our Team submissions land in `applicants` table; staff portal at `/portal/applicants` for triage. Future phases: interview scheduling, applicant → contractor conversion, online contracts, training assignment, onboarding checklist.
+**Primary focus:** Phase 5.1 — Applicant pipeline polish. Final 9-status pipeline (new → reviewing → phone_screen → approved → onboarding → trial → ready_to_work, plus on_hold / rejected). Stage-action UI, trial scheduling, audit log. Next: 5.2 applicant→contractor conversion.
 
 *Convention: this section reflects the ONE active focus. Each major phase (Notifications, Payroll, Recurring, etc.) supports an "In Flight" subsection below its "shipped" section. Shipped sections remain unchanged; in-flight sections track real-time development state and update only at phase boundaries (push → PR → merge → verified).*
 
@@ -1461,6 +1461,7 @@ Inbound recruitment funnel — public Join Our Team submissions land in the `app
 *Update only at phase boundaries (push → PR → merge → verified). Items move out of this section into "shipped" only after deployed and verified.*
 
 - **Phase 5 — Foundation** — built on `feat/applicant-pipeline-phase-5`. Migration `docs/db/2026-04-26-phase-5-applicants.sql` applied to Supabase. Public form (`/api/submit-application`) now inserts into `applicants` with `status='new'`. Staff portal at `/portal/applicants` (status filter list + detail page with status update + notes). Nav entry added under Workforce. "Convert to contractor" placeholder button on detail. Pending: PR + merge + production validation.
+- **Phase 5.1 — Pipeline polish** — built on `feat/applicant-pipeline-polish-phase-5-1`. Migration `docs/db/2026-04-26-phase-5-1-applicants-pipeline.sql` applied. Replaces 6-status enum with the final 9-status pipeline (new / reviewing / phone_screen / approved / onboarding / trial / ready_to_work / on_hold / rejected). Adds `trial_required`, `trial_scheduled_for`, `trial_outcome`, `rejection_reason`, `on_hold_reason`. List view: search, type filter, sort (Needs action default, Newest, Oldest), stale-dot for `new` >7 days, hide-rejected toggle. Detail view: stage-action panel (forward action + Reject + Put-on-hold with reason capture + Reopen), trial section (toggle + schedule + pass/fail outcome buttons), audit-log activity timeline, rejection/on-hold reason display. Every status mutation writes to `audit_log`. Pending: PR + merge + production validation. NOT included: contractor conversion (5.2), onboarding UI (5.3), AI assist (5.6).
 
 ### Future phases (planned, not yet started)
 

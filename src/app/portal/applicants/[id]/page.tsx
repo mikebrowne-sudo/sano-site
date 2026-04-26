@@ -1,8 +1,7 @@
-// Phase 5 — Applicant detail page.
+// Phase 5.1 — Applicant detail page.
 //
-// Renders all fields captured by the public application wizard, plus
-// the staff-side controls (status, notes, future "convert to
-// contractor"). RLS allows staff read; admin write.
+// Renders all wizard fields plus stage-based actions, trial scheduling,
+// rejection/on-hold reasons, staff notes, and an audit-log timeline.
 
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -10,6 +9,8 @@ import { createClient } from '@/lib/supabase-server'
 import { ArrowLeft } from 'lucide-react'
 import { ApplicantStatusForm } from './_components/ApplicantStatusForm'
 import { ApplicantNotesForm } from './_components/ApplicantNotesForm'
+import { ApplicantStageActions } from './_components/ApplicantStageActions'
+import { ApplicantTrialSection } from './_components/ApplicantTrialSection'
 
 function fmtDate(iso: string | null) {
   if (!iso) return '—'
@@ -21,7 +22,7 @@ function fmtDateTime(iso: string | null) {
   return new Date(iso).toLocaleString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-function YN(v: boolean | null) {
+function YN(v: boolean | null | undefined) {
   if (v === null || v === undefined) return <span className="text-gray-400">—</span>
   return v
     ? <span className="text-emerald-700 font-medium">Yes</span>
@@ -46,6 +47,47 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
+const ACTION_LABELS: Record<string, string> = {
+  'applicant.status_changed':           'Status changed',
+  'applicant.rejected':                 'Rejected',
+  'applicant.on_hold':                  'Put on hold',
+  'applicant.trial_required_changed':   'Trial-required toggled',
+  'applicant.trial_scheduled':          'Trial scheduled',
+  'applicant.trial_outcome_recorded':   'Trial outcome',
+}
+
+function describeAuditEntry(entry: AuditEntry): string {
+  const after = (entry.after ?? {}) as Record<string, unknown>
+  if (entry.action === 'applicant.status_changed') {
+    const before = (entry.before ?? {}) as Record<string, unknown>
+    return `${(before.status as string) ?? '—'} → ${(after.status as string) ?? '—'}`
+  }
+  if (entry.action === 'applicant.rejected') {
+    return `Reason: ${(after.rejection_reason as string) ?? '(none)'}`
+  }
+  if (entry.action === 'applicant.on_hold') {
+    return `Reason: ${(after.on_hold_reason as string) ?? '(none)'}`
+  }
+  if (entry.action === 'applicant.trial_required_changed') {
+    return after.trial_required ? 'Trial required: ON' : 'Trial required: OFF'
+  }
+  if (entry.action === 'applicant.trial_scheduled') {
+    return `Scheduled for ${fmtDateTime((after.trial_scheduled_for as string) ?? null)}`
+  }
+  if (entry.action === 'applicant.trial_outcome_recorded') {
+    return `Outcome: ${(after.trial_outcome as string) ?? '(none)'}`
+  }
+  return ''
+}
+
+type AuditEntry = {
+  id: string
+  action: string
+  created_at: string
+  before: Record<string, unknown> | null
+  after: Record<string, unknown> | null
+}
+
 export default async function ApplicantDetailPage({
   params,
 }: {
@@ -61,6 +103,15 @@ export default async function ApplicantDetailPage({
 
   if (error || !a) notFound()
 
+  const { data: auditRows } = await supabase
+    .from('audit_log')
+    .select('id, action, created_at, before, after')
+    .eq('entity_table', 'applicants')
+    .eq('entity_id', params.id)
+    .order('created_at', { ascending: false })
+    .limit(50)
+  const audit: AuditEntry[] = (auditRows ?? []) as AuditEntry[]
+
   const exp = (a.experience_types ?? []) as string[]
   const days = (a.available_days ?? []) as string[]
 
@@ -73,7 +124,7 @@ export default async function ApplicantDetailPage({
         <ArrowLeft size={14} /> All applicants
       </Link>
 
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
+      <div className="flex items-start justify-between mb-4 gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl tracking-tight font-bold text-sage-800">
             {a.first_name} {a.last_name}
@@ -84,6 +135,22 @@ export default async function ApplicantDetailPage({
         </div>
         <ApplicantStatusForm applicantId={a.id} currentStatus={a.status} />
       </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-6">
+        <h2 className="text-base font-semibold text-sage-800 mb-3">Stage actions</h2>
+        <ApplicantStageActions applicantId={a.id} status={a.status} />
+        <p className="text-xs text-sage-500 mt-3">
+          Recommended forward action for the current stage. The status select above is also available for any non-recommended override.
+        </p>
+      </div>
+
+      <ApplicantTrialSection
+        applicantId={a.id}
+        status={a.status}
+        trialRequired={a.trial_required ?? true}
+        trialScheduledFor={a.trial_scheduled_for ?? null}
+        trialOutcome={a.trial_outcome ?? null}
+      />
 
       <Section title="Contact">
         <Field label="Email"><a href={`mailto:${a.email}`} className="text-sage-700 underline-offset-2 hover:underline">{a.email}</a></Field>
@@ -138,7 +205,16 @@ export default async function ApplicantDetailPage({
       </Section>
 
       <Section title="Pipeline">
+        <Field label="Current status">
+          <span className="capitalize">{(a.status as string).replace(/_/g, ' ')}</span>
+        </Field>
         <Field label="Status updated">{fmtDateTime(a.status_updated_at)}</Field>
+        {a.rejection_reason && (
+          <Field label="Rejection reason"><p className="whitespace-pre-line text-red-700">{a.rejection_reason}</p></Field>
+        )}
+        {a.on_hold_reason && (
+          <Field label="On-hold reason"><p className="whitespace-pre-line text-amber-700">{a.on_hold_reason}</p></Field>
+        )}
         {a.converted_contractor_id && (
           <Field label="Converted to">
             <Link href={`/portal/contractors/${a.converted_contractor_id}`} className="text-sage-700 underline-offset-2 hover:underline">
@@ -150,19 +226,25 @@ export default async function ApplicantDetailPage({
         <Field label="Staff notes"><ApplicantNotesForm applicantId={a.id} initialNotes={a.staff_notes ?? ''} /></Field>
       </Section>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-6">
-        <h2 className="text-base font-semibold text-sage-800 mb-2">Convert to contractor</h2>
-        <p className="text-sm text-sage-600 mb-3">
-          Once an applicant is approved, they can be converted into a contractor record (carries over name, email, phone, and contract preferences). Coming in the next applicant phase.
-        </p>
-        <button
-          type="button"
-          disabled
-          className="inline-flex items-center gap-2 bg-gray-100 text-gray-400 font-semibold px-4 py-2 rounded-lg text-sm cursor-not-allowed"
-        >
-          Convert to contractor (coming soon)
-        </button>
-      </div>
+      <Section title="Activity">
+        {audit.length === 0 ? (
+          <p className="text-sm text-sage-500">No status changes recorded yet.</p>
+        ) : (
+          <ul className="divide-y divide-gray-50">
+            {audit.map((e) => (
+              <li key={e.id} className="py-2.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-sage-800">{ACTION_LABELS[e.action] ?? e.action}</p>
+                    <p className="text-xs text-sage-600 mt-0.5">{describeAuditEntry(e)}</p>
+                  </div>
+                  <p className="text-[11px] text-sage-500 whitespace-nowrap">{fmtDateTime(e.created_at)}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
     </div>
   )
 }
