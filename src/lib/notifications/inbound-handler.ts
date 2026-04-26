@@ -40,8 +40,12 @@ export function classifyInbound(rawBody: string | null | undefined): InboundClas
   return { kind: 'other' }
 }
 
+// One-way operational SMS only. We don't direct customers to an SMS
+// opt-out keyword because reliable inbound replies aren't supported on
+// the current US long-code sender to NZ mobiles. Email is the
+// authoritative opt-out path.
 const HELP_REPLY_BODY =
-  'Sano: For help, email hello@sano.nz or call 0800 726 686. Reply STOP to unsubscribe.'
+  'Sano: For help, email hello@sano.nz or call 0800 726 686. To opt out of SMS updates, email hello@sano.nz.'
 
 export function helpReplyBody(): string {
   return HELP_REPLY_BODY
