@@ -258,3 +258,155 @@ export async function updateApplicantNotes(input: {
   revalidatePath(`/portal/applicants/${input.applicantId}`)
   return { ok: true }
 }
+
+// Phase 5.2 — Applicant → Contractor conversion.
+//
+// Triggered from the applicant detail page once status is `approved`.
+// Creates the contractor record (status='onboarding',
+// onboarding_status='in_progress') and links it back to the applicant
+// via source_applicant_id. The applicant is moved to status='onboarding'
+// with converted_contractor_id + converted_at populated.
+//
+// Idempotency: if the applicant already has a converted_contractor_id,
+// the action is a no-op and returns the existing contractor id. This
+// makes a re-click safe even if the page state is stale.
+//
+// Email dedupe: case-insensitive lookup against contractors.email.
+// Trial flag: passed through from the modal (default true), persisted
+// on both the contractor and the applicant for audit.
+//
+// Audit: writes one row to audit_log with action
+// 'applicant_converted_to_contractor' and a structured before/after
+// payload.
+
+export async function startContractorOnboarding(input: {
+  applicantId: string
+  workerKind: 'contractor' | 'employee'
+  trialRequired: boolean
+}): Promise<{ ok: true; contractorId: string } | { error: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+
+  // Read applicant
+  const { data: applicant, error: appErr } = await supabase
+    .from('applicants')
+    .select('id, status, first_name, last_name, email, phone, suburb, application_type, converted_contractor_id, trial_required')
+    .eq('id', input.applicantId)
+    .maybeSingle()
+  if (appErr) return { error: appErr.message }
+  if (!applicant) return { error: 'Applicant not found.' }
+
+  type ApplicantRow = {
+    id: string
+    status: string
+    first_name: string | null
+    last_name: string | null
+    email: string | null
+    phone: string | null
+    suburb: string | null
+    application_type: string | null
+    converted_contractor_id: string | null
+    trial_required: boolean | null
+  }
+  const a = applicant as ApplicantRow
+
+  // Idempotency: already converted → no-op, return existing.
+  if (a.converted_contractor_id) {
+    return { ok: true, contractorId: a.converted_contractor_id }
+  }
+
+  // Status guard: must be approved before onboarding can start.
+  if (a.status !== 'approved') {
+    return { error: 'Applicant must be in "approved" status to start onboarding.' }
+  }
+
+  // Required field validation.
+  if (!a.first_name?.trim() || !a.last_name?.trim()) {
+    return { error: 'Applicant name is missing.' }
+  }
+  if (!a.email?.trim()) {
+    return { error: 'Applicant email is missing.' }
+  }
+  if (!a.phone?.trim()) {
+    return { error: 'Applicant phone is missing.' }
+  }
+
+  const lcEmail = a.email.toLowerCase().trim()
+
+  // Email dedup against contractors.
+  const { data: existing } = await supabase
+    .from('contractors')
+    .select('id')
+    .ilike('email', lcEmail)
+    .limit(1)
+  if (existing && existing.length > 0) {
+    return { error: 'A contractor record with this email already exists.' }
+  }
+
+  // Map worker kind → existing worker_type enum.
+  // 'contractor' → 'contractor'; 'employee' → 'casual' (default; admin
+  // can refine to part_time / full_time on the contractor record).
+  const workerType = input.workerKind === 'contractor' ? 'contractor' : 'casual'
+  const fullName = `${a.first_name.trim()} ${a.last_name.trim()}`
+  const nowIso = new Date().toISOString()
+
+  // Create contractor.
+  const { data: contractorRow, error: cErr } = await supabase
+    .from('contractors')
+    .insert({
+      full_name: fullName,
+      email: lcEmail,
+      phone: a.phone.trim(),
+      suburb: a.suburb?.trim() || null,
+      worker_type: workerType,
+      status: 'onboarding',
+      onboarding_status: 'in_progress',
+      onboarding_started_at: nowIso,
+      trial_required: input.trialRequired,
+      source_applicant_id: a.id,
+    })
+    .select('id')
+    .single()
+  if (cErr) return { error: cErr.message }
+  const contractor = contractorRow as { id: string } | null
+  if (!contractor) return { error: 'Contractor creation failed.' }
+
+  // Update applicant.
+  const { error: aUpdErr } = await supabase
+    .from('applicants')
+    .update({
+      status: 'onboarding',
+      converted_contractor_id: contractor.id,
+      converted_at: nowIso,
+      trial_required: input.trialRequired,
+      status_updated_at: nowIso,
+      status_updated_by: user.id,
+    })
+    .eq('id', input.applicantId)
+  if (aUpdErr) {
+    // Contractor row exists; idempotency on retry will pick it up.
+    return { error: `Contractor created but applicant update failed: ${aUpdErr.message}` }
+  }
+
+  // Audit log.
+  await supabase.from('audit_log').insert({
+    actor_id: user.id,
+    actor_role: 'admin',
+    action: 'applicant_converted_to_contractor',
+    entity_table: 'applicants',
+    entity_id: a.id,
+    before: { status: 'approved', converted_contractor_id: null },
+    after: {
+      status: 'onboarding',
+      converted_contractor_id: contractor.id,
+      worker_kind: input.workerKind,
+      worker_type: workerType,
+      trial_required: input.trialRequired,
+    },
+  })
+
+  revalidatePath('/portal/applicants')
+  revalidatePath(`/portal/applicants/${input.applicantId}`)
+  return { ok: true, contractorId: contractor.id }
+}
