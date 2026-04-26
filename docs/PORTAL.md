@@ -1452,6 +1452,27 @@ None currently.
 
 ---
 
+## Portal access (Phase 5.5) — IN PROGRESS
+
+End-to-end portal-access system: invite, reset, disable, role-based redirects, mobile-first contractor surface, PWA install. Replaces the manual Supabase-dashboard workflow.
+
+### Architecture
+- **Auth source of truth:** Supabase Auth.
+- **Email transport:** Resend, branded templates only — Supabase's default templates are bypassed by using `auth.admin.generateLink()` server-side, then sending the link via our own templates.
+- **Role-based redirects:** existing middleware (staff → `/portal`, contractor → `/contractor`) extended in 5.5.5 for `/client/*` (future).
+
+### Sub-phases
+- **5.5.1 — Auth invite + reset core** (in progress, branch `feat/auth-invite-reset-phase-5-5-1`). Server helpers (`inviteUser`, `requestPasswordReset`, `disableAccess`, `enableAccess`) in `src/lib/auth-invites.ts`; branded transactional email templates added to `src/lib/resend.ts`. Public pages at `/portal/forgot-password` + `/portal/reset-password` with explicit loading / success / expired-link states and role-aware auto-redirect after password set. Login page gains "Forgot password?" link. No DB migration in 5.5.1; no admin UI yet (lands in 5.5.2 / 5.5.3).
+- **5.5.2 — Staff table + invite UI** (planned). New `staff` table; `/portal/staff` admin list + invite/disable buttons. RLS staff-read / admin-write.
+- **5.5.3 — Contractor invite UI** (planned). "Invite to portal" button on contractor detail; access-status pill (not invited / invited / active / disabled); resend / disable.
+- **5.5.4 — PWA + mobile UX** (planned). `manifest.json`, app icons, standalone display, install prompt; sticky bottom action bar on `/contractor/jobs/[id]`; card-based mobile job list.
+- **5.5.5 — Customer-portal scaffold** (planned). `clients.auth_user_id`, middleware hook for `/client/*`, `enable_customer_portal` setting. No customer UI yet.
+
+### Settings additions (planned, 5.5.2+)
+Extend `workforce_settings.value` with: `invite_email_subject`, `invite_email_body_template`, `reset_email_subject`, `reset_email_body_template`, `invite_expiry_days` (default 7), `enable_contractor_portal` (default true), `enable_customer_portal` (default false).
+
+---
+
 ## Applicant pipeline (Phase 5)
 
 Inbound recruitment funnel — public Join Our Team submissions land in the `applicants` table; staff triage in `/portal/applicants`.
