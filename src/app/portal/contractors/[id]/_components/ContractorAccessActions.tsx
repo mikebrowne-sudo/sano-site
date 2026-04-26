@@ -1,22 +1,54 @@
 'use client'
 
-// Phase 5.5.2 — Staff invite / disable / re-enable controls.
+// Phase 5.5.3 — Contractor portal access action buttons.
+// Mirrors the staff InviteActions component shape.
 
 import { useState, useTransition } from 'react'
 import {
-  inviteStaffUser,
-  disableStaffAccess,
-  enableStaffAccess,
-} from '../_actions'
+  inviteContractorUser,
+  disableContractorAccess,
+  enableContractorAccess,
+} from '../_actions-access'
 
-type Status = 'not_invited' | 'invited' | 'active' | 'disabled'
+type Status = 'not_invited' | 'invited' | 'active' | 'disabled' | 'feature_disabled'
 
-export function InviteActions({
-  staffId,
+export const STATUS_LABEL: Record<Status, string> = {
+  not_invited:      'Not invited',
+  invited:          'Invited',
+  active:           'Active',
+  disabled:         'Disabled',
+  feature_disabled: 'Portal disabled',
+}
+
+export const STATUS_BADGE: Record<Status, string> = {
+  not_invited:      'bg-gray-100 text-gray-600',
+  invited:          'bg-amber-50 text-amber-700',
+  active:           'bg-emerald-100 text-emerald-800',
+  disabled:         'bg-red-50 text-red-700',
+  feature_disabled: 'bg-gray-100 text-gray-500',
+}
+
+export function contractorAccessStatus(c: {
+  access_disabled_at: string | null
+  invite_accepted_at: string | null
+  invite_sent_at: string | null
+  auth_user_id: string | null
+}, featureEnabled = true): Status {
+  if (!featureEnabled) return 'feature_disabled'
+  if (c.access_disabled_at) return 'disabled'
+  if (c.invite_accepted_at) return 'active'
+  if (c.invite_sent_at) return 'invited'
+  return 'not_invited'
+}
+
+export function ContractorAccessActions({
+  contractorId,
   status,
+  featureEnabled,
 }: {
-  staffId: string
+  contractorId: string
   status: Status
+  featureEnabled: boolean
 }) {
   const [pending, startTransition] = useTransition()
   const [modal, setModal] = useState<null | 'disable'>(null)
@@ -27,7 +59,7 @@ export function InviteActions({
   function doInvite() {
     setErrorMessage('')
     startTransition(async () => {
-      const r = await inviteStaffUser({ staffId })
+      const r = await inviteContractorUser({ contractorId })
       if ('error' in r) {
         setErrorMessage(r.error)
         return
@@ -41,7 +73,7 @@ export function InviteActions({
     if (!reason.trim()) return
     setErrorMessage('')
     startTransition(async () => {
-      const r = await disableStaffAccess({ staffId, reason })
+      const r = await disableContractorAccess({ contractorId, reason })
       if ('error' in r) {
         setErrorMessage(r.error)
         return
@@ -54,7 +86,7 @@ export function InviteActions({
   function doEnable() {
     setErrorMessage('')
     startTransition(async () => {
-      const r = await enableStaffAccess({ staffId })
+      const r = await enableContractorAccess({ contractorId })
       if ('error' in r) {
         setErrorMessage(r.error)
         return
@@ -62,6 +94,14 @@ export function InviteActions({
       setFlash('enabled')
       setTimeout(() => setFlash('idle'), 2000)
     })
+  }
+
+  if (!featureEnabled) {
+    return (
+      <p className="text-sm text-sage-500">
+        Contractor portal is disabled in workforce settings — invite actions are unavailable.
+      </p>
+    )
   }
 
   const inviteLabel =
@@ -72,18 +112,13 @@ export function InviteActions({
 
   return (
     <div>
-      {status === 'disabled' && (
-        <p className="text-xs text-sage-600 bg-sage-50 rounded-lg px-3 py-2 mb-3">
-          Access is disabled. Contact admin if this is unexpected.
-        </p>
-      )}
       <div className="flex flex-wrap gap-2">
         {status !== 'disabled' && inviteLabel && (
           <button
             type="button"
             onClick={doInvite}
             disabled={pending}
-            className="bg-sage-500 text-white font-semibold px-4 py-2 rounded-lg text-sm hover:bg-sage-700 transition-colors disabled:opacity-50"
+            className="bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors disabled:opacity-50 min-h-[44px]"
           >
             {pending ? 'Working…' : inviteLabel}
           </button>
@@ -93,7 +128,7 @@ export function InviteActions({
             type="button"
             onClick={() => { setReason(''); setErrorMessage(''); setModal('disable') }}
             disabled={pending}
-            className="bg-white border border-red-200 text-red-700 font-semibold px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors disabled:opacity-50"
+            className="bg-white border border-red-200 text-red-700 font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-red-50 transition-colors disabled:opacity-50 min-h-[44px]"
           >
             Disable access
           </button>
@@ -103,7 +138,7 @@ export function InviteActions({
             type="button"
             onClick={doEnable}
             disabled={pending}
-            className="bg-emerald-500 text-white font-semibold px-4 py-2 rounded-lg text-sm hover:bg-emerald-600 transition-colors disabled:opacity-50"
+            className="bg-emerald-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-emerald-600 transition-colors disabled:opacity-50 min-h-[44px]"
           >
             {pending ? 'Working…' : 'Re-enable access'}
           </button>
@@ -129,9 +164,9 @@ export function InviteActions({
             className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold text-sage-800 mb-1">Disable staff access</h3>
+            <h3 className="text-lg font-semibold text-sage-800 mb-1">Disable contractor access</h3>
             <p className="text-sm text-sage-600 mb-4">
-              The user will be signed out and unable to log in. Re-enabling restores access immediately. Reason is captured in the audit log.
+              The contractor will be signed out and unable to log into <code className="text-xs">/contractor/*</code>. Job assignment is a separate gate (contractor.status). Re-enabling restores login immediately. Reason is captured in the audit log.
             </p>
             <textarea
               value={reason}
@@ -167,30 +202,4 @@ export function InviteActions({
       )}
     </div>
   )
-}
-
-export function staffAccessStatus(staff: {
-  access_disabled_at: string | null
-  invite_accepted_at: string | null
-  invite_sent_at: string | null
-  auth_user_id: string | null
-}): Status {
-  if (staff.access_disabled_at) return 'disabled'
-  if (staff.invite_accepted_at) return 'active'
-  if (staff.invite_sent_at) return 'invited'
-  return 'not_invited'
-}
-
-export const STATUS_LABEL: Record<Status, string> = {
-  not_invited: 'Not invited',
-  invited: 'Invited',
-  active: 'Active',
-  disabled: 'Disabled',
-}
-
-export const STATUS_BADGE: Record<Status, string> = {
-  not_invited: 'bg-gray-100 text-gray-600',
-  invited:     'bg-amber-50 text-amber-700',
-  active:      'bg-emerald-100 text-emerald-800',
-  disabled:    'bg-red-50 text-red-700',
 }

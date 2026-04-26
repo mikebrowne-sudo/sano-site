@@ -2,6 +2,12 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { HardHat, Plus } from 'lucide-react'
 import clsx from 'clsx'
+import { loadWorkforceSettings } from '@/lib/workforce-settings'
+import {
+  contractorAccessStatus,
+  STATUS_LABEL as ACCESS_STATUS_LABEL,
+  STATUS_BADGE as ACCESS_STATUS_BADGE,
+} from './[id]/_components/ContractorAccessActions'
 
 function fmtCurrency(dollars: number | null) {
   if (dollars == null) return '—'
@@ -11,10 +17,14 @@ function fmtCurrency(dollars: number | null) {
 export default async function ContractorsPage() {
   const supabase = createClient()
 
-  const { data: contractors, error } = await supabase
-    .from('contractors')
-    .select('id, full_name, email, phone, hourly_rate, status, worker_type, employment_type, onboarding_status, trial_required, trial_status')
-    .order('full_name')
+  const [{ data: contractors, error }, settings] = await Promise.all([
+    supabase
+      .from('contractors')
+      .select('id, full_name, email, phone, hourly_rate, status, worker_type, employment_type, onboarding_status, trial_required, trial_status, invite_sent_at, invite_accepted_at, access_disabled_at, auth_user_id')
+      .order('full_name'),
+    loadWorkforceSettings(supabase),
+  ])
+  const featureEnabled = settings.enable_contractor_portal
 
   if (error) {
     return (
@@ -66,10 +76,18 @@ export default async function ContractorsPage() {
                   <th className="px-5 py-3 font-semibold">Rate</th>
                   <th className="px-5 py-3 font-semibold">Type</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
+                  <th className="px-5 py-3 font-semibold">Access</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((c) => (
+                {rows.map((c) => {
+                  const access = contractorAccessStatus({
+                    access_disabled_at: (c as { access_disabled_at?: string | null }).access_disabled_at ?? null,
+                    invite_accepted_at: (c as { invite_accepted_at?: string | null }).invite_accepted_at ?? null,
+                    invite_sent_at: (c as { invite_sent_at?: string | null }).invite_sent_at ?? null,
+                    auth_user_id: (c as { auth_user_id?: string | null }).auth_user_id ?? null,
+                  }, featureEnabled)
+                  return (
                   <tr key={c.id} className="border-b border-gray-50 last:border-0 group">
                     <td className="p-0"><Link href={`/portal/contractors/${c.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors font-medium text-sage-800">{c.full_name}</Link></td>
                     <td className="p-0"><Link href={`/portal/contractors/${c.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-600">{c.email || '—'}</Link></td>
@@ -97,23 +115,42 @@ export default async function ContractorsPage() {
                         </span>
                       )
                     })()}</Link></td>
+                    <td className="p-0"><Link href={`/portal/contractors/${c.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors">
+                      <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium', ACCESS_STATUS_BADGE[access])}>
+                        {ACCESS_STATUS_LABEL[access]}
+                      </span>
+                    </Link></td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
 
           <div className="md:hidden divide-y divide-gray-100">
-            {rows.map((c) => (
+            {rows.map((c) => {
+              const access = contractorAccessStatus({
+                access_disabled_at: (c as { access_disabled_at?: string | null }).access_disabled_at ?? null,
+                invite_accepted_at: (c as { invite_accepted_at?: string | null }).invite_accepted_at ?? null,
+                invite_sent_at: (c as { invite_sent_at?: string | null }).invite_sent_at ?? null,
+                auth_user_id: (c as { auth_user_id?: string | null }).auth_user_id ?? null,
+              }, featureEnabled)
+              return (
               <Link key={c.id} href={`/portal/contractors/${c.id}`} className="block px-4 py-4 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
                   <span className="font-medium text-sage-800">{c.full_name}</span>
-                  <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', c.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600')}>{c.status}</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', c.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600')}>{c.status}</span>
+                    <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-[10px] font-medium', ACCESS_STATUS_BADGE[access])}>
+                      {ACCESS_STATUS_LABEL[access]}
+                    </span>
+                  </div>
                 </div>
                 <div className="text-sage-600 text-sm">{c.email || c.phone || '—'}</div>
                 {c.hourly_rate != null && <div className="text-sage-500 text-xs mt-1">{fmtCurrency(c.hourly_rate)}/hr</div>}
               </Link>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}

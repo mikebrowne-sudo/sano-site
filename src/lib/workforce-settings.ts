@@ -19,6 +19,8 @@ export interface WorkforceSettings {
   trial_required_default: boolean
   contractor_required_items: string[]
   employee_required_items: string[]
+  // Phase 5.5.3 — feature flag for the contractor portal access surface.
+  enable_contractor_portal: boolean
 }
 
 export const WORKFORCE_SETTINGS_DEFAULTS: WorkforceSettings = {
@@ -34,6 +36,7 @@ export const WORKFORCE_SETTINGS_DEFAULTS: WorkforceSettings = {
     'confirm_details', 'bank_details', 'id_verified',
     'ird_provided', 'kiwisaver', 'contract_signed', 'onboarding_training',
   ],
+  enable_contractor_portal: true,
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
