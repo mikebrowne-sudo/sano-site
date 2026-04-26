@@ -21,6 +21,9 @@ export interface WorkforceSettings {
   employee_required_items: string[]
   // Phase 5.5.3 — feature flag for the contractor portal access surface.
   enable_contractor_portal: boolean
+  // Phase 5.5.4 — mobile / PWA toggles for the contractor portal.
+  enable_pwa_prompt: boolean
+  contractor_mobile_bottom_nav_enabled: boolean
 }
 
 export const WORKFORCE_SETTINGS_DEFAULTS: WorkforceSettings = {
@@ -37,6 +40,8 @@ export const WORKFORCE_SETTINGS_DEFAULTS: WorkforceSettings = {
     'ird_provided', 'kiwisaver', 'contract_signed', 'onboarding_training',
   ],
   enable_contractor_portal: true,
+  enable_pwa_prompt: true,
+  contractor_mobile_bottom_nav_enabled: true,
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

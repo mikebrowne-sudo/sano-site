@@ -1,0 +1,32 @@
+{
+  "name": "Sano",
+  "short_name": "Sano",
+  "description": "Sano contractor portal — view jobs, mark on the way, start and complete work.",
+  "start_url": "/contractor/jobs",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F9F7",
+  "theme_color": "#076653",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/brand/sano-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/sano-logo-stacked.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/sano-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
