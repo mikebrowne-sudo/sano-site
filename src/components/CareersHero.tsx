@@ -6,12 +6,17 @@ export function CareersHero() {
   return (
     <section className="relative flex items-center justify-center min-h-[60vh] overflow-hidden bg-sage-800">
       {/* Background image */}
+      {/* unoptimized: the Netlify Next-image optimizer is currently
+          returning 502 for /_next/image; bypass it and serve the raw
+          public asset directly. Layout behaviour from `fill` is
+          preserved. */}
       <Image
         src="/images/careers/sano-team-hero.jpg"
         alt="The Sano team standing together"
         fill
         priority
         sizes="100vw"
+        unoptimized
         className="object-cover object-center"
       />
 

@@ -61,22 +61,27 @@ export function WhyWorkWithSano() {
             aria-hidden="true"
             className="hidden lg:block absolute -top-12 right-0 w-[560px] aspect-[4/3] rounded-2xl overflow-hidden shadow-md z-0"
           >
+            {/* unoptimized: see CareersHero — optimizer is 502 in prod */}
             <Image
               src="/images/careers/join-the-sano-crew.jpeg"
               alt=""
               fill
               sizes="560px"
+              unoptimized
               className="object-cover"
             />
           </div>
 
-          {/* Mobile image — stacks below cards on small screens */}
-          <div className="lg:hidden mt-6 rounded-2xl overflow-hidden shadow-md aspect-[4/3]">
+          {/* Mobile image — stacks below cards on small screens.
+              `relative` is required so the next/image fill child has
+              a positioned ancestor to anchor against. */}
+          <div className="lg:hidden mt-6 relative rounded-2xl overflow-hidden shadow-md aspect-[4/3]">
             <Image
               src="/images/careers/join-the-sano-crew.jpeg"
               alt="Sano crew members holding a &apos;Join the Sano Crew&apos; sign"
               fill
               sizes="100vw"
+              unoptimized
               className="object-cover"
             />
           </div>
