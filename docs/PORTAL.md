@@ -8,7 +8,7 @@
 
 ## Current Active Work
 
-**Primary focus:** Notifications polish — STOP/HELP keyword handling, Twilio inbound, delivery-status webhooks (unblocks turning `customer_sms_enabled` back on for live customer SMS)
+**Primary focus:** Notifications Phase H.5 — SMS inbound + delivery + compliance (STOP/HELP). Once shipped, `customer_sms_enabled` can be flipped back on for live customer SMS.
 
 *Convention: this section reflects the ONE active focus. Each major phase (Notifications, Payroll, Recurring, etc.) supports an "In Flight" subsection below its "shipped" section. Shipped sections remain unchanged; in-flight sections track real-time development state and update only at phase boundaries (push → PR → merge → verified).*
 
@@ -1399,4 +1399,4 @@ Production state
 
 *Update only at phase boundaries (push → PR → merge → verified). Items move out of this section into "shipped" only after deployed and verified.*
 
-None currently.
+- **H.5 — SMS inbound + delivery + compliance (STOP/HELP)** — built on `feat/sms-inbound-compliance-phase-h5`. Adds `/api/twilio/inbound-sms` (STOP marks `clients.opted_out_sms=true`; HELP returns canned reply), `/api/twilio/status` (writes `notification_logs.delivery_status` from Twilio callbacks), and an opt-out gate in `sendNotification`. Migration `docs/db/2026-04-26-phase-h5-sms-inbound-compliance.sql` applied to Supabase. Pending: PR review + merge, Twilio Messaging Service inbound + status-callback URL configuration, then real-SMS validation. Once shipped + validated, `customer_sms_enabled` can be flipped back to `true`.
