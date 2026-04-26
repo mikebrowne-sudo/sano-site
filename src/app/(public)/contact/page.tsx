@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
-import { QuoteForm } from '@/components/QuoteForm'
+import { QuoteRequestStepper } from '@/components/quote-stepper/QuoteRequestStepper'
 import { TrustBar } from '@/components/TrustBar'
 
 export const metadata: Metadata = {
@@ -79,7 +79,7 @@ export default function ContactPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-sage-100 p-8">
               <h2 className="text-sage-800 mb-6 text-xl">Request a quote</h2>
               <Suspense fallback={<div className="h-64 animate-pulse bg-sage-50 rounded-xl" />}>
-                <QuoteForm />
+                <QuoteRequestStepper />
               </Suspense>
             </div>
           </div>
