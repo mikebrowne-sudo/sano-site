@@ -287,22 +287,22 @@ export async function assignJob(input: AssignJobInput) {
     return { error: 'Contractor not found.' }
   }
 
-  // Phase 5.4 — Workflow gate driven by onboarding_settings.
-  // block_assignment_until_onboarding_complete = true (default) →
-  // hard-block on incomplete onboarding / unfinished trial / non-active
-  // status. When the toggle is off, fall through to the existing
-  // insurance-expiry hard-block only.
-  const { loadOnboardingSettings } = await import('@/lib/onboarding-settings')
-  const onboardingSettings = await loadOnboardingSettings(supabase)
-  if (onboardingSettings.block_assignment_until_onboarding_complete) {
+  // Phase 5.4 (locked) — Workflow gate driven by workforce_settings.
+  // block_assignment_until_ready = true (default) → hard-block on
+  // non-active status / incomplete onboarding / unfinished trial.
+  // When the toggle is off, the gate is skipped and only the
+  // insurance-expiry hard-stop remains.
+  const { loadWorkforceSettings } = await import('@/lib/workforce-settings')
+  const workforceSettings = await loadWorkforceSettings(supabase)
+  if (workforceSettings.block_assignment_until_ready) {
     if (contractor.status !== 'active') {
-      return { error: `Cannot assign — ${contractor.full_name} is not active yet. Complete onboarding and trial requirements first.` }
+      return { error: `Worker is not ready for job assignment. Complete onboarding and trial requirements first. (${contractor.full_name})` }
     }
     if (contractor.onboarding_status && contractor.onboarding_status !== 'complete') {
-      return { error: `Cannot assign — ${contractor.full_name} has not finished onboarding. Complete the onboarding checklist first.` }
+      return { error: `Worker is not ready for job assignment. Complete onboarding and trial requirements first. (${contractor.full_name})` }
     }
     if (contractor.trial_required && contractor.trial_status !== 'passed') {
-      return { error: `Cannot assign — ${contractor.full_name} has not passed a trial shift yet. Record the trial outcome first.` }
+      return { error: `Worker is not ready for job assignment. Complete onboarding and trial requirements first. (${contractor.full_name})` }
     }
   }
 
