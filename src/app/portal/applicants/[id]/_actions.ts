@@ -9,6 +9,7 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
+import { checklistForWorkerType } from '@/lib/onboarding-checklist'
 
 const VALID_STATUSES = [
   'new', 'reviewing', 'phone_screen', 'approved', 'onboarding',
@@ -344,10 +345,15 @@ export async function startContractorOnboarding(input: {
     return { error: 'A contractor record with this email already exists.' }
   }
 
-  // Map worker kind → existing worker_type enum.
-  // 'contractor' → 'contractor'; 'employee' → 'casual' (default; admin
-  // can refine to part_time / full_time on the contractor record).
-  const workerType = input.workerKind === 'contractor' ? 'contractor' : 'casual'
+  // Map worker kind → contractors columns.
+  // 'contractor' → worker_type='contractor', employment_type=null
+  // 'employee'   → worker_type='employee',   employment_type='casual'
+  //                  (default; admin refines to part_time / full_time
+  //                   on the contractor record)
+  const workerType: 'contractor' | 'employee' =
+    input.workerKind === 'contractor' ? 'contractor' : 'employee'
+  const employmentType: 'casual' | null =
+    input.workerKind === 'contractor' ? null : 'casual'
   const fullName = `${a.first_name.trim()} ${a.last_name.trim()}`
   const nowIso = new Date().toISOString()
 
@@ -360,6 +366,7 @@ export async function startContractorOnboarding(input: {
       phone: a.phone.trim(),
       suburb: a.suburb?.trim() || null,
       worker_type: workerType,
+      employment_type: employmentType,
       status: 'onboarding',
       onboarding_status: 'in_progress',
       onboarding_started_at: nowIso,
@@ -371,6 +378,24 @@ export async function startContractorOnboarding(input: {
   if (cErr) return { error: cErr.message }
   const contractor = contractorRow as { id: string } | null
   if (!contractor) return { error: 'Contractor creation failed.' }
+
+  // Seed the onboarding checklist for this worker type. Failure here
+  // is logged but does not abort the conversion — the panel can be
+  // re-seeded later if needed (Phase 5.3).
+  const checklist = checklistForWorkerType(workerType).map((it) => ({
+    contractor_id: contractor.id,
+    section: it.section,
+    item_key: it.item_key,
+    label: it.label,
+    sort_order: it.sort_order,
+    status: 'pending',
+  }))
+  if (checklist.length > 0) {
+    const { error: seedErr } = await supabase.from('contractor_onboarding').insert(checklist)
+    if (seedErr) {
+      console.error('[startContractorOnboarding] checklist seed failed', seedErr)
+    }
+  }
 
   // Update applicant.
   const { error: aUpdErr } = await supabase
