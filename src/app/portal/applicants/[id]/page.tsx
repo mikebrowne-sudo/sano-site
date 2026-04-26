@@ -164,6 +164,23 @@ export default async function ApplicantDetailPage({
         </div>
       )}
 
+      {/* Phase 5.3 — At-a-glance trial visibility, always rendered.
+          ApplicantTrialSection handles scheduling / outcome inside. */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+        <h2 className="text-base font-semibold text-sage-800 mb-1">Trial</h2>
+        {a.trial_required ?? true ? (
+          <p className="text-sm text-sage-700">
+            <span className="inline-block px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium text-xs mr-2">Trial required: Yes</span>
+            Trial shift will be scheduled before they go live.
+          </p>
+        ) : (
+          <p className="text-sm text-sage-700">
+            <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium text-xs mr-2">Trial skipped</span>
+            Experienced applicant — moving straight to ready-to-work after onboarding.
+          </p>
+        )}
+      </div>
+
       <ApplicantTrialSection
         applicantId={a.id}
         status={a.status}

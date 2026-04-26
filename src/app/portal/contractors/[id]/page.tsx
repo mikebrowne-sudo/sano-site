@@ -10,12 +10,28 @@ import { IncidentList } from '../_components/IncidentList'
 import { DeleteButton } from '../../_components/DeleteButton'
 import { computeComplianceStatus } from '@/lib/contractor-compliance'
 import clsx from 'clsx'
+import { OnboardingPanel } from './_components/OnboardingPanel'
 
+// Phase 5.3 — worker_type now collapses to {contractor, employee};
+// the prior sub-classifications (casual / part_time / full_time)
+// live on contractors.employment_type.
 const WORKER_TYPE_STYLES: Record<string, string> = {
   contractor: 'bg-blue-50 text-blue-700',
-  casual: 'bg-amber-50 text-amber-700',
-  part_time: 'bg-purple-50 text-purple-700',
+  employee:   'bg-purple-50 text-purple-700',
+}
+const EMPLOYMENT_TYPE_STYLES: Record<string, string> = {
+  casual:    'bg-amber-50 text-amber-700',
+  part_time: 'bg-violet-50 text-violet-700',
   full_time: 'bg-emerald-50 text-emerald-700',
+}
+const WORKER_TYPE_LABEL: Record<string, string> = {
+  contractor: 'Contractor',
+  employee:   'Employee',
+}
+const EMPLOYMENT_TYPE_LABEL: Record<string, string> = {
+  casual:    'Casual',
+  part_time: 'Part-time',
+  full_time: 'Full-time',
 }
 
 function fmtCurrency(dollars: number | null) {
@@ -36,7 +52,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
   const [{ data: contractor, error }, { data: jobs, count: jobCount }, { data: documents }, { data: trainingAssignments }, { data: incidents }] = await Promise.all([
     supabase
       .from('contractors')
-      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate, insurance_provider, insurance_policy_number, insurance_expiry, insurance_liability_cover, company_name, business_structure, nzbn, gst_registered, gst_number, bank_account_name, bank_account_number, payment_terms_days, contract_signed_date, right_to_work_required, right_to_work_expiry, service_areas, approved_services, availability_notes, has_vehicle, provides_own_equipment, key_holding_approved, alarm_access_approved, pet_friendly, experience_level, can_lead_jobs, can_work_solo, can_supervise_others, invite_sent_at, portal_access_active, auth_user_id')
+      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, employment_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate, insurance_provider, insurance_policy_number, insurance_expiry, insurance_liability_cover, company_name, business_structure, nzbn, gst_registered, gst_number, bank_account_name, bank_account_number, payment_terms_days, contract_signed_date, right_to_work_required, right_to_work_expiry, service_areas, approved_services, availability_notes, has_vehicle, provides_own_equipment, key_holding_approved, alarm_access_approved, pet_friendly, experience_level, can_lead_jobs, can_work_solo, can_supervise_others, invite_sent_at, portal_access_active, auth_user_id, onboarding_status, onboarding_started_at, onboarding_completed_at, trial_required, source_applicant_id')
       .eq('id', params.id)
       .single(),
     supabase
@@ -77,7 +93,12 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
   }
 
   const workerType = contractor.worker_type ?? 'contractor'
+  const employmentType = (contractor as { employment_type?: string | null }).employment_type ?? null
   const compliance = computeComplianceStatus(contractor)
+  const onboardingStatus = (contractor as { onboarding_status?: string | null }).onboarding_status ?? null
+  const trialRequired = (contractor as { trial_required?: boolean | null }).trial_required ?? null
+  const inOnboarding = (contractor.status as string) === 'onboarding'
+    || (onboardingStatus && onboardingStatus !== 'complete')
   const incidentList = incidents ?? []
   const openIncidentCount = incidentList.filter((i) => !i.resolved_at).length
 
@@ -98,9 +119,14 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
             <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', contractor.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600')}>
               {contractor.status}
             </span>
-            <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', WORKER_TYPE_STYLES[workerType] ?? WORKER_TYPE_STYLES.contractor)}>
-              {workerType.replace('_', ' ')}
+            <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium', WORKER_TYPE_STYLES[workerType] ?? WORKER_TYPE_STYLES.contractor)}>
+              {WORKER_TYPE_LABEL[workerType] ?? workerType}
             </span>
+            {employmentType && (
+              <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium', EMPLOYMENT_TYPE_STYLES[employmentType] ?? 'bg-gray-100 text-gray-700')}>
+                {EMPLOYMENT_TYPE_LABEL[employmentType] ?? employmentType}
+              </span>
+            )}
             <ComplianceBadge status={compliance.status} reasons={compliance.reasons} />
           </div>
         </div>
@@ -116,6 +142,39 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
       {isAdmin && (
         <div className="flex justify-end mb-6">
           <DeleteButton type="contractor" id={contractor.id} />
+        </div>
+      )}
+
+      {/* Phase 5.3 — Onboarding panel surfaces while the contractor is
+          in onboarding or has any pending checklist items. Once the
+          checklist hits 100%, contractors.status flips to active and
+          onboarding_status to complete; the panel still renders the
+          historical complete state for admin reference. */}
+      {(inOnboarding || onboardingStatus === 'complete') && (
+        <div className="max-w-2xl">
+          <OnboardingPanel contractorId={contractor.id} onboardingStatus={onboardingStatus} />
+        </div>
+      )}
+
+      {/* Trial visibility */}
+      {((contractor as { trial_required?: boolean | null }).trial_required !== null
+        && (contractor as { trial_required?: boolean | null }).trial_required !== undefined) && (
+        <div className="max-w-2xl bg-white rounded-2xl border border-sage-100 shadow-sm p-6 mb-6">
+          <h2 className="text-base font-semibold text-sage-800 mb-1">Trial</h2>
+          {trialRequired ? (
+            <>
+              <p className="text-sm text-sage-700 mb-2">
+                <span className="inline-block px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium text-xs mr-2">Trial required</span>
+                A trial shift should be scheduled after onboarding completes.
+              </p>
+              <p className="text-xs text-sage-500">Trial scheduling UI lands in Phase 5.4.</p>
+            </>
+          ) : (
+            <p className="text-sm text-sage-700">
+              <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium text-xs mr-2">Trial skipped</span>
+              Marked trial-not-required at conversion (experienced applicant).
+            </p>
+          )}
         </div>
       )}
 

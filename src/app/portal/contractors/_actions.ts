@@ -14,6 +14,7 @@ interface ContractorInput {
   holiday_pay_percent?: number
   status?: string
   worker_type?: string
+  employment_type?: string | null
   notes?: string
   // Payroll
   start_date?: string
@@ -121,6 +122,7 @@ export async function createContractor(input: ContractorInput) {
       hourly_rate: input.hourly_rate ?? null,
       status: input.status || 'active',
       worker_type: input.worker_type || 'contractor',
+      employment_type: input.employment_type ?? null,
       notes: input.notes?.trim() || null,
       // Insurance
       insurance_provider: input.insurance_provider?.trim() || null,
@@ -190,6 +192,7 @@ export async function updateContractor(id: string, input: ContractorInput) {
       hourly_rate: input.hourly_rate ?? null,
       status: input.status || 'active',
       worker_type: input.worker_type || 'contractor',
+      employment_type: input.employment_type ?? null,
       notes: input.notes?.trim() || null,
       // Insurance
       insurance_provider: input.insurance_provider?.trim() || null,

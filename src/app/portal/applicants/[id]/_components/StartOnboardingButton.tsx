@@ -89,7 +89,9 @@ export function StartOnboardingButton({
       }
       setSuccess(result.contractorId)
       // Brief success flash, then jump to the new contractor record.
-      setTimeout(() => router.push(`/portal/contractors/${result.contractorId}`), 900)
+      // Phase 5.3 — tightened from 900ms to 600ms (still enough to
+      // register the "Created" feedback without feeling slow).
+      setTimeout(() => router.push(`/portal/contractors/${result.contractorId}`), 600)
     })
   }
 
