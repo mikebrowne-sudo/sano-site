@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { Resend } from 'resend'
 import { revalidatePath } from 'next/cache'
+import { sendNotification } from '@/lib/notifications/send'
 
 interface SendInvoiceInput {
   invoice_id: string
@@ -63,6 +64,57 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
       date_issued: invoice?.date_issued || today,
     })
     .eq('id', input.invoice_id)
+
+  // Phase H.2 — courtesy SMS to the client after the invoice email
+  // succeeds. Wrapped so any failure here cannot revoke the email-
+  // success contract above; sendNotification logs every outcome
+  // (sent / failed / skipped) to notification_logs internally.
+  try {
+    const { data: full } = await supabase
+      .from('invoices')
+      .select(`
+        client_id, due_date, base_price, discount,
+        invoice_items ( price ),
+        clients ( name, phone )
+      `)
+      .eq('id', input.invoice_id)
+      .single()
+
+    if (full?.client_id && full.clients) {
+      const client = full.clients as unknown as { name: string | null; phone: string | null }
+      const items  = (full.invoice_items ?? []) as { price: number }[]
+      const addOns = items.reduce((s, i) => s + (i.price ?? 0), 0)
+      const total  = (full.base_price ?? 0) + addOns - (full.discount ?? 0)
+
+      const dueLabel = full.due_date
+        ? new Date(full.due_date).toLocaleDateString('en-NZ', {
+            day: 'numeric', month: 'short', year: 'numeric',
+          })
+        : ''
+
+      await sendNotification(supabase, {
+        type: 'invoice_sent',
+        channel: 'sms',
+        audience: 'customer',
+        source: 'automated',
+        recipientName: client.name,
+        recipientPhone: client.phone,
+        variables: {
+          client_name:    (client.name ?? '').split(/\s+/)[0],
+          invoice_number: input.invoice_number,
+          invoice_total:  total.toFixed(2),
+          due_date:       dueLabel,
+          invoice_link:   input.print_url,
+          business_name:  'Sano',
+          business_phone: '0800 726 686',
+        },
+        clientId:  full.client_id,
+        invoiceId: input.invoice_id,
+      })
+    }
+  } catch {
+    // Notification path must never break the email-success contract.
+  }
 
   revalidatePath(`/portal/invoices/${input.invoice_id}`)
   revalidatePath('/portal/invoices')
