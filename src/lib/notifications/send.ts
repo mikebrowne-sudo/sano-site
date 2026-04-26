@@ -189,6 +189,38 @@ export async function sendNotification(
     return { status: 'skipped', reason: 'Recipient phone missing.', logId: id }
   }
 
+  // 8. Customer opt-out (STOP keyword honoured). Phase H.5.
+  //    Twilio Messaging Services already block at the carrier level
+  //    after STOP, but we re-check here so:
+  //      - manual / ad-hoc sends from staff also respect the opt-out
+  //      - the skip is captured in notification_logs with a clear
+  //        reason rather than a Twilio-side silent drop
+  //    Lookup uses clientId when present (direct PK lookup); falls
+  //    back to phone match. Contractor sends are not gated here.
+  if (!isTest && input.audience === 'customer') {
+    let isOptedOut = false
+    if (input.clientId) {
+      const { data } = await supabase
+        .from('clients')
+        .select('opted_out_sms')
+        .eq('id', input.clientId)
+        .maybeSingle()
+      isOptedOut = (data as { opted_out_sms?: boolean } | null)?.opted_out_sms === true
+    } else if (input.recipientPhone) {
+      const { data } = await supabase
+        .from('clients')
+        .select('opted_out_sms')
+        .eq('phone', input.recipientPhone)
+        .limit(1)
+      isOptedOut = (data?.[0] as { opted_out_sms?: boolean } | undefined)?.opted_out_sms === true
+    }
+    if (isOptedOut) {
+      const id = await writeLog(supabase, input, body, 'skipped',
+        { errorMessage: 'Client opted out (STOP).' })
+      return { status: 'skipped', reason: 'Client opted out.', logId: id }
+    }
+  }
+
   // ── Send ──
   const result = await sendTwilioSms({ to: input.recipientPhone, body })
   if (result.ok) {
