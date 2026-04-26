@@ -11,6 +11,7 @@ import { ApplicantStatusForm } from './_components/ApplicantStatusForm'
 import { ApplicantNotesForm } from './_components/ApplicantNotesForm'
 import { ApplicantStageActions } from './_components/ApplicantStageActions'
 import { ApplicantTrialSection } from './_components/ApplicantTrialSection'
+import { StartOnboardingButton } from './_components/StartOnboardingButton'
 
 function fmtDate(iso: string | null) {
   if (!iso) return '—'
@@ -48,12 +49,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 const ACTION_LABELS: Record<string, string> = {
-  'applicant.status_changed':           'Status changed',
-  'applicant.rejected':                 'Rejected',
-  'applicant.on_hold':                  'Put on hold',
-  'applicant.trial_required_changed':   'Trial-required toggled',
-  'applicant.trial_scheduled':          'Trial scheduled',
-  'applicant.trial_outcome_recorded':   'Trial outcome',
+  'applicant.status_changed':            'Status changed',
+  'applicant.rejected':                  'Rejected',
+  'applicant.on_hold':                   'Put on hold',
+  'applicant.trial_required_changed':    'Trial-required toggled',
+  'applicant.trial_scheduled':           'Trial scheduled',
+  'applicant.trial_outcome_recorded':    'Trial outcome',
+  'applicant_converted_to_contractor':   'Converted to contractor',
 }
 
 function describeAuditEntry(entry: AuditEntry): string {
@@ -142,6 +144,41 @@ export default async function ApplicantDetailPage({
         <p className="text-xs text-sage-500 mt-3">
           Recommended forward action for the current stage. The status select above is also available for any non-recommended override.
         </p>
+      </div>
+
+      {/* Phase 5.2 — Conversion CTA + result panel.
+          Show only when the applicant has reached `approved` (or has
+          already been converted, in which case the component renders
+          the link to the contractor record). */}
+      {(a.status === 'approved' || a.converted_contractor_id) && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-6">
+          <h2 className="text-base font-semibold text-sage-800 mb-1">Onboarding</h2>
+          <p className="text-sm text-sage-600 mb-4">
+            Once you&apos;re ready to bring them in, start onboarding to create the worker profile.
+          </p>
+          <StartOnboardingButton
+            applicantId={a.id}
+            applicationType={a.application_type as string | null}
+            alreadyConvertedContractorId={(a.converted_contractor_id as string | null) ?? null}
+          />
+        </div>
+      )}
+
+      {/* Phase 5.3 — At-a-glance trial visibility, always rendered.
+          ApplicantTrialSection handles scheduling / outcome inside. */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+        <h2 className="text-base font-semibold text-sage-800 mb-1">Trial</h2>
+        {a.trial_required ?? true ? (
+          <p className="text-sm text-sage-700">
+            <span className="inline-block px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium text-xs mr-2">Trial required: Yes</span>
+            Trial shift will be scheduled before they go live.
+          </p>
+        ) : (
+          <p className="text-sm text-sage-700">
+            <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium text-xs mr-2">Trial skipped</span>
+            Experienced applicant — moving straight to ready-to-work after onboarding.
+          </p>
+        )}
       </div>
 
       <ApplicantTrialSection

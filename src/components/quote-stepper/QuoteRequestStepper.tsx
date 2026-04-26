@@ -191,14 +191,14 @@ function isValidEmail(email: string) {
 
 function StepProgress({ current, total, title }: { current: number; total: number; title: string }) {
   const pct = Math.min(100, ((current + 1) / total) * 100)
+  const stepNumber = Math.min(current + 1, total)
   return (
     <div className="mb-6">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-medium text-sage-700">
-          Step {Math.min(current + 1, total)} of {total}
-        </p>
-        <p className="text-xs text-gray-500">{title}</p>
-      </div>
+      <p className="text-xs font-medium text-sage-700 mb-2">
+        Step {stepNumber} of {total}
+        <span className="text-gray-400 mx-1.5">·</span>
+        <span className="text-gray-500 font-normal">{title}</span>
+      </p>
       <div className="h-1 bg-sage-100 rounded-full overflow-hidden">
         <div
           className="h-full bg-sage-500 transition-all duration-300"
@@ -556,6 +556,12 @@ export function QuoteRequestStepper() {
   const [form, setForm] = useState<FormData>(emptyForm(searchParams.get('service') || ''))
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
+  const [suburbAutoFilled, setSuburbAutoFilled] = useState(false)
+
+  // Brief delay between an auto-advance card click and moving to the
+  // next step. Lets the green border + tap-scale animation finish so
+  // the choice feels confirmed.
+  const AUTO_ADVANCE_DELAY_MS = 120
 
   function update<K extends keyof FormData>(key: K, value: FormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -572,6 +578,9 @@ export function QuoteRequestStepper() {
 
   function goNext() {
     setStepIndex((i) => Math.min(i + 1, TOTAL_STEPS - 1))
+  }
+  function delayedNext() {
+    window.setTimeout(goNext, AUTO_ADVANCE_DELAY_MS)
   }
   function goBack() {
     setStepIndex((i) => Math.max(i - 1, 0))
@@ -650,13 +659,13 @@ export function QuoteRequestStepper() {
               <div className="grid gap-3">
                 <OptionCard
                   active={form.service_type === 'home'}
-                  onClick={() => { update('service_type', 'home'); goNext() }}
+                  onClick={() => { update('service_type', 'home'); delayedNext() }}
                   label="Home cleaning"
                   helper="Houses, apartments, townhouses — regular or one-off."
                 />
                 <OptionCard
                   active={form.service_type === 'commercial'}
-                  onClick={() => { update('service_type', 'commercial'); goNext() }}
+                  onClick={() => { update('service_type', 'commercial'); delayedNext() }}
                   label="Commercial cleaning"
                   helper="Offices, retail, medical, industrial, and more."
                 />
@@ -675,7 +684,7 @@ export function QuoteRequestStepper() {
                   <OptionCard
                     key={o.value}
                     active={form.home_clean_type === o.value}
-                    onClick={() => { update('home_clean_type', o.value); goNext() }}
+                    onClick={() => { update('home_clean_type', o.value); delayedNext() }}
                     label={o.label}
                     helper={o.helper}
                   />
@@ -693,7 +702,7 @@ export function QuoteRequestStepper() {
                   <OptionCard
                     key={o.value}
                     active={form.commercial_space_type === o.value}
-                    onClick={() => { update('commercial_space_type', o.value); goNext() }}
+                    onClick={() => { update('commercial_space_type', o.value); delayedNext() }}
                     label={o.label}
                     helper={o.helper}
                   />
@@ -717,7 +726,10 @@ export function QuoteRequestStepper() {
                   onSuburbResolved={(suburb) => {
                     // Only auto-populate when the user hasn't typed
                     // a suburb yet — never overwrite manual input.
-                    if (!form.suburb.trim()) update('suburb', suburb)
+                    if (!form.suburb.trim()) {
+                      update('suburb', suburb)
+                      setSuburbAutoFilled(true)
+                    }
                   }}
                   placeholder="Start typing your street address"
                   required
@@ -726,10 +738,11 @@ export function QuoteRequestStepper() {
                   id="suburb"
                   label="Suburb"
                   value={form.suburb}
-                  onChange={(v) => update('suburb', v)}
+                  onChange={(v) => { setSuburbAutoFilled(false); update('suburb', v) }}
                   placeholder="e.g. Mt Eden"
                   required
                   autoComplete="address-level2"
+                  helper={suburbAutoFilled ? 'Suburb auto-filled from address' : undefined}
                 />
               </div>
               <NavButtons isFirst={false} onBack={goBack} onNext={goNext} nextDisabled={nextDisabled()} />
@@ -935,8 +948,8 @@ export function QuoteRequestStepper() {
               <p className="text-sm text-gray-600 leading-relaxed max-w-sm mx-auto">
                 We&apos;ll review the details and come back to you shortly with a quote.
               </p>
-              <p className="text-xs text-gray-500 mt-4">
-                If anything urgent, call us on <a href="tel:0800726686" className="text-sage-700 font-semibold underline-offset-2 hover:underline">0800 726 686</a>.
+              <p className="text-sm text-gray-600 leading-relaxed max-w-sm mx-auto mt-3">
+                If it&apos;s urgent, feel free to call us on <a href="tel:0800726686" className="text-sage-700 font-semibold underline-offset-2 hover:underline">0800 726 686</a>.
               </p>
             </div>
           )}

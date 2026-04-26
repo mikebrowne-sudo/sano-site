@@ -10,12 +10,30 @@ import { IncidentList } from '../_components/IncidentList'
 import { DeleteButton } from '../../_components/DeleteButton'
 import { computeComplianceStatus } from '@/lib/contractor-compliance'
 import clsx from 'clsx'
+import { OnboardingPanel } from './_components/OnboardingPanel'
+import { TrialPanel } from './_components/TrialPanel'
+import { loadOnboardingSettings } from '@/lib/onboarding-settings'
 
+// Phase 5.3 — worker_type now collapses to {contractor, employee};
+// the prior sub-classifications (casual / part_time / full_time)
+// live on contractors.employment_type.
 const WORKER_TYPE_STYLES: Record<string, string> = {
   contractor: 'bg-blue-50 text-blue-700',
-  casual: 'bg-amber-50 text-amber-700',
-  part_time: 'bg-purple-50 text-purple-700',
+  employee:   'bg-purple-50 text-purple-700',
+}
+const EMPLOYMENT_TYPE_STYLES: Record<string, string> = {
+  casual:    'bg-amber-50 text-amber-700',
+  part_time: 'bg-violet-50 text-violet-700',
   full_time: 'bg-emerald-50 text-emerald-700',
+}
+const WORKER_TYPE_LABEL: Record<string, string> = {
+  contractor: 'Contractor',
+  employee:   'Employee',
+}
+const EMPLOYMENT_TYPE_LABEL: Record<string, string> = {
+  casual:    'Casual',
+  part_time: 'Part-time',
+  full_time: 'Full-time',
 }
 
 function fmtCurrency(dollars: number | null) {
@@ -36,7 +54,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
   const [{ data: contractor, error }, { data: jobs, count: jobCount }, { data: documents }, { data: trainingAssignments }, { data: incidents }] = await Promise.all([
     supabase
       .from('contractors')
-      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate, insurance_provider, insurance_policy_number, insurance_expiry, insurance_liability_cover, company_name, business_structure, nzbn, gst_registered, gst_number, bank_account_name, bank_account_number, payment_terms_days, contract_signed_date, right_to_work_required, right_to_work_expiry, service_areas, approved_services, availability_notes, has_vehicle, provides_own_equipment, key_holding_approved, alarm_access_approved, pet_friendly, experience_level, can_lead_jobs, can_work_solo, can_supervise_others, invite_sent_at, portal_access_active, auth_user_id')
+      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, employment_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate, insurance_provider, insurance_policy_number, insurance_expiry, insurance_liability_cover, company_name, business_structure, nzbn, gst_registered, gst_number, bank_account_name, bank_account_number, payment_terms_days, contract_signed_date, right_to_work_required, right_to_work_expiry, service_areas, approved_services, availability_notes, has_vehicle, provides_own_equipment, key_holding_approved, alarm_access_approved, pet_friendly, experience_level, can_lead_jobs, can_work_solo, can_supervise_others, invite_sent_at, portal_access_active, auth_user_id, onboarding_status, onboarding_started_at, onboarding_completed_at, trial_required, trial_status, trial_scheduled_for, trial_outcome_note, source_applicant_id')
       .eq('id', params.id)
       .single(),
     supabase
@@ -76,10 +94,38 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
     }
   }
 
-  const workerType = contractor.worker_type ?? 'contractor'
+  const workerType = (contractor.worker_type ?? 'contractor') as 'contractor' | 'employee'
+  const employmentType = (contractor as { employment_type?: string | null }).employment_type ?? null
   const compliance = computeComplianceStatus(contractor)
+  const onboardingStatus = (contractor as { onboarding_status?: string | null }).onboarding_status ?? null
+  const contractorStatus = contractor.status as string
+  const trialRequired = ((contractor as { trial_required?: boolean | null }).trial_required ?? false) as boolean
+  const trialStatus = ((contractor as { trial_status?: string | null }).trial_status ?? 'not_started') as string
+  const trialScheduledFor = (contractor as { trial_scheduled_for?: string | null }).trial_scheduled_for ?? null
+  const trialOutcomeNote = (contractor as { trial_outcome_note?: string | null }).trial_outcome_note ?? null
+  const inOnboarding = contractorStatus === 'onboarding'
+    || (!!onboardingStatus && onboardingStatus !== 'complete')
   const incidentList = incidents ?? []
   const openIncidentCount = incidentList.filter((i) => !i.resolved_at).length
+
+  // Phase 5.4 — insurance warning. Surface only for `contractor`
+  // worker_type with insurance_expiry within the configured warning
+  // window or already expired.
+  const onboardingSettings = await loadOnboardingSettings(supabase)
+  const insExpiry = (contractor as { insurance_expiry?: string | null }).insurance_expiry ?? null
+  let insuranceWarning: { kind: 'expired' | 'expiring' | 'missing'; message: string } | null = null
+  if (workerType === 'contractor') {
+    if (!insExpiry) {
+      insuranceWarning = { kind: 'missing', message: 'No public liability insurance on file.' }
+    } else {
+      const daysToExpiry = Math.floor((new Date(insExpiry).getTime() - Date.now()) / 86400000)
+      if (daysToExpiry < 0) {
+        insuranceWarning = { kind: 'expired', message: `Insurance expired ${-daysToExpiry} day${daysToExpiry === -1 ? '' : 's'} ago (${insExpiry}). Update before assigning jobs.` }
+      } else if (daysToExpiry <= onboardingSettings.insurance_expiry_warning_days) {
+        insuranceWarning = { kind: 'expiring', message: `Insurance expires in ${daysToExpiry} day${daysToExpiry === 1 ? '' : 's'} (${insExpiry}).` }
+      }
+    }
+  }
 
   return (
     <div>
@@ -98,9 +144,14 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
             <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', contractor.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600')}>
               {contractor.status}
             </span>
-            <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', WORKER_TYPE_STYLES[workerType] ?? WORKER_TYPE_STYLES.contractor)}>
-              {workerType.replace('_', ' ')}
+            <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium', WORKER_TYPE_STYLES[workerType] ?? WORKER_TYPE_STYLES.contractor)}>
+              {WORKER_TYPE_LABEL[workerType] ?? workerType}
             </span>
+            {employmentType && (
+              <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium', EMPLOYMENT_TYPE_STYLES[employmentType] ?? 'bg-gray-100 text-gray-700')}>
+                {EMPLOYMENT_TYPE_LABEL[employmentType] ?? employmentType}
+              </span>
+            )}
             <ComplianceBadge status={compliance.status} reasons={compliance.reasons} />
           </div>
         </div>
@@ -116,6 +167,53 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
       {isAdmin && (
         <div className="flex justify-end mb-6">
           <DeleteButton type="contractor" id={contractor.id} />
+        </div>
+      )}
+
+      {/* Phase 5.4 — Insurance warning banner (contractor only). */}
+      {insuranceWarning && (
+        <div className={`max-w-2xl mb-6 rounded-xl border p-4 text-sm ${
+          insuranceWarning.kind === 'expired'
+            ? 'border-red-200 bg-red-50 text-red-800'
+            : insuranceWarning.kind === 'expiring'
+              ? 'border-amber-200 bg-amber-50 text-amber-800'
+              : 'border-amber-200 bg-amber-50 text-amber-800'
+        }`}>
+          <p className="font-semibold mb-0.5">
+            {insuranceWarning.kind === 'expired'
+              ? 'Insurance expired'
+              : insuranceWarning.kind === 'expiring'
+                ? 'Insurance expiring soon'
+                : 'Insurance not on file'}
+          </p>
+          <p>{insuranceWarning.message}</p>
+        </div>
+      )}
+
+      {/* Phase 5.3 + 5.4 — Onboarding panel + activation gate. */}
+      {(inOnboarding || onboardingStatus === 'complete') && (
+        <div className="max-w-2xl">
+          <OnboardingPanel
+            contractorId={contractor.id}
+            workerType={workerType}
+            contractorStatus={contractorStatus}
+            onboardingStatus={onboardingStatus}
+            trialRequired={trialRequired}
+            trialStatus={trialStatus}
+          />
+        </div>
+      )}
+
+      {/* Phase 5.4 — Trial card with full scheduling + outcome. */}
+      {(inOnboarding || onboardingStatus === 'complete' || trialStatus === 'passed' || trialStatus === 'failed') && (
+        <div className="max-w-2xl">
+          <TrialPanel
+            contractorId={contractor.id}
+            trialRequired={trialRequired}
+            trialStatus={trialStatus}
+            trialScheduledFor={trialScheduledFor}
+            trialOutcomeNote={trialOutcomeNote}
+          />
         </div>
       )}
 

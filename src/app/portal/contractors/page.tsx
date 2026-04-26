@@ -13,7 +13,7 @@ export default async function ContractorsPage() {
 
   const { data: contractors, error } = await supabase
     .from('contractors')
-    .select('id, full_name, email, phone, hourly_rate, status, worker_type')
+    .select('id, full_name, email, phone, hourly_rate, status, worker_type, employment_type, onboarding_status, trial_required, trial_status')
     .order('full_name')
 
   if (error) {
@@ -75,8 +75,35 @@ export default async function ContractorsPage() {
                     <td className="p-0"><Link href={`/portal/contractors/${c.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-600">{c.email || '—'}</Link></td>
                     <td className="p-0"><Link href={`/portal/contractors/${c.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-600">{c.phone || '—'}</Link></td>
                     <td className="p-0"><Link href={`/portal/contractors/${c.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-600">{fmtCurrency(c.hourly_rate)}/hr</Link></td>
-                    <td className="p-0"><Link href={`/portal/contractors/${c.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-600 capitalize">{(c.worker_type ?? 'contractor').replace('_', ' ')}</Link></td>
-                    <td className="p-0"><Link href={`/portal/contractors/${c.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors"><span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', c.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600')}>{c.status}</span></Link></td>
+                    <td className="p-0"><Link href={`/portal/contractors/${c.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-600">{
+                      c.worker_type === 'employee'
+                        ? `Employee${c.employment_type ? ` · ${(c.employment_type as string).replace('_', '-')}` : ''}`
+                        : 'Contractor'
+                    }</Link></td>
+                    <td className="p-0"><Link href={`/portal/contractors/${c.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors">{(() => {
+                      const readyForActivation = c.status === 'onboarding'
+                        && c.onboarding_status === 'complete'
+                        && (!c.trial_required || c.trial_status === 'passed')
+                      const label = readyForActivation
+                        ? 'Ready for activation'
+                        : c.status === 'onboarding'
+                          ? 'Onboarding'
+                          : c.status === 'active'
+                            ? 'Active'
+                            : c.status
+                      const tone = readyForActivation
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : c.status === 'active'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : c.status === 'onboarding'
+                            ? 'bg-amber-50 text-amber-700'
+                            : 'bg-gray-100 text-gray-600'
+                      return (
+                        <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium', tone)}>
+                          {label}
+                        </span>
+                      )
+                    })()}</Link></td>
                   </tr>
                 ))}
               </tbody>

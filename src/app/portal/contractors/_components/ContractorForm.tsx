@@ -44,6 +44,7 @@ export interface ContractorData {
   holiday_pay_percent?: number | null
   status?: string | null
   worker_type?: string | null
+  employment_type?: string | null
   notes?: string | null
   // Payroll (employee)
   start_date?: string | null
@@ -115,7 +116,15 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
   const [email, setEmail] = useState(contractor?.email ?? '')
   const [phone, setPhone] = useState(contractor?.phone ?? '')
   const [status, setStatus] = useState(contractor?.status ?? 'active')
-  const [workerType, setWorkerType] = useState(contractor?.worker_type ?? 'contractor')
+  // Phase 5.3 — worker_type is now {contractor, employee}; employment_type
+  // (casual / part_time / full_time) carries the prior sub-classification
+  // for employees only.
+  const [workerType, setWorkerType] = useState<'contractor' | 'employee'>(
+    (contractor?.worker_type as 'contractor' | 'employee' | null) ?? 'contractor',
+  )
+  const [employmentType, setEmploymentType] = useState<'casual' | 'part_time' | 'full_time' | ''>(
+    (contractor?.employment_type as 'casual' | 'part_time' | 'full_time' | null) ?? 'casual',
+  )
 
   // Rate
   const [hourlyRate, setHourlyRate] = useState(contractor?.hourly_rate != null ? String(contractor.hourly_rate) : '')
@@ -187,8 +196,8 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  const isEmployee = workerType !== 'contractor'
-  const isCasual = workerType === 'casual'
+  const isEmployee = workerType === 'employee'
+  const isCasual = isEmployee && employmentType === 'casual'
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -204,6 +213,7 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
       holiday_pay_percent: isEmployee && holidayPayMethod === 'pay_as_you_go_8_percent' ? toNum(holidayPayPercent) : undefined,
       status,
       worker_type: workerType,
+      employment_type: isEmployee ? (employmentType || 'casual') : null,
       notes: notes.trim() || undefined,
       // Employee-only payroll
       ...(isEmployee ? {
@@ -283,10 +293,19 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
         </div>
         <span className="block text-sm font-semibold text-sage-800 mb-2">Worker type</span>
         <div className="flex flex-wrap gap-2">
-          {(['contractor', 'casual', 'part_time', 'full_time'] as const).map((t) => (
-            <Btn key={t} active={workerType === t} onClick={() => setWorkerType(t)} color="sage">{t.replace('_', ' ')}</Btn>
-          ))}
+          <Btn active={workerType === 'contractor'} onClick={() => setWorkerType('contractor')} color="sage">Contractor</Btn>
+          <Btn active={workerType === 'employee'}   onClick={() => setWorkerType('employee')}   color="sage">Employee</Btn>
         </div>
+        {isEmployee && (
+          <>
+            <span className="block text-sm font-semibold text-sage-800 mt-4 mb-2">Employment type</span>
+            <div className="flex flex-wrap gap-2">
+              <Btn active={employmentType === 'casual'}    onClick={() => setEmploymentType('casual')}    color="sage">Casual</Btn>
+              <Btn active={employmentType === 'part_time'} onClick={() => setEmploymentType('part_time')} color="sage">Part-time</Btn>
+              <Btn active={employmentType === 'full_time'} onClick={() => setEmploymentType('full_time')} color="sage">Full-time</Btn>
+            </div>
+          </>
+        )}
       </Section>
 
       {/* ══════ CONTRACTOR-ONLY SECTIONS ══════ */}
