@@ -6,6 +6,14 @@
 
 ---
 
+## Current Active Work
+
+**Primary focus:** Notifications polish — STOP/HELP keyword handling, Twilio inbound, delivery-status webhooks (unblocks turning `customer_sms_enabled` back on for live customer SMS)
+
+*Convention: this section reflects the ONE active focus. Each major phase (Notifications, Payroll, Recurring, etc.) supports an "In Flight" subsection below its "shipped" section. Shipped sections remain unchanged; in-flight sections track real-time development state and update only at phase boundaries (push → PR → merge → verified).*
+
+---
+
 ## Stack
 - Next.js (App Router)
 - Supabase (Auth + Postgres)
@@ -1351,3 +1359,44 @@ Required env vars
 - `TWILIO_AUTH_TOKEN` (required, server-only — never exposed)
 - `TWILIO_MESSAGING_SERVICE_SID` (preferred sender)
 - `TWILIO_FROM_NUMBER` (fallback sender — set either)
+
+### Customer trigger code + daily cron — shipped (Phase H.1–H.4)
+
+Stacks on the Phase H foundation. Adds the customer-side automated triggers and the scheduled-function cron the foundation always anticipated.
+
+DB seed — `docs/db/2026-04-25-phase-h1-sms-trigger-foundation.sql`
+- 5 idempotent `notification_templates` rows, all GSM-7 safe and ≤120 chars: `customer.invoice_sent`, `customer.cleaner_on_the_way`, `customer.job_reminder_day_before`, `contractor.job_reminder_day_before`, `customer.payment_reminder`. `ON CONFLICT (type, channel, audience) DO NOTHING` — safe to re-apply.
+
+H.2 — `customer.invoice_sent` SMS after the invoice email succeeds
+- Wired into `sendInvoiceEmail` (`src/app/portal/invoices/[id]/_actions.ts`).
+- Fires after the Resend call succeeds and the invoice row is marked `sent`.
+- Try/catch wrapped so any SMS-path failure cannot revoke the email-success contract.
+
+H.3 — Contractor "On my way" customer SMS
+- Server action `contractorOnTheWaySms(jobId)` (`src/app/contractor/jobs/[id]/_actions-notify.ts`). No mutation of `jobs.status` or `started_at` — distinct from `contractorStartJob`.
+- `OnTheWayButton.tsx` renders on the contractor job page when status is `draft`/`assigned`.
+- Same-day dedupe: at most one `cleaner_on_the_way` send per job per calendar day.
+- Customer phone resolved server-side; contractor never sees it.
+
+H.4 — Daily SMS cron (day-before + overdue payment cadence)
+- Route handler `/api/cron/daily-notifications` (`POST`+`GET`), Bearer `CRON_SECRET` auth, service-role Supabase client.
+- Netlify scheduled function `netlify/functions/daily-notifications.mts` + matching `netlify.toml` entry. Schedule: `0 21 * * *` UTC = 09:00 NZST / 10:00 NZDT.
+- Task A — Day-before reminders. Jobs where `scheduled_date` = tomorrow (NZ-local), status `draft`/`assigned`. Sends `job_reminder_day_before` to client + contractor. Per-job per-audience same-day dedupe via `notification_logs`.
+- Task B — Overdue payment cadence. Invoices status=`sent` and `due_date < today` (NZ-local). Cadence: first reminder at `daysOverdue >= 3`; subsequent only when last reminder ≥ 7 days ago; hard cap 3 per invoice. State derived from `notification_logs` — no schema additions.
+- Failures in one task don't block the other; per-row errors captured in `summary.errors[]`.
+
+Required env vars (all confirmed set on Netlify, all scopes, 2026-04-26):
+- `CRON_SECRET` — Bearer token shared between scheduled function + route handler
+- `NEXT_PUBLIC_SITE_URL` — used for invoice share links in `payment_reminder` template
+
+Production state
+- Deployed via PR #80 → `main@8818a3d` (2026-04-26).
+- Skip-path validation passed: cron manually fired returned `{ ok: true }`; the 3 overdue-invoice attempts and the invoice-send trigger logged `skipped` rows at the customer-channel gate as expected; `notification_logs` writes confirmed.
+- Real-SMS end-to-end validation intentionally deferred. `notification_settings.channels.customer_sms_enabled = false` acts as a deliberate safety net while operator opt-out (STOP/HELP) handling is still pending.
+- No real customer SMS sent at any point during validation.
+
+### In Flight (Phase H.x)
+
+*Update only at phase boundaries (push → PR → merge → verified). Items move out of this section into "shipped" only after deployed and verified.*
+
+None currently.
