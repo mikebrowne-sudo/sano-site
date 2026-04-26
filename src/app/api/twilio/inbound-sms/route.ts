@@ -42,9 +42,9 @@ export async function POST(request: NextRequest) {
   // Twilio sends application/x-www-form-urlencoded.
   const formText = await request.text()
   const params: Record<string, string> = {}
-  for (const [k, v] of new URLSearchParams(formText).entries()) {
-    params[k] = v
-  }
+  new URLSearchParams(formText).forEach((value, key) => {
+    params[key] = value
+  })
 
   // The URL Twilio used must match exactly what they signed.
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin

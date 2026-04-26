@@ -30,9 +30,9 @@ export async function POST(request: NextRequest) {
 
   const formText = await request.text()
   const params: Record<string, string> = {}
-  for (const [k, v] of new URLSearchParams(formText).entries()) {
-    params[k] = v
-  }
+  new URLSearchParams(formText).forEach((value, key) => {
+    params[key] = value
+  })
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin
   const fullUrl = `${siteUrl}/api/twilio/status`
