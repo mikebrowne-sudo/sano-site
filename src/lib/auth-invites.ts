@@ -16,6 +16,11 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://sano.nz'
 interface InviteResult {
   ok: true
   flow: 'invite' | 'recovery'
+  /** Auth user id from the generated link's user payload, when
+   *  available. Set on the invite path; on the recovery fallback
+   *  path Supabase usually still returns the existing user. May be
+   *  null if Supabase elects not to return it. */
+  authUserId: string | null
 }
 interface AuthError {
   error: string
@@ -44,6 +49,7 @@ export async function inviteUser(input: {
   })
 
   let actionLink: string | null = null
+  let authUserId: string | null = null
   let flow: 'invite' | 'recovery' = 'invite'
 
   if (error) {
@@ -60,12 +66,14 @@ export async function inviteUser(input: {
       })
       if (recovery.error) return { error: recovery.error.message }
       actionLink = recovery.data?.properties?.action_link ?? null
+      authUserId = recovery.data?.user?.id ?? null
       flow = 'recovery'
     } else {
       return { error: error.message }
     }
   } else {
     actionLink = data?.properties?.action_link ?? null
+    authUserId = data?.user?.id ?? null
   }
 
   if (!actionLink) return { error: 'Failed to generate invite link.' }
@@ -81,7 +89,7 @@ export async function inviteUser(input: {
     return { error: `Invite link generated but email failed: ${msg}` }
   }
 
-  return { ok: true, flow }
+  return { ok: true, flow, authUserId }
 }
 
 // Public-form-driven password reset. Always returns ok:true — never

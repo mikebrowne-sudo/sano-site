@@ -83,17 +83,26 @@ export function ResetPasswordForm() {
       return
     }
 
-    // Determine destination by role.
+    // Determine destination by role + mark staff invite-accepted if
+    // a matching staff record exists. Both lookups are RLS-permitted
+    // for the authenticated user reading their own row.
     let dest: 'portal' | 'contractor' = 'portal'
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        const { data } = await supabase
+        const { data: contractor } = await supabase
           .from('contractors')
           .select('id')
           .eq('auth_user_id', user.id)
           .maybeSingle()
-        if (data) dest = 'contractor'
+        if (contractor) {
+          dest = 'contractor'
+        } else {
+          // Phase 5.5.2 — record invite acceptance on staff records.
+          // Server action is silent if no staff row matches.
+          const { markStaffInviteAccepted } = await import('@/app/portal/staff/_actions')
+          await markStaffInviteAccepted()
+        }
       }
     } catch {
       // Fall through to portal default.
