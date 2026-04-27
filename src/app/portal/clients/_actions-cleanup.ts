@@ -20,8 +20,6 @@ import { revalidatePath } from 'next/cache'
 import { getClientLinkCounts } from './_lib-cleanup'
 import type { ClientLinkCounts } from './_lib-cleanup'
 
-console.error('[clients-debug] MODULE_LOADED clients/_actions-cleanup')
-
 const ADMIN_EMAIL = 'michael@sano.nz'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

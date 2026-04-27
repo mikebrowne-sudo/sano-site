@@ -1,12 +1,12 @@
 // Phase 5.5.3 — Contractor portal access panel (server component).
 
 import clsx from 'clsx'
+import { ContractorAccessActions } from './ContractorAccessActions'
 import {
-  ContractorAccessActions,
   contractorAccessStatus,
   STATUS_LABEL,
   STATUS_BADGE,
-} from './ContractorAccessActions'
+} from './access-shared'
 
 function fmtDate(iso: string | null) {
   if (!iso) return '—'

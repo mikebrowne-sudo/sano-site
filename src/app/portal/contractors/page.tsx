@@ -3,11 +3,15 @@ import { createClient } from '@/lib/supabase-server'
 import { HardHat, Plus } from 'lucide-react'
 import clsx from 'clsx'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
+// Phase 5.5.10 fix — import status helpers from the shared (no-
+// directive) module, not the 'use client' Actions module. Server
+// components importing helpers from a 'use client' file get
+// client-reference proxies in Next.js 14 and crash at call time.
 import {
   contractorAccessStatus,
   STATUS_LABEL as ACCESS_STATUS_LABEL,
   STATUS_BADGE as ACCESS_STATUS_BADGE,
-} from './[id]/_components/ContractorAccessActions'
+} from './[id]/_components/access-shared'
 
 function fmtCurrency(dollars: number | null) {
   if (dollars == null) return '—'
