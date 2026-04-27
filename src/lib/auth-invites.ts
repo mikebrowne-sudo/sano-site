@@ -10,8 +10,28 @@
 
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { sendInviteEmail, sendResetEmail } from '@/lib/resend'
+import { loadWorkforceSettings } from '@/lib/workforce-settings'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://sano.nz'
+
+// Phase 5.5.8 — load admin overrides for transactional auth emails.
+// Returns blanks if the settings row is missing or fields are empty,
+// so the email helpers fall back to their inline copy.
+async function loadEmailOverrides() {
+  try {
+    const supabase = getServiceSupabase()
+    const settings = await loadWorkforceSettings(supabase)
+    return {
+      inviteSubject: settings.invite_email_subject?.trim() || '',
+      inviteBody:    settings.invite_email_body_template?.trim() || '',
+      resetSubject:  settings.reset_email_subject?.trim() || '',
+      resetBody:     settings.reset_email_body_template?.trim() || '',
+    }
+  } catch {
+    // Never let a settings read failure break an invite — fall back.
+    return { inviteSubject: '', inviteBody: '', resetSubject: '', resetBody: '' }
+  }
+}
 
 interface InviteResult {
   ok: true
@@ -78,11 +98,15 @@ export async function inviteUser(input: {
 
   if (!actionLink) return { error: 'Failed to generate invite link.' }
 
+  const overrides = await loadEmailOverrides()
+
   try {
     await sendInviteEmail({
       to: email,
       name: input.fullName,
       link: actionLink,
+      subjectOverride: overrides.inviteSubject,
+      bodyTemplateOverride: overrides.inviteBody,
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Email send failed.'
@@ -124,6 +148,8 @@ export async function requestPasswordReset(input: {
   const actionLink = data?.properties?.action_link as string | undefined
   if (!actionLink) return { ok: true }
 
+  const overrides = await loadEmailOverrides()
+
   try {
     await sendResetEmail({
       to: email,
@@ -131,6 +157,8 @@ export async function requestPasswordReset(input: {
       // template handles a missing name gracefully.
       name: '',
       link: actionLink,
+      subjectOverride: overrides.resetSubject,
+      bodyTemplateOverride: overrides.resetBody,
     })
   } catch {
     // Swallow email failure to keep the response generic.

@@ -21,7 +21,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
-import { Calendar, FileText, Receipt, ChevronRight } from 'lucide-react'
+import { Calendar, FileText, Receipt, ExternalLink, Download } from 'lucide-react'
 import clsx from 'clsx'
 
 function fmtCurrency(dollars: number | null) {
@@ -174,31 +174,27 @@ export default async function ClientDashboardPage() {
             {(quotes ?? []).map((q) => {
               const total = computeTotal(q.base_price as number | null, q.discount as number | null, q.gst_included as boolean | null)
               return (
-                <li key={q.id as string} className="py-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sage-800 font-medium">{q.quote_number}</p>
-                    <p className="text-xs text-sage-500 mt-0.5">
-                      Issued {fmtDate(q.date_issued as string | null)}
-                      {q.valid_until && <> · valid until {fmtDate(q.valid_until as string | null)}</>}
-                    </p>
+                <li key={q.id as string} className="py-3 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sage-800 font-medium">{q.quote_number}</p>
+                      <p className="text-xs text-sage-500 mt-0.5">
+                        Issued {fmtDate(q.date_issued as string | null)}
+                        {q.valid_until && <> · valid until {fmtDate(q.valid_until as string | null)}</>}
+                      </p>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-2">
+                      <span className="text-sage-800 font-semibold tabular-nums">{fmtCurrency(total)}</span>
+                      <span className={clsx('inline-block px-2 py-0.5 rounded-full text-[11px] font-medium capitalize',
+                        QUOTE_STATUS_TONE[q.status as string] ?? QUOTE_STATUS_TONE.draft,
+                      )}>
+                        {(q.status as string)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="shrink-0 flex items-center gap-2">
-                    <span className="text-sage-800 font-semibold tabular-nums">{fmtCurrency(total)}</span>
-                    <span className={clsx('inline-block px-2 py-0.5 rounded-full text-[11px] font-medium capitalize',
-                      QUOTE_STATUS_TONE[q.status as string] ?? QUOTE_STATUS_TONE.draft,
-                    )}>
-                      {(q.status as string)}
-                    </span>
-                    {q.share_token && (
-                      <Link
-                        href={`/share/quote/${q.share_token as string}`}
-                        className="text-sage-500 hover:text-sage-800"
-                        aria-label="View quote"
-                      >
-                        <ChevronRight size={16} />
-                      </Link>
-                    )}
-                  </div>
+                  {q.share_token && (
+                    <DocActions kind="quote" token={q.share_token as string} />
+                  )}
                 </li>
               )
             })}
@@ -214,31 +210,27 @@ export default async function ClientDashboardPage() {
             {(invoices ?? []).map((inv) => {
               const total = computeTotal(inv.base_price as number | null, inv.discount as number | null, inv.gst_included as boolean | null)
               return (
-                <li key={inv.id as string} className="py-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sage-800 font-medium">{inv.invoice_number}</p>
-                    <p className="text-xs text-sage-500 mt-0.5">
-                      Issued {fmtDate(inv.date_issued as string | null)}
-                      {inv.due_date && <> · due {fmtDate(inv.due_date as string | null)}</>}
-                    </p>
+                <li key={inv.id as string} className="py-3 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sage-800 font-medium">{inv.invoice_number}</p>
+                      <p className="text-xs text-sage-500 mt-0.5">
+                        Issued {fmtDate(inv.date_issued as string | null)}
+                        {inv.due_date && <> · due {fmtDate(inv.due_date as string | null)}</>}
+                      </p>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-2">
+                      <span className="text-sage-800 font-semibold tabular-nums">{fmtCurrency(total)}</span>
+                      <span className={clsx('inline-block px-2 py-0.5 rounded-full text-[11px] font-medium capitalize',
+                        INVOICE_STATUS_TONE[inv.status as string] ?? INVOICE_STATUS_TONE.draft,
+                      )}>
+                        {(inv.status as string)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="shrink-0 flex items-center gap-2">
-                    <span className="text-sage-800 font-semibold tabular-nums">{fmtCurrency(total)}</span>
-                    <span className={clsx('inline-block px-2 py-0.5 rounded-full text-[11px] font-medium capitalize',
-                      INVOICE_STATUS_TONE[inv.status as string] ?? INVOICE_STATUS_TONE.draft,
-                    )}>
-                      {(inv.status as string)}
-                    </span>
-                    {inv.share_token && (
-                      <Link
-                        href={`/share/invoice/${inv.share_token as string}`}
-                        className="text-sage-500 hover:text-sage-800"
-                        aria-label="View invoice"
-                      >
-                        <ChevronRight size={16} />
-                      </Link>
-                    )}
-                  </div>
+                  {inv.share_token && (
+                    <DocActions kind="invoice" token={inv.share_token as string} />
+                  )}
                 </li>
               )
             })}
@@ -274,4 +266,34 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
 
 function Empty({ text }: { text: string }) {
   return <p className="text-sm text-sage-500 py-1">{text}</p>
+}
+
+// Phase 5.5.8 — View / Download PDF actions for client docs.
+// Both open the existing share route in a new tab. The PDF variant
+// adds ?print=1; the share page reads that flag client-side and
+// triggers the browser's print dialog so the user can save as PDF.
+function DocActions({ kind, token }: { kind: 'quote' | 'invoice'; token: string }) {
+  const base = kind === 'quote' ? '/share/quote/' : '/share/invoice/'
+  return (
+    <div className="flex items-center gap-2">
+      <Link
+        href={`${base}${token}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 bg-sage-50 text-sage-800 text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-sage-100 transition-colors min-h-[36px]"
+      >
+        <ExternalLink size={14} />
+        View
+      </Link>
+      <Link
+        href={`${base}${token}?print=1`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 bg-sage-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-sage-700 transition-colors min-h-[36px]"
+      >
+        <Download size={14} />
+        PDF
+      </Link>
+    </div>
+  )
 }

@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
 import { AcceptQuote } from './_components/AcceptQuote'
 import { getServiceSupabase } from '@/lib/supabase-service'
+import { AutoPrint } from '../../_components/AutoPrint'
 
 export const metadata: Metadata = { robots: 'noindex, nofollow' }
 
@@ -21,8 +22,9 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-export default async function PublicQuotePage({ params }: { params: { token: string } }) {
+export default async function PublicQuotePage({ params, searchParams }: { params: { token: string }; searchParams: { print?: string } }) {
   const supabase = getServiceSupabase()
+  const autoPrint = searchParams?.print === '1'
 
   const { data: quote, error } = await supabase
     .from('quotes')
@@ -87,6 +89,7 @@ export default async function PublicQuotePage({ params }: { params: { token: str
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: PRINT_CSS }} />
+      <AutoPrint active={autoPrint} />
       <div className="share-page">
         <div className="print-page">
 
