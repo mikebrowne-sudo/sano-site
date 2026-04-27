@@ -6,7 +6,7 @@ import { ArrowLeft, Archive } from 'lucide-react'
 import { ClientAccessPanel } from './_components/ClientAccessPanel'
 import { ClientCleanupActions } from './_components/ClientCleanupActions'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
-import { findPossibleDuplicates, getClientLinkCounts } from '../_actions-cleanup'
+import { findPossibleDuplicates, getClientLinkCounts } from '../_lib-cleanup'
 
 // Phase 5.5.7 — read-only audit timeline mirroring the staff pattern.
 const ACTION_LABELS: Record<string, string> = {
