@@ -1,17 +1,14 @@
-import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
 import { PayNowButton } from './_components/PayNowButton'
+import { getServiceSupabase } from '@/lib/supabase-service'
 
 export const metadata: Metadata = { robots: 'noindex, nofollow' }
 
-function getPublicSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
-}
+// Phase 5.5.6 — share routes now read via the service-role client so we
+// can drop the wide-open public RLS on `clients`. See the matching
+// quote share page for the full rationale.
 
 function fmt(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
@@ -23,7 +20,7 @@ function fmtDate(iso: string | null) {
 }
 
 export default async function PublicInvoicePage({ params, searchParams }: { params: { token: string }; searchParams: { payment?: string } }) {
-  const supabase = getPublicSupabase()
+  const supabase = getServiceSupabase()
 
   const { data: invoice, error } = await supabase
     .from('invoices')

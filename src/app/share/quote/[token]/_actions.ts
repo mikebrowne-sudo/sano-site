@@ -1,16 +1,11 @@
 'use server'
 
-import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { revalidatePath } from 'next/cache'
 import { getServiceSupabase } from '@/lib/supabase-service'
 
-function getPublicSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
-}
+// Phase 5.5.6 — uses service-role for the share-route flow. See the
+// page.tsx comment for the rationale.
 
 function esc(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -21,7 +16,7 @@ function fmtDate(iso: string) {
 }
 
 export async function acceptQuote(shareToken: string) {
-  const supabase = getPublicSupabase()
+  const supabase = getServiceSupabase()
 
   // Load quote by share token
   const { data: quote, error: loadErr } = await supabase

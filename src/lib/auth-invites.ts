@@ -32,7 +32,7 @@ interface AuthError {
 export async function inviteUser(input: {
   email: string
   fullName: string
-  redirectAfter?: 'portal' | 'contractor'
+  redirectAfter?: 'portal' | 'contractor' | 'client'
 }): Promise<InviteResult | AuthError> {
   const supabase = getServiceSupabase()
   const email = input.email.trim().toLowerCase()

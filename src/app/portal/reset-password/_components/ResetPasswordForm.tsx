@@ -34,7 +34,7 @@ export function ResetPasswordForm() {
   const [errorMessage, setErrorMessage] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [destLabel, setDestLabel] = useState<'portal' | 'contractor'>('portal')
+  const [destLabel, setDestLabel] = useState<'portal' | 'contractor' | 'client'>('portal')
 
   // Capture the recovery token from the URL hash and set the session
   // on mount. Supabase's createBrowserClient auto-detects the hash
@@ -84,9 +84,10 @@ export function ResetPasswordForm() {
     }
 
     // Determine destination by role + mark invite-accepted on the
-    // matching record (staff or contractor). Both lookups are
-    // RLS-permitted for the authenticated user reading their own row.
-    let dest: 'portal' | 'contractor' = 'portal'
+    // matching record. Role priority: contractor → client → staff.
+    // The contractors / clients lookups are RLS-permitted self-reads
+    // (auth_user_id = auth.uid()); staff is the catch-all.
+    let dest: 'portal' | 'contractor' | 'client' = 'portal'
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
@@ -101,10 +102,21 @@ export function ResetPasswordForm() {
           const { markContractorInviteAccepted } = await import('@/app/portal/contractors/[id]/_actions-access')
           await markContractorInviteAccepted()
         } else {
-          // Phase 5.5.2 — record invite acceptance on staff records.
-          // Server action is silent if no staff row matches.
-          const { markStaffInviteAccepted } = await import('@/app/portal/staff/_actions')
-          await markStaffInviteAccepted()
+          const { data: client } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('auth_user_id', user.id)
+            .maybeSingle()
+          if (client) {
+            dest = 'client'
+            // Phase 5.5.6 — record invite acceptance on client records.
+            const { markClientInviteAccepted } = await import('@/app/portal/clients/[id]/_actions-access')
+            await markClientInviteAccepted()
+          } else {
+            // Phase 5.5.2 — staff fallback. Silent if no staff row matches.
+            const { markStaffInviteAccepted } = await import('@/app/portal/staff/_actions')
+            await markStaffInviteAccepted()
+          }
         }
       }
     } catch {
@@ -113,7 +125,11 @@ export function ResetPasswordForm() {
     setDestLabel(dest)
     setState('success')
     setTimeout(() => {
-      router.push(dest === 'contractor' ? '/contractor/jobs' : '/portal')
+      const target =
+        dest === 'contractor' ? '/contractor/jobs' :
+        dest === 'client'     ? '/client/dashboard' :
+                                '/portal'
+      router.push(target)
       router.refresh()
     }, REDIRECT_DELAY_MS)
   }
@@ -158,7 +174,7 @@ export function ResetPasswordForm() {
           {isInvite ? 'Welcome to Sano' : 'Password updated'}
         </p>
         <p className="text-xs text-sage-600 leading-relaxed">
-          Taking you to the {destLabel === 'contractor' ? 'contractor' : 'staff'} portal…
+          Taking you to the {destLabel === 'contractor' ? 'contractor' : destLabel === 'client' ? 'client' : 'staff'} portal…
         </p>
       </div>
     )
