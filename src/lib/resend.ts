@@ -82,9 +82,47 @@ interface AuthEmailParams {
   to: string
   name: string
   link: string
+  // Phase 5.5.8 — optional admin overrides loaded from workforce_settings.
+  // When provided + non-blank, replace the default subject / body copy.
+  // The body template supports {{name}} and {{link}} placeholders.
+  subjectOverride?: string
+  bodyTemplateOverride?: string
 }
 
-function authEmailFrame(opts: { headline: string; body: string; ctaLabel: string; ctaLink: string; footerNote?: string }): string {
+// Phase 5.5.8 — interpolate {{name}} and {{link}} into a settings
+// template. Trivial replacement, no engine. The first-name shortening
+// matches the inline default copy below.
+function applyTemplate(template: string, vars: { name: string; link: string }): string {
+  const firstName = vars.name ? vars.name.split(/\s+/)[0] : ''
+  return template
+    .replace(/\{\{\s*name\s*\}\}/g, firstName)
+    .replace(/\{\{\s*link\s*\}\}/g, vars.link)
+}
+
+// Convert a plain-text body (with `\n`) into HTML-safe paragraphs
+// suitable for slotting into the branded auth frame.
+function templateToHtml(template: string, vars: { name: string; link: string }): string {
+  const filled = applyTemplate(template, vars)
+  // Escape HTML, then replace the link literal back to a real anchor
+  // and turn double newlines into paragraph breaks, single newlines
+  // into <br>. The link interpolation runs after escaping so we don't
+  // double-escape the URL inside the anchor.
+  const escaped = escHtml(filled).replace(
+    new RegExp(escHtml(vars.link).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'),
+    `<a href="${vars.link}" style="color:#3a7a6e;text-decoration:underline;">${vars.link}</a>`,
+  )
+  return escaped
+    .split(/\n{2,}/)
+    .map((para) => para.replace(/\n/g, '<br/>'))
+    .map((para) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#3a4a44;">${para}</p>`)
+    .join('')
+}
+
+// Phase 5.5.8 — bodyHtml is now a pre-rendered HTML fragment (either
+// the inline copy or the settings template post-interpolation). Older
+// callers passing `body` would not compile after this change; both
+// auth helpers below were updated accordingly.
+function authEmailFrame(opts: { headline: string; bodyHtml: string; ctaLabel: string; ctaLink: string; footerNote?: string }): string {
   // Sage palette + simple, mobile-friendly. Inline styles only — most
   // mail clients strip <style> blocks.
   return `
@@ -94,7 +132,7 @@ function authEmailFrame(opts: { headline: string; body: string; ctaLabel: string
       </div>
       <div style="background: #ffffff; padding: 28px 24px; border: 1px solid #e6efe9; border-top: 0; border-radius: 0 0 12px 12px;">
         <h1 style="margin: 0 0 12px; font-size: 20px; color: #1f2a25;">${escHtml(opts.headline)}</h1>
-        <p style="margin: 0 0 20px; font-size: 15px; line-height: 1.55; color: #3a4a44;">${opts.body}</p>
+        ${opts.bodyHtml}
         <p style="margin: 0 0 24px;">
           <a href="${opts.ctaLink}" style="display: inline-block; background: #3a7a6e; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 999px; font-weight: 600; font-size: 14px;">${escHtml(opts.ctaLabel)}</a>
         </p>
@@ -109,16 +147,32 @@ function authEmailFrame(opts: { headline: string; body: string; ctaLabel: string
 export async function sendInviteEmail(params: AuthEmailParams) {
   const resend = getResendClient()
   const greeting = params.name ? `Hi ${escHtml(params.name.split(/\s+/)[0])},` : 'Hi,'
+
+  // Phase 5.5.8 — settings-driven override path. When the admin has
+  // edited the body template in /portal/settings, we render the
+  // template (interpolated + escaped) inside the same branded frame
+  // and use the override subject. Otherwise fall back to the inline
+  // copy that's been here since 5.5.1.
+  const useOverride = !!params.bodyTemplateOverride?.trim()
+
+  const headline = 'You’re invited to the Sano portal'
+  const body = useOverride
+    ? templateToHtml(params.bodyTemplateOverride!, { name: params.name, link: params.link })
+    : `<p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:#3a4a44;">${greeting} you&apos;ve been invited to the Sano portal. Click the button below to set your password and sign in. The link is valid for 24 hours.</p>`
+
   const html = authEmailFrame({
-    headline: 'You&apos;re invited to the Sano portal',
-    body: `${greeting} you&apos;ve been invited to the Sano team portal. Click the button below to set your password and sign in. The link is valid for 24 hours.`,
+    headline,
+    bodyHtml: body,
     ctaLabel: 'Set your password',
     ctaLink: params.link,
-    footerNote: 'If you weren&apos;t expecting this invite, you can safely ignore the email.',
+    footerNote: useOverride ? undefined : 'If you weren’t expecting this invite, you can safely ignore the email.',
   })
-  const text = `${params.name ? `Hi ${params.name.split(/\s+/)[0]}` : 'Hi'},
 
-You've been invited to the Sano team portal. Open this link to set your password and sign in (valid for 24 hours):
+  const text = useOverride
+    ? applyTemplate(params.bodyTemplateOverride!, { name: params.name, link: params.link })
+    : `${params.name ? `Hi ${params.name.split(/\s+/)[0]}` : 'Hi'},
+
+You've been invited to the Sano portal. Open this link to set your password and sign in (valid for 24 hours):
 
 ${params.link}
 
@@ -126,10 +180,12 @@ If you weren't expecting this, ignore this email.
 
 — The Sano team`
 
+  const subject = params.subjectOverride?.trim() || 'You’re invited to the Sano portal'
+
   const { error } = await resend.emails.send({
     from: 'Sano Portal <noreply@sano.nz>',
     to: params.to,
-    subject: 'You’re invited to the Sano portal',
+    subject,
     html,
     text,
   })
@@ -139,14 +195,24 @@ If you weren't expecting this, ignore this email.
 export async function sendResetEmail(params: AuthEmailParams) {
   const resend = getResendClient()
   const greeting = params.name ? `Hi ${escHtml(params.name.split(/\s+/)[0])},` : 'Hi,'
+
+  const useOverride = !!params.bodyTemplateOverride?.trim()
+  const headline = 'Reset your Sano portal password'
+  const body = useOverride
+    ? templateToHtml(params.bodyTemplateOverride!, { name: params.name, link: params.link })
+    : `<p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:#3a4a44;">${greeting} we received a request to reset the password on your Sano portal account. Click the button below to choose a new password. The link is valid for 24 hours.</p>`
+
   const html = authEmailFrame({
-    headline: 'Reset your Sano portal password',
-    body: `${greeting} we received a request to reset the password on your Sano portal account. Click the button below to choose a new password. The link is valid for 24 hours.`,
+    headline,
+    bodyHtml: body,
     ctaLabel: 'Reset your password',
     ctaLink: params.link,
-    footerNote: 'If you didn&apos;t request this, you can safely ignore the email — your existing password stays the same.',
+    footerNote: useOverride ? undefined : 'If you didn’t request this, you can safely ignore the email — your existing password stays the same.',
   })
-  const text = `${params.name ? `Hi ${params.name.split(/\s+/)[0]}` : 'Hi'},
+
+  const text = useOverride
+    ? applyTemplate(params.bodyTemplateOverride!, { name: params.name, link: params.link })
+    : `${params.name ? `Hi ${params.name.split(/\s+/)[0]}` : 'Hi'},
 
 We received a request to reset the password on your Sano portal account. Open this link to choose a new password (valid for 24 hours):
 
@@ -156,10 +222,12 @@ If you didn't request this, ignore this email — your existing password stays t
 
 — The Sano team`
 
+  const subject = params.subjectOverride?.trim() || 'Reset your Sano portal password'
+
   const { error } = await resend.emails.send({
     from: 'Sano Portal <noreply@sano.nz>',
     to: params.to,
-    subject: 'Reset your Sano portal password',
+    subject,
     html,
     text,
   })

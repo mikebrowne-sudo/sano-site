@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
 import { PayNowButton } from './_components/PayNowButton'
 import { getServiceSupabase } from '@/lib/supabase-service'
+import { AutoPrint } from '../../_components/AutoPrint'
 
 export const metadata: Metadata = { robots: 'noindex, nofollow' }
 
@@ -19,8 +20,9 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-export default async function PublicInvoicePage({ params, searchParams }: { params: { token: string }; searchParams: { payment?: string } }) {
+export default async function PublicInvoicePage({ params, searchParams }: { params: { token: string }; searchParams: { payment?: string; print?: string } }) {
   const supabase = getServiceSupabase()
+  const autoPrint = searchParams?.print === '1'
 
   const { data: invoice, error } = await supabase
     .from('invoices')
@@ -58,6 +60,7 @@ export default async function PublicInvoicePage({ params, searchParams }: { para
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: PRINT_CSS }} />
+      <AutoPrint active={autoPrint} />
       <div className="share-page">
         <div className="print-page">
 
