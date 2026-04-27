@@ -1,12 +1,12 @@
 // Phase 5.5.6 — Client portal access panel (server component).
 
 import clsx from 'clsx'
+import { ClientAccessActions } from './ClientAccessActions'
 import {
-  ClientAccessActions,
   clientAccessStatus,
   STATUS_LABEL,
   STATUS_BADGE,
-} from './ClientAccessActions'
+} from './access-shared'
 
 function fmtDate(iso: string | null) {
   if (!iso) return '—'
