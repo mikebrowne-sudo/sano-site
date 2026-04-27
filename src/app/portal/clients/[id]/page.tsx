@@ -39,29 +39,66 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   const { data: { user } } = await supabase.auth.getUser()
   const isAdmin = user?.email === 'michael@sano.nz'
 
-  const [settings, { data: auditRows }, linkCountsRes, dupesRes, mergeCandidatesRes] = await Promise.all([
-    loadWorkforceSettings(supabase),
-    supabase
-      .from('audit_log')
-      .select('id, action, created_at')
-      .eq('entity_table', 'clients')
-      .eq('entity_id', params.id)
-      .order('created_at', { ascending: false })
-      .limit(50),
-    getClientLinkCounts(params.id),
-    findPossibleDuplicates(params.id),
-    supabase
-      .from('clients')
-      .select('id, name, company_name')
-      .eq('is_archived', false)
-      .neq('id', params.id)
-      .order('name'),
+  // Phase 5.5.10 fix — every parallel branch is wrapped so a single
+  // failure (RLS edge case, slow network, missing column) never takes
+  // the whole page down. Each fallback is a safe empty value and the
+  // raw error goes to the server log via console.warn.
+  const settledSettings = loadWorkforceSettings(supabase).catch((err) => {
+    console.warn('[clients/[id]] loadWorkforceSettings failed:', err)
+    return null
+  })
+  const settledAudit: Promise<AuditEntry[]> = (async () => {
+    try {
+      const { data } = await supabase
+        .from('audit_log')
+        .select('id, action, created_at')
+        .eq('entity_table', 'clients')
+        .eq('entity_id', params.id)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      return (data ?? []) as AuditEntry[]
+    } catch (err) {
+      console.warn('[clients/[id]] audit_log failed:', err)
+      return [] as AuditEntry[]
+    }
+  })()
+  const settledLinks = getClientLinkCounts(params.id).catch((err) => {
+    console.warn('[clients/[id]] getClientLinkCounts threw:', err)
+    return { error: 'failed' } as { error: string }
+  })
+  const settledDupes = findPossibleDuplicates(params.id).catch((err) => {
+    console.warn('[clients/[id]] findPossibleDuplicates threw:', err)
+    return [] as never
+  })
+  const settledCandidates: Promise<{ id: string; name: string; company_name: string | null }[]> = (async () => {
+    try {
+      const { data } = await supabase
+        .from('clients')
+        .select('id, name, company_name')
+        .eq('is_archived', false)
+        .neq('id', params.id)
+        .order('name')
+      return (data ?? []) as { id: string; name: string; company_name: string | null }[]
+    } catch (err) {
+      console.warn('[clients/[id]] mergeCandidates failed:', err)
+      return [] as { id: string; name: string; company_name: string | null }[]
+    }
+  })()
+
+  const [settings, auditRowsRaw, linkCountsRes, dupesRes, mergeCandidatesRaw] = await Promise.all([
+    settledSettings, settledAudit, settledLinks, settledDupes, settledCandidates,
   ])
-  const audit: AuditEntry[] = (auditRows ?? []) as AuditEntry[]
-  const linkCounts = ('error' in linkCountsRes) ? { quotes: 0, jobs: 0, invoices: 0, contacts: 0, sites: 0 } : linkCountsRes
-  const duplicates = ('error' in dupesRes) ? [] : dupesRes
-  const mergeCandidates = (mergeCandidatesRes.data ?? []) as { id: string; name: string; company_name: string | null }[]
+
+  const audit: AuditEntry[] = (auditRowsRaw ?? []) as AuditEntry[]
+  const linkCounts = (linkCountsRes && typeof linkCountsRes === 'object' && 'error' in linkCountsRes)
+    ? { quotes: 0, jobs: 0, invoices: 0, contacts: 0, sites: 0 }
+    : (linkCountsRes ?? { quotes: 0, jobs: 0, invoices: 0, contacts: 0, sites: 0 })
+  const duplicates = Array.isArray(dupesRes) ? dupesRes : []
+  const mergeCandidates = (mergeCandidatesRaw ?? []) as { id: string; name: string; company_name: string | null }[]
   const isArchived = !!(client as { is_archived?: boolean }).is_archived
+  // settings can be null if loadWorkforceSettings threw; fall back to
+  // safe defaults so feature-flag reads downstream don't blow up.
+  const customerPortalEnabled = !!settings?.enable_customer_portal
 
   return (
     <div>
@@ -75,7 +112,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
       <div className="flex items-center justify-between mb-8 gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-sage-800">{client.name}</h1>
+          <h1 className="text-2xl font-bold text-sage-800">{(client.name as string | null) || 'Unnamed client'}</h1>
           {isArchived && (
             <span className="inline-flex items-center gap-1.5 mt-1 text-xs font-medium text-sage-600 bg-sage-100 rounded-full px-2.5 py-0.5">
               <Archive size={11} />
@@ -88,7 +125,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       {isAdmin && (
         <ClientCleanupActions
           clientId={client.id as string}
-          clientName={client.name as string}
+          clientName={(client.name as string | null) || 'Unnamed client'}
           isArchived={isArchived}
           links={linkCounts}
           mergeCandidates={mergeCandidates}
@@ -130,13 +167,13 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         inviteAcceptedAt={(client as { invite_accepted_at?: string | null }).invite_accepted_at ?? null}
         accessDisabledAt={(client as { access_disabled_at?: string | null }).access_disabled_at ?? null}
         accessDisabledReason={(client as { access_disabled_reason?: string | null }).access_disabled_reason ?? null}
-        featureEnabled={settings.enable_customer_portal}
+        featureEnabled={customerPortalEnabled}
       />
 
       <ClientForm
         client={{
           id: client.id as string,
-          name: client.name as string,
+          name: (client.name as string | null) ?? '',
           company_name: (client.company_name as string | null) ?? null,
           email: (client.email as string | null) ?? null,
           phone: (client.phone as string | null) ?? null,
