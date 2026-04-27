@@ -128,7 +128,9 @@ export default async function ClientDashboardPage() {
       .limit(5),
   ])
 
-  const firstName = (client.name as string).split(/\s+/)[0]
+  // Defensive — name should always be set (NOT NULL on clients), but
+  // tolerate the edge case so the dashboard never crashes.
+  const firstName = ((client.name as string | null) ?? '').split(/\s+/)[0] || 'there'
 
   return (
     <div className="space-y-5">
