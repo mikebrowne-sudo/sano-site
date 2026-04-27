@@ -1,8 +1,16 @@
-import { ClientForm } from '../_components/ClientForm'
+'use client'
+
+// Phase 5.5.11 — /portal/clients/new now hosts the NewClientModal in
+// inline mode. Replaces the old single-row ClientForm at this URL —
+// the form is still used for editing on /portal/clients/[id].
+
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
+import { NewClientModal } from '../_components/NewClientModal'
 
 export default function NewClientPage() {
+  const router = useRouter()
   return (
     <div>
       <Link
@@ -13,9 +21,16 @@ export default function NewClientPage() {
         Back to clients
       </Link>
 
-      <h1 className="text-2xl font-bold text-sage-800 mb-8">New Client</h1>
+      <h1 className="text-2xl font-bold text-sage-800 mb-2">New client</h1>
+      <p className="text-sm text-sage-500 mb-6">
+        One quick form for the client, primary contact, accounts contact, and payment setup.
+      </p>
 
-      <ClientForm />
+      <NewClientModal
+        inline
+        onCreated={(id) => router.push(`/portal/clients/${id}`)}
+        onCancel={() => router.push('/portal/clients')}
+      />
     </div>
   )
 }

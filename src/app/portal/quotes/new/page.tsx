@@ -17,7 +17,7 @@ export default async function NewQuotePage({
   const [clientsRes, pricingSettings] = await Promise.all([
     supabase
       .from('clients')
-      .select('id, name, company_name, email, phone, service_address, billing_address, billing_same_as_service')
+      .select('id, name, company_name, email, phone, service_address, billing_address, billing_same_as_service, payment_type, payment_terms, accounts_email')
       .eq('is_archived', false)
       .order('name'),
     loadPricingSettings(supabase),

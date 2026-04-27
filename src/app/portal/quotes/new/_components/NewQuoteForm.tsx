@@ -36,8 +36,9 @@ import {
 } from '../../_components/ContactBillingSection'
 import { computeCommercialPreview, type CommercialPreviewScopeRow, type ScopeFrequency } from '@/lib/commercialQuote'
 import type { PricingSettings } from '@/lib/pricingSettings'
-import { Plus, Trash2, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, UserPlus } from 'lucide-react'
 import clsx from 'clsx'
+import { NewClientModal } from '../../../clients/_components/NewClientModal'
 
 
 // ── Types ───────────────────────────────────────────────────
@@ -51,6 +52,10 @@ interface Client {
   service_address: string | null
   billing_address: string | null
   billing_same_as_service: boolean
+  // Phase 5.5.11 — payment defaults sourced from the client.
+  payment_type?: 'prepaid' | 'on_account' | null
+  payment_terms?: '7_days' | '14_days' | '20_of_month' | 'custom' | null
+  accounts_email?: string | null
 }
 
 interface Addon {
@@ -101,6 +106,14 @@ export function NewQuoteForm({
     clients.length > 0 ? 'existing' : 'new',
   )
   const [clientId, setClientId] = useState('')
+
+  // Phase 5.5.11 — NewClientModal state. The legacy inline 'new' tab
+  // stays as a quick-snapshot fallback (writes a client server-side
+  // via createQuote without using the modal). The modal is the
+  // recommended path: it captures payment setup + dedupe + creates a
+  // proper contact + site.
+  const [showNewClientModal, setShowNewClientModal] = useState(false)
+  const [createdClients, setCreatedClients] = useState<Client[]>([])
 
   // Contact fields (autofilled from client or entered manually)
   const [contactName, setContactName] = useState('')
@@ -278,7 +291,7 @@ export function NewQuoteForm({
 
   function handleClientSelect(id: string) {
     setClientId(id)
-    const c = clients.find((cl) => cl.id === id)
+    const c = [...createdClients, ...clients].find((cl) => cl.id === id)
     if (!c) return
     setContactName(c.name)
     setCompanyName(c.company_name ?? '')
@@ -287,6 +300,12 @@ export function NewQuoteForm({
     setServiceAddress(c.service_address ?? '')
     setBillingAddress(c.billing_address ?? '')
     setBillingSame(c.billing_same_as_service)
+    // Phase 5.5.11 — quote inherits the client's payment setup. Map
+    // 'prepaid' → 'cash_sale' so the existing share/PDF/Stripe paths
+    // read it identically to before. Operator can still override via
+    // the existing payment-type buttons further down the form.
+    if (c.payment_type === 'prepaid') setPaymentType('cash_sale')
+    else if (c.payment_type === 'on_account') setPaymentType('on_account')
   }
 
   function handleClientModeSwitch(mode: 'existing' | 'new') {
@@ -444,14 +463,21 @@ export function NewQuoteForm({
 
       {/* ── Section 1: Client ───────────────────────── */}
       <Section title="Client">
-        {clients.length > 0 && (
-          <div className="flex gap-3 mb-5">
+        {(clients.length > 0 || createdClients.length > 0) && (
+          <div className="flex gap-3 mb-5 flex-wrap">
             <TabButton active={clientMode === 'existing'} onClick={() => handleClientModeSwitch('existing')}>
               Existing client
             </TabButton>
             <TabButton active={clientMode === 'new'} onClick={() => handleClientModeSwitch('new')}>
-              New client
+              Quick (no save)
             </TabButton>
+            <button
+              type="button"
+              onClick={() => setShowNewClientModal(true)}
+              className="inline-flex items-center gap-1.5 bg-sage-500 text-white text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-sage-700 transition-colors"
+            >
+              <UserPlus size={14} /> + New client
+            </button>
           </div>
         )}
 
@@ -461,7 +487,7 @@ export function NewQuoteForm({
               label="Client"
               value={clientId}
               onChange={handleClientSelect}
-              options={clients.map((c) => ({
+              options={[...createdClients, ...clients].map((c) => ({
                 value: c.id,
                 label: c.company_name ? `${c.name} — ${c.company_name}` : c.name,
               }))}
@@ -635,6 +661,27 @@ export function NewQuoteForm({
             <button type="button" onClick={() => setPaymentType('cash_sale')} className={clsx('px-4 py-2 rounded-lg text-sm font-medium transition-colors', paymentType === 'cash_sale' ? 'bg-sage-500 text-white' : 'bg-sage-100 text-sage-600 hover:bg-sage-200')}>Cash Sale</button>
             <button type="button" onClick={() => setPaymentType('on_account')} className={clsx('px-4 py-2 rounded-lg text-sm font-medium transition-colors', paymentType === 'on_account' ? 'bg-sage-500 text-white' : 'bg-sage-100 text-sage-600 hover:bg-sage-200')}>On Account</button>
           </div>
+          {/* Phase 5.5.11 — show the client's stored payment setup. The
+              operator can still override the type via the buttons above
+              (per-quote). Banner is read-only. */}
+          {(() => {
+            const c = [...createdClients, ...clients].find((cl) => cl.id === clientId)
+            if (!c?.payment_type) return null
+            const termsLabel = c.payment_terms === '7_days'      ? '7 days from invoice'
+                              : c.payment_terms === '14_days'    ? '14 days from invoice'
+                              : c.payment_terms === '20_of_month' ? '20th of the month'
+                              : c.payment_terms === 'custom'      ? 'Custom (see notes)'
+                              :                                     null
+            return (
+              <p className="mt-2 text-xs text-sage-600 bg-sage-50 border border-sage-100 rounded-lg px-3 py-2">
+                {c.payment_type === 'prepaid' ? (
+                  <><strong>Prepaid</strong> — payment is required to confirm the booking. Inherited from client.</>
+                ) : (
+                  <><strong>On account</strong>{termsLabel ? ` — ${termsLabel}` : ''}. Inherited from client.</>
+                )}
+              </p>
+            )
+          })()}
         </div>
       </Section>
 
@@ -738,6 +785,35 @@ export function NewQuoteForm({
           Cancel
         </a>
       </div>
+
+      {showNewClientModal && (
+        <NewClientModal
+          onCancel={() => setShowNewClientModal(false)}
+          onCreated={async (id) => {
+            try {
+              const { createClient: createBrowser } = await import('@/lib/supabase-browser')
+              const sb = createBrowser()
+              const { data } = await sb
+                .from('clients')
+                .select('id, name, company_name, email, phone, service_address, billing_address, billing_same_as_service, payment_type, payment_terms, accounts_email')
+                .eq('id', id)
+                .maybeSingle()
+              if (data) {
+                const newClient = data as Client
+                setCreatedClients((prev) => [newClient, ...prev.filter((c) => c.id !== id)])
+                setClientMode('existing')
+                handleClientSelect(id)
+              } else {
+                setClientId(id)
+              }
+            } catch (err) {
+              console.warn('[NewQuoteForm] post-create client fetch failed:', err)
+              setClientId(id)
+            }
+            setShowNewClientModal(false)
+          }}
+        />
+      )}
     </form>
   )
 }
