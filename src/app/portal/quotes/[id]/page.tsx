@@ -11,6 +11,7 @@ import { loadVersionChain } from '../_actions-versioning'
 import { NotLatestBanner, ArchivedBanner } from './_components/NotLatestBanner'
 import { VersionHistoryPanel } from './_components/VersionHistoryPanel'
 import { ArchiveQuoteButton } from './_components/ArchiveQuoteButton'
+import { LifecycleActions } from '../../_components/LifecycleActions'
 import { StatusBadge } from '../../_components/StatusBadge'
 import { displayQuoteNumber } from '@/lib/quote-versioning'
 import { isQuoteConvertible } from '@/lib/quote-status'
@@ -91,6 +92,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       is_latest_version,
       version_note,
       deleted_at,
+      is_test,
       deleted_by
     `)
     .eq('id', params.id)
@@ -216,6 +218,17 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
           )}
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="mb-4">
+          <LifecycleActions
+            entity="quote"
+            id={quote.id as string}
+            isArchived={isArchived}
+            isTest={!!(quote as { is_test?: boolean }).is_test}
+          />
+        </div>
+      )}
 
       <QuoteWorkflowBar status={quoteStatus} itemCount={itemCount} />
       <QuoteStatusMessage status={quoteStatus} itemCount={itemCount} isArchived={isArchived} />

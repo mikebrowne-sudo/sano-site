@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
-import { FileText, Plus, FileSearch } from 'lucide-react'
+import { FileText, Plus, FileSearch, FlaskConical, Archive } from 'lucide-react'
+import clsx from 'clsx'
 import { StatusBadge } from '../_components/StatusBadge'
 import { loadDisplaySettings, QUOTE_FIELDS } from '@/lib/portal-display-settings'
+import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
 
 function formatCurrency(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
@@ -24,20 +26,43 @@ function applyQuoteSort(query: any, sortBy: string, sortDirection: 'asc' | 'desc
     case 'valid_until':  return query.order('valid_until',  { ascending, nullsFirst: false })
     case 'status':       return query.order('status',       { ascending })
     case 'quote_number': return query.order('quote_number', { ascending })
-    // 'total' is computed (base + items - discount) and can't be
-    // ordered server-side without a view; fall back to created_at.
     case 'total':        return query.order('created_at',   { ascending: false })
     default:             return query.order('created_at',   { ascending: false })
   }
 }
 
-export default async function QuotesPage() {
+// Phase 5.5.13 — quote workflow tabs. Default 'needs_action' surfaces
+// the rows that need an operator's attention right now.
+type QuoteTab = 'needs_action' | 'sent' | 'accepted' | 'all'
+const QUOTE_TABS: readonly { value: QuoteTab; label: string }[] = [
+  { value: 'needs_action', label: 'Needs action' },
+  { value: 'sent',         label: 'Sent' },
+  { value: 'accepted',     label: 'Accepted' },
+  { value: 'all',          label: 'All' },
+]
+const NEEDS_ACTION_STATUSES = ['draft', 'expired'] as const
+
+function parseTab(v: string | undefined): QuoteTab {
+  return (QUOTE_TABS.find((t) => t.value === v)?.value as QuoteTab) ?? 'needs_action'
+}
+
+export default async function QuotesPage({
+  searchParams,
+}: {
+  searchParams: { tab?: string; show_archived?: string }
+}) {
   const supabase = createClient()
 
   const display = await loadDisplaySettings(supabase)
   const quotesList = display.quotes.list
   const visible = new Set(quotesList.visibleFields)
 
+  const activeTab    = parseTab(searchParams?.tab)
+  const showArchived = searchParams?.show_archived === '1'
+
+  // Live record rule: deleted_at IS NULL AND is_test = false.
+  // Show-archived toggle disables BOTH filters so the operator can
+  // see the full set when they need to.
   let query = supabase
     .from('quotes')
     .select(`
@@ -53,11 +78,25 @@ export default async function QuotesPage() {
       service_category,
       version_number,
       client_reference,
+      is_test,
+      deleted_at,
       clients ( name, company_name ),
       quote_items ( price )
     `)
-    .is('deleted_at', null)
     .eq('is_latest_version', true)
+
+  if (!showArchived) {
+    query = query.is('deleted_at', null).eq('is_test', false)
+  }
+
+  if (activeTab === 'sent') {
+    query = query.eq('status', 'sent')
+  } else if (activeTab === 'accepted') {
+    query = query.eq('status', 'accepted')
+  } else if (activeTab === 'needs_action') {
+    query = query.in('status', NEEDS_ACTION_STATUSES as unknown as string[])
+  }
+  // 'all' applies no extra status filter.
 
   query = applyQuoteSort(query, quotesList.sortBy, quotesList.sortDirection)
 
@@ -99,13 +138,21 @@ export default async function QuotesPage() {
       created_at: q.created_at,
       client_reference: q.client_reference ?? null,
       isCommercial: q.service_category === 'commercial',
+      isTest: !!(q as { is_test?: boolean }).is_test,
+      isArchived: !!(q as { deleted_at?: string | null }).deleted_at,
     }
   })
 
   // Render-time helpers
   function cell(row: typeof rows[number], key: string): React.ReactNode {
     switch (key) {
-      case 'quote_number':     return <span className="font-medium text-sage-800">{row.quote_number}</span>
+      case 'quote_number':     return (
+        <span className="font-medium text-sage-800 inline-flex items-center gap-1.5">
+          {row.quote_number}
+          {row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5"><FlaskConical size={9} /> Test</span>}
+          {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
+        </span>
+      )
       case 'client':           return row.client
       case 'company':          return row.company === '—' ? <span className="text-sage-400">—</span> : row.company
       case 'address':          return row.address ? <span className="block max-w-[200px] truncate" title={row.address}>{row.address}</span> : <span className="text-sage-400">—</span>
@@ -146,6 +193,15 @@ export default async function QuotesPage() {
     return key === 'total' ? 'text-right' : 'text-left'
   }
 
+  // Empty-state copy depends on which tab the operator is on, so
+  // they get a useful next-step instead of a generic "no quotes".
+  const emptyCopy: Record<QuoteTab, { title: string; sub: string }> = {
+    needs_action: { title: 'No quotes need action.', sub: 'Create a new quote or check the Sent tab to follow up.' },
+    sent:         { title: 'No sent quotes awaiting response.', sub: 'Either nothing is out, or every reply is in.' },
+    accepted:     { title: 'No accepted quotes.', sub: 'Accepted quotes appear here until they convert into a job.' },
+    all:          { title: 'No quotes yet.', sub: 'Create the first quote to get going.' },
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -159,16 +215,24 @@ export default async function QuotesPage() {
         </Link>
       </div>
 
+      <ListLifecycleTabs
+        basePath="/portal/quotes"
+        tabs={QUOTE_TABS}
+        activeTab={activeTab}
+        showArchived={showArchived}
+      />
+
       {rows.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
           <FileText size={32} className="text-sage-200 mx-auto mb-3" />
-          <p className="text-sage-600 text-sm mb-4">No quotes yet.</p>
+          <p className="text-sage-800 font-medium mb-1">{emptyCopy[activeTab].title}</p>
+          <p className="text-sage-600 text-sm mb-4">{emptyCopy[activeTab].sub}</p>
           <Link
             href="/portal/quotes/new"
             className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
           >
             <Plus size={16} />
-            Create your first quote
+            New quote
           </Link>
         </div>
       ) : (
@@ -187,7 +251,7 @@ export default async function QuotesPage() {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} className="border-b border-gray-50 last:border-0 group">
+                  <tr key={row.id} className={clsx('border-b border-gray-50 last:border-0 group', (row.isTest || row.isArchived) && 'opacity-60')}>
                     {orderedVisible.map((k) => (
                       <td key={k} className="p-0">
                         <Link href={`/portal/quotes/${row.id}`} className={`block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-700 ${alignFor(k)}`}>
@@ -216,9 +280,13 @@ export default async function QuotesPage() {
 
           <div className="md:hidden divide-y divide-gray-100">
             {rows.map((row) => (
-              <Link key={row.id} href={`/portal/quotes/${row.id}`} className="block px-4 py-4 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-medium text-sage-800">{rawCell(row, primaryKey)}</span>
+              <Link key={row.id} href={`/portal/quotes/${row.id}`} className={clsx('block px-4 py-4 hover:bg-gray-50 transition-colors', (row.isTest || row.isArchived) && 'opacity-60')}>
+                <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+                  <span className="font-medium text-sage-800 inline-flex items-center gap-1.5">
+                    {rawCell(row, primaryKey)}
+                    {row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5"><FlaskConical size={9} /> Test</span>}
+                    {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
+                  </span>
                   <StatusBadge kind="quote" status={row.status} />
                 </div>
                 <div className="text-sage-600 text-sm">{rawCell(row, secondaryKey)}</div>

@@ -15,6 +15,7 @@ import { MarkJobReviewedButton } from './_components/MarkJobReviewedButton'
 import { ApproveHoursButton } from './_components/ApproveHoursButton'
 import { JobNotificationsPanel } from './_components/JobNotificationsPanel'
 import { JobMismatchBanner } from './_components/JobMismatchBanner'
+import { LifecycleActions } from '../../_components/LifecycleActions'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -76,7 +77,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
       started_at, completed_at,
       payment_status, reviewed_at, reviewed_by, access_instructions,
       internal_notes, contractor_notes,
-      deleted_at, deleted_by,
+      deleted_at, deleted_by, is_test,
       created_at, updated_at,
       clients ( name, company_name )
     `)
@@ -167,6 +168,17 @@ export default async function JobDetailPage({ params }: { params: { id: string }
 
       {isAdmin && hasClientMismatch && (
         <JobMismatchBanner jobId={job.id as string} quoteNumber={quoteNumber} />
+      )}
+
+      {isAdmin && (
+        <div className="mb-4">
+          <LifecycleActions
+            entity="job"
+            id={job.id as string}
+            isArchived={isArchived}
+            isTest={!!(job as { is_test?: boolean }).is_test}
+          />
+        </div>
       )}
 
       <div className="flex items-center justify-between mb-8">
