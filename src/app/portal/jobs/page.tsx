@@ -6,17 +6,24 @@ import { JobFilters } from './_components/JobFilters'
 import { StatusBadge } from '../_components/StatusBadge'
 import { loadDisplaySettings, JOB_FIELDS } from '@/lib/portal-display-settings'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
+import { AttentionChips } from '../_components/AttentionChips'
+import { BulkSelectProvider, BulkSelectCheckbox, BulkSelectHeader } from '../_components/BulkSelect'
+import { getJobAttention } from '@/lib/attention-rules'
 
-// Phase 5.5.13 — operational job tabs.
-type JobTab = 'needs_scheduling' | 'scheduled' | 'in_progress' | 'completed'
+// Phase 5.5.14 — job workflow tabs. Default 'needs_attention' is the
+// operator's hot list; the four lifecycle tabs let them drill into
+// each phase. Invoiced jobs are intentionally excluded from every tab
+// other than (eventually) a dedicated archive view — see Part 6.
+type JobTab = 'needs_attention' | 'needs_scheduling' | 'scheduled' | 'in_progress' | 'completed'
 const JOB_TABS: readonly { value: JobTab; label: string }[] = [
+  { value: 'needs_attention',  label: 'Needs attention' },
   { value: 'needs_scheduling', label: 'Needs scheduling' },
   { value: 'scheduled',        label: 'Scheduled' },
   { value: 'in_progress',      label: 'In progress' },
   { value: 'completed',        label: 'Completed' },
 ]
 function parseJobTab(v: string | undefined): JobTab {
-  return (JOB_TABS.find((t) => t.value === v)?.value as JobTab) ?? 'needs_scheduling'
+  return (JOB_TABS.find((t) => t.value === v)?.value as JobTab) ?? 'needs_attention'
 }
 
 function fmtDate(iso: string | null) {
@@ -104,18 +111,17 @@ export default async function JobsPage({
 
   if (view === 'today') query = query.eq('scheduled_date', today)
   else if (view === 'tomorrow') query = query.eq('scheduled_date', tomorrow)
-  else if (view === 'unassigned') query = query.is('contractor_id', null)
-  else if (view === 'in_progress') query = query.eq('status', 'in_progress')
-  else if (view === 'completed') query = query.eq('status', 'completed')
 
-  // Phase 5.5.13 — lifecycle tab applies on top of the legacy `view`
-  // KPI shortcut so the URL can carry both. Tab semantics:
+  // Phase 5.5.14 — lifecycle tab applies on top of `view` (date filter)
+  // and `contractor` so the URL can carry all three. Tab semantics:
+  //   needs_attention  = pre-filter to non-invoiced, then the per-row
+  //                      attention rules decide what stays.
   //   needs_scheduling = no scheduled_date OR no contractor_id, AND
-  //                      status is draft/assigned/awaiting (not yet active)
+  //                      status is draft/assigned (not yet active)
   //   scheduled        = scheduled_date >= today AND assigned
   //   in_progress      = status='in_progress'
-  //   completed        = status='completed' (invoiced is excluded so
-  //                      the ops list isn't cluttered)
+  //   completed        = status='completed'
+  // Invoiced is excluded from every operational tab (Part 6).
   if (activeTab === 'needs_scheduling') {
     query = query.or(`scheduled_date.is.null,contractor_id.is.null`).in('status', ['draft', 'assigned'])
   } else if (activeTab === 'scheduled') {
@@ -124,6 +130,8 @@ export default async function JobsPage({
     query = query.eq('status', 'in_progress')
   } else if (activeTab === 'completed') {
     query = query.eq('status', 'completed')
+  } else if (activeTab === 'needs_attention') {
+    query = query.in('status', ['draft', 'assigned', 'in_progress', 'completed'])
   }
 
   if (contractorFilter) query = query.eq('contractor_id', contractorFilter)
@@ -134,13 +142,9 @@ export default async function JobsPage({
 
   query = applyJobSort(query, activeSort.sortBy, activeSort.sortDirection)
 
-  const [{ data: jobs, error }, { data: contractors }, todayCount, tomorrowCount, unassignedCount, inProgressCount] = await Promise.all([
+  const [{ data: jobs, error }, { data: contractors }] = await Promise.all([
     query,
     supabase.from('contractors').select('id, full_name').eq('status', 'active').order('full_name'),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('scheduled_date', today),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('scheduled_date', tomorrow),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).is('contractor_id', null).neq('status', 'completed').neq('status', 'invoiced'),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('status', 'in_progress'),
   ])
 
   if (error) {
@@ -154,8 +158,14 @@ export default async function JobsPage({
     )
   }
 
-  const rows = (jobs ?? []).map((j) => {
+  const allRows = (jobs ?? []).map((j) => {
     const client = j.clients as unknown as { name: string; company_name: string | null } | null
+    const attention = getJobAttention({
+      status: j.status,
+      scheduled_date: j.scheduled_date as string | null,
+      contractor_id: j.contractor_id as string | null,
+      assigned_to: j.assigned_to as string | null,
+    })
     return {
       id: j.id,
       job_number: j.job_number ?? '—',
@@ -170,15 +180,14 @@ export default async function JobsPage({
       isTest: !!(j as { is_test?: boolean }).is_test,
       isArchived: !!(j as { deleted_at?: string | null }).deleted_at,
       createdAt: j.created_at,
+      attention,
     }
   })
 
-  const counts = {
-    today: todayCount.count ?? 0,
-    tomorrow: tomorrowCount.count ?? 0,
-    unassigned: unassignedCount.count ?? 0,
-    inProgress: inProgressCount.count ?? 0,
-  }
+  // Needs-attention is a virtual tab — narrow to flagged rows only.
+  const rows = activeTab === 'needs_attention'
+    ? allRows.filter((r) => r.attention.needsAttention)
+    : allRows
 
   // Render-time helper: get cell text for a field key.
   function cell(row: typeof rows[number], key: string): React.ReactNode {
@@ -259,7 +268,7 @@ export default async function JobsPage({
         }}
       />
 
-      <JobFilters contractors={contractors ?? []} counts={counts} />
+      <JobFilters contractors={contractors ?? []} />
 
       {rows.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
@@ -267,6 +276,7 @@ export default async function JobsPage({
           <p className="text-sage-800 font-medium mb-1">
             {(() => {
               if (view || search || contractorFilter) return 'No jobs match your filters.'
+              if (activeTab === 'needs_attention')  return 'Nothing needs your attention right now.'
               if (activeTab === 'needs_scheduling') return 'No jobs needing scheduling.'
               if (activeTab === 'scheduled')        return 'No jobs scheduled yet.'
               if (activeTab === 'in_progress')      return 'No jobs in progress right now.'
@@ -274,6 +284,9 @@ export default async function JobsPage({
               return 'No jobs yet.'
             })()}
           </p>
+          {activeTab === 'needs_attention' && (
+            <p className="text-sage-500 text-xs mt-1">Unassigned, unscheduled, at-risk, and ready-to-invoice jobs surface here.</p>
+          )}
           {activeTab === 'needs_scheduling' && (
             <p className="text-sage-500 text-xs mt-1">Accepted quotes with job setup complete will appear here.</p>
           )}
@@ -288,12 +301,16 @@ export default async function JobsPage({
           )}
         </div>
       ) : (
+        <BulkSelectProvider entity="job" ids={rows.map((r) => r.id as string)}>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           {/* Desktop table — visible columns driven by display settings */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-left text-sage-600">
+                  <th className="pl-5 pr-2 py-3 w-8">
+                    <BulkSelectHeader />
+                  </th>
                   {orderedVisible.map((k) => (
                     <th key={k} className="px-5 py-3 font-semibold">
                       {JOB_FIELDS.find((f) => f.key === k)?.label ?? k}
@@ -304,10 +321,18 @@ export default async function JobsPage({
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.id} className={clsx('border-b border-gray-50 last:border-0 group', (row.isTest || row.isArchived) && 'opacity-60')}>
-                    {orderedVisible.map((k) => (
-                      <td key={k} className="p-0">
+                    <td className="pl-5 pr-2 py-3 align-top">
+                      <BulkSelectCheckbox id={row.id as string} label={`Select job ${row.job_number}`} />
+                    </td>
+                    {orderedVisible.map((k, idx) => (
+                      <td key={k} className="p-0 align-top">
                         <Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-700">
                           {cell(row, k)}
+                          {idx === 0 && (row.attention.reasons.length > 0 || row.attention.nextStep) && (
+                            <div className="mt-1.5">
+                              <AttentionChips reasons={row.attention.reasons} nextStep={row.attention.nextStep} size="xs" />
+                            </div>
+                          )}
                         </Link>
                       </td>
                     ))}
@@ -320,11 +345,20 @@ export default async function JobsPage({
           {/* Mobile cards — primary + secondary from settings */}
           <div className="md:hidden divide-y divide-gray-100">
             {rows.map((row) => (
-              <Link key={row.id} href={`/portal/jobs/${row.id}`} className="block px-4 py-4 hover:bg-gray-50 transition-colors">
+              <div key={row.id} className={clsx('flex items-start gap-3 px-4 py-4 hover:bg-gray-50 transition-colors', (row.isTest || row.isArchived) && 'opacity-60')}>
+                <div className="pt-1">
+                  <BulkSelectCheckbox id={row.id as string} label={`Select job ${row.job_number}`} />
+                </div>
+                <Link href={`/portal/jobs/${row.id}`} className="block flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-medium text-sage-800">{rawCell(row, primaryKey)}</span>
                   <StatusBadge kind="job" status={row.status} />
                 </div>
+                {(row.attention.reasons.length > 0 || row.attention.nextStep) && (
+                  <div className="mb-1">
+                    <AttentionChips reasons={row.attention.reasons} nextStep={row.attention.nextStep} size="xs" />
+                  </div>
+                )}
                 <div className="text-sage-700 text-sm">{rawCell(row, secondaryKey)}</div>
                 {visible.has('address') && primaryKey !== 'address' && secondaryKey !== 'address' && row.address && (
                   <div className="text-sage-500 text-xs mt-1">{row.address}</div>
@@ -334,9 +368,11 @@ export default async function JobsPage({
                   <span>{fmtDate(row.scheduled_date)}{row.scheduledTime ? ` ${row.scheduledTime}` : ''}</span>
                 </div>
               </Link>
+              </div>
             ))}
           </div>
         </div>
+        </BulkSelectProvider>
       )}
 
       <p className="text-xs text-sage-400 mt-4">{rows.length} job{rows.length !== 1 ? 's' : ''}</p>

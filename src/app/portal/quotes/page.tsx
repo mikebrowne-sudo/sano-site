@@ -5,6 +5,9 @@ import clsx from 'clsx'
 import { StatusBadge } from '../_components/StatusBadge'
 import { loadDisplaySettings, QUOTE_FIELDS } from '@/lib/portal-display-settings'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
+import { AttentionChips } from '../_components/AttentionChips'
+import { BulkSelectProvider, BulkSelectCheckbox, BulkSelectHeader } from '../_components/BulkSelect'
+import { getQuoteAttention } from '@/lib/attention-rules'
 
 function formatCurrency(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
@@ -31,19 +34,21 @@ function applyQuoteSort(query: any, sortBy: string, sortDirection: 'asc' | 'desc
   }
 }
 
-// Phase 5.5.13 — quote workflow tabs. Default 'needs_action' surfaces
-// the rows that need an operator's attention right now.
-type QuoteTab = 'needs_action' | 'sent' | 'accepted' | 'all'
+// Phase 5.5.14 — workflow tabs. Default 'needs_attention' uses the
+// shared attention-rules logic instead of a hard status filter, so a
+// row appears the moment the operator has work to do (e.g. a sent
+// quote that's gone unanswered for 3+ days, an accepted quote that
+// hasn't yet been turned into a job).
+type QuoteTab = 'needs_attention' | 'sent' | 'accepted' | 'all'
 const QUOTE_TABS: readonly { value: QuoteTab; label: string }[] = [
-  { value: 'needs_action', label: 'Needs action' },
-  { value: 'sent',         label: 'Sent' },
-  { value: 'accepted',     label: 'Accepted' },
-  { value: 'all',          label: 'All' },
+  { value: 'needs_attention', label: 'Needs attention' },
+  { value: 'sent',            label: 'Sent' },
+  { value: 'accepted',        label: 'Accepted' },
+  { value: 'all',             label: 'All' },
 ]
-const NEEDS_ACTION_STATUSES = ['draft', 'expired'] as const
 
 function parseTab(v: string | undefined): QuoteTab {
-  return (QUOTE_TABS.find((t) => t.value === v)?.value as QuoteTab) ?? 'needs_action'
+  return (QUOTE_TABS.find((t) => t.value === v)?.value as QuoteTab) ?? 'needs_attention'
 }
 
 export default async function QuotesPage({
@@ -93,14 +98,38 @@ export default async function QuotesPage({
     query = query.eq('status', 'sent')
   } else if (activeTab === 'accepted') {
     query = query.eq('status', 'accepted')
-  } else if (activeTab === 'needs_action') {
-    query = query.in('status', NEEDS_ACTION_STATUSES as unknown as string[])
+  } else if (activeTab === 'needs_attention') {
+    // Pre-filter at the DB level — only statuses that the attention
+    // rules can flag. Final per-row filter happens after we resolve
+    // which accepted quotes have a job/invoice already.
+    query = query.in('status', ['draft', 'sent', 'accepted'])
   }
   // 'all' applies no extra status filter.
 
   query = applyQuoteSort(query, quotesList.sortBy, quotesList.sortDirection)
 
   const { data: quotes, error } = await query
+
+  // Phase 5.5.14 — for accepted quotes, resolve "has a downstream
+  // job/invoice already?" so the attention rules can suppress the
+  // "Ready for job" chip once the operator has acted.
+  const acceptedIds = (quotes ?? [])
+    .filter((q) => (q.status ?? '') === 'accepted')
+    .map((q) => q.id as string)
+
+  const [{ data: relatedJobs }, { data: relatedInvoices }] = acceptedIds.length > 0
+    ? await Promise.all([
+        supabase.from('jobs').select('quote_id').in('quote_id', acceptedIds).is('deleted_at', null),
+        supabase.from('invoices').select('quote_id').in('quote_id', acceptedIds).is('deleted_at', null),
+      ])
+    : [{ data: [] as { quote_id: string | null }[] }, { data: [] as { quote_id: string | null }[] }]
+
+  const quotesWithJob = new Set(
+    (relatedJobs ?? []).map((r) => r.quote_id).filter((v): v is string => !!v),
+  )
+  const quotesWithInvoice = new Set(
+    (relatedInvoices ?? []).map((r) => r.quote_id).filter((v): v is string => !!v),
+  )
 
   if (error) {
     return (
@@ -113,7 +142,7 @@ export default async function QuotesPage({
     )
   }
 
-  const rows = (quotes ?? []).map((q) => {
+  const allRows = (quotes ?? []).map((q) => {
     const client = q.clients as unknown as { name: string; company_name: string | null } | null
     const items = (q.quote_items ?? []) as { price: number }[]
     const addOns = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
@@ -123,6 +152,14 @@ export default async function QuotesPage({
     const displayNumber = versionNumber > 1
       ? `${q.quote_number}-v${versionNumber}`
       : q.quote_number
+
+    const attention = getQuoteAttention({
+      status: q.status,
+      created_at: q.created_at as string | null,
+      date_issued: q.date_issued as string | null,
+      hasJob: quotesWithJob.has(q.id as string),
+      hasInvoice: quotesWithInvoice.has(q.id as string),
+    })
 
     return {
       id: q.id,
@@ -140,8 +177,16 @@ export default async function QuotesPage({
       isCommercial: q.service_category === 'commercial',
       isTest: !!(q as { is_test?: boolean }).is_test,
       isArchived: !!(q as { deleted_at?: string | null }).deleted_at,
+      attention,
     }
   })
+
+  // For Needs attention tab, drop rows where the attention rules
+  // didn't flag anything (e.g. a recently-sent quote inside the
+  // follow-up grace period, an accepted quote that already has a job).
+  const rows = activeTab === 'needs_attention'
+    ? allRows.filter((r) => r.attention.needsAttention)
+    : allRows
 
   // Render-time helpers
   function cell(row: typeof rows[number], key: string): React.ReactNode {
@@ -196,10 +241,10 @@ export default async function QuotesPage({
   // Empty-state copy depends on which tab the operator is on, so
   // they get a useful next-step instead of a generic "no quotes".
   const emptyCopy: Record<QuoteTab, { title: string; sub: string }> = {
-    needs_action: { title: 'No quotes need action.', sub: 'Create a new quote or check the Sent tab to follow up.' },
-    sent:         { title: 'No sent quotes awaiting response.', sub: 'Either nothing is out, or every reply is in.' },
-    accepted:     { title: 'No accepted quotes.', sub: 'Accepted quotes appear here until they convert into a job.' },
-    all:          { title: 'No quotes yet.', sub: 'Create the first quote to get going.' },
+    needs_attention: { title: 'Nothing needs your attention right now.', sub: 'Drafts, follow-ups, and accepted-not-converted quotes will appear here.' },
+    sent:            { title: 'No sent quotes awaiting response.', sub: 'Either nothing is out, or every reply is in.' },
+    accepted:        { title: 'No accepted quotes.', sub: 'Accepted quotes appear here until they convert into a job.' },
+    all:             { title: 'No quotes yet.', sub: 'Create the first quote to get going.' },
   }
 
   return (
@@ -236,11 +281,15 @@ export default async function QuotesPage({
           </Link>
         </div>
       ) : (
+        <BulkSelectProvider entity="quote" ids={rows.map((r) => r.id as string)}>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-left text-sage-600">
+                  <th className="pl-5 pr-2 py-3 w-8">
+                    <BulkSelectHeader />
+                  </th>
                   {orderedVisible.map((k) => (
                     <th key={k} className={`px-5 py-3 font-semibold ${alignFor(k)}`}>
                       {QUOTE_FIELDS.find((f) => f.key === k)?.label ?? k}
@@ -252,14 +301,22 @@ export default async function QuotesPage({
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.id} className={clsx('border-b border-gray-50 last:border-0 group', (row.isTest || row.isArchived) && 'opacity-60')}>
-                    {orderedVisible.map((k) => (
-                      <td key={k} className="p-0">
+                    <td className="pl-5 pr-2 py-3 align-top">
+                      <BulkSelectCheckbox id={row.id as string} label={`Select quote ${row.quote_number}`} />
+                    </td>
+                    {orderedVisible.map((k, idx) => (
+                      <td key={k} className="p-0 align-top">
                         <Link href={`/portal/quotes/${row.id}`} className={`block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-700 ${alignFor(k)}`}>
                           {cell(row, k)}
+                          {idx === 0 && (row.attention.reasons.length > 0 || row.attention.nextStep) && (
+                            <div className="mt-1.5">
+                              <AttentionChips reasons={row.attention.reasons} nextStep={row.attention.nextStep} size="xs" />
+                            </div>
+                          )}
                         </Link>
                       </td>
                     ))}
-                    <td className="px-3 py-3 text-right">
+                    <td className="px-3 py-3 text-right align-top">
                       {row.isCommercial && (
                         <Link
                           href={`/portal/quotes/${row.id}/proposal`}
@@ -280,7 +337,11 @@ export default async function QuotesPage({
 
           <div className="md:hidden divide-y divide-gray-100">
             {rows.map((row) => (
-              <Link key={row.id} href={`/portal/quotes/${row.id}`} className={clsx('block px-4 py-4 hover:bg-gray-50 transition-colors', (row.isTest || row.isArchived) && 'opacity-60')}>
+              <div key={row.id} className={clsx('flex items-start gap-3 px-4 py-4 hover:bg-gray-50 transition-colors', (row.isTest || row.isArchived) && 'opacity-60')}>
+                <div className="pt-1">
+                  <BulkSelectCheckbox id={row.id as string} label={`Select quote ${row.quote_number}`} />
+                </div>
+                <Link href={`/portal/quotes/${row.id}`} className="block flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
                   <span className="font-medium text-sage-800 inline-flex items-center gap-1.5">
                     {rawCell(row, primaryKey)}
@@ -289,6 +350,11 @@ export default async function QuotesPage({
                   </span>
                   <StatusBadge kind="quote" status={row.status} />
                 </div>
+                {(row.attention.reasons.length > 0 || row.attention.nextStep) && (
+                  <div className="mb-1">
+                    <AttentionChips reasons={row.attention.reasons} nextStep={row.attention.nextStep} size="xs" />
+                  </div>
+                )}
                 <div className="text-sage-600 text-sm">{rawCell(row, secondaryKey)}</div>
                 {visible.has('address') && primaryKey !== 'address' && secondaryKey !== 'address' && row.address && (
                   <div className="text-sage-500 text-xs truncate">{row.address}</div>
@@ -298,9 +364,11 @@ export default async function QuotesPage({
                   <span className="font-medium text-sage-800 text-sm">{formatCurrency(row.total)}</span>
                 </div>
               </Link>
+              </div>
             ))}
           </div>
         </div>
+        </BulkSelectProvider>
       )}
 
       {quotesList.groupBy !== 'none' && (
