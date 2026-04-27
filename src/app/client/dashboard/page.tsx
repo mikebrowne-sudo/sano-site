@@ -140,9 +140,9 @@ export default async function ClientDashboardPage() {
         </p>
       </header>
 
-      <Section title="Upcoming bookings" icon={<Calendar size={16} className="text-sage-400" />}>
+      <Section title="Bookings" icon={<Calendar size={16} className="text-sage-400" />}>
         {(upcomingJobs ?? []).length === 0 ? (
-          <Empty text="No upcoming bookings." />
+          <Empty text="You don’t have any upcoming bookings yet." />
         ) : (
           <ul className="divide-y divide-sage-50">
             {(upcomingJobs ?? []).map((j) => (
@@ -166,9 +166,9 @@ export default async function ClientDashboardPage() {
         )}
       </Section>
 
-      <Section title="Recent quotes" icon={<FileText size={16} className="text-sage-400" />}>
+      <Section title="Quotes" icon={<FileText size={16} className="text-sage-400" />}>
         {(quotes ?? []).length === 0 ? (
-          <Empty text="No quotes yet." />
+          <Empty text="You don’t have any quotes yet." />
         ) : (
           <ul className="divide-y divide-sage-50">
             {(quotes ?? []).map((q) => {
@@ -206,9 +206,9 @@ export default async function ClientDashboardPage() {
         )}
       </Section>
 
-      <Section title="Recent invoices" icon={<Receipt size={16} className="text-sage-400" />}>
+      <Section title="Invoices" icon={<Receipt size={16} className="text-sage-400" />}>
         {(invoices ?? []).length === 0 ? (
-          <Empty text="No invoices yet." />
+          <Empty text="You don’t have any invoices yet." />
         ) : (
           <ul className="divide-y divide-sage-50">
             {(invoices ?? []).map((inv) => {
