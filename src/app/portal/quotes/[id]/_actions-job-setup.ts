@@ -96,7 +96,7 @@ export async function getContractorRate(contractorId: string): Promise<{ hourly_
 export async function createJobFromQuoteWithSetup(
   quoteId: string,
   setup: JobSetupInput,
-): Promise<{ ok: true } | { error: string }> {
+): Promise<{ error: string } | void> {
   const supabase = createClient()
 
   const { data: quote, error: qErr } = await supabase

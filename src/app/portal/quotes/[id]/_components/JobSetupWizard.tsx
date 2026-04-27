@@ -17,8 +17,8 @@
 // On submit calls createJobFromQuoteWithSetup which inserts the job
 // and redirects. Cancel closes the modal without side effects.
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
-import { X, AlertCircle, Calendar, MapPin, User, CreditCard, FileText } from 'lucide-react'
+import { useEffect, useRef, useState, useTransition } from 'react'
+import { X, Calendar, MapPin, User, CreditCard, FileText } from 'lucide-react'
 import {
   createJobFromQuoteWithSetup,
   listAssignableContractors,
@@ -173,9 +173,22 @@ export function JobSetupWizard({ seed, onCancel }: Props) {
     }
 
     startTransition(async () => {
-      const r = await createJobFromQuoteWithSetup(seed.quoteId, setup)
-      if (r && 'error' in r) setError(r.error)
-      // Success path redirects; nothing more to do here.
+      try {
+        const r = await createJobFromQuoteWithSetup(seed.quoteId, setup)
+        if (r && 'error' in r) setError(r.error)
+        // Success path redirects via NEXT_REDIRECT — execution does
+        // not return here. Anything else is an error to display.
+      } catch (err) {
+        // NEXT_REDIRECT is what Next.js throws on success — re-throw
+        // it so the redirect actually happens.
+        if (err && typeof err === 'object' && 'digest' in err
+            && typeof (err as { digest: unknown }).digest === 'string'
+            && (err as { digest: string }).digest.startsWith('NEXT_REDIRECT')) {
+          throw err
+        }
+        const msg = err instanceof Error ? err.message : 'Failed to create job.'
+        setError(msg)
+      }
     })
   }
 
