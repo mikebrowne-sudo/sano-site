@@ -25,80 +25,133 @@ type AuditEntry = {
   created_at: string
 }
 
-export default async function ClientDetailPage({ params }: { params: { id: string } }) {
-  const supabase = createClient()
+// ────────────────────────────────────────────────────────────────────
+// TEMPORARY DIAGNOSTICS — debug/clients-detail-diagnostics
+//
+// Wraps each section of the client detail render in a labelled
+// try/catch so the next crash leaves a clear breadcrumb in Netlify
+// logs. On error: logs the section label + clientId + error message
+// + stack, then rethrows so Next still shows the standard error page.
+//
+// Search Netlify logs for [clients-debug] to find the breadcrumb
+// trail. The last [clients-debug] start: <label> line before the
+// FAIL is the section that crashed. Remove this scaffolding once we
+// know the cause.
+// ────────────────────────────────────────────────────────────────────
+const DEBUG_TAG = '[clients-debug]'
 
-  const { data: client, error } = await supabase
+async function trace<T>(label: string, clientId: string | null, fn: () => Promise<T> | PromiseLike<T>): Promise<T> {
+  console.error(`${DEBUG_TAG} start: ${label} cid=${clientId ?? '—'}`)
+  try {
+    const out = await fn()
+    console.error(`${DEBUG_TAG} ok:    ${label} cid=${clientId ?? '—'}`)
+    return out
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    const stack = err instanceof Error && err.stack ? err.stack.split('\n').slice(0, 6).join('\n') : '(no stack)'
+    console.error(`${DEBUG_TAG} FAIL:  ${label} cid=${clientId ?? '—'} :: ${msg}\n${stack}`)
+    throw err
+  }
+}
+
+function syncTrace<T>(label: string, clientId: string | null, fn: () => T): T {
+  console.error(`${DEBUG_TAG} start: ${label} cid=${clientId ?? '—'}`)
+  try {
+    const out = fn()
+    console.error(`${DEBUG_TAG} ok:    ${label} cid=${clientId ?? '—'}`)
+    return out
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    const stack = err instanceof Error && err.stack ? err.stack.split('\n').slice(0, 6).join('\n') : '(no stack)'
+    console.error(`${DEBUG_TAG} FAIL:  ${label} cid=${clientId ?? '—'} :: ${msg}\n${stack}`)
+    throw err
+  }
+}
+
+export default async function ClientDetailPage({ params }: { params: { id: string } }) {
+  const cid = params?.id ?? null
+  console.error(`${DEBUG_TAG} ENTER ClientDetailPage cid=${cid ?? '—'}`)
+
+  const supabase = syncTrace('supabase_client_create', cid, () => createClient())
+
+  const clientResult = await trace('client_fetch', cid, () => supabase
     .from('clients')
     .select('id, name, company_name, email, phone, service_address, billing_address, billing_same_as_service, notes, auth_user_id, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, is_archived, archived_at')
     .eq('id', params.id)
-    .single()
+    .single())
+  const { data: client, error } = clientResult
 
-  if (error || !client) notFound()
+  if (error || !client) {
+    console.error(`${DEBUG_TAG} client_fetch returned no row for cid=${cid ?? '—'} (error=${error?.message ?? 'none'}) → notFound()`)
+    notFound()
+  }
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user } } = await trace('auth_get_user', cid, () => supabase.auth.getUser())
   const isAdmin = user?.email === 'michael@sano.nz'
 
   // Phase 5.5.10 fix — every parallel branch is wrapped so a single
   // failure (RLS edge case, slow network, missing column) never takes
   // the whole page down. Each fallback is a safe empty value and the
   // raw error goes to the server log via console.warn.
-  const settledSettings = loadWorkforceSettings(supabase).catch((err) => {
-    console.warn('[clients/[id]] loadWorkforceSettings failed:', err)
+  // Each section gets its own labelled trace. They still run in
+  // parallel via Promise.all below — the trace just emits start/ok or
+  // FAIL log lines so Netlify shows exactly which one breaks.
+  const settledSettings = trace('settings_load', cid, () => loadWorkforceSettings(supabase)).catch((err) => {
+    // Already logged inside trace (via FAIL); this catch keeps the
+    // page resilient and converts to safe default.
+    console.warn(`${DEBUG_TAG} settings_load fallback to null:`, err instanceof Error ? err.message : err)
     return null
   })
-  const settledAudit: Promise<AuditEntry[]> = (async () => {
-    try {
-      const { data } = await supabase
-        .from('audit_log')
-        .select('id, action, created_at')
-        .eq('entity_table', 'clients')
-        .eq('entity_id', params.id)
-        .order('created_at', { ascending: false })
-        .limit(50)
-      return (data ?? []) as AuditEntry[]
-    } catch (err) {
-      console.warn('[clients/[id]] audit_log failed:', err)
-      return [] as AuditEntry[]
-    }
-  })()
-  const settledLinks = getClientLinkCounts(params.id).catch((err) => {
-    console.warn('[clients/[id]] getClientLinkCounts threw:', err)
+  const settledAudit: Promise<AuditEntry[]> = trace('audit_log_fetch', cid, async () => {
+    const { data } = await supabase
+      .from('audit_log')
+      .select('id, action, created_at')
+      .eq('entity_table', 'clients')
+      .eq('entity_id', params.id)
+      .order('created_at', { ascending: false })
+      .limit(50)
+    return (data ?? []) as AuditEntry[]
+  }).catch((err) => {
+    console.warn(`${DEBUG_TAG} audit_log_fetch fallback to []:`, err instanceof Error ? err.message : err)
+    return [] as AuditEntry[]
+  })
+  const settledLinks = trace('link_counts', cid, () => getClientLinkCounts(params.id)).catch((err) => {
+    console.warn(`${DEBUG_TAG} link_counts fallback:`, err instanceof Error ? err.message : err)
     return { error: 'failed' } as { error: string }
   })
-  const settledDupes = findPossibleDuplicates(params.id).catch((err) => {
-    console.warn('[clients/[id]] findPossibleDuplicates threw:', err)
+  const settledDupes = trace('duplicate_checks', cid, () => findPossibleDuplicates(params.id)).catch((err) => {
+    console.warn(`${DEBUG_TAG} duplicate_checks fallback to []:`, err instanceof Error ? err.message : err)
     return [] as never
   })
-  const settledCandidates: Promise<{ id: string; name: string; company_name: string | null }[]> = (async () => {
-    try {
-      const { data } = await supabase
-        .from('clients')
-        .select('id, name, company_name')
-        .eq('is_archived', false)
-        .neq('id', params.id)
-        .order('name')
-      return (data ?? []) as { id: string; name: string; company_name: string | null }[]
-    } catch (err) {
-      console.warn('[clients/[id]] mergeCandidates failed:', err)
-      return [] as { id: string; name: string; company_name: string | null }[]
-    }
-  })()
+  const settledCandidates: Promise<{ id: string; name: string; company_name: string | null }[]> = trace('merge_candidates_fetch', cid, async () => {
+    const { data } = await supabase
+      .from('clients')
+      .select('id, name, company_name')
+      .eq('is_archived', false)
+      .neq('id', params.id)
+      .order('name')
+    return (data ?? []) as { id: string; name: string; company_name: string | null }[]
+  }).catch((err) => {
+    console.warn(`${DEBUG_TAG} merge_candidates_fetch fallback to []:`, err instanceof Error ? err.message : err)
+    return [] as { id: string; name: string; company_name: string | null }[]
+  })
 
-  const [settings, auditRowsRaw, linkCountsRes, dupesRes, mergeCandidatesRaw] = await Promise.all([
+  const [settings, auditRowsRaw, linkCountsRes, dupesRes, mergeCandidatesRaw] = await trace('parallel_resolve', cid, () => Promise.all([
     settledSettings, settledAudit, settledLinks, settledDupes, settledCandidates,
-  ])
+  ]))
 
-  const audit: AuditEntry[] = (auditRowsRaw ?? []) as AuditEntry[]
-  const linkCounts = (linkCountsRes && typeof linkCountsRes === 'object' && 'error' in linkCountsRes)
-    ? { quotes: 0, jobs: 0, invoices: 0, contacts: 0, sites: 0 }
-    : (linkCountsRes ?? { quotes: 0, jobs: 0, invoices: 0, contacts: 0, sites: 0 })
-  const duplicates = Array.isArray(dupesRes) ? dupesRes : []
-  const mergeCandidates = (mergeCandidatesRaw ?? []) as { id: string; name: string; company_name: string | null }[]
-  const isArchived = !!(client as { is_archived?: boolean }).is_archived
-  // settings can be null if loadWorkforceSettings threw; fall back to
-  // safe defaults so feature-flag reads downstream don't blow up.
-  const customerPortalEnabled = !!settings?.enable_customer_portal
+  const audit: AuditEntry[] = syncTrace('reduce_audit', cid, () => (auditRowsRaw ?? []) as AuditEntry[])
+  const linkCounts = syncTrace('reduce_link_counts', cid, () =>
+    (linkCountsRes && typeof linkCountsRes === 'object' && 'error' in linkCountsRes)
+      ? { quotes: 0, jobs: 0, invoices: 0, contacts: 0, sites: 0 }
+      : (linkCountsRes ?? { quotes: 0, jobs: 0, invoices: 0, contacts: 0, sites: 0 })
+  )
+  const duplicates = syncTrace('reduce_duplicates', cid, () => Array.isArray(dupesRes) ? dupesRes : [])
+  const mergeCandidates = syncTrace('reduce_merge_candidates', cid, () => (mergeCandidatesRaw ?? []) as { id: string; name: string; company_name: string | null }[])
+  const isArchived = syncTrace('reduce_is_archived', cid, () => !!(client as { is_archived?: boolean }).is_archived)
+  const customerPortalEnabled = syncTrace('reduce_feature_flag', cid, () => !!settings?.enable_customer_portal)
+
+  console.error(`${DEBUG_TAG} render_start cid=${cid ?? '—'} archived=${isArchived} dupes=${duplicates.length} mergeCandidates=${mergeCandidates.length} audit=${audit.length}`)
 
   return (
     <div>
