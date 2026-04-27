@@ -1,3 +1,9 @@
+// MODULE-LOAD TRACE — fires once when the bundle for this route is
+// evaluated on the server. If you don't see this in Netlify Function
+// logs after a request, the module never loaded (build / route /
+// runtime issue, not a render bug).
+console.error('[clients-debug] MODULE_LOADED clients/[id]/page')
+
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { ClientForm } from '../_components/ClientForm'
@@ -7,6 +13,8 @@ import { ClientAccessPanel } from './_components/ClientAccessPanel'
 import { ClientCleanupActions } from './_components/ClientCleanupActions'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
 import { findPossibleDuplicates, getClientLinkCounts } from '../_lib-cleanup'
+
+console.error('[clients-debug] MODULE_LOADED clients/[id]/page — imports resolved')
 
 // Phase 5.5.7 — read-only audit timeline mirroring the staff pattern.
 const ACTION_LABELS: Record<string, string> = {
@@ -69,6 +77,12 @@ function syncTrace<T>(label: string, clientId: string | null, fn: () => T): T {
 }
 
 export default async function ClientDetailPage({ params }: { params: { id: string } }) {
+  // PAGE_ENTRY — first line of the page function. If MODULE_LOADED
+  // appears but PAGE_ENTRY does NOT for a given request, the module
+  // is loaded but Next is not invoking the page (wrong route hit,
+  // middleware redirect, error boundary above this). If PAGE_ENTRY
+  // appears, the section traces below pinpoint the failure.
+  console.error('[clients-debug] PAGE_ENTRY clients/[id]/page params=', JSON.stringify(params ?? {}))
   const cid = params?.id ?? null
   console.error(`${DEBUG_TAG} ENTER ClientDetailPage cid=${cid ?? '—'}`)
 

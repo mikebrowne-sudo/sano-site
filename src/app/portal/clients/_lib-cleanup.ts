@@ -11,6 +11,8 @@
 // Errors are logged via console.error so they surface in Netlify
 // function logs.
 
+console.error('[clients-debug] MODULE_LOADED clients/_lib-cleanup')
+
 import { createClient } from '@/lib/supabase-server'
 
 const ADMIN_EMAIL = 'michael@sano.nz'
