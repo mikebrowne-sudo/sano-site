@@ -1,9 +1,23 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
-import { Briefcase, Plus, CalendarDays } from 'lucide-react'
+import { Briefcase, Plus, CalendarDays, FlaskConical, Archive } from 'lucide-react'
+import clsx from 'clsx'
 import { JobFilters } from './_components/JobFilters'
 import { StatusBadge } from '../_components/StatusBadge'
 import { loadDisplaySettings, JOB_FIELDS } from '@/lib/portal-display-settings'
+import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
+
+// Phase 5.5.13 — operational job tabs.
+type JobTab = 'needs_scheduling' | 'scheduled' | 'in_progress' | 'completed'
+const JOB_TABS: readonly { value: JobTab; label: string }[] = [
+  { value: 'needs_scheduling', label: 'Needs scheduling' },
+  { value: 'scheduled',        label: 'Scheduled' },
+  { value: 'in_progress',      label: 'In progress' },
+  { value: 'completed',        label: 'Completed' },
+]
+function parseJobTab(v: string | undefined): JobTab {
+  return (JOB_TABS.find((t) => t.value === v)?.value as JobTab) ?? 'needs_scheduling'
+}
 
 function fmtDate(iso: string | null) {
   if (!iso) return '—'
@@ -50,13 +64,16 @@ function urlSortToSettings(s: string | undefined): { sortBy: string; sortDirecti
 export default async function JobsPage({
   searchParams,
 }: {
-  searchParams: { view?: string; contractor?: string; sort?: string; q?: string }
+  searchParams: { view?: string; contractor?: string; sort?: string; q?: string; tab?: string; show_archived?: string }
 }) {
   const supabase = createClient()
 
   const view = searchParams.view ?? ''
   const contractorFilter = searchParams.contractor ?? ''
   const search = searchParams.q?.trim() ?? ''
+  // Phase 5.5.13 — lifecycle tab + show-archived/test toggle.
+  const activeTab    = parseJobTab(searchParams.tab)
+  const showArchived = searchParams.show_archived === '1'
 
   const today = todayStr()
   const tomorrow = tomorrowStr()
@@ -77,14 +94,37 @@ export default async function JobsPage({
   // archived jobs never appear in any list or count.
   let query = supabase
     .from('jobs')
-    .select('id, job_number, title, address, status, scheduled_date, scheduled_time, assigned_to, contractor_id, created_at, clients ( name, company_name )')
-    .is('deleted_at', null)
+    .select('id, job_number, title, address, status, scheduled_date, scheduled_time, assigned_to, contractor_id, created_at, is_test, deleted_at, clients ( name, company_name )')
+
+  // Live record rule: deleted_at IS NULL AND is_test = false unless
+  // the operator has explicitly enabled show-archived/test.
+  if (!showArchived) {
+    query = query.is('deleted_at', null).eq('is_test', false)
+  }
 
   if (view === 'today') query = query.eq('scheduled_date', today)
   else if (view === 'tomorrow') query = query.eq('scheduled_date', tomorrow)
   else if (view === 'unassigned') query = query.is('contractor_id', null)
   else if (view === 'in_progress') query = query.eq('status', 'in_progress')
   else if (view === 'completed') query = query.eq('status', 'completed')
+
+  // Phase 5.5.13 — lifecycle tab applies on top of the legacy `view`
+  // KPI shortcut so the URL can carry both. Tab semantics:
+  //   needs_scheduling = no scheduled_date OR no contractor_id, AND
+  //                      status is draft/assigned/awaiting (not yet active)
+  //   scheduled        = scheduled_date >= today AND assigned
+  //   in_progress      = status='in_progress'
+  //   completed        = status='completed' (invoiced is excluded so
+  //                      the ops list isn't cluttered)
+  if (activeTab === 'needs_scheduling') {
+    query = query.or(`scheduled_date.is.null,contractor_id.is.null`).in('status', ['draft', 'assigned'])
+  } else if (activeTab === 'scheduled') {
+    query = query.gte('scheduled_date', today).not('contractor_id', 'is', null).in('status', ['assigned', 'draft'])
+  } else if (activeTab === 'in_progress') {
+    query = query.eq('status', 'in_progress')
+  } else if (activeTab === 'completed') {
+    query = query.eq('status', 'completed')
+  }
 
   if (contractorFilter) query = query.eq('contractor_id', contractorFilter)
 
@@ -97,10 +137,10 @@ export default async function JobsPage({
   const [{ data: jobs, error }, { data: contractors }, todayCount, tomorrowCount, unassignedCount, inProgressCount] = await Promise.all([
     query,
     supabase.from('contractors').select('id, full_name').eq('status', 'active').order('full_name'),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('scheduled_date', today),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('scheduled_date', tomorrow),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).is('contractor_id', null).neq('status', 'completed').neq('status', 'invoiced'),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('status', 'in_progress'),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('scheduled_date', today),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('scheduled_date', tomorrow),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).is('contractor_id', null).neq('status', 'completed').neq('status', 'invoiced'),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('status', 'in_progress'),
   ])
 
   if (error) {
@@ -127,6 +167,8 @@ export default async function JobsPage({
       status: j.status ?? 'draft',
       scheduled_date: j.scheduled_date,
       scheduledTime: j.scheduled_time as string | null,
+      isTest: !!(j as { is_test?: boolean }).is_test,
+      isArchived: !!(j as { deleted_at?: string | null }).deleted_at,
       createdAt: j.created_at,
     }
   })
@@ -141,7 +183,13 @@ export default async function JobsPage({
   // Render-time helper: get cell text for a field key.
   function cell(row: typeof rows[number], key: string): React.ReactNode {
     switch (key) {
-      case 'job_number':     return <span className="font-medium text-sage-800">{row.job_number}</span>
+      case 'job_number':     return (
+        <span className="font-medium text-sage-800 inline-flex items-center gap-1.5">
+          {row.job_number}
+          {row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5"><FlaskConical size={9} /> Test</span>}
+          {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
+        </span>
+      )
       case 'title':          return <span className="block max-w-[220px] truncate">{row.title}</span>
       case 'client':         return row.client
       case 'company':        return row.company === '—' ? <span className="text-sage-400">—</span> : row.company
@@ -199,21 +247,43 @@ export default async function JobsPage({
         </div>
       </div>
 
+      <ListLifecycleTabs
+        basePath="/portal/jobs"
+        tabs={JOB_TABS}
+        activeTab={activeTab}
+        showArchived={showArchived}
+        preservedParams={{
+          view: view || undefined,
+          contractor: contractorFilter || undefined,
+          q: search || undefined,
+        }}
+      />
+
       <JobFilters contractors={contractors ?? []} counts={counts} />
 
       {rows.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
           <Briefcase size={32} className="text-sage-200 mx-auto mb-3" />
-          <p className="text-sage-600 text-sm mb-1">
-            {view || search || contractorFilter ? 'No jobs match your filters.' : 'No jobs yet.'}
+          <p className="text-sage-800 font-medium mb-1">
+            {(() => {
+              if (view || search || contractorFilter) return 'No jobs match your filters.'
+              if (activeTab === 'needs_scheduling') return 'No jobs needing scheduling.'
+              if (activeTab === 'scheduled')        return 'No jobs scheduled yet.'
+              if (activeTab === 'in_progress')      return 'No jobs in progress right now.'
+              if (activeTab === 'completed')        return 'No completed jobs.'
+              return 'No jobs yet.'
+            })()}
           </p>
+          {activeTab === 'needs_scheduling' && (
+            <p className="text-sage-500 text-xs mt-1">Accepted quotes with job setup complete will appear here.</p>
+          )}
           {!view && !search && !contractorFilter && (
             <Link
               href="/portal/jobs/new"
               className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors mt-3"
             >
               <Plus size={16} />
-              Create your first job
+              New job
             </Link>
           )}
         </div>
@@ -233,7 +303,7 @@ export default async function JobsPage({
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} className="border-b border-gray-50 last:border-0 group">
+                  <tr key={row.id} className={clsx('border-b border-gray-50 last:border-0 group', (row.isTest || row.isArchived) && 'opacity-60')}>
                     {orderedVisible.map((k) => (
                       <td key={k} className="p-0">
                         <Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-700">

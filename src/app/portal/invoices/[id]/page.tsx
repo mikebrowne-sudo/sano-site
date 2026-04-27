@@ -8,6 +8,7 @@ import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
 import { ArchiveInvoiceButton } from './_components/ArchiveInvoiceButton'
 import { InvoiceJobButton } from './_components/InvoiceJobButton'
 import { InvoiceLinkBanner } from './_components/InvoiceLinkBanner'
+import { LifecycleActions } from '../../_components/LifecycleActions'
 import { firstName } from '@/lib/doc-helpers'
 import { StatusBadge } from '../../_components/StatusBadge'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
@@ -44,6 +45,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         client_reference, requires_po,
         job_id, source,
         deleted_at,
+        is_test,
         clients ( name, company_name )
       `)
       .eq('id', params.id)
@@ -114,6 +116,17 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
       {isAdmin && invoiceUnlinked && (
         <InvoiceLinkBanner invoiceId={invoice.id as string} jobs={linkCandidates} />
+      )}
+
+      {isAdmin && (
+        <div className="mb-4">
+          <LifecycleActions
+            entity="invoice"
+            id={invoice.id as string}
+            isArchived={!!invoice.deleted_at}
+            isTest={!!(invoice as { is_test?: boolean }).is_test}
+          />
+        </div>
       )}
 
       <div className="flex items-center justify-between mb-4">

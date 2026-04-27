@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
-import { Receipt } from 'lucide-react'
+import { Receipt, FlaskConical, Archive } from 'lucide-react'
+import clsx from 'clsx'
 import { StatusBadge } from '../_components/StatusBadge'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
+import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
 
 function fmt(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
@@ -13,19 +15,54 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export default async function InvoicesPage() {
+// Phase 5.5.13 — finance-focused invoice tabs.
+type InvoiceTab = 'outstanding' | 'paid' | 'draft' | 'all'
+const INVOICE_TABS: readonly { value: InvoiceTab; label: string }[] = [
+  { value: 'outstanding', label: 'Outstanding' },
+  { value: 'paid',        label: 'Paid' },
+  { value: 'draft',       label: 'Draft' },
+  { value: 'all',         label: 'All' },
+]
+function parseInvoiceTab(v: string | undefined): InvoiceTab {
+  return (INVOICE_TABS.find((t) => t.value === v)?.value as InvoiceTab) ?? 'outstanding'
+}
+
+export default async function InvoicesPage({
+  searchParams,
+}: {
+  searchParams: { tab?: string; show_archived?: string }
+}) {
   const supabase = createClient()
 
-  const { data: invoices, error } = await supabase
+  const activeTab    = parseInvoiceTab(searchParams?.tab)
+  const showArchived = searchParams?.show_archived === '1'
+
+  let query = supabase
     .from('invoices')
     .select(`
       id, invoice_number, status, base_price, discount,
       date_issued, due_date, created_at,
+      is_test, deleted_at,
       clients ( name ),
       invoice_items ( price )
     `)
-    .is('deleted_at', null)
     .order('created_at', { ascending: false })
+
+  if (!showArchived) {
+    query = query.is('deleted_at', null).eq('is_test', false)
+  }
+
+  // Outstanding = sent invoices (overdue is computed per row from due_date).
+  if (activeTab === 'outstanding') {
+    query = query.in('status', ['sent'])
+  } else if (activeTab === 'paid') {
+    query = query.eq('status', 'paid')
+  } else if (activeTab === 'draft') {
+    query = query.eq('status', 'draft')
+  }
+  // 'all' applies no extra status filter.
+
+  const { data: invoices, error } = await query
 
   if (error) {
     return (
@@ -52,8 +89,17 @@ export default async function InvoicesPage() {
       dateIssued: inv.date_issued,
       dueDate: inv.due_date,
       total,
+      isTest: !!(inv as { is_test?: boolean }).is_test,
+      isArchived: !!(inv as { deleted_at?: string | null }).deleted_at,
     }
   })
+
+  const emptyCopy: Record<InvoiceTab, { title: string; sub: string }> = {
+    outstanding: { title: 'No outstanding invoices.', sub: 'Paid invoices can be viewed under Paid.' },
+    paid:        { title: 'No paid invoices yet.', sub: '' },
+    draft:       { title: 'No draft invoices.', sub: 'Drafts appear here until they’re sent.' },
+    all:         { title: 'No invoices yet.', sub: 'Convert a quote to create the first one.' },
+  }
 
   return (
     <div>
@@ -61,15 +107,25 @@ export default async function InvoicesPage() {
         <h1 className="text-3xl font-bold text-sage-800 tracking-tight">Invoices</h1>
       </div>
 
+      <ListLifecycleTabs
+        basePath="/portal/invoices"
+        tabs={INVOICE_TABS}
+        activeTab={activeTab}
+        showArchived={showArchived}
+      />
+
       {rows.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
           <Receipt size={32} className="text-sage-200 mx-auto mb-3" />
-          <p className="text-sage-600 text-sm mb-4">No invoices yet. Convert a quote to create one.</p>
+          <p className="text-sage-800 font-medium mb-1">{emptyCopy[activeTab].title}</p>
+          {emptyCopy[activeTab].sub && (
+            <p className="text-sage-600 text-sm mb-4">{emptyCopy[activeTab].sub}</p>
+          )}
           <Link
             href="/portal/quotes"
-            className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
+            className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors mt-2"
           >
-            View Quotes
+            View quotes
           </Link>
         </div>
       ) : (
@@ -88,8 +144,14 @@ export default async function InvoicesPage() {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} className="border-b border-gray-50 last:border-0 group">
-                    <td className="p-0"><Link href={`/portal/invoices/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors font-medium text-sage-800">{row.invoiceNumber}</Link></td>
+                  <tr key={row.id} className={clsx('border-b border-gray-50 last:border-0 group', (row.isTest || row.isArchived) && 'opacity-60')}>
+                    <td className="p-0"><Link href={`/portal/invoices/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors">
+                      <span className="font-medium text-sage-800 inline-flex items-center gap-1.5">
+                        {row.invoiceNumber}
+                        {row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5"><FlaskConical size={9} /> Test</span>}
+                        {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
+                      </span>
+                    </Link></td>
                     <td className="p-0"><Link href={`/portal/invoices/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-700">{row.clientName}</Link></td>
                     <td className="p-0"><Link href={`/portal/invoices/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors"><StatusBadge kind="invoice" status={row.status} /></Link></td>
                     <td className="p-0"><Link href={`/portal/invoices/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-600">{fmtDate(row.dateIssued)}</Link></td>
@@ -103,9 +165,13 @@ export default async function InvoicesPage() {
 
           <div className="md:hidden divide-y divide-gray-100">
             {rows.map((row) => (
-              <Link key={row.id} href={`/portal/invoices/${row.id}`} className="block px-4 py-4 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-medium text-sage-800">{row.invoiceNumber}</span>
+              <Link key={row.id} href={`/portal/invoices/${row.id}`} className={clsx('block px-4 py-4 hover:bg-gray-50 transition-colors', (row.isTest || row.isArchived) && 'opacity-60')}>
+                <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+                  <span className="font-medium text-sage-800 inline-flex items-center gap-1.5">
+                    {row.invoiceNumber}
+                    {row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5"><FlaskConical size={9} /> Test</span>}
+                    {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
+                  </span>
                   <StatusBadge kind="invoice" status={row.status} />
                 </div>
                 <div className="text-sage-600 text-sm">{row.clientName}</div>

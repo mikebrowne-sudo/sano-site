@@ -38,17 +38,21 @@ export default async function PortalDashboard() {
     { count: inProgressJobs },
     { count: overdueTraining },
   ] = await Promise.all([
-    supabase.from('quotes').select('id, quote_number, status, created_at, clients ( name )').is('deleted_at', null).eq('is_latest_version', true).order('created_at', { ascending: false }).limit(5),
-    supabase.from('invoices').select('id, invoice_number, status, due_date, created_at, clients ( name )').is('deleted_at', null).order('created_at', { ascending: false }).limit(5),
-    supabase.from('jobs').select('id, job_number, title, status, scheduled_date, assigned_to').order('created_at', { ascending: false }).limit(5),
-    supabase.from('quotes').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_latest_version', true),
-    supabase.from('invoices').select('*', { count: 'exact', head: true }).is('deleted_at', null),
-    supabase.from('invoices').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('status', 'paid'),
-    supabase.from('invoices').select('id, due_date').is('deleted_at', null).eq('status', 'sent'),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('contractor_id', null).neq('status', 'completed').neq('status', 'invoiced'),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('scheduled_date', today).neq('status', 'completed').neq('status', 'invoiced'),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('status', 'in_progress'),
+    // Phase 5.5.13 — every dashboard query honours the live-record
+    // rule: deleted_at IS NULL AND is_test = false. Test / archived
+    // rows are visible only when an admin opens the list with the
+    // explicit show-archived/test toggle.
+    supabase.from('quotes').select('id, quote_number, status, created_at, clients ( name )').is('deleted_at', null).eq('is_test', false).eq('is_latest_version', true).order('created_at', { ascending: false }).limit(5),
+    supabase.from('invoices').select('id, invoice_number, status, due_date, created_at, clients ( name )').is('deleted_at', null).eq('is_test', false).order('created_at', { ascending: false }).limit(5),
+    supabase.from('jobs').select('id, job_number, title, status, scheduled_date, assigned_to').is('deleted_at', null).eq('is_test', false).order('created_at', { ascending: false }).limit(5),
+    supabase.from('quotes').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('is_latest_version', true),
+    supabase.from('invoices').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false),
+    supabase.from('invoices').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('status', 'paid'),
+    supabase.from('invoices').select('id, due_date').is('deleted_at', null).eq('is_test', false).eq('status', 'sent'),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).is('contractor_id', null).neq('status', 'completed').neq('status', 'invoiced'),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('scheduled_date', today).neq('status', 'completed').neq('status', 'invoiced'),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('status', 'in_progress'),
     supabase.from('worker_training_assignments').select('*', { count: 'exact', head: true }).neq('status', 'completed').not('due_date', 'is', null).lt('due_date', today),
   ])
 
