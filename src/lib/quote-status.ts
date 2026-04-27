@@ -36,14 +36,18 @@ export const QUOTE_STATUS_DESCRIPTIONS: Record<QuoteStatus, string> = {
   converted: 'Converted to an invoice. Quote is locked.',
 }
 
-// Tailwind classes for the status pill.
+// Phase 5.5.14 — palette standardisation. Five tones across the
+// system: neutral (gray) for not-yet-acted, blue for in-motion,
+// emerald for accepted/done-well, sage for terminal-success
+// (converted/invoiced), red for declined/cancelled, amber for
+// problem-states (overdue / in_progress).
 export const QUOTE_STATUS_STYLES: Record<QuoteStatus, string> = {
   draft:     'bg-gray-100 text-gray-700',
   sent:      'bg-blue-50 text-blue-700',
-  viewed:    'bg-indigo-50 text-indigo-700',
+  viewed:    'bg-sky-50 text-sky-700',
   accepted:  'bg-emerald-50 text-emerald-700',
   declined:  'bg-red-50 text-red-700',
-  converted: 'bg-violet-50 text-violet-700',
+  converted: 'bg-sage-50 text-sage-700',
 }
 
 /** Statuses where the quote is fully locked — no edits, no convert,
@@ -136,5 +140,5 @@ export const JOB_STATUS_STYLES: Record<JobStatus, string> = {
   assigned:    'bg-blue-50 text-blue-700',
   in_progress: 'bg-amber-50 text-amber-700',
   completed:   'bg-emerald-50 text-emerald-700',
-  invoiced:    'bg-violet-50 text-violet-700',
+  invoiced:    'bg-sage-50 text-sage-700',
 }

@@ -63,7 +63,7 @@ export default async function PortalDashboard() {
   if ((unassignedJobs ?? 0) > 0) {
     alerts.push({
       label: `${unassignedJobs} unassigned job${unassignedJobs !== 1 ? 's' : ''}`,
-      href: '/portal/jobs?view=unassigned',
+      href: '/portal/jobs?tab=needs_scheduling',
       tone: 'amber',
     })
   }
@@ -191,9 +191,9 @@ export default async function PortalDashboard() {
         <div className="rounded-xl border border-gray-100 shadow-sm overflow-hidden bg-gray-100">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px">
             <OpStat label="All jobs"        value={totalJobs ?? 0}      href="/portal/jobs" />
-            <OpStat label="Today"           value={todayJobs ?? 0}      href="/portal/jobs?view=today"          tone={(todayJobs ?? 0) > 0 ? 'blue' : undefined} />
-            <OpStat label="Unassigned"      value={unassignedJobs ?? 0} href="/portal/jobs?view=unassigned"     tone={(unassignedJobs ?? 0) > 0 ? 'amber' : undefined} />
-            <OpStat label="In progress"     value={inProgressJobs ?? 0} href="/portal/jobs?view=in_progress"    tone={(inProgressJobs ?? 0) > 0 ? 'blue' : undefined} />
+            <OpStat label="Today"           value={todayJobs ?? 0}      href="/portal/jobs?tab=scheduled&view=today"   tone={(todayJobs ?? 0) > 0 ? 'blue' : undefined} />
+            <OpStat label="Unassigned"      value={unassignedJobs ?? 0} href="/portal/jobs?tab=needs_scheduling"        tone={(unassignedJobs ?? 0) > 0 ? 'amber' : undefined} />
+            <OpStat label="In progress"     value={inProgressJobs ?? 0} href="/portal/jobs?tab=in_progress"             tone={(inProgressJobs ?? 0) > 0 ? 'blue' : undefined} />
             <OpStat label="Overdue inv."    value={overdueCount}        href="/portal/alerts"                   tone={overdueCount > 0 ? 'red' : undefined} />
             <OpStat label="Overdue training" value={overdueTraining ?? 0} href="/portal/alerts"                  tone={(overdueTraining ?? 0) > 0 ? 'amber' : undefined} />
           </div>
