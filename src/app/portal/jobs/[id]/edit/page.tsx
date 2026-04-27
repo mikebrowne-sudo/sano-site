@@ -19,7 +19,7 @@ export default async function EditJobPage({ params }: { params: { id: string } }
       `)
       .eq('id', params.id)
       .single(),
-    supabase.from('clients').select('id, name, company_name').order('name'),
+    supabase.from('clients').select('id, name, company_name').eq('is_archived', false).order('name'),
     supabase.from('contractors').select('id, full_name').eq('status', 'active').order('full_name'),
     supabase.from('quotes').select('id, quote_number').order('created_at', { ascending: false }),
     supabase.from('invoices').select('id, invoice_number').order('created_at', { ascending: false }),

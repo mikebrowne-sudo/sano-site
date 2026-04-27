@@ -1,4 +1,4 @@
-import { Settings, SlidersHorizontal, ArchiveRestore, LayoutGrid, FileText, Briefcase, MessageCircle, KeyRound } from 'lucide-react'
+import { Settings, SlidersHorizontal, ArchiveRestore, LayoutGrid, FileText, Briefcase, MessageCircle, KeyRound, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 
@@ -95,6 +95,20 @@ export default async function SettingsPage() {
                 <div className="text-sage-800 font-semibold text-sm">Notifications</div>
                 <div className="text-sage-600 text-xs mt-1">
                   Twilio SMS provider, channel + type toggles, message templates, test SMS panel. Admin-only.
+                </div>
+              </div>
+            </div>
+          </Link>
+          <Link
+            href="/portal/cleanup"
+            className="block bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4 hover:border-sage-200 hover:shadow-sm transition-all"
+          >
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={20} className="text-amber-500 mt-0.5" />
+              <div>
+                <div className="text-sage-800 font-semibold text-sm">Cleanup</div>
+                <div className="text-sage-600 text-xs mt-1">
+                  Duplicate clients, unlinked invoices, manual jobs, and quote/job mismatches. Admin-only.
                 </div>
               </div>
             </div>

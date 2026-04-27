@@ -7,6 +7,7 @@ import { MarkAsPaidButton } from './_components/MarkAsPaidButton'
 import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
 import { ArchiveInvoiceButton } from './_components/ArchiveInvoiceButton'
 import { InvoiceJobButton } from './_components/InvoiceJobButton'
+import { InvoiceLinkBanner } from './_components/InvoiceLinkBanner'
 import { firstName } from '@/lib/doc-helpers'
 import { StatusBadge } from '../../_components/StatusBadge'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
@@ -41,6 +42,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         contact_name, contact_email, contact_phone,
         accounts_contact_name, accounts_email,
         client_reference, requires_po,
+        job_id, source,
         deleted_at,
         clients ( name, company_name )
       `)
@@ -55,7 +57,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
   if (error || !invoice) notFound()
 
-  const [{ data: clientRecord }, { data: linkedJob }] = await Promise.all([
+  const [{ data: clientRecord }, { data: linkedJob }, { data: candidateJobs }] = await Promise.all([
     supabase
       .from('clients')
       .select('name, email')
@@ -66,7 +68,18 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       .select('id, job_number, status')
       .eq('invoice_id', params.id)
       .maybeSingle(),
+    // Phase 5.5.10 — for the unlinked-invoice banner: jobs that belong
+    // to the same client and aren't already attached to another invoice.
+    supabase
+      .from('jobs')
+      .select('id, job_number, status, scheduled_date')
+      .eq('client_id', invoice.client_id)
+      .is('deleted_at', null)
+      .or(`invoice_id.is.null,invoice_id.eq.${params.id}`)
+      .order('scheduled_date', { ascending: false, nullsFirst: false }),
   ])
+  const invoiceUnlinked = !((invoice as { job_id?: string | null }).job_id)
+  const linkCandidates = (candidateJobs ?? []) as { id: string; job_number: string; status: string; scheduled_date: string | null }[]
 
   const client = invoice.clients as unknown as { name: string; company_name: string | null } | null
   const addons = items ?? []
@@ -98,6 +111,10 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         <ArrowLeft size={14} />
         Back to invoices
       </Link>
+
+      {isAdmin && invoiceUnlinked && (
+        <InvoiceLinkBanner invoiceId={invoice.id as string} jobs={linkCandidates} />
+      )}
 
       <div className="flex items-center justify-between mb-4">
         <div>

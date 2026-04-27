@@ -7,7 +7,7 @@ export default async function NewRecurringJobPage() {
   const supabase = createClient()
 
   const [{ data: clients }, { data: contractors }] = await Promise.all([
-    supabase.from('clients').select('id, name, company_name').order('name'),
+    supabase.from('clients').select('id, name, company_name').eq('is_archived', false).order('name'),
     supabase.from('contractors').select('id, full_name').eq('status', 'active').order('full_name'),
   ])
 
