@@ -22,9 +22,8 @@ import { X, AlertCircle, Calendar, MapPin, User, CreditCard, FileText } from 'lu
 import {
   createJobFromQuoteWithSetup,
   listAssignableContractors,
-  type JobSetupInput,
-  type ReadyContractor,
 } from '../_actions-job-setup'
+import type { JobSetupInput, ReadyContractor } from '../_lib-job-setup'
 
 export interface JobSetupSeed {
   quoteId: string
