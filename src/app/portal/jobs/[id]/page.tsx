@@ -14,6 +14,7 @@ import { JobWorkflowBar } from './_components/JobWorkflowBar'
 import { MarkJobReviewedButton } from './_components/MarkJobReviewedButton'
 import { ApproveHoursButton } from './_components/ApproveHoursButton'
 import { JobNotificationsPanel } from './_components/JobNotificationsPanel'
+import { JobMismatchBanner } from './_components/JobMismatchBanner'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -96,18 +97,23 @@ export default async function JobDetailPage({ params }: { params: { id: string }
 
   // Load linked quote/invoice numbers if they exist
   let quoteNumber: string | null = null
+  let quoteClientId: string | null = null
   let invoiceNumber: string | null = null
   let linkedInvoiceStatus: string | null = null
 
   if (job.quote_id) {
-    const { data } = await supabase.from('quotes').select('quote_number').eq('id', job.quote_id).single()
+    const { data } = await supabase.from('quotes').select('quote_number, client_id').eq('id', job.quote_id).single()
     quoteNumber = data?.quote_number ?? null
+    quoteClientId = (data as { client_id?: string } | null)?.client_id ?? null
   }
   if (job.invoice_id) {
     const { data } = await supabase.from('invoices').select('invoice_number, status').eq('id', job.invoice_id).single()
     invoiceNumber = data?.invoice_number ?? null
     linkedInvoiceStatus = data?.status ?? null
   }
+
+  // Phase 5.5.10 — flag jobs whose linked quote belongs to a different client.
+  const hasClientMismatch = !!quoteClientId && quoteClientId !== job.client_id
 
   // Phase D.2 — archive (soft-delete) is admin-only. No status/linked
   // guards since the row can always be restored from
@@ -158,6 +164,10 @@ export default async function JobDetailPage({ params }: { params: { id: string }
         <ArrowLeft size={14} />
         Back to jobs
       </Link>
+
+      {isAdmin && hasClientMismatch && (
+        <JobMismatchBanner jobId={job.id as string} quoteNumber={quoteNumber} />
+      )}
 
       <div className="flex items-center justify-between mb-8">
         <div>

@@ -35,6 +35,11 @@ export interface WorkforceSettings {
   invite_email_body_template: string
   reset_email_subject: string
   reset_email_body_template: string
+  // Phase 5.5.10 — CRM cleanup feature flags. Defaults all true; turn
+  // any of them off to hide the corresponding UI without code changes.
+  enable_client_merge: boolean
+  enable_client_delete: boolean
+  enable_cleanup_dashboard: boolean
 }
 
 export const WORKFORCE_SETTINGS_DEFAULTS: WorkforceSettings = {
@@ -58,6 +63,9 @@ export const WORKFORCE_SETTINGS_DEFAULTS: WorkforceSettings = {
   invite_email_body_template: 'Hi {{name}},\n\nYou’ve been invited to the Sano portal. Click the link below to set your password and get started.\n\n{{link}}\n\nIf you weren’t expecting this email, you can ignore it.\n\nKind regards,\nThe Sano team',
   reset_email_subject: 'Reset your Sano password',
   reset_email_body_template: 'Hi {{name}},\n\nWe got a request to reset the password on your Sano account. Use the link below to set a new password.\n\n{{link}}\n\nIf you didn’t request this, you can ignore the email — your account is safe.\n\nKind regards,\nThe Sano team',
+  enable_client_merge: true,
+  enable_client_delete: true,
+  enable_cleanup_dashboard: true,
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
