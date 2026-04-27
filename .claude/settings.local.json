@@ -39,7 +39,17 @@
       "Bash(base64 -w0 \"F:/Sano/10-Branding/Website images/proposal-banner.jpg\")",
       "Bash(node _build_register_html.js)",
       "Bash(py --version)",
-      "Read(//c/Users/mbrowne_mammoth/AppData/Local/Programs/**)"
+      "Read(//c/Users/mbrowne_mammoth/AppData/Local/Programs/**)",
+      "Bash(mkdir -p \"F:/Sano/99-Archive/Health-Safety/2026-04-pre-html-rebuild\")",
+      "Bash(mv \"sano-3-harm-register.docx\" \"F:/Sano/99-Archive/Health-Safety/2026-04-pre-html-rebuild/\")",
+      "Bash(mv \"sano-health-safety-plan.docx\" \"F:/Sano/99-Archive/Health-Safety/2026-04-pre-html-rebuild/\")",
+      "Bash(mv \"Sano - Hazardous Chemical Substance Register.docx\" \"F:/Sano/99-Archive/Health-Safety/2026-04-pre-html-rebuild/\")",
+      "Bash(mv \"Sano - Hazardous Chemical Substance Register v2.docx\" \"F:/Sano/99-Archive/Health-Safety/2026-04-pre-html-rebuild/\")",
+      "Bash(node _build_hazard_risk_procedure.js)",
+      "Bash(node _build_health_safety_plan.js)",
+      "Bash(node _build_harm_register.js)",
+      "Bash(rm -rf _extracted _extract_for_review.js)",
+      "Bash(node _build_all.js)"
     ]
   }
 }
