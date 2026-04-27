@@ -1,45 +1,31 @@
 'use client'
 
-// Phase C — Create Job button.
+// Phase 5.5.12 — Create Job button now opens the JobSetupWizard
+// instead of immediately creating a draft job. The wizard collects
+// schedule + worker + payment + scope hints, then submits via
+// createJobFromQuoteWithSetup which redirects on success.
 //
-// Thin client button that invokes the createJobFromQuote server
-// action. On success the server action redirects to
-// /portal/jobs/[id]; on error we surface an inline message.
-// Intentionally mirrors ConvertToInvoiceButton so both Next Step
-// paths share the same interaction pattern.
+// Seed props are sourced from the quote on the parent page so the
+// wizard renders with sensible defaults.
 
-import { useState, useTransition } from 'react'
-import { createJobFromQuote } from '../_actions-job'
+import { useState } from 'react'
 import { Briefcase } from 'lucide-react'
+import { JobSetupWizard, type JobSetupSeed } from './JobSetupWizard'
 
-export function CreateJobButton({ quoteId }: { quoteId: string }) {
-  const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
-
-  function handleClick() {
-    setError(null)
-    startTransition(async () => {
-      const result = await createJobFromQuote(quoteId)
-      if (result?.error) {
-        setError(result.error)
-      }
-    })
-  }
+export function CreateJobButton({ seed }: { seed: JobSetupSeed }) {
+  const [open, setOpen] = useState(false)
 
   return (
     <div>
       <button
         type="button"
-        onClick={handleClick}
-        disabled={isPending}
-        className="inline-flex items-center gap-2 bg-sage-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors disabled:opacity-50"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 bg-sage-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
       >
         <Briefcase size={16} />
-        {isPending ? 'Creating job…' : 'Create Job'}
+        Create Job
       </button>
-      {error && (
-        <p className="text-red-600 text-xs mt-1">{error}</p>
-      )}
+      {open && <JobSetupWizard seed={seed} onCancel={() => setOpen(false)} />}
     </div>
   )
 }

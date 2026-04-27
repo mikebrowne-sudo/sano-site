@@ -23,14 +23,17 @@ import { CreateJobButton } from './CreateJobButton'
 import { CreateJobAndInvoiceButton } from './CreateJobAndInvoiceButton'
 import { CreateRecurringJobButton } from './CreateRecurringJobButton'
 import { Briefcase, Receipt, FilePlus, Repeat } from 'lucide-react'
+import type { JobSetupSeed } from './JobSetupWizard'
 
 export interface QuoteNextStepPanelProps {
   quoteId: string
   isConvertible: boolean
   isCommercial: boolean
+  // Phase 5.5.12 — seed for the new Job Setup wizard.
+  jobSetupSeed: JobSetupSeed
 }
 
-export function QuoteNextStepPanel({ quoteId, isConvertible, isCommercial }: QuoteNextStepPanelProps) {
+export function QuoteNextStepPanel({ quoteId, isConvertible, isCommercial, jobSetupSeed }: QuoteNextStepPanelProps) {
   // Residential → "Create Invoice" recommended (typical cash job).
   // Commercial   → "Create Job + Invoice" recommended (organise the
   //                 work and send the bill together).
@@ -63,7 +66,7 @@ export function QuoteNextStepPanel({ quoteId, isConvertible, isCommercial }: Quo
           emphasised={jobRecommended}
           action={
             isConvertible ? (
-              <CreateJobButton quoteId={quoteId} />
+              <CreateJobButton seed={jobSetupSeed} />
             ) : (
               <DisabledAction label="Create Job" note="Not available for this quote" />
             )

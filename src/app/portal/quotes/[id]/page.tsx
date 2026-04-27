@@ -71,6 +71,14 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       override_confirmed_by,
       override_confirmed_at,
       calculated_price,
+      contact_id,
+      site_id,
+      occupancy,
+      pets,
+      parking,
+      stairs,
+      condition_level,
+      access_notes,
       contact_name,
       contact_email,
       contact_phone,
@@ -229,6 +237,23 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
           quoteId={quote.id}
           isConvertible={canConvert}
           isCommercial={isCommercial}
+          jobSetupSeed={{
+            quoteId: quote.id,
+            serviceAddress:     (quote.service_address as string | null) ?? null,
+            scheduledCleanDate: (quote.scheduled_clean_date as string | null) ?? null,
+            estimatedHours:     (quote.estimated_hours as number | null) ?? null,
+            paymentType:        ((quote.payment_type as 'cash_sale' | 'on_account' | null) ?? null),
+            basePrice:          (quote.base_price as number | null) ?? null,
+            contactId:          (quote as { contact_id?: string | null }).contact_id ?? null,
+            siteId:             (quote as { site_id?: string | null }).site_id ?? null,
+            notes:              (quote.notes as string | null) ?? null,
+            occupancy:          (quote as { occupancy?: string | null }).occupancy ?? null,
+            pets:               (quote as { pets?: string | null }).pets ?? null,
+            parking:            (quote as { parking?: string | null }).parking ?? null,
+            stairs:             (quote as { stairs?: string | null }).stairs ?? null,
+            conditionLevel:     (quote as { condition_level?: string | null }).condition_level ?? null,
+            accessNotes:        (quote as { access_notes?: string | null }).access_notes ?? null,
+          }}
         />
       )}
 
