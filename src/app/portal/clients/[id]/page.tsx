@@ -76,7 +76,44 @@ function syncTrace<T>(label: string, clientId: string | null, fn: () => T): T {
   }
 }
 
-export default async function ClientDetailPage({ params }: { params: { id: string } }) {
+// ────────────────────────────────────────────────────────────────────
+// BISECTION HARNESS — debug/clients-detail-bisect
+//
+// Use ?step=N on the URL to render only the first N sections.
+// Loaded as a number; default 0 = "minimal render only".
+//
+//   0  →  minimal "Client loaded — id=…" only (NO data fetches besides
+//         the client SELECT and an auth lookup)
+//   1  →  + header
+//   2  →  + cleanup_actions
+//   3  →  + duplicates_panel
+//   4  →  + access_panel        (suspected culprit)
+//   5  →  + client_form
+//   6  →  + activity_timeline
+//
+// At step 0, even the parallel data fetches are skipped — that
+// proves whether the page renders AT ALL when child components are
+// out of the picture. Step up by one until the crash returns; the
+// step that flips it is the culprit.
+//
+// Remove this whole harness once we know the answer.
+// ────────────────────────────────────────────────────────────────────
+export default async function ClientDetailPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string }
+  searchParams?: { step?: string }
+}) {
+  const stepRaw = searchParams?.step
+  const step = (() => {
+    const n = stepRaw == null ? 0 : parseInt(stepRaw, 10)
+    if (!Number.isFinite(n) || n < 0) return 0
+    if (n > 6) return 6
+    return n
+  })()
+  console.error(`[clients-debug] BISECT_STEP step=${step} (use ?step=0..6 to bisect; use 6 for full render)`)
+
   // PAGE_ENTRY — first line of the page function. If MODULE_LOADED
   // appears but PAGE_ENTRY does NOT for a given request, the module
   // is loaded but Next is not invoking the page (wrong route hit,
@@ -102,6 +139,21 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
   const { data: { user } } = await trace('auth_get_user', cid, () => supabase.auth.getUser())
   const isAdmin = user?.email === 'michael@sano.nz'
+
+  // Step 0 — minimal smoke test. If this still crashes, the issue is
+  // in client_fetch / auth_get_user or above (route, middleware,
+  // module load). If step 0 RENDERS but step 1 crashes, the header is
+  // the culprit. Etc.
+  if (step === 0) {
+    console.error(`${DEBUG_TAG} BISECT step=0 returning minimal render cid=${cid ?? '—'}`)
+    return (
+      <div>
+        <h1 className="text-2xl font-bold text-sage-800">Client loaded</h1>
+        <p className="text-sm text-sage-500 mt-2">id: <span className="font-mono">{String(client?.id ?? '—')}</span></p>
+        <p className="text-xs text-sage-500 mt-4">Bisection harness: append <code>?step=1</code>, <code>?step=2</code>, … <code>?step=6</code> (full) to the URL. The first step that crashes identifies the culprit. Default 0.</p>
+      </div>
+    )
+  }
 
   // Phase 5.5.10 fix — every parallel branch is wrapped so a single
   // failure (RLS edge case, slow network, missing column) never takes
@@ -222,7 +274,9 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         Back to clients
       </Link>
 
-      {safeRender('header', () => (
+      <p className="text-xs text-sage-400 mb-4">Bisection step={step}/6. Append <code>?step=N</code> to the URL.</p>
+
+      {step >= 1 && safeRender('header', () => (
         <div className="flex items-center justify-between mb-8 gap-3 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-sage-800">{vm.name}</h1>
@@ -236,7 +290,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         </div>
       ))}
 
-      {isAdmin && safeRender('cleanup_actions', () => (
+      {step >= 2 && isAdmin && safeRender('cleanup_actions', () => (
         <ClientCleanupActions
           clientId={vm.id}
           clientName={vm.name}
@@ -246,7 +300,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         />
       ))}
 
-      {Array.isArray(duplicates) && duplicates.length > 0 && isAdmin && safeRender('duplicates_panel', () => (
+      {step >= 3 && Array.isArray(duplicates) && duplicates.length > 0 && isAdmin && safeRender('duplicates_panel', () => (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-6">
           <h2 className="text-base font-semibold text-amber-900 mb-2">Possible duplicates</h2>
           <p className="text-xs text-amber-800 mb-3">
@@ -277,7 +331,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       ))}
 
       {/* Phase 5.5.6 — Client portal access (mirror of contractor 5.5.3). */}
-      {safeRender('access_panel', () => (
+      {step >= 4 && safeRender('access_panel', () => (
         <ClientAccessPanel
           clientId={vm.id}
           email={vm.email}
@@ -290,7 +344,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         />
       ))}
 
-      {safeRender('client_form', () => (
+      {step >= 5 && safeRender('client_form', () => (
         <ClientForm
           client={{
             id: vm.id,
@@ -307,7 +361,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       ))}
 
       {/* Phase 5.5.7 — Activity timeline (audit_log; read-only). */}
-      {safeRender('activity_timeline', () => (
+      {step >= 6 && safeRender('activity_timeline', () => (
         <div className="bg-white rounded-2xl border border-sage-100 shadow-sm p-6 mt-6">
           <h2 className="text-base font-semibold text-sage-800 mb-3">Activity</h2>
           {!Array.isArray(audit) || audit.length === 0 ? (
