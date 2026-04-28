@@ -10,7 +10,7 @@ import {
   AREA_OPTIONS,
   CONDITION_OPTIONS,
   SUPPORT_LINE_OPTIONS,
-  ADDON_OPTIONS,
+  filterAddonsForServiceType,
   generateQuoteScope,
   supportsRecurring,
   type ServiceCategory,
@@ -359,11 +359,15 @@ export function QuoteBuilder({
 
       {/* ── Additional services (residential-flavoured wording chips
              like oven/carpet/window — not relevant for commercial, which
-             adds line items via the outer "Add-ons" section instead) ── */}
+             adds line items via the outer "Add-ons" section instead).
+             Phase residential-upgrade: list is now filtered by service
+             type so baseline-included items (e.g. interior windows on
+             a deep clean) don't appear as a chargeable extra and can't
+             be double-charged. ── */}
       {category && !isCommercial && (
         <Block title="Additional services">
           <ChipRow>
-            {ADDON_OPTIONS.map((a) => (
+            {filterAddonsForServiceType(s.service_type_code).map((a) => (
               <Chip key={a.value} active={s.addons_wording.includes(a.value)} onClick={() => patch({ addons_wording: toggleInArray(s.addons_wording, a.value) })}>
                 {a.label}
               </Chip>
