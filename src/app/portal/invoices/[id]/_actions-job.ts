@@ -62,6 +62,10 @@ export async function createJobFromInvoice(invoiceId: string) {
       title,
       description: invoice.notes || null,
       status: 'draft',
+      // Phase 5.5.16 — be explicit. By definition this path runs after
+      // an invoice exists, so 'invoice_sent' best describes the state
+      // (and is in the allowed CHECK set).
+      payment_status: 'invoice_sent',
     })
     .select('id')
     .single()

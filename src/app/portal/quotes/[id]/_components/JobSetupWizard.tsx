@@ -296,7 +296,7 @@ export function JobSetupWizard({ seed, onCancel }: Props) {
             {isPrepaid ? (
               <div className="space-y-2">
                 <p className="text-sm text-sage-700 bg-sage-50 border border-sage-100 rounded-lg px-3 py-2">
-                  <strong>Prepaid</strong> — payment is required to confirm this booking. The job will be created in <span className="font-mono">draft</span> status with payment_status <span className="font-mono">awaiting_payment</span> until the customer pays.
+                  <strong>Prepaid</strong> — payment is required to confirm this booking. The job will be created in <span className="font-mono">draft</span> status with payment_status <span className="font-mono">payment_pending</span> until the customer pays.
                 </p>
                 <label className="flex items-start gap-2 mt-1 cursor-pointer">
                   <input type="checkbox" checked={allowOverride} onChange={(e) => setAllowOverride(e.target.checked)} className="accent-sage-500 mt-0.5" />

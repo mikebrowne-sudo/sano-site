@@ -189,23 +189,33 @@ export async function createJobFromQuoteWithSetup(
   // (5.5.11 maps client.payment_type='prepaid' → 'cash_sale' on quote
   // create). The job_status derivation:
   //   payment_type='cash_sale' + no override → status='draft',
-  //                                              payment_status='awaiting_payment'
+  //                                              payment_status='payment_pending'
+  //                                              (client owes money before work)
   //   payment_type='cash_sale' + override   → status='assigned' (or 'draft'
   //                                              if no contractor),
-  //                                              payment_status='exception'
+  //                                              payment_status='payment_pending'
+  //                                              (override reason captured in
+  //                                              audit_log under payment_override_reason)
   //   payment_type='on_account'             → status='assigned' (or 'draft'),
   //                                              payment_status='on_account'
+  //
+  // Phase 5.5.16 fix — earlier code wrote 'awaiting_payment' / 'exception',
+  // both of which fail jobs_payment_status_check. The constraint only
+  // accepts: 'not_required' | 'on_account' | 'invoice_sent' |
+  // 'payment_pending' | 'paid'. Both prepaid paths now collapse to
+  // 'payment_pending'; the override-vs-no-override distinction is
+  // preserved separately in the audit log.
   const isPrepaid = quote.payment_type === 'cash_sale'
   const overrideAllowed = !!setup.payment_override?.allow
   const overrideReason  = setup.payment_override?.reason?.trim() || null
 
   let jobStatus: 'draft' | 'assigned' = setup.contractor_id ? 'assigned' : 'draft'
-  let paymentStatus = 'on_account'
+  let paymentStatus: 'on_account' | 'payment_pending' = 'on_account'
   if (isPrepaid && !overrideAllowed) {
     jobStatus = 'draft'
-    paymentStatus = 'awaiting_payment'
+    paymentStatus = 'payment_pending'
   } else if (isPrepaid && overrideAllowed) {
-    paymentStatus = 'exception'
+    paymentStatus = 'payment_pending'
   }
 
   const description = quote.generated_scope?.trim()
