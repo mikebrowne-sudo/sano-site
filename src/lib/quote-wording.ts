@@ -326,24 +326,24 @@ interface ServiceVocab {
 const SERVICE_VOCAB: Record<string, ServiceVocab> = {
   'residential.standard_clean': {
     opening: 'A standard clean to keep the home looking its best.',
-    scope: 'All living spaces, kitchen, bathrooms and bedrooms are covered as part of the visit.',
+    scope: 'The clean covers the main areas of the home.',
     closing: 'The clean will be completed to a consistent, professional standard.',
   },
   'residential.deep_clean': {
     opening: 'A deep clean designed to reset the property top to bottom.',
     scope: 'Every room is covered with extra time spent on the kitchen, bathrooms and detail-heavy areas.',
-    depth: 'Skirtings, edges, interior windows and built-up surfaces are all part of the visit.',
+    depth: 'Detail work, edges and interior windows are part of the visit.',
     closing: 'The clean will be completed with a detailed, top-to-bottom approach.',
   },
   'residential.move_in_out': {
     opening: 'A move in / move out clean to prepare the property for handover.',
     scope: 'The whole home is covered, with kitchens, bathrooms and storage given the extra detail this service needs.',
-    depth: 'Inside cupboards, inside wardrobes and interior windows are included.',
+    depth: 'Storage, interior windows and presentation detail are included.',
     closing: 'The clean will be completed to a handover-ready standard.',
   },
   'residential.pre_sale': {
     opening: 'A pre-sale clean to get the property ready for market.',
-    scope: 'Living spaces, kitchen, bathrooms and bedrooms are all covered, with attention given to overall presentation.',
+    scope: 'The clean covers the main areas of the home, with attention given to overall presentation.',
     closing: 'The clean will be completed with a focus on presentation and overall finish.',
   },
   'residential.post_construction': {
@@ -354,13 +354,13 @@ const SERVICE_VOCAB: Record<string, ServiceVocab> = {
   },
   'property_management.routine': {
     opening: 'A routine clean to maintain the property between tenants and inspections.',
-    scope: 'Living areas, kitchen, bathrooms and bedrooms are covered each visit to keep the property presentation consistent.',
+    scope: 'The clean covers the main areas of the property each visit to keep presentation consistent.',
     closing: 'The clean will be completed to a consistent, professional standard.',
   },
   'property_management.end_of_tenancy': {
     opening: 'An end of tenancy clean to prepare the property for inspection and handover.',
     scope: 'The whole property is covered, with detailed work in kitchens, bathrooms and storage areas.',
-    depth: 'Inside cupboards, inside wardrobes and interior windows are included as part of the handover scope.',
+    depth: 'Storage, interior windows and presentation detail are part of the handover scope.',
     closing: 'The clean will be completed to a handover-ready standard.',
   },
   'property_management.pre_inspection': {
@@ -370,19 +370,19 @@ const SERVICE_VOCAB: Record<string, ServiceVocab> = {
   },
   'property_management.handover': {
     opening: 'A handover clean to present the property at a high standard for the next occupant.',
-    scope: 'All living areas, kitchen, bathrooms and bedrooms are covered with extra care for storage and detail.',
-    depth: 'Inside cupboards, inside wardrobes and interior windows are included.',
+    scope: 'The clean covers the main areas of the property with extra care for storage and detail.',
+    depth: 'Storage, interior windows and presentation detail are included.',
     closing: 'The clean will be completed to a handover-ready standard.',
   },
   'airbnb.turnover': {
     opening: 'A turnover clean between guest stays.',
-    scope: 'Living spaces, kitchen, bathroom and bedrooms are reset with linen and presentation in mind.',
+    scope: 'The property is reset between guests with presentation in mind.',
     closing: 'The clean will be completed to a guest-ready standard.',
   },
   'airbnb.deep_reset': {
     opening: 'A deep reset clean to bring the short-stay property back to its presentation standard.',
     scope: 'Every room is covered, with extra time on the spaces guests use most.',
-    depth: 'Skirtings, edges and detail-heavy surfaces get the additional attention this service is designed for.',
+    depth: 'Detail work and surfaces guests notice get the additional attention this service is designed for.',
     closing: 'The clean will be completed to a guest-ready standard.',
   },
   'commercial.maintenance': {
@@ -488,7 +488,7 @@ function extrasSentence(input: QuoteWordingInput): string | null {
     .map((v) => ADDON_OPTIONS.find((o) => o.value === v)?.wording)
     .filter((w): w is string => !!w)
   if (wordings.length === 0) return null
-  return `Add-ons booked alongside this clean: ${joinNatural(wordings)}.`
+  return `This includes ${joinNatural(wordings)}.`
 }
 
 function openingFor(vocab: ServiceVocab, bedBath: string, siteType: string, isCommercial: boolean): string {

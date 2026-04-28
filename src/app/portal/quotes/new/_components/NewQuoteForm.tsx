@@ -38,6 +38,7 @@ import {
 } from '../../_components/ContactBillingSection'
 import { computeCommercialPreview, type CommercialPreviewScopeRow, type ScopeFrequency } from '@/lib/commercialQuote'
 import type { PricingSettings } from '@/lib/pricingSettings'
+import type { ResidentialPricingSettings } from '@/lib/residentialPricingSettings'
 import { Plus, Trash2, ChevronDown, UserPlus } from 'lucide-react'
 import clsx from 'clsx'
 import { NewClientModal } from '../../../clients/_components/NewClientModal'
@@ -95,6 +96,7 @@ export function NewQuoteForm({
   clients,
   calc,
   pricingSettings,
+  residentialPricingSettings,
 }: {
   clients: Client[]
   calc?: CommercialCalculationRow | null
@@ -102,6 +104,11 @@ export function NewQuoteForm({
    *  CommercialPricingPreview. Optional — falls back to in-code
    *  constants when absent. */
   pricingSettings?: PricingSettings
+  /** Residential pricing-engine knobs (jsonb singleton). Forwarded to
+   *  calculateQuotePrice so the engine reads admin-set values
+   *  instead of in-code constants. Optional — engine falls back to
+   *  the code-defined defaults when absent. */
+  residentialPricingSettings?: ResidentialPricingSettings
 }) {
   // Client mode
   const [clientMode, setClientMode] = useState<'existing' | 'new'>(
@@ -214,6 +221,8 @@ export function NewQuoteForm({
         x_per_week: builder.x_per_week ? parseInt(builder.x_per_week, 10) : null,
       },
       pricing.pricing_mode,
+      undefined,
+      residentialPricingSettings,
     )
     /* eslint-disable react-hooks/exhaustive-deps */
   }, [

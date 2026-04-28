@@ -2,17 +2,27 @@
 
 import { useMemo } from 'react'
 import clsx from 'clsx'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, AlertCircle } from 'lucide-react'
 import {
   calculateQuotePrice,
   isPricingEligible,
   type PricingMode,
   type PricingBreakdown,
 } from '@/lib/quote-pricing'
+import type { ResidentialPricingSettings } from '@/lib/residentialPricingSettings'
 import type { QuoteBuilderState } from './QuoteBuilder'
 
 export interface PricingSummaryValue {
   pricing_mode: PricingMode
+}
+
+/** Final-price view from the parent (price + hours + active flag).
+ *  Lets PricingSummary render a Calculated/Final pair without owning
+ *  override state. */
+export interface PricingFinalView {
+  isOverride: boolean
+  finalPrice: number | null
+  finalHours: number | null
 }
 
 export function emptyPricingSummaryValue(): PricingSummaryValue {
@@ -36,6 +46,8 @@ export function PricingSummary({
   savedBreakdown,
   readOnly = false,
   expandedByDefault = false,
+  finalView,
+  settings,
 }: {
   builder: QuoteBuilderState
   value: PricingSummaryValue
@@ -43,10 +55,17 @@ export function PricingSummary({
   savedBreakdown?: PricingBreakdown | null
   readOnly?: boolean
   expandedByDefault?: boolean
+  /** Final-price view from the parent — shown alongside Calculated. */
+  finalView?: PricingFinalView | null
+  /** Residential pricing settings (jsonb singleton). When provided,
+   *  the live calculation uses these values; otherwise the engine's
+   *  code-defined defaults are used. */
+  settings?: ResidentialPricingSettings
 }) {
   const eligible = isPricingEligible(
     builder.service_category || null,
     builder.service_type_code || null,
+    settings,
   )
 
   const live = useMemo(() => {
@@ -63,6 +82,8 @@ export function PricingSummary({
         x_per_week: builder.x_per_week ? parseInt(builder.x_per_week, 10) : null,
       },
       value.pricing_mode,
+      undefined,
+      settings,
     )
     /* eslint-disable react-hooks/exhaustive-deps */
   }, [
@@ -104,15 +125,37 @@ export function PricingSummary({
         <p className="text-xs text-amber-700 italic">Pricing currently caps at 5 bedrooms. Please review manually.</p>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <span className="block text-xs font-medium text-sage-500 uppercase tracking-wide mb-1">Estimated time</span>
-          <span className="text-lg font-semibold text-sage-800">{live?.estimated_hours ?? '—'} hrs</span>
+      {/* Phase residential-pricing-engine: Calculated · Final pair.
+          Calculated = engine output before override.
+          Final      = override value when an admin override is active,
+                       otherwise equal to Calculated. */}
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <span className="block text-xs font-medium text-sage-500 uppercase tracking-wide mb-1">Calculated</span>
+            <span className="text-lg font-semibold text-sage-800">
+              {live?.estimated_hours ?? '—'} hrs · {live?.calculated_price != null ? formatNZD(live.calculated_price) : '—'}
+            </span>
+          </div>
+          <div>
+            <span className="block text-xs font-medium text-sage-500 uppercase tracking-wide mb-1">Final</span>
+            <span className={clsx(
+              'text-lg font-semibold',
+              finalView?.isOverride ? 'text-amber-800' : 'text-sage-800',
+            )}>
+              {(finalView?.finalHours ?? live?.estimated_hours) ?? '—'} hrs · {' '}
+              {(finalView?.finalPrice ?? live?.calculated_price) != null
+                ? formatNZD((finalView?.finalPrice ?? live?.calculated_price) as number)
+                : '—'}
+            </span>
+          </div>
         </div>
-        <div>
-          <span className="block text-xs font-medium text-sage-500 uppercase tracking-wide mb-1">Calculated price</span>
-          <span className="text-lg font-semibold text-sage-800">{live?.calculated_price != null ? formatNZD(live.calculated_price) : '—'}</span>
-        </div>
+        {finalView?.isOverride && (
+          <div className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1">
+            <AlertCircle size={12} />
+            Adjusted from calculated estimate
+          </div>
+        )}
       </div>
 
       <div>

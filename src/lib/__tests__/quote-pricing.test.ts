@@ -363,22 +363,30 @@ describe('Pricing mode selects hourly rate directly', () => {
 // Multiplicative condition stacking
 // ============================================================
 
-describe('Condition adjustments stack multiplicatively', () => {
-  // 3-bed / 2-bath Deep (1.6) × build_up (1.20) × furnished (1.10), standard mode
-  // 3.5 × 1.6 × 1.20 × 1.10 = 7.392 → + 0.5 bath = 7.892 → × freq 1.0 = 7.892
-  // max(2.0, 7.892) = 7.892 → × 1.08 heavy = 8.52336 → ceil 0.5 = 9.0
-  // × $75 + $25 = $700.00
+describe('Condition adjustments — capped combine formula', () => {
+  // Phase residential-pricing-engine: combined condition multiplier
+  // is now min(cap, m1 + 0.5 × Σ(m_i − 1.0) for i ≥ 2). Cap = 1.45.
+  //
+  // 3-bed / 2-bath Deep (1.6) × condition combined (1.25), standard mode
+  //   m1 = 1.20 (build_up_present), m2 = 1.10 (furnished_property)
+  //   combined = 1.20 + 0.5 × (1.10 − 1.0) = 1.25  (cap not reached)
+  // 3.5 × 1.6 × 1.25 = 7.0 → + 0.5 bath = 7.5 → × freq 1.0 = 7.5
+  // max(2.0, 7.5) = 7.5 → × 1.08 heavy = 8.10 → ceil 0.5 = 8.5
+  // × $75 + $25 = $662.50
   const result = calculateQuotePrice({
     ...baseInput,
     service_type_code: 'deep_clean',
     condition_tags: ['build_up_present', 'furnished_property'],
   }, 'standard')
 
-  it('condition_multiplier = 1.32 (1.20 × 1.10)', () => {
-    expect(result.breakdown?.condition_multiplier).toBeCloseTo(1.32, 4)
+  it('condition_multiplier = 1.25 (cap formula, not multiplicative)', () => {
+    expect(result.breakdown?.condition_multiplier).toBeCloseTo(1.25, 4)
   })
-  it('final_hours = 9.0', () => { expect(result.estimated_hours).toBe(9.0) })
-  it('calculated_price = $700.00', () => { expect(result.calculated_price).toBe(700) })
+  it('condition_cap_applied is false (1.25 < 1.45)', () => {
+    expect(result.breakdown?.condition_cap_applied).toBe(false)
+  })
+  it('final_hours = 8.5', () => { expect(result.estimated_hours).toBe(8.5) })
+  it('calculated_price = $662.50', () => { expect(result.calculated_price).toBe(662.5) })
   it('breakdown records each condition adjustment', () => {
     const tags = result.breakdown?.condition_adjustments.map(a => a.tag)
     expect(tags).toEqual(expect.arrayContaining(['build_up_present', 'furnished_property']))

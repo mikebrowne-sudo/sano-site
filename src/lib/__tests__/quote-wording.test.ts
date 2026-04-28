@@ -165,7 +165,7 @@ describe('generateQuoteScope — structural rules', () => {
       service_type_code: 'standard_clean',
       bedrooms: 3, bathrooms: 2,
     })
-    expect(without).not.toMatch(/add-ons booked/i)
+    expect(without).not.toMatch(/this includes oven|this includes carpet|this includes blinds/i)
 
     const withExtras = generateQuoteScope({
       service_category: 'residential',
@@ -173,7 +173,7 @@ describe('generateQuoteScope — structural rules', () => {
       bedrooms: 3, bathrooms: 2,
       addons_wording: ['oven_clean', 'carpet_cleaning'],
     })
-    expect(withExtras).toMatch(/add-ons booked alongside this clean: oven deep clean and carpet cleaning/i)
+    expect(withExtras).toMatch(/this includes oven deep clean and carpet cleaning/i)
   })
 
   it('opens with bedroom/bathroom phrasing when the numbers are present', () => {
