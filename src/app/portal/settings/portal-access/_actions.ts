@@ -19,7 +19,6 @@ export interface SettingsFormInput {
   enable_contractor_portal: boolean
   enable_customer_portal: boolean
   enable_pwa_prompt: boolean
-  enable_cleanup_mode: boolean
   invite_email_subject: string
   invite_email_body_template: string
   reset_email_subject: string
@@ -40,7 +39,6 @@ export async function updatePortalSettings(input: SettingsFormInput): Promise<{ 
     enable_contractor_portal: input.enable_contractor_portal,
     enable_customer_portal:   input.enable_customer_portal,
     enable_pwa_prompt:        input.enable_pwa_prompt,
-    enable_cleanup_mode:      input.enable_cleanup_mode,
     invite_email_subject:       input.invite_email_subject.trim(),
     invite_email_body_template: input.invite_email_body_template.trim(),
     reset_email_subject:        input.reset_email_subject.trim(),
@@ -68,13 +66,11 @@ export async function updatePortalSettings(input: SettingsFormInput): Promise<{ 
       enable_contractor_portal: current.enable_contractor_portal,
       enable_customer_portal:   current.enable_customer_portal,
       enable_pwa_prompt:        current.enable_pwa_prompt,
-      enable_cleanup_mode:      current.enable_cleanup_mode,
     },
     after: {
       enable_contractor_portal: next.enable_contractor_portal,
       enable_customer_portal:   next.enable_customer_portal,
       enable_pwa_prompt:        next.enable_pwa_prompt,
-      enable_cleanup_mode:      next.enable_cleanup_mode,
     },
   })
 

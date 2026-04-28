@@ -55,20 +55,6 @@ export function SettingsForm({ initial }: { initial: SettingsFormInput }) {
         />
       </Section>
 
-      <Section
-        title="Cleanup mode"
-        hint="Enable test, archive, and bulk-action controls on the operational lists. Server-side actions are also gated — turning this off blocks the API even for admins."
-      >
-        <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-3">
-          <Toggle
-            label="Enable Cleanup Mode"
-            description="OFF (default): system runs as a normal operational tool — no checkboxes, no Mark-as-test / Archive / Restore. ON: admin-only controls appear on the lists and detail pages, and bulk actions become available."
-            checked={values.enable_cleanup_mode}
-            onChange={(v) => setField('enable_cleanup_mode', v)}
-          />
-        </div>
-      </Section>
-
       <Section title="Email templates" hint="Use {{name}} and {{link}} placeholders. Leave blank to use the default copy.">
         <Field label="Invite email — subject">
           <input

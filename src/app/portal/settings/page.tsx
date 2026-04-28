@@ -1,6 +1,7 @@
-import { Settings, SlidersHorizontal, ArchiveRestore, LayoutGrid, FileText, Briefcase, MessageCircle, KeyRound, AlertTriangle } from 'lucide-react'
+import { Settings, SlidersHorizontal, ArchiveRestore, LayoutGrid, FileText, Briefcase, MessageCircle, KeyRound, AlertTriangle, ShieldAlert } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
+import { loadWorkforceSettings } from '@/lib/workforce-settings'
 
 const ADMIN_EMAIL = 'michael@sano.nz'
 
@@ -8,6 +9,8 @@ export default async function SettingsPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const isAdmin = user?.email === ADMIN_EMAIL
+  const settings = isAdmin ? await loadWorkforceSettings(supabase) : null
+  const cleanupOn = !!settings?.enable_cleanup_mode
 
   return (
     <div>
@@ -15,6 +18,35 @@ export default async function SettingsPage() {
 
       {isAdmin && (
         <>
+          <div className="mb-2">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500 px-1">System / Operations</h2>
+          </div>
+          <Link
+            href="/portal/settings/cleanup-mode"
+            className="block bg-white rounded-xl border border-amber-200 shadow-sm p-5 mb-4 hover:border-amber-300 hover:shadow-sm transition-all"
+          >
+            <div className="flex items-start gap-3">
+              <ShieldAlert size={20} className="text-amber-500 mt-0.5" />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sage-800 font-semibold text-sm">Cleanup mode</span>
+                  <span className={
+                    'inline-flex items-center text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 ' +
+                    (cleanupOn ? 'bg-amber-100 text-amber-800' : 'bg-sage-100 text-sage-700')
+                  }>
+                    {cleanupOn ? 'On' : 'Off'}
+                  </span>
+                </div>
+                <div className="text-sage-600 text-xs mt-1">
+                  Master gate for the operational lifecycle controls — Mark as test, Archive, Restore, and the bulk-action bar. Default OFF. Admin-only.
+                </div>
+              </div>
+            </div>
+          </Link>
+
+          <div className="mb-2 mt-6">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500 px-1">Configuration</h2>
+          </div>
           <Link
             href="/portal/settings/pricing-engine"
             className="block bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4 hover:border-sage-200 hover:shadow-sm transition-all"
