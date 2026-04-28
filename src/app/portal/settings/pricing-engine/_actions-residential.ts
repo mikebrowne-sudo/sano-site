@@ -16,6 +16,64 @@ import {
 
 const ADMIN_EMAIL = 'michael@sano.nz'
 
+// Phase residential-pricing-tiers: validation rules per the brief.
+const TIER_MIN = 1
+const MULTIPLIER_MIN = 0.5
+const MULTIPLIER_MAX = 2.5
+const CAP_MAX = 2.0
+
+export interface ValidationIssue {
+  field: string
+  message: string
+}
+
+/** Validate a settings object before write. Returns an empty array
+ *  when everything is OK. Used by both the save action (server-side
+ *  refusal) and the form (inline display). */
+export function validateResidentialPricingSettings(
+  input: ResidentialPricingSettings,
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+
+  // Tier rates positive + ordered.
+  if (!(input.win_hourly_rate > 0))      issues.push({ field: 'win_hourly_rate', message: 'Win rate must be greater than 0.' })
+  if (!(input.standard_hourly_rate > 0)) issues.push({ field: 'standard_hourly_rate', message: 'Standard rate must be greater than 0.' })
+  if (!(input.premium_hourly_rate > 0))  issues.push({ field: 'premium_hourly_rate', message: 'Premium rate must be greater than 0.' })
+  if (input.win_hourly_rate > input.standard_hourly_rate)
+    issues.push({ field: 'win_hourly_rate', message: 'Win rate must be ≤ Standard rate.' })
+  if (input.standard_hourly_rate > input.premium_hourly_rate)
+    issues.push({ field: 'premium_hourly_rate', message: 'Premium rate must be ≥ Standard rate.' })
+
+  // Service fee non-negative.
+  if (input.service_fee < 0)
+    issues.push({ field: 'service_fee', message: 'Service fee cannot be negative.' })
+
+  // Service multipliers in range.
+  for (const [k, v] of Object.entries(input.service_multipliers)) {
+    if (!(v >= MULTIPLIER_MIN && v <= MULTIPLIER_MAX))
+      issues.push({ field: `service_multipliers.${k}`, message: `Service multiplier ${k} must be between ${MULTIPLIER_MIN} and ${MULTIPLIER_MAX}.` })
+  }
+
+  // Condition multipliers in range.
+  for (const [k, v] of Object.entries(input.condition_multipliers)) {
+    if (!(v >= MULTIPLIER_MIN && v <= MULTIPLIER_MAX))
+      issues.push({ field: `condition_multipliers.${k}`, message: `Condition multiplier ${k} must be between ${MULTIPLIER_MIN} and ${MULTIPLIER_MAX}.` })
+  }
+
+  // Cap range — at least 1.0 (a multiplier shouldn't decrease time)
+  // and at most 2.0 per spec.
+  if (!(input.condition_multiplier_cap >= 1.0 && input.condition_multiplier_cap <= CAP_MAX))
+    issues.push({ field: 'condition_multiplier_cap', message: `Condition cap must be between 1.0 and ${CAP_MAX}.` })
+
+  // Addon minutes non-negative.
+  for (const [k, v] of Object.entries(input.addon_hours)) {
+    if (v < 0)
+      issues.push({ field: `addon_hours.${k}`, message: `Addon hours for ${k} cannot be negative.` })
+  }
+
+  return issues
+}
+
 function clean(input: unknown): ResidentialPricingSettings {
   // Run the input through a fresh fallback merge so we always emit a
   // complete, well-typed settings object regardless of what the form
@@ -35,8 +93,20 @@ function clean(input: unknown): ResidentialPricingSettings {
     return out as T
   }
 
+  const stdRate = num(raw.standard_hourly_rate, fb.standard_hourly_rate, TIER_MIN)
+  const winRate = num(raw.win_hourly_rate, fb.win_hourly_rate, TIER_MIN)
+  const premRate = num(raw.premium_hourly_rate, fb.premium_hourly_rate, TIER_MIN)
+  const tier =
+    raw.default_pricing_tier === 'win' || raw.default_pricing_tier === 'premium'
+      ? raw.default_pricing_tier
+      : 'standard'
+
   return {
-    default_hourly_rate: num(raw.default_hourly_rate, fb.default_hourly_rate, 1),
+    default_hourly_rate: stdRate,
+    win_hourly_rate:      winRate,
+    standard_hourly_rate: stdRate,
+    premium_hourly_rate:  premRate,
+    default_pricing_tier: tier,
     service_fee:          num(raw.service_fee, fb.service_fee, 0),
     minimum_job_hours:    num(raw.minimum_job_hours, fb.minimum_job_hours, 0),
     buffer_standard:      num(raw.buffer_standard, fb.buffer_standard, 0),
@@ -64,6 +134,13 @@ export async function saveResidentialPricingSettings(
   if (user.email !== ADMIN_EMAIL) return { error: 'Admin only.' }
 
   const next = clean(input)
+
+  // Server-side validation. UI also blocks save on the same rules,
+  // but we don't trust the client.
+  const issues = validateResidentialPricingSettings(next)
+  if (issues.length > 0) {
+    return { error: issues[0].message }
+  }
 
   const { error } = await supabase
     .from('pricing_residential_settings')

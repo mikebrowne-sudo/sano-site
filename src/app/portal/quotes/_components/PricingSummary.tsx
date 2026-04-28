@@ -33,10 +33,13 @@ function formatNZD(n: number): string {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
 }
 
-const MODE_LABELS: { value: PricingMode; label: string }[] = [
-  { value: 'win',      label: 'Win the job' },
-  { value: 'standard', label: 'Standard' },
-  { value: 'premium',  label: 'Premium' },
+// Phase residential-pricing-tiers: each tier carries a short
+// description shown under the chip so the operator picks the right
+// rate without guessing.
+const MODE_LABELS: { value: PricingMode; label: string; hint: string }[] = [
+  { value: 'win',      label: 'Win the work', hint: 'More competitive rate' },
+  { value: 'standard', label: 'Standard',     hint: 'Balanced margin' },
+  { value: 'premium',  label: 'Premium',      hint: 'Higher margin / detail jobs' },
 ]
 
 export function PricingSummary({
@@ -125,14 +128,15 @@ export function PricingSummary({
         <p className="text-xs text-amber-700 italic">Pricing currently caps at 5 bedrooms. Please review manually.</p>
       )}
 
-      {/* Phase residential-pricing-engine: Calculated · Final pair.
-          Calculated = engine output before override.
-          Final      = override value when an admin override is active,
-                       otherwise equal to Calculated. */}
+      {/* Phase residential-pricing-tiers: Estimated · Rate · Final.
+          Wording follows the brief — "Estimated" replaces the older
+          "Calculated" label. The rate row makes the active tier and
+          its hourly rate explicit so an operator can see why the
+          number moved when they switched tiers. */}
       <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <span className="block text-xs font-medium text-sage-500 uppercase tracking-wide mb-1">Calculated</span>
+            <span className="block text-xs font-medium text-sage-500 uppercase tracking-wide mb-1">Estimated</span>
             <span className="text-lg font-semibold text-sage-800">
               {live?.estimated_hours ?? '—'} hrs · {live?.calculated_price != null ? formatNZD(live.calculated_price) : '—'}
             </span>
@@ -150,16 +154,26 @@ export function PricingSummary({
             </span>
           </div>
         </div>
+        {live?.breakdown && (
+          <div className="text-xs text-sage-600">
+            <span className="font-medium text-sage-500 uppercase tracking-wide mr-1">Rate</span>
+            <span className="font-semibold text-sage-800">
+              {MODE_LABELS.find((m) => m.value === live.breakdown!.pricing_mode)?.label ?? live.breakdown.pricing_mode}
+            </span>
+            <span className="text-sage-500"> · </span>
+            <span className="font-semibold text-sage-800">${live.breakdown.hourly_rate}/hr</span>
+          </div>
+        )}
         {finalView?.isOverride && (
           <div className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1">
             <AlertCircle size={12} />
-            Adjusted from calculated estimate
+            Adjusted from estimated values
           </div>
         )}
       </div>
 
       <div>
-        <span className="block text-sm font-semibold text-sage-800 mb-2">Pricing mode</span>
+        <span className="block text-sm font-semibold text-sage-800 mb-2">Pricing tier</span>
         <div className="flex flex-wrap gap-2">
           {MODE_LABELS.map(m => (
             <button
@@ -167,6 +181,7 @@ export function PricingSummary({
               type="button"
               disabled={readOnly}
               onClick={() => setMode(m.value)}
+              title={m.hint}
               className={clsx(
                 'px-3 py-1.5 rounded-full text-xs font-medium border transition-colors',
                 value.pricing_mode === m.value
@@ -179,6 +194,9 @@ export function PricingSummary({
             </button>
           ))}
         </div>
+        <p className="text-[11px] text-sage-500 mt-1.5">
+          {MODE_LABELS.find((m) => m.value === value.pricing_mode)?.hint}
+        </p>
       </div>
 
       <BreakdownPanel breakdown={live?.breakdown ?? null} defaultOpen={expandedByDefault} />
@@ -216,19 +234,27 @@ function BreakdownPanel({ breakdown, defaultOpen }: { breakdown: PricingBreakdow
   }
   lines.push({ label: `Buffer (${Math.round(breakdown.buffer_percent * 100)}%)`, value: `×${(1 + breakdown.buffer_percent).toFixed(2)}` })
   lines.push({ label: 'Rounded', value: `${breakdown.rounded_hours} hrs` })
-  lines.push({ label: `$${breakdown.hourly_rate} × ${breakdown.rounded_hours} hrs`, value: new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(breakdown.hourly_rate * breakdown.rounded_hours) })
-  if (breakdown.pricing_mode_multiplier !== 1) {
-    const label = breakdown.pricing_mode === 'win' ? 'Win' : breakdown.pricing_mode === 'premium' ? 'Premium' : 'Standard'
-    lines.push({ label: `${label} ×${breakdown.pricing_mode_multiplier}`, value: '' })
-  }
+  // Phase residential-pricing-tiers: rate row labels the tier and
+  // shows the hourly figure × rounded hours as a clear sub-total.
+  const tierLabel = breakdown.pricing_mode === 'win'
+    ? 'Win the work'
+    : breakdown.pricing_mode === 'premium' ? 'Premium' : 'Standard'
+  lines.push({
+    label: `Rate · ${tierLabel} · $${breakdown.hourly_rate}/hr × ${breakdown.rounded_hours} hrs`,
+    value: new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(breakdown.hourly_rate * breakdown.rounded_hours),
+  })
   lines.push({ label: 'Service fee', value: `+${new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(breakdown.service_fee)}` })
-  lines.push({ label: 'Calculated', value: new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(breakdown.calculated_price) })
+  lines.push({ label: 'Estimated', value: new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(breakdown.calculated_price) })
+  if (breakdown.override_flag) {
+    lines.push({ label: 'Final (override)', value: new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(breakdown.final_price) })
+  }
 
   return (
     <details open={defaultOpen} className="group">
       <summary className="text-xs font-medium text-sage-600 cursor-pointer inline-flex items-center gap-1">
         <ChevronDown size={12} className="group-open:rotate-180 transition-transform" />
-        Breakdown
+        Pricing breakdown
+        <span className="ml-1.5 text-[10px] uppercase tracking-wider text-sage-400">Internal only</span>
       </summary>
       <div className="mt-2 space-y-1 text-xs text-sage-600 pl-4 border-l border-sage-200">
         {lines.map((l, i) => (

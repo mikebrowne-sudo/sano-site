@@ -8,15 +8,17 @@
 // the code-defined defaults (useful if a value drift makes pricing
 // look wrong).
 
-import { useState, useTransition } from 'react'
-import { Save, RotateCcw, Loader2 } from 'lucide-react'
+import { useMemo, useState, useTransition } from 'react'
+import { Save, RotateCcw, Loader2, AlertCircle } from 'lucide-react'
 import {
   saveResidentialPricingSettings,
   resetResidentialPricingSettings,
+  validateResidentialPricingSettings,
 } from '../_actions-residential'
 import {
   FALLBACK_RESIDENTIAL_PRICING_SETTINGS,
   type ResidentialPricingSettings,
+  type ResidentialPricingTier,
 } from '@/lib/residentialPricingSettings'
 
 const SERVICE_TYPE_LABELS: Record<string, string> = {
@@ -95,9 +97,23 @@ export function ResidentialPricingForm({ settings }: { settings: ResidentialPric
     setFeedback(null)
   }
 
+  // Inline validation — runs against the same rules the server uses,
+  // so the form never lets the operator submit something the server
+  // would reject.
+  const issues = useMemo(() => validateResidentialPricingSettings(values), [values])
+  const issuesByField = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const i of issues) map[i.field] = i.message
+    return map
+  }, [issues])
+
   function onSave(e: React.FormEvent) {
     e.preventDefault()
     setFeedback(null)
+    if (issues.length > 0) {
+      setFeedback({ kind: 'error', text: issues[0].message })
+      return
+    }
     startTransition(async () => {
       const r = await saveResidentialPricingSettings(values)
       if ('error' in r) { setFeedback({ kind: 'error', text: r.error }); return }
@@ -118,12 +134,47 @@ export function ResidentialPricingForm({ settings }: { settings: ResidentialPric
 
   return (
     <form onSubmit={onSave} className="space-y-8">
-      <Section title="Hourly rate + service fee">
+      <Section title="Pricing tiers + service fee" hint="Operators pick a tier per quote. Order: Win ≤ Standard ≤ Premium.">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <Num label="Win the work · $/hr" value={values.win_hourly_rate} step={1}
+            onChange={(v) => {
+              setValues((s) => ({ ...s, win_hourly_rate: v }))
+              setFeedback(null)
+            }}
+            error={issuesByField.win_hourly_rate} />
+          <Num label="Standard · $/hr" value={values.standard_hourly_rate} step={1}
+            onChange={(v) => {
+              setValues((s) => ({ ...s, standard_hourly_rate: v, default_hourly_rate: v }))
+              setFeedback(null)
+            }}
+            error={issuesByField.standard_hourly_rate} />
+          <Num label="Premium · $/hr" value={values.premium_hourly_rate} step={1}
+            onChange={(v) => {
+              setValues((s) => ({ ...s, premium_hourly_rate: v }))
+              setFeedback(null)
+            }}
+            error={issuesByField.premium_hourly_rate} />
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Num label="Default hourly rate ($)" value={values.default_hourly_rate} step={1}
-            onChange={(v) => setField('default_hourly_rate', v)} />
+          <label className="block">
+            <span className="block text-xs font-semibold text-sage-700 uppercase tracking-wide mb-1.5">Default tier</span>
+            <select
+              value={values.default_pricing_tier}
+              onChange={(e) => {
+                setValues((s) => ({ ...s, default_pricing_tier: e.target.value as ResidentialPricingTier }))
+                setFeedback(null)
+              }}
+              className="w-full border border-sage-200 rounded-lg px-3 py-2 text-sm bg-white text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-300"
+            >
+              <option value="win">Win the work</option>
+              <option value="standard">Standard</option>
+              <option value="premium">Premium</option>
+            </select>
+            <span className="block text-[11px] text-sage-500 mt-1">Used when no tier is supplied with a quote.</span>
+          </label>
           <Num label="Service fee ($)" value={values.service_fee} step={1}
-            onChange={(v) => setField('service_fee', v)} />
+            onChange={(v) => setField('service_fee', v)}
+            error={issuesByField.service_fee} />
         </div>
       </Section>
 
@@ -188,8 +239,21 @@ export function ResidentialPricingForm({ settings }: { settings: ResidentialPric
         </div>
       </Section>
 
+      {issues.length > 0 && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2">
+          <AlertCircle size={14} className="mt-0.5 shrink-0" />
+          <div>
+            <strong className="font-semibold">{issues.length} issue{issues.length === 1 ? '' : 's'} to fix before saving:</strong>
+            <ul className="list-disc pl-5 mt-1 space-y-0.5">
+              {issues.slice(0, 6).map((i) => <li key={i.field}>{i.message}</li>)}
+              {issues.length > 6 && <li>… and {issues.length - 6} more.</li>}
+            </ul>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-3 flex-wrap pt-3 border-t border-sage-100">
-        <button type="submit" disabled={pending}
+        <button type="submit" disabled={pending || issues.length > 0}
           className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-5 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors disabled:opacity-50 min-h-[44px]">
           {pending ? <Loader2 size={14} className="animate-spin" /> : <Save size={16} />}
           {pending ? 'Saving…' : 'Save residential settings'}
@@ -218,13 +282,14 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 }
 
 function Num({
-  label, value, step = 0.01, onChange, hint,
+  label, value, step = 0.01, onChange, hint, error,
 }: {
   label: string
   value: number
   step?: number
   onChange: (v: number) => void
   hint?: string
+  error?: string
 }) {
   return (
     <label className="block">
@@ -237,9 +302,13 @@ function Num({
           const v = parseFloat(e.target.value)
           onChange(Number.isFinite(v) ? v : 0)
         }}
-        className="w-full border border-sage-200 rounded-lg px-3 py-2 text-sm bg-white text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-300"
+        className={
+          'w-full border rounded-lg px-3 py-2 text-sm bg-white text-sage-800 focus:outline-none focus:ring-2 ' +
+          (error ? 'border-red-400 focus:ring-red-300' : 'border-sage-200 focus:ring-sage-300')
+        }
       />
-      {hint && <span className="block text-[11px] text-sage-500 mt-1">{hint}</span>}
+      {error && <span className="block text-[11px] text-red-600 mt-1">{error}</span>}
+      {!error && hint && <span className="block text-[11px] text-sage-500 mt-1">{hint}</span>}
     </label>
   )
 }

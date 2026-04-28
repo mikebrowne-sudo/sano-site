@@ -42,12 +42,22 @@ export interface AddonMinutesMap {
   [addonKey: string]: number
 }
 
+/** Selectable tier names mirroring the legacy PricingMode union. */
+export type ResidentialPricingTier = 'win' | 'standard' | 'premium'
+
 export interface ResidentialPricingSettings {
-  /** Hourly rate used by the engine. Multi-rate selection
-   *  (win / standard / premium) lives elsewhere; this is the
-   *  default rate the residential engine uses unless a caller
-   *  passes its own. */
+  /** @deprecated Use the per-tier rates below. Retained as an alias
+   *  for `standard_hourly_rate` so legacy callers / breakdown
+   *  consumers keep working. The loader keeps it in sync. */
   default_hourly_rate: number
+  /** Hourly rates per tier. Win = competitive, Standard = balanced,
+   *  Premium = higher-margin / detail-heavy work. */
+  win_hourly_rate: number
+  standard_hourly_rate: number
+  premium_hourly_rate: number
+  /** Tier used when no `mode` argument is passed to the engine.
+   *  Defaults to 'standard'. */
+  default_pricing_tier: ResidentialPricingTier
   /** Flat add to every quote. Existing constant SERVICE_FEE = 25. */
   service_fee: number
 
@@ -90,6 +100,13 @@ export interface ResidentialPricingSettings {
 
 export const FALLBACK_RESIDENTIAL_PRICING_SETTINGS: ResidentialPricingSettings = {
   default_hourly_rate: 75,
+  // Phase residential-pricing-tiers: explicit per-tier rates with
+  // Standard as the default. Win = competitive cut, Premium = detail
+  // / high-margin uplift. Admin can edit all three from settings.
+  win_hourly_rate:      70,
+  standard_hourly_rate: 75,
+  premium_hourly_rate:  80,
+  default_pricing_tier: 'standard',
   service_fee: 25,
 
   minimum_job_hours: 2.0,
@@ -212,10 +229,33 @@ export async function loadResidentialPricingSettings(
   if (!raw || typeof raw !== 'object') return FALLBACK_RESIDENTIAL_PRICING_SETTINGS
 
   const fb = FALLBACK_RESIDENTIAL_PRICING_SETTINGS
+  // Resolve per-tier rates with backwards-compat for rows that only
+  // hold default_hourly_rate. The standard tier inherits from
+  // default_hourly_rate when its own value is missing; win/premium
+  // fall back to ±$5 from standard so legacy seeds still produce
+  // sensible tier rates.
+  const stdRate =
+    isFiniteNumber(raw.standard_hourly_rate) && raw.standard_hourly_rate > 0
+      ? raw.standard_hourly_rate
+      : (isFiniteNumber(raw.default_hourly_rate) && raw.default_hourly_rate > 0
+          ? raw.default_hourly_rate : fb.standard_hourly_rate)
+  const winRate =
+    isFiniteNumber(raw.win_hourly_rate) && raw.win_hourly_rate > 0
+      ? raw.win_hourly_rate : Math.max(1, stdRate - 5)
+  const premRate =
+    isFiniteNumber(raw.premium_hourly_rate) && raw.premium_hourly_rate > 0
+      ? raw.premium_hourly_rate : stdRate + 5
+  const tier: ResidentialPricingTier =
+    raw.default_pricing_tier === 'win' || raw.default_pricing_tier === 'premium'
+      ? raw.default_pricing_tier
+      : 'standard'
+
   return {
-    default_hourly_rate:
-      isFiniteNumber(raw.default_hourly_rate) && raw.default_hourly_rate > 0
-        ? raw.default_hourly_rate : fb.default_hourly_rate,
+    default_hourly_rate: stdRate,
+    win_hourly_rate:      winRate,
+    standard_hourly_rate: stdRate,
+    premium_hourly_rate:  premRate,
+    default_pricing_tier: tier,
     service_fee:
       isFiniteNumber(raw.service_fee) && raw.service_fee >= 0
         ? raw.service_fee : fb.service_fee,

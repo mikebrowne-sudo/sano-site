@@ -211,6 +211,8 @@ function settingsSignature(s: ResidentialPricingSettings): string {
   // Not a security primitive — just a stable digest.
   const stable = JSON.stringify({
     r: s.default_hourly_rate, f: s.service_fee,
+    rw: s.win_hourly_rate, rs: s.standard_hourly_rate, rp: s.premium_hourly_rate,
+    dt: s.default_pricing_tier,
     m: s.minimum_job_hours, bs: s.buffer_standard, bh: s.buffer_heavy,
     rd: s.rounding_step_hours, cap: s.condition_multiplier_cap,
     bb: s.base_hours_by_bedroom, bex: s.bathroom_extra_hours, hu: s.high_use_extra_hours,
@@ -303,21 +305,21 @@ export function calculateQuotePrice(
   const roundedHours = ceilToStep(bufferedHours, settings.rounding_step_hours)
 
   // Step 6 — rate × hours + service fee.
-  // Hourly rate priority:
-  //   - When the caller passes settings AND the standard mode is in
-  //     play, settings.default_hourly_rate wins. The win/premium
-  //     modes still adjust by their constant offset so the existing
-  //     mode selector keeps doing something.
-  //   - When no custom settings are passed, the engine resolves rate
-  //     from HOURLY_RATES[mode] as before — ZERO change for legacy
-  //     callers.
-  const usingDefaults = settings === FALLBACK_RESIDENTIAL_PRICING_SETTINGS
-  const baseRate = usingDefaults ? HOURLY_RATES[mode] : settings.default_hourly_rate
-  let hourlyRate = baseRate
-  if (!usingDefaults) {
-    if (mode === 'win')      hourlyRate = baseRate - (HOURLY_RATE_STANDARD - HOURLY_RATE_WIN)
-    if (mode === 'premium')  hourlyRate = baseRate + (HOURLY_RATE_PREMIUM - HOURLY_RATE_STANDARD)
+  // Phase residential-pricing-tiers: settings now carries explicit
+  // per-tier rates. Pick by mode; fall back to the settings'
+  // default_pricing_tier when the requested mode isn't in play.
+  const tierRates: Record<PricingMode, number> = {
+    win:      settings.win_hourly_rate,
+    standard: settings.standard_hourly_rate,
+    premium:  settings.premium_hourly_rate,
   }
+  const fallbackTier = settings.default_pricing_tier
+  const hourlyRate =
+    Number.isFinite(tierRates[mode]) && tierRates[mode] > 0
+      ? tierRates[mode]
+      : (Number.isFinite(tierRates[fallbackTier]) && tierRates[fallbackTier] > 0
+          ? tierRates[fallbackTier]
+          : settings.default_hourly_rate)
 
   const priceBeforeFee = roundedHours * hourlyRate
   const calculatedPrice = round2(priceBeforeFee + settings.service_fee)

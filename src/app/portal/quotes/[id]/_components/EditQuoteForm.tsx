@@ -244,6 +244,9 @@ export function EditQuoteForm({
   const [override, setOverride] = useState<OverridePanelValue>({
     is_price_overridden: quote.is_price_overridden ?? false,
     override_price: quote.override_price != null ? String(quote.override_price) : '',
+    override_hours: (quote as { override_hours?: number | null }).override_hours != null
+      ? String((quote as { override_hours?: number | null }).override_hours)
+      : '',
     override_reason: quote.override_reason ?? '',
     override_confirmed: quote.override_confirmed ?? false,
   })

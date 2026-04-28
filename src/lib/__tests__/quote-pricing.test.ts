@@ -75,6 +75,10 @@ describe('isPricingEligible', () => {
 // Canonical scenarios — values locked in spec section 3.10
 // ============================================================
 
+// Phase residential-pricing-tiers: per-tier defaults moved to
+// Win=$70 / Standard=$75 / Premium=$80. Canonical Win/Premium
+// scenarios below assert the post-tiers prices.
+
 describe('Canonical A: 1-bed / 1-bath Standard Residential / no conditions / Win', () => {
   const result = calculateQuotePrice({
     service_category: 'residential',
@@ -86,9 +90,9 @@ describe('Canonical A: 1-bed / 1-bath Standard Residential / no conditions / Win
   }, 'win')
 
   it('final_hours = 2.5', () => { expect(result.estimated_hours).toBe(2.5) })
-  it('calculated_price = $187.50', () => { expect(result.calculated_price).toBe(187.5) })
+  it('calculated_price = $200.00 (2.5 × $70 + $25)', () => { expect(result.calculated_price).toBe(200) })
   it('buffer is standard (5%)', () => { expect(result.breakdown?.buffer_percent).toBe(0.05) })
-  it('hourly_rate = 65 (win)', () => { expect(result.breakdown?.hourly_rate).toBe(65) })
+  it('hourly_rate = 70 (win, post-tiers)', () => { expect(result.breakdown?.hourly_rate).toBe(70) })
   it('frequency_multiplier = 1.0 (default)', () => { expect(result.breakdown?.frequency_multiplier).toBe(1.0) })
 })
 
@@ -103,7 +107,7 @@ describe('Canonical B: 3-bed / 2-bath Standard Residential / no conditions / Win
   }, 'win')
 
   it('final_hours = 4.5', () => { expect(result.estimated_hours).toBe(4.5) })
-  it('calculated_price = $317.50', () => { expect(result.calculated_price).toBe(317.5) })
+  it('calculated_price = $340.00 (4.5 × $70 + $25)', () => { expect(result.calculated_price).toBe(340) })
   it('bathroom_hours = 0.5', () => { expect(result.breakdown?.bathroom_hours).toBe(0.5) })
 })
 
@@ -118,14 +122,14 @@ describe('Canonical C: 4-bed / 2-bath Deep Residential / no conditions / Win', (
   }, 'win')
 
   it('final_hours = 9.5', () => { expect(result.estimated_hours).toBe(9.5) })
-  it('calculated_price = $642.50', () => { expect(result.calculated_price).toBe(642.5) })
+  it('calculated_price = $690.00 (9.5 × $70 + $25)', () => { expect(result.calculated_price).toBe(690) })
   it('buffer is heavy (8%)', () => { expect(result.breakdown?.buffer_percent).toBe(0.08) })
   it('service_multiplier = 1.6', () => { expect(result.breakdown?.service_multiplier).toBe(1.6) })
 })
 
 describe('Canonical D: 4-bed / 2-bath Standard Residential / no conditions / Win / one-off', () => {
   // 5.0 × 1.0 × 1.0 + 0.5 = 5.5 → × freq 1.0 = 5.5 → max(2.0, 5.5) = 5.5
-  // × 1.05 = 5.775 → ceil 0.5 = 6.0 → × $65 + $25 = $415.00
+  // × 1.05 = 5.775 → ceil 0.5 = 6.0 → × $70 + $25 = $445.00
   const result = calculateQuotePrice({
     service_category: 'residential',
     service_type_code: 'standard_clean',
@@ -136,14 +140,14 @@ describe('Canonical D: 4-bed / 2-bath Standard Residential / no conditions / Win
   }, 'win')
 
   it('final_hours = 6.0', () => { expect(result.estimated_hours).toBe(6.0) })
-  it('calculated_price = $415.00', () => { expect(result.calculated_price).toBe(415) })
+  it('calculated_price = $445.00 (6.0 × $70 + $25)', () => { expect(result.calculated_price).toBe(445) })
   it('buffer is standard (5%)', () => { expect(result.breakdown?.buffer_percent).toBe(0.05) })
   it('bathroom_hours = 0.5', () => { expect(result.breakdown?.bathroom_hours).toBe(0.5) })
 })
 
 describe('Canonical E: 3-bed / 2-bath Standard Residential / weekly / Win', () => {
   // 3.5 × 1.0 × 1.0 + 0.5 = 4.0 → × freq 0.75 = 3.0 → max(2.0, 3.0) = 3.0
-  // × 1.05 = 3.15 → ceil 0.5 = 3.5 → × $65 + $25 = $252.50
+  // × 1.05 = 3.15 → ceil 0.5 = 3.5 → × $70 + $25 = $270.00
   const result = calculateQuotePrice({
     service_category: 'residential',
     service_type_code: 'standard_clean',
@@ -155,7 +159,7 @@ describe('Canonical E: 3-bed / 2-bath Standard Residential / weekly / Win', () =
   }, 'win')
 
   it('final_hours = 3.5', () => { expect(result.estimated_hours).toBe(3.5) })
-  it('calculated_price = $252.50', () => { expect(result.calculated_price).toBe(252.5) })
+  it('calculated_price = $270.00 (3.5 × $70 + $25)', () => { expect(result.calculated_price).toBe(270) })
   it('frequency_multiplier = 0.75', () => { expect(result.breakdown?.frequency_multiplier).toBe(0.75) })
   it('min_applied = false (post-frequency hours 3.0 >= MIN 2.0)', () => { expect(result.breakdown?.min_applied).toBe(false) })
 })
@@ -187,8 +191,8 @@ describe('Scenario: 3-bed / 2-bath Deep + build-up + oven + fridge / Premium', (
   it('final_hours = 9.5', () => { expect(result.estimated_hours).toBe(9.5) })
   it('buffer is heavy (8%)', () => { expect(result.breakdown?.buffer_percent).toBe(0.08) })
   it('addon_hours = 1.5', () => { expect(result.breakdown?.addon_hours).toBe(1.5) })
-  it('hourly_rate = 82 (premium mode)', () => { expect(result.breakdown?.hourly_rate).toBe(82) })
-  it('calculated_price = $804.00', () => { expect(result.calculated_price).toBeCloseTo(804, 2) })
+  it('hourly_rate = 80 (premium mode, post-tiers)', () => { expect(result.breakdown?.hourly_rate).toBe(80) })
+  it('calculated_price = $785.00 (9.5 × $80 + $25)', () => { expect(result.calculated_price).toBeCloseTo(785, 2) })
 })
 
 describe('Scenario: 1-bed Airbnb Turnover / well-maintained / Standard', () => {
@@ -235,7 +239,7 @@ describe('Scenario: 4-bed / 3-bath PM End-of-Tenancy / furnished / Win', () => {
   it('buffer is heavy (8%)', () => { expect(result.breakdown?.buffer_percent).toBe(0.08) })
   it('bathroom_hours = 1.0', () => { expect(result.breakdown?.bathroom_hours).toBe(1.0) })
   it('service_multiplier = 1.65', () => { expect(result.breakdown?.service_multiplier).toBe(1.65) })
-  it('calculated_price = $740.00', () => { expect(result.calculated_price).toBe(740) })
+  it('calculated_price = $795.00 (11.0 × $70 + $25)', () => { expect(result.calculated_price).toBe(795) })
 })
 
 describe('Scenario: commercial is ineligible', () => {
@@ -257,9 +261,12 @@ describe('Scenario: commercial is ineligible', () => {
   })
 })
 
-describe('Scenario: 7-bed clamps to 6-bed', () => {
-  // 7.5 × 1.0 × 1.0 + 0.5 = 8.0 → × 1.0 = 8.0 → max(2.0, 8.0) = 8.0
-  // × 1.05 = 8.40 → ceil 0.5 = 8.5 → × $75 + $25 = $662.50
+describe('Scenario: 7-bed uses the 7-bed base row directly (no clamp)', () => {
+  // The engine was extended to 7 beds in commit b50c45f; 7 = 9.0 hr base.
+  // Phase residential-pricing-tiers: stale "clamps to 6-bed" assertion
+  // replaced with the actual current behaviour.
+  // 9.0 × 1.0 × 1.0 + 0.5 bath = 9.5 → × 1.0 = 9.5 → max(2.0, 9.5) = 9.5
+  // × 1.05 = 9.975 → ceil 0.5 = 10.0 → × $75 + $25 = $775
   const result = calculateQuotePrice({
     service_category: 'residential',
     service_type_code: 'standard_clean',
@@ -269,11 +276,28 @@ describe('Scenario: 7-bed clamps to 6-bed', () => {
     addons_wording: [],
   }, 'standard')
 
+  it('bed_count_clamped is false (7 is supported directly)', () => {
+    expect(result.breakdown?.bed_count_clamped).toBe(false)
+  })
+  it('bed_count_used is 7', () => { expect(result.breakdown?.bed_count_used).toBe(7) })
+  it('base_hours is 9.0', () => { expect(result.breakdown?.base_hours).toBe(9.0) })
+  it('final_hours = 10.0', () => { expect(result.estimated_hours).toBe(10.0) })
+  it('calculated_price = $775.00', () => { expect(result.calculated_price).toBe(775) })
+})
+
+describe('Scenario: 8-bed clamps to 7-bed (above supported range)', () => {
+  // 9.0 (7-bed) × 1.0 × 1.0 + 0.5 bath = 9.5 → × 1.05 = 9.975 → ceil 0.5 = 10.0
+  const result = calculateQuotePrice({
+    service_category: 'residential',
+    service_type_code: 'standard_clean',
+    bedrooms: 8,
+    bathrooms: 2,
+    condition_tags: ['well_maintained'],
+    addons_wording: [],
+  }, 'standard')
   it('bed_count_clamped is true', () => { expect(result.breakdown?.bed_count_clamped).toBe(true) })
-  it('bed_count_used is 6', () => { expect(result.breakdown?.bed_count_used).toBe(6) })
-  it('base_hours is 7.5', () => { expect(result.breakdown?.base_hours).toBe(7.5) })
-  it('final_hours = 8.5', () => { expect(result.estimated_hours).toBe(8.5) })
-  it('calculated_price = $662.50', () => { expect(result.calculated_price).toBe(662.5) })
+  it('bed_count_used clamps to 7', () => { expect(result.breakdown?.bed_count_used).toBe(7) })
+  it('base_hours is 9.0', () => { expect(result.breakdown?.base_hours).toBe(9.0) })
 })
 
 describe('Scenario: 0-bed falls back to 1-bed', () => {
@@ -346,9 +370,10 @@ describe('Pricing mode selects hourly rate directly', () => {
   const std = calculateQuotePrice(baseInput, 'standard')
   const prem = calculateQuotePrice(baseInput, 'premium')
 
-  it('Win uses $65/hr', () => {
-    expect(win.breakdown?.hourly_rate).toBe(65)
-    expect(win.calculated_price).toBe(4.5 * 65 + 25)       // 317.50
+  // Phase residential-pricing-tiers: rates Win/Std/Prem = 70/75/80.
+  it('Win uses $70/hr', () => {
+    expect(win.breakdown?.hourly_rate).toBe(70)
+    expect(win.calculated_price).toBe(4.5 * 70 + 25)       // 340.00
   })
 
   it('Standard uses $75/hr', () => {
@@ -356,9 +381,9 @@ describe('Pricing mode selects hourly rate directly', () => {
     expect(std.calculated_price).toBe(4.5 * 75 + 25)       // 362.50
   })
 
-  it('Premium uses $82/hr', () => {
-    expect(prem.breakdown?.hourly_rate).toBe(82)
-    expect(prem.calculated_price).toBe(4.5 * 82 + 25)      // 394.00
+  it('Premium uses $80/hr', () => {
+    expect(prem.breakdown?.hourly_rate).toBe(80)
+    expect(prem.calculated_price).toBe(4.5 * 80 + 25)      // 385.00
   })
 
   it('pricing_mode_multiplier is always 1.0 post-revision (kept for UI legacy field access)', () => {
