@@ -18,6 +18,7 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
+import { assertQuoteConvertible } from '@/lib/quote-conversion-guard'
 import type { JobSetupInput, ReadyContractor } from './_lib-job-setup'
 
 type ResidentialItemRow = {
@@ -99,13 +100,20 @@ export async function createJobFromQuoteWithSetup(
 ): Promise<{ error: string } | void> {
   const supabase = createClient()
 
+  // Phase 5.5.16 — refuse double-conversion. Catches the most common
+  // duplication path: rapid double-click on the wizard "Create job"
+  // button or browser back+resubmit.
+  const guard = await assertQuoteConvertible(supabase, quoteId, 'job')
+  if ('error' in guard) return { error: guard.error }
+
   const { data: quote, error: qErr } = await supabase
     .from('quotes')
     .select(`
       id, status, client_id, service_category, payment_type,
       service_address, notes, generated_scope,
       frequency, scope_size,
-      scheduled_clean_date, estimated_hours,
+      scheduled_clean_date, estimated_hours, allowed_hours,
+      base_price, discount,
       contact_id, site_id,
       property_type, bedrooms, bathrooms, condition_tags,
       occupancy, pets, parking, stairs, condition_level, access_notes,
@@ -127,7 +135,22 @@ export async function createJobFromQuoteWithSetup(
       .eq('quote_id', quoteId).order('display_order'),
   ])
 
-  const allowedHours = setup.allowed_hours ?? quote.estimated_hours ?? null
+  // Phase 5.5.16 — allowed_hours is now first-class on the quote. Prefer
+  // it over estimated_hours (operator's allotment vs the engine's guess);
+  // wizard can still override per-job with a captured reason.
+  const allowedHours =
+    setup.allowed_hours
+    ?? quote.allowed_hours
+    ?? quote.estimated_hours
+    ?? null
+
+  // Phase 5.5.16 — carry the client price across automatically. The
+  // quote already holds the agreed number; staff should never need to
+  // re-enter it on the job afterwards just to unblock invoicing.
+  const jobPrice =
+    quote.base_price != null
+      ? Math.max(0, Number(quote.base_price) - Number(quote.discount ?? 0))
+      : null
 
   const scopeSnapshot = {
     source_quote_id: quote.id,
@@ -206,6 +229,7 @@ export async function createJobFromQuoteWithSetup(
       scheduled_time: setup.scheduled_time?.trim() || null,
       duration_estimate: setup.duration_estimate?.trim() || null,
       allowed_hours: allowedHours,
+      job_price: jobPrice,
       contractor_id: setup.contractor_id ?? null,
       contractor_price: setup.contractor_price ?? null,
       internal_notes: setup.internal_notes?.trim() || quote.notes || null,

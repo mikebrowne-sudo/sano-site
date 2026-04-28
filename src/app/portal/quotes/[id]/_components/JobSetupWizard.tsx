@@ -31,6 +31,9 @@ export interface JobSetupSeed {
   serviceAddress: string | null
   scheduledCleanDate: string | null
   estimatedHours: number | null
+  // Phase 5.5.16 — operator's allotment from the quote, if set.
+  // Wizard prefills this; falls back to estimatedHours.
+  allowedHours?: number | null
   paymentType: 'cash_sale' | 'on_account' | null  // quote.payment_type
   basePrice: number | null
   contactId: string | null
@@ -84,9 +87,12 @@ export function JobSetupWizard({ seed, onCancel }: Props) {
   const [scheduledDate,     setScheduledDate]     = useState<string>(seed.scheduledCleanDate ?? '')
   const [scheduledTime,     setScheduledTime]     = useState<string>('')
   const [durationEstimate,  setDurationEstimate]  = useState<string>('')
-  const [allowedHours,      setAllowedHours]      = useState<string>(
-    seed.estimatedHours != null ? String(seed.estimatedHours) : ''
-  )
+  // Phase 5.5.16 — prefer the operator's allotment (quote.allowed_hours)
+  // over the engine's estimate. Wizard can still override per-job.
+  const [allowedHours,      setAllowedHours]      = useState<string>(() => {
+    const fromQuote = seed.allowedHours ?? seed.estimatedHours
+    return fromQuote != null ? String(fromQuote) : ''
+  })
 
   // Site & contact
   const [address,            setAddress]            = useState<string>(seed.serviceAddress ?? '')
@@ -154,7 +160,7 @@ export function JobSetupWizard({ seed, onCancel }: Props) {
       scheduled_date:     scheduledDate || null,
       scheduled_time:     scheduledTime || null,
       duration_estimate:  durationEstimate || null,
-      allowed_hours:      validHours ? allowedHoursNum : (seed.estimatedHours ?? null),
+      allowed_hours:      validHours ? allowedHoursNum : (seed.allowedHours ?? seed.estimatedHours ?? null),
       contractor_id:      contractorId || null,
       contractor_price:   Number.isFinite(parseFloat(contractorPrice)) ? parseFloat(contractorPrice) : null,
       contact_id:         seed.contactId,

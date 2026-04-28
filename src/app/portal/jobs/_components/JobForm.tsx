@@ -1,26 +1,16 @@
 'use client'
 
+// Phase 5.5.16 — manual status control removed from this form.
+// Status is action-driven now: Start Job / Complete Job (via
+// JobStatusActions) and the conversion actions own every transition.
+// The detail page already shows the current status as a badge and
+// `getJobStatus(job)` is the canonical derivation.
+
 import { useState, useTransition } from 'react'
 import { createJob, updateJob } from '../_actions'
 import { AddressField } from '../../_components/AddressField'
 import { ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
-
-const STATUSES = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'assigned', label: 'Assigned' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'invoiced', label: 'Invoiced' },
-]
-
-const STATUS_STYLES: Record<string, string> = {
-  draft:       'bg-gray-100 text-gray-700',
-  assigned:    'bg-blue-50 text-blue-700',
-  in_progress: 'bg-amber-50 text-amber-700',
-  completed:   'bg-emerald-50 text-emerald-700',
-  invoiced:    'bg-purple-50 text-purple-700',
-}
 
 interface Client { id: string; name: string; company_name: string | null }
 interface ContractorOption { id: string; full_name: string }
@@ -72,7 +62,8 @@ export function JobForm({
   const [clientId, setClientId] = useState(job?.client_id ?? '')
   const [quoteId, setQuoteId] = useState(job?.quote_id ?? '')
   const [invoiceId, setInvoiceId] = useState(job?.invoice_id ?? '')
-  const [status, setStatus] = useState(job?.status ?? 'draft')
+  // Status is preserved untouched on update — never edited via this form.
+  const status = job?.status ?? 'draft'
   const [title, setTitle] = useState(job?.title ?? '')
   const [description, setDescription] = useState(job?.description ?? '')
   const [address, setAddress] = useState(job?.address ?? '')
@@ -144,28 +135,10 @@ export function JobForm({
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-10">
 
-      {/* Status (edit only) */}
-      {isEdit && (
-        <Section title="Status">
-          <div className="flex flex-wrap gap-2">
-            {STATUSES.map((s) => (
-              <button
-                key={s.value}
-                type="button"
-                onClick={() => setStatus(s.value)}
-                className={clsx(
-                  'px-4 py-2 rounded-lg text-sm font-medium transition-colors border',
-                  status === s.value
-                    ? `${STATUS_STYLES[s.value]} border-current`
-                    : 'bg-white text-sage-600 border-sage-200 hover:bg-sage-50',
-                )}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </Section>
-      )}
+      {/* Phase 5.5.16 — Status is no longer editable here. Use the
+          Start Job / Complete Job actions on the detail page, or let
+          conversion actions (Create Invoice / Mark Reviewed) drive
+          the transition. */}
 
       {/* Client + Links */}
       <Section title="Client">

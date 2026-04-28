@@ -25,6 +25,7 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
+import { assertQuoteConvertible } from '@/lib/quote-conversion-guard'
 
 type ResidentialItemRow = {
   label: string | null
@@ -44,6 +45,11 @@ type CommercialScopeRow = {
 export async function createJobAndInvoiceFromQuote(quoteId: string) {
   const supabase = createClient()
 
+  // Phase 5.5.16 — refuse double-conversion. Either child existing
+  // (job OR invoice) blocks this combined action.
+  const guard = await assertQuoteConvertible(supabase, quoteId, 'both')
+  if ('error' in guard) return { error: guard.error }
+
   // 1. Load quote — both invoice fields + job-snapshot fields.
   const { data: quote, error: qErr } = await supabase
     .from('quotes')
@@ -52,7 +58,7 @@ export async function createJobAndInvoiceFromQuote(quoteId: string) {
       property_category, type_of_clean, service_type,
       frequency, scope_size, service_address, notes, generated_scope,
       base_price, discount, gst_included, payment_type,
-      scheduled_clean_date, date_issued, estimated_hours,
+      scheduled_clean_date, date_issued, estimated_hours, allowed_hours,
       is_price_overridden, override_price, override_reason, override_confirmed,
       override_confirmed_by, override_confirmed_at, calculated_price,
       contact_name, contact_email, contact_phone,
@@ -170,7 +176,7 @@ export async function createJobAndInvoiceFromQuote(quoteId: string) {
     frequency: quote.frequency,
     scope_size: quote.scope_size,
     estimated_hours: quote.estimated_hours,
-    allowed_hours: quote.estimated_hours,
+    allowed_hours: quote.allowed_hours ?? quote.estimated_hours,
     generated_scope: quote.generated_scope,
     residential_items: (residentialItems ?? []).map((r: ResidentialItemRow) => ({
       label: r.label ?? '',
@@ -202,6 +208,14 @@ export async function createJobAndInvoiceFromQuote(quoteId: string) {
 
   // 6. Job — linked to the invoice + payment_status = payment_pending
   // so the job page shows the client owes money.
+  // Phase 5.5.16 — also carry job_price across so the job is fully
+  // priced from the moment of creation (matches the invoice that just
+  // shipped to the client).
+  const jobPrice =
+    quote.base_price != null
+      ? Math.max(0, Number(quote.base_price) - Number(quote.discount ?? 0))
+      : null
+
   const { data: job, error: jErr } = await supabase
     .from('jobs')
     .insert({
@@ -212,7 +226,8 @@ export async function createJobAndInvoiceFromQuote(quoteId: string) {
       description,
       address: quote.service_address ?? null,
       scheduled_date: quote.scheduled_clean_date ?? null,
-      allowed_hours: quote.estimated_hours ?? null,
+      allowed_hours: quote.allowed_hours ?? quote.estimated_hours ?? null,
+      job_price: jobPrice,
       internal_notes: quote.notes ?? null,
       status: 'draft',
       payment_status: 'payment_pending',

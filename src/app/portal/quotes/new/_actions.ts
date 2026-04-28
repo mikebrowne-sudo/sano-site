@@ -9,6 +9,55 @@ import type {
   CommercialScopeItemInput,
 } from '../_actions-commercial'
 
+// Phase 5.5.16 — duplicate-quote suspicion check.
+//
+// Surfaces recent live quotes for the same client (and optionally
+// the same address) so the operator sees their colleague's work
+// before creating a near-duplicate. Non-blocking — just a banner.
+
+export interface RecentQuoteMatch {
+  id: string
+  quote_number: string | null
+  status: string | null
+  service_address: string | null
+  base_price: number | null
+  created_at: string | null
+}
+
+export async function findRecentQuotesForClient(input: {
+  client_id: string
+  address?: string | null
+}): Promise<RecentQuoteMatch[]> {
+  const supabase = createClient()
+  if (!input.client_id) return []
+
+  // Last 30 days, live (not archived, not test), latest version only,
+  // not in terminal states (declined / converted are not blockers).
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
+  let q = supabase
+    .from('quotes')
+    .select('id, quote_number, status, service_address, base_price, created_at')
+    .eq('client_id', input.client_id)
+    .eq('is_latest_version', true)
+    .is('deleted_at', null)
+    .eq('is_test', false)
+    .gte('created_at', since)
+    .in('status', ['draft', 'sent', 'viewed', 'accepted'])
+    .order('created_at', { ascending: false })
+    .limit(5)
+
+  // Optional address narrowing — case-insensitive substring match
+  // so "12 King St" matches "12 King Street, Auckland".
+  const addr = input.address?.trim()
+  if (addr && addr.length >= 4) {
+    q = q.ilike('service_address', `%${addr}%`)
+  }
+
+  const { data } = await q
+  return (data ?? []) as RecentQuoteMatch[]
+}
+
 interface AddonInput {
   label: string
   price: number
@@ -181,6 +230,9 @@ export async function createQuote(input: CreateQuoteInput) {
       override_confirmed_at: overrideConfirmedAt,
       pricing_mode: input.pricing_mode ?? null,
       estimated_hours: input.estimated_hours ?? null,
+      // Phase 5.5.16 — allowed_hours defaults to the engine's estimate;
+      // operator can edit on the job-setup wizard with a captured reason.
+      allowed_hours: input.estimated_hours ?? null,
       pricing_breakdown: input.pricing_breakdown ?? null,
       commercial_calc_id: input.commercial_calc_id ?? null,
       discount: input.discount,

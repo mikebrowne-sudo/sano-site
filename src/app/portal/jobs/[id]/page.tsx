@@ -17,6 +17,7 @@ import { JobNotificationsPanel } from './_components/JobNotificationsPanel'
 import { JobMismatchBanner } from './_components/JobMismatchBanner'
 import { LifecycleActions } from '../../_components/LifecycleActions'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
+import { JobNextStepCard } from './_components/JobNextStepCard'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -184,6 +185,14 @@ export default async function JobDetailPage({ params }: { params: { id: string }
           />
         </div>
       )}
+
+      <JobNextStepCard
+        jobId={job.id as string}
+        jobPrice={(job.job_price as number | null) ?? null}
+        invoiceId={(job.invoice_id as string | null) ?? null}
+        isCompleted={job.status === 'completed' || !!job.completed_at}
+        isArchived={isArchived}
+      />
 
       <div className="flex items-center justify-between mb-8">
         <div>
