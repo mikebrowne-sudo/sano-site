@@ -1,18 +1,39 @@
 // Sano quote pricing engine — pure, deterministic, time-based.
 // Lives alongside quote-wording.ts but has no dependency on it beyond types.
 // Do not import React, Supabase, or formatting utilities here.
+//
+// Phase residential-pricing-engine:
+//   - Math now reads from `ResidentialPricingSettings` (loaded from
+//     pricing_residential_settings jsonb singleton). Callers can pass
+//     a `settings` object to drive every knob; when omitted, the
+//     engine uses the code-defined fallback (identical values to the
+//     prior in-code constants). No pricing change for legacy callers.
+//   - Multi-tag condition combination is now CAPPED via the formula
+//     min(cap, m1 + 0.5 × (m2 - 1.0)) (m1 = highest multiplier).
+//     Single-tag and zero-tag quotes are unchanged.
+//   - The legacy module-level constants (HOURLY_RATES, MIN_JOB_HOURS,
+//     etc.) are preserved as exports so old call-sites keep building.
+//     They mirror the fallback settings.
 
 import type { ServiceCategory } from './quote-wording'
+import {
+  FALLBACK_RESIDENTIAL_PRICING_SETTINGS,
+  type ResidentialPricingSettings,
+} from './residentialPricingSettings'
 
 export type PricingMode = 'win' | 'standard' | 'premium'
+
+// ── Legacy exports — preserved for any caller still importing
+// constants directly. Values mirror the fallback settings so this
+// module stays the single source of truth at runtime. ─────────────
 
 export const HOURLY_RATE_WIN = 65
 export const HOURLY_RATE_STANDARD = 75
 export const HOURLY_RATE_PREMIUM = 82
-export const SERVICE_FEE = 25
-export const MIN_JOB_HOURS = 2.0
-export const BUFFER_STANDARD = 0.05
-export const BUFFER_HEAVY = 0.08
+export const SERVICE_FEE = FALLBACK_RESIDENTIAL_PRICING_SETTINGS.service_fee
+export const MIN_JOB_HOURS = FALLBACK_RESIDENTIAL_PRICING_SETTINGS.minimum_job_hours
+export const BUFFER_STANDARD = FALLBACK_RESIDENTIAL_PRICING_SETTINGS.buffer_standard
+export const BUFFER_HEAVY = FALLBACK_RESIDENTIAL_PRICING_SETTINGS.buffer_heavy
 
 export const HOURLY_RATES: Record<PricingMode, number> = {
   win: HOURLY_RATE_WIN,
@@ -20,85 +41,7 @@ export const HOURLY_RATES: Record<PricingMode, number> = {
   premium: HOURLY_RATE_PREMIUM,
 }
 
-const BED_BASE_HOURS: Record<1 | 2 | 3 | 4 | 5 | 6 | 7, number> = {
-  1: 2.0,
-  2: 2.75,
-  3: 3.5,
-  4: 5.0,
-  5: 6.0,
-  6: 7.5,
-  7: 9.0,   // continues the +1.5 step from 5→6
-}
-
-const SERVICE_TYPE_MULTIPLIERS: Record<string, number> = {
-  'residential.standard_clean':          1.0,
-  'residential.deep_clean':              1.6,
-  'residential.move_in_out':             1.65,
-  'residential.pre_sale':                1.2,
-  // Phase residential-upgrade: post-construction is a new top-level
-  // service type. Multiplier sits between deep clean and move-in-out
-  // — the work is intensive but the time stays bounded by the room
-  // count (no storage detail to add).
-  'residential.post_construction':       1.5,
-  'property_management.routine':         1.0,
-  'property_management.end_of_tenancy':  1.65,
-  'property_management.pre_inspection':  1.2,
-  'property_management.handover':        1.2,
-  'airbnb.turnover':                     0.9,
-  'airbnb.deep_reset':                   1.25,
-}
-
-const HEAVY_BUFFER_SERVICE_TYPES = new Set<string>([
-  'deep_clean', 'move_in_out', 'end_of_tenancy', 'deep_reset',
-  'post_construction',
-])
-
-// Percentage adjustments keyed by condition tag. high_use_areas is handled separately
-// as a flat-hour loading (step 3), not a percentage.
-const CONDITION_PERCENT_ADJUSTMENTS: Record<string, number> = {
-  average_condition:  0.10,
-  build_up_present:   0.20,
-  furnished_property: 0.10,
-  recently_renovated: 0.20,
-  inspection_focus:   0.10,
-}
-
-// Phase residential-upgrade: hours for new add-ons added below.
-// Existing entries (oven_clean, fridge_clean, interior_window,
-// wall_spot_cleaning, carpet_cleaning, spot_treatment, mould_treatment)
-// keep their prior values — no pricing regression on legacy quotes.
-// New times are NZ industry-standard labour estimates; the actual
-// chemical / equipment cost for things like carpet cleaning is
-// outside this engine.
-const ADDON_HOURS: Record<string, number> = {
-  // Existing — DO NOT change.
-  oven_clean:         1.0,
-  fridge_clean:       0.5,
-  interior_window:    1.0,
-  wall_spot_cleaning: 0.75,
-  carpet_cleaning:    0.5,
-  spot_treatment:     0.5,
-  mould_treatment:    1.5,
-
-  // High-value extras (new).
-  upholstery_cleaning: 1.0,
-  exterior_window:     0.75,
-  pressure_washing:    1.5,
-  rubbish_removal:     0.75,
-  garage_full:         2.0,
-
-  // Detail / time-based extras (new).
-  inside_cupboards: 1.5,
-  inside_wardrobes: 1.0,
-  blinds_shutters:  1.0,
-  full_wall_wash:   2.0,
-  high_dusting:     0.75,
-  balcony_deck:     0.75,
-
-  // Condition-based extras (new).
-  heavy_grease:                1.5,
-  post_construction_residue:   2.0,
-}
+// ── Types ─────────────────────────────────────────────────────────
 
 function resolveFrequencyMultiplier(
   frequency: string | null | undefined,
@@ -114,7 +57,7 @@ function resolveFrequencyMultiplier(
       const n = typeof xPerWeek === 'number' && Number.isFinite(xPerWeek) ? Math.floor(xPerWeek) : 0
       if (n >= 3) return { key: 'x_per_week_3_plus', multiplier: 0.50 }
       if (n === 2) return { key: 'x_per_week_2',     multiplier: 0.60 }
-      return { key: 'x_per_week_1', multiplier: 0.75 }   // 0/1/unset → treat as weekly
+      return { key: 'x_per_week_1', multiplier: 0.75 }
     }
     default: return { key: frequency, multiplier: 1.0 }
   }
@@ -137,51 +80,54 @@ export interface PricingAdjustmentNote {
   value: number
 }
 
-// Breakdown is a SUPERSET — retains all fields PricingSummary reads for UI continuity
-// while adding the new spec-native fields. Legacy saved breakdowns use a subset; the UI
-// tolerates missing fields via optional chaining.
+// Breakdown is a SUPERSET — preserves every field PricingSummary already
+// reads from legacy quote rows AND adds the new spec-native fields. Old
+// saved breakdowns parse fine via optional chaining.
 export interface PricingBreakdown {
-  // Base / inputs
   base_hours: number
   bed_count_used: number
   bed_count_clamped: boolean
   bed_count_fallback: boolean
 
-  // Multipliers
-  service_type_multiplier: number       // UI-legacy name
-  service_multiplier: number            // new spec alias (same value)
+  service_type_multiplier: number
+  service_multiplier: number
   condition_adjustments: PricingAdjustmentNote[]
-  condition_multiplier: number          // scalar product of (1 + pct) across all % tags
+  /** Combined condition multiplier after the cap formula has been
+   *  applied. For single-tag quotes this equals the tag's own
+   *  multiplier; for multi-tag, it follows the capped combine rule. */
+  condition_multiplier: number
+  /** True when condition_multiplier_cap clipped the combined value. */
+  condition_cap_applied: boolean
 
-  // Flat-hour loadings
   bathroom_hours: number
   high_use_hours: number
   addon_hours: number
   addon_items: { key: string; hours: number }[]
 
-  // Frequency
   frequency_key: string | null
   frequency_multiplier: number
 
-  // Min / buffer / rounding
-  hours_after_adjustments: number       // raw × multipliers + flat loadings (pre-frequency)
-  pre_buffer_hours: number              // after frequency + min
+  hours_after_adjustments: number
+  pre_buffer_hours: number
   min_applied: boolean
-  buffer_percent: number                // 0.05 or 0.08
-  rounded_hours: number                 // UI-legacy name
-  final_hours: number                   // new spec alias (same value)
+  buffer_percent: number
+  rounded_hours: number
+  final_hours: number
 
-  // Rate / fee
-  hourly_rate: number                   // selected rate (65/75/82)
-  hourly_rate_used: number              // new spec alias (same value)
+  hourly_rate: number
+  hourly_rate_used: number
   pricing_mode: PricingMode
-  pricing_mode_multiplier: number       // always 1.0 post-revision; kept for UI field access on legacy quotes
-  service_fee: number                   // 25
+  pricing_mode_multiplier: number
+  service_fee: number
 
-  // Prices
   calculated_price: number
   final_price: number
   override_flag: boolean
+
+  /** Hash of the settings object used to compute this breakdown.
+   *  Lets callers detect when a stored breakdown was produced under
+   *  different admin-set values vs the current settings. */
+  settings_signature: string
 }
 
 export interface PricingResult {
@@ -192,8 +138,11 @@ export interface PricingResult {
   breakdown: PricingBreakdown | null
 }
 
-function ceilToHalf(hours: number): number {
-  return Math.ceil(hours * 2) / 2
+// ── Helpers ───────────────────────────────────────────────────────
+
+function ceilToStep(hours: number, step: number): number {
+  if (!step || step <= 0) return Math.ceil(hours * 2) / 2
+  return Math.ceil(hours / step) * step
 }
 
 function round2(n: number): number {
@@ -202,26 +151,96 @@ function round2(n: number): number {
 
 function resolveBedCount(
   bedrooms: number | null,
-): { used: 1 | 2 | 3 | 4 | 5 | 6 | 7; clamped: boolean; fallback: boolean } {
-  if (bedrooms == null || bedrooms <= 0) return { used: 1, clamped: false, fallback: true }
-  if (bedrooms > 7) return { used: 7, clamped: true, fallback: false }
-  return { used: Math.floor(bedrooms) as 1 | 2 | 3 | 4 | 5 | 6 | 7, clamped: false, fallback: false }
+  baseMap: Record<string, number>,
+): { used: number; clamped: boolean; fallback: boolean; baseHours: number } {
+  // Build a sorted list of supported bedroom counts (numeric keys).
+  const supportedKeys = Object.keys(baseMap).map((k) => Number(k)).filter((n) => Number.isFinite(n)).sort((a, b) => a - b)
+  if (supportedKeys.length === 0) {
+    return { used: 1, clamped: false, fallback: true, baseHours: 0 }
+  }
+  const min = supportedKeys[0]
+  const max = supportedKeys[supportedKeys.length - 1]
+  if (bedrooms == null || bedrooms <= 0) {
+    return { used: min, clamped: false, fallback: true, baseHours: baseMap[String(min)] }
+  }
+  if (bedrooms > max) {
+    return { used: max, clamped: true, fallback: false, baseHours: baseMap[String(max)] }
+  }
+  const exact = Math.floor(bedrooms)
+  const used = supportedKeys.includes(exact) ? exact : min
+  return { used, clamped: false, fallback: false, baseHours: baseMap[String(used)] }
 }
+
+/** Combined condition multiplier per the capped formula:
+ *
+ *    1 tag  → m1
+ *    n tags → min(cap, m1 + 0.5 × Σ(m_i − 1.0)  for i ≥ 2)
+ *
+ *  Tags with no entry in `condition_multipliers` (or whose value is
+ *  ≤ 1.0) contribute 0 to the additional sum. high_use_areas is
+ *  intentionally NOT in the multiplier map — it's a flat-hour add. */
+function combineConditionMultipliers(
+  tags: string[],
+  multipliers: Record<string, number>,
+  cap: number,
+): { combined: number; capped: boolean; perTag: PricingAdjustmentNote[] } {
+  const perTag: PricingAdjustmentNote[] = []
+  const values: number[] = []
+  for (const tag of tags) {
+    const m = multipliers[tag]
+    if (typeof m === 'number' && m > 1.0) {
+      values.push(m)
+      perTag.push({ tag, type: 'percent', value: round2(m - 1.0) })
+    }
+  }
+  if (values.length === 0) return { combined: 1.0, capped: false, perTag }
+  values.sort((a, b) => b - a)
+  const lead = values[0]
+  let combined = lead
+  for (let i = 1; i < values.length; i++) {
+    combined += 0.5 * (values[i] - 1.0)
+  }
+  const capped = combined > cap
+  if (capped) combined = cap
+  return { combined: round2(combined), capped, perTag }
+}
+
+function settingsSignature(s: ResidentialPricingSettings): string {
+  // Lightweight hash sufficient to fingerprint the active settings
+  // for "this breakdown was computed with settings X" diagnostics.
+  // Not a security primitive — just a stable digest.
+  const stable = JSON.stringify({
+    r: s.default_hourly_rate, f: s.service_fee,
+    m: s.minimum_job_hours, bs: s.buffer_standard, bh: s.buffer_heavy,
+    rd: s.rounding_step_hours, cap: s.condition_multiplier_cap,
+    bb: s.base_hours_by_bedroom, bex: s.bathroom_extra_hours, hu: s.high_use_extra_hours,
+    sm: s.service_multipliers, cm: s.condition_multipliers, ah: s.addon_hours,
+  })
+  let hash = 0
+  for (let i = 0; i < stable.length; i++) {
+    hash = ((hash << 5) - hash + stable.charCodeAt(i)) | 0
+  }
+  return `r${(hash >>> 0).toString(16)}`
+}
+
+// ── Public API ───────────────────────────────────────────────────
 
 export function isPricingEligible(
   category: ServiceCategory | null,
   serviceTypeCode: string | null,
+  settings: ResidentialPricingSettings = FALLBACK_RESIDENTIAL_PRICING_SETTINGS,
 ): boolean {
   if (!category || !serviceTypeCode) return false
-  return `${category}.${serviceTypeCode}` in SERVICE_TYPE_MULTIPLIERS
+  return `${category}.${serviceTypeCode}` in settings.service_multipliers
 }
 
 export function calculateQuotePrice(
   input: PricingInput,
   mode: PricingMode,
   override?: number,
+  settings: ResidentialPricingSettings = FALLBACK_RESIDENTIAL_PRICING_SETTINGS,
 ): PricingResult {
-  if (!isPricingEligible(input.service_category, input.service_type_code)) {
+  if (!isPricingEligible(input.service_category, input.service_type_code, settings)) {
     return { eligible: false, estimated_hours: null, calculated_price: null, final_price: null, breakdown: null }
   }
 
@@ -229,38 +248,36 @@ export function calculateQuotePrice(
   const code = input.service_type_code!
   const key = `${category}.${code}`
 
-  // Step 1 — base hours (with fallback/clamp) × service multiplier × condition multiplier
-  const bed = resolveBedCount(input.bedrooms)
-  const baseHours = BED_BASE_HOURS[bed.used]
-  const serviceMultiplier = SERVICE_TYPE_MULTIPLIERS[key]
+  // Step 1 — base × service × condition.
+  const bed = resolveBedCount(input.bedrooms, settings.base_hours_by_bedroom)
+  const baseHours = bed.baseHours
+  const serviceMultiplier = settings.service_multipliers[key] ?? 1.0
 
-  const adjustments: PricingAdjustmentNote[] = []
-  let conditionMultiplier = 1.0
-  for (const tag of input.condition_tags) {
-    if (tag in CONDITION_PERCENT_ADJUSTMENTS) {
-      const pct = CONDITION_PERCENT_ADJUSTMENTS[tag]
-      conditionMultiplier *= (1 + pct)
-      adjustments.push({ tag, type: 'percent', value: pct })
-    }
-  }
+  const condition = combineConditionMultipliers(
+    input.condition_tags,
+    settings.condition_multipliers,
+    settings.condition_multiplier_cap,
+  )
+  const conditionMultiplier = condition.combined
 
   const rawHours = baseHours * serviceMultiplier * conditionMultiplier
 
-  // Step 2 — flat-hour loadings (bathroom, high-use, add-ons). Not scaled by multipliers.
+  // Step 2 — flat-hour loadings.
   const bathCount = (input.bathrooms == null || input.bathrooms <= 0) ? 1 : Math.floor(input.bathrooms)
-  const bathroomHours = Math.max(0, (bathCount - 1) * 0.5)
+  const bathroomHours = Math.max(0, (bathCount - 1) * settings.bathroom_extra_hours)
 
+  const adjustments: PricingAdjustmentNote[] = [...condition.perTag]
   let highUseHours = 0
   if (input.condition_tags.includes('high_use_areas')) {
-    highUseHours = 0.5
-    adjustments.push({ tag: 'high_use_areas', type: 'hours', value: 0.5 })
+    highUseHours = settings.high_use_extra_hours
+    adjustments.push({ tag: 'high_use_areas', type: 'hours', value: settings.high_use_extra_hours })
   }
 
   const addonItems: { key: string; hours: number }[] = []
   let addonHours = 0
   for (const addonKey of input.addons_wording) {
-    if (addonKey in ADDON_HOURS) {
-      const h = ADDON_HOURS[addonKey]
+    const h = settings.addon_hours[addonKey]
+    if (typeof h === 'number' && h > 0) {
       addonHours += h
       addonItems.push({ key: addonKey, hours: h })
     }
@@ -268,28 +285,44 @@ export function calculateQuotePrice(
 
   const hoursAfterAdjustments = rawHours + bathroomHours + highUseHours + addonHours
 
-  // Step 3 — frequency × hours, THEN enforce minimum floor (floor applies AFTER frequency,
-  // so a weekly discount on a small job does not push billable below MIN_JOB_HOURS).
+  // Step 3 — frequency × hours, THEN minimum floor.
   const { key: frequencyKey, multiplier: frequencyMultiplier } =
     resolveFrequencyMultiplier(input.frequency, input.x_per_week)
 
   const hoursAfterFrequency = hoursAfterAdjustments * frequencyMultiplier
-  const minApplied = hoursAfterFrequency < MIN_JOB_HOURS
-  const preBufferHours = Math.max(hoursAfterFrequency, MIN_JOB_HOURS)
+  const minApplied = hoursAfterFrequency < settings.minimum_job_hours
+  const preBufferHours = Math.max(hoursAfterFrequency, settings.minimum_job_hours)
 
-  // Step 4 — buffer
-  const bufferPercent = HEAVY_BUFFER_SERVICE_TYPES.has(code) ? BUFFER_HEAVY : BUFFER_STANDARD
+  // Step 4 — buffer.
+  const bufferPercent = settings.heavy_buffer_service_types.includes(code)
+    ? settings.buffer_heavy
+    : settings.buffer_standard
   const bufferedHours = preBufferHours * (1 + bufferPercent)
 
-  // Step 5 — round up to 0.5 hr
-  const roundedHours = ceilToHalf(bufferedHours)
+  // Step 5 — round up to the configured step (default 0.5 hr).
+  const roundedHours = ceilToStep(bufferedHours, settings.rounding_step_hours)
 
-  // Step 6 — rate × hours + service fee (pricing_mode selects rate directly; no post-multiplier)
-  const hourlyRate = HOURLY_RATES[mode]
+  // Step 6 — rate × hours + service fee.
+  // Hourly rate priority:
+  //   - When the caller passes settings AND the standard mode is in
+  //     play, settings.default_hourly_rate wins. The win/premium
+  //     modes still adjust by their constant offset so the existing
+  //     mode selector keeps doing something.
+  //   - When no custom settings are passed, the engine resolves rate
+  //     from HOURLY_RATES[mode] as before — ZERO change for legacy
+  //     callers.
+  const usingDefaults = settings === FALLBACK_RESIDENTIAL_PRICING_SETTINGS
+  const baseRate = usingDefaults ? HOURLY_RATES[mode] : settings.default_hourly_rate
+  let hourlyRate = baseRate
+  if (!usingDefaults) {
+    if (mode === 'win')      hourlyRate = baseRate - (HOURLY_RATE_STANDARD - HOURLY_RATE_WIN)
+    if (mode === 'premium')  hourlyRate = baseRate + (HOURLY_RATE_PREMIUM - HOURLY_RATE_STANDARD)
+  }
+
   const priceBeforeFee = roundedHours * hourlyRate
-  const calculatedPrice = round2(priceBeforeFee + SERVICE_FEE)
+  const calculatedPrice = round2(priceBeforeFee + settings.service_fee)
 
-  // Override
+  // Override.
   const hasOverride =
     typeof override === 'number' &&
     Number.isFinite(override) &&
@@ -306,6 +339,7 @@ export function calculateQuotePrice(
     service_multiplier: serviceMultiplier,
     condition_adjustments: adjustments,
     condition_multiplier: conditionMultiplier,
+    condition_cap_applied: condition.capped,
 
     bathroom_hours: bathroomHours,
     high_use_hours: highUseHours,
@@ -326,11 +360,13 @@ export function calculateQuotePrice(
     hourly_rate_used: hourlyRate,
     pricing_mode: mode,
     pricing_mode_multiplier: 1.0,
-    service_fee: SERVICE_FEE,
+    service_fee: settings.service_fee,
 
     calculated_price: calculatedPrice,
     final_price: finalPrice,
     override_flag: hasOverride,
+
+    settings_signature: settingsSignature(settings),
   }
 
   return {

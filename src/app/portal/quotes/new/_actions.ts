@@ -127,6 +127,11 @@ interface CreateQuoteInput {
   override_price?: number | null
   override_reason?: string | null
   override_confirmed?: boolean
+  /** Phase residential-pricing-engine — operator-set hours when an
+   *  admin overrides the calculated time. Persisted to
+   *  quotes.override_hours and inherited as the default for
+   *  jobs.allowed_hours when the override is active. */
+  override_hours?: number | null
 
   // Phase 5D — universal contact / billing / reference fields. Apply
   // to ALL quote categories. Optional. Persist on the quotes table.
@@ -232,7 +237,11 @@ export async function createQuote(input: CreateQuoteInput) {
       estimated_hours: input.estimated_hours ?? null,
       // Phase 5.5.16 — allowed_hours defaults to the engine's estimate;
       // operator can edit on the job-setup wizard with a captured reason.
-      allowed_hours: input.estimated_hours ?? null,
+      // Phase residential-pricing-engine: when an admin sets
+      // override_hours on the quote, that becomes the default
+      // allowed_hours so the job inherits the overridden number.
+      allowed_hours: input.override_hours ?? input.estimated_hours ?? null,
+      override_hours: input.override_hours ?? null,
       pricing_breakdown: input.pricing_breakdown ?? null,
       commercial_calc_id: input.commercial_calc_id ?? null,
       discount: input.discount,

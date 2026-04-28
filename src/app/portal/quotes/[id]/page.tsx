@@ -7,6 +7,7 @@ import { ArrowLeft, Printer, FileText } from 'lucide-react'
 import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
 import { firstName } from '@/lib/doc-helpers'
 import { loadPricingSettings } from '@/lib/pricingSettings'
+import { loadResidentialPricingSettings } from '@/lib/residentialPricingSettings'
 import { loadVersionChain } from '../_actions-versioning'
 import { NotLatestBanner, ArchivedBanner } from './_components/NotLatestBanner'
 import { VersionHistoryPanel } from './_components/VersionHistoryPanel'
@@ -116,6 +117,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
     { data: commercialDetails },
     { data: commercialScope },
     pricingSettings,
+    residentialPricingSettings,
   ] = await Promise.all([
     supabase
       .from('quote_items')
@@ -142,6 +144,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       .eq('quote_id', params.id)
       .order('display_order'),
     loadPricingSettings(supabase),
+    loadResidentialPricingSettings(supabase),
   ])
 
   // Phase 6 — load the version chain so we can render the history panel
@@ -299,6 +302,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
           commercialDetails={commercialDetails ?? null}
           commercialScope={commercialScope ?? []}
           pricingSettings={pricingSettings}
+          residentialPricingSettings={residentialPricingSettings}
         />
       </div>
 
