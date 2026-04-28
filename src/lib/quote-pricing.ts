@@ -35,6 +35,11 @@ const SERVICE_TYPE_MULTIPLIERS: Record<string, number> = {
   'residential.deep_clean':              1.6,
   'residential.move_in_out':             1.65,
   'residential.pre_sale':                1.2,
+  // Phase residential-upgrade: post-construction is a new top-level
+  // service type. Multiplier sits between deep clean and move-in-out
+  // — the work is intensive but the time stays bounded by the room
+  // count (no storage detail to add).
+  'residential.post_construction':       1.5,
   'property_management.routine':         1.0,
   'property_management.end_of_tenancy':  1.65,
   'property_management.pre_inspection':  1.2,
@@ -45,6 +50,7 @@ const SERVICE_TYPE_MULTIPLIERS: Record<string, number> = {
 
 const HEAVY_BUFFER_SERVICE_TYPES = new Set<string>([
   'deep_clean', 'move_in_out', 'end_of_tenancy', 'deep_reset',
+  'post_construction',
 ])
 
 // Percentage adjustments keyed by condition tag. high_use_areas is handled separately
@@ -57,7 +63,15 @@ const CONDITION_PERCENT_ADJUSTMENTS: Record<string, number> = {
   inspection_focus:   0.10,
 }
 
+// Phase residential-upgrade: hours for new add-ons added below.
+// Existing entries (oven_clean, fridge_clean, interior_window,
+// wall_spot_cleaning, carpet_cleaning, spot_treatment, mould_treatment)
+// keep their prior values — no pricing regression on legacy quotes.
+// New times are NZ industry-standard labour estimates; the actual
+// chemical / equipment cost for things like carpet cleaning is
+// outside this engine.
 const ADDON_HOURS: Record<string, number> = {
+  // Existing — DO NOT change.
   oven_clean:         1.0,
   fridge_clean:       0.5,
   interior_window:    1.0,
@@ -65,6 +79,25 @@ const ADDON_HOURS: Record<string, number> = {
   carpet_cleaning:    0.5,
   spot_treatment:     0.5,
   mould_treatment:    1.5,
+
+  // High-value extras (new).
+  upholstery_cleaning: 1.0,
+  exterior_window:     0.75,
+  pressure_washing:    1.5,
+  rubbish_removal:     0.75,
+  garage_full:         2.0,
+
+  // Detail / time-based extras (new).
+  inside_cupboards: 1.5,
+  inside_wardrobes: 1.0,
+  blinds_shutters:  1.0,
+  full_wall_wash:   2.0,
+  high_dusting:     0.75,
+  balcony_deck:     0.75,
+
+  // Condition-based extras (new).
+  heavy_grease:                1.5,
+  post_construction_residue:   2.0,
 }
 
 function resolveFrequencyMultiplier(
