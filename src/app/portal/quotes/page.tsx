@@ -8,6 +8,7 @@ import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
 import { AttentionChips } from '../_components/AttentionChips'
 import { BulkSelectProvider, BulkSelectCheckbox, BulkSelectHeader } from '../_components/BulkSelect'
 import { getQuoteAttention } from '@/lib/attention-rules'
+import { getCleanupAccess } from '@/lib/cleanup-mode'
 
 function formatCurrency(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
@@ -62,8 +63,16 @@ export default async function QuotesPage({
   const quotesList = display.quotes.list
   const visible = new Set(quotesList.visibleFields)
 
+  // Phase 5.5.14 — cleanup mode is the master gate for bulk actions,
+  // the show-archived toggle, and per-row test/archive controls.
+  // canCleanup === (admin AND cleanup-mode-enabled).
+  const cleanup = await getCleanupAccess(supabase)
+  const canCleanup = cleanup.canCleanup
+
   const activeTab    = parseTab(searchParams?.tab)
-  const showArchived = searchParams?.show_archived === '1'
+  // show_archived is ignored when cleanup mode is off — operational
+  // users never see archived/test rows.
+  const showArchived = canCleanup && searchParams?.show_archived === '1'
 
   // Live record rule: deleted_at IS NULL AND is_test = false.
   // Show-archived toggle disables BOTH filters so the operator can
@@ -265,6 +274,7 @@ export default async function QuotesPage({
         tabs={QUOTE_TABS}
         activeTab={activeTab}
         showArchived={showArchived}
+        canCleanup={canCleanup}
       />
 
       {rows.length === 0 ? (
@@ -281,15 +291,17 @@ export default async function QuotesPage({
           </Link>
         </div>
       ) : (
-        <BulkSelectProvider entity="quote" ids={rows.map((r) => r.id as string)}>
+        <BulkSelectProvider entity="quote" ids={rows.map((r) => r.id as string)} canCleanup={canCleanup}>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-left text-sage-600">
-                  <th className="pl-5 pr-2 py-3 w-8">
-                    <BulkSelectHeader />
-                  </th>
+                  {canCleanup && (
+                    <th className="pl-5 pr-2 py-3 w-8">
+                      <BulkSelectHeader />
+                    </th>
+                  )}
                   {orderedVisible.map((k) => (
                     <th key={k} className={`px-5 py-3 font-semibold ${alignFor(k)}`}>
                       {QUOTE_FIELDS.find((f) => f.key === k)?.label ?? k}
@@ -301,9 +313,11 @@ export default async function QuotesPage({
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.id} className={clsx('border-b border-gray-50 last:border-0 group', (row.isTest || row.isArchived) && 'opacity-60')}>
-                    <td className="pl-5 pr-2 py-3 align-top">
-                      <BulkSelectCheckbox id={row.id as string} label={`Select quote ${row.quote_number}`} />
-                    </td>
+                    {canCleanup && (
+                      <td className="pl-5 pr-2 py-3 align-top">
+                        <BulkSelectCheckbox id={row.id as string} label={`Select quote ${row.quote_number}`} />
+                      </td>
+                    )}
                     {orderedVisible.map((k, idx) => (
                       <td key={k} className="p-0 align-top">
                         <Link href={`/portal/quotes/${row.id}`} className={`block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-700 ${alignFor(k)}`}>
@@ -338,9 +352,11 @@ export default async function QuotesPage({
           <div className="md:hidden divide-y divide-gray-100">
             {rows.map((row) => (
               <div key={row.id} className={clsx('flex items-start gap-3 px-4 py-4 hover:bg-gray-50 transition-colors', (row.isTest || row.isArchived) && 'opacity-60')}>
-                <div className="pt-1">
-                  <BulkSelectCheckbox id={row.id as string} label={`Select quote ${row.quote_number}`} />
-                </div>
+                {canCleanup && (
+                  <div className="pt-1">
+                    <BulkSelectCheckbox id={row.id as string} label={`Select quote ${row.quote_number}`} />
+                  </div>
+                )}
                 <Link href={`/portal/quotes/${row.id}`} className="block flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
                   <span className="font-medium text-sage-800 inline-flex items-center gap-1.5">

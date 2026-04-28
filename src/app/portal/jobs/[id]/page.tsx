@@ -16,6 +16,7 @@ import { ApproveHoursButton } from './_components/ApproveHoursButton'
 import { JobNotificationsPanel } from './_components/JobNotificationsPanel'
 import { JobMismatchBanner } from './_components/JobMismatchBanner'
 import { LifecycleActions } from '../../_components/LifecycleActions'
+import { getCleanupAccess } from '@/lib/cleanup-mode'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -66,6 +67,9 @@ export default async function JobDetailPage({ params }: { params: { id: string }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const isAdmin = user?.email === 'michael@sano.nz'
+  // Phase 5.5.14 — cleanup mode gates the per-record lifecycle UI.
+  const cleanup = await getCleanupAccess(supabase)
+  const canCleanup = cleanup.canCleanup
 
   const { data: job, error } = await supabase
     .from('jobs')
@@ -170,7 +174,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
         <JobMismatchBanner jobId={job.id as string} quoteNumber={quoteNumber} />
       )}
 
-      {isAdmin && (
+      {isAdmin && canCleanup && (
         <div className="mb-4">
           <LifecycleActions
             entity="job"

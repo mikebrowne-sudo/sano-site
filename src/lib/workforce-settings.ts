@@ -40,6 +40,12 @@ export interface WorkforceSettings {
   enable_client_merge: boolean
   enable_client_delete: boolean
   enable_cleanup_dashboard: boolean
+  // Phase 5.5.14 — master gate for the operational lifecycle UI
+  // (Mark as test / Archive / Restore + bulk select). Default OFF
+  // so the system runs as a normal operational tool unless an admin
+  // explicitly opts in. Server-side actions ALSO check this — see
+  // src/lib/cleanup-mode.ts.
+  enable_cleanup_mode: boolean
 }
 
 export const WORKFORCE_SETTINGS_DEFAULTS: WorkforceSettings = {
@@ -66,6 +72,7 @@ export const WORKFORCE_SETTINGS_DEFAULTS: WorkforceSettings = {
   enable_client_merge: true,
   enable_client_delete: true,
   enable_cleanup_dashboard: true,
+  enable_cleanup_mode: false,
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

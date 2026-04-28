@@ -9,6 +9,7 @@ import { ArchiveInvoiceButton } from './_components/ArchiveInvoiceButton'
 import { InvoiceJobButton } from './_components/InvoiceJobButton'
 import { InvoiceLinkBanner } from './_components/InvoiceLinkBanner'
 import { LifecycleActions } from '../../_components/LifecycleActions'
+import { getCleanupAccess } from '@/lib/cleanup-mode'
 import { firstName } from '@/lib/doc-helpers'
 import { StatusBadge } from '../../_components/StatusBadge'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
@@ -27,6 +28,9 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const isAdmin = user?.email === 'michael@sano.nz'
+  // Phase 5.5.14 — cleanup mode gates the per-record lifecycle UI.
+  const cleanup = await getCleanupAccess(supabase)
+  const canCleanup = cleanup.canCleanup
 
   const [{ data: invoice, error }, { data: items }] = await Promise.all([
     supabase
@@ -118,7 +122,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         <InvoiceLinkBanner invoiceId={invoice.id as string} jobs={linkCandidates} />
       )}
 
-      {isAdmin && (
+      {isAdmin && canCleanup && (
         <div className="mb-4">
           <LifecycleActions
             entity="invoice"
