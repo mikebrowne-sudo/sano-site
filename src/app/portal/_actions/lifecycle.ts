@@ -1,6 +1,6 @@
 'use server'
 
-// Phase 5.5.13 — operational lifecycle actions.
+// Phase 5.5.14 — operational lifecycle actions.
 //
 // Three transitions for quotes / jobs / invoices:
 //   markAsTest  — flag is_test = true AND set archived_at (deleted_at)
@@ -9,14 +9,17 @@
 //   restore     — clear archived_at; the caller decides whether to
 //                 also clear is_test ("Restore as live" vs just unarchive).
 //
-// All actions are admin-gated and audit-logged. Operate either on a
-// single id or a list of ids. Returning counts so the caller can show
-// "3 quotes archived" feedback after bulk actions.
+// Every action is double-gated by `requireCleanupAccess`:
+//   1. Caller must be the admin (michael@sano.nz).
+//   2. workforce_settings.enable_cleanup_mode must be true.
+// Both are server-side checks — UI hides are convenience, not security.
+//
+// Operate either on a single id or a list of ids. Return counts so the
+// caller can show "3 quotes archived" feedback after bulk actions.
 
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { requireCleanupAccess } from '@/lib/cleanup-mode'
 
 export type LifecycleEntity = 'quote' | 'job' | 'invoice'
 
@@ -36,14 +39,6 @@ const ENTITY_PATHS: Record<LifecycleEntity, string[]> = {
   quote:   ['/portal', '/portal/quotes'],
   job:     ['/portal', '/portal/jobs'],
   invoice: ['/portal', '/portal/invoices'],
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function requireAdmin(supabase: any): Promise<{ user: { id: string } } | { error: string }> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated.' }
-  if (user.email !== ADMIN_EMAIL) return { error: 'Admin only.' }
-  return { user: { id: user.id } }
 }
 
 async function writeAudit(
@@ -80,7 +75,7 @@ export async function markAsTest(
   if (targets.length === 0) return { error: 'No records selected.' }
 
   const supabase = createClient()
-  const auth = await requireAdmin(supabase)
+  const auth = await requireCleanupAccess(supabase)
   if ('error' in auth) return auth
 
   const nowIso = new Date().toISOString()
@@ -89,13 +84,13 @@ export async function markAsTest(
 
   const { data, error } = await supabase
     .from(table)
-    .update({ is_test: true, deleted_at: nowIso, deleted_by: auth.user.id })
+    .update({ is_test: true, deleted_at: nowIso, deleted_by: auth.userId })
     .in('id', targets)
     .select('id')
   if (error) return { error: error.message }
 
   for (const row of data ?? []) {
-    await writeAudit(supabase, auth.user.id, ENTITY_AUDIT_TABLE[entity], row.id as string,
+    await writeAudit(supabase, auth.userId, ENTITY_AUDIT_TABLE[entity], row.id as string,
       { is_test: false }, { is_test: true, archived_via: 'marked_test', archived_at: nowIso },
       auditAction,
     )
@@ -115,7 +110,7 @@ export async function archiveRecords(
   if (targets.length === 0) return { error: 'No records selected.' }
 
   const supabase = createClient()
-  const auth = await requireAdmin(supabase)
+  const auth = await requireCleanupAccess(supabase)
   if ('error' in auth) return auth
 
   const nowIso = new Date().toISOString()
@@ -124,14 +119,14 @@ export async function archiveRecords(
 
   const { data, error } = await supabase
     .from(table)
-    .update({ deleted_at: nowIso, deleted_by: auth.user.id })
+    .update({ deleted_at: nowIso, deleted_by: auth.userId })
     .is('deleted_at', null)
     .in('id', targets)
     .select('id')
   if (error) return { error: error.message }
 
   for (const row of data ?? []) {
-    await writeAudit(supabase, auth.user.id, ENTITY_AUDIT_TABLE[entity], row.id as string,
+    await writeAudit(supabase, auth.userId, ENTITY_AUDIT_TABLE[entity], row.id as string,
       { archived_at: null }, { archived_at: nowIso },
       auditAction,
     )
@@ -155,7 +150,7 @@ export async function restoreRecords(
   if (targets.length === 0) return { error: 'No records selected.' }
 
   const supabase = createClient()
-  const auth = await requireAdmin(supabase)
+  const auth = await requireCleanupAccess(supabase)
   if ('error' in auth) return auth
 
   const table = ENTITY_TABLE[entity]
@@ -173,7 +168,7 @@ export async function restoreRecords(
   if (error) return { error: error.message }
 
   for (const row of data ?? []) {
-    await writeAudit(supabase, auth.user.id, ENTITY_AUDIT_TABLE[entity], row.id as string,
+    await writeAudit(supabase, auth.userId, ENTITY_AUDIT_TABLE[entity], row.id as string,
       { archived: true }, { archived: false, as_live: asLive },
       auditAction,
     )

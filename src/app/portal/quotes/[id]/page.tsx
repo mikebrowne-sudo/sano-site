@@ -12,6 +12,7 @@ import { NotLatestBanner, ArchivedBanner } from './_components/NotLatestBanner'
 import { VersionHistoryPanel } from './_components/VersionHistoryPanel'
 import { ArchiveQuoteButton } from './_components/ArchiveQuoteButton'
 import { LifecycleActions } from '../../_components/LifecycleActions'
+import { getCleanupAccess } from '@/lib/cleanup-mode'
 import { StatusBadge } from '../../_components/StatusBadge'
 import { displayQuoteNumber } from '@/lib/quote-versioning'
 import { isQuoteConvertible } from '@/lib/quote-status'
@@ -25,6 +26,10 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const isAdmin = user?.email === 'michael@sano.nz'
+  // Phase 5.5.14 — per-record lifecycle controls only render when
+  // cleanup mode is enabled (admin-only setting).
+  const cleanup = await getCleanupAccess(supabase)
+  const canCleanup = cleanup.canCleanup
 
   // Load quote
   const { data: quote, error } = await supabase
@@ -219,7 +224,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
         </div>
       </div>
 
-      {isAdmin && (
+      {isAdmin && canCleanup && (
         <div className="mb-4">
           <LifecycleActions
             entity="quote"

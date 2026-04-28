@@ -40,15 +40,33 @@ interface Ctx {
 
 const BulkCtx = createContext<Ctx | null>(null)
 
-export function useBulkSelect(): Ctx {
-  const ctx = useContext(BulkCtx)
-  if (!ctx) throw new Error('useBulkSelect must be used inside <BulkSelectProvider>')
-  return ctx
+// Returns null when not inside a Provider — checkbox helpers below
+// use this to silently no-op so the calling page can render the same
+// JSX whether bulk mode is on or off.
+export function useBulkSelect(): Ctx | null {
+  return useContext(BulkCtx)
 }
 
 // ── Provider ───────────────────────────────────────────────────────
+//
+// `canCleanup` is the cleanup-mode gate. When false, the provider
+// renders children without any selection context — checkboxes below
+// silently render nothing, and the sticky bar never mounts. The page
+// can pass the same JSX in both states.
 
 export function BulkSelectProvider({
+  entity, ids, canCleanup = true, children,
+}: {
+  entity: LifecycleEntity
+  ids: string[]
+  canCleanup?: boolean
+  children: ReactNode
+}) {
+  if (!canCleanup) return <>{children}</>
+  return <BulkSelectInner entity={entity} ids={ids}>{children}</BulkSelectInner>
+}
+
+function BulkSelectInner({
   entity, ids, children,
 }: {
   entity: LifecycleEntity
@@ -96,7 +114,9 @@ export function BulkSelectProvider({
 // ── Per-row checkbox ───────────────────────────────────────────────
 
 export function BulkSelectCheckbox({ id, label }: { id: string; label?: string }) {
-  const { selected, toggle } = useBulkSelect()
+  const ctx = useBulkSelect()
+  if (!ctx) return null
+  const { selected, toggle } = ctx
   const checked = selected.has(id)
   return (
     <label
@@ -117,7 +137,9 @@ export function BulkSelectCheckbox({ id, label }: { id: string; label?: string }
 // ── Header "select all" ────────────────────────────────────────────
 
 export function BulkSelectHeader() {
-  const { isAllSelected, isAnySelected, toggleAll } = useBulkSelect()
+  const ctx = useBulkSelect()
+  if (!ctx) return null
+  const { isAllSelected, isAnySelected, toggleAll } = ctx
   return (
     <label className="inline-flex items-center cursor-pointer">
       <input
@@ -139,11 +161,15 @@ export function BulkSelectHeader() {
 type Pending = null | { kind: 'test' | 'archive' | 'restore'; ids: string[] }
 
 function BulkActionBar() {
-  const { entity, selected, isAnySelected, clear } = useBulkSelect()
+  const ctx = useBulkSelect()
   const [pending, startTransition] = useTransition()
   const [confirm, setConfirm] = useState<Pending>(null)
   const [err, setErr] = useState('')
   const [flash, setFlash] = useState('')
+
+  // Always safe — BulkActionBar is only mounted inside BulkSelectInner.
+  if (!ctx) return null
+  const { entity, selected, isAnySelected, clear } = ctx
 
   if (!isAnySelected && !confirm && !flash) return null
 

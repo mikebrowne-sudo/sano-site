@@ -50,6 +50,7 @@ export default async function PortalAccessSettingsPage() {
           enable_contractor_portal: settings.enable_contractor_portal,
           enable_customer_portal:   settings.enable_customer_portal,
           enable_pwa_prompt:        settings.enable_pwa_prompt,
+          enable_cleanup_mode:      settings.enable_cleanup_mode,
           invite_email_subject:       settings.invite_email_subject,
           invite_email_body_template: settings.invite_email_body_template,
           reset_email_subject:        settings.reset_email_subject,

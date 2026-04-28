@@ -23,6 +23,10 @@ interface Props<T extends string> {
   showArchived: boolean
   // Pass any other URL params we want preserved (e.g. ?sort=…).
   preservedParams?: Record<string, string | undefined>
+  // Phase 5.5.14 — when false, the Show-archived/test toggle is hidden.
+  // The toggle is part of the cleanup-mode surface; non-admins (and
+  // admins with cleanup mode disabled) should never see it.
+  canCleanup?: boolean
 }
 
 function buildHref(base: string, params: Record<string, string | undefined>): string {
@@ -34,7 +38,7 @@ function buildHref(base: string, params: Record<string, string | undefined>): st
 }
 
 export function ListLifecycleTabs<T extends string>({
-  basePath, tabs, activeTab, showArchived, preservedParams = {},
+  basePath, tabs, activeTab, showArchived, preservedParams = {}, canCleanup = false,
 }: Props<T>) {
   return (
     <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
@@ -68,24 +72,26 @@ export function ListLifecycleTabs<T extends string>({
         })}
       </div>
 
-      <Link
-        href={buildHref(basePath, {
-          ...preservedParams,
-          tab: activeTab,
-          show_archived: showArchived ? undefined : '1',
-        })}
-        className="inline-flex items-center gap-1.5 text-xs text-sage-600 hover:text-sage-800 transition-colors"
-      >
-        {showArchived ? (
-          <>
-            <Archive size={12} /> Hide archived/test
-          </>
-        ) : (
-          <>
-            <FlaskConical size={12} /> Show archived/test
-          </>
-        )}
-      </Link>
+      {canCleanup && (
+        <Link
+          href={buildHref(basePath, {
+            ...preservedParams,
+            tab: activeTab,
+            show_archived: showArchived ? undefined : '1',
+          })}
+          className="inline-flex items-center gap-1.5 text-xs text-sage-600 hover:text-sage-800 transition-colors"
+        >
+          {showArchived ? (
+            <>
+              <Archive size={12} /> Hide archived/test
+            </>
+          ) : (
+            <>
+              <FlaskConical size={12} /> Show archived/test
+            </>
+          )}
+        </Link>
+      )}
     </div>
   )
 }

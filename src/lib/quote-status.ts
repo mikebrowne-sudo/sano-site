@@ -138,7 +138,7 @@ export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
 export const JOB_STATUS_STYLES: Record<JobStatus, string> = {
   draft:       'bg-gray-100 text-gray-700',
   assigned:    'bg-blue-50 text-blue-700',
-  in_progress: 'bg-amber-50 text-amber-700',
-  completed:   'bg-emerald-50 text-emerald-700',
+  in_progress: 'bg-blue-50 text-blue-700',
+  completed:   'bg-gray-100 text-gray-700',
   invoiced:    'bg-sage-50 text-sage-700',
 }
