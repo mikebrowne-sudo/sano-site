@@ -13,8 +13,13 @@ import {
   FALLBACK_RESIDENTIAL_PRICING_SETTINGS,
   type ResidentialPricingSettings,
 } from '@/lib/residentialPricingSettings'
+import {
+  validateResidentialPricingSettings,
+  RESIDENTIAL_PRICING_VALIDATION_LIMITS,
+} from './_lib-residential-validation'
 
 const ADMIN_EMAIL = 'michael@sano.nz'
+const { TIER_MIN } = RESIDENTIAL_PRICING_VALIDATION_LIMITS
 
 function clean(input: unknown): ResidentialPricingSettings {
   // Run the input through a fresh fallback merge so we always emit a
@@ -35,8 +40,20 @@ function clean(input: unknown): ResidentialPricingSettings {
     return out as T
   }
 
+  const stdRate = num(raw.standard_hourly_rate, fb.standard_hourly_rate, TIER_MIN)
+  const winRate = num(raw.win_hourly_rate, fb.win_hourly_rate, TIER_MIN)
+  const premRate = num(raw.premium_hourly_rate, fb.premium_hourly_rate, TIER_MIN)
+  const tier =
+    raw.default_pricing_tier === 'win' || raw.default_pricing_tier === 'premium'
+      ? raw.default_pricing_tier
+      : 'standard'
+
   return {
-    default_hourly_rate: num(raw.default_hourly_rate, fb.default_hourly_rate, 1),
+    default_hourly_rate: stdRate,
+    win_hourly_rate:      winRate,
+    standard_hourly_rate: stdRate,
+    premium_hourly_rate:  premRate,
+    default_pricing_tier: tier,
     service_fee:          num(raw.service_fee, fb.service_fee, 0),
     minimum_job_hours:    num(raw.minimum_job_hours, fb.minimum_job_hours, 0),
     buffer_standard:      num(raw.buffer_standard, fb.buffer_standard, 0),
@@ -64,6 +81,13 @@ export async function saveResidentialPricingSettings(
   if (user.email !== ADMIN_EMAIL) return { error: 'Admin only.' }
 
   const next = clean(input)
+
+  // Server-side validation. UI also blocks save on the same rules,
+  // but we don't trust the client.
+  const issues = validateResidentialPricingSettings(next)
+  if (issues.length > 0) {
+    return { error: issues[0].message }
+  }
 
   const { error } = await supabase
     .from('pricing_residential_settings')

@@ -150,6 +150,7 @@ export function NewQuoteForm({
   const [override, setOverride] = useState<OverridePanelValue>({
     is_price_overridden: false,
     override_price: '',
+    override_hours: '',
     override_reason: '',
     override_confirmed: false,
   })
@@ -467,6 +468,13 @@ export function NewQuoteForm({
         override_price: override.is_price_overridden ? parseFloat(override.override_price) : null,
         override_reason: override.is_price_overridden ? override.override_reason.trim() : null,
         override_confirmed: override.override_confirmed,
+        // Phase residential-pricing-tiers — optional override hours.
+        // Only sent when the override is active AND the input has a
+        // value; the action treats null as "use estimated_hours".
+        override_hours: override.is_price_overridden && override.override_hours.trim()
+          ? (Number.isFinite(parseFloat(override.override_hours))
+              ? parseFloat(override.override_hours) : null)
+          : null,
         pricing_mode: eligible ? pricing.pricing_mode : undefined,
         estimated_hours: calc?.estimated_hours ?? engineResult?.estimated_hours ?? undefined,
         pricing_breakdown: eligible ? engineResult?.breakdown ?? undefined : undefined,

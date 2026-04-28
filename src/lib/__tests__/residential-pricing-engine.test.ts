@@ -132,27 +132,45 @@ describe('Override behaviour', () => {
   })
 })
 
-describe('Settings-driven engine', () => {
-  it('uses settings.default_hourly_rate when settings is passed', () => {
+describe('Settings-driven engine — per-tier rates', () => {
+  it('engine reads settings.standard_hourly_rate when mode is standard', () => {
     const customSettings = {
       ...FALLBACK_RESIDENTIAL_PRICING_SETTINGS,
-      default_hourly_rate: 100,
+      standard_hourly_rate: 100,
     }
     const r = calculateQuotePrice(baseInput, 'standard', undefined, customSettings)
     expect(r.breakdown?.hourly_rate).toBe(100)
   })
 
-  it('falls back to legacy mode-based rate when no settings argument', () => {
+  it('engine reads settings.win_hourly_rate when mode is win', () => {
+    const customSettings = {
+      ...FALLBACK_RESIDENTIAL_PRICING_SETTINGS,
+      win_hourly_rate: 60,
+    }
+    const r = calculateQuotePrice(baseInput, 'win', undefined, customSettings)
+    expect(r.breakdown?.hourly_rate).toBe(60)
+  })
+
+  it('engine reads settings.premium_hourly_rate when mode is premium', () => {
+    const customSettings = {
+      ...FALLBACK_RESIDENTIAL_PRICING_SETTINGS,
+      premium_hourly_rate: 95,
+    }
+    const r = calculateQuotePrice(baseInput, 'premium', undefined, customSettings)
+    expect(r.breakdown?.hourly_rate).toBe(95)
+  })
+
+  it('uses fallback default tier rate when no settings argument', () => {
     const r = calculateQuotePrice(baseInput, 'standard')
-    // Standard mode → $75 from HOURLY_RATES (legacy path)
+    // Standard tier defaults to $75 in FALLBACK_RESIDENTIAL_PRICING_SETTINGS.
     expect(r.breakdown?.hourly_rate).toBe(75)
   })
 
-  it('settings_signature changes when settings change', () => {
+  it('settings_signature changes when any tier rate changes', () => {
     const a = calculateQuotePrice(baseInput, 'standard')
     const b = calculateQuotePrice(baseInput, 'standard', undefined, {
       ...FALLBACK_RESIDENTIAL_PRICING_SETTINGS,
-      default_hourly_rate: 80,
+      standard_hourly_rate: 80,
     })
     expect(a.breakdown?.settings_signature).not.toBe(b.breakdown?.settings_signature)
   })

@@ -6,6 +6,7 @@ function defaultValue(overrides: Partial<OverridePanelValue> = {}): OverridePane
   return {
     is_price_overridden: false,
     override_price: '',
+    override_hours: '',
     override_reason: '',
     override_confirmed: false,
     ...overrides,
@@ -43,6 +44,7 @@ describe('OverridePanel', () => {
     expect(handle).toHaveBeenCalledWith({
       is_price_overridden: false,
       override_price: '250',
+      override_hours: '',
       override_reason: 'Negotiated',
       override_confirmed: true,
     })
