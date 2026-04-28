@@ -2,9 +2,15 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
+import { assertQuoteConvertible } from '@/lib/quote-conversion-guard'
 
 export async function convertToInvoice(quoteId: string) {
   const supabase = createClient()
+
+  // Phase 5.5.16 — refuse to convert if the quote is already converted
+  // OR a live invoice already exists for it.
+  const guard = await assertQuoteConvertible(supabase, quoteId, 'invoice')
+  if ('error' in guard) return { error: guard.error }
 
   // 1. Load quote
   const { data: quote, error: qErr } = await supabase

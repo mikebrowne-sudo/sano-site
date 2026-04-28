@@ -75,6 +75,10 @@ export async function createJob(input: JobInput) {
       job_price: input.job_price ?? null,
       allowed_hours: input.allowed_hours ?? null,
       internal_notes: input.internal_notes || null,
+      // Phase 5.5.16 — be explicit. The CHECK only accepts
+      // 'not_required'|'on_account'|'invoice_sent'|'payment_pending'|'paid'.
+      // Manual jobs default to 'on_account' (matches the DB column default).
+      payment_status: 'on_account',
     })
     .select('id, job_number')
     .single()

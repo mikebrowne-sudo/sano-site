@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
-import { createQuote } from '../_actions'
+import { createQuote, findRecentQuotesForClient, type RecentQuoteMatch } from '../_actions'
+import Link from 'next/link'
+import { AlertTriangle } from 'lucide-react'
 import { AddressField } from '../../../_components/AddressField'
 import { QuoteBuilder, emptyBuilderState, type QuoteBuilderState } from '../../_components/QuoteBuilder'
 import { PricingSummary, emptyPricingSummaryValue, type PricingSummaryValue } from '../../_components/PricingSummary'
@@ -106,6 +108,13 @@ export function NewQuoteForm({
     clients.length > 0 ? 'existing' : 'new',
   )
   const [clientId, setClientId] = useState('')
+
+  // Phase 5.5.16 — duplicate-quote suspicion check.
+  // When the operator picks an existing client, fetch their recent live
+  // quotes (last 30 days). Display them as a non-blocking banner so the
+  // user sees their colleague's work before creating a near-duplicate.
+  const [recentQuotes, setRecentQuotes] = useState<RecentQuoteMatch[]>([])
+  const [duplicateDismissed, setDuplicateDismissed] = useState(false)
 
   // Phase 5.5.11 — NewClientModal state. The legacy inline 'new' tab
   // stays as a quick-snapshot fallback (writes a client server-side
@@ -248,6 +257,30 @@ export function NewQuoteForm({
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
+
+  // Phase 5.5.16 — fetch recent live quotes whenever the operator
+  // picks a client (debounced 300 ms). Address narrowing kicks in
+  // once the operator types a service address.
+  useEffect(() => {
+    if (!clientId) {
+      setRecentQuotes([])
+      setDuplicateDismissed(false)
+      return
+    }
+    let cancelled = false
+    const handle = setTimeout(async () => {
+      try {
+        const matches = await findRecentQuotesForClient({
+          client_id: clientId,
+          address: serviceAddress,
+        })
+        if (!cancelled) setRecentQuotes(matches)
+      } catch {
+        if (!cancelled) setRecentQuotes([])
+      }
+    }, 300)
+    return () => { cancelled = true; clearTimeout(handle) }
+  }, [clientId, serviceAddress])
 
   // One-shot seed from a commercial calc (read-and-map only; no recalc).
   // Runs once on mount when `calc` is present.
@@ -478,6 +511,57 @@ export function NewQuoteForm({
             >
               <UserPlus size={14} /> + New client
             </button>
+          </div>
+        )}
+
+        {/* Phase 5.5.16 — duplicate-quote suspicion banner. Shows when
+            the chosen client has live quotes in the last 30 days.
+            Operator can dismiss + continue, or click through to review. */}
+        {clientId && recentQuotes.length > 0 && !duplicateDismissed && (
+          <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3">
+            <div className="flex items-start gap-2 text-amber-900">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden />
+              <div className="text-sm flex-1 min-w-0">
+                <div className="font-semibold">
+                  This client already has {recentQuotes.length} recent quote{recentQuotes.length === 1 ? '' : 's'} — check before creating another.
+                </div>
+                <ul className="mt-2 space-y-1">
+                  {recentQuotes.map((q) => (
+                    <li key={q.id} className="text-xs">
+                      <Link
+                        href={`/portal/quotes/${q.id}`}
+                        target="_blank"
+                        rel="noopener"
+                        className="inline-flex items-center gap-1.5 text-amber-900 hover:text-amber-950 underline-offset-2 hover:underline"
+                      >
+                        <span className="font-medium">{q.quote_number ?? '—'}</span>
+                        <span className="text-amber-800/80">·</span>
+                        <span className="capitalize">{q.status ?? '—'}</span>
+                        {q.service_address && (
+                          <>
+                            <span className="text-amber-800/80">·</span>
+                            <span className="truncate max-w-[280px]">{q.service_address}</span>
+                          </>
+                        )}
+                        {q.base_price != null && (
+                          <>
+                            <span className="text-amber-800/80">·</span>
+                            <span>${Number(q.base_price).toFixed(2)}</span>
+                          </>
+                        )}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  onClick={() => setDuplicateDismissed(true)}
+                  className="mt-2 text-xs font-medium text-amber-900 hover:text-amber-950 underline"
+                >
+                  Continue anyway
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

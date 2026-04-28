@@ -260,6 +260,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
             serviceAddress:     (quote.service_address as string | null) ?? null,
             scheduledCleanDate: (quote.scheduled_clean_date as string | null) ?? null,
             estimatedHours:     (quote.estimated_hours as number | null) ?? null,
+            allowedHours:       (quote as { allowed_hours?: number | null }).allowed_hours ?? null,
             paymentType:        ((quote.payment_type as 'cash_sale' | 'on_account' | null) ?? null),
             basePrice:          (quote.base_price as number | null) ?? null,
             contactId:          (quote as { contact_id?: string | null }).contact_id ?? null,
