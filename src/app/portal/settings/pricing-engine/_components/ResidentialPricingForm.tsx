@@ -13,8 +13,8 @@ import { Save, RotateCcw, Loader2, AlertCircle } from 'lucide-react'
 import {
   saveResidentialPricingSettings,
   resetResidentialPricingSettings,
-  validateResidentialPricingSettings,
 } from '../_actions-residential'
+import { validateResidentialPricingSettings } from '../_lib-residential-validation'
 import {
   FALLBACK_RESIDENTIAL_PRICING_SETTINGS,
   type ResidentialPricingSettings,
