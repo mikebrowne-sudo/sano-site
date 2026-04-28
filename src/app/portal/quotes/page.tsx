@@ -119,26 +119,50 @@ export default async function QuotesPage({
 
   const { data: quotes, error } = await query
 
-  // Phase 5.5.14 — for accepted quotes, resolve "has a downstream
-  // job/invoice already?" so the attention rules can suppress the
-  // "Ready for job" chip once the operator has acted.
-  const acceptedIds = (quotes ?? [])
-    .filter((q) => (q.status ?? '') === 'accepted')
-    .map((q) => q.id as string)
+  // Phase quote-flow-clarity: pull the linked job + invoice for every
+  // quote on the page (not just accepted ones), so the list can render
+  // a clickable "Job · INV" badge alongside the attention chips. The
+  // attention rules still need a "has a downstream record?" check —
+  // that's now derived from the same map.
+  const allQuoteIds = (quotes ?? []).map((q) => q.id as string)
 
-  const [{ data: relatedJobs }, { data: relatedInvoices }] = acceptedIds.length > 0
+  const [{ data: relatedJobs }, { data: relatedInvoices }] = allQuoteIds.length > 0
     ? await Promise.all([
-        supabase.from('jobs').select('quote_id').in('quote_id', acceptedIds).is('deleted_at', null),
-        supabase.from('invoices').select('quote_id').in('quote_id', acceptedIds).is('deleted_at', null),
+        supabase
+          .from('jobs')
+          .select('id, quote_id, job_number, status, scheduled_date')
+          .in('quote_id', allQuoteIds)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('invoices')
+          .select('id, quote_id, invoice_number, status, due_date')
+          .in('quote_id', allQuoteIds)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false }),
       ])
-    : [{ data: [] as { quote_id: string | null }[] }, { data: [] as { quote_id: string | null }[] }]
+    : [{ data: [] as Array<{ id: string; quote_id: string | null; job_number: string | null; status: string | null; scheduled_date: string | null }> },
+       { data: [] as Array<{ id: string; quote_id: string | null; invoice_number: string | null; status: string | null; due_date: string | null }> }]
 
-  const quotesWithJob = new Set(
-    (relatedJobs ?? []).map((r) => r.quote_id).filter((v): v is string => !!v),
-  )
-  const quotesWithInvoice = new Set(
-    (relatedInvoices ?? []).map((r) => r.quote_id).filter((v): v is string => !!v),
-  )
+  // First-write-wins per quote_id (the order_by created_at desc on
+  // the queries means the most-recent live record is the one we
+  // surface — typically the operator's working copy).
+  const jobByQuoteId = new Map<string, { id: string; job_number: string | null; status: string | null; scheduled_date: string | null }>()
+  for (const j of (relatedJobs ?? [])) {
+    if (j.quote_id && !jobByQuoteId.has(j.quote_id)) {
+      jobByQuoteId.set(j.quote_id, { id: j.id, job_number: j.job_number, status: j.status, scheduled_date: j.scheduled_date })
+    }
+  }
+  const invoiceByQuoteId = new Map<string, { id: string; invoice_number: string | null; status: string | null; due_date: string | null }>()
+  for (const i of (relatedInvoices ?? [])) {
+    if (i.quote_id && !invoiceByQuoteId.has(i.quote_id)) {
+      invoiceByQuoteId.set(i.quote_id, { id: i.id, invoice_number: i.invoice_number, status: i.status, due_date: i.due_date })
+    }
+  }
+
+  // Attention-rule helpers (preserved): just boolean lookups.
+  const quotesWithJob = new Set(jobByQuoteId.keys())
+  const quotesWithInvoice = new Set(invoiceByQuoteId.keys())
 
   if (error) {
     return (
@@ -187,6 +211,8 @@ export default async function QuotesPage({
       isTest: !!(q as { is_test?: boolean }).is_test,
       isArchived: !!(q as { deleted_at?: string | null }).deleted_at,
       attention,
+      linkedJob: jobByQuoteId.get(q.id as string) ?? null,
+      linkedInvoice: invoiceByQuoteId.get(q.id as string) ?? null,
     }
   })
 
@@ -325,6 +351,22 @@ export default async function QuotesPage({
                           {idx === 0 && (row.attention.reasons.length > 0 || row.attention.nextStep) && (
                             <div className="mt-1.5">
                               <AttentionChips reasons={row.attention.reasons} nextStep={row.attention.nextStep} size="xs" />
+                            </div>
+                          )}
+                          {idx === 0 && (row.linkedJob || row.linkedInvoice) && (
+                            <div className="mt-1.5 inline-flex flex-wrap gap-1.5 text-[11px] text-sage-600">
+                              {row.linkedJob && (
+                                <span className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 rounded-full px-2 py-0.5">
+                                  <span className="font-medium text-sage-800">Job {row.linkedJob.job_number ?? '—'}</span>
+                                  {row.linkedJob.status && <span className="text-sage-500">· {row.linkedJob.status.replace('_', ' ')}</span>}
+                                </span>
+                              )}
+                              {row.linkedInvoice && (
+                                <span className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 rounded-full px-2 py-0.5">
+                                  <span className="font-medium text-sage-800">Invoice {row.linkedInvoice.invoice_number ?? '—'}</span>
+                                  {row.linkedInvoice.status && <span className="text-sage-500">· {row.linkedInvoice.status}</span>}
+                                </span>
+                              )}
                             </div>
                           )}
                         </Link>

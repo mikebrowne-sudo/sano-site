@@ -103,9 +103,13 @@ export default async function JobsPage({
   // never changes. Settings only controls which columns we render.
   // Phase D.2 — exclude soft-deleted rows from every jobs query so
   // archived jobs never appear in any list or count.
+  // Phase quote-flow-clarity: join the source quote + linked invoice
+  // so the list can render "From QUO-XXXX" and "Invoice INV-XXXX"
+  // badges per row. The aliases (quotes:quote_id / invoices:invoice_id)
+  // pin the FK direction so PostgREST resolves the right relationship.
   let query = supabase
     .from('jobs')
-    .select('id, job_number, title, address, status, scheduled_date, scheduled_time, assigned_to, contractor_id, created_at, is_test, deleted_at, clients ( name, company_name )')
+    .select('id, job_number, title, address, status, scheduled_date, scheduled_time, assigned_to, contractor_id, quote_id, invoice_id, created_at, is_test, deleted_at, clients ( name, company_name ), source_quote:quotes!quote_id ( quote_number ), linked_invoice:invoices!invoice_id ( invoice_number, status )')
 
   // Live record rule: deleted_at IS NULL AND is_test = false unless
   // the operator has explicitly enabled show-archived/test.
@@ -141,7 +145,27 @@ export default async function JobsPage({
   if (contractorFilter) query = query.eq('contractor_id', contractorFilter)
 
   if (search) {
-    query = query.or(`job_number.ilike.%${search}%,title.ilike.%${search}%,address.ilike.%${search}%,assigned_to.ilike.%${search}%`)
+    // Phase quote-flow-clarity: extend search to include the source
+    // quote's quote_number. PostgREST's `or` clause can't filter on
+    // an embedded relation, so we do a side-query for matching quote
+    // IDs first, then fold them into the main OR. Empty result → no
+    // ids appended (the existing job-field matches still apply).
+    const { data: quoteMatches } = await supabase
+      .from('quotes')
+      .select('id')
+      .ilike('quote_number', `%${search}%`)
+      .limit(50)
+    const quoteIds = (quoteMatches ?? []).map((q) => q.id as string)
+    const orClauses = [
+      `job_number.ilike.%${search}%`,
+      `title.ilike.%${search}%`,
+      `address.ilike.%${search}%`,
+      `assigned_to.ilike.%${search}%`,
+    ]
+    if (quoteIds.length > 0) {
+      orClauses.push(`quote_id.in.(${quoteIds.join(',')})`)
+    }
+    query = query.or(orClauses.join(','))
   }
 
   query = applyJobSort(query, activeSort.sortBy, activeSort.sortDirection)
@@ -164,6 +188,13 @@ export default async function JobsPage({
 
   const allRows = (jobs ?? []).map((j) => {
     const client = j.clients as unknown as { name: string; company_name: string | null } | null
+    // PostgREST returns embedded relations as arrays unless the FK is
+    // declared one-to-one. We pick element [0] for both source_quote
+    // and linked_invoice, since each is a true 1:1 from the job side.
+    const sourceQuoteRaw = (j as unknown as { source_quote?: Array<{ quote_number: string | null }> | { quote_number: string | null } | null }).source_quote ?? null
+    const sourceQuote = Array.isArray(sourceQuoteRaw) ? sourceQuoteRaw[0] ?? null : sourceQuoteRaw
+    const linkedInvoiceRaw = (j as unknown as { linked_invoice?: Array<{ invoice_number: string | null; status: string | null }> | { invoice_number: string | null; status: string | null } | null }).linked_invoice ?? null
+    const linkedInvoice = Array.isArray(linkedInvoiceRaw) ? linkedInvoiceRaw[0] ?? null : linkedInvoiceRaw
     const attention = getJobAttention({
       status: j.status,
       scheduled_date: j.scheduled_date as string | null,
@@ -185,6 +216,13 @@ export default async function JobsPage({
       isArchived: !!(j as { deleted_at?: string | null }).deleted_at,
       createdAt: j.created_at,
       attention,
+      // Phase quote-flow-clarity: source quote + linked invoice for
+      // the "From QUO-XXXX" / "Invoice INV-XXXX" badges. Both nullable.
+      quote_id: (j as { quote_id?: string | null }).quote_id ?? null,
+      quote_number: sourceQuote?.quote_number ?? null,
+      invoice_id: (j as { invoice_id?: string | null }).invoice_id ?? null,
+      invoice_number: linkedInvoice?.invoice_number ?? null,
+      invoice_status: linkedInvoice?.status ?? null,
     }
   })
 
@@ -340,6 +378,21 @@ export default async function JobsPage({
                           {idx === 0 && (row.attention.reasons.length > 0 || row.attention.nextStep) && (
                             <div className="mt-1.5">
                               <AttentionChips reasons={row.attention.reasons} nextStep={row.attention.nextStep} size="xs" />
+                            </div>
+                          )}
+                          {idx === 0 && (row.quote_number || row.invoice_number) && (
+                            <div className="mt-1.5 inline-flex flex-wrap gap-1.5 text-[11px] text-sage-600">
+                              {row.quote_number && (
+                                <span className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 rounded-full px-2 py-0.5">
+                                  From <span className="font-medium text-sage-800">{row.quote_number}</span>
+                                </span>
+                              )}
+                              {row.invoice_number && (
+                                <span className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 rounded-full px-2 py-0.5">
+                                  Invoice <span className="font-medium text-sage-800">{row.invoice_number}</span>
+                                  {row.invoice_status && <span className="text-sage-500">· {row.invoice_status}</span>}
+                                </span>
+                              )}
                             </div>
                           )}
                         </Link>

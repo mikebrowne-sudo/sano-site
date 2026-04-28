@@ -3,14 +3,16 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { assertQuoteConvertible } from '@/lib/quote-conversion-guard'
+import { computeInvoiceDueDate, resolveServiceDate } from '@/lib/invoice-dates'
 
 export async function convertToInvoice(quoteId: string) {
   const supabase = createClient()
 
   // Phase 5.5.16 — refuse to convert if the quote is already converted
-  // OR a live invoice already exists for it.
+  // OR a live invoice already exists for it. Phase quote-flow-clarity:
+  // forward guard.existing so the UI can link to the existing invoice.
   const guard = await assertQuoteConvertible(supabase, quoteId, 'invoice')
-  if ('error' in guard) return { error: guard.error }
+  if ('error' in guard) return { error: guard.error, existing: guard.existing }
 
   // 1. Load quote
   const { data: quote, error: qErr } = await supabase
@@ -40,20 +42,27 @@ export async function convertToInvoice(quoteId: string) {
     .eq('quote_id', quoteId)
     .order('sort_order')
 
-  // 3. Calculate due_date
+  // 3. Calculate dates via the shared helpers — same logic the
+  //    job→invoice path uses, plus client.payment_terms when present.
   const today = new Date().toISOString().slice(0, 10)
   const dateIssued = quote.date_issued || today
-  let dueDate: string | null = null
 
-  if ((quote.payment_type ?? 'cash_sale') === 'cash_sale' && quote.scheduled_clean_date) {
-    const d = new Date(quote.scheduled_clean_date)
-    d.setDate(d.getDate() - 1)
-    dueDate = d.toISOString().slice(0, 10)
-  } else if ((quote.payment_type ?? 'cash_sale') === 'on_account') {
-    const d = new Date(dateIssued)
-    d.setDate(d.getDate() + 14)
-    dueDate = d.toISOString().slice(0, 10)
-  }
+  const { data: client } = await supabase
+    .from('clients')
+    .select('payment_terms')
+    .eq('id', quote.client_id)
+    .maybeSingle()
+
+  const serviceDate = resolveServiceDate({
+    quote_scheduled_clean_date: (quote.scheduled_clean_date as string | null) ?? null,
+  })
+
+  const dueDate = computeInvoiceDueDate({
+    payment_type: quote.payment_type ?? 'cash_sale',
+    payment_terms: (client?.payment_terms as string | null) ?? null,
+    date_issued: dateIssued,
+    service_date: serviceDate,
+  })
 
   // 4. Create invoice
   const { data: invoice, error: iErr } = await supabase

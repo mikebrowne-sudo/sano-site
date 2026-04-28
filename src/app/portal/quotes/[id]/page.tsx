@@ -21,6 +21,7 @@ import { QuoteWorkflowBar } from './_components/QuoteWorkflowBar'
 import { QuoteStatusMessage } from './_components/QuoteStatusMessage'
 import { QuoteActionBar } from './_components/QuoteActionBar'
 import { QuoteNextStepPanel } from './_components/QuoteNextStepPanel'
+import { QuoteLinkedRecords } from './_components/QuoteLinkedRecords'
 import { BackToTopButton } from './_components/BackToTopButton'
 
 export default async function QuoteDetailPage({ params }: { params: { id: string } }) {
@@ -147,6 +148,29 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
     loadResidentialPricingSettings(supabase),
   ])
 
+  // Phase quote-flow-clarity: pull the linked job + invoice for this
+  // quote so the detail page can surface "Open job / Open invoice"
+  // alongside the next-step CTAs. Both are nullable; both queries
+  // are short and only run for one quote.
+  const [{ data: linkedJob }, { data: linkedInvoice }] = await Promise.all([
+    supabase
+      .from('jobs')
+      .select('id, job_number, status, scheduled_date')
+      .eq('quote_id', params.id)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('invoices')
+      .select('id, invoice_number, status, due_date')
+      .eq('quote_id', params.id)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
+
   // Phase 6 — load the version chain so we can render the history panel
   // and resolve where to point the "Open vN" CTA when this isn't the latest.
   const versionChain = await loadVersionChain(quote.id)
@@ -240,6 +264,26 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
 
       <QuoteWorkflowBar status={quoteStatus} itemCount={itemCount} />
       <QuoteStatusMessage status={quoteStatus} itemCount={itemCount} isArchived={isArchived} />
+
+      {/* Phase quote-flow-clarity: clickable linked-record badges
+          (job + invoice) — visible whenever either downstream record
+          exists, regardless of quote status. Operators can jump
+          straight to the related record without hunting in Jobs or
+          Invoices. */}
+      <QuoteLinkedRecords
+        job={linkedJob ? {
+          id: (linkedJob as { id: string }).id,
+          job_number: (linkedJob as { job_number: string | null }).job_number ?? null,
+          status: (linkedJob as { status: string | null }).status ?? null,
+          scheduled_date: (linkedJob as { scheduled_date: string | null }).scheduled_date ?? null,
+        } : null}
+        invoice={linkedInvoice ? {
+          id: (linkedInvoice as { id: string }).id,
+          invoice_number: (linkedInvoice as { invoice_number: string | null }).invoice_number ?? null,
+          status: (linkedInvoice as { status: string | null }).status ?? null,
+          due_date: (linkedInvoice as { due_date: string | null }).due_date ?? null,
+        } : null}
+      />
 
       {isArchived && <ArchivedBanner deletedAt={quote.deleted_at as string} />}
       {!quote.is_latest_version && latestVersion && (

@@ -82,6 +82,10 @@ const OCCUPANCY_OPTIONS = [
 export function JobSetupWizard({ seed, onCancel }: Props) {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  // Phase quote-flow-clarity: when the duplicate-conversion guard
+  // rejects with an existing record, surface a direct link to it
+  // instead of forcing the user to navigate manually.
+  const [existing, setExisting] = useState<{ kind: 'job' | 'invoice'; id: string; number: string | null } | null>(null)
 
   // Schedule
   const [scheduledDate,     setScheduledDate]     = useState<string>(seed.scheduledCleanDate ?? '')
@@ -180,8 +184,16 @@ export function JobSetupWizard({ seed, onCancel }: Props) {
 
     startTransition(async () => {
       try {
+        setExisting(null)
         const r = await createJobFromQuoteWithSetup(seed.quoteId, setup)
-        if (r && 'error' in r) setError(r.error)
+        if (r && 'error' in r) {
+          setError(r.error)
+          // When the guard rejects because a record already exists,
+          // capture its id + number so the next render shows a
+          // direct link to it.
+          const ex = (r as { existing?: { kind: 'job' | 'invoice'; id: string; number: string | null } }).existing
+          if (ex) setExisting(ex)
+        }
         // Success path redirects via NEXT_REDIRECT — execution does
         // not return here. Anything else is an error to display.
       } catch (err) {
@@ -332,7 +344,19 @@ export function JobSetupWizard({ seed, onCancel }: Props) {
           </Section>
 
           {error && (
-            <p className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">{error}</p>
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 space-y-2">
+              <p>{error}</p>
+              {existing && (
+                <a
+                  href={existing.kind === 'job' ? `/portal/jobs/${existing.id}` : `/portal/invoices/${existing.id}`}
+                  className="inline-flex items-center gap-1.5 bg-white border border-red-200 text-red-700 hover:bg-red-100 font-medium px-3 py-1.5 rounded-lg text-xs"
+                >
+                  Open existing {existing.kind === 'job' ? 'job' : 'invoice'}
+                  {existing.number ? ` ${existing.number}` : ''}
+                  &nbsp;→
+                </a>
+              )}
+            </div>
           )}
 
           <div className="flex items-center justify-end gap-2">
