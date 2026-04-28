@@ -83,15 +83,24 @@ export async function createInvoiceFromJob(jobId: string) {
   }
 
   // 2. Create invoice
+  // Phase 5.5.16 fix — earlier code wrote `base_price = job.job_price`
+  // AND inserted a single line_item with the SAME amount, so the
+  // invoice total formula (base + sum(items) - discount, consistent
+  // across detail / list / share / PDF / Stripe / email) double-
+  // counted to 2× the real price. Items in this codebase are
+  // ADDONS (see INV-0018: base $415 + waiting-time $60 = $475);
+  // a job-based invoice has no addons, so we just write base_price
+  // and skip the line item.
   const { data: invoice, error: iErr } = await supabase
     .from('invoices')
     .insert({
       client_id: job.client_id,
       quote_id: job.quote_id || null,
+      job_id: jobId,
       service_address: job.address || null,
       scheduled_clean_date: job.scheduled_date || null,
       base_price: job.job_price,
-      notes: job.description || null,
+      notes: job.description || job.title || null,
     })
     .select('id')
     .single()
@@ -100,22 +109,13 @@ export async function createInvoiceFromJob(jobId: string) {
     return { error: `Failed to create invoice: ${iErr?.message}` }
   }
 
-  // 3. Create invoice item
-  const label = job.title || 'Cleaning service'
-
-  await supabase
-    .from('invoice_items')
-    .insert({
-      invoice_id: invoice.id,
-      label,
-      price: job.job_price,
-      sort_order: 0,
-    })
-
-  // 4. Link invoice to job and set status to invoiced
+  // 3. Link invoice to job and set status to invoiced.
+  // No invoice_items insert — the work is captured in `notes` and
+  // shown via the "Base price" line on the invoice detail.
+  // payment_status moves to 'invoice_sent' to reflect the new state.
   await supabase
     .from('jobs')
-    .update({ invoice_id: invoice.id, status: 'invoiced' })
+    .update({ invoice_id: invoice.id, status: 'invoiced', payment_status: 'invoice_sent' })
     .eq('id', jobId)
 
   revalidatePath(`/portal/jobs/${jobId}`)
