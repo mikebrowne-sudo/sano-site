@@ -124,15 +124,20 @@ export const FALLBACK_RESIDENTIAL_PRICING_SETTINGS: ResidentialPricingSettings =
     'property_management.end_of_tenancy':  1.65,
     'property_management.pre_inspection':  1.2,
     'property_management.handover':        1.2,
-    'airbnb.turnover':                     0.9,
+    // Residential-pricing-tweaks: airbnb turnover normalised from 0.9
+    // → 1.0. Turnovers can be fast but presentation expectations
+    // remain — should not auto-discount.
+    'airbnb.turnover':                     1.0,
     'airbnb.deep_reset':                   1.25,
   },
 
   // Stored as multipliers (1.10 = +10%) for UI clarity. The engine
   // converts via (1.0 + ((m - 1.0) when capping)) — see the cap
   // formula in quote-pricing.ts.
+  // Residential-pricing-tweaks: average_condition normalised from
+  // 1.10 → 1.00. "Average" should be neutral, not an automatic uplift.
   condition_multipliers: {
-    average_condition:  1.10,
+    average_condition:  1.00,
     build_up_present:   1.20,
     furnished_property: 1.10,
     recently_renovated: 1.20,

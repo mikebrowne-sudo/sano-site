@@ -45,6 +45,7 @@ import {
 } from '../../_components/ContactBillingSection'
 import { computeCommercialPreview, type CommercialPreviewScopeRow, type ScopeFrequency } from '@/lib/commercialQuote'
 import type { PricingSettings } from '@/lib/pricingSettings'
+import type { ResidentialPricingSettings } from '@/lib/residentialPricingSettings'
 import { Plus, Trash2, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -172,6 +173,7 @@ export function EditQuoteForm({
   commercialDetails: commercialDetailsRow = null,
   commercialScope: commercialScopeRows = [],
   pricingSettings,
+  residentialPricingSettings,
 }: {
   quote: Quote
   clients: Client[]
@@ -182,6 +184,11 @@ export function EditQuoteForm({
    *  CommercialPricingPreview. Optional — falls back to in-code
    *  constants when absent. */
   pricingSettings?: PricingSettings
+  /** Residential pricing-engine knobs (jsonb singleton). Forwarded to
+   *  calculateQuotePrice so an edited quote uses the same admin-set
+   *  values as a new quote. Optional — engine falls back to the
+   *  code-defined defaults when absent. */
+  residentialPricingSettings?: ResidentialPricingSettings
 }) {
   // Client
   const [clientId, setClientId] = useState(quote.client_id)
@@ -303,7 +310,7 @@ export function EditQuoteForm({
   }, [isCommercial, commercialDetails, commercialScope])
 
   // ── Pricing engine (derived) ─────────────────────────────
-  const eligible = isPricingEligible(builder.service_category || null, builder.service_type_code || null)
+  const eligible = isPricingEligible(builder.service_category || null, builder.service_type_code || null, residentialPricingSettings)
   const serviceSelected = !!builder.service_category && !!builder.service_type_code
 
   const engineResult = useMemo(() => {
@@ -320,6 +327,8 @@ export function EditQuoteForm({
         x_per_week: builder.x_per_week ? parseInt(builder.x_per_week, 10) : null,
       },
       pricing.pricing_mode,
+      undefined,
+      residentialPricingSettings,
     )
     /* eslint-disable react-hooks/exhaustive-deps */
   }, [

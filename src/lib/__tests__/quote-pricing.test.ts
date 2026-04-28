@@ -191,8 +191,12 @@ describe('Scenario: 3-bed / 2-bath Deep + build-up + oven + fridge / Premium', (
   it('calculated_price = $804.00', () => { expect(result.calculated_price).toBeCloseTo(804, 2) })
 })
 
-describe('Scenario: minimum-hours activation — 1-bed Airbnb Turnover / well-maintained / Standard', () => {
-  // 2.0 × 0.9 × 1.0 = 1.8 → × freq 1.0 = 1.8 → max(2.0, 1.8) = 2.0 (min applied)
+describe('Scenario: 1-bed Airbnb Turnover / well-maintained / Standard', () => {
+  // Phase residential-pricing-tweaks: airbnb.turnover multiplier
+  // normalised from 0.9 → 1.0. The job no longer dips below the
+  // minimum-hours floor at 1 bed; pre_buffer matches the natural
+  // hours total, not the floor.
+  // 2.0 × 1.0 × 1.0 = 2.0 → × freq 1.0 = 2.0 → max(2.0, 2.0) = 2.0
   // × 1.05 = 2.10 → ceil 0.5 = 2.5 → × $75 + $25 = $212.50
   const result = calculateQuotePrice({
     service_category: 'airbnb',
@@ -203,10 +207,15 @@ describe('Scenario: minimum-hours activation — 1-bed Airbnb Turnover / well-ma
     addons_wording: [],
   }, 'standard')
 
-  it('minimum was applied', () => { expect(result.breakdown?.min_applied).toBe(true) })
+  it('minimum is NOT applied (hours land exactly on the floor)', () => {
+    expect(result.breakdown?.min_applied).toBe(false)
+  })
   it('final_hours = 2.5', () => { expect(result.estimated_hours).toBe(2.5) })
   it('calculated_price = $212.50', () => { expect(result.calculated_price).toBe(212.5) })
-  it('pre_buffer_hours = 2.0 (min floor)', () => { expect(result.breakdown?.pre_buffer_hours).toBe(2.0) })
+  it('pre_buffer_hours = 2.0', () => { expect(result.breakdown?.pre_buffer_hours).toBe(2.0) })
+  it('service_multiplier = 1.0 (post-normalisation)', () => {
+    expect(result.breakdown?.service_multiplier).toBe(1.0)
+  })
 })
 
 describe('Scenario: 4-bed / 3-bath PM End-of-Tenancy / furnished / Win', () => {
@@ -450,7 +459,7 @@ describe('Frequency multiplier mapping', () => {
 
 describe('Frequency: minimum floor applies AFTER frequency discount', () => {
   // 1×1 Airbnb Turnover / weekly / Standard
-  // 2.0 × 0.9 × 1.0 = 1.8 → × 0.75 weekly = 1.35 → max(2.0, 1.35) = 2.0 (min_applied=true)
+  // 2.0 × 1.0 × 1.0 = 2.0 → × 0.75 weekly = 1.5 → max(2.0, 1.5) = 2.0 (min_applied=true)
   // × 1.05 = 2.10 → ceil 0.5 = 2.5 → × $75 + $25 = $212.50
   const result = calculateQuotePrice({
     service_category: 'airbnb',
