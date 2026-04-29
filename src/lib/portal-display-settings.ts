@@ -31,12 +31,24 @@ export interface FieldDef {
 export const JOB_FIELDS: readonly FieldDef[] = [
   { key: 'job_number',     label: 'Job #',       contexts: ['list', 'detail'], sortable: true,  groupable: false },
   { key: 'title',          label: 'Title',       contexts: ['list', 'detail'] },
-  { key: 'client',         label: 'Client',      contexts: ['list', 'detail'], groupable: true },
+  // Phase list-view-uxp-2 PR-B: 'client' header relabelled to
+  // 'Customer'. The page renders company_name when present, falling
+  // back to the individual client name — see customerLabel logic on
+  // src/app/portal/jobs/page.tsx. The registry key stays `client`
+  // for backwards compatibility with stored display-settings rows.
+  { key: 'client',         label: 'Customer',    contexts: ['list', 'detail'], groupable: true },
   { key: 'company',        label: 'Company',     contexts: ['list', 'detail'], groupable: true },
   { key: 'address',        label: 'Address',     contexts: ['list', 'detail'] },
+  { key: 'value',          label: 'Value',       contexts: ['list', 'detail'], sortable: true },
   { key: 'assigned_to',    label: 'Contractor',  contexts: ['list', 'detail'], groupable: true },
   { key: 'status',         label: 'Status',      contexts: ['list', 'detail'], sortable: true,  groupable: true },
   { key: 'scheduled_date', label: 'Scheduled',   contexts: ['list', 'detail'], sortable: true,  groupable: true },
+  // Phase list-view-uxp-2 PR-B: linked-record columns. Same semantics
+  // as the equivalents on QUOTE_FIELDS / INVOICE_FIELDS — display-only
+  // (no sort, no group), rendered as a clickable chip when populated
+  // and a muted "No quote" / "Not created" label otherwise.
+  { key: 'linked_quote',   label: 'Quote',       contexts: ['list'] },
+  { key: 'linked_invoice', label: 'Invoice',     contexts: ['list'] },
 ] as const
 
 export const QUOTE_FIELDS: readonly FieldDef[] = [
@@ -126,9 +138,18 @@ export interface DisplaySettings {
 export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   jobs: {
     list: {
-      visibleFields: ['job_number', 'title', 'address', 'assigned_to', 'status', 'scheduled_date'],
+      // Phase list-view-uxp-2 PR-B: default visible columns.
+      // Order: Job # · Customer · Address · Value · Scheduled ·
+      // Contractor · Status · Quote · Invoice (+ Open → from primitive).
+      // 'title' and 'company' stay in the registry — operators can
+      // re-enable them via /portal/settings/display.
+      visibleFields: ['job_number', 'client', 'address', 'value', 'scheduled_date', 'assigned_to', 'status', 'linked_quote', 'linked_invoice'],
       primaryField: 'job_number',
-      secondaryField: 'title',
+      // Phase PR-B: secondaryField switches from 'title' to 'client'
+      // so the mobile card shows the customer below the job number.
+      // Aligns with the new desktop column order; 'title' is no
+      // longer in the default visible set.
+      secondaryField: 'client',
       sortBy: 'scheduled_date',
       sortDirection: 'asc',
       groupBy: 'none',
