@@ -43,6 +43,7 @@ const BUSINESS_TYPE_OPTIONS: { value: BusinessType; label: string }[] = [
   { value: 'office_commercial',    label: 'Office / commercial' },
   { value: 'retail_hospitality',   label: 'Retail / hospitality' },
   { value: 'body_corporate',       label: 'Body corporate / facilities' },
+  { value: 'airbnb',               label: 'Airbnb / short-stay host' },
   { value: 'other',                label: 'Other' },
 ]
 
