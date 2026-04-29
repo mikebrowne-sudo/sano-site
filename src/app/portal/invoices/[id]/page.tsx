@@ -8,6 +8,7 @@ import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
 import { ArchiveInvoiceButton } from './_components/ArchiveInvoiceButton'
 import { InvoiceJobButton } from './_components/InvoiceJobButton'
 import { InvoiceLinkBanner } from './_components/InvoiceLinkBanner'
+import { InvoiceLinkedRecords } from './_components/InvoiceLinkedRecords'
 import { LifecycleActions } from '../../_components/LifecycleActions'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
 import { firstName } from '@/lib/doc-helpers'
@@ -63,7 +64,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
   if (error || !invoice) notFound()
 
-  const [{ data: clientRecord }, { data: linkedJob }, { data: candidateJobs }] = await Promise.all([
+  const [{ data: clientRecord }, { data: linkedJob }, { data: linkedQuote }, { data: candidateJobs }] = await Promise.all([
     supabase
       .from('clients')
       .select('name, email')
@@ -71,9 +72,19 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       .single(),
     supabase
       .from('jobs')
-      .select('id, job_number, status')
+      .select('id, job_number, status, scheduled_date')
       .eq('invoice_id', params.id)
       .maybeSingle(),
+    // Phase 1 follow-up: fetch the source quote for the linked-record
+    // strip near the header. invoice.quote_id is the one-way pointer
+    // populated by both convertToInvoice and createInvoiceFromJob.
+    invoice.quote_id
+      ? supabase
+          .from('quotes')
+          .select('id, quote_number, status')
+          .eq('id', invoice.quote_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
     // Phase 5.5.10 — for the unlinked-invoice banner: jobs that belong
     // to the same client and aren't already attached to another invoice.
     supabase
@@ -133,14 +144,27 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         </div>
       )}
 
+      {/* Phase 1 follow-up: clickable linked-record chips (source
+          quote + linked job). Mirrors the QuoteLinkedRecords strip on
+          the quote detail page so the visual language stays consistent
+          across detail surfaces. Empty when no related records exist. */}
+      <InvoiceLinkedRecords
+        quote={linkedQuote ? {
+          id: (linkedQuote as { id: string }).id,
+          quote_number: (linkedQuote as { quote_number: string | null }).quote_number ?? null,
+          status: (linkedQuote as { status: string | null }).status ?? null,
+        } : null}
+        job={linkedJob ? {
+          id: (linkedJob as { id: string }).id,
+          job_number: (linkedJob as { job_number: string | null }).job_number ?? null,
+          status: (linkedJob as { status: string | null }).status ?? null,
+          scheduled_date: (linkedJob as { scheduled_date: string | null }).scheduled_date ?? null,
+        } : null}
+      />
+
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-3xl tracking-tight font-bold text-sage-800">{invoice.invoice_number}</h1>
-          {invoice.quote_id && (
-            <Link href={`/portal/quotes/${invoice.quote_id}`} className="text-sm text-sage-500 hover:text-sage-700">
-              From quote
-            </Link>
-          )}
         </div>
         <div className="flex items-center gap-3">
           <StatusBadge kind="invoice" status={displayStatus} size="md" />

@@ -1,12 +1,11 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
-import { Receipt, FlaskConical, Archive, ArrowRight } from 'lucide-react'
-import clsx from 'clsx'
+import { Receipt, FlaskConical, Archive } from 'lucide-react'
 import { StatusBadge } from '../_components/StatusBadge'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
-import { AttentionChips } from '../_components/AttentionChips'
-import { BulkSelectProvider, BulkSelectCheckbox, BulkSelectHeader } from '../_components/BulkSelect'
+import { BulkSelectProvider } from '../_components/BulkSelect'
+import { PortalListTable, type ListColumnDef } from '../_components/PortalListTable'
 import { getInvoiceAttention } from '@/lib/attention-rules'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
 import { loadDisplaySettings, INVOICE_FIELDS } from '@/lib/portal-display-settings'
@@ -104,14 +103,45 @@ export default async function InvoicesPage({
   }
 
   if (search) {
-    // Search across invoice number, client name (via embedded
-    // resource is not allowed in OR, so the client filter is folded
-    // in via the address column instead — clientName is filtered
-    // post-fetch). Side-query against quotes/jobs would inflate
-    // complexity; keeping search simple for Phase 1.
-    query = query.or(
-      `invoice_number.ilike.%${search}%,service_address.ilike.%${search}%,client_reference.ilike.%${search}%`,
-    )
+    // Phase 1 follow-up: side-queries resolve matching client / quote
+    // / job IDs first, then fold them into the OR clause. This is
+    // the same pattern the Jobs search uses for quote-number matches.
+    // Without it, the previous narrower OR (invoice_number /
+    // service_address / client_reference) dropped rows whose only
+    // match was on the embedded clients table — e.g. searching "Ghe"
+    // wouldn't find an invoice for "Ghee Cariappa".
+    const [{ data: clientMatches }, { data: quoteMatches }, { data: jobMatches }] = await Promise.all([
+      supabase
+        .from('clients')
+        .select('id')
+        .or(`name.ilike.%${search}%,company_name.ilike.%${search}%`)
+        .limit(50),
+      supabase
+        .from('quotes')
+        .select('id')
+        .ilike('quote_number', `%${search}%`)
+        .limit(50),
+      supabase
+        .from('jobs')
+        .select('id')
+        .ilike('job_number', `%${search}%`)
+        .limit(50),
+    ])
+
+    const clientIds = (clientMatches ?? []).map((c) => c.id as string)
+    const quoteIds  = (quoteMatches  ?? []).map((q) => q.id as string)
+    const jobIds    = (jobMatches    ?? []).map((j) => j.id as string)
+
+    const orClauses = [
+      `invoice_number.ilike.%${search}%`,
+      `service_address.ilike.%${search}%`,
+      `client_reference.ilike.%${search}%`,
+    ]
+    if (clientIds.length > 0) orClauses.push(`client_id.in.(${clientIds.join(',')})`)
+    if (quoteIds.length > 0)  orClauses.push(`quote_id.in.(${quoteIds.join(',')})`)
+    if (jobIds.length > 0)    orClauses.push(`job_id.in.(${jobIds.join(',')})`)
+
+    query = query.or(orClauses.join(','))
   }
 
   query = applyInvoiceSort(query, sort)
@@ -175,24 +205,13 @@ export default async function InvoicesPage({
     }
   })
 
-  // Client-name search (post-fetch — Supabase OR can't traverse the
-  // embedded clients table cleanly). Kept narrow: only kicks in when
-  // the operator typed something AND the existing OR didn't match.
-  let rows = activeTab === 'needs_attention'
+  // Phase 1 follow-up — the post-fetch client-name filter is no longer
+  // needed: the DB query above pre-resolves matching client / quote /
+  // job IDs and folds them into the OR clause, so any row that should
+  // match has already arrived.
+  const rows = activeTab === 'needs_attention'
     ? allRows.filter((r) => r.attention.needsAttention)
     : allRows
-  if (search) {
-    const lower = search.toLowerCase()
-    rows = rows.filter((r) =>
-      r.invoiceNumber.toLowerCase().includes(lower)
-      || r.clientName.toLowerCase().includes(lower)
-      || r.companyName.toLowerCase().includes(lower)
-      || r.address.toLowerCase().includes(lower)
-      || (r.clientReference?.toLowerCase().includes(lower) ?? false)
-      || r.linkedQuoteNumber?.toLowerCase().includes(lower)
-      || r.linkedJobNumber?.toLowerCase().includes(lower),
-    )
-  }
 
   const emptyCopy: Record<InvoiceTab, { title: string; sub: string }> = {
     needs_attention: { title: 'Nothing needs your attention right now.', sub: 'Drafts, overdue, and outstanding invoices surface here.' },
@@ -322,105 +341,54 @@ export default async function InvoicesPage({
         </div>
       ) : (
         <BulkSelectProvider entity="invoice" ids={rows.map((r) => r.id as string)} canCleanup={canCleanup}>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          {/* Desktop table — visible columns driven by display settings.
-              Phase list-view-uxp-1: cells are no longer wrapped in
-              a row-spanning <Link>; clickable elements (invoice
-              number, linked records, the Open action) carry their
-              own anchors so they go to the right destination. */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 text-left text-sage-600">
-                  {canCleanup && (
-                    <th className="pl-5 pr-2 py-3 w-8">
-                      <BulkSelectHeader />
-                    </th>
-                  )}
-                  {orderedVisible.map((k) => (
-                    <th key={k} className={`px-5 py-3 font-semibold ${alignFor(k)}`}>
-                      {INVOICE_FIELDS.find((f) => f.key === k)?.label ?? k}
-                    </th>
-                  ))}
-                  <th className="px-3 py-3 font-semibold text-right" aria-label="Open"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} className={clsx('border-b border-gray-50 last:border-0 hover:bg-gray-50/60 transition-colors', (row.isTest || row.isArchived) && 'opacity-60')}>
-                    {canCleanup && (
-                      <td className="pl-5 pr-2 py-3 align-top">
-                        <BulkSelectCheckbox id={row.id} label={`Select invoice ${row.invoiceNumber}`} />
-                      </td>
-                    )}
-                    {orderedVisible.map((k, idx) => (
-                      <td key={k} className={`px-5 py-3 align-top ${alignFor(k)}`}>
-                        {cell(row, k)}
-                        {idx === 0 && (row.attention.reasons.length > 0 || row.attention.nextStep) && (
-                          <div className="mt-1.5">
-                            <AttentionChips reasons={row.attention.reasons} nextStep={row.attention.nextStep} size="xs" />
-                          </div>
-                        )}
-                      </td>
-                    ))}
-                    <td className="px-3 py-3 text-right align-top">
-                      <Link
-                        href={`/portal/invoices/${row.id}`}
-                        className="inline-flex items-center gap-1 text-sage-500 hover:text-sage-800 text-xs font-medium"
-                        aria-label={`Open invoice ${row.invoiceNumber}`}
-                      >
-                        Open <ArrowRight size={12} />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile card view — primary + secondary fields driven by
-              display settings. Whole card is a link to the invoice;
-              linked-record chips remain inline labels in this view
-              (small screens prioritise tap-target simplicity). */}
-          <div className="md:hidden divide-y divide-gray-100">
-            {rows.map((row) => (
-              <div key={row.id} className={clsx('flex items-start gap-3 px-4 py-4 hover:bg-gray-50 transition-colors', (row.isTest || row.isArchived) && 'opacity-60')}>
-                {canCleanup && (
-                  <div className="pt-1">
-                    <BulkSelectCheckbox id={row.id} label={`Select invoice ${row.invoiceNumber}`} />
-                  </div>
-                )}
-                <Link href={`/portal/invoices/${row.id}`} className="block flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
-                    <span className="font-medium text-sage-800 inline-flex items-center gap-1.5">
-                      {rawCell(row, primaryKey)}
-                      {row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5"><FlaskConical size={9} /> Test</span>}
-                      {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
-                    </span>
-                    <StatusBadge kind="invoice" status={row.status} />
-                  </div>
-                  {(row.attention.reasons.length > 0 || row.attention.nextStep) && (
-                    <div className="mb-1">
-                      <AttentionChips reasons={row.attention.reasons} nextStep={row.attention.nextStep} size="xs" />
-                    </div>
-                  )}
-                  <div className="text-sage-600 text-sm">{rawCell(row, secondaryKey)}</div>
-                  {(row.linkedQuoteNumber || row.linkedJobNumber) && (
+          <PortalListTable<typeof rows[number]>
+            rows={rows}
+            columns={orderedVisible.map<ListColumnDef<typeof rows[number]>>((k) => ({
+              key: k,
+              label: INVOICE_FIELDS.find((f) => f.key === k)?.label ?? k,
+              align: alignFor(k) === 'text-right' ? 'right' : 'left',
+              cell: (row) => cell(row, k),
+            }))}
+            bulkSelect={{ canCleanup }}
+            rowHref={(row) => `/portal/invoices/${row.id}`}
+            rowLabel={(row) => `invoice ${row.invoiceNumber}`}
+            isDimmed={(row) => row.isTest || row.isArchived}
+            attention={(row) =>
+              (row.attention.reasons.length > 0 || row.attention.nextStep)
+                ? { reasons: row.attention.reasons, nextStep: row.attention.nextStep }
+                : null
+            }
+            mobile={{
+              label: (row) => `invoice ${row.invoiceNumber}`,
+              primary: (row) => (
+                <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+                  <span className="font-medium text-sage-800 inline-flex items-center gap-1.5">
+                    {rawCell(row, primaryKey)}
+                    {row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5"><FlaskConical size={9} /> Test</span>}
+                    {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
+                  </span>
+                  <StatusBadge kind="invoice" status={row.status} />
+                </div>
+              ),
+              secondary: (row) => rawCell(row, secondaryKey),
+              extra: (row) =>
+                (row.linkedQuoteNumber || row.linkedJobNumber)
+                  ? (
                     <div className="text-[11px] text-sage-500 mt-1">
                       {row.linkedQuoteNumber && <>From <span className="font-medium text-sage-700">{row.linkedQuoteNumber}</span></>}
                       {row.linkedQuoteNumber && row.linkedJobNumber && <span> · </span>}
                       {row.linkedJobNumber && <>Job <span className="font-medium text-sage-700">{row.linkedJobNumber}</span></>}
                     </div>
-                  )}
-                  <div className="flex items-center justify-between mt-2 text-xs text-sage-500">
-                    <span>{fmtDate(row.dateIssued)}</span>
-                    <span className="font-medium text-sage-800 text-sm">{fmt(row.total)}</span>
-                  </div>
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
+                  )
+                  : null,
+              meta: (row) => (
+                <>
+                  <span>{fmtDate(row.dateIssued)}</span>
+                  <span className="font-medium text-sage-800 text-sm">{fmt(row.total)}</span>
+                </>
+              ),
+            }}
+          />
         </BulkSelectProvider>
       )}
     </div>
