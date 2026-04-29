@@ -104,14 +104,45 @@ export default async function InvoicesPage({
   }
 
   if (search) {
-    // Search across invoice number, client name (via embedded
-    // resource is not allowed in OR, so the client filter is folded
-    // in via the address column instead — clientName is filtered
-    // post-fetch). Side-query against quotes/jobs would inflate
-    // complexity; keeping search simple for Phase 1.
-    query = query.or(
-      `invoice_number.ilike.%${search}%,service_address.ilike.%${search}%,client_reference.ilike.%${search}%`,
-    )
+    // Phase 1 follow-up: side-queries resolve matching client / quote
+    // / job IDs first, then fold them into the OR clause. This is
+    // the same pattern the Jobs search uses for quote-number matches.
+    // Without it, the previous narrower OR (invoice_number /
+    // service_address / client_reference) dropped rows whose only
+    // match was on the embedded clients table — e.g. searching "Ghe"
+    // wouldn't find an invoice for "Ghee Cariappa".
+    const [{ data: clientMatches }, { data: quoteMatches }, { data: jobMatches }] = await Promise.all([
+      supabase
+        .from('clients')
+        .select('id')
+        .or(`name.ilike.%${search}%,company_name.ilike.%${search}%`)
+        .limit(50),
+      supabase
+        .from('quotes')
+        .select('id')
+        .ilike('quote_number', `%${search}%`)
+        .limit(50),
+      supabase
+        .from('jobs')
+        .select('id')
+        .ilike('job_number', `%${search}%`)
+        .limit(50),
+    ])
+
+    const clientIds = (clientMatches ?? []).map((c) => c.id as string)
+    const quoteIds  = (quoteMatches  ?? []).map((q) => q.id as string)
+    const jobIds    = (jobMatches    ?? []).map((j) => j.id as string)
+
+    const orClauses = [
+      `invoice_number.ilike.%${search}%`,
+      `service_address.ilike.%${search}%`,
+      `client_reference.ilike.%${search}%`,
+    ]
+    if (clientIds.length > 0) orClauses.push(`client_id.in.(${clientIds.join(',')})`)
+    if (quoteIds.length > 0)  orClauses.push(`quote_id.in.(${quoteIds.join(',')})`)
+    if (jobIds.length > 0)    orClauses.push(`job_id.in.(${jobIds.join(',')})`)
+
+    query = query.or(orClauses.join(','))
   }
 
   query = applyInvoiceSort(query, sort)
@@ -175,24 +206,13 @@ export default async function InvoicesPage({
     }
   })
 
-  // Client-name search (post-fetch — Supabase OR can't traverse the
-  // embedded clients table cleanly). Kept narrow: only kicks in when
-  // the operator typed something AND the existing OR didn't match.
-  let rows = activeTab === 'needs_attention'
+  // Phase 1 follow-up — the post-fetch client-name filter is no longer
+  // needed: the DB query above pre-resolves matching client / quote /
+  // job IDs and folds them into the OR clause, so any row that should
+  // match has already arrived.
+  const rows = activeTab === 'needs_attention'
     ? allRows.filter((r) => r.attention.needsAttention)
     : allRows
-  if (search) {
-    const lower = search.toLowerCase()
-    rows = rows.filter((r) =>
-      r.invoiceNumber.toLowerCase().includes(lower)
-      || r.clientName.toLowerCase().includes(lower)
-      || r.companyName.toLowerCase().includes(lower)
-      || r.address.toLowerCase().includes(lower)
-      || (r.clientReference?.toLowerCase().includes(lower) ?? false)
-      || r.linkedQuoteNumber?.toLowerCase().includes(lower)
-      || r.linkedJobNumber?.toLowerCase().includes(lower),
-    )
-  }
 
   const emptyCopy: Record<InvoiceTab, { title: string; sub: string }> = {
     needs_attention: { title: 'Nothing needs your attention right now.', sub: 'Drafts, overdue, and outstanding invoices surface here.' },
