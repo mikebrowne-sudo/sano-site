@@ -1,14 +1,14 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { Briefcase, Plus, CalendarDays, FlaskConical, Archive } from 'lucide-react'
-import clsx from 'clsx'
 import { JobFilters } from './_components/JobFilters'
 import { StatusBadge } from '../_components/StatusBadge'
 import { loadDisplaySettings, JOB_FIELDS } from '@/lib/portal-display-settings'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
-import { AttentionChips } from '../_components/AttentionChips'
-import { BulkSelectProvider, BulkSelectCheckbox, BulkSelectHeader } from '../_components/BulkSelect'
+import { BulkSelectProvider } from '../_components/BulkSelect'
+import { PortalListTable, type ListColumnDef } from '../_components/PortalListTable'
 import { getJobAttention } from '@/lib/attention-rules'
+import { getJobStatus } from '@/lib/job-status'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
 
 // Phase 5.5.14 — job workflow tabs. Default 'needs_attention' is the
@@ -30,6 +30,10 @@ function parseJobTab(v: string | undefined): JobTab {
 function fmtDate(iso: string | null) {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function fmtCurrency(dollars: number) {
+  return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
 }
 
 function todayStr() {
@@ -54,6 +58,9 @@ function applyJobSort(query: any, sortBy: string, sortDirection: 'asc' | 'desc')
     case 'scheduled_date': return query.order('scheduled_date', { ascending, nullsFirst: false })
     case 'status':         return query.order('status',         { ascending })
     case 'job_number':     return query.order('job_number',     { ascending })
+    // Phase list-view-uxp-2 PR-B: sort by Value (job_price). Null
+    // prices sink so unpriced jobs don't push priced ones off-screen.
+    case 'value':          return query.order('job_price',      { ascending, nullsFirst: false })
     default:               return query.order('scheduled_date', { ascending: true, nullsFirst: false })
   }
 }
@@ -107,9 +114,13 @@ export default async function JobsPage({
   // so the list can render "From QUO-XXXX" and "Invoice INV-XXXX"
   // badges per row. The aliases (quotes:quote_id / invoices:invoice_id)
   // pin the FK direction so PostgREST resolves the right relationship.
+  // Phase list-view-uxp-2 PR-B: select job_price so the new Value
+  // column has data to render. Embedded source_quote / linked_invoice
+  // also extended with the foreign-key id so the linked-record chips
+  // can navigate straight to the right detail page.
   let query = supabase
     .from('jobs')
-    .select('id, job_number, title, address, status, scheduled_date, scheduled_time, assigned_to, contractor_id, quote_id, invoice_id, created_at, is_test, deleted_at, clients ( name, company_name ), source_quote:quotes!quote_id ( quote_number ), linked_invoice:invoices!invoice_id ( invoice_number, status )')
+    .select('id, job_number, title, address, status, scheduled_date, scheduled_time, assigned_to, contractor_id, quote_id, invoice_id, job_price, completed_at, started_at, created_at, is_test, deleted_at, clients ( name, company_name ), source_quote:quotes!quote_id ( id, quote_number ), linked_invoice:invoices!invoice_id ( id, invoice_number, status )')
 
   // Live record rule: deleted_at IS NULL AND is_test = false unless
   // the operator has explicitly enabled show-archived/test.
@@ -191,9 +202,9 @@ export default async function JobsPage({
     // PostgREST returns embedded relations as arrays unless the FK is
     // declared one-to-one. We pick element [0] for both source_quote
     // and linked_invoice, since each is a true 1:1 from the job side.
-    const sourceQuoteRaw = (j as unknown as { source_quote?: Array<{ quote_number: string | null }> | { quote_number: string | null } | null }).source_quote ?? null
+    const sourceQuoteRaw = (j as unknown as { source_quote?: Array<{ id: string; quote_number: string | null }> | { id: string; quote_number: string | null } | null }).source_quote ?? null
     const sourceQuote = Array.isArray(sourceQuoteRaw) ? sourceQuoteRaw[0] ?? null : sourceQuoteRaw
-    const linkedInvoiceRaw = (j as unknown as { linked_invoice?: Array<{ invoice_number: string | null; status: string | null }> | { invoice_number: string | null; status: string | null } | null }).linked_invoice ?? null
+    const linkedInvoiceRaw = (j as unknown as { linked_invoice?: Array<{ id: string; invoice_number: string | null; status: string | null }> | { id: string; invoice_number: string | null; status: string | null } | null }).linked_invoice ?? null
     const linkedInvoice = Array.isArray(linkedInvoiceRaw) ? linkedInvoiceRaw[0] ?? null : linkedInvoiceRaw
     const attention = getJobAttention({
       status: j.status,
@@ -201,15 +212,38 @@ export default async function JobsPage({
       contractor_id: j.contractor_id as string | null,
       assigned_to: j.assigned_to as string | null,
     })
+    // Phase list-view-uxp-2 PR-B: derived display status. The DB
+    // continues to store low-level transitions ('draft' / 'assigned'
+    // / 'in_progress' / 'completed' / 'invoiced'); the UI shows the
+    // operationally-honest equivalent ('Needs scheduling' / 'Scheduled'
+    // / 'In progress' / 'Completed' / 'Invoiced') via getJobStatus().
+    const displayStatus = getJobStatus({
+      scheduled_date: j.scheduled_date as string | null,
+      contractor_id: j.contractor_id as string | null,
+      assigned_to: j.assigned_to as string | null,
+      started_at: (j as { started_at?: string | null }).started_at ?? null,
+      completed_at: (j as { completed_at?: string | null }).completed_at ?? null,
+      invoice_id: (j as { invoice_id?: string | null }).invoice_id ?? null,
+    })
+    // Phase list-view-uxp-2 PR-B: customer-first label rule. Show
+    // company_name when present (B2B identity is more useful);
+    // fall back to the individual's name. Operators who want both
+    // can re-enable the 'company' column from /portal/settings/display.
+    const customerLabel = (client?.company_name && client.company_name.trim())
+      ? client.company_name
+      : (client?.name ?? '—')
     return {
       id: j.id,
       job_number: j.job_number ?? '—',
       title: j.title ?? '—',
       client: client?.name ?? '—',
+      customerLabel,
       company: client?.company_name ?? '—',
       address: j.address ?? '',
       assigned_to: j.assigned_to ?? '',
       status: j.status ?? 'draft',
+      displayStatus,
+      jobPrice: (j as { job_price?: number | null }).job_price ?? null,
       scheduled_date: j.scheduled_date,
       scheduledTime: j.scheduled_time as string | null,
       isTest: !!(j as { is_test?: boolean }).is_test,
@@ -218,9 +252,11 @@ export default async function JobsPage({
       attention,
       // Phase quote-flow-clarity: source quote + linked invoice for
       // the "From QUO-XXXX" / "Invoice INV-XXXX" badges. Both nullable.
-      quote_id: (j as { quote_id?: string | null }).quote_id ?? null,
+      // Phase list-view-uxp-2 PR-B: ids included so the chip cells
+      // can deep-link to the related record.
+      quote_id: sourceQuote?.id ?? (j as { quote_id?: string | null }).quote_id ?? null,
       quote_number: sourceQuote?.quote_number ?? null,
-      invoice_id: (j as { invoice_id?: string | null }).invoice_id ?? null,
+      invoice_id: linkedInvoice?.id ?? (j as { invoice_id?: string | null }).invoice_id ?? null,
       invoice_number: linkedInvoice?.invoice_number ?? null,
       invoice_status: linkedInvoice?.status ?? null,
     }
@@ -231,25 +267,67 @@ export default async function JobsPage({
     ? allRows.filter((r) => r.attention.needsAttention)
     : allRows
 
-  // Render-time helper: get cell text for a field key.
+  // Render-time helper: get cell content for a field key.
+  // Phase list-view-uxp-2 PR-B: cell-level navigation — job_number,
+  // linked_quote, linked_invoice each carry their own anchors so a
+  // click goes to the right destination (whole-row <Link> is gone).
   function cell(row: typeof rows[number], key: string): React.ReactNode {
     switch (key) {
       case 'job_number':     return (
-        <span className="font-medium text-sage-800 inline-flex items-center gap-1.5">
+        <Link
+          href={`/portal/jobs/${row.id}`}
+          className="font-medium text-sage-800 hover:underline inline-flex items-center gap-1.5"
+        >
           {row.job_number}
           {row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5"><FlaskConical size={9} /> Test</span>}
           {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
-        </span>
+        </Link>
       )
       case 'title':          return <span className="block max-w-[220px] truncate">{row.title}</span>
-      case 'client':         return row.client
+      // Phase list-view-uxp-2 PR-B: customer-first display.
+      case 'client':         return row.customerLabel === '—' ? <span className="text-sage-400">—</span> : row.customerLabel
       case 'company':        return row.company === '—' ? <span className="text-sage-400">—</span> : row.company
-      case 'address':        return row.address ? <span className="block max-w-[220px] truncate">{row.address}</span> : <span className="text-sage-400">—</span>
+      case 'address':        return row.address ? <span className="block max-w-[220px] truncate" title={row.address}>{row.address}</span> : <span className="text-sage-400">—</span>
+      case 'value':          return row.jobPrice != null
+                                  ? <span className="font-medium text-sage-800">{fmtCurrency(row.jobPrice)}</span>
+                                  : <span className="text-sage-400">—</span>
       case 'assigned_to':    return row.assigned_to || <span className="text-sage-300">Unassigned</span>
-      case 'status':         return <StatusBadge kind="job" status={row.status} />
-      case 'scheduled_date': return <>{fmtDate(row.scheduled_date)}{row.scheduledTime ? <span className="text-sage-400 ml-1.5">{row.scheduledTime}</span> : ''}</>
+      // Phase list-view-uxp-2 PR-B: derived display status.
+      case 'status':         return <StatusBadge kind="job" status={row.displayStatus} />
+      case 'scheduled_date': return row.scheduled_date
+                                  ? <>{fmtDate(row.scheduled_date)}{row.scheduledTime ? <span className="text-sage-400 ml-1.5">{row.scheduledTime}</span> : ''}</>
+                                  : <span className="text-sage-400">—</span>
+      case 'linked_quote':
+        if (row.quote_id && row.quote_number) {
+          return (
+            <Link
+              href={`/portal/quotes/${row.quote_id}`}
+              className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 hover:border-sage-200 hover:bg-sage-100 transition-colors rounded-full px-2 py-0.5 text-[12px] text-sage-700"
+            >
+              <span className="font-medium">{row.quote_number}</span>
+            </Link>
+          )
+        }
+        return <span className="text-sage-400 text-[12px]">No quote</span>
+      case 'linked_invoice':
+        if (row.invoice_id && row.invoice_number) {
+          return (
+            <Link
+              href={`/portal/invoices/${row.invoice_id}`}
+              className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 hover:border-sage-200 hover:bg-sage-100 transition-colors rounded-full px-2 py-0.5 text-[12px] text-sage-700"
+            >
+              <span className="font-medium">{row.invoice_number}</span>
+              {row.invoice_status && <span className="text-sage-500">· {row.invoice_status}</span>}
+            </Link>
+          )
+        }
+        return <span className="text-sage-400 text-[12px]">Not created</span>
       default:               return null
     }
+  }
+
+  function alignFor(key: string): 'left' | 'right' {
+    return key === 'value' ? 'right' : 'left'
   }
 
   // Resolve the visible-fields list against the registry order so
@@ -266,11 +344,14 @@ export default async function JobsPage({
     switch (key) {
       case 'job_number':     return row.job_number
       case 'title':          return row.title
-      case 'client':         return row.client
+      // Phase list-view-uxp-2 PR-B: mobile card 'client' slot also
+      // honours the customer-first label rule.
+      case 'client':         return row.customerLabel
       case 'company':        return row.company
       case 'address':        return row.address || '—'
+      case 'value':          return row.jobPrice != null ? fmtCurrency(row.jobPrice) : '—'
       case 'assigned_to':    return row.assigned_to || 'Unassigned'
-      case 'status':         return row.status
+      case 'status':         return row.displayStatus
       case 'scheduled_date': return fmtDate(row.scheduled_date)
       default:               return ''
     }
@@ -345,97 +426,78 @@ export default async function JobsPage({
         </div>
       ) : (
         <BulkSelectProvider entity="job" ids={rows.map((r) => r.id as string)} canCleanup={canCleanup}>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          {/* Desktop table — visible columns driven by display settings */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 text-left text-sage-600">
-                  {canCleanup && (
-                    <th className="pl-5 pr-2 py-3 w-8">
-                      <BulkSelectHeader />
-                    </th>
-                  )}
-                  {orderedVisible.map((k) => (
-                    <th key={k} className="px-5 py-3 font-semibold">
-                      {JOB_FIELDS.find((f) => f.key === k)?.label ?? k}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} className={clsx('border-b border-gray-50 last:border-0 group', (row.isTest || row.isArchived) && 'opacity-60')}>
-                    {canCleanup && (
-                      <td className="pl-5 pr-2 py-3 align-top">
-                        <BulkSelectCheckbox id={row.id as string} label={`Select job ${row.job_number}`} />
-                      </td>
+          <PortalListTable<typeof rows[number]>
+            rows={rows}
+            columns={orderedVisible.map<ListColumnDef<typeof rows[number]>>((k) => ({
+              key: k,
+              label: JOB_FIELDS.find((f) => f.key === k)?.label ?? k,
+              align: alignFor(k),
+              cell: (row) => cell(row, k),
+            }))}
+            bulkSelect={{ canCleanup }}
+            rowHref={(row) => `/portal/jobs/${row.id}`}
+            rowLabel={(row) => `job ${row.job_number}`}
+            isDimmed={(row) => row.isTest || row.isArchived}
+            attention={(row) =>
+              (row.attention.reasons.length > 0 || row.attention.nextStep)
+                ? { reasons: row.attention.reasons, nextStep: row.attention.nextStep }
+                : null
+            }
+            mobile={{
+              label: (row) => `job ${row.job_number}`,
+              primary: (row) => (
+                <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+                  <span className="font-medium text-sage-800 inline-flex items-center gap-1.5">
+                    {rawCell(row, primaryKey)}
+                    {row.isTest && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5">
+                        <FlaskConical size={9} /> Test
+                      </span>
                     )}
-                    {orderedVisible.map((k, idx) => (
-                      <td key={k} className="p-0 align-top">
-                        <Link href={`/portal/jobs/${row.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-700">
-                          {cell(row, k)}
-                          {idx === 0 && (row.attention.reasons.length > 0 || row.attention.nextStep) && (
-                            <div className="mt-1.5">
-                              <AttentionChips reasons={row.attention.reasons} nextStep={row.attention.nextStep} size="xs" />
-                            </div>
-                          )}
-                          {idx === 0 && (row.quote_number || row.invoice_number) && (
-                            <div className="mt-1.5 inline-flex flex-wrap gap-1.5 text-[11px] text-sage-600">
-                              {row.quote_number && (
-                                <span className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 rounded-full px-2 py-0.5">
-                                  From <span className="font-medium text-sage-800">{row.quote_number}</span>
-                                </span>
-                              )}
-                              {row.invoice_number && (
-                                <span className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 rounded-full px-2 py-0.5">
-                                  Invoice <span className="font-medium text-sage-800">{row.invoice_number}</span>
-                                  {row.invoice_status && <span className="text-sage-500">· {row.invoice_status}</span>}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </Link>
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile cards — primary + secondary from settings */}
-          <div className="md:hidden divide-y divide-gray-100">
-            {rows.map((row) => (
-              <div key={row.id} className={clsx('flex items-start gap-3 px-4 py-4 hover:bg-gray-50 transition-colors', (row.isTest || row.isArchived) && 'opacity-60')}>
-                {canCleanup && (
-                  <div className="pt-1">
-                    <BulkSelectCheckbox id={row.id as string} label={`Select job ${row.job_number}`} />
-                  </div>
-                )}
-                <Link href={`/portal/jobs/${row.id}`} className="block flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-medium text-sage-800">{rawCell(row, primaryKey)}</span>
-                  <StatusBadge kind="job" status={row.status} />
+                    {row.isArchived && !row.isTest && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5">
+                        <Archive size={9} /> Archived
+                      </span>
+                    )}
+                  </span>
+                  <StatusBadge kind="job" status={row.displayStatus} />
                 </div>
-                {(row.attention.reasons.length > 0 || row.attention.nextStep) && (
-                  <div className="mb-1">
-                    <AttentionChips reasons={row.attention.reasons} nextStep={row.attention.nextStep} size="xs" />
-                  </div>
-                )}
-                <div className="text-sage-700 text-sm">{rawCell(row, secondaryKey)}</div>
-                {visible.has('address') && primaryKey !== 'address' && secondaryKey !== 'address' && row.address && (
-                  <div className="text-sage-500 text-xs mt-1">{row.address}</div>
-                )}
-                <div className="flex items-center justify-between mt-2 text-xs text-sage-500">
+              ),
+              secondary: (row) => <span className="text-sage-700">{rawCell(row, secondaryKey)}</span>,
+              extra: (row) => (
+                <>
+                  {visible.has('address') && primaryKey !== 'address' && secondaryKey !== 'address' && row.address && (
+                    <div className="text-sage-500 text-xs mt-1">{row.address}</div>
+                  )}
+                  {(row.quote_number || row.invoice_number) && (
+                    <div className="mt-1.5 inline-flex flex-wrap gap-1.5 text-[11px] text-sage-600">
+                      {row.quote_number && (
+                        <span className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 rounded-full px-2 py-0.5">
+                          From <span className="font-medium text-sage-800">{row.quote_number}</span>
+                        </span>
+                      )}
+                      {row.invoice_number && (
+                        <span className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 rounded-full px-2 py-0.5">
+                          Invoice <span className="font-medium text-sage-800">{row.invoice_number}</span>
+                          {row.invoice_status && <span className="text-sage-500">· {row.invoice_status}</span>}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </>
+              ),
+              meta: (row) => (
+                <>
                   <span>{row.assigned_to || 'Unassigned'}</span>
-                  <span>{fmtDate(row.scheduled_date)}{row.scheduledTime ? ` ${row.scheduledTime}` : ''}</span>
-                </div>
-              </Link>
-              </div>
-            ))}
-          </div>
-        </div>
+                  <span>
+                    {fmtDate(row.scheduled_date)}
+                    {row.scheduledTime ? ` ${row.scheduledTime}` : ''}
+                    {row.jobPrice != null && <span className="ml-2 text-sage-700 font-medium">{fmtCurrency(row.jobPrice)}</span>}
+                  </span>
+                </>
+              ),
+            }}
+          />
         </BulkSelectProvider>
       )}
 

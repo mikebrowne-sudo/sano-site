@@ -123,22 +123,33 @@ export const JOB_STATUSES = [
   'in_progress',
   'completed',
   'invoiced',
+  // Phase list-view-uxp-2 PR-B: friendly derived statuses returned
+  // by getJobStatus() for list-view rendering. Stored DB values
+  // remain unchanged ('draft' / 'assigned' / 'in_progress' /
+  // 'completed' / 'invoiced'); these two extras exist purely for
+  // display via StatusBadge in derived-status surfaces.
+  'needs_scheduling',
+  'scheduled',
 ] as const
 
 export type JobStatus = (typeof JOB_STATUSES)[number]
 
 export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
-  draft:       'Draft',
-  assigned:    'Assigned',
-  in_progress: 'In progress',
-  completed:   'Completed',
-  invoiced:    'Invoiced',
+  draft:            'Draft',
+  assigned:         'Assigned',
+  in_progress:      'In progress',
+  completed:        'Completed',
+  invoiced:         'Invoiced',
+  needs_scheduling: 'Needs scheduling',
+  scheduled:        'Scheduled',
 }
 
 export const JOB_STATUS_STYLES: Record<JobStatus, string> = {
-  draft:       'bg-gray-100 text-gray-700',
-  assigned:    'bg-blue-50 text-blue-700',
-  in_progress: 'bg-blue-50 text-blue-700',
-  completed:   'bg-gray-100 text-gray-700',
-  invoiced:    'bg-sage-50 text-sage-700',
+  draft:            'bg-gray-100 text-gray-700',
+  assigned:         'bg-blue-50 text-blue-700',
+  in_progress:      'bg-blue-50 text-blue-700',
+  completed:        'bg-gray-100 text-gray-700',
+  invoiced:         'bg-sage-50 text-sage-700',
+  needs_scheduling: 'bg-amber-50 text-amber-800',
+  scheduled:        'bg-blue-50 text-blue-700',
 }
