@@ -15,7 +15,7 @@ import { revalidatePath } from 'next/cache'
 export type ClientType    = 'individual' | 'company'
 export type BusinessType  =
   | 'property_management' | 'construction' | 'office_commercial'
-  | 'retail_hospitality'  | 'body_corporate' | 'other'
+  | 'retail_hospitality'  | 'body_corporate' | 'airbnb' | 'other'
 export type LeadSource    = 'google' | 'social' | 'referral' | 'existing_client' | 'other'
 export type PaymentType   = 'prepaid' | 'on_account'
 export type PaymentTerms  = '7_days' | '14_days' | '20_of_month' | 'custom'
