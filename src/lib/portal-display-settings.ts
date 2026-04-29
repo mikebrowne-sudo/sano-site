@@ -50,11 +50,36 @@ export const QUOTE_FIELDS: readonly FieldDef[] = [
   { key: 'valid_until',      label: 'Valid until',      contexts: ['list', 'detail'], sortable: true },
   { key: 'created_at',       label: 'Created',          contexts: ['list', 'detail'], sortable: true },
   { key: 'client_reference', label: 'Client reference', contexts: ['list', 'detail'] },
+  // Phase list-view-uxp-1: linked-record columns. Not sortable
+  // because they live on a different table; not groupable for the
+  // same reason. The page's cell() helper renders the chip / Create
+  // CTA / muted "Not ready" label depending on data + eligibility.
+  { key: 'linked_job',       label: 'Linked job',       contexts: ['list'] },
+  { key: 'linked_invoice',   label: 'Linked invoice',   contexts: ['list'] },
+] as const
+
+// Phase list-view-uxp-1: invoices field registry. Mirrors the shape
+// of QUOTE_FIELDS / JOB_FIELDS. Extending DisplaySettings additively
+// — existing portal_settings rows that don't hold an `invoices` key
+// fall through mergeEntity to the DEFAULT below.
+export const INVOICE_FIELDS: readonly FieldDef[] = [
+  { key: 'invoice_number',   label: 'Invoice #',        contexts: ['list', 'detail'], sortable: true },
+  { key: 'client',           label: 'Client',           contexts: ['list', 'detail'], groupable: true },
+  { key: 'company',          label: 'Company',          contexts: ['list', 'detail'], groupable: true },
+  { key: 'address',          label: 'Address',          contexts: ['list', 'detail'] },
+  { key: 'status',           label: 'Status',           contexts: ['list', 'detail'], sortable: true,  groupable: true },
+  { key: 'total',            label: 'Total',            contexts: ['list', 'detail'], sortable: true },
+  { key: 'date_issued',      label: 'Issued',           contexts: ['list', 'detail'], sortable: true },
+  { key: 'due_date',         label: 'Due',              contexts: ['list', 'detail'], sortable: true },
+  { key: 'created_at',       label: 'Created',          contexts: ['list', 'detail'], sortable: true },
+  { key: 'linked_quote',     label: 'Linked quote',     contexts: ['list'] },
+  { key: 'linked_job',       label: 'Linked job',       contexts: ['list'] },
 ] as const
 
 // Set lookups for fast validation
-const JOB_FIELD_KEYS = new Set(JOB_FIELDS.map((f) => f.key))
-const QUOTE_FIELD_KEYS = new Set(QUOTE_FIELDS.map((f) => f.key))
+const JOB_FIELD_KEYS     = new Set(JOB_FIELDS.map((f) => f.key))
+const QUOTE_FIELD_KEYS   = new Set(QUOTE_FIELDS.map((f) => f.key))
+const INVOICE_FIELD_KEYS = new Set(INVOICE_FIELDS.map((f) => f.key))
 
 function fieldsForContext(defs: readonly FieldDef[], ctx: 'list' | 'detail'): string[] {
   return defs.filter((f) => f.contexts.includes(ctx)).map((f) => f.key)
@@ -93,6 +118,7 @@ export interface EntityDisplay {
 export interface DisplaySettings {
   jobs: EntityDisplay
   quotes: EntityDisplay
+  invoices: EntityDisplay
 }
 
 // ── Defaults ──────────────────────────────────────────────────────
@@ -113,7 +139,7 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   },
   quotes: {
     list: {
-      visibleFields: ['quote_number', 'client', 'address', 'status', 'date_issued', 'valid_until', 'total'],
+      visibleFields: ['quote_number', 'client', 'address', 'status', 'date_issued', 'valid_until', 'total', 'linked_job', 'linked_invoice'],
       primaryField: 'quote_number',
       secondaryField: 'client',
       sortBy: 'created_at',
@@ -122,6 +148,19 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
     },
     detail: {
       visibleFields: ['quote_number', 'client', 'company', 'address', 'status', 'total', 'date_issued', 'valid_until'],
+    },
+  },
+  invoices: {
+    list: {
+      visibleFields: ['invoice_number', 'client', 'status', 'date_issued', 'due_date', 'total', 'linked_quote', 'linked_job'],
+      primaryField: 'invoice_number',
+      secondaryField: 'client',
+      sortBy: 'created_at',
+      sortDirection: 'desc',
+      groupBy: 'none',
+    },
+    detail: {
+      visibleFields: ['invoice_number', 'client', 'company', 'address', 'status', 'total', 'date_issued', 'due_date'],
     },
   },
 }
@@ -210,8 +249,9 @@ function mergeEntity(
 export function mergeDisplaySettings(stored: unknown): DisplaySettings {
   const s = (stored && typeof stored === 'object') ? stored as Record<string, unknown> : {}
   return {
-    jobs:   mergeEntity(s.jobs,   JOB_FIELDS,   DEFAULT_DISPLAY_SETTINGS.jobs),
-    quotes: mergeEntity(s.quotes, QUOTE_FIELDS, DEFAULT_DISPLAY_SETTINGS.quotes),
+    jobs:     mergeEntity(s.jobs,     JOB_FIELDS,     DEFAULT_DISPLAY_SETTINGS.jobs),
+    quotes:   mergeEntity(s.quotes,   QUOTE_FIELDS,   DEFAULT_DISPLAY_SETTINGS.quotes),
+    invoices: mergeEntity(s.invoices, INVOICE_FIELDS, DEFAULT_DISPLAY_SETTINGS.invoices),
   }
 }
 
@@ -231,7 +271,7 @@ export function validateDisplayPayload(input: unknown):
 
 // ── Field exports for UI ──────────────────────────────────────────
 
-export { JOB_FIELD_KEYS, QUOTE_FIELD_KEYS, fieldsForContext, sortableKeys, groupableKeys }
+export { JOB_FIELD_KEYS, QUOTE_FIELD_KEYS, INVOICE_FIELD_KEYS, fieldsForContext, sortableKeys, groupableKeys }
 
 // ── Loader ────────────────────────────────────────────────────────
 
