@@ -46,9 +46,11 @@ export async function createJobAndInvoiceFromQuote(quoteId: string) {
   const supabase = createClient()
 
   // Phase 5.5.16 — refuse double-conversion. Either child existing
-  // (job OR invoice) blocks this combined action.
+  // (job OR invoice) blocks this combined action. Phase
+  // quote-flow-clarity: forward guard.existing so the UI can link
+  // to whichever record already exists.
   const guard = await assertQuoteConvertible(supabase, quoteId, 'both')
-  if ('error' in guard) return { error: guard.error }
+  if ('error' in guard) return { error: guard.error, existing: guard.existing }
 
   // 1. Load quote — both invoice fields + job-snapshot fields.
   const { data: quote, error: qErr } = await supabase

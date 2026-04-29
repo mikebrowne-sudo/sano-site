@@ -5,6 +5,14 @@
 // shared shapes without violating Next.js 14's "use server can only
 // export async functions" rule.
 
+import type { ExistingRecordRef } from '@/lib/quote-conversion-guard'
+
+/** Phase quote-flow-clarity: every conversion action that the
+ *  duplicate-conversion guard can reject returns this shape. The
+ *  optional `existing` ref carries the id + number of the live
+ *  downstream record so the UI can render an Open-existing CTA. */
+export type ConvertActionError = { error: string; existing?: ExistingRecordRef }
+
 export interface JobSetupInput {
   scheduled_date?: string | null    // ISO date 'YYYY-MM-DD'
   scheduled_time?: string | null    // free text 'HH:MM' or '08:30 AM'

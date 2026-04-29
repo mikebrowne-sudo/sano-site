@@ -29,11 +29,28 @@ export interface ConvertibleQuoteSnapshot {
   deleted_at: string | null
 }
 
+/** When the guard rejects because a downstream record already exists,
+ *  it surfaces the existing record's id + number so the caller can
+ *  render an "Open job" / "Open invoice" link instead of a dead-end
+ *  text error. The error message stays human-readable. */
+export interface ExistingRecordRef {
+  kind: 'job' | 'invoice'
+  id: string
+  number: string | null
+}
+
+export type GuardError = {
+  error: string
+  /** Populated when the rejection reason is "a child already exists".
+   *  UI uses this to render an Open-existing CTA. */
+  existing?: ExistingRecordRef
+}
+
 export async function assertQuoteConvertible(
   supabase: SB,
   quoteId: string,
   kind: ConversionKind,
-): Promise<{ ok: true; quote: ConvertibleQuoteSnapshot } | { error: string }> {
+): Promise<{ ok: true; quote: ConvertibleQuoteSnapshot } | GuardError> {
   // 1. Quote must exist and not be archived.
   const { data: quote, error: qErr } = await supabase
     .from('quotes')
@@ -45,40 +62,83 @@ export async function assertQuoteConvertible(
   if (!quote) return { error: 'Quote not found.' }
   if (quote.deleted_at) return { error: 'Cannot convert an archived quote.' }
 
-  // 2. Reject if the quote is already converted.
+  // 2. If the quote is already marked converted, look up the
+  //    downstream record so the caller can link straight to it.
+  //    We try job first, then invoice — the same precedence the
+  //    quote-detail UI uses.
   if (quote.status === 'converted') {
+    const existing = await findExistingChild(supabase, quoteId)
     return {
       error:
-        'This quote has already been converted. Open the linked job or invoice from the quote — creating another would duplicate the record.',
+        'This quote has already been converted. Open the linked record from the quote — creating another would duplicate it.',
+      ...(existing ? { existing } : {}),
     }
   }
 
-  // 3. Reject if the requested child already exists.
+  // 3. Reject if the requested child already exists. Surface its
+  //    id + number so the UI can render an Open-existing CTA.
   if (kind === 'job' || kind === 'both') {
     const { data: existingJobs, error: jErr } = await supabase
       .from('jobs')
-      .select('id')
+      .select('id, job_number')
       .eq('quote_id', quoteId)
       .is('deleted_at', null)
       .limit(1)
     if (jErr) return { error: `Job lookup failed: ${jErr.message}` }
     if (existingJobs && existingJobs.length > 0) {
-      return { error: 'A job already exists for this quote. Open it from the quote rather than creating another.' }
+      const j = existingJobs[0] as { id: string; job_number: string | null }
+      return {
+        error: 'A job already exists for this quote. Open it from the quote rather than creating another.',
+        existing: { kind: 'job', id: j.id, number: j.job_number ?? null },
+      }
     }
   }
 
   if (kind === 'invoice' || kind === 'both') {
     const { data: existingInvoices, error: iErr } = await supabase
       .from('invoices')
-      .select('id')
+      .select('id, invoice_number')
       .eq('quote_id', quoteId)
       .is('deleted_at', null)
       .limit(1)
     if (iErr) return { error: `Invoice lookup failed: ${iErr.message}` }
     if (existingInvoices && existingInvoices.length > 0) {
-      return { error: 'An invoice already exists for this quote. Open it from the quote rather than creating another.' }
+      const inv = existingInvoices[0] as { id: string; invoice_number: string | null }
+      return {
+        error: 'An invoice already exists for this quote. Open it from the quote rather than creating another.',
+        existing: { kind: 'invoice', id: inv.id, number: inv.invoice_number ?? null },
+      }
     }
   }
 
   return { ok: true, quote: quote as ConvertibleQuoteSnapshot }
+}
+
+/** Lookup helper used by the already-converted branch. Returns the
+ *  first downstream record (job preferred, invoice fallback). */
+async function findExistingChild(
+  supabase: SB,
+  quoteId: string,
+): Promise<ExistingRecordRef | null> {
+  const { data: job } = await supabase
+    .from('jobs')
+    .select('id, job_number')
+    .eq('quote_id', quoteId)
+    .is('deleted_at', null)
+    .limit(1)
+    .maybeSingle()
+  if (job) {
+    return { kind: 'job', id: (job as { id: string }).id, number: (job as { job_number: string | null }).job_number ?? null }
+  }
+  const { data: invoice } = await supabase
+    .from('invoices')
+    .select('id, invoice_number')
+    .eq('quote_id', quoteId)
+    .is('deleted_at', null)
+    .limit(1)
+    .maybeSingle()
+  if (invoice) {
+    return { kind: 'invoice', id: (invoice as { id: string }).id, number: (invoice as { invoice_number: string | null }).invoice_number ?? null }
+  }
+  return null
 }

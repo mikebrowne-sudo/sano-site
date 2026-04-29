@@ -63,10 +63,12 @@ export async function markJobReviewed(jobId: string) {
 export async function createInvoiceFromJob(jobId: string) {
   const supabase = createClient()
 
-  // 1. Load job
+  // 1. Load job — service date sources (completed_at preferred over
+  //    scheduled_date so a re-scheduled job invoices for the latest
+  //    date, not the original quoted one) + payment context.
   const { data: job, error: jErr } = await supabase
     .from('jobs')
-    .select('client_id, quote_id, invoice_id, title, description, address, scheduled_date, job_price')
+    .select('client_id, quote_id, invoice_id, title, description, address, scheduled_date, completed_at, job_price, payment_status')
     .eq('id', jobId)
     .single()
 
@@ -81,6 +83,39 @@ export async function createInvoiceFromJob(jobId: string) {
   if (job.job_price == null) {
     return { error: 'Job price must be set before creating an invoice.' }
   }
+
+  // Resolve the canonical service date once — used for both the
+  // invoice's scheduled_clean_date column and the due-date helper.
+  const { resolveServiceDate, computeInvoiceDueDate } = await import('@/lib/invoice-dates')
+  const serviceDate = resolveServiceDate({
+    job_completed_at: (job as { completed_at?: string | null }).completed_at ?? null,
+    job_scheduled_date: (job as { scheduled_date?: string | null }).scheduled_date ?? null,
+  })
+
+  // Pull the client's payment terms so the due date respects the
+  // configured terms. We also need the quote's payment_type when
+  // available — payment_type lives on the quote, not the job.
+  const [{ data: client }, { data: quote }] = await Promise.all([
+    supabase.from('clients').select('payment_type, payment_terms').eq('id', job.client_id).maybeSingle(),
+    job.quote_id
+      ? supabase.from('quotes').select('payment_type').eq('id', job.quote_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+  const paymentType = (quote?.payment_type as string | null)
+    ?? (client?.payment_type as string | null)
+    ?? 'on_account'
+  const paymentTerms = (client?.payment_terms as string | null) ?? null
+
+  // date_issued stays null at creation — it's set on Send. The due
+  // date is computed only when both date_issued and a known terms
+  // policy are available; otherwise it's left null so the invoice
+  // detail can render "Due on send" or similar fallback copy.
+  const dueDate = computeInvoiceDueDate({
+    payment_type: paymentType,
+    payment_terms: paymentTerms,
+    date_issued: null,
+    service_date: serviceDate,
+  })
 
   // 2. Create invoice
   // Phase 5.5.16 fix — earlier code wrote `base_price = job.job_price`
@@ -98,9 +133,15 @@ export async function createInvoiceFromJob(jobId: string) {
       quote_id: job.quote_id || null,
       job_id: jobId,
       service_address: job.address || null,
-      scheduled_clean_date: job.scheduled_date || null,
+      // Phase quote-flow-clarity: scheduled_clean_date now reflects
+      // the LATEST service date (completed_at ?? scheduled_date), not
+      // the originally quoted date. This keeps re-scheduled jobs'
+      // invoices honest.
+      scheduled_clean_date: serviceDate,
       base_price: job.job_price,
       notes: job.description || job.title || null,
+      payment_type: paymentType,
+      due_date: dueDate,
     })
     .select('id')
     .single()

@@ -19,7 +19,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { assertQuoteConvertible } from '@/lib/quote-conversion-guard'
-import type { JobSetupInput, ReadyContractor } from './_lib-job-setup'
+import type { JobSetupInput, ReadyContractor, ConvertActionError } from './_lib-job-setup'
 
 type ResidentialItemRow = {
   label: string | null
@@ -97,14 +97,16 @@ export async function getContractorRate(contractorId: string): Promise<{ hourly_
 export async function createJobFromQuoteWithSetup(
   quoteId: string,
   setup: JobSetupInput,
-): Promise<{ error: string } | void> {
+): Promise<ConvertActionError | void> {
   const supabase = createClient()
 
   // Phase 5.5.16 — refuse double-conversion. Catches the most common
   // duplication path: rapid double-click on the wizard "Create job"
-  // button or browser back+resubmit.
+  // button or browser back+resubmit. Phase quote-flow-clarity —
+  // surface guard.existing so the UI can render an "Open existing
+  // job" CTA instead of just a text error.
   const guard = await assertQuoteConvertible(supabase, quoteId, 'job')
-  if ('error' in guard) return { error: guard.error }
+  if ('error' in guard) return { error: guard.error, existing: guard.existing }
 
   const { data: quote, error: qErr } = await supabase
     .from('quotes')

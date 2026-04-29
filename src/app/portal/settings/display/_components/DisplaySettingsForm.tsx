@@ -7,7 +7,7 @@
 
 import { useState, useTransition } from 'react'
 import {
-  JOB_FIELDS, QUOTE_FIELDS, fieldsForContext, sortableKeys, groupableKeys,
+  JOB_FIELDS, QUOTE_FIELDS, INVOICE_FIELDS, fieldsForContext, sortableKeys, groupableKeys,
   type DisplaySettings, type EntityDisplay, type FieldDef,
 } from '@/lib/portal-display-settings'
 import { saveDisplaySettings, resetDisplaySettings } from '../_actions'
@@ -58,6 +58,9 @@ export function DisplaySettingsForm({
   function updateQuotes(next: EntityDisplay) {
     setSettings((s) => ({ ...s, quotes: next }))
   }
+  function updateInvoices(next: EntityDisplay) {
+    setSettings((s) => ({ ...s, invoices: next }))
+  }
 
   return (
     <div className="space-y-8">
@@ -89,6 +92,14 @@ export function DisplaySettingsForm({
         defs={QUOTE_FIELDS}
         value={settings.quotes}
         onChange={updateQuotes}
+      />
+
+      <EntitySection
+        title="Invoices"
+        description="How the Invoices list and detail pages display each invoice."
+        defs={INVOICE_FIELDS}
+        value={settings.invoices}
+        onChange={updateInvoices}
       />
 
       <div className="flex items-center justify-between gap-4 pt-2">

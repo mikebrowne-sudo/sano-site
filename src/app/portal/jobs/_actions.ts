@@ -131,15 +131,26 @@ interface UpdateJobInput extends JobInput {
 export async function updateJob(input: UpdateJobInput) {
   const supabase = createClient()
 
-  // Load current contractor_id to detect changes
+  // Load current snapshot to detect changes that need audit logging.
+  // Phase quote-flow-clarity: scheduled_date / scheduled_time are
+  // tracked via a `job.schedule_changed` audit_log row so an
+  // operator can reconstruct a job's schedule history.
   const { data: current } = await supabase
     .from('jobs')
-    .select('contractor_id')
+    .select('contractor_id, scheduled_date, scheduled_time, job_number')
     .eq('id', input.id)
     .single()
 
   const contractorChanged = !!input.contractor_id
     && input.contractor_id !== (current?.contractor_id ?? '')
+
+  const previousScheduledDate = (current?.scheduled_date as string | null) ?? null
+  const previousScheduledTime = (current?.scheduled_time as string | null) ?? null
+  const nextScheduledDate = input.scheduled_date || null
+  const nextScheduledTime = input.scheduled_time || null
+  const scheduleChanged =
+    previousScheduledDate !== nextScheduledDate
+    || previousScheduledTime !== nextScheduledTime
 
   if (contractorChanged) {
     const insuranceError = await checkContractorInsurance(supabase, input.contractor_id!)
@@ -171,6 +182,28 @@ export async function updateJob(input: UpdateJobInput) {
 
   if (error) {
     return { error: `Failed to update job: ${error.message}` }
+  }
+
+  // Phase quote-flow-clarity: schedule-change audit trail. Only
+  // written when the date or time actually moved — typing a value
+  // identical to the current row produces no log entry.
+  if (scheduleChanged) {
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('audit_log').insert({
+      actor_id: user?.id ?? null,
+      actor_role: 'staff',
+      action: 'job.schedule_changed',
+      entity_table: 'jobs',
+      entity_id: input.id,
+      before: {
+        scheduled_date: previousScheduledDate,
+        scheduled_time: previousScheduledTime,
+      },
+      after: {
+        scheduled_date: nextScheduledDate,
+        scheduled_time: nextScheduledTime,
+      },
+    })
   }
 
   // Replace worker assignments
