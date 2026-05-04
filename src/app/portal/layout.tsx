@@ -18,12 +18,12 @@ export default async function PortalLayout({ children }: { children: React.React
   }
 
   return (
-    <div className="flex min-h-screen bg-[#FAFBFC]">
+    <div className="flex min-h-screen bg-[#FAFBFC] print:block print:min-h-0 print:bg-white">
       <PortalSidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <PortalTopbar email={user.email} />
-        <main className="flex-1 p-4 md:p-10">
-          <div className="max-w-7xl mx-auto w-full">{children}</div>
+        <main className="flex-1 p-4 md:p-10 print:p-0">
+          <div className="max-w-7xl mx-auto w-full print:max-w-none">{children}</div>
         </main>
       </div>
     </div>

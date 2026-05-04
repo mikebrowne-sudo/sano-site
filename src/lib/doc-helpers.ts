@@ -46,11 +46,22 @@ export function buildServiceDescription(fields: {
 /**
  * Builds a meaningful pricing label from fields.
  * e.g. "Residential clean" instead of "Base price"
+ *
+ * Custom invoices supply a free-text service_description; when present,
+ * the first non-blank line wins (multi-line descriptions still render
+ * in full inside the dedicated Service Description section, so this
+ * just gives the pricing-table row a punchier label than "Service").
  */
 export function buildPricingLabel(fields: {
   property_category?: string | null
   type_of_clean?: string | null
+  service_description?: string | null
 }): string {
+  const desc = (fields.service_description ?? '').trim()
+  if (desc) {
+    const firstLine = desc.split('\n').map((l) => l.trim()).find((l) => l.length > 0)
+    if (firstLine) return firstLine
+  }
   if (fields.type_of_clean) {
     const clean = fields.type_of_clean.replace(/cleaning$/i, 'clean')
     return clean
