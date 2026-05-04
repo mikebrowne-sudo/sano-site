@@ -296,18 +296,8 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
           </div>
         </Section>
 
-        {/* Service description — custom-invoice override. Renders only
-            when populated. Standard quote/job invoices leave this null
-            and continue to render the structured Service block below. */}
-        {(invoice as { service_description?: string | null }).service_description && (
-          <Section title="Service description">
-            <p className="text-sage-800 text-sm whitespace-pre-wrap">
-              {(invoice as { service_description?: string | null }).service_description}
-            </p>
-          </Section>
-        )}
-
-        {/* Service details */}
+        {/* Service details (address, etc.) — render BEFORE the
+            description so the where comes before the what. */}
         {serviceLines.length > 0 && (
           <Section title="Service">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
@@ -318,6 +308,17 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
                 </div>
               ))}
             </div>
+          </Section>
+        )}
+
+        {/* Service description — custom-invoice override. Renders only
+            when populated. Standard quote/job invoices leave this null
+            and the structured Service block above carries the meaning. */}
+        {(invoice as { service_description?: string | null }).service_description && (
+          <Section title="Service description">
+            <p className="text-sage-800 text-sm whitespace-pre-wrap">
+              {(invoice as { service_description?: string | null }).service_description}
+            </p>
           </Section>
         )}
 

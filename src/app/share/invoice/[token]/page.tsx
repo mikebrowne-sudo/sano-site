@@ -104,16 +104,16 @@ export default async function PublicInvoicePage({ params, searchParams }: { para
 
           <section className="print-section">
             <h2 className="print-section-title">Service</h2>
-            {description && (
-              <div className="print-field">
-                <div className="print-field-label">Service Description</div>
-                <div className="print-field-value">{description}</div>
-              </div>
-            )}
             {invoice.service_address && (
               <div className="print-field">
                 <div className="print-field-label">Service Address</div>
                 <div className="print-field-value">{invoice.service_address}</div>
+              </div>
+            )}
+            {description && (
+              <div className="print-field">
+                <div className="print-field-label">Service Description</div>
+                <div className="print-field-value" style={{ whiteSpace: 'pre-wrap' }}>{description}</div>
               </div>
             )}
             {invoice.scheduled_clean_date && (
