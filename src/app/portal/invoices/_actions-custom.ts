@@ -89,6 +89,7 @@ export async function createCustomInvoice(input: CustomInvoiceFormInput): Promis
       date_issued: v.date_issued,
       due_date: v.due_date,
       service_address: v.service_address,
+      service_description: v.service_description,
       notes: v.notes,
       base_price: v.base_price,
       gst_included: v.gst_included,

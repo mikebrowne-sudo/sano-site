@@ -6,14 +6,22 @@ export interface CustomInvoiceFormInput {
   date_issued: string  // ISO yyyy-mm-dd
   due_date: string     // ISO yyyy-mm-dd
   service_address: string | null
-  notes: string
+  service_description: string  // required — customer-facing copy on the printed/shared invoice
+  notes: string                // optional supporting / internal copy
   base_price: number
   gst_included: boolean
   payment_type: CustomInvoicePaymentType
 }
 
+// After validation, optional free-text fields are normalised to
+// `null` when the input was blank or whitespace, matching how the
+// row will be persisted.
+export interface CustomInvoiceValidatedValue extends Omit<CustomInvoiceFormInput, 'notes'> {
+  notes: string | null
+}
+
 export type ValidationResult =
-  | { ok: true; value: CustomInvoiceFormInput }
+  | { ok: true; value: CustomInvoiceValidatedValue }
   | { ok: false; errors: Partial<Record<keyof CustomInvoiceFormInput, string>> }
 
 const INV_NUMBER_PATTERN = /^INV-\d{4,6}$/
@@ -48,9 +56,11 @@ export function validateCustomInvoiceForm(raw: CustomInvoiceFormInput): Validati
     errors.base_price = 'Base price must be zero or more.'
   }
 
-  if (!(raw.notes ?? '').trim()) {
-    errors.notes = 'Notes / description is required.'
+  if (!(raw.service_description ?? '').trim()) {
+    errors.service_description = 'Service description is required.'
   }
+
+  // notes is optional — supporting / internal copy only.
 
   if (!PAYMENT_TYPES.includes(raw.payment_type)) {
     errors.payment_type = 'Payment type must be cash_sale or on_account.'
@@ -59,13 +69,15 @@ export function validateCustomInvoiceForm(raw: CustomInvoiceFormInput): Validati
   if (Object.keys(errors).length > 0) {
     return { ok: false, errors }
   }
+  const trimmedNotes = (raw.notes ?? '').trim()
   return {
     ok: true,
     value: {
       ...raw,
       invoice_number: invNum,
       service_address: (raw.service_address ?? '').trim() || null,
-      notes: raw.notes.trim(),
+      service_description: raw.service_description.trim(),
+      notes: trimmedNotes.length > 0 ? trimmedNotes : null,
     },
   }
 }

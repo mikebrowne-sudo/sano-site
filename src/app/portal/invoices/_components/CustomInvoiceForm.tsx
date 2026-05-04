@@ -28,6 +28,7 @@ export function CustomInvoiceForm({ clients }: { clients: ClientOption[] }) {
   const [dateIssued, setDateIssued] = useState(today)
   const [dueDate, setDueDate] = useState(plus14ISO(today))
   const [serviceAddress, setServiceAddress] = useState('')
+  const [serviceDescription, setServiceDescription] = useState('')
   const [notes, setNotes] = useState('')
   const [basePrice, setBasePrice] = useState('')
   const [gstIncluded, setGstIncluded] = useState(true)
@@ -49,6 +50,7 @@ export function CustomInvoiceForm({ clients }: { clients: ClientOption[] }) {
       date_issued: dateIssued,
       due_date: dueDate,
       service_address: serviceAddress.trim() || null,
+      service_description: serviceDescription,
       notes,
       base_price: Number.isFinite(priceNum) ? priceNum : NaN,
       gst_included: gstIncluded,
@@ -152,15 +154,27 @@ export function CustomInvoiceForm({ clients }: { clients: ClientOption[] }) {
       </div>
 
       <div>
-        <label className={labelCls} htmlFor="notes">Description / notes</label>
+        <label className={labelCls} htmlFor="service_description">Service description</label>
+        <textarea
+          id="service_description"
+          className={inputCls + ' min-h-[140px]'}
+          placeholder="e.g. Two-bedroom end-of-tenancy clean including oven and fridge interior."
+          value={serviceDescription}
+          onChange={(e) => setServiceDescription(e.target.value)}
+        />
+        <p className="text-xs text-sage-600 mt-1">Customer-facing wording — appears on the printed invoice and the share link as the main description.</p>
+        {fieldErrors.service_description && <p className={errCls}>{fieldErrors.service_description}</p>}
+      </div>
+
+      <div>
+        <label className={labelCls} htmlFor="notes">Additional notes (optional)</label>
         <textarea
           id="notes"
-          className={inputCls + ' min-h-[140px]'}
-          placeholder="Wording that will appear on the printed/sent invoice."
+          className={inputCls + ' min-h-[100px]'}
+          placeholder="Internal notes or supporting wording. Renders in the Notes section if filled."
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
         />
-        <p className="text-xs text-sage-600 mt-1">Primary content field — this is where amended wording goes.</p>
         {fieldErrors.notes && <p className={errCls}>{fieldErrors.notes}</p>}
       </div>
 

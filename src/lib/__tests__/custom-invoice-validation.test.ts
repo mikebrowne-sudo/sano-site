@@ -6,7 +6,8 @@ const valid = {
   date_issued: '2026-01-15',
   due_date: '2026-01-29',
   service_address: '12 Test St',
-  notes: 'Service rendered.',
+  service_description: 'Two-bedroom end-of-tenancy clean including oven and fridge interior.',
+  notes: 'Internal: discount applied for repeat customer.',
   base_price: 450,
   gst_included: true,
   payment_type: 'on_account' as const,
@@ -48,10 +49,22 @@ describe('validateCustomInvoiceForm', () => {
     if (!result.ok) expect(result.errors.base_price).toMatch(/zero or more/i)
   })
 
-  it('rejects empty notes (dispute wording is the whole point)', () => {
+  it('accepts empty notes (notes is now optional supporting copy)', () => {
     const result = validateCustomInvoiceForm({ ...valid, notes: '   ' })
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.notes).toBeNull()
+  })
+
+  it('rejects empty service_description (this is the customer-facing wording)', () => {
+    const result = validateCustomInvoiceForm({ ...valid, service_description: '   ' })
     expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.errors.notes).toMatch(/required/i)
+    if (!result.ok) expect(result.errors.service_description).toMatch(/required/i)
+  })
+
+  it('trims whitespace on service_description', () => {
+    const result = validateCustomInvoiceForm({ ...valid, service_description: '  Trimmed copy.  ' })
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.service_description).toBe('Trimmed copy.')
   })
 
   it('rejects unknown payment_type', () => {
