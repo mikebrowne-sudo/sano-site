@@ -9,7 +9,7 @@ export function PortalSidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="hidden md:flex md:w-60 flex-col bg-sage-800 text-white min-h-screen border-r border-black/5">
+    <aside className="hidden md:flex md:w-60 flex-col bg-sage-800 text-white min-h-screen border-r border-black/5 print:hidden">
       <div className="px-5 py-6 border-b border-sage-700/60">
         <span className="font-display font-bold text-lg tracking-tight">Sano</span>
         <span className="text-sage-200 text-xs ml-2">Portal</span>
