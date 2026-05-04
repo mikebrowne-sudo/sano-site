@@ -29,7 +29,7 @@ export default async function PublicInvoicePage({ params, searchParams }: { para
     .select(`
       id, invoice_number, status, date_paid, date_issued, due_date,
       property_category, type_of_clean, frequency, scope_size,
-      service_address, scheduled_clean_date, notes,
+      service_address, scheduled_clean_date, notes, service_description,
       base_price, discount, gst_included, payment_type,
       clients ( name, company_name, service_address, phone, email )
     `)
@@ -53,7 +53,10 @@ export default async function PublicInvoicePage({ params, searchParams }: { para
   const subtotalExGst = invoice.gst_included ? lineTotal - gstAmount : lineTotal
   const total = invoice.gst_included ? lineTotal : lineTotal + gstAmount
 
-  const description = buildServiceDescription(invoice)
+  // Same override pattern as the print view — a custom invoice's
+  // service_description wins over the computed fallback.
+  const description = ((invoice as { service_description?: string | null }).service_description ?? '').trim()
+    || buildServiceDescription(invoice)
   const pricingLabel = buildPricingLabel(invoice)
   const isCashSale = (invoice.payment_type ?? 'cash_sale') === 'cash_sale'
 

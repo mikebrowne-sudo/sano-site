@@ -40,7 +40,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       .select(`
         id, invoice_number, quote_id, client_id, status,
         property_category, type_of_clean, service_type,
-        frequency, scope_size, service_address, notes,
+        frequency, scope_size, service_address, notes, service_description,
         base_price, discount, gst_included, payment_type, share_token,
         date_issued, due_date, date_paid,
         created_at,
@@ -295,6 +295,17 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             </div>
           </div>
         </Section>
+
+        {/* Service description — custom-invoice override. Renders only
+            when populated. Standard quote/job invoices leave this null
+            and continue to render the structured Service block below. */}
+        {(invoice as { service_description?: string | null }).service_description && (
+          <Section title="Service description">
+            <p className="text-sage-800 text-sm whitespace-pre-wrap">
+              {(invoice as { service_description?: string | null }).service_description}
+            </p>
+          </Section>
+        )}
 
         {/* Service details */}
         {serviceLines.length > 0 && (

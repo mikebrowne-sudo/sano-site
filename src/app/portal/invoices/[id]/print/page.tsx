@@ -23,7 +23,7 @@ export default async function PrintInvoicePage({ params }: { params: { id: strin
       .select(`
         id, invoice_number, status, date_issued, due_date,
         property_category, type_of_clean, frequency, scope_size,
-        service_address, scheduled_clean_date, notes,
+        service_address, scheduled_clean_date, notes, service_description,
         base_price, discount, gst_included, payment_type,
         contact_name, contact_email, contact_phone,
         accounts_contact_name, accounts_email,
@@ -49,7 +49,12 @@ export default async function PrintInvoicePage({ params }: { params: { id: strin
   const subtotalExGst = invoice.gst_included ? lineTotal - gstAmount : lineTotal
   const total = invoice.gst_included ? lineTotal : lineTotal + gstAmount
 
-  const description = buildServiceDescription(invoice)
+  // Mirrors the quote print's generated_scope override pattern: a
+  // custom invoice writes its own service_description; quote/job
+  // invoices leave it null and fall back to the structured-fields
+  // composer.
+  const description = ((invoice as { service_description?: string | null }).service_description ?? '').trim()
+    || buildServiceDescription(invoice)
   const pricingLabel = buildPricingLabel(invoice)
   const isCashSale = (invoice.payment_type ?? 'cash_sale') === 'cash_sale'
 
