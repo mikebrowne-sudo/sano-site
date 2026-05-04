@@ -14,6 +14,7 @@ import { getCleanupAccess } from '@/lib/cleanup-mode'
 import { firstName } from '@/lib/doc-helpers'
 import { StatusBadge } from '../../_components/StatusBadge'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
+import { CustomInvoiceBadge } from '../_components/CustomInvoiceBadge'
 import clsx from 'clsx'
 
 function fmt(dollars: number) {
@@ -39,7 +40,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       .select(`
         id, invoice_number, quote_id, client_id, status,
         property_category, type_of_clean, service_type,
-        frequency, scope_size, service_address, notes,
+        frequency, scope_size, service_address, notes, service_description,
         base_price, discount, gst_included, payment_type, share_token,
         date_issued, due_date, date_paid,
         created_at,
@@ -51,6 +52,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         job_id, source,
         deleted_at,
         is_test,
+        source,
         clients ( name, company_name )
       `)
       .eq('id', params.id)
@@ -163,8 +165,9 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       />
 
       <div className="flex items-center justify-between mb-4">
-        <div>
+        <div className="flex items-center gap-3">
           <h1 className="text-3xl tracking-tight font-bold text-sage-800">{invoice.invoice_number}</h1>
+          {(invoice as { source?: string | null }).source === 'custom' && <CustomInvoiceBadge size="md" />}
         </div>
         <div className="flex items-center gap-3">
           <StatusBadge kind="invoice" status={displayStatus} size="md" />
@@ -209,6 +212,16 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
           <p className="text-xs text-red-800 mt-0.5">
             Archived on {new Date(invoice.deleted_at).toLocaleString('en-NZ')}.
             Restore it from <strong>Settings → Archived Records</strong>.
+          </p>
+        </div>
+      )}
+
+      {(invoice as { source?: string | null }).source === 'custom'
+        && (displayStatus === 'sent' || displayStatus === 'paid' || displayStatus === 'overdue') && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 mb-6">
+          <p className="text-sm text-amber-900 font-semibold">Custom invoice — already {displayStatus}.</p>
+          <p className="text-xs text-amber-800 mt-0.5">
+            This is a custom (legacy) invoice. Edits won&apos;t notify the customer automatically — confirm any wording changes are reflected in the next send.
           </p>
         </div>
       )}
@@ -282,6 +295,17 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             </div>
           </div>
         </Section>
+
+        {/* Service description — custom-invoice override. Renders only
+            when populated. Standard quote/job invoices leave this null
+            and continue to render the structured Service block below. */}
+        {(invoice as { service_description?: string | null }).service_description && (
+          <Section title="Service description">
+            <p className="text-sage-800 text-sm whitespace-pre-wrap">
+              {(invoice as { service_description?: string | null }).service_description}
+            </p>
+          </Section>
+        )}
 
         {/* Service details */}
         {serviceLines.length > 0 && (

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
-import { Receipt, FlaskConical, Archive } from 'lucide-react'
+import { Receipt, FlaskConical, Archive, FilePlus2 } from 'lucide-react'
+import { CustomInvoiceBadge } from './_components/CustomInvoiceBadge'
 import { StatusBadge } from '../_components/StatusBadge'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
@@ -60,6 +61,8 @@ export default async function InvoicesPage({
   // Phase 5.5.14 — cleanup-mode gate.
   const cleanup = await getCleanupAccess(supabase)
   const canCleanup = cleanup.canCleanup
+  const { data: { user } } = await supabase.auth.getUser()
+  const isAdmin = user?.email === 'michael@sano.nz'
   const activeTab    = parseInvoiceTab(searchParams?.tab)
   const showArchived = canCleanup && searchParams?.show_archived === '1'
   const search       = searchParams?.q?.trim() ?? ''
@@ -81,7 +84,7 @@ export default async function InvoicesPage({
       id, invoice_number, status, base_price, discount,
       service_address, payment_type, client_reference,
       date_issued, due_date, created_at,
-      is_test, deleted_at,
+      is_test, deleted_at, source,
       clients ( name, company_name ),
       invoice_items ( price ),
       source_quote:quotes!quote_id ( id, quote_number ),
@@ -195,6 +198,7 @@ export default async function InvoicesPage({
       total,
       isTest: !!(inv as { is_test?: boolean }).is_test,
       isArchived: !!(inv as { deleted_at?: string | null }).deleted_at,
+      source: ((inv as { source?: string | null }).source ?? null) as string | null,
       attention,
       // Linked records (chips render when these are non-null).
       linkedQuoteId: sourceQuote?.id ?? null,
@@ -249,6 +253,7 @@ export default async function InvoicesPage({
             className="font-medium text-sage-800 hover:underline inline-flex items-center gap-1.5"
           >
             {row.invoiceNumber}
+            {row.source === 'custom' && <CustomInvoiceBadge />}
             {row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5"><FlaskConical size={9} /> Test</span>}
             {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
           </Link>
@@ -312,6 +317,15 @@ export default async function InvoicesPage({
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-sage-800 tracking-tight">Invoices</h1>
+        {isAdmin && (
+          <Link
+            href="/portal/invoices/custom/new"
+            className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
+          >
+            <FilePlus2 size={16} />
+            Create custom invoice
+          </Link>
+        )}
       </div>
 
       <ListLifecycleTabs
