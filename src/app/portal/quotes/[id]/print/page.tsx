@@ -2,8 +2,21 @@ import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
+import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 
-export const metadata: Metadata = { robots: 'noindex, nofollow' }
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('quotes')
+    .select('quote_number')
+    .eq('id', params.id)
+    .single()
+  const number = data?.quote_number ?? 'unknown'
+  return {
+    title: sanitizePdfFilename(`Sano Quote - ${number}`),
+    robots: 'noindex, nofollow',
+  }
+}
 
 function fmt(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
