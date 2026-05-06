@@ -4,6 +4,7 @@ import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
 import { AcceptQuote } from './_components/AcceptQuote'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { AutoPrint } from '../../_components/AutoPrint'
+import { SharePdfButton } from '../../_components/SharePdfButton'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
@@ -225,6 +226,12 @@ export default async function PublicQuotePage({ params, searchParams }: { params
               By accepting this quote you agree to our <a href="/share/service-agreement" target="_blank" rel="noopener noreferrer" style={{ color: '#076653', textDecoration: 'underline' }}>Service Agreement</a>.
             </p>
           </section>
+
+          {!isPdfRender && (
+            <div className="mt-6 flex justify-end">
+              <SharePdfButton href={`/api/share/quote/${params.token}/pdf`} />
+            </div>
+          )}
 
           {/* Quote acceptance */}
           {!isPdfRender && (
