@@ -34,9 +34,10 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-export default async function PublicInvoicePage({ params, searchParams }: { params: { token: string }; searchParams: { payment?: string; print?: string } }) {
+export default async function PublicInvoicePage({ params, searchParams }: { params: { token: string }; searchParams: { payment?: string; print?: string; pdf?: string } }) {
   const supabase = getServiceSupabase()
-  const autoPrint = searchParams?.print === '1'
+  const isPdfRender = searchParams?.pdf === '1'
+  const autoPrint = searchParams?.print === '1' && !isPdfRender
 
   const { data: invoice, error } = await supabase
     .from('invoices')
@@ -213,13 +214,15 @@ export default async function PublicInvoicePage({ params, searchParams }: { para
           </section>
 
           {/* Payment */}
-          <PayNowButton
-            shareToken={params.token}
-            status={invoice.status}
-            datePaid={invoice.date_paid}
-            paymentResult={searchParams.payment ?? null}
-            total={fmt(total)}
-          />
+          {!isPdfRender && (
+            <PayNowButton
+              shareToken={params.token}
+              status={invoice.status}
+              datePaid={invoice.date_paid}
+              paymentResult={searchParams.payment ?? null}
+              total={fmt(total)}
+            />
+          )}
 
         </div>
       </div>
