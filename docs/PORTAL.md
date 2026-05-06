@@ -10,6 +10,8 @@
 
 **Primary focus:** Phase 5.1 — Applicant pipeline polish. Final 9-status pipeline (new → reviewing → phone_screen → approved → onboarding → trial → ready_to_work, plus on_hold / rejected). Stage-action UI, trial scheduling, audit log. Next: 5.2 applicant→contractor conversion.
 
+**Recently shipped to branch:** Phase J — Quote & Invoice PDF (server-rendered, fail-fast email auto-attach). Pending Netlify deploy + production verification before "Current system status" treats it as live.
+
 *Convention: this section reflects the ONE active focus. Each major phase (Notifications, Payroll, Recurring, etc.) supports an "In Flight" subsection below its "shipped" section. Shipped sections remain unchanged; in-flight sections track real-time development state and update only at phase boundaries (push → PR → merge → verified).*
 
 ---
@@ -217,6 +219,40 @@ commit-level detail).
   Assign + Notify alongside the existing email.
 - Default templates seeded: contractor `job_assigned`, customer
   `booking_confirmation`. Both admin-editable.
+
+### Quote & Invoice PDF (Phase J)
+
+- Server-rendered PDF download for residential quotes and invoices
+  via Puppeteer (`puppeteer-core` + `@sparticuz/chromium`), reusing
+  the proposal-PDF pattern. Routes:
+  - `GET /api/quotes/[id]/pdf` (staff, residential only — commercial
+    returns 400 pointing at `/api/proposals/[id]/pdf`).
+  - `GET /api/invoices/[id]/pdf` (staff).
+  - `GET /api/share/quote/[token]/pdf` (public, by share token).
+  - `GET /api/share/invoice/[token]/pdf` (public).
+- Shared `src/lib/pdf/render-pdf.ts` helper hosts the Puppeteer
+  boot-navigate-capture plumbing; the existing proposal route
+  refactored to use it. Cookie shape switched from
+  `{ domain, path }` to `{ url }` so staff sessions also auth on
+  `localhost` during dev.
+- Filenames: `Sano Quote - QT-xxxx.pdf` and
+  `Sano Tax Invoice - INV-xxxx.pdf`, emitted with both `filename`
+  and RFC-5987 `filename*` forms in `Content-Disposition`.
+- New `?pdf=1` mode on the share pages (`/share/quote/[token]`,
+  `/share/invoice/[token]`): hides `<AcceptQuote>` /
+  `<PayNowButton>`, suppresses the existing `<AutoPrint>` mount,
+  and short-circuits the `sent → viewed` status promotion + audit
+  row on quote share renders so a Puppeteer render is never
+  mistaken for a real customer view.
+- Send Quote / Send Invoice emails now auto-attach the share-page
+  PDF with **fail-fast** semantics — if Puppeteer fails, the email
+  is not sent, the status does not flip, and the operator sees
+  "PDF generation failed, so the email was not sent. Please try
+  again."
+- Print-page metadata switched to async `generateMetadata` so the
+  browser tab title and Ctrl+P-saved filename match the same
+  convention. Page-break CSS (`break-inside: avoid`) added to all
+  four print/share stylesheets.
 
 ---
 
