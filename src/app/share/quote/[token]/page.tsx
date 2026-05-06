@@ -36,9 +36,10 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-export default async function PublicQuotePage({ params, searchParams }: { params: { token: string }; searchParams: { print?: string } }) {
+export default async function PublicQuotePage({ params, searchParams }: { params: { token: string }; searchParams: { print?: string; pdf?: string } }) {
   const supabase = getServiceSupabase()
-  const autoPrint = searchParams?.print === '1'
+  const isPdfRender = searchParams?.pdf === '1'
+  const autoPrint = searchParams?.print === '1' && !isPdfRender
 
   const { data: quote, error } = await supabase
     .from('quotes')
@@ -61,7 +62,7 @@ export default async function PublicQuotePage({ params, searchParams }: { params
   // write an audit row. Idempotent: only fires while status === 'sent'.
   // Internal portal views never set this status (they hit /portal/quotes/[id],
   // not the share route).
-  if (quote.status === 'sent') {
+  if (quote.status === 'sent' && !isPdfRender) {
     // Use the service-role client for the status flip + audit. The public
     // anon key can't satisfy the audit_log RLS policy, and the quotes
     // policy only allows status updates from authenticated staff.
@@ -226,7 +227,9 @@ export default async function PublicQuotePage({ params, searchParams }: { params
           </section>
 
           {/* Quote acceptance */}
-          <AcceptQuote shareToken={params.token} status={quote.status} acceptedAt={quote.accepted_at} />
+          {!isPdfRender && (
+            <AcceptQuote shareToken={params.token} status={quote.status} acceptedAt={quote.accepted_at} />
+          )}
 
         </div>
       </div>
