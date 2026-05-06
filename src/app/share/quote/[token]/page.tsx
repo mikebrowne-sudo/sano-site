@@ -4,8 +4,22 @@ import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
 import { AcceptQuote } from './_components/AcceptQuote'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { AutoPrint } from '../../_components/AutoPrint'
+import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 
-export const metadata: Metadata = { robots: 'noindex, nofollow' }
+export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
+  const supabase = getServiceSupabase()
+  const { data } = await supabase
+    .from('quotes')
+    .select('quote_number')
+    .eq('share_token', params.token)
+    .is('deleted_at', null)
+    .single()
+  const number = data?.quote_number ?? 'unknown'
+  return {
+    title: sanitizePdfFilename(`Sano Quote - ${number}`),
+    robots: 'noindex, nofollow',
+  }
+}
 
 // Phase 5.5.6 — share routes now read via the service-role client so we
 // can drop the wide-open public RLS on `clients`. The share_token in
