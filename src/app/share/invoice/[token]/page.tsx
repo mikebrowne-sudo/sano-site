@@ -4,6 +4,7 @@ import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
 import { PayNowButton } from './_components/PayNowButton'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { AutoPrint } from '../../_components/AutoPrint'
+import { SharePdfButton } from '../../_components/SharePdfButton'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
@@ -212,6 +213,12 @@ export default async function PublicInvoicePage({ params, searchParams }: { para
               By making payment you confirm acceptance of our <a href="/share/invoice-terms" target="_blank" rel="noopener noreferrer" style={{ color: '#076653', textDecoration: 'underline' }}>Service Terms</a>.
             </p>
           </section>
+
+          {!isPdfRender && (
+            <div className="mt-6 flex justify-end">
+              <SharePdfButton href={`/api/share/invoice/${params.token}/pdf`} />
+            </div>
+          )}
 
           {/* Payment */}
           {!isPdfRender && (
