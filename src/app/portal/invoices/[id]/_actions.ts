@@ -7,6 +7,7 @@ import { headers } from 'next/headers'
 import { sendNotification } from '@/lib/notifications/send'
 import { renderPdfFromUrl } from '@/lib/pdf/render-pdf'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
+import { computeInvoiceDueDate, resolveServiceDate } from '@/lib/invoice-dates'
 
 interface SendInvoiceInput {
   invoice_id: string
@@ -27,27 +28,77 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
     return { error: 'Recipient email is required.' }
   }
 
+  const supabase = createClient()
+
+  // Single upfront fetch — collect every column we'll need for date
+  // computation, PDF rendering, and the final status flip in one
+  // round-trip.
+  const { data: invoice } = await supabase
+    .from('invoices')
+    .select(
+      'share_token, invoice_number, date_issued, due_date, payment_type, scheduled_clean_date, client_id',
+    )
+    .eq('id', input.invoice_id)
+    .single()
+
+  if (!invoice?.share_token || !invoice?.invoice_number) {
+    return { error: 'PDF generation failed, so the email was not sent. Please try again.' }
+  }
+
+  // Stamp missing dates BEFORE rendering the PDF. The PDF is generated
+  // by Puppeteer hitting the share page, which reads these fields
+  // straight from the DB — render-then-stamp leaves the attachment
+  // showing blanks. due_date computation reuses the canonical helper
+  // from src/lib/invoice-dates so quote-conversion / send / Stripe
+  // checkout all agree on the formula.
+  const today = new Date().toISOString().slice(0, 10)
+  const effectiveDateIssued = (invoice.date_issued as string | null) || today
+
+  let effectiveDueDate: string | null = (invoice.due_date as string | null) ?? null
+  if (!effectiveDueDate) {
+    const { data: client } = await supabase
+      .from('clients')
+      .select('payment_terms')
+      .eq('id', invoice.client_id)
+      .maybeSingle()
+
+    effectiveDueDate = computeInvoiceDueDate({
+      payment_type: (invoice.payment_type as string | null) ?? 'cash_sale',
+      payment_terms: (client?.payment_terms as string | null) ?? null,
+      date_issued: effectiveDateIssued,
+      service_date: resolveServiceDate({
+        quote_scheduled_clean_date: (invoice.scheduled_clean_date as string | null) ?? null,
+      }),
+    })
+  }
+
+  const datePatch: Record<string, string> = {}
+  if (!invoice.date_issued) datePatch.date_issued = effectiveDateIssued
+  if (!invoice.due_date && effectiveDueDate) datePatch.due_date = effectiveDueDate
+
+  if (Object.keys(datePatch).length > 0) {
+    const { error: dateUpdErr } = await supabase
+      .from('invoices')
+      .update(datePatch)
+      .eq('id', input.invoice_id)
+    if (dateUpdErr) {
+      return {
+        error: 'PDF generation failed, so the email was not sent. Please try again.',
+        detail: dateUpdErr.message,
+      }
+    }
+  }
+
   // Phase J — render the share-page PDF and attach it. Fail-fast:
   // if rendering fails, do NOT send the email and do NOT flip status.
   const origin =
     process.env.NEXT_PUBLIC_SITE_URL ??
     `https://${headers().get('host') ?? 'sano.nz'}`
 
-  const supabase = createClient()
-  const { data: invoiceRow } = await supabase
-    .from('invoices')
-    .select('share_token, invoice_number')
-    .eq('id', input.invoice_id)
-    .single()
-
-  if (!invoiceRow?.share_token || !invoiceRow?.invoice_number) {
-    return { error: 'PDF generation failed, so the email was not sent. Please try again.' }
-  }
-
   let pdfBuffer: Buffer
   try {
     pdfBuffer = await renderPdfFromUrl(
-      `${origin}/share/invoice/${invoiceRow.share_token}?pdf=1`,
+      `${origin}/share/invoice/${invoice.share_token}?pdf=1`,
       {},
     )
   } catch (err) {
@@ -58,7 +109,7 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
     }
   }
 
-  const pdfFilename = `${sanitizePdfFilename(`Sano Tax Invoice - ${invoiceRow.invoice_number}`)}.pdf`
+  const pdfFilename = `${sanitizePdfFilename(`Sano Tax Invoice - ${invoice.invoice_number}`)}.pdf`
 
   const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -85,20 +136,11 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
     return { error: `Failed to send email: ${emailErr.message}` }
   }
 
-  const today = new Date().toISOString().slice(0, 10)
-
-  const { data: invoice } = await supabase
-    .from('invoices')
-    .select('date_issued')
-    .eq('id', input.invoice_id)
-    .single()
-
+  // Email sent → flip status. Dates are already stamped above, so
+  // they're not re-set here.
   const { error: updateErr } = await supabase
     .from('invoices')
-    .update({
-      status: 'sent',
-      date_issued: invoice?.date_issued || today,
-    })
+    .update({ status: 'sent' })
     .eq('id', input.invoice_id)
 
   if (updateErr) {

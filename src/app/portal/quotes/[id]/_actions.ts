@@ -225,11 +225,12 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
 
   const supabase = createClient()
 
-  // Load existing quote state first so we can preserve date_issued / valid_until
-  // and dedupe rapid double-clicks (same tab or concurrent tabs).
+  // Single upfront fetch — we need every field downstream. Combining
+  // also gives us a consistent snapshot: dedupe + share-token + dates
+  // are all read at the same moment.
   const { data: quote, error: loadErr } = await supabase
     .from('quotes')
-    .select('date_issued, valid_until, sent_at')
+    .select('date_issued, valid_until, sent_at, share_token, quote_number')
     .eq('id', input.quote_id)
     .single()
 
@@ -247,6 +248,36 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
     }
   }
 
+  if (!quote.share_token || !quote.quote_number) {
+    return { error: 'PDF generation failed, so the email was not sent. Please try again.' }
+  }
+
+  // Stamp missing dates BEFORE rendering the PDF. The PDF is generated
+  // by Puppeteer hitting the share page, which reads these fields
+  // straight from the DB — if we render first and stamp after, the
+  // attachment shows blank Date Issued / Valid Until.
+  const today = new Date().toISOString().slice(0, 10)
+  const effectiveIssued = (quote.date_issued as string | null) || today
+  const effectiveValidUntil =
+    (quote.valid_until as string | null) || addDaysISO(effectiveIssued, 30)
+
+  const datePatch: Record<string, string> = {}
+  if (!quote.date_issued) datePatch.date_issued = effectiveIssued
+  if (!quote.valid_until) datePatch.valid_until = effectiveValidUntil
+
+  if (Object.keys(datePatch).length > 0) {
+    const { error: dateUpdErr } = await supabase
+      .from('quotes')
+      .update(datePatch)
+      .eq('id', input.quote_id)
+    if (dateUpdErr) {
+      return {
+        error: 'PDF generation failed, so the email was not sent. Please try again.',
+        detail: dateUpdErr.message,
+      }
+    }
+  }
+
   // Phase J — render the share-page PDF and attach it. Fail-fast:
   // if rendering fails, do NOT send the email and do NOT flip status.
   // The customer's deliverable matches the share-link they receive.
@@ -254,20 +285,10 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
     process.env.NEXT_PUBLIC_SITE_URL ??
     `https://${headers().get('host') ?? 'sano.nz'}`
 
-  const { data: full } = await supabase
-    .from('quotes')
-    .select('share_token, quote_number')
-    .eq('id', input.quote_id)
-    .single()
-
-  if (!full?.share_token || !full?.quote_number) {
-    return { error: 'PDF generation failed, so the email was not sent. Please try again.' }
-  }
-
   let pdfBuffer: Buffer
   try {
     pdfBuffer = await renderPdfFromUrl(
-      `${origin}/share/quote/${full.share_token}?pdf=1`,
+      `${origin}/share/quote/${quote.share_token}?pdf=1`,
       {},
     )
   } catch (err) {
@@ -278,7 +299,7 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
     }
   }
 
-  const pdfFilename = `${sanitizePdfFilename(`Sano Quote - ${full.quote_number}`)}.pdf`
+  const pdfFilename = `${sanitizePdfFilename(`Sano Quote - ${quote.quote_number}`)}.pdf`
 
   const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -301,23 +322,21 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
     attachments: [{ filename: pdfFilename, content: pdfBuffer }],
   })
 
-  // Email failed → do NOT update the quote status.
+  // Email failed → do NOT update the quote status. The pre-render
+  // date stamps remain — they are correct values; the operator's
+  // retry will re-use them rather than recomputing.
   if (emailErr) {
     return { error: `Failed to send email: ${emailErr.message}` }
   }
 
-  // Email sent → update status and stamps.
-  const today = new Date().toISOString().slice(0, 10)
-  const effectiveIssued = quote.date_issued || today
-  const effectiveValidUntil = quote.valid_until || addDaysISO(effectiveIssued as string, 30)
+  // Email sent → flip status + stamp sent_at. Dates are already
+  // stamped above, so they're not re-set here.
   const sentAtIso = new Date().toISOString()
 
   const { error: updateErr } = await supabase
     .from('quotes')
     .update({
       status: 'sent',
-      date_issued: effectiveIssued,
-      valid_until: effectiveValidUntil,
       sent_at: sentAtIso,
     })
     .eq('id', input.quote_id)
