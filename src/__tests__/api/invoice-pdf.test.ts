@@ -68,3 +68,46 @@ describe('GET /api/invoices/[id]/pdf', () => {
     expect(cd).toContain("filename*=UTF-8''Sano%20Tax%20Invoice%20-%20INV-9001.pdf")
   })
 })
+
+import { GET as getShareInvoicePdf } from '@/app/api/share/invoice/[token]/pdf/route'
+
+jest.mock('@/lib/supabase-service', () => ({
+  getServiceSupabase: jest.fn(),
+}))
+import { getServiceSupabase } from '@/lib/supabase-service'
+const mockedService = getServiceSupabase as jest.Mock
+
+function shareStub(overrides: { invoice?: { invoice_number: string; deleted_at: string | null } | null } = {}) {
+  return {
+    from: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      single: jest.fn().mockResolvedValue({ data: overrides.invoice ?? null, error: overrides.invoice ? null : new Error('not found') }),
+    }),
+  }
+}
+
+function shareRequest(): any {
+  return { url: 'https://sano.nz/api/share/invoice/tok123/pdf', headers: { get: () => '' } }
+}
+
+describe('GET /api/share/invoice/[token]/pdf', () => {
+  beforeEach(() => {
+    mockedService.mockReset()
+    mockedRender.mockReset()
+  })
+
+  it('returns 404 when token unknown', async () => {
+    mockedService.mockReturnValue(shareStub({ invoice: null }))
+    expect((await getShareInvoicePdf(shareRequest(), { params: { token: 'tok123' } })).status).toBe(404)
+  })
+
+  it('returns 200 with Sano Tax Invoice filename', async () => {
+    mockedService.mockReturnValue(shareStub({ invoice: { invoice_number: 'INV-12', deleted_at: null } }))
+    mockedRender.mockResolvedValue(Buffer.from('PDF'))
+    const res = await getShareInvoicePdf(shareRequest(), { params: { token: 'tok123' } })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-disposition') ?? '').toContain('filename="Sano Tax Invoice - INV-12.pdf"')
+  })
+})
