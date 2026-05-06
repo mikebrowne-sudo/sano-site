@@ -101,5 +101,11 @@ describe('sendQuoteEmail — fail-fast PDF render', () => {
     expect(sendArgs.attachments).toEqual([
       { filename: 'Sano Quote - QT-99.pdf', content: Buffer.from('PDF-CONTENT') },
     ])
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'sent',
+        sent_at: expect.any(String),
+      }),
+    )
   })
 })
