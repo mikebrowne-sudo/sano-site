@@ -249,6 +249,14 @@ commit-level detail).
   is not sent, the status does not flip, and the operator sees
   "PDF generation failed, so the email was not sent. Please try
   again."
+- Send-flow ordering (regression-fixed 2026-05-07): any missing
+  `date_issued` / `valid_until` (quotes) or `date_issued` / `due_date`
+  (invoices) is computed and persisted via `UPDATE` **before** the
+  Puppeteer render, so the attachment always shows populated dates.
+  Invoice `due_date` reuses `computeInvoiceDueDate` from
+  `src/lib/invoice-dates` (no duplicate logic). Post-send `UPDATE`
+  only flips status (and `sent_at` on quotes); date columns are not
+  re-set.
 - Print-page metadata switched to async `generateMetadata` so the
   browser tab title and Ctrl+P-saved filename match the same
   convention. Page-break CSS (`break-inside: avoid`) added to all
