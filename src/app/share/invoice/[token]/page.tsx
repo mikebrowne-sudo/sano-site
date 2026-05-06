@@ -4,8 +4,22 @@ import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
 import { PayNowButton } from './_components/PayNowButton'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { AutoPrint } from '../../_components/AutoPrint'
+import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 
-export const metadata: Metadata = { robots: 'noindex, nofollow' }
+export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
+  const supabase = getServiceSupabase()
+  const { data } = await supabase
+    .from('invoices')
+    .select('invoice_number')
+    .eq('share_token', params.token)
+    .is('deleted_at', null)
+    .single()
+  const number = data?.invoice_number ?? 'unknown'
+  return {
+    title: sanitizePdfFilename(`Sano Tax Invoice - ${number}`),
+    robots: 'noindex, nofollow',
+  }
+}
 
 // Phase 5.5.6 — share routes now read via the service-role client so we
 // can drop the wide-open public RLS on `clients`. See the matching
