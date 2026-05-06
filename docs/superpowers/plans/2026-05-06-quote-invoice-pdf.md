@@ -77,7 +77,7 @@ describe('sanitizePdfFilename', () => {
   })
 
   it('replaces unsupported characters with underscore', () => {
-    expect(sanitizePdfFilename('Sano/Quote*?\\:|<>"#$&')).toBe('Sano_Quote________________')
+    expect(sanitizePdfFilename('Sano/Quote*?\\:|<>"#$&')).toBe('Sano_Quote___________')
   })
 
   it('strips ASCII control characters', () => {
@@ -125,18 +125,22 @@ Expected: FAIL with "Cannot find module '@/lib/pdf/sanitize-filename'"
 const ALLOWED = /[A-Za-z0-9 .\-_]/
 const FALLBACK = 'Sano Document'
 
+// Order matters: collapse whitespace BEFORE sanitising. Tabs and other
+// non-space whitespace are not in the ALLOWED set, so sanitising first
+// would turn `\t` → `_` and the whitespace-collapse step would have
+// nothing to collapse.
 export function sanitizePdfFilename(stem: string): string {
+  const collapsed = stem.replace(/\s+/g, ' ').trim()
   let out = ''
-  for (const ch of stem) {
+  for (const ch of collapsed) {
     out += ALLOWED.test(ch) ? ch : '_'
   }
-  out = out.replace(/\s+/g, ' ').trim()
   if (out.length === 0 || /^_+$/.test(out)) return FALLBACK
   return out
 }
 ```
 
-Note: the test with all symbols (`Sano/Quote*?\\:|<>"#$&`) is sanitised character-by-character — the result is `Sano_Quote________________` (one underscore per illegal char, total length matches input). The fallback path triggers on empty result OR a result that's all underscores after sanitisation.
+Note: the test with all symbols (`Sano/Quote*?\\:|<>"#$&`) is sanitised character-by-character — the result is `Sano_Quote___________` (one underscore per illegal char, 12 underscores total: 1 between Sano and Quote, 11 trailing; total length 21 = same as the input). The fallback path triggers on empty result OR a result that's all underscores after sanitisation.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -390,7 +394,7 @@ export async function GET(
   try {
     const buffer = await renderPdfFromUrl(printUrl, { cookies })
     const filename = `proposal-${probe.quoteNumber}.pdf`.replace(/[^\w.\-]+/g, '_')
-    return new NextResponse(buffer, {
+    return new NextResponse(Buffer.from(buffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
@@ -937,7 +941,7 @@ export async function GET(
     const buffer = await renderPdfFromUrl(printUrl, { cookies })
     const stem = sanitizePdfFilename(`Sano Quote - ${quote.quote_number}`)
     const filename = `${stem}.pdf`
-    return new NextResponse(buffer, {
+    return new NextResponse(Buffer.from(buffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
@@ -1114,7 +1118,7 @@ export async function GET(
     const buffer = await renderPdfFromUrl(printUrl, { cookies })
     const stem = sanitizePdfFilename(`Sano Tax Invoice - ${invoice.invoice_number}`)
     const filename = `${stem}.pdf`
-    return new NextResponse(buffer, {
+    return new NextResponse(Buffer.from(buffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
@@ -1366,7 +1370,7 @@ export async function GET(
     const buffer = await renderPdfFromUrl(printUrl, {})
     const stem = sanitizePdfFilename(`Sano Quote - ${quote.quote_number}`)
     const filename = `${stem}.pdf`
-    return new NextResponse(buffer, {
+    return new NextResponse(Buffer.from(buffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
@@ -1502,7 +1506,7 @@ export async function GET(
     const buffer = await renderPdfFromUrl(printUrl, {})
     const stem = sanitizePdfFilename(`Sano Tax Invoice - ${invoice.invoice_number}`)
     const filename = `${stem}.pdf`
-    return new NextResponse(buffer, {
+    return new NextResponse(Buffer.from(buffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
