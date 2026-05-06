@@ -93,13 +93,17 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
     .eq('id', input.invoice_id)
     .single()
 
-  await supabase
+  const { error: updateErr } = await supabase
     .from('invoices')
     .update({
       status: 'sent',
       date_issued: invoice?.date_issued || today,
     })
     .eq('id', input.invoice_id)
+
+  if (updateErr) {
+    return { error: `Email sent but failed to update invoice status: ${updateErr.message}` }
+  }
 
   // Phase H.2 — courtesy SMS to the client after the invoice email
   // succeeds. Wrapped so any failure here cannot revoke the email-
