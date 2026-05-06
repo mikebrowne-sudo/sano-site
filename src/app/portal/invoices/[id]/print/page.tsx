@@ -283,6 +283,12 @@ const PRINT_CSS = `
   .print-notes { color: #555; font-size: 9pt; white-space: pre-wrap; }
   .print-terms-section { margin-top: 36px; }
   .print-terms-text { color: #777; font-size: 8.5pt; margin-bottom: 4px; line-height: 1.6; }
+  .print-section,
+  .print-pricing,
+  .print-totals-box,
+  .print-terms-section,
+  .print-addresses { break-inside: avoid; page-break-inside: avoid; }
+  .print-pricing tr { break-inside: avoid; }
   @media print {
     /* Portal chrome (sidebar, topbar, layout padding) is hidden via
        Tailwind print:hidden / print:p-0 utilities on those elements,

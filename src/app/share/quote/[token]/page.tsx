@@ -299,6 +299,12 @@ const PRINT_CSS = `
   .accept-button:hover { background: #065f46; }
   .accept-button:disabled { opacity: 0.5; cursor: not-allowed; }
 
+  .print-section,
+  .print-pricing,
+  .print-totals-box,
+  .print-terms-section,
+  .print-addresses { break-inside: avoid; page-break-inside: avoid; }
+  .print-pricing tr { break-inside: avoid; }
   @media print {
     .accept-panel { display: none; }
     .share-page { background: none; } .print-page { margin: 0; padding: 0; box-shadow: none; max-width: none; } @page { margin: 18mm 16mm; size: A4; }
