@@ -3,7 +3,10 @@
 import { createClient } from '@/lib/supabase-server'
 import { Resend } from 'resend'
 import { revalidatePath } from 'next/cache'
+import { headers } from 'next/headers'
 import { sendNotification } from '@/lib/notifications/send'
+import { renderPdfFromUrl } from '@/lib/pdf/render-pdf'
+import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 
 interface SendInvoiceInput {
   invoice_id: string
@@ -24,6 +27,39 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
     return { error: 'Recipient email is required.' }
   }
 
+  // Phase J — render the share-page PDF and attach it. Fail-fast:
+  // if rendering fails, do NOT send the email and do NOT flip status.
+  const origin =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    `https://${headers().get('host') ?? 'sano.nz'}`
+
+  const supabase = createClient()
+  const { data: invoiceRow } = await supabase
+    .from('invoices')
+    .select('share_token, invoice_number')
+    .eq('id', input.invoice_id)
+    .single()
+
+  if (!invoiceRow?.share_token || !invoiceRow?.invoice_number) {
+    return { error: 'PDF generation failed, so the email was not sent. Please try again.' }
+  }
+
+  let pdfBuffer: Buffer
+  try {
+    pdfBuffer = await renderPdfFromUrl(
+      `${origin}/share/invoice/${invoiceRow.share_token}?pdf=1`,
+      {},
+    )
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : 'unknown error'
+    return {
+      error: 'PDF generation failed, so the email was not sent. Please try again.',
+      detail,
+    }
+  }
+
+  const pdfFilename = `${sanitizePdfFilename(`Sano Tax Invoice - ${invoiceRow.invoice_number}`)}.pdf`
+
   const resend = new Resend(process.env.RESEND_API_KEY)
 
   const html = `
@@ -42,13 +78,13 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
     ...(ccList.length > 0 ? { cc: ccList } : {}),
     subject: input.subject,
     html,
+    attachments: [{ filename: pdfFilename, content: pdfBuffer }],
   })
 
   if (emailErr) {
     return { error: `Failed to send email: ${emailErr.message}` }
   }
 
-  const supabase = createClient()
   const today = new Date().toISOString().slice(0, 10)
 
   const { data: invoice } = await supabase
