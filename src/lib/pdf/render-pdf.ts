@@ -19,11 +19,10 @@ import chromium from '@sparticuz/chromium'
 export interface PuppeteerCookie {
   name: string
   value: string
-  domain: string
-  path: string
+  url: string
 }
 
-export function parseCookieHeader(header: string, hostname: string): PuppeteerCookie[] {
+export function parseCookieHeader(header: string, originUrl: string): PuppeteerCookie[] {
   if (!header) return []
   const out: PuppeteerCookie[] = []
   for (const raw of header.split(';')) {
@@ -34,16 +33,18 @@ export function parseCookieHeader(header: string, hostname: string): PuppeteerCo
     const name = pair.slice(0, eq).trim()
     const value = pair.slice(eq + 1).trim()
     if (!name) continue
-    out.push({ name, value, domain: hostname, path: '/' })
+    out.push({ name, value, url: originUrl })
   }
   return out
 }
 
 async function resolveBrowser() {
-  const isDev = process.env.NODE_ENV === 'development'
+  // Respect PUPPETEER_EXECUTABLE_PATH whenever set — works on Windows /
+  // macOS / Linux dev. Production (Netlify Functions / Lambda) does not
+  // set this env var, so the fall-through always picks @sparticuz/chromium
+  // there.
   const localPath = process.env.PUPPETEER_EXECUTABLE_PATH
-
-  if (isDev && localPath) {
+  if (localPath) {
     return puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],

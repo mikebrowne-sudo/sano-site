@@ -7,7 +7,7 @@ export function sanitizePdfFilename(stem: string): string {
   // converted to '_' by the per-character pass below. The trim()
   // here handles leading/trailing whitespace; the per-char pass then
   // replaces any remaining disallowed characters with '_'.
-  let collapsed = stem.replace(/\s+/g, ' ').trim()
+  const collapsed = stem.replace(/\s+/g, ' ').trim()
   let out = ''
   for (const ch of collapsed) {
     out += ALLOWED.test(ch) ? ch : '_'

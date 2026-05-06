@@ -37,7 +37,7 @@ export async function GET(
 
   const url = new URL(request.url)
   const printUrl = `${url.origin}/proposals/print/${params.id}`
-  const cookies = parseCookieHeader(request.headers.get('cookie') ?? '', url.hostname)
+  const cookies = parseCookieHeader(request.headers.get('cookie') ?? '', url.origin)
 
   try {
     const buffer = await renderPdfFromUrl(printUrl, { cookies })
