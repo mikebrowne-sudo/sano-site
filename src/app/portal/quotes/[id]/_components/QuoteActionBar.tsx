@@ -19,6 +19,7 @@
 
 import Link from 'next/link'
 import { ExternalLink, FileText } from 'lucide-react'
+import { DownloadPdfButton } from './DownloadPdfButton'
 import { QuoteCopyLinkButton } from './QuoteCopyLinkButton'
 import { SendQuotePanel } from './SendQuotePanel'
 import { MarkAsAcceptedButton } from './MarkAsAcceptedButton'
@@ -86,6 +87,9 @@ export function QuoteActionBar({
               <FileText size={16} />
               {previewLabel}
             </Link>
+            {!isCommercial && (
+              <DownloadPdfButton href={`/api/quotes/${quoteId}/pdf`} />
+            )}
             <QuoteCopyLinkButton shareUrl={shareUrl} />
             <a
               href="#edit-quote-form"
@@ -117,6 +121,9 @@ export function QuoteActionBar({
               <ExternalLink size={16} />
               View Proposal
             </Link>
+            {!isCommercial && (
+              <DownloadPdfButton href={`/api/quotes/${quoteId}/pdf`} />
+            )}
             <QuoteCopyLinkButton shareUrl={shareUrl} />
             <MarkAsAcceptedButton quoteId={quoteId} />
             {/* For the Sent state this is effectively a "Send reminder" —
