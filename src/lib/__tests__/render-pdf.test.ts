@@ -50,10 +50,16 @@ jest.mock('puppeteer-core', () => {
     newPage: jest.fn().mockResolvedValue(mockPage),
     close: jest.fn().mockResolvedValue(undefined),
   }
+  // Attach `__mocks` to the default export so the test code can reach
+  // it via the same `import puppeteer from 'puppeteer-core'` it uses
+  // for `puppeteer.launch`. Without this the default import strips
+  // module-level properties.
   return {
     __esModule: true,
-    default: { launch: jest.fn().mockResolvedValue(mockBrowser) },
-    __mocks: { mockPage, mockBrowser },
+    default: {
+      launch: jest.fn().mockResolvedValue(mockBrowser),
+      __mocks: { mockPage, mockBrowser },
+    },
   }
 })
 jest.mock('@sparticuz/chromium', () => ({
@@ -68,7 +74,7 @@ import { renderPdfFromUrl } from '@/lib/pdf/render-pdf'
 import puppeteer from 'puppeteer-core'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const __mocks = (puppeteer as any).__mocks ?? require('puppeteer-core').__mocks
+const __mocks = (puppeteer as any).__mocks
 
 beforeEach(() => {
   __mocks.mockPage.setCookie.mockClear()

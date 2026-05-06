@@ -1,4 +1,5 @@
 /** @jest-environment node */
+import type { NextRequest } from 'next/server'
 import { GET as getStaffQuotePdf } from '@/app/api/quotes/[id]/pdf/route'
 
 jest.mock('@/lib/supabase-server', () => ({
@@ -35,11 +36,11 @@ function makeSupabaseStub(overrides: {
   }
 }
 
-function fakeRequest(): any {
+function fakeRequest(): NextRequest {
   return {
     url: 'https://sano.nz/api/quotes/abc/pdf',
     headers: { get: () => '' },
-  }
+  } as unknown as NextRequest
 }
 
 describe('GET /api/quotes/[id]/pdf', () => {
@@ -105,8 +106,11 @@ function shareStub(overrides: { quote?: { quote_number: string; deleted_at: stri
   }
 }
 
-function shareRequest(): any {
-  return { url: 'https://sano.nz/api/share/quote/tok123/pdf', headers: { get: () => '' } }
+function shareRequest(): NextRequest {
+  return {
+    url: 'https://sano.nz/api/share/quote/tok123/pdf',
+    headers: { get: () => '' },
+  } as unknown as NextRequest
 }
 
 describe('GET /api/share/quote/[token]/pdf', () => {
@@ -136,13 +140,13 @@ describe('GET /api/share/quote/[token]/pdf', () => {
     // Simulate a request that DOES carry cookies (e.g. from a staff browser
     // session also visiting the public share link). The route must NOT
     // forward these to the Puppeteer render — it would leak the session.
-    const reqWithCookies: any = {
+    const reqWithCookies = {
       url: 'https://sano.nz/api/share/quote/tok123/pdf',
       headers: {
         get: (name: string) =>
           name.toLowerCase() === 'cookie' ? 'sb-access-token=staff-session-token' : '',
       },
-    }
+    } as unknown as NextRequest
     await getShareQuotePdf(reqWithCookies, { params: { token: 'tok123' } })
 
     const lastCall = mockedRender.mock.calls.at(-1)

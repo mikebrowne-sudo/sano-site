@@ -1,4 +1,5 @@
 /** @jest-environment node */
+import type { NextRequest } from 'next/server'
 import { GET as getStaffInvoicePdf } from '@/app/api/invoices/[id]/pdf/route'
 
 jest.mock('@/lib/supabase-server', () => ({
@@ -35,8 +36,11 @@ function makeStub(overrides: {
   }
 }
 
-function fakeRequest(): any {
-  return { url: 'https://sano.nz/api/invoices/abc/pdf', headers: { get: () => '' } }
+function fakeRequest(): NextRequest {
+  return {
+    url: 'https://sano.nz/api/invoices/abc/pdf',
+    headers: { get: () => '' },
+  } as unknown as NextRequest
 }
 
 describe('GET /api/invoices/[id]/pdf', () => {
@@ -88,8 +92,11 @@ function shareStub(overrides: { invoice?: { invoice_number: string; deleted_at: 
   }
 }
 
-function shareRequest(): any {
-  return { url: 'https://sano.nz/api/share/invoice/tok123/pdf', headers: { get: () => '' } }
+function shareRequest(): NextRequest {
+  return {
+    url: 'https://sano.nz/api/share/invoice/tok123/pdf',
+    headers: { get: () => '' },
+  } as unknown as NextRequest
 }
 
 describe('GET /api/share/invoice/[token]/pdf', () => {
@@ -115,13 +122,13 @@ describe('GET /api/share/invoice/[token]/pdf', () => {
     mockedService.mockReturnValue(shareStub({ invoice: { invoice_number: 'INV-12', deleted_at: null } }))
     mockedRender.mockResolvedValue(Buffer.from('PDF'))
 
-    const reqWithCookies: any = {
+    const reqWithCookies = {
       url: 'https://sano.nz/api/share/invoice/tok123/pdf',
       headers: {
         get: (name: string) =>
           name.toLowerCase() === 'cookie' ? 'sb-access-token=staff-session-token' : '',
       },
-    }
+    } as unknown as NextRequest
     await getShareInvoicePdf(reqWithCookies, { params: { token: 'tok123' } })
 
     const lastCall = mockedRender.mock.calls.at(-1)
