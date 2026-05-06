@@ -110,4 +110,21 @@ describe('GET /api/share/invoice/[token]/pdf', () => {
     expect(res.status).toBe(200)
     expect(res.headers.get('content-disposition') ?? '').toContain('filename="Sano Tax Invoice - INV-12.pdf"')
   })
+
+  it('does NOT forward cookies to the renderer even when request has them (public flow)', async () => {
+    mockedService.mockReturnValue(shareStub({ invoice: { invoice_number: 'INV-12', deleted_at: null } }))
+    mockedRender.mockResolvedValue(Buffer.from('PDF'))
+
+    const reqWithCookies: any = {
+      url: 'https://sano.nz/api/share/invoice/tok123/pdf',
+      headers: {
+        get: (name: string) =>
+          name.toLowerCase() === 'cookie' ? 'sb-access-token=staff-session-token' : '',
+      },
+    }
+    await getShareInvoicePdf(reqWithCookies, { params: { token: 'tok123' } })
+
+    const lastCall = mockedRender.mock.calls.at(-1)
+    expect(lastCall?.[1]?.cookies ?? []).toEqual([])
+  })
 })

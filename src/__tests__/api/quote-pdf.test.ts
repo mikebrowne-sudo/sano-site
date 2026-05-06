@@ -129,10 +129,22 @@ describe('GET /api/share/quote/[token]/pdf', () => {
     expect(res.headers.get('content-disposition') ?? '').toContain('filename="Sano Quote - QT-7.pdf"')
   })
 
-  it('does NOT forward cookies to the renderer (public flow)', async () => {
+  it('does NOT forward cookies to the renderer even when request has them (public flow)', async () => {
     mockedService.mockReturnValue(shareStub({ quote: { quote_number: 'QT-7', deleted_at: null } }))
     mockedRender.mockResolvedValue(Buffer.from('PDF'))
-    await getShareQuotePdf(shareRequest(), { params: { token: 'tok123' } })
+
+    // Simulate a request that DOES carry cookies (e.g. from a staff browser
+    // session also visiting the public share link). The route must NOT
+    // forward these to the Puppeteer render — it would leak the session.
+    const reqWithCookies: any = {
+      url: 'https://sano.nz/api/share/quote/tok123/pdf',
+      headers: {
+        get: (name: string) =>
+          name.toLowerCase() === 'cookie' ? 'sb-access-token=staff-session-token' : '',
+      },
+    }
+    await getShareQuotePdf(reqWithCookies, { params: { token: 'tok123' } })
+
     const lastCall = mockedRender.mock.calls.at(-1)
     expect(lastCall?.[1]?.cookies ?? []).toEqual([])
   })
