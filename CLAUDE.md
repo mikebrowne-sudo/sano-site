@@ -1,216 +1,192 @@
 # Sano Site + Portal — Claude Code Context
 
-> Auto-loaded by Claude Code when working in this repo.
-> Keep this accurate — it replaces the "paste the master brief into chat" ritual.
-> Last synced from `F:\Claude\Projects\sano-site.md` on 2026-04-19.
+> Auto-loaded by Claude Code when working in this repo. This file is a
+> **navigation hub** — it tells Claude where to find the deep info,
+> not the info itself. Keep it slim.
 
-## Working in this repo
+## Read these first (in this order)
 
-- **Repo root:** `F:\Sano\01-Site\` (post-reorganisation; was `F:\Sano\Sano-site\`)
-- **Stack:** Next.js 14 (App Router), TypeScript, Tailwind, Supabase, Resend, Framer Motion
-- **Hosting:** Netlify project `sanonz1`, auto-deploys from GitHub `main`
-- **Portal architecture reference:** see `docs/PORTAL.md` for the full CRM spec
+1. **[`docs/AI/SANO_EXECUTION_MODE.md`](docs/AI/SANO_EXECUTION_MODE.md)** — how to work in this repo (operating mode, hard-stop list, deployment parity, workflow tooling).
+2. **[`docs/PORTAL.md`](docs/PORTAL.md)** — what's built (current portal state, data structures, phased history).
+3. **This file** — quick reference + cross-links.
 
-## Guardrails when generating code
-
-- Portal and marketing site share this codebase intentionally — don't propose splitting unless asked.
-- Never suggest committing anything from `F:\Sano\30-Accounting\`, `F:\Sano\40-Business\`, or anywhere outside this repo root.
-- Brand voice rules: never use "premium", "eco-friendly", "industry-leading". No fake testimonials. No pricing on homepage.
-- Design tokens live in `tailwind.config.ts` (sage palette); type styles in `src/app/globals.css`.
+If something below contradicts those two docs, the dedicated doc wins.
 
 ---
 
-## Overview
-Full redevelopment of www.sano.nz — repositioned from generic cleaning company to reliable, detail-focused Auckland cleaning brand.
+## Quick orient
 
+- **Repo root:** `F:\Sano\01-Site\`
+- **GitHub:** `mikebrowne-sudo/sano-site`
 - **Live site:** https://sano.nz
-- **Codebase:** F:/Sano/01-Site (Next.js 14, Tailwind CSS, TypeScript)
-- **GitHub:** https://github.com/mikebrowne-sudo/sano-site
-- **Hosting:** Netlify (project: sanonz1)
-- **Domain registrar:** Rocketspark
+- **Netlify project:** `sanonz1` — auto-deploys from GitHub `main`, PR previews per branch
+- **Two surfaces in one repo:**
+  - Marketing site at `/` (lives under `src/app/(public)/*`)
+  - Portal CRM at `/portal` (staff), `/contractor` (mobile contractor views), `/share` (token-keyed public deliverables)
+- **Stack:** Next.js 14 (App Router) · TypeScript · Tailwind · Framer Motion · Supabase (Auth + Postgres + RLS) · Resend (email) · Stripe (payments) · Twilio (SMS) · Mapbox (NZ-biased address autocomplete) · Puppeteer (server-side PDF) · Jest
 
 ---
 
-## Tech Stack
-- Next.js 14 (App Router)
-- Tailwind CSS with custom sage colour palette
-- Framer Motion (scroll animations, stagger effects)
-- Noto Serif (display/headings) + Outfit (body)
-- Supabase (form submissions → quote_requests table)
-- Resend (transactional email)
-- Netlify (@netlify/plugin-nextjs)
+## Operating mode (one-paragraph summary)
+
+Phased execution, hard stops only at risky/irreversible points, defer
+reviewer Minor + non-security Important findings, lint before push,
+PR-based merges via GitHub. Full rules and the hard-stop list live in
+[`docs/AI/SANO_EXECUTION_MODE.md`](docs/AI/SANO_EXECUTION_MODE.md).
 
 ---
 
-## Brand Direction
-- **Business name:** Sano Property Services Limited
-- **Tagline:** Clean spaces — Healthy living
-- **Positioning:** Cleaning that improves how a space feels, not just how it looks
-- **Tone:** Reliable, detail-focused, easy to deal with
-- **Never use:** premium, eco-friendly, industry-leading, fake testimonials, pricing on homepage
+## Repo conventions
+
+### Test / lint / typecheck (the local gauntlet)
+
+| Command | What it checks |
+|---|---|
+| `npm test` | Jest. **Documented baseline: 3 failing suites** (`submit-application`, `services`, `Header`) — pre-existing, leave them alone. Anything above 3 is a regression. |
+| `npx next lint` | Netlify-equivalent lint. **Errors fail Netlify build; Warnings don't.** |
+| `npx tsc --noEmit` | Type check. |
+| `npm run build` | Full Netlify-equivalent build. Heavy; reserve for pre-merge sanity. |
+
+The first three together are "the gauntlet" and run automatically before any `git push` from this repo via a `PreToolUse` hook. Don't bypass with `--no-verify`.
+
+### Workflow tooling
+
+- **Pre-push gauntlet hook** at `~/.claude/hooks/sano-pre-push-gauntlet.sh`. Runs lint + tests before every `git push`. Blocks the push on lint errors or above-baseline test failures.
+- **`/sano-ship`** slash command at `~/.claude/commands/sano-ship.md`. Pushes the current branch + opens a PR against `main` + returns the link. Verifies branch hygiene first.
+
+Both are documented in [`docs/AI/SANO_EXECUTION_MODE.md`](docs/AI/SANO_EXECUTION_MODE.md) "Workflow tooling".
+
+### Branch / PR workflow
+
+- Feature branches off latest `origin/main`, rebased clean before PR.
+- PRs go to `main` via GitHub. Merge commits (not squash).
+- Don't open PRs from branches carrying unrelated commits — split first via `git rebase --onto origin/main <fork-point>` onto a fresh feature-named branch.
+- Don't trust local `main` — always `git fetch origin main` first.
+
+### What "done" means
+
+- Full test suite at baseline (3 failed)
+- `npx next lint` zero **Error:** lines
+- `npx tsc --noEmit` clean
+- Manual smoke per the spec's verification path (where applicable)
+- Netlify deploy preview confirmed before merge
 
 ---
 
-## Contact Details (live on site)
-- **Phone:** 0800 726 686
-- **Email:** hello@sano.nz
-- **Location:** Auckland, New Zealand
+## Where things live
 
----
-
-## Pages Built
-
-### Homepage (/)
-- Full-bleed hero (560px) with gradient overlay + Framer Motion stagger entrance
-- "Why Auckland Chooses Sano" section with image + credibility points
-- Services grid (7 cards, no pricing, equal height)
-- ProcessSteps — "Simple from start to finish" with left-to-right card animation
-- CtaBanner
-
-### Service Pages
-All use consistent layout: Hero → Intro (image + text) → What's Included (list + image) → Two-column middle section → Why Sano (image + text) → Process + FAQ (two columns) → Related services → CtaBanner
-
-| Page | URL | Static route |
-|------|-----|-------------|
-| Regular House Cleaning | /services/regular-cleaning | src/app/services/regular-cleaning/page.tsx |
-| Deep Cleaning | /services/deep-cleaning | src/app/services/deep-cleaning/page.tsx |
-| End of Tenancy | /services/end-of-tenancy | src/app/services/end-of-tenancy/page.tsx |
-| Commercial & Office | /services/commercial-cleaning | src/app/services/commercial-cleaning/page.tsx |
-| Carpet & Upholstery | /services/carpet-upholstery | src/app/services/carpet-upholstery/page.tsx |
-| Window Cleaning | /services/window-cleaning | src/app/services/window-cleaning/page.tsx |
-| Post-Construction | /services/post-construction | src/app/services/post-construction/page.tsx |
-
-### Other Pages
-- **/about** — Brand story, trust points, values grid
-- **/contact** — Quote request form (left info + right form)
-- **/faq** — FAQ accordion
-- **/services** — Services listing (uses dynamic [slug] fallback)
-
----
-
-## Key Files
+### Source tree (key paths)
 
 ```
 src/
   app/
-    globals.css          — Type scale, utility classes (.eyebrow, .section-y, .body-text)
-    layout.tsx           — Font variables (Noto Serif + Outfit)
-    page.tsx             — Homepage
-    about/page.tsx
-    contact/page.tsx
-    services/[slug]/page.tsx   — Generic fallback for service pages
-    services/regular-cleaning/page.tsx
-    services/deep-cleaning/page.tsx
-    services/end-of-tenancy/page.tsx
-    services/commercial-cleaning/page.tsx
-    services/carpet-upholstery/page.tsx
-    services/window-cleaning/page.tsx
-    services/post-construction/page.tsx
-    api/submit-quote/route.ts  — Form handler (Supabase + Resend)
-  components/
-    Header.tsx           — 3-col grid, logo left, nav centre, CTA right
-    Footer.tsx           — 4-col grid, "Sano" text logo, contact details
-    HomeHero.tsx         — Full-bleed hero with Framer Motion
-    FadeIn.tsx           — FadeIn, Stagger, StaggerItem components
-    ServiceCard.tsx      — Clickable card, no pricing, equal height
-    ProcessSteps.tsx     — 3-step how it works with animated cards
-    HeroSection.tsx      — Reusable hero for service pages
-    QuoteForm.tsx        — Contact form
-    QuoteButton.tsx      — CTA button
-    CtaBanner.tsx        — Dark CTA footer section
+    (public)/            — marketing site (homepage, services, about, contact, FAQ)
+    portal/              — staff CRM (auth-gated; /portal/quotes, /invoices, /jobs, /clients, /people, /payroll, /settings, ...)
+    contractor/          — contractor mobile-first views
+    share/               — public share routes (token-keyed: /share/quote/[token], /share/invoice/[token])
+    api/                 — API routes (PDF, webhooks, submit-quote, submit-application, etc.)
+    proposals/           — public-facing proposal print routes (Puppeteer target)
   lib/
-    services.ts          — All 7 service definitions (slug, name, descriptions, images)
-    resend.ts            — Email functions (from: noreply@sano.co.nz)
-    supabase.ts          — Supabase client (server + browser)
-    fonts.ts             — Noto Serif + Outfit font setup
-    utils.ts             — cn() utility (clsx + tailwind-merge)
+    pdf/                 — shared PDF infrastructure (Phase J): render-pdf.ts, sanitize-filename.ts
+    proposals/           — commercial-quote proposal pack
+    invoice-dates.ts     — canonical due-date / service-date computation (used by every conversion + send + Stripe path)
+    *                    — kebab-case file names; one responsibility per file
+  __tests__/             — Jest tests (some colocated under src/app/.../__tests__)
 public/
-  brand/
-    sano-logo.jpg        — Main logo (used in header)
-  images/
-    deep-cleaning.jpg
-    carpet-upholstery.jpg
-    window-cleaning.jpg
-    end-of-tenancy.jpg
-    post-construction.jpg
+  brand/                 — logos
+  images/                — photography
+docs/
+  PORTAL.md                              — master architecture brief
+  AI/SANO_EXECUTION_MODE.md              — operating rules
+  superpowers/specs/YYYY-MM-DD-*.md      — feature specs (write before implementing non-trivial features)
+  superpowers/plans/YYYY-MM-DD-*.md      — TDD execution plans (subagent-executable)
 ```
+
+Tailwind tokens live in `tailwind.config.ts` (sage palette). Type styles in `src/app/globals.css`.
 
 ---
 
-## Design System
+## Infrastructure quick-reference
 
-### Colours (Tailwind)
-```
-sage-50:  #F7F9F7  (very light bg)
-sage-100: #E0EAE3  (borders, light bg)
-sage-300: #7EC87A  (light accent)
-sage-500: #076653  (brand green, eyebrows, bullets)
-sage-600: #5C6B64  (body text)
-sage-800: #06231D  (headings, dark text, footer bg)
-```
+### Netlify (`sanonz1`)
 
-### Typography
-- **H1:** clamp(2.125rem, 4vw, 3rem) — Noto Serif, bold, lh 1.08, tracking -0.025em
-- **H2:** clamp(1.625rem, 2.75vw, 2.125rem) — Noto Serif, bold, lh 1.15, tracking -0.015em
-- **H3:** 1.0625rem — Outfit, semibold
-- **Body (.body-text):** 1.0625rem, sage-600, lh 1.75
-- **Eyebrow (.eyebrow):** 0.6875rem, uppercase, tracking 0.2em, sage-500
-
-### Layout
-- **Container:** max-w-6xl mx-auto
-- **Section spacing (.section-y):** py-20 lg:py-24
-- **Horizontal padding (.section-padding):** px-4 sm:px-6 lg:px-8
-- **Alternating backgrounds:** white / #faf9f6
-
----
-
-## Infrastructure
-
-### Netlify
-- Auto-deploys from GitHub (main branch)
-- Environment variables required:
-  - `RESEND_API_KEY`
-  - `SANO_NOTIFY_EMAIL` (hello@sano.nz)
-  - `NEXT_PUBLIC_SUPABASE_URL`
-  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-  - `SUPABASE_SERVICE_ROLE_KEY`
-  - `NEXT_TELEMETRY_DISABLED`
-
-### DNS
-- Nameservers moved from Rocketspark to Netlify DNS (Apr 2026)
-- Netlify nameservers:
-  ```
-  dns1.p01.nsone.net
-  dns2.p01.nsone.net
-  dns3.p01.nsone.net
-  ```
-- SSL: Let's Encrypt, auto-renews via Netlify DNS
-- Domain registered through Rocketspark, renews Mar 2027
+- Auto-deploys from GitHub `main`; PR previews per branch.
+- Required env (verify via `netlify env:list` — never read `.env*` files directly):
+  - `RESEND_API_KEY`, `SANO_NOTIFY_EMAIL`
+  - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+  - `NEXT_PUBLIC_SITE_URL`
+  - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+  - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_MESSAGING_SERVICE_SID`
+  - `NEXT_PUBLIC_MAPBOX_TOKEN`
+  - `CRON_SECRET`, `REVIEW_ID`, `NEXT_TELEMETRY_DISABLED`
+- **Do NOT set `PUPPETEER_EXECUTABLE_PATH` in production** — it forces a local Chrome path; `@sparticuz/chromium` handles Lambda. Only set in local `.env.local` for dev.
 
 ### Supabase
-- Table: `quote_requests`
-- Fields: name, email, phone, service, postcode, message, preferred_date
-- Server client uses SUPABASE_SERVICE_ROLE_KEY
 
-### Resend
-- Sender domain: sano.co.nz (verified in Resend)
-- From address: noreply@sano.co.nz
-- sendQuoteConfirmation → customer's email
-- sendQuoteNotification → SANO_NOTIFY_EMAIL
+- **Never insert into `auth.users` directly** — use Supabase Auth API or Dashboard. Never expose passwords in queries.
+- RLS is enforced on most tables. Share routes use the service-role client with token-keyed queries (see `src/app/share/*` for the pattern).
+- Audit log: `public.audit_log` records sensitive actions.
 
----
+### Other
 
-## Known Issues / To Do
-- [ ] Confirm email delivery working (Resend not showing sends — debugging in progress)
-- [ ] Replace remaining Unsplash placeholder images with real Sano photography
-- [ ] Regular house cleaning hero image still using Unsplash
-- [ ] Consider adding a services index page (/services)
-- [ ] FAQ page may need content update to match new brand tone
+- Resend: `noreply@sano.nz` from address; admin notifications go to `SANO_NOTIFY_EMAIL` (`hello@sano.nz`).
+- Stripe: invoice payment via the share-page Pay-Now button → Stripe Checkout → webhook flips `invoices.status: 'paid'`.
+- Twilio: SMS notifications to clients (Phase H) and the workforce.
+- Mapbox: NZ-biased address autocomplete on quote/job/client forms; graceful fallback to plain text when no token.
 
 ---
 
-## Git History (key commits)
-- `5cecd41` — Surface email error in API response for debugging
-- `57d30fa` — Remove ease from ProcessSteps variants (Framer Motion TS fix)
-- `17e581d` — Full site rebuild (main launch commit)
-- `53cc1b2` — Fix email send on serverless (await Promise.all)
+## PDF architecture (Phase J — recently shipped to branch)
+
+5 server-rendered PDF routes share `src/lib/pdf/render-pdf.ts` (`puppeteer-core` + `@sparticuz/chromium`):
+
+| Route | Auth | Filename |
+|---|---|---|
+| `/api/proposals/[id]/pdf` | Staff | `proposal-QT-xxxx.pdf` |
+| `/api/quotes/[id]/pdf` | Staff (residential only — commercial returns 400) | `Sano Quote - QT-xxxx.pdf` |
+| `/api/invoices/[id]/pdf` | Staff | `Sano Tax Invoice - INV-xxxx.pdf` |
+| `/api/share/quote/[token]/pdf` | Public (token) | `Sano Quote - QT-xxxx.pdf` |
+| `/api/share/invoice/[token]/pdf` | Public (token) | `Sano Tax Invoice - INV-xxxx.pdf` |
+
+Share pages support `?pdf=1` mode that hides interactive panels (`<AcceptQuote>`, `<PayNowButton>`), suppresses `<AutoPrint>`, and short-circuits the `sent → viewed` status promotion + audit row on quote share renders.
+
+Send Quote / Send Invoice emails auto-attach the share-page PDF with a fail-fast contract: render failure means no email + no status flip + canonical operator error `"PDF generation failed, so the email was not sent. Please try again."` Send-flow stamps any missing `date_issued` / `valid_until` / `due_date` **before** the render so attachments always show populated dates. Invoice `due_date` reuses `computeInvoiceDueDate` from `src/lib/invoice-dates`.
+
+Deeper detail and remaining work → [`docs/PORTAL.md`](docs/PORTAL.md) "Phase J — Quote & Invoice PDF".
+
+---
+
+## Brand / UI non-negotiables
+
+- **Forbidden phrases:** "premium", "eco-friendly", "industry-leading". No fake testimonials. No pricing on homepage.
+- **Tagline:** Clean spaces — Healthy living
+- **Positioning:** Reliable, detail-focused Auckland cleaning. Cleaning that improves how a space feels, not just how it looks.
+- **Sage palette only.** Don't introduce new colours without explicit approval. Tokens in `tailwind.config.ts`.
+- **Typography:** Noto Serif (display) + Outfit (body) on the marketing site; Inter on the portal. Don't mix.
+- **Portal UX:** clarity over flashy. Full-page forms, large labels, dropdowns over typing, avoid modals where possible.
+
+---
+
+## What NOT to commit
+
+- Anything from `F:\Sano\30-Accounting\`, `F:\Sano\40-Business\`, or outside this repo root.
+- `docs/compliance/` and `docs/AI/New Text Document.txt` — pre-existing untracked operational scratch dirs/files. Treat as human-managed.
+- `.env`, `.env.local`, `.env.production` — secrets.
+- `.next/`, `node_modules/`.
+
+---
+
+## Memory entries that apply here
+
+The user maintains durable rules at `~/.claude/projects/.../memory/`. The high-relevance ones for this repo:
+
+- `feedback_lint_before_push.md` — `next build` runs ESLint as errors; lint before push.
+- `feedback_pr_branch_hygiene.md` — rebase onto fresh `origin/main`; no carry-along commits.
+- `feedback_no_per_phase_pauses.md` — continue through user-named hard stops only.
+- `feedback_reviewer_findings.md` — defer Minor + non-security Important reviewer findings.
+- `feedback_brief_live_vs_implemented.md` — only mark items live in PORTAL.md after Netlify deploy + verification.
+- `feedback_sano_high_velocity.md` — don't ask approval on routine safe ops.
+- `feedback_no_env_files.md` — never read `.env*` files; use `netlify env:list` or verbal confirmation.
+- `feedback_git_add_brackets.md` — Windows shell: bracket paths in `git add` silently match nothing; use `:(literal)` prefix or `git add -A`.
+
+The MEMORY.md index in that directory is the source of truth.
