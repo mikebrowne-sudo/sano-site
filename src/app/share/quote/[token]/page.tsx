@@ -4,8 +4,23 @@ import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
 import { AcceptQuote } from './_components/AcceptQuote'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { AutoPrint } from '../../_components/AutoPrint'
+import { SharePdfButton } from '../../_components/SharePdfButton'
+import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 
-export const metadata: Metadata = { robots: 'noindex, nofollow' }
+export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
+  const supabase = getServiceSupabase()
+  const { data } = await supabase
+    .from('quotes')
+    .select('quote_number')
+    .eq('share_token', params.token)
+    .is('deleted_at', null)
+    .single()
+  const number = data?.quote_number ?? 'unknown'
+  return {
+    title: sanitizePdfFilename(`Sano Quote - ${number}`),
+    robots: 'noindex, nofollow',
+  }
+}
 
 // Phase 5.5.6 — share routes now read via the service-role client so we
 // can drop the wide-open public RLS on `clients`. The share_token in
@@ -22,9 +37,10 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-export default async function PublicQuotePage({ params, searchParams }: { params: { token: string }; searchParams: { print?: string } }) {
+export default async function PublicQuotePage({ params, searchParams }: { params: { token: string }; searchParams: { print?: string; pdf?: string } }) {
   const supabase = getServiceSupabase()
-  const autoPrint = searchParams?.print === '1'
+  const isPdfRender = searchParams?.pdf === '1'
+  const autoPrint = searchParams?.print === '1' && !isPdfRender
 
   const { data: quote, error } = await supabase
     .from('quotes')
@@ -47,7 +63,7 @@ export default async function PublicQuotePage({ params, searchParams }: { params
   // write an audit row. Idempotent: only fires while status === 'sent'.
   // Internal portal views never set this status (they hit /portal/quotes/[id],
   // not the share route).
-  if (quote.status === 'sent') {
+  if (quote.status === 'sent' && !isPdfRender) {
     // Use the service-role client for the status flip + audit. The public
     // anon key can't satisfy the audit_log RLS policy, and the quotes
     // policy only allows status updates from authenticated staff.
@@ -211,8 +227,16 @@ export default async function PublicQuotePage({ params, searchParams }: { params
             </p>
           </section>
 
+          {!isPdfRender && (
+            <div className="mt-6 flex justify-end">
+              <SharePdfButton href={`/api/share/quote/${params.token}/pdf`} />
+            </div>
+          )}
+
           {/* Quote acceptance */}
-          <AcceptQuote shareToken={params.token} status={quote.status} acceptedAt={quote.accepted_at} />
+          {!isPdfRender && (
+            <AcceptQuote shareToken={params.token} status={quote.status} acceptedAt={quote.accepted_at} />
+          )}
 
         </div>
       </div>
@@ -285,6 +309,12 @@ const PRINT_CSS = `
   .accept-button:hover { background: #065f46; }
   .accept-button:disabled { opacity: 0.5; cursor: not-allowed; }
 
+  .print-section,
+  .print-pricing,
+  .print-totals-box,
+  .print-terms-section,
+  .print-addresses { break-inside: avoid; page-break-inside: avoid; }
+  .print-pricing tr { break-inside: avoid; }
   @media print {
     .accept-panel { display: none; }
     .share-page { background: none; } .print-page { margin: 0; padding: 0; box-shadow: none; max-width: none; } @page { margin: 18mm 16mm; size: A4; }

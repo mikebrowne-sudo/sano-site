@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Printer } from 'lucide-react'
+import { ArrowLeft, Download, Printer } from 'lucide-react'
 import { SendInvoicePanel } from './_components/SendInvoicePanel'
 import { MarkAsPaidButton } from './_components/MarkAsPaidButton'
 import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
@@ -180,7 +180,15 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
           >
             <Printer size={16} />
-            Print / PDF
+            Preview Invoice
+          </a>
+          <a
+            href={`/api/invoices/${params.id}/pdf`}
+            download
+            className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
+          >
+            <Download size={16} />
+            Download PDF
           </a>
           <SendInvoicePanel
             invoiceId={invoice.id}

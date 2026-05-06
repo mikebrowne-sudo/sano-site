@@ -2,8 +2,21 @@ import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
+import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 
-export const metadata: Metadata = { robots: 'noindex, nofollow' }
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('quotes')
+    .select('quote_number')
+    .eq('id', params.id)
+    .single()
+  const number = data?.quote_number ?? 'unknown'
+  return {
+    title: sanitizePdfFilename(`Sano Quote - ${number}`),
+    robots: 'noindex, nofollow',
+  }
+}
 
 function fmt(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
@@ -242,6 +255,12 @@ const PRINT_CSS = `
   .print-notes { color: #555; font-size: 9pt; white-space: pre-wrap; }
   .print-terms-section { margin-top: 36px; }
   .print-terms-text { color: #777; font-size: 8.5pt; margin-bottom: 4px; line-height: 1.6; }
+  .print-section,
+  .print-pricing,
+  .print-totals-box,
+  .print-terms-section,
+  .print-addresses { break-inside: avoid; page-break-inside: avoid; }
+  .print-pricing tr { break-inside: avoid; }
   @media print {
     body > *:not(.print-overlay), body > * > *:not(.print-overlay) { display: none !important; }
     .print-overlay { position: static; background: none; }

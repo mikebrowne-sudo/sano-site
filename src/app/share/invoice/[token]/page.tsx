@@ -4,8 +4,23 @@ import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
 import { PayNowButton } from './_components/PayNowButton'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { AutoPrint } from '../../_components/AutoPrint'
+import { SharePdfButton } from '../../_components/SharePdfButton'
+import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 
-export const metadata: Metadata = { robots: 'noindex, nofollow' }
+export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
+  const supabase = getServiceSupabase()
+  const { data } = await supabase
+    .from('invoices')
+    .select('invoice_number')
+    .eq('share_token', params.token)
+    .is('deleted_at', null)
+    .single()
+  const number = data?.invoice_number ?? 'unknown'
+  return {
+    title: sanitizePdfFilename(`Sano Tax Invoice - ${number}`),
+    robots: 'noindex, nofollow',
+  }
+}
 
 // Phase 5.5.6 — share routes now read via the service-role client so we
 // can drop the wide-open public RLS on `clients`. See the matching
@@ -20,9 +35,10 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-export default async function PublicInvoicePage({ params, searchParams }: { params: { token: string }; searchParams: { payment?: string; print?: string } }) {
+export default async function PublicInvoicePage({ params, searchParams }: { params: { token: string }; searchParams: { payment?: string; print?: string; pdf?: string } }) {
   const supabase = getServiceSupabase()
-  const autoPrint = searchParams?.print === '1'
+  const isPdfRender = searchParams?.pdf === '1'
+  const autoPrint = searchParams?.print === '1' && !isPdfRender
 
   const { data: invoice, error } = await supabase
     .from('invoices')
@@ -198,14 +214,22 @@ export default async function PublicInvoicePage({ params, searchParams }: { para
             </p>
           </section>
 
+          {!isPdfRender && (
+            <div className="mt-6 flex justify-end">
+              <SharePdfButton href={`/api/share/invoice/${params.token}/pdf`} />
+            </div>
+          )}
+
           {/* Payment */}
-          <PayNowButton
-            shareToken={params.token}
-            status={invoice.status}
-            datePaid={invoice.date_paid}
-            paymentResult={searchParams.payment ?? null}
-            total={fmt(total)}
-          />
+          {!isPdfRender && (
+            <PayNowButton
+              shareToken={params.token}
+              status={invoice.status}
+              datePaid={invoice.date_paid}
+              paymentResult={searchParams.payment ?? null}
+              total={fmt(total)}
+            />
+          )}
 
         </div>
       </div>
@@ -272,6 +296,12 @@ const PRINT_CSS = `
   .pay-secure { font-size: 8.5pt; color: #999; margin: 8px 0 0; }
   .pay-error { font-size: 9pt; color: #dc2626; margin: 8px 0 0; }
 
+  .print-section,
+  .print-pricing,
+  .print-totals-box,
+  .print-terms-section,
+  .print-addresses { break-inside: avoid; page-break-inside: avoid; }
+  .print-pricing tr { break-inside: avoid; }
   @media print {
     .pay-panel { display: none; }
     .share-page { background: none; } .print-page { margin: 0; padding: 0; box-shadow: none; max-width: none; } @page { margin: 18mm 16mm; size: A4; }
