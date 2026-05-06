@@ -85,3 +85,55 @@ describe('GET /api/quotes/[id]/pdf', () => {
     expect(cd).toContain("filename*=UTF-8''Sano%20Quote%20-%20QT-1234.pdf")
   })
 })
+
+import { GET as getShareQuotePdf } from '@/app/api/share/quote/[token]/pdf/route'
+
+jest.mock('@/lib/supabase-service', () => ({
+  getServiceSupabase: jest.fn(),
+}))
+import { getServiceSupabase } from '@/lib/supabase-service'
+const mockedService = getServiceSupabase as jest.Mock
+
+function shareStub(overrides: { quote?: { quote_number: string; deleted_at: string | null } | null } = {}) {
+  return {
+    from: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      single: jest.fn().mockResolvedValue({ data: overrides.quote ?? null, error: overrides.quote ? null : new Error('not found') }),
+    }),
+  }
+}
+
+function shareRequest(): any {
+  return { url: 'https://sano.nz/api/share/quote/tok123/pdf', headers: { get: () => '' } }
+}
+
+describe('GET /api/share/quote/[token]/pdf', () => {
+  beforeEach(() => {
+    mockedService.mockReset()
+    mockedRender.mockReset()
+  })
+
+  it('returns 404 when token does not match (or record soft-deleted)', async () => {
+    mockedService.mockReturnValue(shareStub({ quote: null }))
+    const res = await getShareQuotePdf(shareRequest(), { params: { token: 'tok123' } })
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 200 with Sano Quote filename on success', async () => {
+    mockedService.mockReturnValue(shareStub({ quote: { quote_number: 'QT-7', deleted_at: null } }))
+    mockedRender.mockResolvedValue(Buffer.from('PDF'))
+    const res = await getShareQuotePdf(shareRequest(), { params: { token: 'tok123' } })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-disposition') ?? '').toContain('filename="Sano Quote - QT-7.pdf"')
+  })
+
+  it('does NOT forward cookies to the renderer (public flow)', async () => {
+    mockedService.mockReturnValue(shareStub({ quote: { quote_number: 'QT-7', deleted_at: null } }))
+    mockedRender.mockResolvedValue(Buffer.from('PDF'))
+    await getShareQuotePdf(shareRequest(), { params: { token: 'tok123' } })
+    const lastCall = mockedRender.mock.calls.at(-1)
+    expect(lastCall?.[1]?.cookies ?? []).toEqual([])
+  })
+})
