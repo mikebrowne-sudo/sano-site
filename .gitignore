@@ -34,3 +34,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code (local-only)
+.claude/settings.local.json
+.claude/skills/
+.agents/skills/
+.superpowers/brainstorm/
+
+# Operational scratch (per CLAUDE.md, human-managed)
+docs/AI/New Text Document.txt
+docs/AI/Launch Sano Claude.bat
+docs/compliance/
