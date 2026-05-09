@@ -12,6 +12,17 @@
 
 If something below contradicts those two docs, the dedicated doc wins.
 
+## Status pointers
+
+Short, current. Link to PORTAL.md for depth.
+
+- **[`docs/AI/PROJECT.md`](docs/AI/PROJECT.md)** — 1-page elevator pitch.
+- **[`docs/AI/STATE.md`](docs/AI/STATE.md)** — what's currently live (last verified date).
+- **[`docs/AI/NEXT.md`](docs/AI/NEXT.md)** — immediate queue.
+- **[`docs/AI/ROADMAP.md`](docs/AI/ROADMAP.md)** — sequencing.
+- **[`docs/AI/DECISIONS.md`](docs/AI/DECISIONS.md)** — architectural decisions log.
+- **[`docs/AI/OBSIDIAN_SECOND_BRAIN.md`](docs/AI/OBSIDIAN_SECOND_BRAIN.md)** — Obsidian vault pointer (`F:\Second Brain\`).
+
 ---
 
 ## Quick orient
