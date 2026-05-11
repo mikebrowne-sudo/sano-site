@@ -12,6 +12,7 @@ import { InvoiceLinkedRecords } from './_components/InvoiceLinkedRecords'
 import { LifecycleActions } from '../../_components/LifecycleActions'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
 import { isAdminUser } from '@/lib/is-admin'
+import { Panel } from '../../_components/Panel'
 import { firstName } from '@/lib/doc-helpers'
 import { StatusBadge } from '../../_components/StatusBadge'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
@@ -342,7 +343,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
         {/* Pricing */}
         <Section title="Pricing">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <Panel>
             <div className="flex items-center justify-between text-sm text-sage-600 mb-1">
               <span>Base price</span>
               <span>{fmt(invoice.base_price ?? 0)}</span>
@@ -365,7 +366,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
               </span>
               <span className="text-xl font-bold text-sage-800">{fmt(total)}</span>
             </div>
-          </div>
+          </Panel>
         </Section>
 
         {/* Manual override audit block */}

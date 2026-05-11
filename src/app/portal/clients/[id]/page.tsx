@@ -2,9 +2,11 @@ import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { ClientForm } from '../_components/ClientForm'
 import Link from 'next/link'
-import { ArrowLeft, Archive } from 'lucide-react'
+import { Archive } from 'lucide-react'
 import { ClientAccessPanel } from './_components/ClientAccessPanel'
 import { ClientCleanupActions } from './_components/ClientCleanupActions'
+import { PortalPageHeader } from '../../_components/PortalPageHeader'
+import { Panel } from '../../_components/Panel'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
 import { findPossibleDuplicates, getClientLinkCounts } from '../_lib-cleanup'
 import { isAdminUser } from '@/lib/is-admin'
@@ -133,25 +135,17 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
   return (
     <div>
-      <Link
-        href="/portal/clients"
-        className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"
-      >
-        <ArrowLeft size={14} />
-        Back to clients
-      </Link>
-
-      <div className="flex items-center justify-between mb-8 gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-sage-800">{vm.name}</h1>
-          {isArchived && (
-            <span className="inline-flex items-center gap-1.5 mt-1 text-xs font-medium text-sage-600 bg-sage-100 rounded-full px-2.5 py-0.5">
-              <Archive size={11} />
-              Archived
-            </span>
-          )}
-        </div>
-      </div>
+      <PortalPageHeader
+        backHref="/portal/clients"
+        backLabel="Back to clients"
+        title={vm.name}
+        titleAdornment={isArchived && (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-sage-600 bg-sage-100 rounded-full px-2.5 py-0.5">
+            <Archive size={11} />
+            Archived
+          </span>
+        )}
+      />
 
       {isAdmin && (
         <ClientCleanupActions
@@ -164,7 +158,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       )}
 
       {duplicates.length > 0 && isAdmin && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6">
+        <Panel variant="warning" className="mb-6">
           <h2 className="text-base font-semibold text-amber-900 mb-2">Possible duplicates</h2>
           <p className="text-xs text-amber-800 mb-3">
             These active clients share an email, phone number, or name with this one. Use Merge above to combine them.
@@ -190,7 +184,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                 </li>
               ))}
           </ul>
-        </div>
+        </Panel>
       )}
 
       {/* Phase 5.5.6 — Client portal access (mirror of contractor 5.5.3). */}
@@ -220,8 +214,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       />
 
       {/* Phase 5.5.7 — Activity timeline (audit_log; read-only). */}
-      <div className="bg-white rounded-xl border border-sage-100 shadow-sm p-6 mt-6">
-        <h2 className="text-base font-semibold text-sage-800 mb-3">Activity</h2>
+      <Panel title="Activity" padding="md" className="mt-6">
         {!Array.isArray(audit) || audit.length === 0 ? (
           <p className="text-sm text-sage-500">No history yet.</p>
         ) : (
@@ -242,7 +235,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               ))}
           </ul>
         )}
-      </div>
+      </Panel>
     </div>
   )
 }
