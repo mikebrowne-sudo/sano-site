@@ -1,15 +1,14 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { FileText, Plus, FileSearch, FlaskConical, Archive } from 'lucide-react'
-import clsx from 'clsx'
 import { StatusBadge } from '../_components/StatusBadge'
 import { PortalPageHeader } from '../_components/PortalPageHeader'
 import { buttonClasses } from '../_components/Button'
 import { EmptyState } from '../_components/EmptyState'
+import { PortalListTable, type ListColumnDef } from '../_components/PortalListTable'
 import { loadDisplaySettings, QUOTE_FIELDS } from '@/lib/portal-display-settings'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
-import { AttentionChips } from '../_components/AttentionChips'
-import { BulkSelectProvider, BulkSelectCheckbox, BulkSelectHeader } from '../_components/BulkSelect'
+import { BulkSelectProvider } from '../_components/BulkSelect'
 import { getQuoteAttention } from '@/lib/attention-rules'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
 import { formatCurrency, formatDate } from '@/lib/format'
@@ -298,156 +297,129 @@ export default async function QuotesPage({
     all:             { title: 'No quotes yet.', sub: 'Create the first quote to get going.' },
   }
 
+  // Phase 4B — linked-record chips appear under the FIRST visible
+  // column's cell content, after the attention chips. We bake them
+  // into a helper that the column-0 cell renders alongside its value.
+  function LinkedChips({ row }: { row: typeof rows[number] }) {
+    if (!row.linkedJob && !row.linkedInvoice) return null
+    return (
+      <div className="mt-1.5 inline-flex flex-wrap gap-1.5 text-[11px] text-sage-600">
+        {row.linkedJob && (
+          <span className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 rounded-full px-2 py-0.5">
+            <span className="font-medium text-sage-800">Job {row.linkedJob.job_number ?? '—'}</span>
+            {row.linkedJob.status && <span className="text-sage-500">· {row.linkedJob.status.replace('_', ' ')}</span>}
+          </span>
+        )}
+        {row.linkedInvoice && (
+          <span className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 rounded-full px-2 py-0.5">
+            <span className="font-medium text-sage-800">Invoice {row.linkedInvoice.invoice_number ?? '—'}</span>
+            {row.linkedInvoice.status && <span className="text-sage-500">· {row.linkedInvoice.status}</span>}
+          </span>
+        )}
+      </div>
+    )
+  }
+
+  const columns: ListColumnDef<typeof rows[number]>[] = orderedVisible.map((k, idx) => ({
+    key: k,
+    label: QUOTE_FIELDS.find((f) => f.key === k)?.label ?? k,
+    align: alignFor(k) === 'text-right' ? 'right' : 'left',
+    cell: (row) => idx === 0
+      ? <>{cell(row, k)}<LinkedChips row={row} /></>
+      : cell(row, k),
+  }))
+
   return (
-    <div>
-      <PortalPageHeader
-        title="Quotes"
-        actions={
-          <Link href="/portal/quotes/new" className={buttonClasses({ variant: 'primary' })}>
-            <Plus size={16} />
-            New Quote
-          </Link>
-        }
-      />
-
-      <ListLifecycleTabs
-        basePath="/portal/quotes"
-        tabs={QUOTE_TABS}
-        activeTab={activeTab}
-        showArchived={showArchived}
-        canCleanup={canCleanup}
-      />
-
-      {rows.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title={emptyCopy[activeTab].title}
-          description={emptyCopy[activeTab].sub}
-          action={
-            <Link href="/portal/quotes/new" className={buttonClasses({ variant: 'primary' })}>
-              <Plus size={16} />
-              New quote
-            </Link>
-          }
-        />
-      ) : (
-        <BulkSelectProvider entity="quote" ids={rows.map((r) => r.id as string)} canCleanup={canCleanup}>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 text-left text-sage-600">
-                  {canCleanup && (
-                    <th className="pl-5 pr-2 py-3 w-8">
-                      <BulkSelectHeader />
-                    </th>
-                  )}
-                  {orderedVisible.map((k) => (
-                    <th key={k} className={`px-5 py-3 font-semibold ${alignFor(k)}`}>
-                      {QUOTE_FIELDS.find((f) => f.key === k)?.label ?? k}
-                    </th>
-                  ))}
-                  <th className="px-3 py-3 font-semibold text-right" aria-label="Actions"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} className={clsx('border-b border-gray-50 last:border-0 group', (row.isTest || row.isArchived) && 'opacity-60')}>
-                    {canCleanup && (
-                      <td className="pl-5 pr-2 py-3 align-top">
-                        <BulkSelectCheckbox id={row.id as string} label={`Select quote ${row.quote_number}`} />
-                      </td>
-                    )}
-                    {orderedVisible.map((k, idx) => (
-                      <td key={k} className="p-0 align-top">
-                        <Link href={`/portal/quotes/${row.id}`} className={`block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-700 ${alignFor(k)}`}>
-                          {cell(row, k)}
-                          {idx === 0 && (row.attention.reasons.length > 0 || row.attention.nextStep) && (
-                            <div className="mt-1.5">
-                              <AttentionChips reasons={row.attention.reasons} nextStep={row.attention.nextStep} size="xs" />
-                            </div>
-                          )}
-                          {idx === 0 && (row.linkedJob || row.linkedInvoice) && (
-                            <div className="mt-1.5 inline-flex flex-wrap gap-1.5 text-[11px] text-sage-600">
-                              {row.linkedJob && (
-                                <span className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 rounded-full px-2 py-0.5">
-                                  <span className="font-medium text-sage-800">Job {row.linkedJob.job_number ?? '—'}</span>
-                                  {row.linkedJob.status && <span className="text-sage-500">· {row.linkedJob.status.replace('_', ' ')}</span>}
-                                </span>
-                              )}
-                              {row.linkedInvoice && (
-                                <span className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 rounded-full px-2 py-0.5">
-                                  <span className="font-medium text-sage-800">Invoice {row.linkedInvoice.invoice_number ?? '—'}</span>
-                                  {row.linkedInvoice.status && <span className="text-sage-500">· {row.linkedInvoice.status}</span>}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </Link>
-                      </td>
-                    ))}
-                    <td className="px-3 py-3 text-right align-top">
-                      {row.isCommercial && (
-                        <Link
-                          href={`/portal/quotes/${row.id}/proposal`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="View Commercial Proposal"
-                          className="inline-flex items-center justify-center h-7 w-7 rounded-md text-sage-500 hover:text-sage-800 hover:bg-sage-100 transition-colors"
-                        >
-                          <FileSearch size={15} />
-                        </Link>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="md:hidden divide-y divide-gray-100">
-            {rows.map((row) => (
-              <div key={row.id} className={clsx('flex items-start gap-3 px-4 py-4 hover:bg-gray-50 transition-colors', (row.isTest || row.isArchived) && 'opacity-60')}>
-                {canCleanup && (
-                  <div className="pt-1">
-                    <BulkSelectCheckbox id={row.id as string} label={`Select quote ${row.quote_number}`} />
-                  </div>
-                )}
-                <Link href={`/portal/quotes/${row.id}`} className="block flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
-                  <span className="font-medium text-sage-800 inline-flex items-center gap-1.5">
-                    {rawCell(row, primaryKey)}
-                    {row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5"><FlaskConical size={9} /> Test</span>}
-                    {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
-                  </span>
-                  <StatusBadge kind="quote" status={row.status} />
-                </div>
-                {(row.attention.reasons.length > 0 || row.attention.nextStep) && (
-                  <div className="mb-1">
-                    <AttentionChips reasons={row.attention.reasons} nextStep={row.attention.nextStep} size="xs" />
-                  </div>
-                )}
-                <div className="text-sage-600 text-sm">{rawCell(row, secondaryKey)}</div>
-                {visible.has('address') && primaryKey !== 'address' && secondaryKey !== 'address' && row.address && (
-                  <div className="text-sage-500 text-xs truncate">{row.address}</div>
-                )}
-                <div className="flex items-center justify-between mt-2 text-xs text-sage-500">
-                  <span>{formatDate(row.date_issued)}</span>
-                  <span className="font-medium text-sage-800 text-sm">{formatCurrency(row.total)}</span>
-                </div>
+    <BulkSelectProvider entity="quote" ids={rows.map((r) => r.id as string)} canCleanup={canCleanup}>
+      <PortalListTable<typeof rows[number]>
+        header={
+          <PortalPageHeader
+            title="Quotes"
+            actions={
+              <Link href="/portal/quotes/new" className={buttonClasses({ variant: 'primary' })}>
+                <Plus size={16} />
+                New Quote
               </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-        </BulkSelectProvider>
-      )}
-
+            }
+          />
+        }
+        tabs={
+          <ListLifecycleTabs
+            basePath="/portal/quotes"
+            tabs={QUOTE_TABS}
+            activeTab={activeTab}
+            showArchived={showArchived}
+            canCleanup={canCleanup}
+          />
+        }
+        emptyState={
+          <EmptyState
+            icon={FileText}
+            title={emptyCopy[activeTab].title}
+            description={emptyCopy[activeTab].sub}
+            action={
+              <Link href="/portal/quotes/new" className={buttonClasses({ variant: 'primary' })}>
+                <Plus size={16} />
+                New quote
+              </Link>
+            }
+          />
+        }
+        rows={rows}
+        columns={columns}
+        bulkSelect={{ canCleanup }}
+        rowHref={(row) => `/portal/quotes/${row.id}`}
+        rowLabel={(row) => `quote ${row.quote_number}`}
+        isDimmed={(row) => row.isTest || row.isArchived}
+        attention={(row) =>
+          (row.attention.reasons.length > 0 || row.attention.nextStep)
+            ? { reasons: row.attention.reasons, nextStep: row.attention.nextStep }
+            : null
+        }
+        rowExtraActions={(row) => row.isCommercial ? (
+          <Link
+            href={`/portal/quotes/${row.id}/proposal`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="View Commercial Proposal"
+            className="inline-flex items-center justify-center h-7 w-7 rounded-md text-sage-500 hover:text-sage-800 hover:bg-sage-100 transition-colors"
+          >
+            <FileSearch size={15} />
+          </Link>
+        ) : null}
+        mobile={{
+          label: (row) => `quote ${row.quote_number}`,
+          primary: (row) => (
+            <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+              <span className="font-medium text-sage-800 inline-flex items-center gap-1.5">
+                {rawCell(row, primaryKey)}
+                {row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5"><FlaskConical size={9} /> Test</span>}
+                {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
+              </span>
+              <StatusBadge kind="quote" status={row.status} />
+            </div>
+          ),
+          secondary: (row) => rawCell(row, secondaryKey),
+          extra: (row) => (
+            <>
+              {visible.has('address') && primaryKey !== 'address' && secondaryKey !== 'address' && row.address && (
+                <div className="text-sage-500 text-xs truncate">{row.address}</div>
+              )}
+            </>
+          ),
+          meta: (row) => (
+            <>
+              <span>{formatDate(row.date_issued)}</span>
+              <span className="font-medium text-sage-800 text-sm">{formatCurrency(row.total)}</span>
+            </>
+          ),
+        }}
+      />
       {quotesList.groupBy !== 'none' && (
         <p className="text-[11px] text-sage-400 mt-3 italic">
           Group-by ({quotesList.groupBy}) will be wired in the next phase. Setting persists.
         </p>
       )}
-    </div>
+    </BulkSelectProvider>
   )
 }
