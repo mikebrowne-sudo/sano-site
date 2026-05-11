@@ -70,6 +70,27 @@ export interface PortalListTableProps<TRow extends { id: string }> {
     extra?: (row: TRow) => React.ReactNode  // linked-records line
     meta?: (row: TRow) => React.ReactNode   // date + total etc.
   }
+
+  // Phase 4A — slot expansion (spec §13.5). All optional, additive.
+  // Existing callers pass none of these and keep their current render
+  // exactly. Pages adopting the slots delegate the surrounding chrome
+  // to the primitive so the table + page-chrome layout stays in lock-
+  // step across all four list routes.
+  /** Renders above the table chrome. Conventionally the
+   *  <PortalPageHeader> for the page. */
+  header?: React.ReactNode
+  /** Renders below the header, above the filter row. Conventionally
+   *  the <ListLifecycleTabs>. */
+  tabs?: React.ReactNode
+  /** Renders below tabs, above the table chrome. Conventionally a
+   *  search + sort filter strip. */
+  filters?: React.ReactNode
+  /** Renders inside the table chrome below the rows, separated by a
+   *  top border. Conventionally a "Load more" button. */
+  footer?: React.ReactNode
+  /** Renders in place of the table body when `rows` is empty.
+   *  Conventionally an <EmptyState>. */
+  emptyState?: React.ReactNode
 }
 
 function alignClass(align?: 'left' | 'right'): string {
@@ -82,10 +103,18 @@ export function PortalListTable<TRow extends { id: string }>(
   const {
     rows, columns, bulkSelect, rowHref, rowLabel,
     isDimmed, attention, rowExtraActions, mobile,
+    header, tabs, filters, footer, emptyState,
   } = props
   const canCleanup = bulkSelect?.canCleanup ?? false
 
-  return (
+  // Phase 4A — when the caller passes the new wrapper slots and the
+  // row set is empty, render the empty-state in place of the table
+  // chrome entirely. Without `emptyState`, fall through to the table
+  // (which will render zero rows but keep the chrome) so legacy
+  // callers' own empty branches keep working.
+  const showEmptyInsteadOfTable = rows.length === 0 && !!emptyState
+
+  const tableSection = showEmptyInsteadOfTable ? emptyState : (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
       {/* ─── Desktop table ────────────────────────────────────── */}
       <div className="hidden md:block overflow-x-auto">
@@ -193,6 +222,30 @@ export function PortalListTable<TRow extends { id: string }>(
           )
         })}
       </div>
+
+      {footer && (
+        <div className="border-t border-gray-100 px-5 py-3 bg-white">
+          {footer}
+        </div>
+      )}
+    </div>
+  )
+
+  // Phase 4A — when no wrapper slots are passed, return the table on
+  // its own (legacy callers). When any wrapper slot is passed, the
+  // page delegates the surrounding chrome to the primitive so spacing
+  // and ordering stay in lockstep across the four list routes.
+  const hasWrapperSlots = !!(header || tabs || filters)
+  if (!hasWrapperSlots) {
+    return <>{tableSection}</>
+  }
+
+  return (
+    <div>
+      {header}
+      {tabs && <div className="mb-4">{tabs}</div>}
+      {filters && <div className="mb-4">{filters}</div>}
+      {tableSection}
     </div>
   )
 }

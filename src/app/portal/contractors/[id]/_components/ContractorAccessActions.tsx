@@ -148,7 +148,7 @@ export function ContractorAccessActions({
           onClick={() => !pending && setModal(null)}
         >
           <div
-            className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6"
+            className="bg-white rounded-xl shadow-xl max-w-md w-full p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-semibold text-sage-800 mb-1">Disable contractor access</h3>

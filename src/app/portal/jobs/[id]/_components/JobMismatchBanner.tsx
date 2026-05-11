@@ -34,14 +34,14 @@ export function JobMismatchBanner({ jobId, quoteNumber }: { jobId: string; quote
 
   if (done) {
     return (
-      <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl px-4 py-3 mb-4 text-sm">
+      <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl px-4 py-3 mb-4 text-sm">
         {done === 'fixed' ? 'Job client now matches the quote.' : 'Quote unlinked. Job marked as manual.'} Refresh to see the update.
       </div>
     )
   }
 
   return (
-    <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 mb-4">
+    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
       <div className="flex items-start gap-2.5">
         <AlertTriangle size={18} className="text-red-600 mt-0.5 shrink-0" />
         <div className="flex-1">

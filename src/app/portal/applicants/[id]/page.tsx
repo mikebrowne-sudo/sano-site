@@ -166,7 +166,7 @@ export default async function ApplicantDetailPage({
 
       {/* Phase 5.3 — At-a-glance trial visibility, always rendered.
           ApplicantTrialSection handles scheduling / outcome inside. */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-6">
         <h2 className="text-base font-semibold text-sage-800 mb-1">Trial</h2>
         {a.trial_required ?? true ? (
           <p className="text-sm text-sage-700">

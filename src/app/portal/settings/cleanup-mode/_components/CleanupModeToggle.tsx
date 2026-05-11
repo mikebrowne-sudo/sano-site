@@ -35,7 +35,7 @@ export function CleanupModeToggle({ initial }: { initial: boolean }) {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-amber-200 shadow-sm p-6">
+    <div className="bg-white rounded-xl border border-amber-200 shadow-sm p-6">
       <div className="flex items-start gap-3 mb-4">
         <AlertTriangle size={18} className="text-amber-500 mt-0.5 shrink-0" aria-hidden />
         <div>

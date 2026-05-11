@@ -36,18 +36,17 @@ export const QUOTE_STATUS_DESCRIPTIONS: Record<QuoteStatus, string> = {
   converted: 'Converted to an invoice. Quote is locked.',
 }
 
-// Phase 5.5.14 — palette standardisation. Five tones across the
-// system: neutral (gray) for not-yet-acted, blue for in-motion,
-// emerald for accepted/done-well, sage for terminal-success
-// (converted/invoiced), red for declined/cancelled, amber for
-// problem-states (overdue / in_progress).
+// Phase 4A — palette conformance to design system §1.11. Sage replaces
+// sky (out-of-palette) for `viewed`. `converted` keeps a softer sage
+// (50/600) so the terminal-success state reads quieter than the
+// in-motion / locked states above it.
 export const QUOTE_STATUS_STYLES: Record<QuoteStatus, string> = {
   draft:     'bg-gray-100 text-gray-700',
   sent:      'bg-blue-50 text-blue-700',
-  viewed:    'bg-sky-50 text-sky-700',
+  viewed:    'bg-sage-100 text-sage-700',
   accepted:  'bg-emerald-50 text-emerald-700',
   declined:  'bg-red-50 text-red-700',
-  converted: 'bg-sage-50 text-sage-700',
+  converted: 'bg-sage-50 text-sage-600',
 }
 
 /** Statuses where the quote is fully locked — no edits, no convert,
@@ -95,12 +94,15 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   cancelled: 'Cancelled',
 }
 
+// Phase 4A — cancelled drops to a muted gray-50/500 per spec §1.11.
+// Red is reserved for destructive actions and hard fails; a cancelled
+// invoice is an archived state, not an error.
 export const INVOICE_STATUS_STYLES: Record<InvoiceStatus, string> = {
   draft:     'bg-gray-100 text-gray-700',
   sent:      'bg-blue-50 text-blue-700',
   paid:      'bg-emerald-50 text-emerald-700',
   overdue:   'bg-amber-50 text-amber-700',
-  cancelled: 'bg-red-50 text-red-700',
+  cancelled: 'bg-gray-50 text-gray-500',
 }
 
 /** Compute display status — promotes 'sent' to 'overdue' when due_date
@@ -144,12 +146,17 @@ export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   scheduled:        'Scheduled',
 }
 
+// Phase 4A — conformance to spec §1.11. in_progress becomes amber
+// (active-with-attention), completed becomes emerald (done-well),
+// invoiced moves to the stronger sage-100 (terminal-locked).
+// needs_scheduling and scheduled are derived statuses for the list
+// view and stay at amber-attention / blue-in-motion respectively.
 export const JOB_STATUS_STYLES: Record<JobStatus, string> = {
   draft:            'bg-gray-100 text-gray-700',
   assigned:         'bg-blue-50 text-blue-700',
-  in_progress:      'bg-blue-50 text-blue-700',
-  completed:        'bg-gray-100 text-gray-700',
-  invoiced:         'bg-sage-50 text-sage-700',
+  in_progress:      'bg-amber-50 text-amber-700',
+  completed:        'bg-emerald-50 text-emerald-700',
+  invoiced:         'bg-sage-100 text-sage-700',
   needs_scheduling: 'bg-amber-50 text-amber-800',
   scheduled:        'bg-blue-50 text-blue-700',
 }

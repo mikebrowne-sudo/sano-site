@@ -116,7 +116,7 @@ export function SettingsForm({ initial }: { initial: SettingsFormInput }) {
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section className="bg-white rounded-2xl border border-sage-100 shadow-sm p-6">
+    <section className="bg-white rounded-xl border border-sage-100 shadow-sm p-6">
       <header className="mb-4">
         <h2 className="text-base font-semibold text-sage-800">{title}</h2>
         {hint && <p className="text-xs text-sage-500 mt-0.5">{hint}</p>}

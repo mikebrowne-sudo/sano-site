@@ -6,7 +6,7 @@ const STATUS_STYLES: Record<string, string> = {
   assigned:    'bg-blue-50 text-blue-700',
   in_progress: 'bg-amber-50 text-amber-700',
   completed:   'bg-emerald-50 text-emerald-700',
-  invoiced:    'bg-purple-50 text-purple-700',
+  invoiced:    'bg-sage-100 text-sage-700',
 }
 
 interface Job {
@@ -70,7 +70,7 @@ export function JobCard({ job, compact }: { job: Job; compact?: boolean }) {
             {job.status.replace('_', ' ')}
           </span>
           {job.recurring_job_id && (
-            <span className="inline-block px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-500 text-[10px] font-medium">Recurring</span>
+            <span className="inline-block px-1.5 py-0.5 rounded-full bg-sage-100 text-sage-700 text-[10px] font-medium">Recurring</span>
           )}
         </div>
         {job.title && <p className="text-sage-700 text-sm truncate">{job.title}</p>}

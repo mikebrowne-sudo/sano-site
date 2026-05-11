@@ -31,7 +31,7 @@ export default function ClientDetailError({ error, reset }: { error: Error & { d
         <ArrowLeft size={14} />
         Back to clients
       </Link>
-      <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
+      <div className="bg-red-50 border border-red-200 rounded-xl p-6">
         <div className="flex items-start gap-3 mb-3">
           <AlertTriangle size={20} className="text-red-600 mt-0.5 shrink-0" />
           <div>

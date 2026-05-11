@@ -102,7 +102,7 @@ export function TrialPanel({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-sage-100 shadow-sm p-6 mb-6">
+    <div className="bg-white rounded-xl border border-sage-100 shadow-sm p-6 mb-6">
       <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
         <h2 className="text-lg font-semibold text-sage-800">Trial</h2>
         <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[status]}`}>

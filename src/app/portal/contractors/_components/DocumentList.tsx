@@ -22,7 +22,7 @@ const TYPE_COLORS: Record<string, string> = {
   right_to_work: 'bg-indigo-50 text-indigo-700',
   health_and_safety: 'bg-amber-50 text-amber-700',
   onboarding: 'bg-emerald-50 text-emerald-700',
-  policy: 'bg-purple-50 text-purple-700',
+  policy: 'bg-sage-50 text-sage-700',
   id_verification: 'bg-sage-100 text-sage-700',
   other: 'bg-gray-100 text-gray-600',
 }

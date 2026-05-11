@@ -17,7 +17,7 @@ const SEVERITY_COLORS: Record<string, string> = {
   low: 'bg-sage-100 text-sage-700',
   medium: 'bg-amber-50 text-amber-700',
   high: 'bg-red-50 text-red-700',
-  complaint: 'bg-purple-50 text-purple-700',
+  complaint: 'bg-amber-50 text-amber-700',
   performance: 'bg-blue-50 text-blue-700',
 }
 
