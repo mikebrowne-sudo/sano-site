@@ -4,6 +4,7 @@ import { FileText, Plus, FileSearch, FlaskConical, Archive } from 'lucide-react'
 import clsx from 'clsx'
 import { StatusBadge } from '../_components/StatusBadge'
 import { PortalPageHeader } from '../_components/PortalPageHeader'
+import { buttonClasses } from '../_components/Button'
 import { loadDisplaySettings, QUOTE_FIELDS } from '@/lib/portal-display-settings'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
 import { AttentionChips } from '../_components/AttentionChips'
@@ -301,10 +302,7 @@ export default async function QuotesPage({
       <PortalPageHeader
         title="Quotes"
         actions={
-          <Link
-            href="/portal/quotes/new"
-            className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
-          >
+          <Link href="/portal/quotes/new" className={buttonClasses({ variant: 'primary' })}>
             <Plus size={16} />
             New Quote
           </Link>

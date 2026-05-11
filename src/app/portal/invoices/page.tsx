@@ -4,6 +4,7 @@ import { Receipt, FlaskConical, Archive, FilePlus2 } from 'lucide-react'
 import { CustomInvoiceBadge } from './_components/CustomInvoiceBadge'
 import { StatusBadge } from '../_components/StatusBadge'
 import { PortalPageHeader } from '../_components/PortalPageHeader'
+import { buttonClasses } from '../_components/Button'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
 import { BulkSelectProvider } from '../_components/BulkSelect'
@@ -340,10 +341,7 @@ export default async function InvoicesPage({
         title="Invoices"
         actions={
           isAdmin && (
-            <Link
-              href="/portal/invoices/custom/new"
-              className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
-            >
+            <Link href="/portal/invoices/custom/new" className={buttonClasses({ variant: 'primary' })}>
               <FilePlus2 size={16} />
               Create custom invoice
             </Link>
