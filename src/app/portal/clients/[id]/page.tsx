@@ -6,6 +6,7 @@ import { Archive } from 'lucide-react'
 import { ClientAccessPanel } from './_components/ClientAccessPanel'
 import { ClientCleanupActions } from './_components/ClientCleanupActions'
 import { PortalPageHeader } from '../../_components/PortalPageHeader'
+import { Panel } from '../../_components/Panel'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
 import { findPossibleDuplicates, getClientLinkCounts } from '../_lib-cleanup'
 import { isAdminUser } from '@/lib/is-admin'
@@ -157,7 +158,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       )}
 
       {duplicates.length > 0 && isAdmin && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6">
+        <Panel variant="warning" className="mb-6">
           <h2 className="text-base font-semibold text-amber-900 mb-2">Possible duplicates</h2>
           <p className="text-xs text-amber-800 mb-3">
             These active clients share an email, phone number, or name with this one. Use Merge above to combine them.
@@ -183,7 +184,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                 </li>
               ))}
           </ul>
-        </div>
+        </Panel>
       )}
 
       {/* Phase 5.5.6 — Client portal access (mirror of contractor 5.5.3). */}
@@ -213,8 +214,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       />
 
       {/* Phase 5.5.7 — Activity timeline (audit_log; read-only). */}
-      <div className="bg-white rounded-xl border border-sage-100 shadow-sm p-6 mt-6">
-        <h2 className="text-base font-semibold text-sage-800 mb-3">Activity</h2>
+      <Panel title="Activity" padding="md" className="mt-6">
         {!Array.isArray(audit) || audit.length === 0 ? (
           <p className="text-sm text-sage-500">No history yet.</p>
         ) : (
@@ -235,7 +235,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               ))}
           </ul>
         )}
-      </div>
+      </Panel>
     </div>
   )
 }
