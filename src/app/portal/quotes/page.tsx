@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 import { FileText, Plus, FileSearch, FlaskConical, Archive } from 'lucide-react'
 import clsx from 'clsx'
 import { StatusBadge } from '../_components/StatusBadge'
+import { PortalPageHeader } from '../_components/PortalPageHeader'
 import { loadDisplaySettings, QUOTE_FIELDS } from '@/lib/portal-display-settings'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
 import { AttentionChips } from '../_components/AttentionChips'
@@ -297,16 +298,18 @@ export default async function QuotesPage({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-sage-800 tracking-tight">Quotes</h1>
-        <Link
-          href="/portal/quotes/new"
-          className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
-        >
-          <Plus size={16} />
-          New Quote
-        </Link>
-      </div>
+      <PortalPageHeader
+        title="Quotes"
+        actions={
+          <Link
+            href="/portal/quotes/new"
+            className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
+          >
+            <Plus size={16} />
+            New Quote
+          </Link>
+        }
+      />
 
       <ListLifecycleTabs
         basePath="/portal/quotes"

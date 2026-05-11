@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { Users, Plus, Archive } from 'lucide-react'
 import { ClientSearch } from './_components/ClientSearch'
+import { PortalPageHeader } from '../_components/PortalPageHeader'
 import clsx from 'clsx'
 
 export default async function ClientsPage({
@@ -64,16 +65,18 @@ export default async function ClientsPage({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-sage-800 tracking-tight">Clients</h1>
-        <Link
-          href="/portal/clients/new"
-          className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
-        >
-          <Plus size={16} />
-          New Client
-        </Link>
-      </div>
+      <PortalPageHeader
+        title="Clients"
+        actions={
+          <Link
+            href="/portal/clients/new"
+            className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
+          >
+            <Plus size={16} />
+            New Client
+          </Link>
+        }
+      />
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <ClientSearch defaultValue={q} />

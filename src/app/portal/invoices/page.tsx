@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 import { Receipt, FlaskConical, Archive, FilePlus2 } from 'lucide-react'
 import { CustomInvoiceBadge } from './_components/CustomInvoiceBadge'
 import { StatusBadge } from '../_components/StatusBadge'
+import { PortalPageHeader } from '../_components/PortalPageHeader'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
 import { BulkSelectProvider } from '../_components/BulkSelect'
@@ -335,18 +336,20 @@ export default async function InvoicesPage({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-sage-800 tracking-tight">Invoices</h1>
-        {isAdmin && (
-          <Link
-            href="/portal/invoices/custom/new"
-            className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
-          >
-            <FilePlus2 size={16} />
-            Create custom invoice
-          </Link>
-        )}
-      </div>
+      <PortalPageHeader
+        title="Invoices"
+        actions={
+          isAdmin && (
+            <Link
+              href="/portal/invoices/custom/new"
+              className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
+            >
+              <FilePlus2 size={16} />
+              Create custom invoice
+            </Link>
+          )
+        }
+      />
 
       <ListLifecycleTabs
         basePath="/portal/invoices"

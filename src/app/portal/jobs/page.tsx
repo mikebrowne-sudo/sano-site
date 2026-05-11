@@ -7,6 +7,7 @@ import { loadDisplaySettings, JOB_FIELDS } from '@/lib/portal-display-settings'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
 import { BulkSelectProvider } from '../_components/BulkSelect'
 import { PortalListTable, type ListColumnDef } from '../_components/PortalListTable'
+import { PortalPageHeader } from '../_components/PortalPageHeader'
 import { getJobAttention } from '@/lib/attention-rules'
 import { getJobStatus } from '@/lib/job-status'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
@@ -361,25 +362,27 @@ export default async function JobsPage({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-sage-800 tracking-tight">Jobs</h1>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/portal/jobs/calendar"
-            className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
-          >
-            <CalendarDays size={16} />
-            Calendar
-          </Link>
-          <Link
-            href="/portal/jobs/new"
-            className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
-          >
-            <Plus size={16} />
-            New Job
-          </Link>
-        </div>
-      </div>
+      <PortalPageHeader
+        title="Jobs"
+        actions={
+          <>
+            <Link
+              href="/portal/jobs/calendar"
+              className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
+            >
+              <CalendarDays size={16} />
+              Calendar
+            </Link>
+            <Link
+              href="/portal/jobs/new"
+              className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
+            >
+              <Plus size={16} />
+              New Job
+            </Link>
+          </>
+        }
+      />
 
       <ListLifecycleTabs
         basePath="/portal/jobs"
