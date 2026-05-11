@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
-import { Receipt, FlaskConical, Archive, FilePlus2 } from 'lucide-react'
+import { Receipt, FlaskConical, Archive } from 'lucide-react'
 import { CustomInvoiceBadge } from './_components/CustomInvoiceBadge'
 import { StatusBadge } from '../_components/StatusBadge'
 import { PortalPageHeader } from '../_components/PortalPageHeader'
