@@ -337,93 +337,91 @@ export default async function InvoicesPage({
   }
 
   return (
-    <div>
-      <PortalPageHeader
-        title="Invoices"
-        actions={
-          isAdmin && (
-            <Link href="/portal/invoices/custom/new" className={buttonClasses({ variant: 'primary' })}>
-              <FilePlus2 size={16} />
-              Create custom invoice
-            </Link>
-          )
-        }
-      />
-
-      <ListLifecycleTabs
-        basePath="/portal/invoices"
-        tabs={INVOICE_TABS}
-        activeTab={activeTab}
-        showArchived={showArchived}
-        canCleanup={canCleanup}
-        preservedParams={{ q: search || undefined, sort: sort || undefined }}
-      />
-
-      <InvoiceFilters />
-
-      {rows.length === 0 ? (
-        <EmptyState
-          icon={Receipt}
-          title={emptyCopy[activeTab].title}
-          description={emptyCopy[activeTab].sub || undefined}
-          action={
-            <Link href="/portal/quotes" className={buttonClasses({ variant: 'primary' })}>
-              View quotes
-            </Link>
-          }
-        />
-      ) : (
-        <BulkSelectProvider entity="invoice" ids={rows.map((r) => r.id as string)} canCleanup={canCleanup}>
-          <PortalListTable<typeof rows[number]>
-            rows={rows}
-            columns={orderedVisible.map<ListColumnDef<typeof rows[number]>>((k) => ({
-              key: k,
-              label: INVOICE_FIELDS.find((f) => f.key === k)?.label ?? k,
-              align: alignFor(k) === 'text-right' ? 'right' : 'left',
-              cell: (row) => cell(row, k),
-            }))}
-            bulkSelect={{ canCleanup }}
-            rowHref={(row) => `/portal/invoices/${row.id}`}
-            rowLabel={(row) => `invoice ${row.invoiceNumber}`}
-            isDimmed={(row) => row.isTest || row.isArchived}
-            attention={(row) =>
-              (row.attention.reasons.length > 0 || row.attention.nextStep)
-                ? { reasons: row.attention.reasons, nextStep: row.attention.nextStep }
-                : null
+    <BulkSelectProvider entity="invoice" ids={rows.map((r) => r.id as string)} canCleanup={canCleanup}>
+      <PortalListTable<typeof rows[number]>
+        header={
+          <PortalPageHeader
+            title="Invoices"
+            actions={
+              isAdmin && (
+                <Link href="/portal/invoices/custom/new" className={buttonClasses({ variant: 'primary' })}>
+                  <FilePlus2 size={16} />
+                  Create custom invoice
+                </Link>
+              )
             }
-            mobile={{
-              label: (row) => `invoice ${row.invoiceNumber}`,
-              primary: (row) => (
-                <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
-                  <span className="font-medium text-sage-800 inline-flex items-center gap-1.5">
-                    {rawCell(row, primaryKey)}
-                    {row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5"><FlaskConical size={9} /> Test</span>}
-                    {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
-                  </span>
-                  <StatusBadge kind="invoice" status={row.status} />
-                </div>
-              ),
-              secondary: (row) => rawCell(row, secondaryKey),
-              extra: (row) =>
-                (row.linkedQuoteNumber || row.linkedJobNumber)
-                  ? (
-                    <div className="text-[11px] text-sage-500 mt-1">
-                      {row.linkedQuoteNumber && <>From <span className="font-medium text-sage-700">{row.linkedQuoteNumber}</span></>}
-                      {row.linkedQuoteNumber && row.linkedJobNumber && <span> · </span>}
-                      {row.linkedJobNumber && <>Job <span className="font-medium text-sage-700">{row.linkedJobNumber}</span></>}
-                    </div>
-                  )
-                  : null,
-              meta: (row) => (
-                <>
-                  <span>{fmtDate(row.dateIssued)}</span>
-                  <span className="font-medium text-sage-800 text-sm">{fmt(row.total)}</span>
-                </>
-              ),
-            }}
           />
-        </BulkSelectProvider>
-      )}
-    </div>
+        }
+        tabs={
+          <ListLifecycleTabs
+            basePath="/portal/invoices"
+            tabs={INVOICE_TABS}
+            activeTab={activeTab}
+            showArchived={showArchived}
+            canCleanup={canCleanup}
+            preservedParams={{ q: search || undefined, sort: sort || undefined }}
+          />
+        }
+        filters={<InvoiceFilters />}
+        emptyState={
+          <EmptyState
+            icon={Receipt}
+            title={emptyCopy[activeTab].title}
+            description={emptyCopy[activeTab].sub || undefined}
+            action={
+              <Link href="/portal/quotes" className={buttonClasses({ variant: 'primary' })}>
+                View quotes
+              </Link>
+            }
+          />
+        }
+        rows={rows}
+        columns={orderedVisible.map<ListColumnDef<typeof rows[number]>>((k) => ({
+          key: k,
+          label: INVOICE_FIELDS.find((f) => f.key === k)?.label ?? k,
+          align: alignFor(k) === 'text-right' ? 'right' : 'left',
+          cell: (row) => cell(row, k),
+        }))}
+        bulkSelect={{ canCleanup }}
+        rowHref={(row) => `/portal/invoices/${row.id}`}
+        rowLabel={(row) => `invoice ${row.invoiceNumber}`}
+        isDimmed={(row) => row.isTest || row.isArchived}
+        attention={(row) =>
+          (row.attention.reasons.length > 0 || row.attention.nextStep)
+            ? { reasons: row.attention.reasons, nextStep: row.attention.nextStep }
+            : null
+        }
+        mobile={{
+          label: (row) => `invoice ${row.invoiceNumber}`,
+          primary: (row) => (
+            <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+              <span className="font-medium text-sage-800 inline-flex items-center gap-1.5">
+                {rawCell(row, primaryKey)}
+                {row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5"><FlaskConical size={9} /> Test</span>}
+                {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
+              </span>
+              <StatusBadge kind="invoice" status={row.status} />
+            </div>
+          ),
+          secondary: (row) => rawCell(row, secondaryKey),
+          extra: (row) =>
+            (row.linkedQuoteNumber || row.linkedJobNumber)
+              ? (
+                <div className="text-[11px] text-sage-500 mt-1">
+                  {row.linkedQuoteNumber && <>From <span className="font-medium text-sage-700">{row.linkedQuoteNumber}</span></>}
+                  {row.linkedQuoteNumber && row.linkedJobNumber && <span> · </span>}
+                  {row.linkedJobNumber && <>Job <span className="font-medium text-sage-700">{row.linkedJobNumber}</span></>}
+                </div>
+              )
+              : null,
+          meta: (row) => (
+            <>
+              <span>{fmtDate(row.dateIssued)}</span>
+              <span className="font-medium text-sage-800 text-sm">{fmt(row.total)}</span>
+            </>
+          ),
+        }}
+      />
+    </BulkSelectProvider>
   )
 }
