@@ -43,7 +43,7 @@ const STATUS_BADGE: Record<string, string> = {
   phone_screen:  'bg-violet-50 text-violet-700',
   approved:      'bg-indigo-50 text-indigo-700',
   onboarding:    'bg-teal-50 text-teal-700',
-  trial:         'bg-purple-50 text-purple-700',
+  trial:         'bg-sage-100 text-sage-700',
   ready_to_work: 'bg-emerald-100 text-emerald-800',
   on_hold:       'bg-gray-100 text-gray-600',
   rejected:      'bg-gray-100 text-gray-500',

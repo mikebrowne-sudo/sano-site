@@ -7,7 +7,7 @@ const CAT_STYLES: Record<string, string> = {
   onboarding: 'bg-blue-50 text-blue-700',
   cleaning_training: 'bg-amber-50 text-amber-700',
   health_and_safety: 'bg-red-50 text-red-700',
-  compliance: 'bg-purple-50 text-purple-700',
+  compliance: 'bg-sage-50 text-sage-700',
   policy: 'bg-sage-100 text-sage-700',
   other: 'bg-gray-100 text-gray-600',
 }

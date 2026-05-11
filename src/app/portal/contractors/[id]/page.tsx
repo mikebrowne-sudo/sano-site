@@ -22,7 +22,7 @@ import { isAdminUser } from '@/lib/is-admin'
 // live on contractors.employment_type.
 const WORKER_TYPE_STYLES: Record<string, string> = {
   contractor: 'bg-blue-50 text-blue-700',
-  employee:   'bg-purple-50 text-purple-700',
+  employee:   'bg-sage-100 text-sage-700',
 }
 const EMPLOYMENT_TYPE_STYLES: Record<string, string> = {
   casual:    'bg-amber-50 text-amber-700',

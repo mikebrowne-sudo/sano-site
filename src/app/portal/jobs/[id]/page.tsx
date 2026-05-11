@@ -28,7 +28,7 @@ const STATUS_STYLES: Record<string, string> = {
   assigned:    'bg-blue-50 text-blue-700',
   in_progress: 'bg-amber-50 text-amber-700',
   completed:   'bg-emerald-50 text-emerald-700',
-  invoiced:    'bg-purple-50 text-purple-700',
+  invoiced:    'bg-sage-100 text-sage-700',
 }
 
 // Phase D — payment status pill styling. Operational state only;
@@ -182,7 +182,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
               </Link>
             )}
             {job.recurring_job_id && (
-              <Link href={`/portal/recurring-jobs/${job.recurring_job_id}`} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 text-purple-600 text-xs font-medium hover:bg-purple-100 transition-colors">
+              <Link href={`/portal/recurring-jobs/${job.recurring_job_id}`} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sage-50 text-sage-600 text-xs font-medium hover:bg-sage-100 transition-colors">
                 Recurring
               </Link>
             )}

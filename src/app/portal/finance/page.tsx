@@ -322,7 +322,7 @@ const JOB_STATUS: Record<string, string> = {
   assigned: 'bg-blue-50 text-blue-700',
   in_progress: 'bg-amber-50 text-amber-700',
   completed: 'bg-emerald-50 text-emerald-700',
-  invoiced: 'bg-purple-50 text-purple-700',
+  invoiced: 'bg-sage-100 text-sage-700',
 }
 
 function JobStatus({ status }: { status: string }) {
