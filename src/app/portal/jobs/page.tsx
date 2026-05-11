@@ -362,59 +362,61 @@ export default async function JobsPage({
     }
   }
 
+  // Phase 4B — empty-state copy resolved before the return so the
+  // <EmptyState> primitive gets simple string props.
+  const hasFilters = !!(view || search || contractorFilter)
+  let emptyTitle: string
+  if (hasFilters) emptyTitle = 'No jobs match your filters.'
+  else if (activeTab === 'needs_attention')  emptyTitle = 'Nothing needs your attention right now.'
+  else if (activeTab === 'needs_scheduling') emptyTitle = 'No jobs needing scheduling.'
+  else if (activeTab === 'scheduled')        emptyTitle = 'No jobs scheduled yet.'
+  else if (activeTab === 'in_progress')      emptyTitle = 'No jobs in progress right now.'
+  else if (activeTab === 'completed')        emptyTitle = 'No completed jobs.'
+  else                                       emptyTitle = 'No jobs yet.'
+  let emptyDescription: string | undefined
+  if (activeTab === 'needs_attention') emptyDescription = 'Unassigned, unscheduled, at-risk, and ready-to-invoice jobs surface here.'
+  else if (activeTab === 'needs_scheduling') emptyDescription = 'Accepted quotes with job setup complete will appear here.'
+
   return (
-    <div>
-      <PortalPageHeader
-        title="Jobs"
-        actions={
-          <>
-            <Link href="/portal/jobs/calendar" className={buttonClasses({ variant: 'secondary' })}>
-              <CalendarDays size={16} />
-              Calendar
-            </Link>
-            <Link href="/portal/jobs/new" className={buttonClasses({ variant: 'primary' })}>
-              <Plus size={16} />
-              New Job
-            </Link>
-          </>
+    <BulkSelectProvider entity="job" ids={rows.map((r) => r.id as string)} canCleanup={canCleanup}>
+      <PortalListTable<typeof rows[number]>
+        header={
+          <PortalPageHeader
+            title="Jobs"
+            actions={
+              <>
+                <Link href="/portal/jobs/calendar" className={buttonClasses({ variant: 'secondary' })}>
+                  <CalendarDays size={16} />
+                  Calendar
+                </Link>
+                <Link href="/portal/jobs/new" className={buttonClasses({ variant: 'primary' })}>
+                  <Plus size={16} />
+                  New Job
+                </Link>
+              </>
+            }
+          />
         }
-      />
-
-      <ListLifecycleTabs
-        basePath="/portal/jobs"
-        tabs={JOB_TABS}
-        activeTab={activeTab}
-        showArchived={showArchived}
-        canCleanup={canCleanup}
-        preservedParams={{
-          view: view || undefined,
-          contractor: contractorFilter || undefined,
-          q: search || undefined,
-        }}
-      />
-
-      <JobFilters contractors={contractors ?? []} />
-
-      {rows.length === 0 ? (() => {
-        // Phase 4B — empty-state copy resolved before render so the
-        // <EmptyState> primitive gets simple string props.
-        const hasFilters = !!(view || search || contractorFilter)
-        let title: string
-        if (hasFilters) title = 'No jobs match your filters.'
-        else if (activeTab === 'needs_attention')  title = 'Nothing needs your attention right now.'
-        else if (activeTab === 'needs_scheduling') title = 'No jobs needing scheduling.'
-        else if (activeTab === 'scheduled')        title = 'No jobs scheduled yet.'
-        else if (activeTab === 'in_progress')      title = 'No jobs in progress right now.'
-        else if (activeTab === 'completed')        title = 'No completed jobs.'
-        else                                       title = 'No jobs yet.'
-        let description: string | undefined
-        if (activeTab === 'needs_attention') description = 'Unassigned, unscheduled, at-risk, and ready-to-invoice jobs surface here.'
-        else if (activeTab === 'needs_scheduling') description = 'Accepted quotes with job setup complete will appear here.'
-        return (
+        tabs={
+          <ListLifecycleTabs
+            basePath="/portal/jobs"
+            tabs={JOB_TABS}
+            activeTab={activeTab}
+            showArchived={showArchived}
+            canCleanup={canCleanup}
+            preservedParams={{
+              view: view || undefined,
+              contractor: contractorFilter || undefined,
+              q: search || undefined,
+            }}
+          />
+        }
+        filters={<JobFilters contractors={contractors ?? []} />}
+        emptyState={
           <EmptyState
             icon={Briefcase}
-            title={title}
-            description={description}
+            title={emptyTitle}
+            description={emptyDescription}
             action={!hasFilters ? (
               <Link href="/portal/jobs/new" className={buttonClasses({ variant: 'primary' })}>
                 <Plus size={16} />
@@ -422,27 +424,24 @@ export default async function JobsPage({
               </Link>
             ) : undefined}
           />
-        )
-      })() : (
-        <BulkSelectProvider entity="job" ids={rows.map((r) => r.id as string)} canCleanup={canCleanup}>
-          <PortalListTable<typeof rows[number]>
-            rows={rows}
-            columns={orderedVisible.map<ListColumnDef<typeof rows[number]>>((k) => ({
-              key: k,
-              label: JOB_FIELDS.find((f) => f.key === k)?.label ?? k,
-              align: alignFor(k),
-              cell: (row) => cell(row, k),
-            }))}
-            bulkSelect={{ canCleanup }}
-            rowHref={(row) => `/portal/jobs/${row.id}`}
-            rowLabel={(row) => `job ${row.job_number}`}
-            isDimmed={(row) => row.isTest || row.isArchived}
-            attention={(row) =>
-              (row.attention.reasons.length > 0 || row.attention.nextStep)
-                ? { reasons: row.attention.reasons, nextStep: row.attention.nextStep }
-                : null
-            }
-            mobile={{
+        }
+        rows={rows}
+        columns={orderedVisible.map<ListColumnDef<typeof rows[number]>>((k) => ({
+          key: k,
+          label: JOB_FIELDS.find((f) => f.key === k)?.label ?? k,
+          align: alignFor(k),
+          cell: (row) => cell(row, k),
+        }))}
+        bulkSelect={{ canCleanup }}
+        rowHref={(row) => `/portal/jobs/${row.id}`}
+        rowLabel={(row) => `job ${row.job_number}`}
+        isDimmed={(row) => row.isTest || row.isArchived}
+        attention={(row) =>
+          (row.attention.reasons.length > 0 || row.attention.nextStep)
+            ? { reasons: row.attention.reasons, nextStep: row.attention.nextStep }
+            : null
+        }
+        mobile={{
               label: (row) => `job ${row.job_number}`,
               primary: (row) => (
                 <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
@@ -485,28 +484,24 @@ export default async function JobsPage({
                   )}
                 </>
               ),
-              meta: (row) => (
-                <>
-                  <span>{row.assigned_to || 'Unassigned'}</span>
-                  <span>
-                    {fmtDate(row.scheduled_date)}
-                    {row.scheduledTime ? ` ${row.scheduledTime}` : ''}
-                    {row.jobPrice != null && <span className="ml-2 text-sage-700 font-medium">{fmtCurrency(row.jobPrice)}</span>}
-                  </span>
-                </>
-              ),
-            }}
-          />
-        </BulkSelectProvider>
-      )}
-
+        meta: (row) => (
+          <>
+            <span>{row.assigned_to || 'Unassigned'}</span>
+            <span>
+              {fmtDate(row.scheduled_date)}
+              {row.scheduledTime ? ` ${row.scheduledTime}` : ''}
+              {row.jobPrice != null && <span className="ml-2 text-sage-700 font-medium">{fmtCurrency(row.jobPrice)}</span>}
+            </span>
+          </>
+        ),
+      }}
+      />
       <p className="text-xs text-sage-400 mt-4">{rows.length} job{rows.length !== 1 ? 's' : ''}</p>
-
       {jobsList.groupBy !== 'none' && (
         <p className="text-[11px] text-sage-400 mt-2 italic">
           Group-by ({jobsList.groupBy}) will be wired in the next phase. Setting persists.
         </p>
       )}
-    </div>
+    </BulkSelectProvider>
   )
 }
