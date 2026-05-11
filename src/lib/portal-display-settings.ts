@@ -173,7 +173,10 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   },
   invoices: {
     list: {
-      visibleFields: ['invoice_number', 'client', 'status', 'date_issued', 'due_date', 'total', 'linked_quote', 'linked_job'],
+      // Phase 4C — address surfaces by default on the invoices list
+      // (operationally critical for AR triage; previously hidden from
+      // defaults and only reachable via /portal/settings/display).
+      visibleFields: ['invoice_number', 'client', 'address', 'status', 'total', 'date_issued', 'due_date', 'linked_quote', 'linked_job'],
       primaryField: 'invoice_number',
       secondaryField: 'client',
       sortBy: 'created_at',
