@@ -4,6 +4,7 @@ import { Users, Plus, Archive } from 'lucide-react'
 import { ClientSearch } from './_components/ClientSearch'
 import { PortalPageHeader } from '../_components/PortalPageHeader'
 import { buttonClasses } from '../_components/Button'
+import { EmptyState } from '../_components/EmptyState'
 import clsx from 'clsx'
 
 export default async function ClientsPage({
@@ -90,20 +91,17 @@ export default async function ClientsPage({
       </div>
 
       {rows.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center mt-4">
-          <Users size={32} className="text-sage-200 mx-auto mb-3" />
-          <p className="text-sage-600 text-sm mb-4">
-            {q ? `No clients matching "${q}".` : 'No clients yet.'}
-          </p>
-          {!q && (
-            <Link
-              href="/portal/clients/new"
-              className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
-            >
-              <Plus size={16} />
-              Add your first client
-            </Link>
-          )}
+        <div className="mt-4">
+          <EmptyState
+            icon={Users}
+            title={q ? `No clients matching "${q}".` : 'No clients yet.'}
+            action={!q ? (
+              <Link href="/portal/clients/new" className={buttonClasses({ variant: 'primary' })}>
+                <Plus size={16} />
+                Add your first client
+              </Link>
+            ) : undefined}
+          />
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mt-4">

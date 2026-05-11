@@ -9,6 +9,7 @@ import { BulkSelectProvider } from '../_components/BulkSelect'
 import { PortalListTable, type ListColumnDef } from '../_components/PortalListTable'
 import { PortalPageHeader } from '../_components/PortalPageHeader'
 import { buttonClasses } from '../_components/Button'
+import { EmptyState } from '../_components/EmptyState'
 import { getJobAttention } from '@/lib/attention-rules'
 import { getJobStatus } from '@/lib/job-status'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
@@ -394,37 +395,35 @@ export default async function JobsPage({
 
       <JobFilters contractors={contractors ?? []} />
 
-      {rows.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
-          <Briefcase size={32} className="text-sage-200 mx-auto mb-3" />
-          <p className="text-sage-800 font-medium mb-1">
-            {(() => {
-              if (view || search || contractorFilter) return 'No jobs match your filters.'
-              if (activeTab === 'needs_attention')  return 'Nothing needs your attention right now.'
-              if (activeTab === 'needs_scheduling') return 'No jobs needing scheduling.'
-              if (activeTab === 'scheduled')        return 'No jobs scheduled yet.'
-              if (activeTab === 'in_progress')      return 'No jobs in progress right now.'
-              if (activeTab === 'completed')        return 'No completed jobs.'
-              return 'No jobs yet.'
-            })()}
-          </p>
-          {activeTab === 'needs_attention' && (
-            <p className="text-sage-500 text-xs mt-1">Unassigned, unscheduled, at-risk, and ready-to-invoice jobs surface here.</p>
-          )}
-          {activeTab === 'needs_scheduling' && (
-            <p className="text-sage-500 text-xs mt-1">Accepted quotes with job setup complete will appear here.</p>
-          )}
-          {!view && !search && !contractorFilter && (
-            <Link
-              href="/portal/jobs/new"
-              className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors mt-3"
-            >
-              <Plus size={16} />
-              New job
-            </Link>
-          )}
-        </div>
-      ) : (
+      {rows.length === 0 ? (() => {
+        // Phase 4B — empty-state copy resolved before render so the
+        // <EmptyState> primitive gets simple string props.
+        const hasFilters = !!(view || search || contractorFilter)
+        let title: string
+        if (hasFilters) title = 'No jobs match your filters.'
+        else if (activeTab === 'needs_attention')  title = 'Nothing needs your attention right now.'
+        else if (activeTab === 'needs_scheduling') title = 'No jobs needing scheduling.'
+        else if (activeTab === 'scheduled')        title = 'No jobs scheduled yet.'
+        else if (activeTab === 'in_progress')      title = 'No jobs in progress right now.'
+        else if (activeTab === 'completed')        title = 'No completed jobs.'
+        else                                       title = 'No jobs yet.'
+        let description: string | undefined
+        if (activeTab === 'needs_attention') description = 'Unassigned, unscheduled, at-risk, and ready-to-invoice jobs surface here.'
+        else if (activeTab === 'needs_scheduling') description = 'Accepted quotes with job setup complete will appear here.'
+        return (
+          <EmptyState
+            icon={Briefcase}
+            title={title}
+            description={description}
+            action={!hasFilters ? (
+              <Link href="/portal/jobs/new" className={buttonClasses({ variant: 'primary' })}>
+                <Plus size={16} />
+                New job
+              </Link>
+            ) : undefined}
+          />
+        )
+      })() : (
         <BulkSelectProvider entity="job" ids={rows.map((r) => r.id as string)} canCleanup={canCleanup}>
           <PortalListTable<typeof rows[number]>
             rows={rows}
