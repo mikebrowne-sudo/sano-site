@@ -103,7 +103,7 @@ export async function OnboardingPanel({
       : null
 
   return (
-    <div className="bg-white rounded-2xl border border-sage-100 shadow-sm p-6 mb-6">
+    <div className="bg-white rounded-xl border border-sage-100 shadow-sm p-6 mb-6">
       <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
         <h2 className="text-lg font-semibold text-sage-800">Onboarding</h2>
         <div className="flex items-center gap-2 flex-wrap">

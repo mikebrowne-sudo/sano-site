@@ -316,7 +316,7 @@ export function NewClientModal({ inline = false, onCancel, onCreated }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center p-4 overflow-y-auto" onClick={() => !pending && onCancel?.()}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl my-8 p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl my-8 p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-xl font-bold text-sage-800">New client</h2>
           <button type="button" onClick={() => onCancel?.()} aria-label="Close" className="text-sage-400 hover:text-sage-700"><X size={20} /></button>
@@ -485,7 +485,7 @@ function DuplicatesPanel({
   }, [matches])
 
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
       <div className="flex items-start gap-2.5">
         <AlertCircle size={18} className="text-amber-600 mt-0.5 shrink-0" />
         <div className="flex-1 min-w-0">

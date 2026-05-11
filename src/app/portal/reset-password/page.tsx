@@ -22,7 +22,7 @@ export default function ResetPasswordPage() {
         <div className="text-center mb-10">
           <Image src="/brand/sano-logo.png" alt="Sano" width={120} height={40} className="mx-auto mb-4" />
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-sage-100 p-8">
+        <div className="bg-white rounded-xl shadow-sm border border-sage-100 p-8">
           <Suspense fallback={<div className="h-40 animate-pulse bg-sage-50 rounded-xl" />}>
             <ResetPasswordForm />
           </Suspense>

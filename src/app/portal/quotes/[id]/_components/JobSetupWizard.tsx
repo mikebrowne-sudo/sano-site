@@ -216,7 +216,7 @@ export function JobSetupWizard({ seed, onCancel }: Props) {
       onClick={() => !pending && onCancel()}
     >
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl my-8 p-6"
+        className="bg-white rounded-xl shadow-xl w-full max-w-2xl my-8 p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-1">

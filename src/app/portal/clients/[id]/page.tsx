@@ -164,7 +164,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       )}
 
       {duplicates.length > 0 && isAdmin && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-6">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6">
           <h2 className="text-base font-semibold text-amber-900 mb-2">Possible duplicates</h2>
           <p className="text-xs text-amber-800 mb-3">
             These active clients share an email, phone number, or name with this one. Use Merge above to combine them.
@@ -220,7 +220,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       />
 
       {/* Phase 5.5.7 — Activity timeline (audit_log; read-only). */}
-      <div className="bg-white rounded-2xl border border-sage-100 shadow-sm p-6 mt-6">
+      <div className="bg-white rounded-xl border border-sage-100 shadow-sm p-6 mt-6">
         <h2 className="text-base font-semibold text-sage-800 mb-3">Activity</h2>
         {!Array.isArray(audit) || audit.length === 0 ? (
           <p className="text-sm text-sage-500">No history yet.</p>

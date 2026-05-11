@@ -101,7 +101,7 @@ export function ClientCleanupActions({
     .slice(0, 25)
 
   return (
-    <div className="bg-white rounded-2xl border border-sage-100 shadow-sm p-6 mb-6">
+    <div className="bg-white rounded-xl border border-sage-100 shadow-sm p-6 mb-6">
       <h2 className="text-lg font-semibold text-sage-800 mb-1">Cleanup</h2>
       <p className="text-xs text-sage-500 mb-4">
         Archive hides this client from new selectors. Delete is only allowed when the client has no records. Merge moves every quote, job, invoice, contact, and site to a target client, then archives this one.
@@ -255,7 +255,7 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6"
+        className="bg-white rounded-xl shadow-xl max-w-md w-full p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">

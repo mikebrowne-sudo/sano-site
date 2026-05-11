@@ -45,7 +45,7 @@ export default function PortalLoginPage() {
           <p className="text-sage-600 text-sm">Staff Portal</p>
         </div>
 
-        <form onSubmit={handleLogin} className="bg-white rounded-2xl shadow-sm border border-sage-100 p-8 space-y-5">
+        <form onSubmit={handleLogin} className="bg-white rounded-xl shadow-sm border border-sage-100 p-8 space-y-5">
           <div>
             <label htmlFor="email" className="block text-sm font-semibold text-sage-800 mb-1.5">
               Email

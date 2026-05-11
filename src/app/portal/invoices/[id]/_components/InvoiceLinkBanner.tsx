@@ -33,14 +33,14 @@ export function InvoiceLinkBanner({
 
   if (done) {
     return (
-      <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl px-4 py-3 mb-4 text-sm">
+      <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl px-4 py-3 mb-4 text-sm">
         Invoice linked to job. Refresh to see the update.
       </div>
     )
   }
 
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-4">
+    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
       <div className="flex items-start gap-2.5">
         <Link2 size={18} className="text-amber-600 mt-0.5 shrink-0" />
         <div className="flex-1">

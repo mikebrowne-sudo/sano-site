@@ -43,7 +43,7 @@ export function ContractorAccessPanel({
   )
 
   return (
-    <div className="bg-white rounded-2xl border border-sage-100 shadow-sm p-6 mb-6">
+    <div className="bg-white rounded-xl border border-sage-100 shadow-sm p-6 mb-6">
       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
         <h2 className="text-lg font-semibold text-sage-800">Portal access</h2>
         <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium', STATUS_BADGE[status])}>
