@@ -9,8 +9,7 @@ import { ArrowLeft } from 'lucide-react'
 import type { Metadata } from 'next'
 import { loadProposalSettings } from '@/lib/proposals/proposal-settings'
 import { ProposalSettingsForm } from './_components/ProposalSettingsForm'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 
 export const metadata: Metadata = {
   title: 'Proposal settings — Sano Portal',
@@ -22,7 +21,7 @@ export const dynamic = 'force-dynamic'
 export default async function ProposalSettingsPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) notFound()
+  if (!isAdminUser(user)) notFound()
 
   const settings = await loadProposalSettings(supabase)
 

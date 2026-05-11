@@ -11,6 +11,7 @@ import { InvoiceLinkBanner } from './_components/InvoiceLinkBanner'
 import { InvoiceLinkedRecords } from './_components/InvoiceLinkedRecords'
 import { LifecycleActions } from '../../_components/LifecycleActions'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
+import { isAdminUser } from '@/lib/is-admin'
 import { firstName } from '@/lib/doc-helpers'
 import { StatusBadge } from '../../_components/StatusBadge'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
@@ -29,7 +30,7 @@ function fmtDate(iso: string | null) {
 export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const isAdmin = user?.email === 'michael@sano.nz'
+  const isAdmin = isAdminUser(user)
   // Phase 5.5.14 — cleanup mode gates the per-record lifecycle UI.
   const cleanup = await getCleanupAccess(supabase)
   const canCleanup = cleanup.canCleanup

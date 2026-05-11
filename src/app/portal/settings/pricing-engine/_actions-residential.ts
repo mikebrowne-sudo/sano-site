@@ -17,8 +17,7 @@ import {
   validateResidentialPricingSettings,
   RESIDENTIAL_PRICING_VALIDATION_LIMITS,
 } from './_lib-residential-validation'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 const { TIER_MIN } = RESIDENTIAL_PRICING_VALIDATION_LIMITS
 
 function clean(input: unknown): ResidentialPricingSettings {
@@ -78,7 +77,7 @@ export async function saveResidentialPricingSettings(
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
-  if (user.email !== ADMIN_EMAIL) return { error: 'Admin only.' }
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
 
   const next = clean(input)
 
@@ -121,7 +120,7 @@ export async function resetResidentialPricingSettings(): Promise<{ ok: true } | 
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
-  if (user.email !== ADMIN_EMAIL) return { error: 'Admin only.' }
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
 
   const { error } = await supabase
     .from('pricing_residential_settings')

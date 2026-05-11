@@ -18,8 +18,7 @@ import { loadResidentialPricingSettings } from '@/lib/residentialPricingSettings
 import { PricingEngineForm } from './_components/PricingEngineForm'
 import { PricingEngineTabs } from './_components/PricingEngineTabs'
 import { ResidentialPricingForm } from './_components/ResidentialPricingForm'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 
 export const metadata: Metadata = {
   title: 'Pricing engine — Sano Portal',
@@ -35,7 +34,7 @@ export default async function PricingEnginePage({
 }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) notFound()
+  if (!isAdminUser(user)) notFound()
 
   const tab: 'commercial' | 'residential' =
     searchParams?.tab === 'residential' ? 'residential' : 'commercial'

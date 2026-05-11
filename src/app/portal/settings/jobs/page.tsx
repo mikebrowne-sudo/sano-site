@@ -10,8 +10,7 @@ import { ArrowLeft } from 'lucide-react'
 import type { Metadata } from 'next'
 import { loadJobSettings } from '@/lib/job-settings'
 import { JobSettingsForm } from './_components/JobSettingsForm'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 
 export const metadata: Metadata = {
   title: 'Job settings — Sano Portal',
@@ -23,7 +22,7 @@ export const dynamic = 'force-dynamic'
 export default async function JobSettingsPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) notFound()
+  if (!isAdminUser(user)) notFound()
 
   const settings = await loadJobSettings(supabase)
 

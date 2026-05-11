@@ -18,6 +18,9 @@ import { JobMismatchBanner } from './_components/JobMismatchBanner'
 import { LifecycleActions } from '../../_components/LifecycleActions'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
 import { JobNextStepCard } from './_components/JobNextStepCard'
+import { ScopeSnapshotPanel } from './_components/ScopeSnapshotPanel'
+import { isAdminUser } from '@/lib/is-admin'
+import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -45,21 +48,6 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   paid:            'Paid',
 }
 
-function fmtDate(iso: string | null) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-function fmtDateTime(iso: string | null) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })
-}
-
-function fmtCurrency(dollars: number | null) {
-  if (dollars == null) return '—'
-  return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
-}
-
 function statusLabel(s: string) {
   return s.replace('_', ' ')
 }
@@ -67,7 +55,7 @@ function statusLabel(s: string) {
 export default async function JobDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const isAdmin = user?.email === 'michael@sano.nz'
+  const isAdmin = isAdminUser(user)
   // Phase 5.5.14 — cleanup mode gates the per-record lifecycle UI.
   const cleanup = await getCleanupAccess(supabase)
   const canCleanup = cleanup.canCleanup
@@ -83,6 +71,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
       payment_status, reviewed_at, reviewed_by, access_instructions,
       internal_notes, contractor_notes,
       deleted_at, deleted_by, is_test,
+      scope_snapshot,
       created_at, updated_at,
       clients ( name, company_name )
     `)
@@ -353,7 +342,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
             <div>
               <span className="text-sage-500">Scheduled date</span>
-              <p className="text-sage-800 font-medium">{fmtDate(job.scheduled_date)}</p>
+              <p className="text-sage-800 font-medium">{formatDate(job.scheduled_date)}</p>
             </div>
             <div>
               <span className="text-sage-500">Scheduled time</span>
@@ -374,11 +363,11 @@ export default async function JobDetailPage({ params }: { params: { id: string }
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mt-4 pt-4 border-t border-sage-100">
               <div>
                 <span className="text-sage-500">Started</span>
-                <p className="text-sage-800 font-medium">{fmtDateTime(job.started_at)}</p>
+                <p className="text-sage-800 font-medium">{formatDateTime(job.started_at)}</p>
               </div>
               <div>
                 <span className="text-sage-500">Completed</span>
-                <p className="text-sage-800 font-medium">{fmtDateTime(job.completed_at)}</p>
+                <p className="text-sage-800 font-medium">{formatDateTime(job.completed_at)}</p>
               </div>
             </div>
           )}
@@ -390,6 +379,11 @@ export default async function JobDetailPage({ params }: { params: { id: string }
             <p className="text-sage-600 text-sm whitespace-pre-wrap">{job.description}</p>
           </Section>
         )}
+
+        {/* Phase 2 cleanup — point-in-time scope captured at job
+            creation. Read-only; falls back to an empty-state message
+            when the column is null. */}
+        <ScopeSnapshotPanel snapshot={(job as { scope_snapshot?: unknown }).scope_snapshot ?? null} />
 
         {/* Phase D.1 — access instructions captured during assignment.
             Only rendered when set so jobs without access notes stay
@@ -441,7 +435,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
                     <tbody>
                       <tr className="border-b border-gray-50">
                         <td className="py-2 pr-4 text-sage-600">Job value</td>
-                        <td className="py-2 pr-4 text-right font-bold text-sage-800" colSpan={hasActuals ? 3 : 1}>{fmtCurrency(job.job_price)}</td>
+                        <td className="py-2 pr-4 text-right font-bold text-sage-800" colSpan={hasActuals ? 3 : 1}>{formatCurrency(job.job_price)}</td>
                       </tr>
                       <tr className="border-b border-gray-50">
                         <td className="py-2 pr-4 text-sage-600">Hours</td>
@@ -451,31 +445,31 @@ export default async function JobDetailPage({ params }: { params: { id: string }
                       </tr>
                       <tr className="border-b border-gray-50">
                         <td className="py-2 pr-4 text-sage-600">Labour cost</td>
-                        <td className="py-2 pr-4 text-right text-sage-800">{fmtCurrency(v.estimated.totalLabourCost)}</td>
-                        {hasActuals && <td className="py-2 pr-4 text-right text-sage-800">{fmtCurrency(v.actual.totalLabourCost)}</td>}
+                        <td className="py-2 pr-4 text-right text-sage-800">{formatCurrency(v.estimated.totalLabourCost)}</td>
+                        {hasActuals && <td className="py-2 pr-4 text-right text-sage-800">{formatCurrency(v.actual.totalLabourCost)}</td>}
                         {hasActuals && <td className="py-2 text-right"><VarCell value={v.costVariance} currency /></td>}
                       </tr>
                       <tr className="border-b border-gray-50">
                         <td className="py-2 pr-4 text-sage-600">Employer KS</td>
-                        <td className="py-2 pr-4 text-right text-sage-600">{fmtCurrency(v.estimated.totalEmployerKs)}</td>
-                        {hasActuals && <td className="py-2 pr-4 text-right text-sage-600">{fmtCurrency(v.actual.totalEmployerKs)}</td>}
+                        <td className="py-2 pr-4 text-right text-sage-600">{formatCurrency(v.estimated.totalEmployerKs)}</td>
+                        {hasActuals && <td className="py-2 pr-4 text-right text-sage-600">{formatCurrency(v.actual.totalEmployerKs)}</td>}
                         {hasActuals && <td className="py-2 text-right"></td>}
                       </tr>
                       <tr className="border-b border-gray-50">
                         <td className="py-2 pr-4 text-sage-600">ACC (1.7%)</td>
-                        <td className="py-2 pr-4 text-right text-sage-600">{fmtCurrency(v.estimated.totalAccCost)}</td>
-                        {hasActuals && <td className="py-2 pr-4 text-right text-sage-600">{fmtCurrency(v.actual.totalAccCost)}</td>}
+                        <td className="py-2 pr-4 text-right text-sage-600">{formatCurrency(v.estimated.totalAccCost)}</td>
+                        {hasActuals && <td className="py-2 pr-4 text-right text-sage-600">{formatCurrency(v.actual.totalAccCost)}</td>}
                         {hasActuals && <td className="py-2 text-right"></td>}
                       </tr>
                       <tr className={clsx(v.estimated.grossProfit >= 0 ? 'bg-emerald-50' : 'bg-red-50')}>
                         <td className="py-2.5 pr-4 font-semibold text-sage-800">Gross margin</td>
                         <td className="py-2.5 pr-4 text-right font-bold">
-                          <span className={v.estimated.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}>{fmtCurrency(v.estimated.grossProfit)}</span>
+                          <span className={v.estimated.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}>{formatCurrency(v.estimated.grossProfit)}</span>
                           <span className="text-sage-500 font-normal text-xs ml-1">({v.estimated.marginPercent}%)</span>
                         </td>
                         {hasActuals && (
                           <td className="py-2.5 pr-4 text-right font-bold">
-                            <span className={v.actual.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}>{fmtCurrency(v.actual.grossProfit)}</span>
+                            <span className={v.actual.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}>{formatCurrency(v.actual.grossProfit)}</span>
                             <span className="text-sage-500 font-normal text-xs ml-1">({v.actual.marginPercent}%)</span>
                           </td>
                         )}
@@ -515,9 +509,9 @@ export default async function JobDetailPage({ params }: { params: { id: string }
                                 <td className="py-2 pr-2 text-right">
                                   <ActualHoursEditor jobId={job.id} contractorId={ew.contractorId} currentHours={workers[i]?.actual_hours ?? null} />
                                 </td>
-                                <td className="py-2 pr-2 text-right text-sage-700">{fmtCurrency(ew.hourlyRate)}</td>
-                                <td className="py-2 pr-2 text-right text-sage-800">{fmtCurrency(ew.totalCost)}</td>
-                                <td className="py-2 pr-2 text-right text-sage-800">{aw ? fmtCurrency(aw.totalCost) : '—'}</td>
+                                <td className="py-2 pr-2 text-right text-sage-700">{formatCurrency(ew.hourlyRate)}</td>
+                                <td className="py-2 pr-2 text-right text-sage-800">{formatCurrency(ew.totalCost)}</td>
+                                <td className="py-2 pr-2 text-right text-sage-800">{aw ? formatCurrency(aw.totalCost) : '—'}</td>
                                 <td className="py-2 text-right">{aw && aw.hours > 0 ? <VarCell value={costVar} currency /> : <span className="text-sage-300">—</span>}</td>
                               </tr>
                             )
@@ -583,8 +577,8 @@ export default async function JobDetailPage({ params }: { params: { id: string }
 
         {/* Timestamps */}
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-sage-400 pt-4 border-t border-sage-100">
-          <span>Created {fmtDateTime(job.created_at)}</span>
-          <span>Updated {fmtDateTime(job.updated_at)}</span>
+          <span>Created {formatDateTime(job.created_at)}</span>
+          <span>Updated {formatDateTime(job.updated_at)}</span>
         </div>
       </div>
     </div>

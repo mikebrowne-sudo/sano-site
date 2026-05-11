@@ -9,8 +9,7 @@ import { ArrowLeft } from 'lucide-react'
 import type { Metadata } from 'next'
 import { loadDisplaySettings } from '@/lib/portal-display-settings'
 import { DisplaySettingsForm } from './_components/DisplaySettingsForm'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 
 export const metadata: Metadata = {
   title: 'Display settings — Sano Portal',
@@ -22,7 +21,7 @@ export const dynamic = 'force-dynamic'
 export default async function DisplaySettingsPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) notFound()
+  if (!isAdminUser(user)) notFound()
 
   const settings = await loadDisplaySettings(supabase)
 

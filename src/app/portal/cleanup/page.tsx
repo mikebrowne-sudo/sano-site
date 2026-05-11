@@ -13,8 +13,7 @@
 import Link from 'next/link'
 import { ArrowLeft, AlertTriangle, FileText, Briefcase, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 
 function fmtDate(iso: string | null) {
   if (!iso) return '—'
@@ -31,7 +30,7 @@ interface DupGroup {
 export default async function CleanupPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const isAdmin = user?.email === ADMIN_EMAIL
+  const isAdmin = isAdminUser(user)
 
   if (!isAdmin) {
     return (

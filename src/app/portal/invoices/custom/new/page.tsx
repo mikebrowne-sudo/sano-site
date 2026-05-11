@@ -3,14 +3,13 @@ import { redirect } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { CustomInvoiceForm } from '../../_components/CustomInvoiceForm'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 
 export default async function NewCustomInvoicePage() {
   const supabase = createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!isAdminUser(user)) {
     redirect('/portal/invoices')
   }
 

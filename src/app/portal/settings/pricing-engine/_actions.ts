@@ -17,8 +17,7 @@ import type {
   SectorCategory,
   TrafficLevel,
 } from '@/lib/commercialQuote'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 
 const VALID_TIERS: readonly MarginTier[] = ['win_the_work', 'standard', 'premium', 'specialist']
 const VALID_SECTORS: readonly SectorCategory[] = ['office', 'education', 'medical', 'industrial', 'mixed_use', 'custom']
@@ -34,8 +33,8 @@ function revalidateSettingsAndQuotes() {
 async function requireAdmin(): Promise<{ ok: true; userId: string } | { error: string }> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) return { error: 'Admin only.' }
-  return { ok: true, userId: user.id }
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
+  return { ok: true, userId: user!.id }
 }
 
 function isFiniteNumber(n: unknown): n is number {

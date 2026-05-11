@@ -12,8 +12,12 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { loadWorkforceSettings } from './workforce-settings'
+import { isAdminEmail, ADMIN_EMAIL } from './is-admin'
 
-export const ADMIN_EMAIL = 'michael@sano.nz'
+// Re-exported for backwards compatibility with the cleanup-mode test
+// suite (which references the constant by name). New code should
+// import from '@/lib/is-admin' directly.
+export { ADMIN_EMAIL }
 
 export interface CleanupAccess {
   isAdmin: boolean
@@ -27,7 +31,7 @@ type SB = SupabaseClient<any, 'public'>
 
 export async function getCleanupAccess(supabase: SB): Promise<CleanupAccess> {
   const { data: { user } } = await supabase.auth.getUser()
-  const isAdmin = !!user && user.email === ADMIN_EMAIL
+  const isAdmin = isAdminEmail(user?.email)
 
   // Skip the settings load entirely for non-admins. There's no UI
   // path that would need it, and we don't want to leak settings
@@ -48,7 +52,7 @@ export async function getCleanupAccess(supabase: SB): Promise<CleanupAccess> {
     isAdmin: true,
     isCleanupModeEnabled,
     canCleanup: isCleanupModeEnabled,
-    userId: user.id,
+    userId: user!.id,
   }
 }
 

@@ -10,7 +10,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard, FileText, Receipt, Briefcase, RefreshCw, Users,
   HardHat, BookOpen, DollarSign, FileInput, Wallet, Bell, Settings,
-  Calculator, Calendar, UserCog, ArchiveRestore, LayoutTemplate,
+  Calendar, UserCog, ArchiveRestore, LayoutTemplate,
   Wallet2, UserPlus,
 } from 'lucide-react'
 
@@ -43,7 +43,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/portal/clients',               label: 'Clients',         icon: Users },
       { href: '/portal/quotes',                label: 'Quotes',          icon: FileText },
       { href: '/portal/invoices',              label: 'Invoices',        icon: Receipt },
-      { href: '/portal/commercial-calculator', label: 'Commercial calc', icon: Calculator },
+      // Phase 2 cleanup — legacy /portal/commercial-calculator hidden
+      // from nav. Route still exists for any deep-linked bookmarks but
+      // the residential + commercial quote flows have superseded it.
+      // { href: '/portal/commercial-calculator', label: 'Commercial calc', icon: Calculator },
     ],
   },
   {

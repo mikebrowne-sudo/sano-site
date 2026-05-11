@@ -9,13 +9,12 @@ import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
 import { CleanupModeToggle } from './_components/CleanupModeToggle'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 
 export default async function CleanupModePage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const isAdmin = user?.email === ADMIN_EMAIL
+  const isAdmin = isAdminUser(user)
 
   if (!isAdmin) {
     return (

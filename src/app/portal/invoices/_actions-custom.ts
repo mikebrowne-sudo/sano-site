@@ -12,8 +12,7 @@ import {
   validateCustomInvoiceForm,
   type CustomInvoiceFormInput,
 } from '@/lib/custom-invoice-validation'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 
 type ActionResult = {
   error: string
@@ -25,7 +24,7 @@ export async function createCustomInvoice(input: CustomInvoiceFormInput): Promis
 
   // 1. Auth — admin only.
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!isAdminUser(user)) {
     return { error: 'Not authorised.' }
   }
 
@@ -105,14 +104,14 @@ export async function createCustomInvoice(input: CustomInvoiceFormInput): Promis
   // 7. Audit log. actor_email goes in the `after` payload because
   //    audit_log doesn't have a dedicated email column.
   await supabase.from('audit_log').insert({
-    actor_id: user.id,
+    actor_id: user!.id,
     actor_role: 'staff',
     action: 'invoice.created_custom',
     entity_table: 'invoices',
     entity_id: invoice.id,
     before: null,
     after: {
-      actor_email: user.email,
+      actor_email: user!.email,
       invoice_number: invoice.invoice_number,
       client_id: v.client_id,
       base_price: v.base_price,
