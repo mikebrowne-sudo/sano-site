@@ -12,16 +12,15 @@ import {
   SETTINGS_KEY,
   type ProposalSettings,
 } from '@/lib/proposals/proposal-settings'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 
 type ActionResult = { ok: true; settings: ProposalSettings } | { error: string }
 
 async function requireAdmin(): Promise<{ ok: true; userId: string } | { error: string }> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) return { error: 'Admin only.' }
-  return { ok: true, userId: user.id }
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
+  return { ok: true, userId: user!.id }
 }
 
 function revalidateAll() {

@@ -7,14 +7,13 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 
 export async function deleteClient(clientId: string) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!isAdminUser(user)) {
     return { error: 'You do not have permission to delete clients.' }
   }
 
@@ -34,7 +33,7 @@ export async function deleteJob(jobId: string) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!isAdminUser(user)) {
     return { error: 'You do not have permission to delete jobs.' }
   }
 
@@ -82,7 +81,7 @@ export async function deleteContractor(contractorId: string) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!isAdminUser(user)) {
     return { error: 'You do not have permission to delete contractors.' }
   }
 

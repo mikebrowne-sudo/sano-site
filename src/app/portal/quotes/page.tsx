@@ -9,15 +9,7 @@ import { AttentionChips } from '../_components/AttentionChips'
 import { BulkSelectProvider, BulkSelectCheckbox, BulkSelectHeader } from '../_components/BulkSelect'
 import { getQuoteAttention } from '@/lib/attention-rules'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
-
-function formatCurrency(dollars: number) {
-  return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
-}
-
-function formatDate(iso: string | null) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
-}
+import { formatCurrency, formatDate } from '@/lib/format'
 
 // Phase 2 — sort key → Supabase order. Allowed keys constrained by
 // QUOTE_FIELDS.sortable, so this is always safe.

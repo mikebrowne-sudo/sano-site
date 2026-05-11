@@ -2,13 +2,12 @@ import { Settings, SlidersHorizontal, ArchiveRestore, LayoutGrid, FileText, Brie
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 
 export default async function SettingsPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const isAdmin = user?.email === ADMIN_EMAIL
+  const isAdmin = isAdminUser(user)
   const settings = isAdmin ? await loadWorkforceSettings(supabase) : null
   const cleanupOn = !!settings?.enable_cleanup_mode
 

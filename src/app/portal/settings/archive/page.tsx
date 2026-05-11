@@ -11,8 +11,7 @@ import { ArrowLeft, ArchiveRestore, FileText, Receipt, Briefcase } from 'lucide-
 import { RestoreQuoteAction, RestoreInvoiceAction, RestoreJobAction } from './_components/RestoreActions'
 import { displayQuoteNumber } from '@/lib/quote-versioning'
 import { StatusBadge } from '../../_components/StatusBadge'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 
 function fmtDate(iso: string | null) {
   if (!iso) return '—'
@@ -25,7 +24,7 @@ export default async function ArchivedRecordsPage() {
   const supabase = createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) notFound()
+  if (!isAdminUser(user)) notFound()
 
   const [{ data: quotes }, { data: invoices }, { data: jobs }] = await Promise.all([
     supabase

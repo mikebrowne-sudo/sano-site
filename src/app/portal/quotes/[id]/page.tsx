@@ -23,11 +23,12 @@ import { QuoteActionBar } from './_components/QuoteActionBar'
 import { QuoteNextStepPanel } from './_components/QuoteNextStepPanel'
 import { QuoteLinkedRecords } from './_components/QuoteLinkedRecords'
 import { BackToTopButton } from './_components/BackToTopButton'
+import { isAdminUser } from '@/lib/is-admin'
 
 export default async function QuoteDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const isAdmin = user?.email === 'michael@sano.nz'
+  const isAdmin = isAdminUser(user)
   // Phase 5.5.14 — per-record lifecycle controls only render when
   // cleanup mode is enabled (admin-only setting).
   const cleanup = await getCleanupAccess(supabase)

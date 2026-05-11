@@ -12,15 +12,14 @@
 // function logs.
 
 import { createClient } from '@/lib/supabase-server'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function requireAdmin(supabase: any): Promise<{ user: { id: string } } | { error: string }> {
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { error: 'Not authenticated.' }
-    if (user.email !== ADMIN_EMAIL) return { error: 'Admin only.' }
+    if (!isAdminUser(user)) return { error: 'Admin only.' }
     return { user: { id: user.id } }
   } catch (err) {
     console.error('[cleanup] requireAdmin failed:', err)

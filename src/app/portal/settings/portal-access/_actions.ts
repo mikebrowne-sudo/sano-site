@@ -12,8 +12,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 
 export interface SettingsFormInput {
   enable_contractor_portal: boolean
@@ -29,7 +28,7 @@ export async function updatePortalSettings(input: SettingsFormInput): Promise<{ 
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
-  if (user.email !== ADMIN_EMAIL) return { error: 'Admin only.' }
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
 
   // Pull the current snapshot so we preserve every other key.
   const current = await loadWorkforceSettings(supabase)

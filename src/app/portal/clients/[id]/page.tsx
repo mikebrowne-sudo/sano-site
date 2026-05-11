@@ -7,6 +7,7 @@ import { ClientAccessPanel } from './_components/ClientAccessPanel'
 import { ClientCleanupActions } from './_components/ClientCleanupActions'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
 import { findPossibleDuplicates, getClientLinkCounts } from '../_lib-cleanup'
+import { isAdminUser } from '@/lib/is-admin'
 
 // Phase 5.5.7 — read-only audit timeline mirroring the staff pattern.
 const ACTION_LABELS: Record<string, string> = {
@@ -37,7 +38,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   if (error || !client) notFound()
 
   const { data: { user } } = await supabase.auth.getUser()
-  const isAdmin = user?.email === 'michael@sano.nz'
+  const isAdmin = isAdminUser(user)
 
   // Each parallel branch is wrapped so a single failure (RLS edge,
   // transient network, missing column) never takes the page down.

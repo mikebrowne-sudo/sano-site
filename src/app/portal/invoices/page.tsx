@@ -11,6 +11,7 @@ import { getInvoiceAttention } from '@/lib/attention-rules'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
 import { loadDisplaySettings, INVOICE_FIELDS } from '@/lib/portal-display-settings'
 import { InvoiceFilters } from './_components/InvoiceFilters'
+import { isAdminUser } from '@/lib/is-admin'
 
 function fmt(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
@@ -62,7 +63,7 @@ export default async function InvoicesPage({
   const cleanup = await getCleanupAccess(supabase)
   const canCleanup = cleanup.canCleanup
   const { data: { user } } = await supabase.auth.getUser()
-  const isAdmin = user?.email === 'michael@sano.nz'
+  const isAdmin = isAdminUser(user)
   const activeTab    = parseInvoiceTab(searchParams?.tab)
   const showArchived = canCleanup && searchParams?.show_archived === '1'
   const search       = searchParams?.q?.trim() ?? ''

@@ -15,8 +15,7 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 
 // ─── Quotes ───────────────────────────────────────────────────────
 
@@ -45,7 +44,7 @@ export async function archiveQuote(input: ArchiveQuoteInput): Promise<ArchiveQuo
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.', reason: 'not_authenticated' }
-  if (user.email !== ADMIN_EMAIL) return { error: 'Only admin can archive quotes.', reason: 'not_admin' }
+  if (!isAdminUser(user)) return { error: 'Only admin can archive quotes.', reason: 'not_admin' }
   if (!input.quote_id) return { error: 'quote_id is required.' }
 
   const { data: current, error: curErr } = await supabase
@@ -124,7 +123,7 @@ export async function restoreQuote(input: RestoreQuoteInput) {
   const supabase = createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!user || !isAdminUser(user)) {
     return { error: 'Only admin can restore quotes.' }
   }
   if (!input.quote_id) return { error: 'quote_id is required.' }
@@ -184,7 +183,7 @@ export async function archiveInvoice(input: ArchiveInvoiceInput): Promise<Archiv
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.', reason: 'not_authenticated' }
-  if (user.email !== ADMIN_EMAIL) return { error: 'Only admin can archive invoices.', reason: 'not_admin' }
+  if (!isAdminUser(user)) return { error: 'Only admin can archive invoices.', reason: 'not_admin' }
   if (!input.invoice_id) return { error: 'invoice_id is required.' }
 
   const { data: current, error: curErr } = await supabase
@@ -258,7 +257,7 @@ export async function restoreInvoice(input: RestoreInvoiceInput) {
   const supabase = createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!user || !isAdminUser(user)) {
     return { error: 'Only admin can restore invoices.' }
   }
   if (!input.invoice_id) return { error: 'invoice_id is required.' }
@@ -308,7 +307,7 @@ export async function archiveJob(input: ArchiveJobInput) {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
-  if (user.email !== ADMIN_EMAIL) return { error: 'Only admin can archive jobs.' }
+  if (!isAdminUser(user)) return { error: 'Only admin can archive jobs.' }
   if (!input.job_id) return { error: 'job_id is required.' }
 
   const { data: current, error: curErr } = await supabase
@@ -364,7 +363,7 @@ export async function restoreJob(input: RestoreJobInput) {
   const supabase = createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!user || !isAdminUser(user)) {
     return { error: 'Only admin can restore jobs.' }
   }
   if (!input.job_id) return { error: 'job_id is required.' }

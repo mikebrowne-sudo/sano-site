@@ -29,6 +29,7 @@ import {
   loadWorkforceSettings,
   requiredItemsForWorkerType,
 } from '@/lib/workforce-settings'
+import { isAdminUser } from '@/lib/is-admin'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SB = any
@@ -289,7 +290,7 @@ export async function adminOverrideActivate(input: {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
-  if (user.email !== 'michael@sano.nz') {
+  if (!isAdminUser(user)) {
     return { error: 'Admin only.' }
   }
 

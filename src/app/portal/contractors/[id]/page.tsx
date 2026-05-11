@@ -15,6 +15,7 @@ import { TrialPanel } from './_components/TrialPanel'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
 import { AdminOverrideButton } from './_components/AdminOverrideButton'
 import { ContractorAccessPanel } from './_components/ContractorAccessPanel'
+import { isAdminUser } from '@/lib/is-admin'
 
 // Phase 5.3 — worker_type now collapses to {contractor, employee};
 // the prior sub-classifications (casual / part_time / full_time)
@@ -51,7 +52,7 @@ function fmtDate(iso: string | null) {
 export default async function ContractorDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const isAdmin = user?.email === 'michael@sano.nz'
+  const isAdmin = isAdminUser(user)
 
   const [{ data: contractor, error }, { data: jobs, count: jobCount }, { data: documents }, { data: trainingAssignments }, { data: incidents }] = await Promise.all([
     supabase

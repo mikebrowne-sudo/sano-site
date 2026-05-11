@@ -9,8 +9,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
-
-const ADMIN_EMAIL = 'michael@sano.nz'
+import { isAdminUser } from '@/lib/is-admin'
 
 export async function setCleanupMode(
   enabled: boolean,
@@ -18,7 +17,7 @@ export async function setCleanupMode(
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
-  if (user.email !== ADMIN_EMAIL) return { error: 'Admin only.' }
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
 
   const current = await loadWorkforceSettings(supabase)
   const next = { ...current, enable_cleanup_mode: !!enabled }
