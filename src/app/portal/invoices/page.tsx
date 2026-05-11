@@ -6,6 +6,7 @@ import { StatusBadge } from '../_components/StatusBadge'
 import { PortalPageHeader } from '../_components/PortalPageHeader'
 import { buttonClasses } from '../_components/Button'
 import { EmptyState } from '../_components/EmptyState'
+import { INVOICES_LIST_CONFIG, type InvoiceTab } from '../_components/list-config'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
 import { BulkSelectProvider } from '../_components/BulkSelect'
@@ -25,17 +26,8 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-// Phase 5.5.14 — finance-focused invoice tabs.
-type InvoiceTab = 'needs_attention' | 'outstanding' | 'paid' | 'draft' | 'all'
-const INVOICE_TABS: readonly { value: InvoiceTab; label: string }[] = [
-  { value: 'needs_attention', label: 'Needs attention' },
-  { value: 'outstanding',     label: 'Outstanding' },
-  { value: 'paid',            label: 'Paid' },
-  { value: 'draft',           label: 'Draft' },
-  { value: 'all',             label: 'All' },
-]
 function parseInvoiceTab(v: string | undefined): InvoiceTab {
-  return (INVOICE_TABS.find((t) => t.value === v)?.value as InvoiceTab) ?? 'needs_attention'
+  return (INVOICES_LIST_CONFIG.tabs.find((t) => t.value === v)?.value as InvoiceTab) ?? INVOICES_LIST_CONFIG.defaultTab
 }
 
 // Phase list-view-uxp-1 — sort key → Supabase order. Allowed keys
@@ -156,7 +148,7 @@ export default async function InvoicesPage({
 
   query = applyInvoiceSort(query, sort)
   // Phase 3 perf — bounded list (real pagination is a future phase).
-  query = query.limit(100)
+  query = query.limit(INVOICES_LIST_CONFIG.rowsPerPage)
 
   const { data: invoices, error } = await query
 
@@ -341,21 +333,24 @@ export default async function InvoicesPage({
       <PortalListTable<typeof rows[number]>
         header={
           <PortalPageHeader
-            title="Invoices"
-            actions={
-              isAdmin && (
-                <Link href="/portal/invoices/custom/new" className={buttonClasses({ variant: 'primary' })}>
-                  <FilePlus2 size={16} />
-                  Create custom invoice
-                </Link>
-              )
-            }
+            title={INVOICES_LIST_CONFIG.pageTitle}
+            actions={INVOICES_LIST_CONFIG.actions
+              .filter((a) => !a.adminOnly || isAdmin)
+              .map((a) => {
+                const Icon = a.icon
+                return (
+                  <Link key={a.href} href={a.href} className={buttonClasses({ variant: a.variant })}>
+                    <Icon size={16} />
+                    {a.label}
+                  </Link>
+                )
+              })}
           />
         }
         tabs={
           <ListLifecycleTabs
             basePath="/portal/invoices"
-            tabs={INVOICE_TABS}
+            tabs={INVOICES_LIST_CONFIG.tabs}
             activeTab={activeTab}
             showArchived={showArchived}
             canCleanup={canCleanup}
