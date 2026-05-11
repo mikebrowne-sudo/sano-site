@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { JobInvoiceButton } from './_components/JobInvoiceButton'
 import { JobStatusActions } from './_components/JobStatusActions'
-import { AssignJobButton } from './_components/AssignJobButton'
+import { AssignJobSlot } from './_components/AssignJobSlot'
 import { DuplicateJobButton } from './_components/DuplicateJobButton'
 import { CreateRecurringButton } from './_components/CreateRecurringButton'
 import { calculateVariance } from '@/lib/labour-calc'
@@ -90,65 +90,49 @@ export default async function JobDetailPage({ params }: { params: { id: string }
 
   const client = job.clients as unknown as { name: string; company_name: string | null } | null
 
-  // Load linked quote/invoice numbers if they exist
-  let quoteNumber: string | null = null
-  let quoteClientId: string | null = null
-  let invoiceNumber: string | null = null
-  let linkedInvoiceStatus: string | null = null
-
-  if (job.quote_id) {
-    const { data } = await supabase.from('quotes').select('quote_number, client_id').eq('id', job.quote_id).single()
-    quoteNumber = data?.quote_number ?? null
-    quoteClientId = (data as { client_id?: string } | null)?.client_id ?? null
-  }
-  if (job.invoice_id) {
-    const { data } = await supabase.from('invoices').select('invoice_number, status').eq('id', job.invoice_id).single()
-    invoiceNumber = data?.invoice_number ?? null
-    linkedInvoiceStatus = data?.status ?? null
-  }
-
-  // Phase 5.5.10 — flag jobs whose linked quote belongs to a different client.
-  const hasClientMismatch = !!quoteClientId && quoteClientId !== job.client_id
-
   // Phase D.2 — archive (soft-delete) is admin-only. No status/linked
   // guards since the row can always be restored from
   // /portal/settings/archive, and the server action is idempotent
   // when the row is already archived.
   const isArchived = job.deleted_at != null
   const canArchiveJob = isAdmin && !isArchived
+  const needsRecipientPhones = isAdmin && !isArchived
 
-  // Phase H — pull recipient phones for the manual SMS panel.
-  // Cheap, only runs for admin; falls back to nothing if the job
-  // has no contractor / client.
-  let hasContractorPhone = false
-  let hasCustomerPhone = false
-  if (isAdmin && !isArchived) {
-    if (job.contractor_id) {
-      const { data: c } = await supabase
-        .from('contractors')
-        .select('phone')
-        .eq('id', job.contractor_id)
-        .single()
-      hasContractorPhone = !!(c?.phone && String(c.phone).trim())
-    }
-    if (job.client_id) {
-      const { data: cl } = await supabase
-        .from('clients')
-        .select('phone')
-        .eq('id', job.client_id)
-        .single()
-      hasCustomerPhone = !!(cl?.phone && String(cl.phone).trim())
-    }
-  }
+  // Phase 3 perf — fan out the four conditional lookups in parallel.
+  // The original code awaited each in sequence (quote → invoice →
+  // contractor phone → client phone) even though every one is
+  // independent once the main `job` row is in hand. Folding them into
+  // one Promise.all roughly halves the wall time on this page.
+  // Each branch resolves to its own narrow row (or null) so the
+  // post-batch destructuring stays straightforward.
+  const [linkedQuoteRes, linkedInvoiceRes, contractorPhoneRes, clientPhoneRes] = await Promise.all([
+    job.quote_id
+      ? supabase.from('quotes').select('quote_number, client_id').eq('id', job.quote_id).single()
+      : Promise.resolve({ data: null as { quote_number: string | null; client_id: string | null } | null }),
+    job.invoice_id
+      ? supabase.from('invoices').select('invoice_number, status').eq('id', job.invoice_id).single()
+      : Promise.resolve({ data: null as { invoice_number: string | null; status: string | null } | null }),
+    needsRecipientPhones && job.contractor_id
+      ? supabase.from('contractors').select('phone').eq('id', job.contractor_id).single()
+      : Promise.resolve({ data: null as { phone: string | null } | null }),
+    needsRecipientPhones && job.client_id
+      ? supabase.from('clients').select('phone').eq('id', job.client_id).single()
+      : Promise.resolve({ data: null as { phone: string | null } | null }),
+  ])
+
+  const quoteNumber  = linkedQuoteRes.data?.quote_number ?? null
+  const quoteClientId = (linkedQuoteRes.data as { client_id?: string } | null)?.client_id ?? null
+  const invoiceNumber = linkedInvoiceRes.data?.invoice_number ?? null
+  const linkedInvoiceStatus = linkedInvoiceRes.data?.status ?? null
+  const hasContractorPhone = !!(contractorPhoneRes.data?.phone && String(contractorPhoneRes.data.phone).trim())
+  const hasCustomerPhone   = !!(clientPhoneRes.data?.phone     && String(clientPhoneRes.data.phone).trim())
+
+  // Phase 5.5.10 — flag jobs whose linked quote belongs to a different client.
+  const hasClientMismatch = !!quoteClientId && quoteClientId !== job.client_id
+
   // Silence lint — retained temporarily for downstream references
   // once we reintroduce hard-delete UI behind an admin override.
   void linkedInvoiceStatus
-
-  const { data: contractors } = await supabase
-    .from('contractors')
-    .select('id, full_name')
-    .eq('status', 'active')
-    .order('full_name')
 
   return (
     <div>
@@ -241,7 +225,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
               Reviewed
             </span>
           )}
-          <AssignJobButton
+          <AssignJobSlot
             jobId={job.id}
             currentAssignee={job.assigned_to}
             currentContractorId={job.contractor_id}
@@ -250,7 +234,6 @@ export default async function JobDetailPage({ params }: { params: { id: string }
             currentAllowedHours={job.allowed_hours}
             currentAccessInstructions={job.access_instructions}
             currentInternalNotes={job.internal_notes}
-            contractors={contractors ?? []}
           />
           <Link
             href={`/portal/jobs/${params.id}/edit`}

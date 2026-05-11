@@ -79,6 +79,10 @@ export default async function InvoicesPage({
   // list can render clickable linked-record chips. Aliases pin the
   // FK direction (quotes!quote_id, jobs!job_id) so PostgREST picks
   // the right relationship.
+  // Phase 3 perf — `invoice_items(price)` previously embedded as an
+  // array purely so the row mapper could sum it. We now fetch a flat
+  // {invoice_id, price} side query below and roll it up into
+  // `addOnsByInvoiceId`.
   let query = supabase
     .from('invoices')
     .select(`
@@ -87,7 +91,6 @@ export default async function InvoicesPage({
       date_issued, due_date, created_at,
       is_test, deleted_at, source,
       clients ( name, company_name ),
-      invoice_items ( price ),
       source_quote:quotes!quote_id ( id, quote_number ),
       source_job:jobs!job_id ( id, job_number, status )
     `)
@@ -149,8 +152,25 @@ export default async function InvoicesPage({
   }
 
   query = applyInvoiceSort(query, sort)
+  // Phase 3 perf — bounded list (real pagination is a future phase).
+  query = query.limit(100)
 
   const { data: invoices, error } = await query
+
+  // Phase 3 perf — addOns sum, keyed by invoice_id. Same semantics as
+  // the prior `items.reduce(...)` pass: null prices coerce to 0.
+  const allInvoiceIds = (invoices ?? []).map((i) => i.id as string)
+  const { data: relatedItems } = allInvoiceIds.length > 0
+    ? await supabase
+        .from('invoice_items')
+        .select('invoice_id, price')
+        .in('invoice_id', allInvoiceIds)
+    : { data: [] as Array<{ invoice_id: string | null; price: number | null }> }
+  const addOnsByInvoiceId = new Map<string, number>()
+  for (const row of (relatedItems ?? [])) {
+    if (!row.invoice_id) continue
+    addOnsByInvoiceId.set(row.invoice_id, (addOnsByInvoiceId.get(row.invoice_id) ?? 0) + (row.price ?? 0))
+  }
 
   if (error) {
     return (
@@ -165,8 +185,7 @@ export default async function InvoicesPage({
 
   const allRows = (invoices ?? []).map((inv) => {
     const client = inv.clients as unknown as { name: string; company_name: string | null } | null
-    const items = (inv.invoice_items ?? []) as { price: number }[]
-    const addOns = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
+    const addOns = addOnsByInvoiceId.get(inv.id as string) ?? 0
     const total = (inv.base_price ?? 0) + addOns - (inv.discount ?? 0)
 
     // PostgREST returns embedded relations as arrays unless the FK

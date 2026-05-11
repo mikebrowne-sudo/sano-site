@@ -69,6 +69,11 @@ export default async function QuotesPage({
   // Live record rule: deleted_at IS NULL AND is_test = false.
   // Show-archived toggle disables BOTH filters so the operator can
   // see the full set when they need to.
+  // Phase 3 perf — `quote_items(price)` previously embedded as an
+  // array purely so the row mapper could sum it into `total`. The full
+  // child rows traveled with every list payload. We now fetch a flat
+  // {quote_id, price} side query alongside the linked jobs/invoices
+  // batch below and roll it up into `addOnsByQuoteId`.
   let query = supabase
     .from('quotes')
     .select(`
@@ -86,8 +91,7 @@ export default async function QuotesPage({
       client_reference,
       is_test,
       deleted_at,
-      clients ( name, company_name ),
-      quote_items ( price )
+      clients ( name, company_name )
     `)
     .eq('is_latest_version', true)
 
@@ -108,6 +112,11 @@ export default async function QuotesPage({
   // 'all' applies no extra status filter.
 
   query = applyQuoteSort(query, quotesList.sortBy, quotesList.sortDirection)
+  // Phase 3 perf — cap the list at a sane default so the query stays
+  // bounded as the business grows. Real pagination (page-number or
+  // cursor) is a separate phase; this limit just prevents unbounded
+  // fetches today.
+  query = query.limit(100)
 
   const { data: quotes, error } = await query
 
@@ -118,7 +127,7 @@ export default async function QuotesPage({
   // that's now derived from the same map.
   const allQuoteIds = (quotes ?? []).map((q) => q.id as string)
 
-  const [{ data: relatedJobs }, { data: relatedInvoices }] = allQuoteIds.length > 0
+  const [{ data: relatedJobs }, { data: relatedInvoices }, { data: relatedItems }] = allQuoteIds.length > 0
     ? await Promise.all([
         supabase
           .from('jobs')
@@ -132,9 +141,14 @@ export default async function QuotesPage({
           .in('quote_id', allQuoteIds)
           .is('deleted_at', null)
           .order('created_at', { ascending: false }),
+        supabase
+          .from('quote_items')
+          .select('quote_id, price')
+          .in('quote_id', allQuoteIds),
       ])
     : [{ data: [] as Array<{ id: string; quote_id: string | null; job_number: string | null; status: string | null; scheduled_date: string | null }> },
-       { data: [] as Array<{ id: string; quote_id: string | null; invoice_number: string | null; status: string | null; due_date: string | null }> }]
+       { data: [] as Array<{ id: string; quote_id: string | null; invoice_number: string | null; status: string | null; due_date: string | null }> },
+       { data: [] as Array<{ quote_id: string | null; price: number | null }> }]
 
   // First-write-wins per quote_id (the order_by created_at desc on
   // the queries means the most-recent live record is the one we
@@ -150,6 +164,14 @@ export default async function QuotesPage({
     if (i.quote_id && !invoiceByQuoteId.has(i.quote_id)) {
       invoiceByQuoteId.set(i.quote_id, { id: i.id, invoice_number: i.invoice_number, status: i.status, due_date: i.due_date })
     }
+  }
+
+  // Roll quote_items into an addOns total keyed by quote_id. Matches
+  // the legacy `items.reduce(...)` semantics — null prices coerce to 0.
+  const addOnsByQuoteId = new Map<string, number>()
+  for (const row of (relatedItems ?? [])) {
+    if (!row.quote_id) continue
+    addOnsByQuoteId.set(row.quote_id, (addOnsByQuoteId.get(row.quote_id) ?? 0) + (row.price ?? 0))
   }
 
   // Attention-rule helpers (preserved): just boolean lookups.
@@ -169,8 +191,7 @@ export default async function QuotesPage({
 
   const allRows = (quotes ?? []).map((q) => {
     const client = q.clients as unknown as { name: string; company_name: string | null } | null
-    const items = (q.quote_items ?? []) as { price: number }[]
-    const addOns = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
+    const addOns = addOnsByQuoteId.get(q.id as string) ?? 0
     const total = (q.base_price ?? 0) + addOns - (q.discount ?? 0)
 
     const versionNumber = (q.version_number as number | null) ?? 1

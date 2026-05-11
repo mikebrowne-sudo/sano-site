@@ -67,6 +67,14 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
   if (error || !invoice) notFound()
 
+  // Phase 3 perf — the candidate-jobs query is only consumed by the
+  // unlinked-invoice banner (admin-only, renders when `invoice.job_id`
+  // is null). Previously it ran on every visit. Now it only fires when
+  // the banner would actually render, which is the common case for
+  // legacy/custom invoices and never for jobs-flow invoices.
+  const invoiceUnlinked = !((invoice as { job_id?: string | null }).job_id)
+  const needsCandidateJobs = isAdmin && invoiceUnlinked
+
   const [{ data: clientRecord }, { data: linkedJob }, { data: linkedQuote }, { data: candidateJobs }] = await Promise.all([
     supabase
       .from('clients')
@@ -90,15 +98,16 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       : Promise.resolve({ data: null }),
     // Phase 5.5.10 — for the unlinked-invoice banner: jobs that belong
     // to the same client and aren't already attached to another invoice.
-    supabase
-      .from('jobs')
-      .select('id, job_number, status, scheduled_date')
-      .eq('client_id', invoice.client_id)
-      .is('deleted_at', null)
-      .or(`invoice_id.is.null,invoice_id.eq.${params.id}`)
-      .order('scheduled_date', { ascending: false, nullsFirst: false }),
+    needsCandidateJobs
+      ? supabase
+          .from('jobs')
+          .select('id, job_number, status, scheduled_date')
+          .eq('client_id', invoice.client_id)
+          .is('deleted_at', null)
+          .or(`invoice_id.is.null,invoice_id.eq.${params.id}`)
+          .order('scheduled_date', { ascending: false, nullsFirst: false })
+      : Promise.resolve({ data: [] as Array<{ id: string; job_number: string; status: string; scheduled_date: string | null }> }),
   ])
-  const invoiceUnlinked = !((invoice as { job_id?: string | null }).job_id)
   const linkCandidates = (candidateJobs ?? []) as { id: string; job_number: string; status: string; scheduled_date: string | null }[]
 
   const client = invoice.clients as unknown as { name: string; company_name: string | null } | null

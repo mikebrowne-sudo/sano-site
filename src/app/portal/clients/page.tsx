@@ -26,6 +26,8 @@ export default async function ClientsPage({
   if (q) {
     query = query.ilike('name', `%${q}%`)
   }
+  // Phase 3 perf — bounded list (real pagination is a future phase).
+  query = query.limit(100)
 
   const { data: clients, error } = await query
 

@@ -67,24 +67,33 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     console.warn('[clients/[id]] getClientLinkCounts threw:', err)
     return { error: 'failed' } as { error: string }
   })
-  const settledDupes = findPossibleDuplicates(params.id).catch((err) => {
-    console.warn('[clients/[id]] findPossibleDuplicates threw:', err)
-    return [] as never
-  })
-  const settledCandidates: Promise<{ id: string; name: string; company_name: string | null }[]> = (async () => {
-    try {
-      const { data } = await supabase
-        .from('clients')
-        .select('id, name, company_name')
-        .eq('is_archived', false)
-        .neq('id', params.id)
-        .order('name')
-      return (data ?? []) as { id: string; name: string; company_name: string | null }[]
-    } catch (err) {
-      console.warn('[clients/[id]] mergeCandidates failed:', err)
-      return [] as { id: string; name: string; company_name: string | null }[]
-    }
-  })()
+  // Phase 3 perf — both findPossibleDuplicates and the merge-candidate
+  // roster only feed admin-only UI (the duplicates banner and the
+  // ClientCleanupActions panel). For non-admins these queries returned
+  // data that was immediately discarded. Skip them entirely off the
+  // admin path; the page renders strictly faster for staff users.
+  const settledDupes = isAdmin
+    ? findPossibleDuplicates(params.id).catch((err) => {
+        console.warn('[clients/[id]] findPossibleDuplicates threw:', err)
+        return [] as never
+      })
+    : Promise.resolve([] as never)
+  const settledCandidates: Promise<{ id: string; name: string; company_name: string | null }[]> = isAdmin
+    ? (async () => {
+        try {
+          const { data } = await supabase
+            .from('clients')
+            .select('id, name, company_name')
+            .eq('is_archived', false)
+            .neq('id', params.id)
+            .order('name')
+          return (data ?? []) as { id: string; name: string; company_name: string | null }[]
+        } catch (err) {
+          console.warn('[clients/[id]] mergeCandidates failed:', err)
+          return [] as { id: string; name: string; company_name: string | null }[]
+        }
+      })()
+    : Promise.resolve([] as { id: string; name: string; company_name: string | null }[])
 
   const [settings, auditRowsRaw, linkCountsRes, dupesRes, mergeCandidatesRaw] = await Promise.all([
     settledSettings, settledAudit, settledLinks, settledDupes, settledCandidates,
