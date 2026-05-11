@@ -21,6 +21,7 @@ import { JobNextStepCard } from './_components/JobNextStepCard'
 import { ScopeSnapshotPanel } from './_components/ScopeSnapshotPanel'
 import { isAdminUser } from '@/lib/is-admin'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
+import { Panel } from '../../_components/Panel'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -277,11 +278,11 @@ export default async function JobDetailPage({ params }: { params: { id: string }
         </div>
       )}
       {isArchived && (
-        <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 mb-6">
+        <Panel variant="warning" className="text-amber-800 text-sm mb-6">
           This job is archived. Restore it from{' '}
           <Link href="/portal/settings/archive" className="underline hover:text-amber-900">Settings → Archive</Link>{' '}
           to make changes.
-        </div>
+        </Panel>
       )}
 
       {/* Phase C — workflow bar. Seven-stage visual spanning
