@@ -2,9 +2,10 @@ import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { ClientForm } from '../_components/ClientForm'
 import Link from 'next/link'
-import { ArrowLeft, Archive } from 'lucide-react'
+import { Archive } from 'lucide-react'
 import { ClientAccessPanel } from './_components/ClientAccessPanel'
 import { ClientCleanupActions } from './_components/ClientCleanupActions'
+import { PortalPageHeader } from '../../_components/PortalPageHeader'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
 import { findPossibleDuplicates, getClientLinkCounts } from '../_lib-cleanup'
 import { isAdminUser } from '@/lib/is-admin'
@@ -133,25 +134,17 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
   return (
     <div>
-      <Link
-        href="/portal/clients"
-        className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"
-      >
-        <ArrowLeft size={14} />
-        Back to clients
-      </Link>
-
-      <div className="flex items-center justify-between mb-8 gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-sage-800">{vm.name}</h1>
-          {isArchived && (
-            <span className="inline-flex items-center gap-1.5 mt-1 text-xs font-medium text-sage-600 bg-sage-100 rounded-full px-2.5 py-0.5">
-              <Archive size={11} />
-              Archived
-            </span>
-          )}
-        </div>
-      </div>
+      <PortalPageHeader
+        backHref="/portal/clients"
+        backLabel="Back to clients"
+        title={vm.name}
+        titleAdornment={isArchived && (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-sage-600 bg-sage-100 rounded-full px-2.5 py-0.5">
+            <Archive size={11} />
+            Archived
+          </span>
+        )}
+      />
 
       {isAdmin && (
         <ClientCleanupActions

@@ -26,6 +26,10 @@ export interface PortalPageHeaderProps {
   backLabel?: string
   /** H1 — locked sizing per spec §2.2. */
   title: string
+  /** Optional inline content rendered next to the title (status pills,
+   *  archived badge, version chip). Sits in a flex row with the H1 —
+   *  spec §2.2: "Status pills appear next to the title, not above it." */
+  titleAdornment?: React.ReactNode
   /** One-line subtitle in sage-600, optional. */
   subtitle?: React.ReactNode
   /** Right-side action area. Conventionally one <Button variant="primary">
@@ -37,6 +41,7 @@ export function PortalPageHeader({
   backHref,
   backLabel,
   title,
+  titleAdornment,
   subtitle,
   actions,
 }: PortalPageHeaderProps) {
@@ -53,9 +58,12 @@ export function PortalPageHeader({
       )}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl md:text-3xl font-bold text-sage-800 tracking-tight">
-            {title}
-          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl md:text-3xl font-bold text-sage-800 tracking-tight">
+              {title}
+            </h1>
+            {titleAdornment}
+          </div>
           {subtitle && (
             <p className="text-sm text-sage-600 mt-1">{subtitle}</p>
           )}
