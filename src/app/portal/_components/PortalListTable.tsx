@@ -117,28 +117,35 @@ export function PortalListTable<TRow extends { id: string }>(
   const tableSection = showEmptyInsteadOfTable ? emptyState : (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
       {/* ─── Desktop table ────────────────────────────────────── */}
+      {/*
+        Phase 4C — operational density pass. Cell padding compresses
+        py-3 → py-2.5, the attention-chip sub-line that used to render
+        below the first column is gone (lifted into the status pill
+        derivation per route), and align-top stays so multi-line cells
+        still anchor cleanly. Result: ~40–44px row height on the
+        common case, down from ~60–70px when attention chips fired.
+      */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-100 text-left text-sage-600">
+            <tr className="border-b border-gray-100 text-left text-sage-600 bg-gray-50/40">
               {canCleanup && (
-                <th className="pl-5 pr-2 py-3 w-8">
+                <th className="pl-5 pr-2 py-2.5 w-8">
                   <BulkSelectHeader />
                 </th>
               )}
               {columns.map((col) => (
-                <th key={col.key} className={`px-5 py-3 font-semibold ${alignClass(col.align)}`}>
+                <th key={col.key} className={`px-5 py-2.5 font-semibold text-xs uppercase tracking-wide ${alignClass(col.align)}`}>
                   {col.label}
                 </th>
               ))}
-              {rowExtraActions && <th className="px-3 py-3" aria-label="Actions" />}
-              <th className="px-3 py-3 text-right" aria-label="Open" />
+              {rowExtraActions && <th className="px-2 py-2.5" aria-label="Actions" />}
+              <th className="px-3 py-2.5 text-right w-12" aria-label="Open" />
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => {
               const dim = isDimmed?.(row) ?? false
-              const att = attention?.(row) ?? null
               return (
                 <tr
                   key={row.id}
@@ -148,32 +155,28 @@ export function PortalListTable<TRow extends { id: string }>(
                   )}
                 >
                   {canCleanup && (
-                    <td className="pl-5 pr-2 py-3 align-top">
+                    <td className="pl-5 pr-2 py-2.5 align-middle">
                       <BulkSelectCheckbox id={row.id} label={`Select ${rowLabel(row)}`} />
                     </td>
                   )}
-                  {columns.map((col, idx) => (
-                    <td key={col.key} className={`px-5 py-3 align-top ${alignClass(col.align)}`}>
+                  {columns.map((col) => (
+                    <td key={col.key} className={`px-5 py-2.5 align-middle ${alignClass(col.align)}`}>
                       {col.cell(row)}
-                      {idx === 0 && att && (att.reasons.length > 0 || att.nextStep) && (
-                        <div className="mt-1.5">
-                          <AttentionChips reasons={att.reasons} nextStep={att.nextStep} size="xs" />
-                        </div>
-                      )}
                     </td>
                   ))}
                   {rowExtraActions && (
-                    <td className="px-3 py-3 text-right align-top">
+                    <td className="px-2 py-2.5 text-right align-middle">
                       {rowExtraActions(row)}
                     </td>
                   )}
-                  <td className="px-3 py-3 text-right align-top">
+                  <td className="px-3 py-2.5 text-right align-middle">
                     <Link
                       href={rowHref(row)}
-                      className="inline-flex items-center gap-1 text-sage-500 hover:text-sage-800 text-xs font-medium"
+                      className="inline-flex items-center justify-center h-7 w-7 rounded-md text-sage-500 hover:text-sage-800 hover:bg-sage-100 transition-colors"
                       aria-label={`Open ${rowLabel(row)}`}
+                      title={`Open ${rowLabel(row)}`}
                     >
-                      Open <ArrowRight size={12} />
+                      <ArrowRight size={14} />
                     </Link>
                   </td>
                 </tr>
