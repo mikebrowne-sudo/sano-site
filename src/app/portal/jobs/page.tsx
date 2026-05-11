@@ -180,6 +180,8 @@ export default async function JobsPage({
   }
 
   query = applyJobSort(query, activeSort.sortBy, activeSort.sortDirection)
+  // Phase 3 perf — bounded list (real pagination is a future phase).
+  query = query.limit(100)
 
   const [{ data: jobs, error }, { data: contractors }] = await Promise.all([
     query,
