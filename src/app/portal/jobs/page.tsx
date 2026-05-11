@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
-import { Briefcase, Plus, CalendarDays, FlaskConical, Archive } from 'lucide-react'
+import { Briefcase, Plus, FlaskConical, Archive } from 'lucide-react'
 import { JobFilters } from './_components/JobFilters'
 import { StatusBadge } from '../_components/StatusBadge'
 import { loadDisplaySettings, JOB_FIELDS } from '@/lib/portal-display-settings'
@@ -10,24 +10,16 @@ import { PortalListTable, type ListColumnDef } from '../_components/PortalListTa
 import { PortalPageHeader } from '../_components/PortalPageHeader'
 import { buttonClasses } from '../_components/Button'
 import { EmptyState } from '../_components/EmptyState'
+import { JOBS_LIST_CONFIG, type JobTab } from '../_components/list-config'
 import { getJobAttention } from '@/lib/attention-rules'
 import { getJobStatus } from '@/lib/job-status'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
+import { isAdminUser } from '@/lib/is-admin'
 
-// Phase 5.5.14 — job workflow tabs. Default 'needs_attention' is the
-// operator's hot list; the four lifecycle tabs let them drill into
-// each phase. Invoiced jobs are intentionally excluded from every tab
-// other than (eventually) a dedicated archive view — see Part 6.
-type JobTab = 'needs_attention' | 'needs_scheduling' | 'scheduled' | 'in_progress' | 'completed'
-const JOB_TABS: readonly { value: JobTab; label: string }[] = [
-  { value: 'needs_attention',  label: 'Needs attention' },
-  { value: 'needs_scheduling', label: 'Needs scheduling' },
-  { value: 'scheduled',        label: 'Scheduled' },
-  { value: 'in_progress',      label: 'In progress' },
-  { value: 'completed',        label: 'Completed' },
-]
+// Phase 4C — tabs sourced from list-config. Parser stays here so the
+// URL `?tab=` query coerces against the same allowed set.
 function parseJobTab(v: string | undefined): JobTab {
-  return (JOB_TABS.find((t) => t.value === v)?.value as JobTab) ?? 'needs_attention'
+  return (JOBS_LIST_CONFIG.tabs.find((t) => t.value === v)?.value as JobTab) ?? JOBS_LIST_CONFIG.defaultTab
 }
 
 function fmtDate(iso: string | null) {
@@ -184,7 +176,9 @@ export default async function JobsPage({
 
   query = applyJobSort(query, activeSort.sortBy, activeSort.sortDirection)
   // Phase 3 perf — bounded list (real pagination is a future phase).
-  query = query.limit(100)
+  // Phase 4C — cap sourced from list-config so per-page sizes can be
+  // tuned without touching this file.
+  query = query.limit(JOBS_LIST_CONFIG.rowsPerPage)
 
   const [{ data: jobs, error }, { data: contractors }] = await Promise.all([
     query,
@@ -377,30 +371,35 @@ export default async function JobsPage({
   if (activeTab === 'needs_attention') emptyDescription = 'Unassigned, unscheduled, at-risk, and ready-to-invoice jobs surface here.'
   else if (activeTab === 'needs_scheduling') emptyDescription = 'Accepted quotes with job setup complete will appear here.'
 
+  // Phase 4C — admin gate is needed for any future adminOnly actions
+  // declared in the config. None on jobs today, but the filter keeps
+  // the rendering symmetric with invoices.
+  const { data: { user } } = await supabase.auth.getUser()
+  const isAdmin = isAdminUser(user)
+  const headerActions = JOBS_LIST_CONFIG.actions
+    .filter((a) => !a.adminOnly || isAdmin)
+
   return (
     <BulkSelectProvider entity="job" ids={rows.map((r) => r.id as string)} canCleanup={canCleanup}>
       <PortalListTable<typeof rows[number]>
         header={
           <PortalPageHeader
-            title="Jobs"
-            actions={
-              <>
-                <Link href="/portal/jobs/calendar" className={buttonClasses({ variant: 'secondary' })}>
-                  <CalendarDays size={16} />
-                  Calendar
+            title={JOBS_LIST_CONFIG.pageTitle}
+            actions={headerActions.map((a) => {
+              const Icon = a.icon
+              return (
+                <Link key={a.href} href={a.href} className={buttonClasses({ variant: a.variant })}>
+                  <Icon size={16} />
+                  {a.label}
                 </Link>
-                <Link href="/portal/jobs/new" className={buttonClasses({ variant: 'primary' })}>
-                  <Plus size={16} />
-                  New Job
-                </Link>
-              </>
-            }
+              )
+            })}
           />
         }
         tabs={
           <ListLifecycleTabs
             basePath="/portal/jobs"
-            tabs={JOB_TABS}
+            tabs={JOBS_LIST_CONFIG.tabs}
             activeTab={activeTab}
             showArchived={showArchived}
             canCleanup={canCleanup}
