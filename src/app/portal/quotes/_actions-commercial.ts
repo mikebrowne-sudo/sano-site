@@ -21,6 +21,7 @@ import type {
   ScopeInputMode,
 } from '@/lib/commercialQuote'
 import { isMarginTier, isSectorCategory, isContractTerm, isCleaningStandard } from '@/lib/commercialQuote'
+import { assertCanAmend, findLockingInvoiceForQuote } from '@/lib/amendment-lock'
 
 // ── saveCommercialDetails ──────────────────────────────────────────
 
@@ -79,6 +80,9 @@ export interface CommercialDetailsInput {
   induction_required?: boolean | null
   restricted_areas?: boolean | null
   restricted_areas_notes?: string | null
+
+  // Phase 5B — admin override flag. Same shape as updateQuote.
+  force?: boolean
 }
 
 export type SaveCommercialDetailsResult =
@@ -116,6 +120,15 @@ export async function saveCommercialDetails(
   if (quote.service_category !== 'commercial') {
     return { error: 'saveCommercialDetails requires a commercial quote (service_category=commercial).' }
   }
+
+  // Phase 5B — invoice-existence lock. Commercial-details writes are
+  // material (sector / building / area / margin tier all affect price
+  // and scope). Inherits the same gate as `updateQuote` — the parent
+  // <EditQuoteForm> passes `force: true` from the admin override path.
+  const lockingInvoiceId = await findLockingInvoiceForQuote(supabase, quote_id)
+  const { data: { user } } = await supabase.auth.getUser()
+  const guard = assertCanAmend({ linkedInvoiceId: lockingInvoiceId, user, force: input.force })
+  if ('error' in guard) return guard
 
   const now = new Date().toISOString()
   const payload = {
