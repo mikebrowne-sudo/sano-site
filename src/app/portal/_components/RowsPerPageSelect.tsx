@@ -5,11 +5,14 @@
 // dropping the rest of the URL state (tab, sort, search). Resets
 // ?page= to 1 on change since the previous page number is no longer
 // meaningful at a new page size.
+//
+// Phase 4E hotfix — ROWS_PER_PAGE_OPTIONS + parsePerParam moved into
+// rows-per-page.ts (a plain module) so server-side pages can import
+// the parser without crossing the 'use client' boundary. This file
+// only exports the React component now.
 
 import { useRouter, useSearchParams } from 'next/navigation'
-
-export const ROWS_PER_PAGE_OPTIONS = [25, 50, 100] as const
-export type RowsPerPageOption = (typeof ROWS_PER_PAGE_OPTIONS)[number]
+import { ROWS_PER_PAGE_OPTIONS } from './rows-per-page'
 
 export function RowsPerPageSelect({
   basePath,
@@ -55,15 +58,4 @@ export function RowsPerPageSelect({
       <span>per page</span>
     </label>
   )
-}
-
-/** Coerces the URL ?per= param into one of the allowed page sizes.
- *  Anything invalid falls back to `defaultValue`. Returns a number
- *  that's guaranteed safe to use in `.range(from, to)`. */
-export function parsePerParam(raw: string | undefined, defaultValue: number): number {
-  if (!raw) return defaultValue
-  const n = Math.floor(Number(raw))
-  if (!Number.isFinite(n)) return defaultValue
-  if ((ROWS_PER_PAGE_OPTIONS as readonly number[]).includes(n)) return n
-  return defaultValue
 }
