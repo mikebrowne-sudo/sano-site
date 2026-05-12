@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { notifyContractorAssigned } from '@/lib/notify-contractor'
 import { sendNotification } from '@/lib/notifications/send'
+import { isLockedByInvoice, writeAmendmentAudit } from '@/lib/amendment-lock'
+import { isAdminUser } from '@/lib/is-admin'
 
 // Phase D — mark a completed job as reviewed. Captures reviewed_at
 // + reviewed_by (FK to auth.users) and audit-logs the transition.
@@ -295,6 +297,11 @@ export interface AssignJobInput {
   accessInstructions?: string | null
   internalNotes?: string | null
   notify?: boolean
+  // Phase 5B — admin override for the allowed_hours field when the job
+  // is invoice-locked. The contractor / schedule / access / notes
+  // fields are NON-material and always apply regardless. Only
+  // allowed_hours is material and gated.
+  force?: boolean
 }
 
 export async function assignJob(input: AssignJobInput) {
@@ -357,16 +364,31 @@ export async function assignJob(input: AssignJobInput) {
     return { error: `Cannot assign — ${contractor.full_name}'s insurance expired on ${contractor.insurance_expiry}. Update the contractor's insurance details first.` }
   }
 
-  // Load current job to detect contractor change and get job details
+  // Load current job to detect contractor change and get job details.
+  // Phase 5B — also reads invoice_id + allowed_hours so the partial
+  // lock-guard below can decide whether to apply the new allowed_hours.
   const { data: job } = await supabase
     .from('jobs')
-    .select('status, contractor_id, job_number, title, address, scheduled_date, scheduled_time, duration_estimate, description')
+    .select('status, contractor_id, job_number, title, address, scheduled_date, scheduled_time, duration_estimate, description, invoice_id, allowed_hours')
     .eq('id', jobId)
     .single()
 
   if (!job) {
     return { error: 'Job not found.' }
   }
+
+  // Phase 5B — partial invoice-lock guard for assignJob. Contractor,
+  // schedule, access, and notes are NON-material (operational) and
+  // always apply. allowed_hours IS material and is dropped from the
+  // update when the job is invoice-locked, unless admin passed
+  // `force: true`. The non-material fields proceed regardless.
+  const { data: { user } } = await supabase.auth.getUser()
+  const jobLocked  = isLockedByInvoice(job.invoice_id as string | null)
+  const adminForce = !!input.force && isAdminUser(user ?? null)
+  const allowedHoursAllowed = !jobLocked || adminForce
+  const allowedHoursWouldChange =
+    allowedHours !== undefined && (allowedHours ?? null) !== (job.allowed_hours ?? null)
+  const allowedHoursOverridden = jobLocked && adminForce && allowedHoursWouldChange
 
   const contractorChanged = contractorId !== (job.contractor_id ?? '')
   const newStatus = job.status === 'draft' ? 'assigned' : job.status
@@ -392,7 +414,7 @@ export async function assignJob(input: AssignJobInput) {
   }
   if (scheduledDate       !== undefined) updates.scheduled_date       = scheduledDate || null
   if (scheduledTime       !== undefined) updates.scheduled_time       = scheduledTime || null
-  if (allowedHours        !== undefined) updates.allowed_hours        = allowedHours
+  if (allowedHours        !== undefined && allowedHoursAllowed) updates.allowed_hours = allowedHours
   if (accessInstructions  !== undefined) updates.access_instructions  = accessInstructions || null
   if (internalNotes       !== undefined) updates.internal_notes       = internalNotes || null
 
@@ -405,6 +427,23 @@ export async function assignJob(input: AssignJobInput) {
     return { error: `Failed to assign job: ${error.message}` }
   }
 
+  // Phase 5B — if admin overrode the lock to amend allowed_hours,
+  // audit-log the override so the timeline can flag it. Non-override
+  // assignJob calls don't write an amendment audit row (the existing
+  // schedule_changed audit row covers schedule moves; allowed_hours
+  // changes pre-invoice are routine).
+  if (allowedHoursOverridden) {
+    await writeAmendmentAudit({
+      supabase,
+      entity: 'job',
+      entityId: jobId,
+      actorId: user?.id ?? null,
+      overridden: true,
+      before: { allowed_hours: job.allowed_hours ?? null },
+      after:   { allowed_hours: allowedHours ?? null },
+    })
+  }
+
   // Ensure a matching job_workers row exists so actual-hours
   // tracking (allocated by the staff ActualHoursEditor or captured
   // by contractorStartJob/contractorCompleteJob) has a record to
@@ -412,7 +451,7 @@ export async function assignJob(input: AssignJobInput) {
   await supabase
     .from('job_workers')
     .upsert(
-      { job_id: jobId, contractor_id: contractorId, hours_allocated: allowedHours ?? null },
+      { job_id: jobId, contractor_id: contractorId, hours_allocated: allowedHoursAllowed ? (allowedHours ?? null) : (job.allowed_hours as number | null) },
       { onConflict: 'job_id,contractor_id' },
     )
 

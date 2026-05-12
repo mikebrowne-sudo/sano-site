@@ -16,7 +16,10 @@ import type { CommercialQuoteDetails, CommercialScopeItem } from '@/lib/commerci
 import {
   QUOTE_STATUS_STYLES as STATUS_STYLES,
   QUOTE_STATUS_LABELS,
-  isQuoteLocked,
+  // isQuoteLocked is no longer consulted here (Phase 5B replaced it
+  // with the lockedByInvoice prop). Left commented to make the
+  // removal intentional during review.
+  // isQuoteLocked,
   type QuoteStatus,
 } from '@/lib/quote-status'
 import { StatusBadge } from '../../../_components/StatusBadge'
@@ -174,12 +177,21 @@ export function EditQuoteForm({
   commercialScope: commercialScopeRows = [],
   pricingSettings,
   residentialPricingSettings,
+  lockedByInvoice = false,
+  overrideActive = false,
 }: {
   quote: Quote
   clients: Client[]
   items: QuoteItem[]
   commercialDetails?: CommercialQuoteDetails | null
   commercialScope?: CommercialScopeItem[]
+  /** Phase 5B — true when an invoice exists on the quote's chain.
+   *  Combined with `overrideActive` to decide the form's lock state. */
+  lockedByInvoice?: boolean
+  /** Phase 5B — true when admin has opted into ?override=1. Lets the
+   *  form unlock + sends `force: true` on save so the server action
+   *  audit-logs as `quote.amended_after_invoice`. */
+  overrideActive?: boolean
   /** Phase 3B.1: DB-backed commercial pricing knobs, forwarded to
    *  CommercialPricingPreview. Optional — falls back to in-code
    *  constants when absent. */
@@ -252,16 +264,17 @@ export function EditQuoteForm({
   })
   const [overrideErrors, setOverrideErrors] = useState<OverrideValidationErrors>({})
 
-  // Phase 6 — lock the form when:
+  // Phase 6 (original) / Phase 5B (revised) — lock the form when:
   //   1. the row is archived, OR
   //   2. it isn't the latest version of its chain (history is read-only), OR
-  //   3. its status is one of accepted / declined / converted.
-  // Sent / viewed are NOT locked — saving from those creates a new draft
-  // version (handled in handleSubmit).
+  //   3. an invoice exists on the chain AND admin hasn't overridden.
+  // Status alone no longer locks the form — accepted / converted quotes
+  // are editable until an invoice is created. The version-bump on
+  // sent / viewed save still applies via `willCreateNewVersion`.
   const isLocked =
     !!quote.deleted_at ||
     quote.is_latest_version === false ||
-    isQuoteLocked(quote.status)
+    (lockedByInvoice && !overrideActive)
 
   const willCreateNewVersion =
     !isLocked && (quote.status === 'sent' || quote.status === 'viewed')
@@ -506,9 +519,13 @@ export function EditQuoteForm({
         addons: addons
           .filter((a) => a.label.trim())
           .map((a, i) => ({ label: a.label.trim(), price: toNum(a.price), sort_order: i })),
+        // Phase 5B — when admin has opted into override mode via the
+        // ?override=1 URL param, the server action audit-logs the save
+        // as `quote.amended_after_invoice` instead of `quote.amended`.
+        force: overrideActive || undefined,
       })
 
-      if (result?.error) {
+      if (result && 'error' in result && result.error) {
         setError(result.error)
         return
       }
@@ -528,7 +545,12 @@ export function EditQuoteForm({
             : undefined,
         )
         if (detailsInput) {
-          const detailsResult = await saveCommercialDetails(targetId, detailsInput)
+          // Phase 5B — thread `force` through so commercial details
+          // can be amended on a locked record by admin.
+          const detailsResult = await saveCommercialDetails(targetId, {
+            ...detailsInput,
+            force: overrideActive || undefined,
+          })
           if ('error' in detailsResult) {
             setError(`Quote saved but commercial details failed: ${detailsResult.error}`)
             return

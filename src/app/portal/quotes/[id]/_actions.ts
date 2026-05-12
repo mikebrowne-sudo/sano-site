@@ -8,6 +8,11 @@ import type { PricingBreakdown, PricingMode } from '@/lib/quote-pricing'
 import { validateCreateQuoteOverride } from '../new/_actions-validation'
 import { renderPdfFromUrl } from '@/lib/pdf/render-pdf'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
+import {
+  assertCanAmend,
+  findLockingInvoiceForQuote,
+  writeAmendmentAudit,
+} from '@/lib/amendment-lock'
 
 function addDaysISO(iso: string, days: number): string {
   const [y, m, d] = iso.split('-').map(Number)
@@ -70,6 +75,11 @@ interface UpdateQuoteInput {
   accounts_email?: string | null
   client_reference?: string | null
   requires_po?: boolean
+
+  // Phase 5B — admin override flag. When true and the caller is admin,
+  // bypass the invoice-existence lock for this amendment. Every override
+  // produces a `quote.amended_after_invoice` audit row.
+  force?: boolean
 }
 
 export async function updateQuote(input: UpdateQuoteInput) {
@@ -87,7 +97,7 @@ export async function updateQuote(input: UpdateQuoteInput) {
   // override is unchanged (or stamp them when it transitions from off to on).
   const { data: existing, error: existingErr } = await supabase
     .from('quotes')
-    .select('is_price_overridden, override_confirmed_by, override_confirmed_at')
+    .select('is_price_overridden, override_confirmed_by, override_confirmed_at, base_price, discount')
     .eq('id', input.id)
     .single()
 
@@ -98,6 +108,15 @@ export async function updateQuote(input: UpdateQuoteInput) {
   const wasOverridden = existing?.is_price_overridden ?? false
   const isOverridden = input.is_price_overridden ?? false
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Phase 5B — invoice-existence lock. Material edits are blocked
+  // once an invoice exists on the chain. Admin can pass force=true
+  // to override; the amendment is then audit-logged with the
+  // `quote.amended_after_invoice` action verb so the audit timeline
+  // can flag override edits.
+  const lockingInvoiceId = await findLockingInvoiceForQuote(supabase, input.id)
+  const guard = assertCanAmend({ linkedInvoiceId: lockingInvoiceId, user, force: input.force })
+  if ('error' in guard) return guard
 
   let overrideConfirmedBy: string | null = existing?.override_confirmed_by ?? null
   let overrideConfirmedAt: string | null = existing?.override_confirmed_at ?? null
@@ -197,9 +216,31 @@ export async function updateQuote(input: UpdateQuoteInput) {
     }
   }
 
+  // Phase 5B — audit-log every material amendment. The before/after
+  // payload is intentionally narrow (headline fields only) so audit
+  // rows stay scannable; full state is recoverable via record_snapshots
+  // if an admin ever needs to forensically reconstruct a prior shape.
+  await writeAmendmentAudit({
+    supabase,
+    entity: 'quote',
+    entityId: input.id,
+    actorId: user?.id ?? null,
+    overridden: guard.overridden,
+    before: {
+      base_price: existing.base_price ?? null,
+      discount:   existing.discount ?? null,
+    },
+    after: {
+      base_price:        input.base_price,
+      discount:          input.discount,
+      addons_count:      input.addons.length,
+      generated_scope_changed: input.description_edited ?? false,
+    },
+  })
+
   revalidatePath(`/portal/quotes/${input.id}`)
   revalidatePath('/portal/quotes')
-  return { success: true }
+  return { success: true, overridden: guard.overridden }
 }
 
 // ── Send quote by email ───────────────────────────────────────

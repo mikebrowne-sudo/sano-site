@@ -22,6 +22,9 @@ import { ScopeSnapshotPanel } from './_components/ScopeSnapshotPanel'
 import { isAdminUser } from '@/lib/is-admin'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
 import { Panel } from '../../_components/Panel'
+import { LockBanner } from '../../_components/LockBanner'
+import { AmendmentOverrideButton } from '../../_components/AmendmentOverrideButton'
+import { AuditTimelinePanel } from '../../_components/AuditTimelinePanel'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -53,7 +56,13 @@ function statusLabel(s: string) {
   return s.replace('_', ' ')
 }
 
-export default async function JobDetailPage({ params }: { params: { id: string } }) {
+export default async function JobDetailPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string }
+  searchParams?: { override?: string }
+}) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const isAdmin = isAdminUser(user)
@@ -135,6 +144,11 @@ export default async function JobDetailPage({ params }: { params: { id: string }
   // once we reintroduce hard-delete UI behind an admin override.
   void linkedInvoiceStatus
 
+  // Phase 5B — invoice-existence lock + admin override.
+  const lockedByInvoice = !!job.invoice_id
+  const overrideRequested = searchParams?.override === '1'
+  const overrideActive = lockedByInvoice && isAdmin && overrideRequested
+
   return (
     <div>
       <Link
@@ -167,6 +181,18 @@ export default async function JobDetailPage({ params }: { params: { id: string }
         isCompleted={job.status === 'completed' || !!job.completed_at}
         isArchived={isArchived}
       />
+
+      {lockedByInvoice && !overrideActive && invoiceNumber && (
+        <LockBanner
+          invoiceNumber={invoiceNumber}
+          invoiceHref={`/portal/invoices/${job.invoice_id}`}
+          override={
+            isAdmin ? (
+              <AmendmentOverrideButton invoiceNumber={invoiceNumber} entity="job" />
+            ) : undefined
+          }
+        />
+      )}
 
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -237,7 +263,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
             currentInternalNotes={job.internal_notes}
           />
           <Link
-            href={`/portal/jobs/${params.id}/edit`}
+            href={`/portal/jobs/${params.id}/edit${overrideActive ? '?override=1' : ''}`}
             className="inline-flex items-center gap-2 bg-sage-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
           >
             <Pencil size={14} />
@@ -564,6 +590,14 @@ export default async function JobDetailPage({ params }: { params: { id: string }
           <span>Created {formatDateTime(job.created_at)}</span>
           <span>Updated {formatDateTime(job.updated_at)}</span>
         </div>
+
+        {/* Phase 5B — read-only audit timeline (includes amendment events). */}
+        <AuditTimelinePanel
+          supabase={supabase}
+          entityTable="jobs"
+          entityId={job.id as string}
+          className="mt-2"
+        />
       </div>
     </div>
   )

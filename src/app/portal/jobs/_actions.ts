@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { notifyContractorAssigned } from '@/lib/notify-contractor'
+import { assertCanAmend, writeAmendmentAudit } from '@/lib/amendment-lock'
 
 // Returns an error message if the contractor's insurance is missing or expired; null otherwise.
 async function checkContractorInsurance(
@@ -126,6 +127,10 @@ interface UpdateJobInput extends JobInput {
   id: string
   status?: string
   contractor_notes?: string
+  // Phase 5B — admin override flag. When true and the caller is admin,
+  // bypass the invoice-existence lock for this amendment. Every override
+  // produces a `job.amended_after_invoice` audit row.
+  force?: boolean
 }
 
 export async function updateJob(input: UpdateJobInput) {
@@ -135,11 +140,22 @@ export async function updateJob(input: UpdateJobInput) {
   // Phase quote-flow-clarity: scheduled_date / scheduled_time are
   // tracked via a `job.schedule_changed` audit_log row so an
   // operator can reconstruct a job's schedule history.
+  // Phase 5B: also reads `invoice_id` and the material fields so the
+  // lock guard can fire and the audit row has a before/after diff.
   const { data: current } = await supabase
     .from('jobs')
-    .select('contractor_id, scheduled_date, scheduled_time, job_number')
+    .select('contractor_id, scheduled_date, scheduled_time, job_number, invoice_id, job_price, allowed_hours, description, address')
     .eq('id', input.id)
     .single()
+
+  // Phase 5B — invoice-existence lock.
+  const { data: { user } } = await supabase.auth.getUser()
+  const guard = assertCanAmend({
+    linkedInvoiceId: (current?.invoice_id as string | null) ?? null,
+    user,
+    force: input.force,
+  })
+  if ('error' in guard) return guard
 
   const contractorChanged = !!input.contractor_id
     && input.contractor_id !== (current?.contractor_id ?? '')
@@ -188,7 +204,6 @@ export async function updateJob(input: UpdateJobInput) {
   // written when the date or time actually moved — typing a value
   // identical to the current row produces no log entry.
   if (scheduleChanged) {
-    const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('audit_log').insert({
       actor_id: user?.id ?? null,
       actor_role: 'staff',
@@ -202,6 +217,36 @@ export async function updateJob(input: UpdateJobInput) {
       after: {
         scheduled_date: nextScheduledDate,
         scheduled_time: nextScheduledTime,
+      },
+    })
+  }
+
+  // Phase 5B — material-amendment audit row. Captures the headline
+  // billing fields' before/after; override edits use a distinct
+  // action verb so the timeline can flag them.
+  const materialChanged =
+       (current?.job_price       ?? null) !== (input.job_price       ?? null)
+    || (current?.allowed_hours   ?? null) !== (input.allowed_hours   ?? null)
+    || (current?.description     ?? null) !== (input.description     ?? null)
+    || (current?.address         ?? null) !== (input.address         ?? null)
+  if (materialChanged) {
+    await writeAmendmentAudit({
+      supabase,
+      entity: 'job',
+      entityId: input.id,
+      actorId: user?.id ?? null,
+      overridden: guard.overridden,
+      before: {
+        job_price:     current?.job_price ?? null,
+        allowed_hours: current?.allowed_hours ?? null,
+        description:   current?.description ?? null,
+        address:       current?.address ?? null,
+      },
+      after: {
+        job_price:     input.job_price ?? null,
+        allowed_hours: input.allowed_hours ?? null,
+        description:   input.description ?? null,
+        address:       input.address ?? null,
       },
     })
   }

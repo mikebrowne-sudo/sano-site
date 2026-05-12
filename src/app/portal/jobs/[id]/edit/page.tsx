@@ -3,8 +3,15 @@ import { notFound } from 'next/navigation'
 import { JobForm } from '../../_components/JobForm'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
+import { isAdminUser } from '@/lib/is-admin'
 
-export default async function EditJobPage({ params }: { params: { id: string } }) {
+export default async function EditJobPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string }
+  searchParams?: { override?: string }
+}) {
   const supabase = createClient()
 
   const [{ data: job, error }, { data: clients }, { data: contractors }, { data: quotes }, { data: invoices }, { data: existingWorkers }] = await Promise.all([
@@ -28,6 +35,12 @@ export default async function EditJobPage({ params }: { params: { id: string } }
 
   if (error || !job) notFound()
 
+  // Phase 5B — invoice-existence lock + admin override (server-side re-verify).
+  const { data: { user } } = await supabase.auth.getUser()
+  const isAdmin = isAdminUser(user)
+  const lockedByInvoice = !!job.invoice_id
+  const overrideActive = lockedByInvoice && isAdmin && searchParams?.override === '1'
+
   return (
     <div>
       <Link
@@ -46,6 +59,8 @@ export default async function EditJobPage({ params }: { params: { id: string } }
         contractors={contractors ?? []}
         quotes={quotes ?? []}
         invoices={invoices ?? []}
+        lockedByInvoice={lockedByInvoice}
+        overrideActive={overrideActive}
       />
     </div>
   )

@@ -24,8 +24,17 @@ import { QuoteNextStepPanel } from './_components/QuoteNextStepPanel'
 import { QuoteLinkedRecords } from './_components/QuoteLinkedRecords'
 import { BackToTopButton } from './_components/BackToTopButton'
 import { isAdminUser } from '@/lib/is-admin'
+import { LockBanner } from '../../_components/LockBanner'
+import { AmendmentOverrideButton } from '../../_components/AmendmentOverrideButton'
+import { AuditTimelinePanel } from '../../_components/AuditTimelinePanel'
 
-export default async function QuoteDetailPage({ params }: { params: { id: string } }) {
+export default async function QuoteDetailPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string }
+  searchParams?: { override?: string }
+}) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const isAdmin = isAdminUser(user)
@@ -190,6 +199,14 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
   const itemCount = (items?.length ?? 0) + (commercialScope?.length ?? 0)
   const isAccepted = quoteStatus === 'accepted'
 
+  // Phase 5B — invoice-existence lock + admin override.
+  // The form is locked when any invoice exists on this quote's chain.
+  // Admin can opt into override via ?override=1; the banner renders
+  // the trigger that sets that flag.
+  const lockedByInvoice = !!linkedInvoice?.id
+  const overrideRequested = searchParams?.override === '1'
+  const overrideActive = lockedByInvoice && isAdmin && overrideRequested
+
   return (
     <div>
       <Link
@@ -339,6 +356,24 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
 
       <VersionHistoryPanel chain={versionChain} currentId={quote.id} />
 
+      {/* Phase 5B — invoice-existence lock banner. Renders above the
+          edit form whenever a linked invoice exists. Admin sees an
+          "Edit anyway" affordance that opens the override modal. */}
+      {lockedByInvoice && !overrideActive && linkedInvoice && (
+        <LockBanner
+          invoiceNumber={linkedInvoice.invoice_number ?? ''}
+          invoiceHref={`/portal/invoices/${linkedInvoice.id}`}
+          override={
+            isAdmin ? (
+              <AmendmentOverrideButton
+                invoiceNumber={linkedInvoice.invoice_number ?? ''}
+                entity="quote"
+              />
+            ) : undefined
+          }
+        />
+      )}
+
       <div id="edit-quote-form">
         <EditQuoteForm
           quote={quote}
@@ -348,6 +383,8 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
           commercialScope={commercialScope ?? []}
           pricingSettings={pricingSettings}
           residentialPricingSettings={residentialPricingSettings}
+          lockedByInvoice={lockedByInvoice}
+          overrideActive={overrideActive}
         />
       </div>
 
@@ -364,6 +401,14 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
         primaryContactEmail={quote.contact_email ?? ''}
         accountsEmail={quote.accounts_email ?? ''}
         clientReference={quote.client_reference ?? ''}
+      />
+
+      {/* Phase 5B — read-only audit timeline (includes amendment events). */}
+      <AuditTimelinePanel
+        supabase={supabase}
+        entityTable="quotes"
+        entityId={quote.id as string}
+        className="mt-8"
       />
 
       <BackToTopButton />
