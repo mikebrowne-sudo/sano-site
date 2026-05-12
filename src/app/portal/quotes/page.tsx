@@ -9,7 +9,7 @@ import { PortalListTable, type ListColumnDef } from '../_components/PortalListTa
 import { QUOTES_LIST_CONFIG, type QuoteTab } from '../_components/list-config'
 import { StatusDot } from '../_components/StatusDot'
 import { ListPagination, parsePageParam } from '../_components/ListPagination'
-import { parsePerParam } from '../_components/RowsPerPageSelect'
+import { parsePerParam } from '../_components/rows-per-page'
 import { QuoteFilters } from './_components/QuoteFilters'
 import { loadDisplaySettings, QUOTE_FIELDS } from '@/lib/portal-display-settings'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
