@@ -99,7 +99,11 @@ export function ToolbarSelect({
 }
 
 /** Inline "Clear" link rendered when any filter is active. Caller
- *  supplies the list of param keys to wipe. */
+ *  supplies the list of param keys to wipe; everything else (e.g.
+ *  ?per=, ?tab=) is preserved. The `preserve` list is kept for
+ *  explicit-intent callers that want to declare which params must
+ *  stay even if they accidentally appear in `paramKeys` — paramKeys
+ *  is filtered against preserve before deletion. */
 export function ClearFiltersLink({
   basePath,
   paramKeys,
@@ -109,9 +113,6 @@ export function ClearFiltersLink({
   basePath: string
   paramKeys: readonly string[]
   visible: boolean
-  /** Params to preserve when clearing — typically `tab`,
-   *  `show_archived`. The lifecycle tab + cleanup-mode toggle don't
-   *  count as "filters" the operator wants gone. */
   preserve?: readonly string[]
 }) {
   const router = useRouter()
@@ -120,11 +121,15 @@ export function ClearFiltersLink({
   if (!visible) return null
 
   function clear() {
-    const params = new URLSearchParams()
-    for (const key of preserve) {
-      const v = searchParams.get(key)
-      if (v) params.set(key, v)
+    const params = new URLSearchParams(searchParams.toString())
+    const preserveSet = new Set(preserve)
+    for (const key of paramKeys) {
+      if (preserveSet.has(key)) continue
+      params.delete(key)
     }
+    // Page numbers don't survive a filter clear — the row identity
+    // they referenced has changed.
+    params.delete('page')
     router.push(`${basePath}${params.toString() ? `?${params.toString()}` : ''}`)
   }
 
