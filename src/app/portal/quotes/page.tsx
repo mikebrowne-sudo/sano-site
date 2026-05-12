@@ -7,10 +7,15 @@ import { buttonClasses } from '../_components/Button'
 import { EmptyState } from '../_components/EmptyState'
 import { PortalListTable, type ListColumnDef } from '../_components/PortalListTable'
 import { QUOTES_LIST_CONFIG, type QuoteTab } from '../_components/list-config'
+import { StatusDot } from '../_components/StatusDot'
+import { ListPagination, parsePageParam } from '../_components/ListPagination'
+import { parsePerParam } from '../_components/RowsPerPageSelect'
+import { QuoteFilters } from './_components/QuoteFilters'
 import { loadDisplaySettings, QUOTE_FIELDS } from '@/lib/portal-display-settings'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
 import { BulkSelectProvider } from '../_components/BulkSelect'
 import { getQuoteAttention } from '@/lib/attention-rules'
+import { getQuoteListStatus } from '@/lib/quote-status'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
 import { formatCurrency, formatDate } from '@/lib/format'
 
@@ -30,6 +35,21 @@ function applyQuoteSort(query: any, sortBy: string, sortDirection: 'asc' | 'desc
   }
 }
 
+// Phase 4E — URL ?sort= override → (sortBy, sortDirection). Mirrors
+// the jobs page's pattern so the QuoteFilters dropdown can drive
+// sort interactively without modifying display-settings.
+function urlSortToSettings(s: string | undefined): { sortBy: string; sortDirection: 'asc' | 'desc' } | null {
+  if (!s) return null
+  if (s === 'created_desc')      return { sortBy: 'created_at',   sortDirection: 'desc' }
+  if (s === 'created_asc')       return { sortBy: 'created_at',   sortDirection: 'asc' }
+  if (s === 'date_issued_desc')  return { sortBy: 'date_issued',  sortDirection: 'desc' }
+  if (s === 'date_issued_asc')   return { sortBy: 'date_issued',  sortDirection: 'asc' }
+  if (s === 'valid_until_asc')   return { sortBy: 'valid_until',  sortDirection: 'asc' }
+  if (s === 'quote_number_asc')  return { sortBy: 'quote_number', sortDirection: 'asc' }
+  if (s === 'quote_number_desc') return { sortBy: 'quote_number', sortDirection: 'desc' }
+  return null
+}
+
 // Phase 5.5.14 — workflow tabs. Default 'needs_attention' uses the
 // shared attention-rules logic instead of a hard status filter, so a
 // row appears the moment the operator has work to do (e.g. a sent
@@ -42,7 +62,7 @@ function parseTab(v: string | undefined): QuoteTab {
 export default async function QuotesPage({
   searchParams,
 }: {
-  searchParams: { tab?: string; show_archived?: string }
+  searchParams: { tab?: string; show_archived?: string; page?: string; q?: string; sort?: string; per?: string }
 }) {
   const supabase = createClient()
 
@@ -60,6 +80,13 @@ export default async function QuotesPage({
   // show_archived is ignored when cleanup mode is off — operational
   // users never see archived/test rows.
   const showArchived = canCleanup && searchParams?.show_archived === '1'
+  const search       = searchParams?.q?.trim() ?? ''
+  // Phase 4E — URL ?sort= overrides the saved display-settings sort;
+  // fall back to settings when the URL is empty.
+  const activeSort = urlSortToSettings(searchParams?.sort) ?? {
+    sortBy: quotesList.sortBy,
+    sortDirection: quotesList.sortDirection,
+  }
 
   // Live record rule: deleted_at IS NULL AND is_test = false.
   // Show-archived toggle disables BOTH filters so the operator can
@@ -69,6 +96,15 @@ export default async function QuotesPage({
   // child rows traveled with every list payload. We now fetch a flat
   // {quote_id, price} side query alongside the linked jobs/invoices
   // batch below and roll it up into `addOnsByQuoteId`.
+  // Phase 4D — pagination via .range(). Page is 1-indexed; supabase
+  // is 0-indexed inclusive. count: 'exact' attaches a COUNT(*) on the
+  // same filter chain so the footer can render "Showing N to M of T".
+  // Phase 4E — page size sourced from URL ?per=.
+  const pageNum     = parsePageParam(searchParams.page)
+  const rowsPerPage = parsePerParam(searchParams.per, QUOTES_LIST_CONFIG.rowsPerPage)
+  const from = (pageNum - 1) * rowsPerPage
+  const to   = from + rowsPerPage - 1
+
   let query = supabase
     .from('quotes')
     .select(`
@@ -87,7 +123,7 @@ export default async function QuotesPage({
       is_test,
       deleted_at,
       clients ( name, company_name )
-    `)
+    `, { count: 'exact' })
     .eq('is_latest_version', true)
 
   if (!showArchived) {
@@ -106,13 +142,30 @@ export default async function QuotesPage({
   }
   // 'all' applies no extra status filter.
 
-  query = applyQuoteSort(query, quotesList.sortBy, quotesList.sortDirection)
-  // Phase 3 perf — bounded list.
-  // Phase 4C — cap sourced from list-config so per-page sizes can be
-  // tuned without touching this file.
-  query = query.limit(QUOTES_LIST_CONFIG.rowsPerPage)
+  // Phase 4E — search across quote_number / service_address /
+  // client_reference, and fold a side-query against clients for name /
+  // company matches. Same pattern as the invoices page.
+  if (search) {
+    const { data: clientMatches } = await supabase
+      .from('clients')
+      .select('id')
+      .or(`name.ilike.%${search}%,company_name.ilike.%${search}%`)
+      .limit(50)
+    const clientIds = (clientMatches ?? []).map((c) => c.id as string)
+    const orClauses = [
+      `quote_number.ilike.%${search}%`,
+      `service_address.ilike.%${search}%`,
+      `client_reference.ilike.%${search}%`,
+    ]
+    if (clientIds.length > 0) orClauses.push(`client_id.in.(${clientIds.join(',')})`)
+    query = query.or(orClauses.join(','))
+  }
 
-  const { data: quotes, error } = await query
+  query = applyQuoteSort(query, activeSort.sortBy, activeSort.sortDirection)
+  // Phase 4D — range supersedes .limit() now that pagination is real.
+  query = query.range(from, to)
+
+  const { data: quotes, count, error } = await query
 
   // Phase quote-flow-clarity: pull the linked job + invoice for every
   // quote on the page (not just accepted ones), so the list can render
@@ -201,6 +254,16 @@ export default async function QuotesPage({
       hasInvoice: quotesWithInvoice.has(q.id as string),
     })
 
+    // Phase 4D — list-facing display status carries the operator's
+    // next-step semantics ("Follow up" / "Expired"). Stored status
+    // unchanged; this is purely the chip label.
+    const displayStatus = getQuoteListStatus({
+      status: q.status,
+      date_issued: q.date_issued as string | null,
+      valid_until: q.valid_until as string | null,
+      created_at: q.created_at as string | null,
+    })
+
     return {
       id: q.id,
       quote_number: displayNumber,
@@ -209,6 +272,7 @@ export default async function QuotesPage({
       company: client?.company_name ?? '—',
       address: q.service_address ?? null,
       status: q.status ?? 'draft',
+      displayStatus,
       total,
       date_issued: q.date_issued,
       valid_until: q.valid_until,
@@ -234,20 +298,22 @@ export default async function QuotesPage({
   function cell(row: typeof rows[number], key: string): React.ReactNode {
     switch (key) {
       case 'quote_number':     return (
-        <span className="font-medium text-sage-800 inline-flex items-center gap-1.5">
+        <span className="font-medium text-sage-800 inline-flex items-center gap-1.5 whitespace-nowrap">
           {row.quote_number}
           {row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5"><FlaskConical size={9} /> Test</span>}
           {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
         </span>
       )
-      case 'client':           return row.client
-      case 'company':          return row.company === '—' ? <span className="text-sage-400">—</span> : row.company
-      case 'address':          return row.address ? <span className="block max-w-[200px] truncate" title={row.address}>{row.address}</span> : <span className="text-sage-400">—</span>
-      case 'status':           return <StatusBadge kind="quote" status={row.status} />
-      case 'total':            return <span className="font-medium text-sage-800">{formatCurrency(row.total)}</span>
-      case 'date_issued':      return formatDate(row.date_issued)
-      case 'valid_until':      return formatDate(row.valid_until)
-      case 'created_at':       return formatDate(row.created_at)
+      case 'client':           return <span className="block max-w-[200px] truncate" title={row.client}>{row.client}</span>
+      case 'company':          return row.company === '—' ? <span className="text-sage-400">—</span> : <span className="block max-w-[180px] truncate" title={row.company}>{row.company}</span>
+      case 'address':          return row.address ? <span className="block max-w-[220px] truncate" title={row.address}>{row.address}</span> : <span className="text-sage-400">—</span>
+      // Phase 4D — pill carries the enriched displayStatus (follow_up,
+      // expired) computed by getQuoteListStatus above.
+      case 'status':           return <StatusBadge kind="quote" status={row.displayStatus} />
+      case 'total':            return <span className="font-medium text-sage-800 whitespace-nowrap tabular-nums">{formatCurrency(row.total)}</span>
+      case 'date_issued':      return <span className="whitespace-nowrap">{formatDate(row.date_issued)}</span>
+      case 'valid_until':      return <span className="whitespace-nowrap">{formatDate(row.valid_until)}</span>
+      case 'created_at':       return <span className="whitespace-nowrap">{formatDate(row.created_at)}</span>
       case 'client_reference': return row.client_reference || <span className="text-sage-400">—</span>
       default:                 return null
     }
@@ -345,8 +411,10 @@ export default async function QuotesPage({
             activeTab={activeTab}
             showArchived={showArchived}
             canCleanup={canCleanup}
+            preservedParams={{ q: search || undefined, sort: searchParams.sort }}
           />
         }
+        filters={<QuoteFilters />}
         emptyState={
           <EmptyState
             icon={FileText}
@@ -366,10 +434,28 @@ export default async function QuotesPage({
         rowHref={(row) => `/portal/quotes/${row.id}`}
         rowLabel={(row) => `quote ${row.quote_number}`}
         isDimmed={(row) => row.isTest || row.isArchived}
+        statusDot={(row) => <StatusDot kind="quote" status={row.displayStatus} />}
         attention={(row) =>
           (row.attention.reasons.length > 0 || row.attention.nextStep)
             ? { reasons: row.attention.reasons, nextStep: row.attention.nextStep }
             : null
+        }
+        footer={
+          <ListPagination
+            total={activeTab === 'needs_attention' ? null : (count ?? null)}
+            page={pageNum}
+            rowsPerPage={rowsPerPage}
+            defaultRowsPerPage={QUOTES_LIST_CONFIG.rowsPerPage}
+            basePath="/portal/quotes"
+            preservedParams={{
+              tab: activeTab !== QUOTES_LIST_CONFIG.defaultTab ? activeTab : undefined,
+              q: search || undefined,
+              sort: searchParams.sort,
+              per: rowsPerPage !== QUOTES_LIST_CONFIG.rowsPerPage ? rowsPerPage : undefined,
+              show_archived: showArchived ? '1' : undefined,
+            }}
+            visibleCount={rows.length}
+          />
         }
         rowExtraActions={(row) => row.isCommercial ? (
           <Link
@@ -391,7 +477,7 @@ export default async function QuotesPage({
                 {row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5"><FlaskConical size={9} /> Test</span>}
                 {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
               </span>
-              <StatusBadge kind="quote" status={row.status} />
+              <StatusBadge kind="quote" status={row.displayStatus} />
             </div>
           ),
           secondary: (row) => rawCell(row, secondaryKey),

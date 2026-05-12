@@ -5,6 +5,10 @@
 // in sync. Server actions branch off the canonical sets too — drift
 // between UI and DB is the most common bug class in lifecycle code.
 
+// Phase 4D — operational threshold lives in attention-rules; import
+// so getQuoteListStatus stays in sync with the attention-chip logic.
+import { SENT_FOLLOWUP_DAYS } from './attention-rules'
+
 // ── Quote ──────────────────────────────────────────────────────────
 
 export const QUOTE_STATUSES = [
@@ -14,6 +18,11 @@ export const QUOTE_STATUSES = [
   'accepted',
   'declined',
   'converted',
+  // Phase 4D — derived display-only states. Never stored in
+  // quotes.status; surfaced by getQuoteListStatus() for the list view
+  // so the status pill carries the operator's next-step semantics.
+  'follow_up',
+  'expired',
 ] as const
 
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number]
@@ -25,6 +34,8 @@ export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
   accepted:  'Accepted',
   declined:  'Declined',
   converted: 'Converted',
+  follow_up: 'Follow up',
+  expired:   'Expired',
 }
 
 export const QUOTE_STATUS_DESCRIPTIONS: Record<QuoteStatus, string> = {
@@ -34,12 +45,15 @@ export const QUOTE_STATUS_DESCRIPTIONS: Record<QuoteStatus, string> = {
   accepted:  'Client accepted. Ready to convert to invoice.',
   declined:  'Client declined.',
   converted: 'Converted to an invoice. Quote is locked.',
+  follow_up: 'Sent N days ago with no reply. Time to follow up.',
+  expired:   'Valid-until date has passed without acceptance.',
 }
 
 // Phase 4A — palette conformance to design system §1.11. Sage replaces
 // sky (out-of-palette) for `viewed`. `converted` keeps a softer sage
 // (50/600) so the terminal-success state reads quieter than the
 // in-motion / locked states above it.
+// Phase 4D — follow_up + expired use the amber attention family.
 export const QUOTE_STATUS_STYLES: Record<QuoteStatus, string> = {
   draft:     'bg-gray-100 text-gray-700',
   sent:      'bg-blue-50 text-blue-700',
@@ -47,6 +61,8 @@ export const QUOTE_STATUS_STYLES: Record<QuoteStatus, string> = {
   accepted:  'bg-emerald-50 text-emerald-700',
   declined:  'bg-red-50 text-red-700',
   converted: 'bg-sage-50 text-sage-600',
+  follow_up: 'bg-amber-50 text-amber-700',
+  expired:   'bg-amber-50 text-amber-700',
 }
 
 /** Statuses where the quote is fully locked — no edits, no convert,
@@ -72,6 +88,57 @@ export function isQuoteConvertible(
   isLatestVersion: boolean,
 ): boolean {
   return status === 'accepted' && isLatestVersion
+}
+
+// Phase 4D — list-facing display status. Mirrors getJobStatus()'s
+// shape: takes the raw DB status + a few side-inputs, returns a
+// QuoteStatus suitable for <StatusBadge kind="quote">. Stored
+// quotes.status never changes; this is purely the list-view label.
+//
+// Order of precedence:
+//   declined / converted → unchanged (terminal)
+//   accepted             → unchanged (operator's next move is "convert")
+//   sent | viewed + past valid_until → 'expired'
+//   sent + > SENT_FOLLOWUP_DAYS since issue/create → 'follow_up'
+//   else → the raw status
+
+export interface QuoteListStatusInput {
+  status: string | null | undefined
+  date_issued?: string | null | undefined
+  valid_until?: string | null | undefined
+  created_at?: string | null | undefined
+}
+
+export function getQuoteListStatus(
+  q: QuoteListStatusInput,
+  nowIso: string = new Date().toISOString(),
+): QuoteStatus {
+  const raw = (q.status ?? 'draft') as string
+  if (raw === 'declined' || raw === 'converted' || raw === 'accepted') {
+    return raw as QuoteStatus
+  }
+
+  const today = nowIso.slice(0, 10)
+
+  if ((raw === 'sent' || raw === 'viewed') && q.valid_until && q.valid_until < today) {
+    return 'expired'
+  }
+
+  if (raw === 'sent') {
+    const sinceSentIso = q.date_issued ?? q.created_at
+    if (sinceSentIso) {
+      const since = Date.parse(sinceSentIso)
+      const now = Date.parse(nowIso)
+      if (!Number.isNaN(since) && !Number.isNaN(now)) {
+        const days = Math.floor((now - since) / (24 * 60 * 60 * 1000))
+        if (days >= SENT_FOLLOWUP_DAYS) return 'follow_up'
+      }
+    }
+    return 'sent'
+  }
+
+  if (raw === 'draft' || raw === 'viewed') return raw as QuoteStatus
+  return 'draft'
 }
 
 // ── Invoice ────────────────────────────────────────────────────────
@@ -128,10 +195,15 @@ export const JOB_STATUSES = [
   // Phase list-view-uxp-2 PR-B: friendly derived statuses returned
   // by getJobStatus() for list-view rendering. Stored DB values
   // remain unchanged ('draft' / 'assigned' / 'in_progress' /
-  // 'completed' / 'invoiced'); these two extras exist purely for
+  // 'completed' / 'invoiced'); these extras exist purely for
   // display via StatusBadge in derived-status surfaces.
   'needs_scheduling',
   'scheduled',
+  // Phase 4D — two more display-only derivations:
+  //   ready_to_invoice = completed && !invoice_id (operator's next step)
+  //   follow_up        = scheduled past date, not yet started
+  'ready_to_invoice',
+  'follow_up',
 ] as const
 
 export type JobStatus = (typeof JOB_STATUSES)[number]
@@ -144,6 +216,8 @@ export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   invoiced:         'Invoiced',
   needs_scheduling: 'Needs scheduling',
   scheduled:        'Scheduled',
+  ready_to_invoice: 'Ready to invoice',
+  follow_up:        'Follow up',
 }
 
 // Phase 4A — conformance to spec §1.11. in_progress becomes amber
@@ -151,6 +225,8 @@ export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
 // invoiced moves to the stronger sage-100 (terminal-locked).
 // needs_scheduling and scheduled are derived statuses for the list
 // view and stay at amber-attention / blue-in-motion respectively.
+// Phase 4D — ready_to_invoice surfaces an emerald-attention nudge
+// (it's a positive next-step), follow_up uses amber (warning).
 export const JOB_STATUS_STYLES: Record<JobStatus, string> = {
   draft:            'bg-gray-100 text-gray-700',
   assigned:         'bg-blue-50 text-blue-700',
@@ -159,4 +235,6 @@ export const JOB_STATUS_STYLES: Record<JobStatus, string> = {
   invoiced:         'bg-sage-100 text-sage-700',
   needs_scheduling: 'bg-amber-50 text-amber-800',
   scheduled:        'bg-blue-50 text-blue-700',
+  ready_to_invoice: 'bg-emerald-50 text-emerald-700',
+  follow_up:        'bg-amber-50 text-amber-700',
 }

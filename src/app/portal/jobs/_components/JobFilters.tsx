@@ -2,22 +2,25 @@
 
 // Phase 5.5.14 — slimmed-down filters for the Jobs list.
 //
-// The legacy chip row (All / Today / Tomorrow / Unassigned / In Progress
-// / Completed) was removed when the lifecycle tabs landed — the tabs
-// already cover the same operational slices and the chips were
-// duplicating the same surface.
+// Search + contractor filter + date filter (today/tomorrow shortcut)
+// + sort + clear. Lifecycle tabs cover the operational slices above
+// this toolbar; the legacy chip row was retired when tabs landed.
 //
-// What's left: search, contractor filter, date filter (today/tomorrow
-// shortcut), sort, clear.
+// Phase 4E — refactored to compose shared toolbar primitives:
+//   <ListToolbar> owns the outer layout (search-left, controls-right)
+//   <SearchInput> / <ToolbarSelect> / <ClearFiltersLink> own URL state
+// This file is now just a thin assembly of slots so Jobs / Quotes /
+// Invoices stay visually identical above the table.
 
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, X } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { ListToolbar } from '../../_components/ListToolbar'
+import { SearchInput, ToolbarSelect, ClearFiltersLink } from '../../_components/ToolbarControls'
 
 const SORT_OPTIONS = [
-  { value: 'scheduled_asc', label: 'Scheduled (soonest)' },
+  { value: 'scheduled_asc',  label: 'Scheduled (soonest)' },
   { value: 'scheduled_desc', label: 'Scheduled (latest)' },
-  { value: 'created_desc', label: 'Newest created' },
-  { value: 'created_asc', label: 'Oldest created' },
+  { value: 'created_desc',   label: 'Newest created' },
+  { value: 'created_asc',    label: 'Oldest created' },
 ]
 
 const DATE_OPTIONS = [
@@ -26,99 +29,43 @@ const DATE_OPTIONS = [
   { value: 'tomorrow', label: 'Tomorrow' },
 ]
 
+const BASE = '/portal/jobs'
+
 export function JobFilters({
   contractors,
 }: {
   contractors: { id: string; full_name: string }[]
 }) {
-  const router = useRouter()
   const searchParams = useSearchParams()
 
-  const currentView = searchParams.get('view') ?? ''
+  const currentView       = searchParams.get('view')       ?? ''
   const currentContractor = searchParams.get('contractor') ?? ''
-  const currentSort = searchParams.get('sort') ?? 'scheduled_asc'
-  const currentSearch = searchParams.get('q') ?? ''
+  const currentSort       = searchParams.get('sort')       ?? 'scheduled_asc'
+  const currentSearch     = searchParams.get('q')          ?? ''
 
-  function setParam(key: string, value: string) {
-    const params = new URLSearchParams(searchParams.toString())
-    if (value) {
-      params.set(key, value)
-    } else {
-      params.delete(key)
-    }
-    router.push(`/portal/jobs?${params.toString()}`)
-  }
-
-  function clearAll() {
-    // Keep the lifecycle tab + show_archived; only clear filters.
-    const params = new URLSearchParams(searchParams.toString())
-    params.delete('view')
-    params.delete('contractor')
-    params.delete('q')
-    params.delete('sort')
-    router.push(`/portal/jobs${params.toString() ? `?${params.toString()}` : ''}`)
-  }
-
-  const hasFilters = currentView || currentContractor || currentSearch
+  const contractorOptions = [
+    { value: '', label: 'All contractors' },
+    ...contractors.map((c) => ({ value: c.id, label: c.full_name })),
+  ]
 
   return (
-    <div className="flex flex-wrap gap-3 mb-4">
-      <div className="relative flex-1 min-w-[200px]">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-sage-400" />
-        <input
-          type="text"
-          defaultValue={currentSearch}
-          placeholder="Search jobs…"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') setParam('q', (e.target as HTMLInputElement).value)
-          }}
-          onBlur={(e) => {
-            if (e.target.value !== currentSearch) setParam('q', e.target.value)
-          }}
-          className="w-full rounded-lg border border-sage-200 pl-9 pr-4 py-2.5 text-sm text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent"
+    <ListToolbar
+      search={<SearchInput basePath={BASE} placeholder="Search jobs…" />}
+      filters={
+        <>
+          <ToolbarSelect basePath={BASE} paramKey="view"       value={currentView}       options={DATE_OPTIONS} />
+          <ToolbarSelect basePath={BASE} paramKey="contractor" value={currentContractor} options={contractorOptions} />
+        </>
+      }
+      sort={<ToolbarSelect basePath={BASE} paramKey="sort" value={currentSort} options={SORT_OPTIONS} />}
+      extras={
+        <ClearFiltersLink
+          basePath={BASE}
+          paramKeys={['view', 'contractor', 'q', 'sort']}
+          preserve={['tab', 'show_archived']}
+          visible={!!(currentView || currentContractor || currentSearch)}
         />
-      </div>
-
-      <select
-        value={currentView}
-        onChange={(e) => setParam('view', e.target.value)}
-        className="rounded-lg border border-sage-200 px-3 py-2.5 text-sm text-sage-800 bg-white focus:outline-none focus:ring-2 focus:ring-sage-500"
-      >
-        {DATE_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </select>
-
-      <select
-        value={currentContractor}
-        onChange={(e) => setParam('contractor', e.target.value)}
-        className="rounded-lg border border-sage-200 px-3 py-2.5 text-sm text-sage-800 bg-white focus:outline-none focus:ring-2 focus:ring-sage-500"
-      >
-        <option value="">All contractors</option>
-        {contractors.map((c) => (
-          <option key={c.id} value={c.id}>{c.full_name}</option>
-        ))}
-      </select>
-
-      <select
-        value={currentSort}
-        onChange={(e) => setParam('sort', e.target.value)}
-        className="rounded-lg border border-sage-200 px-3 py-2.5 text-sm text-sage-800 bg-white focus:outline-none focus:ring-2 focus:ring-sage-500"
-      >
-        {SORT_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </select>
-
-      {hasFilters && (
-        <button
-          onClick={clearAll}
-          className="inline-flex items-center gap-1.5 px-3 py-2.5 text-sm text-sage-500 hover:text-sage-700 transition-colors"
-        >
-          <X size={14} />
-          Clear
-        </button>
-      )}
-    </div>
+      }
+    />
   )
 }

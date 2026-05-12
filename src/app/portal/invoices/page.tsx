@@ -7,6 +7,9 @@ import { PortalPageHeader } from '../_components/PortalPageHeader'
 import { buttonClasses } from '../_components/Button'
 import { EmptyState } from '../_components/EmptyState'
 import { INVOICES_LIST_CONFIG, type InvoiceTab } from '../_components/list-config'
+import { StatusDot } from '../_components/StatusDot'
+import { ListPagination, parsePageParam } from '../_components/ListPagination'
+import { parsePerParam } from '../_components/RowsPerPageSelect'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
 import { BulkSelectProvider } from '../_components/BulkSelect'
@@ -50,7 +53,7 @@ function applyInvoiceSort(query: any, sortKey: string | undefined) {
 export default async function InvoicesPage({
   searchParams,
 }: {
-  searchParams: { tab?: string; show_archived?: string; q?: string; sort?: string }
+  searchParams: { tab?: string; show_archived?: string; q?: string; sort?: string; page?: string; per?: string }
 }) {
   const supabase = createClient()
 
@@ -74,6 +77,14 @@ export default async function InvoicesPage({
   // list can render clickable linked-record chips. Aliases pin the
   // FK direction (quotes!quote_id, jobs!job_id) so PostgREST picks
   // the right relationship.
+  // Phase 4D — pagination via .range(). count: 'exact' on the same
+  // filter chain so the footer can render "Showing N to M of T".
+  // Phase 4E — page size sourced from URL ?per=.
+  const pageNum     = parsePageParam(searchParams?.page)
+  const rowsPerPage = parsePerParam(searchParams?.per, INVOICES_LIST_CONFIG.rowsPerPage)
+  const from = (pageNum - 1) * rowsPerPage
+  const to   = from + rowsPerPage - 1
+
   // Phase 3 perf — `invoice_items(price)` previously embedded as an
   // array purely so the row mapper could sum it. We now fetch a flat
   // {invoice_id, price} side query below and roll it up into
@@ -88,7 +99,7 @@ export default async function InvoicesPage({
       clients ( name, company_name ),
       source_quote:quotes!quote_id ( id, quote_number ),
       source_job:jobs!job_id ( id, job_number, status )
-    `)
+    `, { count: 'exact' })
 
   if (!showArchived) {
     query = query.is('deleted_at', null).eq('is_test', false)
@@ -147,10 +158,10 @@ export default async function InvoicesPage({
   }
 
   query = applyInvoiceSort(query, sort)
-  // Phase 3 perf — bounded list (real pagination is a future phase).
-  query = query.limit(INVOICES_LIST_CONFIG.rowsPerPage)
+  // Phase 4D — range supersedes .limit() now that pagination is real.
+  query = query.range(from, to)
 
-  const { data: invoices, error } = await query
+  const { data: invoices, count, error } = await query
 
   // Phase 3 perf — addOns sum, keyed by invoice_id. Same semantics as
   // the prior `items.reduce(...)` pass: null prices coerce to 0.
@@ -265,7 +276,7 @@ export default async function InvoicesPage({
         return (
           <Link
             href={`/portal/invoices/${row.id}`}
-            className="font-medium text-sage-800 hover:underline inline-flex items-center gap-1.5"
+            className="font-medium text-sage-800 hover:underline inline-flex items-center gap-1.5 whitespace-nowrap"
           >
             {row.invoiceNumber}
             {row.source === 'custom' && <CustomInvoiceBadge />}
@@ -273,14 +284,20 @@ export default async function InvoicesPage({
             {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
           </Link>
         )
-      case 'client':           return row.clientName
-      case 'company':          return row.companyName === '—' ? <span className="text-sage-400">—</span> : row.companyName
+      case 'client':           return <span className="block max-w-[200px] truncate" title={row.clientName}>{row.clientName}</span>
+      case 'company':          return row.companyName === '—' ? <span className="text-sage-400">—</span> : <span className="block max-w-[180px] truncate" title={row.companyName}>{row.companyName}</span>
       case 'address':          return row.address ? <span className="block max-w-[220px] truncate" title={row.address}>{row.address}</span> : <span className="text-sage-400">—</span>
       case 'status':           return <StatusBadge kind="invoice" status={row.status} />
-      case 'total':            return <span className="font-medium text-sage-800">{fmt(row.total)}</span>
-      case 'date_issued':      return <span className="text-sage-600">{fmtDate(row.dateIssued)}</span>
-      case 'due_date':         return <span className="text-sage-600">{fmtDate(row.dueDate)}</span>
-      case 'created_at':       return <span className="text-sage-600">{fmtDate(row.createdAt)}</span>
+      case 'total':            return <span className="font-medium text-sage-800 whitespace-nowrap tabular-nums">{fmt(row.total)}</span>
+      // Phase 4D — overdue due-date carries an amber colour as a
+      // dual-signal alongside the pill (spec §11.4 invoice list rule).
+      case 'date_issued':      return <span className="text-sage-600 whitespace-nowrap">{fmtDate(row.dateIssued)}</span>
+      case 'due_date':         return (
+        <span className={`whitespace-nowrap ${row.status === 'overdue' ? 'text-amber-700 font-medium' : 'text-sage-600'}`}>
+          {fmtDate(row.dueDate)}
+        </span>
+      )
+      case 'created_at':       return <span className="text-sage-600 whitespace-nowrap">{fmtDate(row.createdAt)}</span>
       case 'linked_quote':
         if (row.linkedQuoteId && row.linkedQuoteNumber) {
           return (
@@ -381,10 +398,28 @@ export default async function InvoicesPage({
         rowHref={(row) => `/portal/invoices/${row.id}`}
         rowLabel={(row) => `invoice ${row.invoiceNumber}`}
         isDimmed={(row) => row.isTest || row.isArchived}
+        statusDot={(row) => <StatusDot kind="invoice" status={row.status} />}
         attention={(row) =>
           (row.attention.reasons.length > 0 || row.attention.nextStep)
             ? { reasons: row.attention.reasons, nextStep: row.attention.nextStep }
             : null
+        }
+        footer={
+          <ListPagination
+            total={activeTab === 'needs_attention' ? null : (count ?? null)}
+            page={pageNum}
+            rowsPerPage={rowsPerPage}
+            defaultRowsPerPage={INVOICES_LIST_CONFIG.rowsPerPage}
+            basePath="/portal/invoices"
+            preservedParams={{
+              tab: activeTab !== INVOICES_LIST_CONFIG.defaultTab ? activeTab : undefined,
+              q: search || undefined,
+              sort: sort || undefined,
+              per: rowsPerPage !== INVOICES_LIST_CONFIG.rowsPerPage ? rowsPerPage : undefined,
+              show_archived: showArchived ? '1' : undefined,
+            }}
+            visibleCount={rows.length}
+          />
         }
         mobile={{
           label: (row) => `invoice ${row.invoiceNumber}`,

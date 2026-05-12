@@ -48,8 +48,14 @@ export interface PortalListTableProps<TRow extends { id: string }> {
   /** Optional row dimming (test / archived rows). */
   isDimmed?: (row: TRow) => boolean
 
+  /** Optional 6px status-dot rendered in a narrow leading cell
+   *  before the first column (after bulkSelect if present). Phase
+   *  4D adopts the reference image's row-start scan dot. */
+  statusDot?: (row: TRow) => React.ReactNode
+
   /** Attention chips render below the FIRST visible column when
-   *  this returns a non-null value. */
+   *  this returns a non-null value. Desktop is single-line since
+   *  Phase 4C — this prop only feeds the mobile card. */
   attention?: (row: TRow) => { reasons: string[]; nextStep?: string } | null
 
   /** Optional per-row quick actions cell. Renders BEFORE the
@@ -102,7 +108,7 @@ export function PortalListTable<TRow extends { id: string }>(
 ): React.ReactElement {
   const {
     rows, columns, bulkSelect, rowHref, rowLabel,
-    isDimmed, attention, rowExtraActions, mobile,
+    isDimmed, statusDot, attention, rowExtraActions, mobile,
     header, tabs, filters, footer, emptyState,
   } = props
   const canCleanup = bulkSelect?.canCleanup ?? false
@@ -134,6 +140,7 @@ export function PortalListTable<TRow extends { id: string }>(
                   <BulkSelectHeader />
                 </th>
               )}
+              {statusDot && <th className="pl-2 pr-0 py-2.5 w-3" aria-label="" />}
               {columns.map((col) => (
                 <th key={col.key} className={`px-5 py-2.5 font-semibold text-xs uppercase tracking-wide ${alignClass(col.align)}`}>
                   {col.label}
@@ -157,6 +164,11 @@ export function PortalListTable<TRow extends { id: string }>(
                   {canCleanup && (
                     <td className="pl-5 pr-2 py-2.5 align-middle">
                       <BulkSelectCheckbox id={row.id} label={`Select ${rowLabel(row)}`} />
+                    </td>
+                  )}
+                  {statusDot && (
+                    <td className="pl-2 pr-0 py-2.5 align-middle">
+                      {statusDot(row)}
                     </td>
                   )}
                   {columns.map((col) => (
@@ -243,11 +255,18 @@ export function PortalListTable<TRow extends { id: string }>(
     return <>{tableSection}</>
   }
 
+  // Phase 4E — tighter vertical rhythm above the table. The
+  // <PortalPageHeader> still owns its own mb-6 (page-level title
+  // spacing); -mt-2 on the tabs strip pulls the lifecycle tabs up
+  // closer to the title to match the reference image's compact
+  // operational rhythm. Tabs → filters gap shrinks to 12px (mb-3);
+  // filters → table to 12px as well. The table chrome retains its
+  // own bordered surface so this only changes the surrounding gaps.
   return (
     <div>
       {header}
-      {tabs && <div className="mb-4">{tabs}</div>}
-      {filters && <div className="mb-4">{filters}</div>}
+      {tabs && <div className="-mt-2 mb-3">{tabs}</div>}
+      {filters && <div className="mb-3">{filters}</div>}
       {tableSection}
     </div>
   )
