@@ -255,11 +255,18 @@ export function PortalListTable<TRow extends { id: string }>(
     return <>{tableSection}</>
   }
 
+  // Phase 4E — tighter vertical rhythm above the table. The
+  // <PortalPageHeader> still owns its own mb-6 (page-level title
+  // spacing); -mt-2 on the tabs strip pulls the lifecycle tabs up
+  // closer to the title to match the reference image's compact
+  // operational rhythm. Tabs → filters gap shrinks to 12px (mb-3);
+  // filters → table to 12px as well. The table chrome retains its
+  // own bordered surface so this only changes the surrounding gaps.
   return (
     <div>
       {header}
-      {tabs && <div className="mb-4">{tabs}</div>}
-      {filters && <div className="mb-4">{filters}</div>}
+      {tabs && <div className="-mt-2 mb-3">{tabs}</div>}
+      {filters && <div className="mb-3">{filters}</div>}
       {tableSection}
     </div>
   )
