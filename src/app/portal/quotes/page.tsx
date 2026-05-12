@@ -315,6 +315,31 @@ export default async function QuotesPage({
       case 'valid_until':      return <span className="whitespace-nowrap">{formatDate(row.valid_until)}</span>
       case 'created_at':       return <span className="whitespace-nowrap">{formatDate(row.created_at)}</span>
       case 'client_reference': return row.client_reference || <span className="text-sage-400">—</span>
+      // Phase 5A — linked records render as plain inline text in their
+      // OWN columns (not as a stacked sub-line under the first column).
+      // Strict single-line, dot separator for the linked record's
+      // status. The row's wrapping Link opens THIS quote; from there
+      // operators can click through to the linked job / invoice.
+      case 'linked_job':
+        if (row.linkedJob && row.linkedJob.job_number) {
+          return (
+            <span className="whitespace-nowrap text-sage-700">
+              {row.linkedJob.job_number}
+              {row.linkedJob.status && <span className="text-sage-500"> · {row.linkedJob.status.replace('_', ' ')}</span>}
+            </span>
+          )
+        }
+        return <span className="text-sage-400">—</span>
+      case 'linked_invoice':
+        if (row.linkedInvoice && row.linkedInvoice.invoice_number) {
+          return (
+            <span className="whitespace-nowrap text-sage-700">
+              {row.linkedInvoice.invoice_number}
+              {row.linkedInvoice.status && <span className="text-sage-500"> · {row.linkedInvoice.status}</span>}
+            </span>
+          )
+        }
+        return <span className="text-sage-400">—</span>
       default:                 return null
     }
   }
@@ -355,36 +380,17 @@ export default async function QuotesPage({
     all:             { title: 'No quotes yet.', sub: 'Create the first quote to get going.' },
   }
 
-  // Phase 4B — linked-record chips appear under the FIRST visible
-  // column's cell content, after the attention chips. We bake them
-  // into a helper that the column-0 cell renders alongside its value.
-  function LinkedChips({ row }: { row: typeof rows[number] }) {
-    if (!row.linkedJob && !row.linkedInvoice) return null
-    return (
-      <div className="mt-1.5 inline-flex flex-wrap gap-1.5 text-[11px] text-sage-600">
-        {row.linkedJob && (
-          <span className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 rounded-full px-2 py-0.5">
-            <span className="font-medium text-sage-800">Job {row.linkedJob.job_number ?? '—'}</span>
-            {row.linkedJob.status && <span className="text-sage-500">· {row.linkedJob.status.replace('_', ' ')}</span>}
-          </span>
-        )}
-        {row.linkedInvoice && (
-          <span className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 rounded-full px-2 py-0.5">
-            <span className="font-medium text-sage-800">Invoice {row.linkedInvoice.invoice_number ?? '—'}</span>
-            {row.linkedInvoice.status && <span className="text-sage-500">· {row.linkedInvoice.status}</span>}
-          </span>
-        )}
-      </div>
-    )
-  }
-
-  const columns: ListColumnDef<typeof rows[number]>[] = orderedVisible.map((k, idx) => ({
+  // Phase 5A — the prior <LinkedChips> sub-line that rendered Job +
+  // Invoice rounded-full pills underneath the first column has been
+  // removed. It was the single biggest row-height-expander on this
+  // page. Linked records now render in their OWN `linked_job` /
+  // `linked_invoice` columns as plain dot-separated inline text via
+  // the cell() dispatcher above.
+  const columns: ListColumnDef<typeof rows[number]>[] = orderedVisible.map((k) => ({
     key: k,
     label: QUOTE_FIELDS.find((f) => f.key === k)?.label ?? k,
     align: alignFor(k) === 'text-right' ? 'right' : 'left',
-    cell: (row) => idx === 0
-      ? <>{cell(row, k)}<LinkedChips row={row} /></>
-      : cell(row, k),
+    cell: (row) => cell(row, k),
   }))
 
   return (

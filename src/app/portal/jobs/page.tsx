@@ -280,26 +280,20 @@ export default async function JobsPage({
     ? allRows.filter((r) => r.attention.needsAttention)
     : allRows
 
-  // Render-time helper: get cell content for a field key.
-  // Phase list-view-uxp-2 PR-B: cell-level navigation — job_number,
-  // linked_quote, linked_invoice each carry their own anchors so a
-  // click goes to the right destination (whole-row <Link> is gone).
+  // Phase 5A — strict single-line cell renderers.
+  // No inner anchors (the row-href Link in <PortalListTable> handles
+  // navigation), no pill chrome on linked records, no content that
+  // can grow row height. Truncate where text could otherwise wrap.
   function cell(row: typeof rows[number], key: string): React.ReactNode {
     switch (key) {
       case 'job_number':     return (
-        <Link
-          href={`/portal/jobs/${row.id}`}
-          className="font-medium text-sage-800 hover:underline inline-flex items-center gap-1.5"
-        >
+        <span className="font-medium text-sage-800 inline-flex items-center gap-1.5 whitespace-nowrap">
           {row.job_number}
           {row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5"><FlaskConical size={9} /> Test</span>}
           {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
-        </Link>
+        </span>
       )
       case 'title':          return <span className="block max-w-[220px] truncate">{row.title}</span>
-      // Phase list-view-uxp-2 PR-B: customer-first display.
-      // Phase 4D — truncate client name so long company names don't
-      // wrap and balloon the row height.
       case 'client':         return row.customerLabel === '—'
                                   ? <span className="text-sage-400">—</span>
                                   : <span className="block max-w-[200px] truncate" title={row.customerLabel}>{row.customerLabel}</span>
@@ -311,36 +305,27 @@ export default async function JobsPage({
       case 'assigned_to':    return row.assigned_to
                                   ? <span className="whitespace-nowrap">{row.assigned_to}</span>
                                   : <span className="text-sage-300 whitespace-nowrap">Unassigned</span>
-      // Phase list-view-uxp-2 PR-B: derived display status.
       case 'status':         return <StatusBadge kind="job" status={row.displayStatus} />
       case 'scheduled_date': return row.scheduled_date
                                   ? <span className="whitespace-nowrap">{fmtDate(row.scheduled_date)}{row.scheduledTime ? <span className="text-sage-400 ml-1.5">{row.scheduledTime}</span> : ''}</span>
                                   : <span className="text-sage-400">—</span>
+      // Phase 5A — linked records render as plain inline text. The
+      // row's wrapping Link opens THIS job's detail; from there the
+      // operator can click through to the linked record.
       case 'linked_quote':
-        if (row.quote_id && row.quote_number) {
-          return (
-            <Link
-              href={`/portal/quotes/${row.quote_id}`}
-              className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 hover:border-sage-200 hover:bg-sage-100 transition-colors rounded-full px-2 py-0.5 text-[12px] text-sage-700"
-            >
-              <span className="font-medium">{row.quote_number}</span>
-            </Link>
-          )
-        }
-        return <span className="text-sage-400 text-[12px]">No quote</span>
+        return row.quote_number
+          ? <span className="whitespace-nowrap text-sage-700">{row.quote_number}</span>
+          : <span className="text-sage-400">—</span>
       case 'linked_invoice':
-        if (row.invoice_id && row.invoice_number) {
+        if (row.invoice_number) {
           return (
-            <Link
-              href={`/portal/invoices/${row.invoice_id}`}
-              className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 hover:border-sage-200 hover:bg-sage-100 transition-colors rounded-full px-2 py-0.5 text-[12px] text-sage-700"
-            >
-              <span className="font-medium">{row.invoice_number}</span>
-              {row.invoice_status && <span className="text-sage-500">· {row.invoice_status}</span>}
-            </Link>
+            <span className="whitespace-nowrap text-sage-700">
+              {row.invoice_number}
+              {row.invoice_status && <span className="text-sage-500"> · {row.invoice_status}</span>}
+            </span>
           )
         }
-        return <span className="text-sage-400 text-[12px]">Not created</span>
+        return <span className="text-sage-400">—</span>
       default:               return null
     }
   }

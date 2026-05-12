@@ -124,35 +124,44 @@ export function PortalListTable<TRow extends { id: string }>(
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
       {/* ─── Desktop table ────────────────────────────────────── */}
       {/*
-        Phase 4C — operational density pass. Cell padding compresses
-        py-3 → py-2.5, the attention-chip sub-line that used to render
-        below the first column is gone (lifted into the status pill
-        derivation per route), and align-top stays so multi-line cells
-        still anchor cleanly. Result: ~40–44px row height on the
-        common case, down from ~60–70px when attention chips fired.
+        Phase 5A — strict single-line rows.
+        Hard rules per the locked spec:
+          - no cell content can grow row height
+          - no stacked chips, no sub-lines, no card-shaped pills
+          - every data cell wraps content in a row-href Link so the
+            whole row opens the detail (rule #12)
+          - truncate / nowrap on every cell; never wrap
+          - cell padding py-2 (was py-2.5), icon button h-6 (was h-7)
+            → ~36–40px row height target met
+          - table gets min-w-[900px] so narrow laptop viewports get
+            horizontal overflow instead of cells wrapping (rule #14)
+        BulkSelect and rowExtraActions cells stay un-wrapped so their
+        own interactive content is independent of the row click.
       */}
       <div className="hidden md:block overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[900px] text-sm">
           <thead>
             <tr className="border-b border-gray-100 text-left text-sage-600 bg-gray-50/40">
               {canCleanup && (
-                <th className="pl-5 pr-2 py-2.5 w-8">
+                <th className="pl-5 pr-2 py-2 w-8">
                   <BulkSelectHeader />
                 </th>
               )}
-              {statusDot && <th className="pl-2 pr-0 py-2.5 w-3" aria-label="" />}
+              {statusDot && <th className="pl-2 pr-0 py-2 w-3" aria-label="" />}
               {columns.map((col) => (
-                <th key={col.key} className={`px-5 py-2.5 font-semibold text-xs uppercase tracking-wide ${alignClass(col.align)}`}>
+                <th key={col.key} className={`px-5 py-2 font-semibold text-xs uppercase tracking-wide whitespace-nowrap ${alignClass(col.align)}`}>
                   {col.label}
                 </th>
               ))}
-              {rowExtraActions && <th className="px-2 py-2.5" aria-label="Actions" />}
-              <th className="px-3 py-2.5 text-right w-12" aria-label="Open" />
+              {rowExtraActions && <th className="px-2 py-2" aria-label="Actions" />}
+              <th className="px-3 py-2 text-right w-10" aria-label="Open" />
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => {
               const dim = isDimmed?.(row) ?? false
+              const href = rowHref(row)
+              const label = rowLabel(row)
               return (
                 <tr
                   key={row.id}
@@ -162,31 +171,44 @@ export function PortalListTable<TRow extends { id: string }>(
                   )}
                 >
                   {canCleanup && (
-                    <td className="pl-5 pr-2 py-2.5 align-middle">
-                      <BulkSelectCheckbox id={row.id} label={`Select ${rowLabel(row)}`} />
+                    <td className="pl-5 pr-2 py-2 align-middle">
+                      <BulkSelectCheckbox id={row.id} label={`Select ${label}`} />
                     </td>
                   )}
                   {statusDot && (
-                    <td className="pl-2 pr-0 py-2.5 align-middle">
-                      {statusDot(row)}
+                    <td className="pl-2 pr-0 py-2 align-middle">
+                      {/* The dot itself is decorative; the cell-level
+                          row Link sits behind it so clicks anywhere on
+                          the cell still navigate. */}
+                      <Link href={href} tabIndex={-1} aria-hidden="true" className="block">
+                        {statusDot(row)}
+                      </Link>
                     </td>
                   )}
-                  {columns.map((col) => (
-                    <td key={col.key} className={`px-5 py-2.5 align-middle ${alignClass(col.align)}`}>
-                      {col.cell(row)}
+                  {columns.map((col, idx) => (
+                    <td key={col.key} className={`px-5 py-2 align-middle ${alignClass(col.align)}`}>
+                      <Link
+                        href={href}
+                        aria-label={idx === 0 ? `Open ${label}` : undefined}
+                        tabIndex={idx === 0 ? 0 : -1}
+                        className="block"
+                      >
+                        {col.cell(row)}
+                      </Link>
                     </td>
                   ))}
                   {rowExtraActions && (
-                    <td className="px-2 py-2.5 text-right align-middle">
+                    <td className="px-2 py-2 text-right align-middle">
                       {rowExtraActions(row)}
                     </td>
                   )}
-                  <td className="px-3 py-2.5 text-right align-middle">
+                  <td className="px-3 py-2 text-right align-middle">
                     <Link
-                      href={rowHref(row)}
-                      className="inline-flex items-center justify-center h-7 w-7 rounded-md text-sage-500 hover:text-sage-800 hover:bg-sage-100 transition-colors"
-                      aria-label={`Open ${rowLabel(row)}`}
-                      title={`Open ${rowLabel(row)}`}
+                      href={href}
+                      className="inline-flex items-center justify-center h-6 w-6 rounded-md text-sage-500 hover:text-sage-800 hover:bg-sage-100 transition-colors"
+                      aria-label={`Open ${label}`}
+                      title={`Open ${label}`}
+                      tabIndex={-1}
                     >
                       <ArrowRight size={14} />
                     </Link>

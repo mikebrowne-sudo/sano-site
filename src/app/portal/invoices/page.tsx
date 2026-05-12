@@ -272,25 +272,22 @@ export default async function InvoicesPage({
   // eslint-disable-next-line react/display-name
   function cell(row: typeof rows[number], key: string): React.ReactNode {
     switch (key) {
+      // Phase 5A — strict single-line cells. The wrapping row Link in
+      // PortalListTable handles navigation. Inner anchors are gone.
       case 'invoice_number':
         return (
-          <Link
-            href={`/portal/invoices/${row.id}`}
-            className="font-medium text-sage-800 hover:underline inline-flex items-center gap-1.5 whitespace-nowrap"
-          >
+          <span className="font-medium text-sage-800 inline-flex items-center gap-1.5 whitespace-nowrap">
             {row.invoiceNumber}
             {row.source === 'custom' && <CustomInvoiceBadge />}
             {row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5"><FlaskConical size={9} /> Test</span>}
             {row.isArchived && !row.isTest && <span className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5"><Archive size={9} /> Archived</span>}
-          </Link>
+          </span>
         )
       case 'client':           return <span className="block max-w-[200px] truncate" title={row.clientName}>{row.clientName}</span>
       case 'company':          return row.companyName === '—' ? <span className="text-sage-400">—</span> : <span className="block max-w-[180px] truncate" title={row.companyName}>{row.companyName}</span>
       case 'address':          return row.address ? <span className="block max-w-[220px] truncate" title={row.address}>{row.address}</span> : <span className="text-sage-400">—</span>
       case 'status':           return <StatusBadge kind="invoice" status={row.status} />
       case 'total':            return <span className="font-medium text-sage-800 whitespace-nowrap tabular-nums">{fmt(row.total)}</span>
-      // Phase 4D — overdue due-date carries an amber colour as a
-      // dual-signal alongside the pill (spec §11.4 invoice list rule).
       case 'date_issued':      return <span className="text-sage-600 whitespace-nowrap">{fmtDate(row.dateIssued)}</span>
       case 'due_date':         return (
         <span className={`whitespace-nowrap ${row.status === 'overdue' ? 'text-amber-700 font-medium' : 'text-sage-600'}`}>
@@ -298,31 +295,23 @@ export default async function InvoicesPage({
         </span>
       )
       case 'created_at':       return <span className="text-sage-600 whitespace-nowrap">{fmtDate(row.createdAt)}</span>
+      // Phase 5A — linked records render as plain inline text. The
+      // row's wrapping Link opens THIS invoice; from there the
+      // operator can click through to the linked record.
       case 'linked_quote':
-        if (row.linkedQuoteId && row.linkedQuoteNumber) {
-          return (
-            <Link
-              href={`/portal/quotes/${row.linkedQuoteId}`}
-              className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 hover:border-sage-200 hover:bg-sage-100 transition-colors rounded-full px-2 py-0.5 text-[12px] text-sage-700"
-            >
-              <span className="font-medium">{row.linkedQuoteNumber}</span>
-            </Link>
-          )
-        }
-        return <span className="text-sage-400 text-[12px]">No quote</span>
+        return row.linkedQuoteNumber
+          ? <span className="whitespace-nowrap text-sage-700">{row.linkedQuoteNumber}</span>
+          : <span className="text-sage-400">—</span>
       case 'linked_job':
-        if (row.linkedJobId && row.linkedJobNumber) {
+        if (row.linkedJobNumber) {
           return (
-            <Link
-              href={`/portal/jobs/${row.linkedJobId}`}
-              className="inline-flex items-center gap-1 bg-sage-50 border border-sage-100 hover:border-sage-200 hover:bg-sage-100 transition-colors rounded-full px-2 py-0.5 text-[12px] text-sage-700"
-            >
-              <span className="font-medium">{row.linkedJobNumber}</span>
-              {row.linkedJobStatus && <span className="text-sage-500">· {row.linkedJobStatus.replace('_', ' ')}</span>}
-            </Link>
+            <span className="whitespace-nowrap text-sage-700">
+              {row.linkedJobNumber}
+              {row.linkedJobStatus && <span className="text-sage-500"> · {row.linkedJobStatus.replace('_', ' ')}</span>}
+            </span>
           )
         }
-        return <span className="text-sage-400 text-[12px]">Not created</span>
+        return <span className="text-sage-400">—</span>
       default:                 return null
     }
   }
