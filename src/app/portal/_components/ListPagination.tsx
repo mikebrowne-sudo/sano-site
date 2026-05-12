@@ -17,6 +17,7 @@
 import Link from 'next/link'
 import clsx from 'clsx'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { RowsPerPageSelect } from './RowsPerPageSelect'
 
 export interface ListPaginationProps {
   /** Total matching rows, post-filter. Null when the page chose not
@@ -25,8 +26,12 @@ export interface ListPaginationProps {
   total: number | null
   /** Current page, 1-indexed. */
   page: number
-  /** Page size. */
+  /** Active page size — what the rows actually fetched at. */
   rowsPerPage: number
+  /** The config-level default page size. Used by the rows-per-page
+   *  selector so the URL stays clean when the operator picks the
+   *  default. */
+  defaultRowsPerPage?: number
   /** Base URL the chevron / number links resolve against. */
   basePath: string
   /** Query params to preserve when generating page links. The `page`
@@ -74,6 +79,7 @@ export function ListPagination({
   total,
   page,
   rowsPerPage,
+  defaultRowsPerPage,
   basePath,
   preservedParams,
   visibleCount,
@@ -86,11 +92,25 @@ export function ListPagination({
     ? `Showing ${firstIndex.toLocaleString()} to ${lastIndex.toLocaleString()} of ${total.toLocaleString()}`
     : `Showing ${visibleCount.toLocaleString()} row${visibleCount === 1 ? '' : 's'}`
 
-  // Hide chrome entirely when there's nothing to paginate.
+  // Phase 4E — rows-per-page selector renders alongside the range
+  // label when the caller supplies a default. Single client island.
+  const perSelect = defaultRowsPerPage != null ? (
+    <RowsPerPageSelect
+      basePath={basePath}
+      currentValue={rowsPerPage}
+      defaultValue={defaultRowsPerPage}
+    />
+  ) : null
+
+  // Hide page chrome when there's nothing to paginate, but still
+  // render the per-page selector + range so operators can switch
+  // up to a denser page when the current selection happens to fit
+  // in one screen.
   if (totalPages != null && totalPages <= 1) {
     return (
-      <div className="flex items-center justify-between text-xs text-sage-500">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-sage-500">
         <span>{range}</span>
+        {perSelect}
       </div>
     )
   }
@@ -101,7 +121,10 @@ export function ListPagination({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-sage-500">
-      <span>{range}</span>
+      <div className="flex items-center gap-3">
+        <span>{range}</span>
+        {perSelect}
+      </div>
       <div className="flex items-center gap-1">
         <PageChevron href={prevHref} ariaLabel="Previous page">
           <ChevronLeft size={14} />
