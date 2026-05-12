@@ -26,6 +26,7 @@ import { BackToTopButton } from './_components/BackToTopButton'
 import { isAdminUser } from '@/lib/is-admin'
 import { LockBanner } from '../../_components/LockBanner'
 import { AmendmentOverrideButton } from '../../_components/AmendmentOverrideButton'
+import { AuditTimelinePanel } from '../../_components/AuditTimelinePanel'
 
 export default async function QuoteDetailPage({
   params,
@@ -400,6 +401,14 @@ export default async function QuoteDetailPage({
         primaryContactEmail={quote.contact_email ?? ''}
         accountsEmail={quote.accounts_email ?? ''}
         clientReference={quote.client_reference ?? ''}
+      />
+
+      {/* Phase 5B — read-only audit timeline (includes amendment events). */}
+      <AuditTimelinePanel
+        supabase={supabase}
+        entityTable="quotes"
+        entityId={quote.id as string}
+        className="mt-8"
       />
 
       <BackToTopButton />

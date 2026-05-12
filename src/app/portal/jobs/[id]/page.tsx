@@ -24,6 +24,7 @@ import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
 import { Panel } from '../../_components/Panel'
 import { LockBanner } from '../../_components/LockBanner'
 import { AmendmentOverrideButton } from '../../_components/AmendmentOverrideButton'
+import { AuditTimelinePanel } from '../../_components/AuditTimelinePanel'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -589,6 +590,14 @@ export default async function JobDetailPage({
           <span>Created {formatDateTime(job.created_at)}</span>
           <span>Updated {formatDateTime(job.updated_at)}</span>
         </div>
+
+        {/* Phase 5B — read-only audit timeline (includes amendment events). */}
+        <AuditTimelinePanel
+          supabase={supabase}
+          entityTable="jobs"
+          entityId={job.id as string}
+          className="mt-2"
+        />
       </div>
     </div>
   )
