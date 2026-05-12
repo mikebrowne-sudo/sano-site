@@ -9,6 +9,7 @@ import { PortalListTable, type ListColumnDef } from '../_components/PortalListTa
 import { QUOTES_LIST_CONFIG, type QuoteTab } from '../_components/list-config'
 import { StatusDot } from '../_components/StatusDot'
 import { ListPagination, parsePageParam } from '../_components/ListPagination'
+import { QuoteFilters } from './_components/QuoteFilters'
 import { loadDisplaySettings, QUOTE_FIELDS } from '@/lib/portal-display-settings'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
 import { BulkSelectProvider } from '../_components/BulkSelect'
@@ -33,6 +34,21 @@ function applyQuoteSort(query: any, sortBy: string, sortDirection: 'asc' | 'desc
   }
 }
 
+// Phase 4E — URL ?sort= override → (sortBy, sortDirection). Mirrors
+// the jobs page's pattern so the QuoteFilters dropdown can drive
+// sort interactively without modifying display-settings.
+function urlSortToSettings(s: string | undefined): { sortBy: string; sortDirection: 'asc' | 'desc' } | null {
+  if (!s) return null
+  if (s === 'created_desc')      return { sortBy: 'created_at',   sortDirection: 'desc' }
+  if (s === 'created_asc')       return { sortBy: 'created_at',   sortDirection: 'asc' }
+  if (s === 'date_issued_desc')  return { sortBy: 'date_issued',  sortDirection: 'desc' }
+  if (s === 'date_issued_asc')   return { sortBy: 'date_issued',  sortDirection: 'asc' }
+  if (s === 'valid_until_asc')   return { sortBy: 'valid_until',  sortDirection: 'asc' }
+  if (s === 'quote_number_asc')  return { sortBy: 'quote_number', sortDirection: 'asc' }
+  if (s === 'quote_number_desc') return { sortBy: 'quote_number', sortDirection: 'desc' }
+  return null
+}
+
 // Phase 5.5.14 — workflow tabs. Default 'needs_attention' uses the
 // shared attention-rules logic instead of a hard status filter, so a
 // row appears the moment the operator has work to do (e.g. a sent
@@ -45,7 +61,7 @@ function parseTab(v: string | undefined): QuoteTab {
 export default async function QuotesPage({
   searchParams,
 }: {
-  searchParams: { tab?: string; show_archived?: string; page?: string }
+  searchParams: { tab?: string; show_archived?: string; page?: string; q?: string; sort?: string }
 }) {
   const supabase = createClient()
 
@@ -63,6 +79,13 @@ export default async function QuotesPage({
   // show_archived is ignored when cleanup mode is off — operational
   // users never see archived/test rows.
   const showArchived = canCleanup && searchParams?.show_archived === '1'
+  const search       = searchParams?.q?.trim() ?? ''
+  // Phase 4E — URL ?sort= overrides the saved display-settings sort;
+  // fall back to settings when the URL is empty.
+  const activeSort = urlSortToSettings(searchParams?.sort) ?? {
+    sortBy: quotesList.sortBy,
+    sortDirection: quotesList.sortDirection,
+  }
 
   // Live record rule: deleted_at IS NULL AND is_test = false.
   // Show-archived toggle disables BOTH filters so the operator can
@@ -116,7 +139,26 @@ export default async function QuotesPage({
   }
   // 'all' applies no extra status filter.
 
-  query = applyQuoteSort(query, quotesList.sortBy, quotesList.sortDirection)
+  // Phase 4E — search across quote_number / service_address /
+  // client_reference, and fold a side-query against clients for name /
+  // company matches. Same pattern as the invoices page.
+  if (search) {
+    const { data: clientMatches } = await supabase
+      .from('clients')
+      .select('id')
+      .or(`name.ilike.%${search}%,company_name.ilike.%${search}%`)
+      .limit(50)
+    const clientIds = (clientMatches ?? []).map((c) => c.id as string)
+    const orClauses = [
+      `quote_number.ilike.%${search}%`,
+      `service_address.ilike.%${search}%`,
+      `client_reference.ilike.%${search}%`,
+    ]
+    if (clientIds.length > 0) orClauses.push(`client_id.in.(${clientIds.join(',')})`)
+    query = query.or(orClauses.join(','))
+  }
+
+  query = applyQuoteSort(query, activeSort.sortBy, activeSort.sortDirection)
   // Phase 4D — range supersedes .limit() now that pagination is real.
   query = query.range(from, to)
 
@@ -366,8 +408,10 @@ export default async function QuotesPage({
             activeTab={activeTab}
             showArchived={showArchived}
             canCleanup={canCleanup}
+            preservedParams={{ q: search || undefined, sort: searchParams.sort }}
           />
         }
+        filters={<QuoteFilters />}
         emptyState={
           <EmptyState
             icon={FileText}
@@ -401,6 +445,8 @@ export default async function QuotesPage({
             basePath="/portal/quotes"
             preservedParams={{
               tab: activeTab !== QUOTES_LIST_CONFIG.defaultTab ? activeTab : undefined,
+              q: search || undefined,
+              sort: searchParams.sort,
               show_archived: showArchived ? '1' : undefined,
             }}
             visibleCount={rows.length}
