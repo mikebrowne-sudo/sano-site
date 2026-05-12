@@ -11,6 +11,8 @@ import { PortalPageHeader } from '../_components/PortalPageHeader'
 import { buttonClasses } from '../_components/Button'
 import { EmptyState } from '../_components/EmptyState'
 import { JOBS_LIST_CONFIG, type JobTab } from '../_components/list-config'
+import { StatusDot } from '../_components/StatusDot'
+import { ListPagination, parsePageParam } from '../_components/ListPagination'
 import { getJobAttention } from '@/lib/attention-rules'
 import { getJobStatus } from '@/lib/job-status'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
@@ -74,7 +76,7 @@ function urlSortToSettings(s: string | undefined): { sortBy: string; sortDirecti
 export default async function JobsPage({
   searchParams,
 }: {
-  searchParams: { view?: string; contractor?: string; sort?: string; q?: string; tab?: string; show_archived?: string }
+  searchParams: { view?: string; contractor?: string; sort?: string; q?: string; tab?: string; show_archived?: string; page?: string }
 }) {
   const supabase = createClient()
 
@@ -113,9 +115,18 @@ export default async function JobsPage({
   // column has data to render. Embedded source_quote / linked_invoice
   // also extended with the foreign-key id so the linked-record chips
   // can navigate straight to the right detail page.
+  // Phase 4D — pagination via .range(). Page is 1-indexed in URL;
+  // supabase range is 0-indexed inclusive. count: 'exact' adds a
+  // separate COUNT(*) on the same WHERE chain so the footer can
+  // render "Showing N to M of T". Cheap at 100-row caps; we'd revisit
+  // if the cap ever grows past a few thousand.
+  const pageNum = parsePageParam(searchParams.page)
+  const from = (pageNum - 1) * JOBS_LIST_CONFIG.rowsPerPage
+  const to   = from + JOBS_LIST_CONFIG.rowsPerPage - 1
+
   let query = supabase
     .from('jobs')
-    .select('id, job_number, title, address, status, scheduled_date, scheduled_time, assigned_to, contractor_id, quote_id, invoice_id, job_price, completed_at, started_at, created_at, is_test, deleted_at, clients ( name, company_name ), source_quote:quotes!quote_id ( id, quote_number ), linked_invoice:invoices!invoice_id ( id, invoice_number, status )')
+    .select('id, job_number, title, address, status, scheduled_date, scheduled_time, assigned_to, contractor_id, quote_id, invoice_id, job_price, completed_at, started_at, created_at, is_test, deleted_at, clients ( name, company_name ), source_quote:quotes!quote_id ( id, quote_number ), linked_invoice:invoices!invoice_id ( id, invoice_number, status )', { count: 'exact' })
 
   // Live record rule: deleted_at IS NULL AND is_test = false unless
   // the operator has explicitly enabled show-archived/test.
@@ -175,12 +186,10 @@ export default async function JobsPage({
   }
 
   query = applyJobSort(query, activeSort.sortBy, activeSort.sortDirection)
-  // Phase 3 perf — bounded list (real pagination is a future phase).
-  // Phase 4C — cap sourced from list-config so per-page sizes can be
-  // tuned without touching this file.
-  query = query.limit(JOBS_LIST_CONFIG.rowsPerPage)
+  // Phase 4D — range supersedes .limit() now that pagination is real.
+  query = query.range(from, to)
 
-  const [{ data: jobs, error }, { data: contractors }] = await Promise.all([
+  const [{ data: jobs, count, error }, { data: contractors }] = await Promise.all([
     query,
     supabase.from('contractors').select('id, full_name').eq('status', 'active').order('full_name'),
   ])
@@ -284,17 +293,23 @@ export default async function JobsPage({
       )
       case 'title':          return <span className="block max-w-[220px] truncate">{row.title}</span>
       // Phase list-view-uxp-2 PR-B: customer-first display.
-      case 'client':         return row.customerLabel === '—' ? <span className="text-sage-400">—</span> : row.customerLabel
-      case 'company':        return row.company === '—' ? <span className="text-sage-400">—</span> : row.company
+      // Phase 4D — truncate client name so long company names don't
+      // wrap and balloon the row height.
+      case 'client':         return row.customerLabel === '—'
+                                  ? <span className="text-sage-400">—</span>
+                                  : <span className="block max-w-[200px] truncate" title={row.customerLabel}>{row.customerLabel}</span>
+      case 'company':        return row.company === '—' ? <span className="text-sage-400">—</span> : <span className="block max-w-[180px] truncate" title={row.company}>{row.company}</span>
       case 'address':        return row.address ? <span className="block max-w-[220px] truncate" title={row.address}>{row.address}</span> : <span className="text-sage-400">—</span>
       case 'value':          return row.jobPrice != null
-                                  ? <span className="font-medium text-sage-800">{fmtCurrency(row.jobPrice)}</span>
+                                  ? <span className="font-medium text-sage-800 whitespace-nowrap tabular-nums">{fmtCurrency(row.jobPrice)}</span>
                                   : <span className="text-sage-400">—</span>
-      case 'assigned_to':    return row.assigned_to || <span className="text-sage-300">Unassigned</span>
+      case 'assigned_to':    return row.assigned_to
+                                  ? <span className="whitespace-nowrap">{row.assigned_to}</span>
+                                  : <span className="text-sage-300 whitespace-nowrap">Unassigned</span>
       // Phase list-view-uxp-2 PR-B: derived display status.
       case 'status':         return <StatusBadge kind="job" status={row.displayStatus} />
       case 'scheduled_date': return row.scheduled_date
-                                  ? <>{fmtDate(row.scheduled_date)}{row.scheduledTime ? <span className="text-sage-400 ml-1.5">{row.scheduledTime}</span> : ''}</>
+                                  ? <span className="whitespace-nowrap">{fmtDate(row.scheduled_date)}{row.scheduledTime ? <span className="text-sage-400 ml-1.5">{row.scheduledTime}</span> : ''}</span>
                                   : <span className="text-sage-400">—</span>
       case 'linked_quote':
         if (row.quote_id && row.quote_number) {
@@ -435,10 +450,28 @@ export default async function JobsPage({
         rowHref={(row) => `/portal/jobs/${row.id}`}
         rowLabel={(row) => `job ${row.job_number}`}
         isDimmed={(row) => row.isTest || row.isArchived}
+        statusDot={(row) => <StatusDot kind="job" status={row.displayStatus} />}
         attention={(row) =>
           (row.attention.reasons.length > 0 || row.attention.nextStep)
             ? { reasons: row.attention.reasons, nextStep: row.attention.nextStep }
             : null
+        }
+        footer={
+          <ListPagination
+            total={activeTab === 'needs_attention' ? null : (count ?? null)}
+            page={pageNum}
+            rowsPerPage={JOBS_LIST_CONFIG.rowsPerPage}
+            basePath="/portal/jobs"
+            preservedParams={{
+              tab: activeTab !== JOBS_LIST_CONFIG.defaultTab ? activeTab : undefined,
+              view: view || undefined,
+              contractor: contractorFilter || undefined,
+              q: search || undefined,
+              sort: searchParams.sort,
+              show_archived: showArchived ? '1' : undefined,
+            }}
+            visibleCount={rows.length}
+          />
         }
         mobile={{
               label: (row) => `job ${row.job_number}`,
@@ -495,7 +528,6 @@ export default async function JobsPage({
         ),
       }}
       />
-      <p className="text-xs text-sage-400 mt-4">{rows.length} job{rows.length !== 1 ? 's' : ''}</p>
       {jobsList.groupBy !== 'none' && (
         <p className="text-[11px] text-sage-400 mt-2 italic">
           Group-by ({jobsList.groupBy}) will be wired in the next phase. Setting persists.
