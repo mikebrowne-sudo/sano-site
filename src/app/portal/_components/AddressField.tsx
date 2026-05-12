@@ -17,11 +17,12 @@ interface AddressFieldProps {
   className?: string
   placeholder?: string
   error?: string
+  disabled?: boolean
 }
 
 const MAPBOX_ENDPOINT = 'https://api.mapbox.com/geocoding/v5/mapbox.places'
 
-export function AddressField({ label, value, onChange, required, className, placeholder, error }: AddressFieldProps) {
+export function AddressField({ label, value, onChange, required, className, placeholder, error, disabled }: AddressFieldProps) {
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
   const [suggestions, setSuggestions] = useState<MapboxFeature[]>([])
   const [open, setOpen] = useState(false)
@@ -107,14 +108,16 @@ export function AddressField({ label, value, onChange, required, className, plac
           type="text"
           value={value}
           onChange={(e) => handleInput(e.target.value)}
-          onFocus={() => { if (suggestions.length > 0) setOpen(true) }}
+          onFocus={() => { if (!disabled && suggestions.length > 0) setOpen(true) }}
           onKeyDown={handleKeyDown}
           required={required}
           placeholder={placeholder}
           autoComplete="off"
+          disabled={disabled}
           className={clsx(
             'w-full rounded-lg border px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm',
             error ? 'border-red-300' : 'border-sage-200',
+            disabled && 'bg-sage-50 text-sage-500 cursor-not-allowed',
           )}
         />
         {open && suggestions.length > 0 && (

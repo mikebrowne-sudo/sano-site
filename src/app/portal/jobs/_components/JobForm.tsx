@@ -50,14 +50,24 @@ export function JobForm({
   contractors,
   quotes,
   invoices,
+  lockedByInvoice = false,
+  overrideActive = false,
 }: {
   job?: JobData
   clients: Client[]
   contractors: ContractorOption[]
   quotes: QuoteOption[]
   invoices: InvoiceOption[]
+  /** Phase 5B — true when the job is locked by an existing invoice. */
+  lockedByInvoice?: boolean
+  /** Phase 5B — true when an admin has activated override mode. */
+  overrideActive?: boolean
 }) {
   const isEdit = !!job?.id
+  // Phase 5B — when locked-not-overridden, the form still renders for
+  // operational fields (schedule, access, notes) but material edits are
+  // blocked server-side. The form passes `force` only when override is on.
+  const isLocked = lockedByInvoice && !overrideActive
 
   const [clientId, setClientId] = useState(job?.client_id ?? '')
   const [quoteId, setQuoteId] = useState(job?.quote_id ?? '')
@@ -123,6 +133,7 @@ export function JobForm({
             id: job!.id!,
             status,
             contractor_notes: contractorNotes.trim() || undefined,
+            force: overrideActive || undefined,
           })
         : await createJob(input)
 
@@ -174,8 +185,9 @@ export function JobForm({
       {/* Job Details */}
       <Section title="Job Details">
         <Field label="Title" value={title} onChange={setTitle} placeholder="e.g. Weekly clean — Smith residence" />
-        <TextArea label="Description" value={description} onChange={setDescription} className="mt-4" />
-        <AddressField label="Address" value={address} onChange={setAddress} className="mt-4" />
+        {/* Phase 5B — description + address are material once invoiced. */}
+        <TextArea label="Description" value={description} onChange={setDescription} className="mt-4" disabled={isLocked} />
+        <AddressField label="Address" value={address} onChange={setAddress} className="mt-4" disabled={isLocked} />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
           <Field label="Scheduled date" type="date" value={scheduledDate} onChange={setScheduledDate} />
           <Field label="Scheduled time" value={scheduledTime} onChange={setScheduledTime} placeholder="e.g. 9:00am" />
@@ -186,8 +198,9 @@ export function JobForm({
       {/* Contractor */}
       <Section title="Pricing &amp; Assignment">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Field label="Job price — client ($)" type="number" step="0.01" min="0" value={jobPrice} onChange={setJobPrice} />
-          <Field label="Allowed hours" type="number" step="0.25" min="0" value={allowedHours} onChange={setAllowedHours} placeholder="e.g. 3" />
+          {/* Phase 5B — job price + allowed hours are material once invoiced. */}
+          <Field label="Job price — client ($)" type="number" step="0.01" min="0" value={jobPrice} onChange={setJobPrice} disabled={isLocked} />
+          <Field label="Allowed hours" type="number" step="0.25" min="0" value={allowedHours} onChange={setAllowedHours} placeholder="e.g. 3" disabled={isLocked} />
           <Field label="Contractor price ($)" type="number" step="0.01" min="0" value={contractorPrice} onChange={setContractorPrice} />
         </div>
         <div className="mt-4">
@@ -262,10 +275,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function Field({
-  label, required, className, value, onChange, ...rest
+  label, required, className, value, onChange, disabled, ...rest
 }: {
   label: string; required?: boolean; className?: string
   value: string; onChange: (v: string) => void
+  disabled?: boolean
   type?: string; step?: string; min?: string; placeholder?: string
 }) {
   return (
@@ -277,7 +291,11 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={required}
-        className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm"
+        disabled={disabled}
+        className={clsx(
+          'w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm',
+          disabled && 'bg-sage-50 text-sage-500 cursor-not-allowed',
+        )}
         {...rest}
       />
     </label>
@@ -285,9 +303,10 @@ function Field({
 }
 
 function TextArea({
-  label, value, onChange, className, placeholder,
+  label, value, onChange, className, placeholder, disabled,
 }: {
   label: string; value: string; onChange: (v: string) => void; className?: string; placeholder?: string
+  disabled?: boolean
 }) {
   return (
     <label className={clsx('block', className)}>
@@ -297,7 +316,11 @@ function TextArea({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm resize-y"
+        disabled={disabled}
+        className={clsx(
+          'w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm resize-y',
+          disabled && 'bg-sage-50 text-sage-500 cursor-not-allowed',
+        )}
       />
     </label>
   )
