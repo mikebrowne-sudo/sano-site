@@ -9,6 +9,7 @@ import { PortalListTable, type ListColumnDef } from '../_components/PortalListTa
 import { QUOTES_LIST_CONFIG, type QuoteTab } from '../_components/list-config'
 import { StatusDot } from '../_components/StatusDot'
 import { ListPagination, parsePageParam } from '../_components/ListPagination'
+import { parsePerParam } from '../_components/RowsPerPageSelect'
 import { QuoteFilters } from './_components/QuoteFilters'
 import { loadDisplaySettings, QUOTE_FIELDS } from '@/lib/portal-display-settings'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
@@ -61,7 +62,7 @@ function parseTab(v: string | undefined): QuoteTab {
 export default async function QuotesPage({
   searchParams,
 }: {
-  searchParams: { tab?: string; show_archived?: string; page?: string; q?: string; sort?: string }
+  searchParams: { tab?: string; show_archived?: string; page?: string; q?: string; sort?: string; per?: string }
 }) {
   const supabase = createClient()
 
@@ -98,9 +99,11 @@ export default async function QuotesPage({
   // Phase 4D — pagination via .range(). Page is 1-indexed; supabase
   // is 0-indexed inclusive. count: 'exact' attaches a COUNT(*) on the
   // same filter chain so the footer can render "Showing N to M of T".
-  const pageNum = parsePageParam(searchParams.page)
-  const from = (pageNum - 1) * QUOTES_LIST_CONFIG.rowsPerPage
-  const to   = from + QUOTES_LIST_CONFIG.rowsPerPage - 1
+  // Phase 4E — page size sourced from URL ?per=.
+  const pageNum     = parsePageParam(searchParams.page)
+  const rowsPerPage = parsePerParam(searchParams.per, QUOTES_LIST_CONFIG.rowsPerPage)
+  const from = (pageNum - 1) * rowsPerPage
+  const to   = from + rowsPerPage - 1
 
   let query = supabase
     .from('quotes')
@@ -441,12 +444,14 @@ export default async function QuotesPage({
           <ListPagination
             total={activeTab === 'needs_attention' ? null : (count ?? null)}
             page={pageNum}
-            rowsPerPage={QUOTES_LIST_CONFIG.rowsPerPage}
+            rowsPerPage={rowsPerPage}
+            defaultRowsPerPage={QUOTES_LIST_CONFIG.rowsPerPage}
             basePath="/portal/quotes"
             preservedParams={{
               tab: activeTab !== QUOTES_LIST_CONFIG.defaultTab ? activeTab : undefined,
               q: search || undefined,
               sort: searchParams.sort,
+              per: rowsPerPage !== QUOTES_LIST_CONFIG.rowsPerPage ? rowsPerPage : undefined,
               show_archived: showArchived ? '1' : undefined,
             }}
             visibleCount={rows.length}

@@ -13,6 +13,7 @@ import { EmptyState } from '../_components/EmptyState'
 import { JOBS_LIST_CONFIG, type JobTab } from '../_components/list-config'
 import { StatusDot } from '../_components/StatusDot'
 import { ListPagination, parsePageParam } from '../_components/ListPagination'
+import { parsePerParam } from '../_components/RowsPerPageSelect'
 import { getJobAttention } from '@/lib/attention-rules'
 import { getJobStatus } from '@/lib/job-status'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
@@ -76,7 +77,7 @@ function urlSortToSettings(s: string | undefined): { sortBy: string; sortDirecti
 export default async function JobsPage({
   searchParams,
 }: {
-  searchParams: { view?: string; contractor?: string; sort?: string; q?: string; tab?: string; show_archived?: string; page?: string }
+  searchParams: { view?: string; contractor?: string; sort?: string; q?: string; tab?: string; show_archived?: string; page?: string; per?: string }
 }) {
   const supabase = createClient()
 
@@ -120,9 +121,13 @@ export default async function JobsPage({
   // separate COUNT(*) on the same WHERE chain so the footer can
   // render "Showing N to M of T". Cheap at 100-row caps; we'd revisit
   // if the cap ever grows past a few thousand.
-  const pageNum = parsePageParam(searchParams.page)
-  const from = (pageNum - 1) * JOBS_LIST_CONFIG.rowsPerPage
-  const to   = from + JOBS_LIST_CONFIG.rowsPerPage - 1
+  // Phase 4E — page size now sourced from URL ?per= (validated
+  // against the allowed [25, 50, 100] set), defaulting to the
+  // config value when missing.
+  const pageNum     = parsePageParam(searchParams.page)
+  const rowsPerPage = parsePerParam(searchParams.per, JOBS_LIST_CONFIG.rowsPerPage)
+  const from = (pageNum - 1) * rowsPerPage
+  const to   = from + rowsPerPage - 1
 
   let query = supabase
     .from('jobs')
@@ -460,7 +465,8 @@ export default async function JobsPage({
           <ListPagination
             total={activeTab === 'needs_attention' ? null : (count ?? null)}
             page={pageNum}
-            rowsPerPage={JOBS_LIST_CONFIG.rowsPerPage}
+            rowsPerPage={rowsPerPage}
+            defaultRowsPerPage={JOBS_LIST_CONFIG.rowsPerPage}
             basePath="/portal/jobs"
             preservedParams={{
               tab: activeTab !== JOBS_LIST_CONFIG.defaultTab ? activeTab : undefined,
@@ -468,6 +474,7 @@ export default async function JobsPage({
               contractor: contractorFilter || undefined,
               q: search || undefined,
               sort: searchParams.sort,
+              per: rowsPerPage !== JOBS_LIST_CONFIG.rowsPerPage ? rowsPerPage : undefined,
               show_archived: showArchived ? '1' : undefined,
             }}
             visibleCount={rows.length}
