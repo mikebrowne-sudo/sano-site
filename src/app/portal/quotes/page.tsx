@@ -6,6 +6,7 @@ import { PortalPageHeader } from '../_components/PortalPageHeader'
 import { buttonClasses } from '../_components/Button'
 import { EmptyState } from '../_components/EmptyState'
 import { PortalListTable, type ListColumnDef } from '../_components/PortalListTable'
+import { QUOTES_LIST_CONFIG, type QuoteTab } from '../_components/list-config'
 import { loadDisplaySettings, QUOTE_FIELDS } from '@/lib/portal-display-settings'
 import { ListLifecycleTabs } from '../_components/ListLifecycleTabs'
 import { BulkSelectProvider } from '../_components/BulkSelect'
@@ -34,16 +35,8 @@ function applyQuoteSort(query: any, sortBy: string, sortDirection: 'asc' | 'desc
 // row appears the moment the operator has work to do (e.g. a sent
 // quote that's gone unanswered for 3+ days, an accepted quote that
 // hasn't yet been turned into a job).
-type QuoteTab = 'needs_attention' | 'sent' | 'accepted' | 'all'
-const QUOTE_TABS: readonly { value: QuoteTab; label: string }[] = [
-  { value: 'needs_attention', label: 'Needs attention' },
-  { value: 'sent',            label: 'Sent' },
-  { value: 'accepted',        label: 'Accepted' },
-  { value: 'all',             label: 'All' },
-]
-
 function parseTab(v: string | undefined): QuoteTab {
-  return (QUOTE_TABS.find((t) => t.value === v)?.value as QuoteTab) ?? 'needs_attention'
+  return (QUOTES_LIST_CONFIG.tabs.find((t) => t.value === v)?.value as QuoteTab) ?? QUOTES_LIST_CONFIG.defaultTab
 }
 
 export default async function QuotesPage({
@@ -114,11 +107,10 @@ export default async function QuotesPage({
   // 'all' applies no extra status filter.
 
   query = applyQuoteSort(query, quotesList.sortBy, quotesList.sortDirection)
-  // Phase 3 perf — cap the list at a sane default so the query stays
-  // bounded as the business grows. Real pagination (page-number or
-  // cursor) is a separate phase; this limit just prevents unbounded
-  // fetches today.
-  query = query.limit(100)
+  // Phase 3 perf — bounded list.
+  // Phase 4C — cap sourced from list-config so per-page sizes can be
+  // tuned without touching this file.
+  query = query.limit(QUOTES_LIST_CONFIG.rowsPerPage)
 
   const { data: quotes, error } = await query
 
@@ -334,19 +326,22 @@ export default async function QuotesPage({
       <PortalListTable<typeof rows[number]>
         header={
           <PortalPageHeader
-            title="Quotes"
-            actions={
-              <Link href="/portal/quotes/new" className={buttonClasses({ variant: 'primary' })}>
-                <Plus size={16} />
-                New Quote
-              </Link>
-            }
+            title={QUOTES_LIST_CONFIG.pageTitle}
+            actions={QUOTES_LIST_CONFIG.actions.map((a) => {
+              const Icon = a.icon
+              return (
+                <Link key={a.href} href={a.href} className={buttonClasses({ variant: a.variant })}>
+                  <Icon size={16} />
+                  {a.label}
+                </Link>
+              )
+            })}
           />
         }
         tabs={
           <ListLifecycleTabs
             basePath="/portal/quotes"
-            tabs={QUOTE_TABS}
+            tabs={QUOTES_LIST_CONFIG.tabs}
             activeTab={activeTab}
             showArchived={showArchived}
             canCleanup={canCleanup}
