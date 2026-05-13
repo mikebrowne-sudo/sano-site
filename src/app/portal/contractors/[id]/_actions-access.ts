@@ -54,7 +54,7 @@ export async function inviteContractorUser(input: {
 
   const { data: c } = await supabase
     .from('contractors')
-    .select('id, full_name, email, auth_user_id, access_disabled_at')
+    .select('id, full_name, email, auth_user_id, access_disabled_at, invite_sent_at')
     .eq('id', input.contractorId)
     .maybeSingle()
   if (!c) return { error: 'Contractor not found.' }
@@ -64,6 +64,7 @@ export async function inviteContractorUser(input: {
     email: string | null
     auth_user_id: string | null
     access_disabled_at: string | null
+    invite_sent_at: string | null
   }
 
   if (contractor.access_disabled_at) {
@@ -73,12 +74,27 @@ export async function inviteContractorUser(input: {
     return { error: 'Contractor has no email on file.' }
   }
 
+  // Phase 5B-followup — preserve the "attempt kind" so the audit row
+  // can distinguish a first-invite from a resend even when the upstream
+  // helper errors before it knows which Supabase flow ran.
+  const attempt: 'invite' | 'resend' = contractor.auth_user_id ? 'resend' : 'invite'
+
   const result = await inviteUser({
     email: contractor.email,
     fullName: contractor.full_name,
     redirectAfter: 'contractor',
   })
-  if ('error' in result) return result
+  if ('error' in result) {
+    // Failure breadcrumb — gives admin a record of attempted-but-failed
+    // invites in the contractor activity timeline. Never store the
+    // magic link / token, only the error surface text + email.
+    await writeAudit(supabase, auth.user.id, input.contractorId,
+      { invite_sent_at: contractor.invite_sent_at ?? null, auth_user_id: contractor.auth_user_id },
+      { email: contractor.email, attempt, error: result.error },
+      'contractor.invite_failed',
+    )
+    return result
+  }
 
   const nowIso = new Date().toISOString()
   const updates: Record<string, unknown> = { invite_sent_at: nowIso }
@@ -90,7 +106,7 @@ export async function inviteContractorUser(input: {
 
   await writeAudit(supabase, auth.user.id, input.contractorId,
     { invite_sent_at: null, auth_user_id: contractor.auth_user_id },
-    { invite_sent_at: nowIso, auth_user_id: result.authUserId ?? contractor.auth_user_id, flow: result.flow },
+    { invite_sent_at: nowIso, auth_user_id: result.authUserId ?? contractor.auth_user_id, attempt, flow: result.flow },
     'contractor.invite_sent',
   )
 
