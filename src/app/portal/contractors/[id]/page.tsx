@@ -15,6 +15,7 @@ import { TrialPanel } from './_components/TrialPanel'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
 import { AdminOverrideButton } from './_components/AdminOverrideButton'
 import { ContractorAccessPanel } from './_components/ContractorAccessPanel'
+import { AuditTimelinePanel } from '../../_components/AuditTimelinePanel'
 import { isAdminUser } from '@/lib/is-admin'
 
 // Phase 5.3 — worker_type now collapses to {contractor, employee};
@@ -511,6 +512,17 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
           accessDisabledAt={(contractor as { access_disabled_at?: string | null }).access_disabled_at ?? null}
           accessDisabledReason={(contractor as { access_disabled_reason?: string | null }).access_disabled_reason ?? null}
           featureEnabled={onboardingSettings.enable_contractor_portal}
+        />
+
+        {/* Phase 5B-followup — contractor activity timeline. Surfaces
+            invite_sent / invite_failed / access_disabled / access_enabled
+            rows from audit_log so admin can triage invite issues in-page. */}
+        <AuditTimelinePanel
+          supabase={supabase}
+          entityTable="contractors"
+          entityId={contractor.id as string}
+          title="Portal access activity"
+          className="mt-2"
         />
 
         {/* Documents */}
