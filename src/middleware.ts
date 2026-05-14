@@ -32,6 +32,14 @@ export async function middleware(request: NextRequest) {
   const isPortal = path.startsWith('/portal')
   const isPortalLogin = path === '/portal/login'
   const isPortalCallback = path === '/portal/auth/callback'
+  // Phase 5B-followup — public auth routes that must NOT be gated by
+  // the unauthenticated-portal redirect below. Supabase invite/recovery
+  // links land here without a session cookie (the session is in the URL
+  // hash/code), so an early redirect to /portal/login would strip the
+  // auth payload and leave the contractor stuck on the staff sign-in
+  // page with no way to set a password.
+  const isResetPassword = path === '/portal/reset-password'
+  const isForgotPassword = path === '/portal/forgot-password'
   const isContractor = path.startsWith('/contractor')
   const isContractorLogin = path === '/contractor/login'
   // Phase 5.5.5 — customer portal scaffold. Auth-only and role-scoped;
@@ -42,7 +50,7 @@ export async function middleware(request: NextRequest) {
 
   // ── Not logged in ───────────────────────────────────
   if (!user) {
-    if (isPortal && !isPortalLogin && !isPortalCallback) {
+    if (isPortal && !isPortalLogin && !isPortalCallback && !isResetPassword && !isForgotPassword) {
       return NextResponse.redirect(new URL('/portal/login', request.url))
     }
     if (isContractor && !isContractorLogin) {
