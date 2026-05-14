@@ -36,16 +36,40 @@ export function ResetPasswordForm() {
   const [confirm, setConfirm] = useState('')
   const [destLabel, setDestLabel] = useState<'portal' | 'contractor' | 'client'>('portal')
 
-  // Capture the recovery token from the URL hash and set the session
-  // on mount. Supabase's createBrowserClient auto-detects the hash
-  // for us, so this is mostly a confirmation step.
+  // Establish the session from whatever Supabase put in the URL.
+  //
+  // @supabase/ssr's createBrowserClient defaults to PKCE flow, which
+  // means invite + recovery links arrive with a `?code=...` query
+  // param that MUST be exchanged explicitly via
+  // exchangeCodeForSession(code). Older implicit/hash flow puts the
+  // tokens in #access_token=... and the client auto-detects on mount;
+  // we keep that branch for safety + legacy callers.
   useEffect(() => {
     const supabase = createClient()
     let cancelled = false
 
     async function go() {
-      // Give Supabase a tick to process the hash.
-      await new Promise((r) => setTimeout(r, 50))
+      const params = new URLSearchParams(window.location.search)
+      const code = params.get('code')
+
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        if (cancelled) return
+        if (error) {
+          setState('expired')
+          return
+        }
+        // Codes are single-use. Strip from the URL so a refresh doesn't
+        // attempt to re-exchange and bounce the user to 'expired'.
+        const cleaned = new URL(window.location.href)
+        cleaned.searchParams.delete('code')
+        window.history.replaceState({}, '', cleaned.toString())
+      } else {
+        // Implicit/hash fallback — give Supabase a tick to read
+        // #access_token from the URL fragment.
+        await new Promise((r) => setTimeout(r, 50))
+      }
+
       const { data: { user } } = await supabase.auth.getUser()
       if (cancelled) return
       if (!user) {
