@@ -12,10 +12,10 @@ export const metadata: Metadata = {
     title: 'Sano',
   },
   icons: {
-    icon: '/brand/sano-mark.svg',
-    // Phase 5.5.5 — Apple touch icon points at the proper square 192px
-    // PNG generated from the brand mark; older fallback was a logo asset
-    // that wasn't square.
+    // 2026-05-14 — switched off the placeholder `sano-mark.svg` to the
+    // real Sano logomark PNG (source: 10-Branding/Logos/Logomark/logo4).
+    // The Apple touch icon points at the same 192px square the PWA uses.
+    icon: '/brand/sano-logomark.png',
     apple: '/icons/icon-192.png',
   },
   openGraph: {

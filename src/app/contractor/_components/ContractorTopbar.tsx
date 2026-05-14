@@ -3,6 +3,7 @@
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase-browser'
 import { LogOut } from 'lucide-react'
+import Image from 'next/image'
 import Link from 'next/link'
 import clsx from 'clsx'
 
@@ -27,7 +28,14 @@ export function ContractorTopbar({ name }: { name: string }) {
       <div className="max-w-3xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-5">
           <Link href="/contractor/jobs" className="flex items-center gap-2">
-            <span className="font-display font-bold text-sage-800">Sano</span>
+            <Image
+              src="/brand/sano-full-green.png"
+              alt="Sano"
+              width={72}
+              height={24}
+              priority
+              className="h-6 w-auto"
+            />
             <span className="text-sage-400 text-xs">Contractor</span>
           </Link>
           <nav className="flex items-center gap-1">
