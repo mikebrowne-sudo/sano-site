@@ -38,41 +38,102 @@ export function ResetPasswordForm() {
 
   // Establish the session from whatever Supabase put in the URL.
   //
-  // @supabase/ssr's createBrowserClient defaults to PKCE flow, which
-  // means invite + recovery links arrive with a `?code=...` query
-  // param that MUST be exchanged explicitly via
-  // exchangeCodeForSession(code). Older implicit/hash flow puts the
-  // tokens in #access_token=... and the client auto-detects on mount;
-  // we keep that branch for safety + legacy callers.
+  // Supabase's auth.admin.generateLink emits one of TWO formats
+  // depending on the Supabase project's auth settings — not the client's
+  // flowType:
+  //   PKCE      → ?code=<code>           (must call exchangeCodeForSession)
+  //   Implicit  → #access_token=...&refresh_token=...&type=recovery
+  //                                       (must call setSession from the hash)
+  //
+  // The @supabase/ssr browser client doesn't auto-handle either case on
+  // mount — that's only the OAuth-callback pattern. So we explicitly
+  // detect both and handle whichever one shows up. Also handle the
+  // `?error=...` / `#error=...` case Supabase returns when the token is
+  // already used or genuinely expired.
   useEffect(() => {
     const supabase = createClient()
     let cancelled = false
 
     async function go() {
-      const params = new URLSearchParams(window.location.search)
-      const code = params.get('code')
+      const search = new URLSearchParams(window.location.search)
+      const hashRaw = window.location.hash.startsWith('#')
+        ? window.location.hash.slice(1)
+        : window.location.hash
+      const hashParams = new URLSearchParams(hashRaw)
+
+      const code         = search.get('code')
+      const accessToken  = hashParams.get('access_token')
+      const refreshToken = hashParams.get('refresh_token')
+      const urlError     = search.get('error') ?? hashParams.get('error')
+      const urlErrorCode = search.get('error_code') ?? hashParams.get('error_code')
+
+      // Safe diagnostic — structure-only. NO token, code, or full link
+      // ever logged. Helps confirm which flow Supabase used in prod
+      // and which branch we took on this load.
+      console.warn('[reset-password] init', {
+        hasCode: !!code,
+        hasAccessToken: !!accessToken,
+        hasRefreshToken: !!refreshToken,
+        hasError: !!urlError,
+        errorCode: urlErrorCode || undefined,
+        invite: search.get('invite') === '1',
+      })
+
+      if (urlError) {
+        setState('expired')
+        return
+      }
+
+      let handled = false
 
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (cancelled) return
         if (error) {
+          console.warn('[reset-password] exchangeCodeForSession failed', {
+            name: error.name,
+            message: error.message,
+            status: (error as { status?: number }).status,
+          })
           setState('expired')
           return
         }
-        // Codes are single-use. Strip from the URL so a refresh doesn't
-        // attempt to re-exchange and bounce the user to 'expired'.
+        // Single-use; strip from URL so a refresh doesn't bounce to expired.
         const cleaned = new URL(window.location.href)
         cleaned.searchParams.delete('code')
         window.history.replaceState({}, '', cleaned.toString())
+        handled = true
+      } else if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        })
+        if (cancelled) return
+        if (error) {
+          console.warn('[reset-password] setSession failed', {
+            name: error.name,
+            message: error.message,
+            status: (error as { status?: number }).status,
+          })
+          setState('expired')
+          return
+        }
+        // Strip the hash so a refresh doesn't try to re-consume the tokens.
+        window.history.replaceState({}, '', window.location.pathname + window.location.search)
+        handled = true
       } else {
-        // Implicit/hash fallback — give Supabase a tick to read
-        // #access_token from the URL fragment.
+        // No tokens in URL — give Supabase's browser client a tick in
+        // case it picked up something via its own detector. Likely a
+        // no-op now but keeps the legacy path intact.
         await new Promise((r) => setTimeout(r, 50))
       }
 
       const { data: { user } } = await supabase.auth.getUser()
       if (cancelled) return
       if (!user) {
+        if (!handled) {
+          console.warn('[reset-password] no auth payload in URL and no existing session')
+        }
         setState('expired')
         return
       }
