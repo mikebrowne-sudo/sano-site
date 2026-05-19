@@ -11,7 +11,7 @@ export function Footer() {
             {/* Logo — white version via CSS filter on dark background */}
             <Link href="/" aria-label="Sano — home" className="inline-block mb-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/brand/sano-logo-white.png" alt="Sano" style={{ height: '67px', width: 'auto' }} />
+              <img src="/brand/sano-logo-white.png" alt="Sano" style={{ height: '48px', width: 'auto' }} />
             </Link>
             <p className="text-sage-100 text-sm leading-relaxed">Professional residential and commercial cleaning in Auckland. 20+ years experience.</p>
           </div>
@@ -34,7 +34,10 @@ export function Footer() {
             <ul className="space-y-2">
               {[
                 { href: '/about', label: 'About Sano' },
+                { href: '/service-area', label: 'Service Area' },
+                { href: '/guarantee', label: 'Our Guarantee' },
                 { href: '/faq', label: 'FAQ' },
+                { href: '/policies', label: 'Our Policies' },
                 { href: '/join-our-team', label: 'Join Our Team' },
                 { href: '/contact', label: 'Contact Us' },
               ].map((link) => (
@@ -62,9 +65,11 @@ export function Footer() {
                 </a>
               </li>
             </ul>
-            <div className="mt-4 flex gap-3">
+            <div className="mt-4 flex flex-wrap gap-2">
               <span className="inline-flex items-center gap-1 bg-sage-500/30 rounded-full px-3 py-1 text-xs text-sage-100">✓ Insured</span>
+              <span className="inline-flex items-center gap-1 bg-sage-500/30 rounded-full px-3 py-1 text-xs text-sage-100">✓ Vetted teams</span>
               <span className="inline-flex items-center gap-1 bg-sage-500/30 rounded-full px-3 py-1 text-xs text-sage-100">✓ Auckland-wide</span>
+              <span className="inline-flex items-center gap-1 bg-sage-500/30 rounded-full px-3 py-1 text-xs text-sage-100">✓ Satisfaction guarantee</span>
             </div>
           </div>
         </div>
