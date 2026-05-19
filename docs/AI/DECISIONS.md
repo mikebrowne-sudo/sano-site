@@ -20,6 +20,28 @@ Each entry is a short ADR. Newest at the top. Don't rewrite history - if a decis
 
 ---
 
+## 2026-05-14 - Contractor portal + browser favicon use real Sano logomark
+- **Status:** accepted
+- **Context:** PWA app icon, browser favicon, Apple touch icon, and the contractor-portal topbar were all using AI-generated placeholder art (a procedural green-gradient S-shape SVG and PNG renders of it). Real Sano brand assets exist at `F:\Sano\10-Branding\Logos\` but had never been pulled into the repo. Per `feedback_external_folders`, the user normally moves brand assets in by hand — this was an explicit one-off override for two named files.
+- **Options:**
+  1. Reference `sano-logo.png` (full mark + wordmark) for everything — but wordmark is illegible at 16/32/192px favicon/icon sizes.
+  2. Drop in dedicated logomark-only assets and generate icon sizes server-side.
+  3. Leave the AI placeholder + add a TODO.
+- **Decision:** Option 2. Used `sharp` to generate `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, and a 512×512 `sano-logomark.png` from `F:\Sano\10-Branding\Logos\Logomark\logo4.jpg`. Pipeline: trim white border → resize-contain → extend with 5% padding (normal) or 15% padding (maskable, for Android adaptive-icon safe zone) → PNG. Copied `sano-full-green.png` verbatim for the contractor topbar (text "Sano" → `<Image>`).
+- **Consequences:** Browser favicon, PWA install icon, Apple touch icon, and contractor portal topbar all now use the real Sano logomark. Orphan AI placeholders (`sano-mark.svg`, `sano-logo-horizontal.*`, `sano-logo-stacked.*`) left in place pending a cleanup PR. iOS/Android home-screen shortcuts baked-in at install time still show the old icon until users remove + re-add (no service worker, so in-app branding updates on next launch). `src/app/favicon.ico` left as-is (overridden by metadata; worth a clean swap in the next pass).
+- **Links:** PR [#145](https://github.com/mikebrowne-sudo/sano-site/pull/145) (`226a876`).
+
+## 2026-05-14 - Contractor login flow: middleware allowlist + dual-flow auth token handling
+- **Status:** accepted
+- **Context:** Contractors reported "I clicked the invite email and ended up on the staff login page with no way to set a password." Root cause investigation found two distinct bugs in series: (a) middleware redirected `/portal/reset-password` and `/portal/forgot-password` to `/portal/login` for any unauthenticated request, stripping the Supabase auth token in the redirect; (b) once the middleware was fixed, the reset-password form still failed because `@supabase/ssr`'s browser client doesn't auto-handle Supabase invite/recovery links — depending on the Supabase project's auth-flow setting (NOT the client's `flowType`), the link arrives with either `?code=…` (PKCE) or `#access_token=…&refresh_token=…` (implicit). Initial fix handled only PKCE; production used implicit. Required a second iteration.
+- **Options:**
+  1. Reconfigure Supabase project to use only PKCE flow, match client expectations — would still leave us blind if Supabase later changes the project, and doesn't address the middleware bug.
+  2. Set `flowType: 'implicit'` on the browser client — affects every Supabase call site-wide, regression risk.
+  3. Handle BOTH PKCE and implicit-hash explicitly on the reset-password page. Detect whichever the URL carries and call the matching `supabase.auth` method. Plus middleware allowlist for `/portal/reset-password` and `/portal/forgot-password`.
+- **Decision:** Option 3. Two-stage middleware + form fix. ResetPasswordForm now branches: `?code` → `exchangeCodeForSession(code)` (PKCE), `#access_token + #refresh_token` → `setSession({…})` (implicit), `?error / #error` → straight to 'expired' state, else → defensive 50ms-wait fallback. URL gets cleaned via `history.replaceState` after success so refresh doesn't try to re-consume a single-use token. Safe `console.warn` diagnostics log only the *shape* of the URL (booleans + error codes), never tokens — useful for any future re-occurrence.
+- **Consequences:** Resilient to either Supabase auth-flow config without further code changes. `console.warn` diagnostics OK to leave in (no PII; useful for incident triage). Secondary issue still pending: `contractors.auth_user_id` linkage may be null for some pre-existing rows, which would still bounce contractors to `/portal` after a successful password set — that's a self-heal in `markContractorInviteAccepted` to add later. Also discovered Sano's PWA has no service worker, so installed-app shell updates on next launch without uninstall (only the home-screen icon image stays baked).
+- **Links:** PRs [#142](https://github.com/mikebrowne-sudo/sano-site/pull/142) (middleware, `eaa260d`), [#143](https://github.com/mikebrowne-sudo/sano-site/pull/143) (PKCE-only, `c4be3c8` — incomplete), [#144](https://github.com/mikebrowne-sudo/sano-site/pull/144) (dual-flow + diagnostics, `e93ac61`).
+
 ## 2026-05-12 - Invoice-existence lock for quote/job amendments (Phase 5B)
 - **Status:** accepted
 - **Context:** Quotes and jobs needed a lock point once an invoice was created so material billing fields couldn't drift away from what the customer was invoiced for. Operational fields (schedule, contractor, access notes) still needed to flow. Admin sometimes legitimately needs to reconcile a post-invoice amendment.
