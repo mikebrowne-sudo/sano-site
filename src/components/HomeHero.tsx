@@ -57,13 +57,13 @@ export function HomeHero() {
       />
 
       {/* Base gradient — strong dark sage on the left for white text legibility,
-          fades through the centre, minimal on the right so the warm interior
-          stays visible. */}
+          fades softer through the centre, minimal on the right so the warm
+          interior stays visible. */}
       <div
         className="absolute inset-0"
         style={{
           background:
-            'linear-gradient(to right, rgba(6,35,29,0.88) 0%, rgba(6,35,29,0.78) 30%, rgba(6,35,29,0.50) 55%, rgba(6,35,29,0.10) 100%)',
+            'linear-gradient(to right, rgba(6,35,29,0.88) 0%, rgba(6,35,29,0.72) 30%, rgba(6,35,29,0.38) 55%, rgba(6,35,29,0.06) 100%)',
         }}
         aria-hidden="true"
       />
@@ -109,13 +109,13 @@ export function HomeHero() {
             {/* Body */}
             <motion.p
               variants={item}
-              className="mb-6 text-[1rem] leading-[1.6] text-white/85 max-w-[26rem]"
+              className="mb-7 text-[1rem] leading-[1.6] text-white/85 max-w-[26rem]"
             >
               Sano means healthy. For us, that means reliable cleaning, carefully vetted teams, clear quotes, and spaces properly cared for.
             </motion.p>
 
             {/* CTA row */}
-            <motion.div variants={item} className="mb-5 flex flex-wrap gap-3">
+            <motion.div variants={item} className="mb-6 flex flex-wrap gap-3">
               <Link
                 href="/contact"
                 className="inline-flex items-center rounded-full bg-white px-6 py-2.5 text-[0.875rem] font-semibold text-sage-800 transition-all duration-300 hover:bg-sage-100 hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
@@ -130,28 +130,38 @@ export function HomeHero() {
               </Link>
             </motion.div>
 
-            {/* Trust row — proof badges, lucide line icons, glassmorphism pills */}
-            <motion.div variants={item} className="mb-3 flex flex-wrap gap-2">
-              {TRUST_BADGES.map(({ label, Icon }) => (
-                <span
-                  key={label}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 backdrop-blur-sm px-3 py-1 text-[11px] font-medium text-white/90"
-                >
-                  <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
-                  {label}
+            {/* Trust row — inline icon row with subtle separators, lighter
+                visual weight than the boxed service chips below */}
+            <motion.div
+              variants={item}
+              className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] font-medium text-white/85"
+            >
+              {TRUST_BADGES.map(({ label, Icon }, i) => (
+                <span key={label} className="inline-flex items-center gap-x-3">
+                  {i > 0 && (
+                    <span
+                      aria-hidden="true"
+                      className="hidden h-3 w-px bg-white/25 sm:inline-block"
+                    />
+                  )}
+                  <span className="inline-flex items-center gap-1.5">
+                    <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
+                    {label}
+                  </span>
                 </span>
               ))}
             </motion.div>
 
-            {/* Service chips — audience/category quick-scan, visually lighter
-                than the trust row */}
+            {/* Service chips — soft white card chips, sage text and icons.
+                More visible than the inline trust row above, with enough weight
+                to read as a clear category row without competing with the CTAs. */}
             <motion.div variants={item} className="flex flex-wrap gap-2">
               {SERVICE_CHIPS.map(({ label, Icon }) => (
                 <span
                   key={label}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur-sm px-3 py-1 text-[12px] font-medium text-white"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/50 bg-white/90 px-3 py-1.5 text-[12px] font-semibold text-sage-800 shadow-sm backdrop-blur-sm"
                 >
-                  <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
+                  <Icon size={16} strokeWidth={1.75} aria-hidden="true" className="text-sage-600" />
                   {label}
                 </span>
               ))}
