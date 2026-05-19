@@ -13,7 +13,7 @@ export function Footer() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/brand/sano-logo-white.png" alt="Sano" style={{ height: '67px', width: 'auto' }} />
             </Link>
-            <p className="text-sage-100 text-sm leading-relaxed">Premium residential and commercial cleaning in Auckland. 20+ years experience.</p>
+            <p className="text-sage-100 text-sm leading-relaxed">Professional residential and commercial cleaning in Auckland. 20+ years experience.</p>
           </div>
           {/* Services */}
           <div>

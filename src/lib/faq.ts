@@ -70,7 +70,7 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
     items: [
       {
         question: 'What cleaning products do you use?',
-        answer: 'We use eco-friendly, biodegradable products that are safe for children, pets, and the environment. If you have allergies or preferences, just let us know.',
+        answer: 'We use carefully chosen products — biodegradable, safe for children and pets, and lower-impact where practical. If you have allergies or preferences, just let us know.',
       },
       {
         question: 'Do I need to supply any equipment or products?',

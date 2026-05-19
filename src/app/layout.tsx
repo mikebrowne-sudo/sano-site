@@ -4,7 +4,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Sano Cleaning — Professional Cleaning in Auckland',
-  description: 'Professional, eco-friendly cleaning services in Auckland. Regular, deep, end of tenancy, commercial, and more. Vetted cleaners. Free quotes.',
+  description: 'Professional cleaning services in Auckland. Regular, deep, end of tenancy, commercial, and more. Vetted cleaners. Free quotes.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Sano Cleaning — Professional Cleaning in Auckland',
-    description: 'Professional, eco-friendly cleaning services in Auckland.',
+    description: 'Professional cleaning services in Auckland.',
     url: process.env.NEXT_PUBLIC_SITE_URL,
     siteName: 'Sano Cleaning',
     locale: 'en_NZ',

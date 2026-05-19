@@ -8,8 +8,8 @@ import { SERVICES } from '@/lib/services'
 import Image from 'next/image'
 
 export const metadata: Metadata = {
-  title: 'Sano — Premium Cleaning Services Auckland',
-  description: "Premium residential and commercial cleaning in Auckland. Professionally selected teams, 20+ years industry experience. Tailored to Auckland's finest homes and businesses.",
+  title: 'Sano — Professional Cleaning Services in Auckland',
+  description: 'Professional residential and commercial cleaning in Auckland. Carefully selected teams, detail-focused work, and 20+ years of industry experience.',
 }
 
 export default function HomePage() {
