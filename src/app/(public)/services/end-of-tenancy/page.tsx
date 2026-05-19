@@ -168,11 +168,11 @@ export default function EndOfTenancyPage() {
               </div>
             </FadeIn>
             <FadeIn delay={0.15}>
-              <h2 className="mb-6">Thorough, consistent, and done properly</h2>
+              <h2 className="mb-6">A bond-ready clean you can hand over with confidence</h2>
               <div className="body-text space-y-4">
-                <p>End of tenancy cleaning isn&apos;t something you want rushed.</p>
-                <p>We take a methodical approach, working through the property in detail so nothing is missed. From kitchens and bathrooms to finishing touches, everything is handled with care.</p>
-                <p>The result is a space that&apos;s properly cleaned and ready for handover.</p>
+                <p>An end of tenancy clean works to a different standard than a regular visit. Property managers and landlords look for specific things: clean kitchens and bathrooms, sills and tracks, no overlooked corners. That&apos;s what we focus on.</p>
+                <p>We clean the property to a bond-ready standard, designed to maximise your chance of bond recovery. Final decisions sit with the landlord or agency, but we stand behind the quality of our cleaning work and we&apos;ll come back to fix anything we&apos;ve missed where reasonable.</p>
+                <p>The handover goes more smoothly when the property is in the right condition, and that&apos;s what we set out to deliver.</p>
               </div>
             </FadeIn>
           </div>

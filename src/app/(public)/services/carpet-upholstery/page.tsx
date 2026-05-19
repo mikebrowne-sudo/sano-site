@@ -179,10 +179,11 @@ export default function CarpetUpholsteryPage() {
               </div>
             </FadeIn>
             <FadeIn delay={0.15}>
-              <h2 className="mb-6">A proper clean, not just a quick pass</h2>
+              <h2 className="mb-6">Cleaner carpets, fresher rooms</h2>
               <div className="body-text space-y-4">
-                <p>Carpet and upholstery cleaning takes time to do properly.</p>
-                <p>We focus on working through the areas that matter, rather than rushing through the job. The goal is a noticeable improvement in both appearance and feel.</p>
+                <p>Carpet and upholstery hold onto more than they show. Embedded dirt, pet odours, food spills, traffic patterns that flatten and dull the pile.</p>
+                <p>We work through built-up dirt with proper extraction, treat stains and odours with attention, and choose products suited to the material so colours and fabrics aren&apos;t compromised. Some marks come fully out, some don&apos;t, and we&apos;ll tell you up front what to expect.</p>
+                <p>When the carpets are properly cleaned, the whole room feels different. Fresher to walk into, easier to live with.</p>
               </div>
             </FadeIn>
           </div>

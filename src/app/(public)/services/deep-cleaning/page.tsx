@@ -180,11 +180,11 @@ export default function DeepCleaningPage() {
               </div>
             </FadeIn>
             <FadeIn delay={0.15}>
-              <h2 className="mb-6">Done properly, not rushed</h2>
+              <h2 className="mb-6">Built for a proper reset</h2>
               <div className="body-text space-y-4">
-                <p>A deep clean only works if it&apos;s thorough.</p>
-                <p>We don&apos;t rush through jobs or skip over the difficult areas. We work methodically through the space, focusing on the details that make the biggest difference.</p>
-                <p>The result is a home that feels properly reset, not just quickly cleaned.</p>
+                <p>A deep clean only earns its name when it gets into the areas a regular clean doesn&apos;t.</p>
+                <p>We work methodically through the property: inside ovens and fridges, behind furniture where accessible, into skirting boards, tile grout, vents, and the harder-to-reach corners that build up over months. The pace is slower than a regular visit because the standard is different.</p>
+                <p>When we leave, the space feels reset, not just cleaned across the top.</p>
               </div>
             </FadeIn>
           </div>
