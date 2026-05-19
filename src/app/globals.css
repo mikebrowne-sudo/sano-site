@@ -64,7 +64,7 @@
 
   /* Standard section vertical rhythm */
   .section-y {
-    @apply py-20 lg:py-24;
+    @apply py-14 lg:py-16;
   }
 
   /* Prose body text */

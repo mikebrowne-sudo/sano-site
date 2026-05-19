@@ -3,9 +3,9 @@ import { SERVICES } from '@/lib/services'
 
 export function Footer() {
   return (
-    <footer className="bg-sage-800 text-white section-padding py-12">
+    <footer className="bg-sage-800 text-white section-padding py-10">
       <div className="container-max">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           {/* Brand */}
           <div>
             {/* Logo — white version via CSS filter on dark background */}
