@@ -10,8 +10,8 @@ import {
   BadgeCheck,
   Home,
   Building2,
-  Sparkles,
   KeyRound,
+  ClipboardCheck,
 } from 'lucide-react'
 
 const HERO_IMAGE = '/images/herne-bay-residential.jpg'
@@ -38,8 +38,8 @@ const TRUST_BADGES = [
 const SERVICE_CHIPS = [
   { label: 'Homes',          Icon: Home },
   { label: 'Offices',        Icon: Building2 },
-  { label: 'Deep cleans',    Icon: Sparkles },
-  { label: 'End of tenancy', Icon: KeyRound },
+  { label: 'Rentals',        Icon: KeyRound },
+  { label: 'End of tenancy', Icon: ClipboardCheck },
 ]
 
 export function HomeHero() {
@@ -88,7 +88,7 @@ export function HomeHero() {
         animate="visible"
       >
         <div className="container-max w-full">
-          <div className="max-w-lg pl-8 lg:pl-16">
+          <div className="max-w-2xl pl-2 lg:pl-4">
             {/* Eyebrow */}
             <motion.p
               variants={item}
