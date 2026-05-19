@@ -25,6 +25,14 @@ export const metadata: Metadata = {
     siteName: 'Sano Cleaning',
     locale: 'en_NZ',
     type: 'website',
+    images: [
+      {
+        url: '/brand/sano-logomark.png',
+        width: 512,
+        height: 512,
+        alt: 'Sano',
+      },
+    ],
   },
 }
 
