@@ -180,11 +180,11 @@ export default function PostConstructionPage() {
               </div>
             </FadeIn>
             <FadeIn delay={0.15}>
-              <h2 className="mb-6">A clean that finishes the job properly</h2>
+              <h2 className="mb-6">A handover-ready finish, not just a sweep</h2>
               <div className="body-text space-y-4">
-                <p>Post-construction cleaning is about the final result.</p>
-                <p>We take a methodical approach, working through dust, residue, and finishing details so the space is ready to be used. Nothing is rushed or skipped.</p>
-                <p>The result is a clean, presentable space that reflects the quality of the work that&apos;s been done.</p>
+                <p>After a build or renovation, the difference between &ldquo;construction complete&rdquo; and &ldquo;ready to use&rdquo; is the cleaning.</p>
+                <p>We clear builder&apos;s dust from every surface, including sills, tracks, fittings, inside cabinets and drawers, light switches, and vents. We also remove residue, stickers, and finishing-trade debris that&apos;s been left behind. The work happens at the pace it takes to be thorough, not whatever fits before the client walks through.</p>
+                <p>When we leave, the space presents the way the work deserves: clean, finished, and ready to hand over or move into.</p>
               </div>
             </FadeIn>
           </div>

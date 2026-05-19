@@ -181,11 +181,11 @@ export default function CommercialCleaningPage() {
               </div>
             </FadeIn>
             <FadeIn delay={0.15}>
-              <h2 className="mb-6">Consistent, reliable, and done properly</h2>
+              <h2 className="mb-6">Reliable cleaning you don&apos;t have to chase</h2>
               <div className="body-text space-y-4">
-                <p>In a commercial setting, consistency matters.</p>
-                <p>We don&apos;t rotate through unreliable cleaners or cut corners. Our approach is steady and detail-focused, so you get the same standard every time.</p>
-                <p>You won&apos;t need to chase things up or check if the job&apos;s been done.</p>
+                <p>In a commercial setting, the value is in not having to think about it.</p>
+                <p>Your space gets a consistent team and a schedule that works around your operations. We check the standard ourselves rather than waiting for you to flag something. If something does come up, you&apos;ll get a direct line to talk to, not a ticket-and-wait system.</p>
+                <p>The result is a workspace that stays where you want it, without the cleaning becoming another thing on your plate.</p>
               </div>
             </FadeIn>
           </div>

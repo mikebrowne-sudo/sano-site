@@ -180,11 +180,11 @@ export default function RegularCleaningPage() {
               </div>
             </FadeIn>
             <FadeIn delay={0.15}>
-              <h2 className="mb-6">More than just a surface clean</h2>
+              <h2 className="mb-6">Same standard, every visit</h2>
               <div className="body-text space-y-4">
-                <p>Regular cleaning only works if it&apos;s consistent.</p>
-                <p>We don&apos;t rush through jobs or rotate through unreliable cleaners. Our approach is steady, detail-focused, and built around delivering the same standard every time.</p>
-                <p>The result is a home that not only looks clean, but feels better to be in.</p>
+                <p>Regular cleaning is most useful when it shows up the same way every time.</p>
+                <p>Your home stays with a consistent team, briefed on what matters most to you. The standard is checked by us, not just left to chance week to week. You shouldn&apos;t have to re-explain priorities or wonder which visit you got the thorough clean.</p>
+                <p>Over time that means less for you to manage. Your home stays where you want it, without sitting on your to-do list.</p>
               </div>
             </FadeIn>
           </div>

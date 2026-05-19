@@ -179,11 +179,11 @@ export default function WindowCleaningPage() {
               </div>
             </FadeIn>
             <FadeIn delay={0.15}>
-              <h2 className="mb-6">Done properly, with the right finish</h2>
+              <h2 className="mb-6">Streak-free glass, frames and sills included</h2>
               <div className="body-text space-y-4">
-                <p>A streak-free result takes care and the right approach.</p>
-                <p>We work through each window properly, including frames and sills, so the finish is consistent across the whole property — not just the glass you can easily see.</p>
-                <p>Clean windows make a bigger difference than most people expect.</p>
+                <p>Clean windows change how a space feels. More light, sharper views, a property that looks properly looked-after from the street.</p>
+                <p>We work through each window with care: streak-free glass, frames wiped down, sills and tracks cleared of built-up dirt and debris. Interior and exterior, residential and commercial.</p>
+                <p>The finish is consistent across the whole property, not just the panes you&apos;d notice walking past.</p>
               </div>
             </FadeIn>
           </div>
