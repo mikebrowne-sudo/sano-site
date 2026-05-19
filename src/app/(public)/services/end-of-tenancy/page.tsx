@@ -9,7 +9,7 @@ import { getRelatedServices } from '@/lib/services'
 
 export const metadata: Metadata = {
   title: 'End of Tenancy Cleaning Auckland | Sano',
-  description: 'End of tenancy cleaning in Auckland. A thorough clean to leave your property in the right condition before moving out. Free quote from Sano.',
+  description: 'End of tenancy cleaning in Auckland. A bond-ready clean designed to maximise your chance of bond recovery. Thorough, reliable, fully insured.',
 }
 
 const includes = [
@@ -36,7 +36,7 @@ const steps = [
 const faqs = [
   {
     q: 'Will this help me get my bond back?',
-    a: 'We clean to a high standard and focus on what property managers look for, but final decisions always sit with the landlord or agency.',
+    a: 'Our end of tenancy clean is designed to maximise your chance of bond recovery, and we stand behind the quality of our cleaning work. Final decisions always sit with the landlord or agency, but if something has been missed, let us know and we\'ll make it right where reasonable.',
   },
   {
     q: 'Do I need to be there during the clean?',
@@ -239,7 +239,7 @@ export default function EndOfTenancyPage() {
             '@context': 'https://schema.org',
             '@type': 'Service',
             name: 'End of Tenancy Cleaning',
-            description: 'End of tenancy cleaning in Auckland. A thorough clean to leave the property in the right condition before moving out.',
+            description: 'End of tenancy cleaning in Auckland. A bond-ready clean designed to maximise your chance of bond recovery, with attention to what landlords and property managers expect.',
             provider: { '@type': 'LocalBusiness', name: 'Sano Property Services' },
             areaServed: { '@type': 'City', name: 'Auckland' },
           }),

@@ -57,7 +57,7 @@ export const SERVICES: Service[] = [
       'Walls spot-cleaned',
       'Garage and outdoor areas swept',
     ],
-    metaDescription: 'End of tenancy cleaning in Auckland. Bond-back guaranteed clean. Thorough, fast, and fully insured. Get in touch for a tailored quote.',
+    metaDescription: 'End of tenancy cleaning in Auckland. A bond-ready clean designed to maximise your chance of bond recovery. Thorough and fully insured. Free quote.',
     relatedSlugs: ['deep-cleaning', 'carpet-upholstery', 'post-construction'],
   },
   {
