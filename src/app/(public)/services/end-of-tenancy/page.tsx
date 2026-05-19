@@ -68,7 +68,7 @@ export default function EndOfTenancyPage() {
       {/* Intro */}
       <section className="section-padding section-y bg-white">
         <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
             <FadeIn direction="left">
               <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
                 <Image
@@ -95,7 +95,7 @@ export default function EndOfTenancyPage() {
       {/* What's included + image */}
       <section className="section-padding section-y bg-[#faf9f6]">
         <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
             <FadeIn>
               <h2 className="mb-8">What&apos;s included in an end of tenancy clean</h2>
               <Stagger staggerDelay={0.07}>
@@ -129,7 +129,7 @@ export default function EndOfTenancyPage() {
       {/* Inspection focus + Who it suits */}
       <section className="section-padding section-y bg-white">
         <div className="container-max">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 lg:gap-24">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-14">
             <FadeIn>
               <h2 className="mb-6">Focused on what matters for inspection</h2>
               <div className="body-text space-y-4">
@@ -155,7 +155,7 @@ export default function EndOfTenancyPage() {
       {/* Why Sano */}
       <section className="section-padding section-y bg-[#faf9f6]">
         <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
             <FadeIn direction="left">
               <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
                 <Image
@@ -182,7 +182,7 @@ export default function EndOfTenancyPage() {
       {/* Process + FAQ */}
       <section className="section-padding section-y bg-white">
         <div className="container-max">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 lg:gap-24">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-14">
             <FadeIn>
               <h2 className="mb-8">Simple to get started</h2>
               <ol className="space-y-6">

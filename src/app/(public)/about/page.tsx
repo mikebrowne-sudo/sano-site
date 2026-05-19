@@ -36,7 +36,7 @@ export default function AboutPage() {
       {/* Hero */}
       <section className="section-padding section-y bg-white">
         <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
             <FadeIn direction="left">
               <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
                 <Image
@@ -80,7 +80,7 @@ export default function AboutPage() {
       {/* Trust points */}
       <section className="section-padding section-y bg-[#faf9f6]">
         <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
             <FadeIn>
               <h2 className="mb-8">What you can expect</h2>
               <Stagger staggerDelay={0.08}>

@@ -20,7 +20,7 @@ export default function HomePage() {
       {/* Why Auckland Chooses Sano */}
       <section className="section-padding section-y bg-white">
         <div className="container-max">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 lg:gap-24 items-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-14 items-center">
             <FadeIn direction="left">
               <div className="relative h-[22rem] md:h-[32rem] rounded-2xl overflow-hidden">
                 <Image
@@ -66,7 +66,7 @@ export default function HomePage() {
       {/* Services */}
       <section className="section-padding section-y bg-[#faf9f6]">
         <div className="container-max">
-          <FadeIn className="text-center mb-14">
+          <FadeIn className="text-center mb-10">
             <h2 className="mb-4">Cleaning services that work around you.</h2>
             <p className="body-text max-w-2xl mx-auto">
               From regular home cleaning to commercial spaces, we tailor each clean to suit the space and how it&apos;s used. No unnecessary extras, just a thorough, well-finished result every time.
