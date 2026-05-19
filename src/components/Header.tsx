@@ -168,7 +168,7 @@ export function Header() {
 
             {/* CTA + hamburger */}
             <div className="flex items-center gap-3">
-              <QuoteButton label="Get a Quote" className="hidden md:inline-flex" />
+              <QuoteButton label="Get a Free Quote" className="hidden md:inline-flex" />
               <button
                 type="button"
                 className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-sage-50"
@@ -227,7 +227,7 @@ export function Header() {
               <span className="text-[13px] font-bold text-sage-700 whitespace-nowrap">0800 726 686</span>
             </div>
             <div className="pt-2">
-              <QuoteButton label="Get a Quote" className="w-full text-center" />
+              <QuoteButton label="Get a Free Quote" className="w-full text-center" />
             </div>
           </div>
         </nav>
