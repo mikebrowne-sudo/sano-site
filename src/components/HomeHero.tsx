@@ -54,7 +54,7 @@ export function HomeHero() {
             variants={item}
             className="mb-4 text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-white/55"
           >
-            Auckland Cleaning Services, Done Properly
+            Auckland cleaning services
           </motion.p>
 
           {/* Headline */}
@@ -66,30 +66,48 @@ export function HomeHero() {
             Clean spaces that feel better to be in.
           </motion.h1>
 
-          {/* Subtext */}
+          {/* Body */}
           <motion.p
             variants={item}
-            className="mb-2 text-[1rem] leading-[1.7] text-white/80 max-w-[24rem]"
+            className="mb-3 text-[1rem] leading-[1.6] text-white/85 max-w-[24rem]"
           >
-            Sano means healthy. That&apos;s how we approach cleaning. Not just how a space looks, but how it feels. Fresh, consistent, and properly cared for.
+            Residential and commercial cleaning across Auckland, from insured and carefully vetted Sano teams. Reliable service, clear quotes, and spaces properly cared for.
           </motion.p>
 
           {/* Support line */}
           <motion.p
             variants={item}
-            className="mb-7 text-[0.8125rem] leading-[1.6] text-white/50 max-w-[24rem]"
+            className="mb-7 text-[0.8125rem] leading-[1.6] text-white/55 max-w-[24rem]"
           >
-            Residential and commercial cleaning across Auckland.
+            Homes, offices, rentals and end of tenancy cleans.
           </motion.p>
 
           {/* CTA */}
-          <motion.div variants={item}>
+          <motion.div variants={item} className="mb-5">
             <Link
               href="/contact"
               className="inline-flex items-center rounded-full bg-white px-7 py-3 text-[0.875rem] font-semibold text-sage-800 transition-all duration-300 hover:bg-sage-100 hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
-              Request a Quote
+              Get a Free Quote
             </Link>
+          </motion.div>
+
+          {/* Trust badges */}
+          <motion.div variants={item} className="flex flex-wrap gap-2">
+            {[
+              'Insured',
+              'Vetted teams',
+              'Auckland wide',
+              'Satisfaction guarantee',
+            ].map((label) => (
+              <span
+                key={label}
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 backdrop-blur-sm px-3 py-1 text-[11px] font-medium text-white/90"
+              >
+                <span aria-hidden="true">✓</span>
+                {label}
+              </span>
+            ))}
           </motion.div>
         </div>
         </div>

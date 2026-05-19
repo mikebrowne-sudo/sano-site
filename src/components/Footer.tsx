@@ -68,7 +68,7 @@ export function Footer() {
             <div className="mt-4 flex flex-wrap gap-2">
               <span className="inline-flex items-center gap-1 bg-sage-500/30 rounded-full px-3 py-1 text-xs text-sage-100">✓ Insured</span>
               <span className="inline-flex items-center gap-1 bg-sage-500/30 rounded-full px-3 py-1 text-xs text-sage-100">✓ Vetted teams</span>
-              <span className="inline-flex items-center gap-1 bg-sage-500/30 rounded-full px-3 py-1 text-xs text-sage-100">✓ Auckland-wide</span>
+              <span className="inline-flex items-center gap-1 bg-sage-500/30 rounded-full px-3 py-1 text-xs text-sage-100">✓ Auckland wide</span>
               <span className="inline-flex items-center gap-1 bg-sage-500/30 rounded-full px-3 py-1 text-xs text-sage-100">✓ Satisfaction guarantee</span>
             </div>
           </div>

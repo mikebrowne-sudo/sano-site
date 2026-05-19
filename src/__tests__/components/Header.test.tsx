@@ -47,9 +47,9 @@ expect(screen.getByRole('link', { name: 'Blog' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Contact Us' })).toBeInTheDocument()
   })
 
-  it('renders the Get a Quote CTA', () => {
+  it('renders the Get a Free Quote CTA', () => {
     render(<Header />)
-    expect(screen.getByRole('link', { name: /get a quote/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /get a free quote/i })).toBeInTheDocument()
   })
 })
 

@@ -49,7 +49,7 @@ export function QuickQuoteBar() {
             type="submit"
             className="rounded-xl bg-sage-800 px-6 py-3 text-sm font-medium text-white hover:bg-sage-500 transition-colors whitespace-nowrap"
           >
-            Get a Quote →
+            Get a Free Quote
           </button>
         </form>
       </div>
