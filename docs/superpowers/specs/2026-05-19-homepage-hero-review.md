@@ -294,6 +294,148 @@ Three small PRs, ordered by what unblocks the most value with the least dependen
 
 ---
 
+## Image Provenance Notes
+
+> Added 2026-05-19 after a clarification from Mike that the Sano-labelled images in `public/images/` may be AI-generated or stock, not real Sano photography. This section reclassifies everything conservatively and supersedes any earlier "real Sano asset" claims in this doc (specifically the Commercial Cleaning hero swap proposed in PR 2 — see §6 — which now needs reconsidering).
+
+### Method
+
+Every image in `public/images/` referenced by the public site (and `public/brand/` for completeness) was visually inspected. Classification defaults to **Unknown** unless there's clear evidence; nothing is labelled "Real Sano" without strong confirmation. AI-generated images are flagged where the visual signature is unmistakable.
+
+### Inventory and classification
+
+#### Heavily-used "Sano-branded" team/work photos in `public/images/`
+
+| File | Classification | Evidence | Used on |
+|---|---|---|---|
+| `sano-auckland-team.jpeg` | **Likely AI** | Sans-serif "sano" wordmark on uniforms that does NOT match the real Sano leaf-mark brand (PR #145). Classic AI "smiling diverse cleaner with spray bottle pointed at camera" composition. Plasticky skin/glove texture. Background figure in matching uniform — staged-perfect duplicate. | 5 service pages (Regular, Deep, EoT, Commercial, Carpet, Window, Post-Construction "Why Sano" right-column) |
+| `cleaning-shot-2.jpeg` | **Likely AI** | "sano" wordmark on the blue caddy in plain sans-serif (doesn't match real Sano brand). Background figure carrying an identical Sano-branded caddy. Black glove texture has the puffy AI rubber-glove signature. | 4 service pages (Regular, EoT, Carpet, Window "Why Sano" left-column) |
+| `sano-commercial-clean-auckland.jpeg` | **Likely AI** | Same sans-serif "sano" wordmark on polos (matches the other "team" photos, all inconsistent with the real Sano brand). Vacuum hose connection has subtle AI artefacting. Stock-perfect office composition. | 3 service pages (Commercial, Deep, Post-Construction "Why Sano" left-column) |
+| `Sano-crew-auckland.jpeg` | **Likely AI** | "sano crew" wordmark visible on 9 shirts; **typography is inconsistent across shirts** ("sano crew" vs "sanccrew" with missing/different spacing) — a textbook AI text-rendering failure. Classic "team viewed from behind, arms around shoulders" stock-AI trope. | Used in **proposals only** (`WhySanoPage.tsx`) — not on the public marketing site, but customer-facing via PDF |
+
+#### Service-specific photos in `public/images/`
+
+| File | Classification | Evidence | Used on |
+|---|---|---|---|
+| `end-of-tenancy.jpg` | **Likely AI** | "SANO" wordmark on the black caddy (different style again — uppercase serif/sans, doesn't match real brand or the other "team" photo branding). Cardboard boxes have decorative pattern artefacts. | End-of-Tenancy page hero + intro |
+| `deep-cleaning.jpg` | **Likely AI** | Two cleaners in matching "sano" polos. Reflected "sano" in the dark wall hood reads MIRRORED instead of correctly reversed — a known AI reflection failure. Same uniform/wordmark pattern as the team photos. | Deep Cleaning page hero + intro + Policies page background |
+| `post-construction.jpg` | **Unknown — high suspicion** | Same `public/images/` cohort, same `.jpg` extension, same date (Apr 12 2026) as `end-of-tenancy.jpg`. Visually not inspected in this pass but probability is high given the pattern. **Flagged for visual check.** | Post-Construction page hero + intro |
+| `window-cleaning.jpg` | **Unknown — high suspicion** | Same cohort (Apr 10 2026). Visually not inspected in this pass. **Flagged for visual check.** | Window Cleaning page hero + intro |
+| `carpet-upholstery.jpg` | **Unknown — high suspicion** | Same cohort (Apr 10 2026). Visually not inspected in this pass. **Flagged for visual check.** | Carpet & Upholstery page hero + intro |
+
+#### Careers folder `public/images/careers/`
+
+| File | Classification | Evidence | Used on |
+|---|---|---|---|
+| `sano-team-hero.jpg` | **Confirmed AI** | Identical content to `Sano-crew-auckland.jpeg` (likely the same generated image, saved twice). Same "sano crew" / "sanccrew" typography failure across shirts. Classic AI "diverse team from behind" composition. | `CareersHero.tsx` (Join Our Team page) |
+| `join-the-sano-crew.jpeg` | **Confirmed AI** | "Join the Sano Crew" handwritten-sign text rendered too cleanly. 6 subjects wearing identical black shirts with varying "sano" wordmark composition between shirts (AI text inconsistency). Classic "young diverse team with raised hands" stock-AI trope. | `WhyWorkWithSano.tsx` (Join Our Team page) |
+
+#### Proposal/internal assets in `public/images/`
+
+| File | Classification | Notes |
+|---|---|---|
+| `executive-summary.jpg` | **Unknown** | Used by `ExecutiveSummaryPage.tsx` (commercial proposal generator). Visually not inspected. Customer-facing via PDF only, not on the public marketing site. |
+| `proposal-banner.jpg` | **Unknown** | Used by `ProposalHeader.tsx` (commercial proposal generator). Visually not inspected. Customer-facing via PDF only, not on the public marketing site. |
+| `cleaned-by-sano.jpg` | **Unknown** | Used by `CoverPage.tsx` (commercial proposal cover). Visually not inspected. Customer-facing via PDF only, not on the public marketing site. |
+
+#### External stock photography (Unsplash URLs hard-coded in source)
+
+| Unsplash photo ID | Classification | Used on |
+|---|---|---|
+| `photo-1600585154340-be6161a56a0c` | **Confirmed stock (Unsplash)** | HomeHero (homepage) + blog page + blog post template |
+| `photo-1618221195710-dd6b41faaea6` | **Confirmed stock (Unsplash)** | Homepage "Why Auckland Chooses Sano" section + About page intro + Regular Cleaning intro |
+| `photo-1497366754035-f200968a6e72` | **Confirmed stock (Unsplash)** | Commercial Cleaning hero + intro (both `services.ts` and the custom page) |
+| `photo-1631679706909-1844bbd07221` | **Confirmed stock (Unsplash)** | Regular Cleaning hero (`services.ts`) |
+| `photo-1581578731548-c64695cc6952` | **Confirmed stock (Unsplash)** | About page (a second image) |
+
+#### Brand/logo assets in `public/brand/`
+
+| File | Classification | Notes |
+|---|---|---|
+| `sano-logomark.png` | **Brand asset (real Sano)** | Generated in PR #145 from the real `F:\Sano\10-Branding\Logos\Logomark\logo4.jpg`. Used as the PWA icon + browser favicon. |
+| `sano-full-green.png` | **Brand asset (real Sano)** | Copied verbatim from `F:\Sano\10-Branding\` in PR #145. Used in the contractor portal topbar. |
+| `sano-logo.png` / `sano-logo-white.png` / `sano-logo-print.png` / `sano-full-white.png` | **Brand asset (real Sano)** | The real Sano leaf-mark + wordmark logo lockup, in various colour variants. Used in Header, Footer, login pages, contractor login, proposal pages, share/print routes. |
+| `sano-mark.svg` / `sano-logo-horizontal.{png,svg}` / `sano-logo-stacked.{png,svg}` | **AI-generated placeholder (unreferenced)** | Orphan AI placeholders shipped before the real brand was wired in. Already documented in `NEXT.md` for cleanup. No live references. |
+| `sano-cover-standalone.html` | Document | 10MB HTML cover — not an image asset for rendering on pages. Out of scope. |
+| `michael-browne-email-banner.jpg` | **Unknown** | Likely a personal email-signature banner for Michael Browne, not on the live site. Visually not inspected. |
+
+### Risk assessment
+
+The pattern across the public marketing site is: **almost every image being used to convey "real Sano work" or "real Sano team" is either stock or AI-generated.** This is the highest-priority finding from this audit pass.
+
+**High-trust-risk uses (would mislead visitors into thinking a real Sano cleaner / real Sano job is being shown):**
+
+1. **Service pages — "Why Sano" right-column "team" image** (`sano-auckland-team.jpeg`) on 5 service pages. A visitor looking at the page would reasonably believe this is an actual Sano cleaner at an actual Sano job. It isn't. **Replace as priority.**
+2. **Service pages — "Why Sano" left-column "cleaning shot" image** (`cleaning-shot-2.jpeg`) on 4 service pages. Same trust concern. **Replace as priority.**
+3. **Commercial / Post-Construction / Deep "left column" image** (`sano-commercial-clean-auckland.jpeg`) on 3 service pages. Same trust concern.
+4. **End-of-Tenancy and Deep Cleaning hero images** carry visible (AI-rendered) Sano branding — this is the strongest implication of "this is our actual work" and the weakest evidence to back it up.
+5. **Careers page** (`sano-team-hero.jpg` + `join-the-sano-crew.jpeg`). Visitors considering applying to work at Sano are looking at an entirely fictional "team". Real candidates may feel deceived during onboarding.
+6. **Commercial proposal cover + `Why Sano` page in proposals** (`cleaned-by-sano.jpg`, `Sano-crew-auckland.jpeg`) — customer-facing in PDF. Out of public-site scope but worth a separate review.
+
+**Medium-risk uses (stock photography of clean spaces, no Sano impersonation):**
+
+7. **Homepage hero, "Why Auckland Chooses Sano" section, About page, blog hero, Regular + Commercial service heroes** — these are all Unsplash images of generic clean spaces. No fake staff, no Sano branding implied. Lower trust risk, but still inauthentic and worth replacing once real photos exist.
+
+**Low-risk uses (brand assets, real Sano logo):**
+
+8. All `public/brand/sano-logo*` files in current use are the real brand assets shipped via PR #145. No concern.
+
+### Recommended replacement priority
+
+Given that some replacement options today (existing `public/images/sano-*.jpeg` files) are themselves AI-generated, **PR 2 from this doc — the Commercial Cleaning hero stock-swap — should NOT be done** as previously proposed. Swapping one piece of inauthentic imagery for another doesn't improve trust; it just changes the type of inauthenticity.
+
+**New priority order:**
+- **Immediate (asset-free):** No image PRs should be done until real photos are gathered. Holding the existing imagery as-is is no worse than swapping it for other inauthentic imagery.
+- **First image PR (when assets exist):** the 5 service-page "Why Sano" two-column images — these are the highest-trust-risk uses because they pose as "real cleaners at real jobs".
+- **Second image PR:** homepage hero + section image. Lower trust risk (no fake staff) but biggest reach.
+- **Third image PR:** service-page heroes themselves (currently a mix of stock Unsplash and likely-AI service photos).
+- **Fourth image PR:** careers page imagery. Long-term trust matters more for hiring than the short-term Join-Our-Team page does.
+
+### Recommended photography shot list
+
+For a real Sano photoshoot (priority order tied to the replacement plan above):
+
+1. **Team member in branded uniform at a real Auckland job site.** Single Sano team member, real branded polo or apron (matching the actual brand mark from `sano-full-green.png`, not the generic AI sans-serif), at an actual residential or commercial site. Mid-clean, not posed. Used on every service page's "Why Sano" right column.
+2. **Detail-cleaning shot.** Hands + cleaning cloth + surface. Close-up. Real cleaner doing real work. Used on every service page's "Why Sano" left column.
+3. **Commercial cleaning context.** Sano team member or pair in a real Auckland office, retail, or workspace. Vacuum, mop, or surface-wiping action. Used for Commercial Cleaning hero + intro.
+4. **Residential kitchen or living detail.** Clean kitchen post-clean, or a Sano team member working in a real Auckland residential space. Used for Regular + Deep Cleaning heroes and homepage hero.
+5. **End-of-tenancy / handover-ready empty room.** Property left clean and empty after the team has finished. Used for End-of-Tenancy page hero.
+6. **Post-construction handover scene.** Builder's dust being cleared, or a finished space ready for client handover. Used for Post-Construction page hero.
+7. **Window cleaning shot.** Streak-free glass being squeegeed or polished, ideally with the Auckland skyline / suburban context visible through the glass. Used for Window Cleaning page hero.
+8. **Carpet / upholstery shot.** Carpet extraction in progress, or before/after detail. Used for Carpet & Upholstery page hero.
+9. **Supplies / equipment shot.** Real Sano-branded cleaning caddy (with the actual brand mark), products, microfibre cloths, vacuum — clean still-life or in-context. Used as a flexible secondary image across multiple pages.
+10. **Team or founder portrait.** Michael Browne + 1-3 senior team members, on-location or at a Sano workplace. Real faces, real attribution. Used for the About page rewrite (Phase 4 of the audit) and the Join Our Team careers page.
+11. **(Optional) Branded vehicle or uniform detail.** If Sano has a branded vehicle, photograph it at an Auckland job site. Useful for trust + local positioning.
+
+All shots should:
+- Be wide aspect (≥ 1600px) for hero use.
+- Use the real Sano leaf-mark brand on any visible uniforms / equipment, not a generic sans-serif wordmark.
+- Feel local to Auckland (NZ-style homes, recognisable architecture, daylight).
+- Show real Sano people / real customers (with consent for use), not stock models.
+
+### Next-steps recommendation
+
+**Do now (asset-free):**
+- Nothing further on image PRs until real assets exist.
+- Optional: update `docs/AI/NEXT.md` to flag the AI-imagery issue as a known risk and to deprioritise PR 2 + PR 3 from this doc until a photoshoot lands.
+
+**Wait for real photos:**
+- All five image-swap PRs described in the priority order above. Do not swap any of the public-site images currently in use until real Sano photography exists. Mixing AI imagery with real imagery within the same page would look inconsistent; do all replacements in one phase per surface.
+
+**Do not do:**
+- Do not generate any new AI imagery, even for "placeholder" purposes — adds to the trust-risk inventory and trains users to expect inauthentic imagery as the Sano standard.
+- Do not source new stock photography — same problem with a different vector.
+- Do not re-prompt to "improve" existing AI imagery — the inauthenticity issue is structural, not aesthetic.
+
+### Decisions needed from Mike
+
+1. **Confirm or correct the AI classifications above.** I haven't visually inspected every file in this pass — `post-construction.jpg`, `window-cleaning.jpg`, `carpet-upholstery.jpg`, `executive-summary.jpg`, `proposal-banner.jpg`, `cleaned-by-sano.jpg`, `michael-browne-email-banner.jpg` are still marked **Unknown / high suspicion**. Want me to inspect each one before this doc lands, or are you content with the high-suspicion flag?
+2. **Photoshoot status.** Is a Sano photoshoot planned, in progress, or budget-blocked? This determines whether the image replacement work is weeks away or months away.
+3. **Interim posture.** While AI imagery is in place, do you want any visible note on the site (e.g. "Photos illustrative; real photography coming soon") — generally NO recommended, but worth your call.
+4. **Proposal-side imagery review** (`cleaned-by-sano.jpg`, `Sano-crew-auckland.jpeg`, `proposal-banner.jpg`, `executive-summary.jpg`). These are out of the public-site scope but are customer-facing via PDF. Want a separate proposal-imagery audit pass, or fold into the next photoshoot's shot list?
+
+---
+
 ## Appendix — current hero source for reference
 
 `src/components/HomeHero.tsx` (paraphrased):
