@@ -3,14 +3,24 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import {
+  ShieldCheck,
+  UserCheck,
+  MapPin,
+  BadgeCheck,
+  Home,
+  Building2,
+  Sparkles,
+  KeyRound,
+} from 'lucide-react'
 
-const HERO_IMAGE = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1600&q=80'
+const HERO_IMAGE = '/images/herne-bay-residential.jpg'
 
 const ease = [0.22, 1, 0.36, 1] as const
 
 const container = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.13, delayChildren: 0.2 } },
+  visible: { transition: { staggerChildren: 0.12, delayChildren: 0.2 } },
 }
 
 const item = {
@@ -18,24 +28,54 @@ const item = {
   visible: { opacity: 1, x: 0, transition: { duration: 0.75, ease } },
 }
 
+const TRUST_BADGES = [
+  { label: 'Insured',                Icon: ShieldCheck },
+  { label: 'Vetted teams',           Icon: UserCheck },
+  { label: 'Auckland wide',          Icon: MapPin },
+  { label: 'Satisfaction guarantee', Icon: BadgeCheck },
+]
+
+const SERVICE_CHIPS = [
+  { label: 'Homes',          Icon: Home },
+  { label: 'Offices',        Icon: Building2 },
+  { label: 'Deep cleans',    Icon: Sparkles },
+  { label: 'End of tenancy', Icon: KeyRound },
+]
+
 export function HomeHero() {
   return (
     <section className="relative flex h-[560px] overflow-hidden">
-      {/* Full-bleed background image */}
+      {/* Full-bleed background image (real Sano residential shot, Herne Bay).
+          Decorative — the headline + body carry the semantic meaning. */}
       <Image
         src={HERO_IMAGE}
-        alt="Bright, clean modern home"
+        alt=""
         fill
-        className="object-cover object-center"
+        className="object-cover object-center md:object-right"
         priority
         sizes="100vw"
       />
 
-      {/* Gradient overlay: dark on left → transparent on right */}
+      {/* Base gradient — strong dark sage on the left for white text legibility,
+          fades through the centre, minimal on the right so the warm interior
+          stays visible. */}
       <div
         className="absolute inset-0"
         style={{
-          background: 'linear-gradient(to right, rgba(6,35,29,0.88) 0%, rgba(6,35,29,0.72) 35%, rgba(6,35,29,0.30) 65%, rgba(6,35,29,0.05) 100%)',
+          background:
+            'linear-gradient(to right, rgba(6,35,29,0.88) 0%, rgba(6,35,29,0.78) 30%, rgba(6,35,29,0.50) 55%, rgba(6,35,29,0.10) 100%)',
+        }}
+        aria-hidden="true"
+      />
+
+      {/* Mobile-only overlay top-up — the image fills the full viewport behind
+          the text on small screens, so a slightly stronger overlay keeps the
+          white type readable against any lighter areas of the photograph. */}
+      <div
+        className="absolute inset-0 md:hidden"
+        style={{
+          background:
+            'linear-gradient(to right, rgba(6,35,29,0.25) 0%, rgba(6,35,29,0.18) 50%, rgba(6,35,29,0.10) 100%)',
         }}
         aria-hidden="true"
       />
@@ -48,68 +88,75 @@ export function HomeHero() {
         animate="visible"
       >
         <div className="container-max w-full">
-        <div className="max-w-lg pl-8 lg:pl-16">
-          {/* Eyebrow */}
-          <motion.p
-            variants={item}
-            className="mb-4 text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-white/55"
-          >
-            Auckland cleaning services
-          </motion.p>
-
-          {/* Headline */}
-          <motion.h1
-            variants={item}
-            className="mb-5 text-white"
-            style={{ fontSize: 'clamp(2rem, 4vw, 2.75rem)', lineHeight: 1.08, letterSpacing: '-0.025em' }}
-          >
-            Clean spaces that feel better to be in.
-          </motion.h1>
-
-          {/* Body */}
-          <motion.p
-            variants={item}
-            className="mb-3 text-[1rem] leading-[1.6] text-white/85 max-w-[24rem]"
-          >
-            Residential and commercial cleaning across Auckland, from insured and carefully vetted Sano teams. Reliable service, clear quotes, and spaces properly cared for.
-          </motion.p>
-
-          {/* Support line */}
-          <motion.p
-            variants={item}
-            className="mb-7 text-[0.8125rem] leading-[1.6] text-white/55 max-w-[24rem]"
-          >
-            Homes, offices, rentals and end of tenancy cleans.
-          </motion.p>
-
-          {/* CTA */}
-          <motion.div variants={item} className="mb-5">
-            <Link
-              href="/contact"
-              className="inline-flex items-center rounded-full bg-white px-7 py-3 text-[0.875rem] font-semibold text-sage-800 transition-all duration-300 hover:bg-sage-100 hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          <div className="max-w-lg pl-8 lg:pl-16">
+            {/* Eyebrow */}
+            <motion.p
+              variants={item}
+              className="mb-4 text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-white/55"
             >
-              Get a Free Quote
-            </Link>
-          </motion.div>
+              Residential and commercial cleaning across Auckland
+            </motion.p>
 
-          {/* Trust badges */}
-          <motion.div variants={item} className="flex flex-wrap gap-2">
-            {[
-              'Insured',
-              'Vetted teams',
-              'Auckland wide',
-              'Satisfaction guarantee',
-            ].map((label) => (
-              <span
-                key={label}
-                className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 backdrop-blur-sm px-3 py-1 text-[11px] font-medium text-white/90"
+            {/* Headline */}
+            <motion.h1
+              variants={item}
+              className="mb-5 text-white"
+              style={{ fontSize: 'clamp(2rem, 4vw, 2.75rem)', lineHeight: 1.08, letterSpacing: '-0.025em' }}
+            >
+              Clean spaces that feel better to be in.
+            </motion.h1>
+
+            {/* Body */}
+            <motion.p
+              variants={item}
+              className="mb-6 text-[1rem] leading-[1.6] text-white/85 max-w-[26rem]"
+            >
+              Sano means healthy. For us, that means reliable cleaning, carefully vetted teams, clear quotes, and spaces properly cared for.
+            </motion.p>
+
+            {/* CTA row */}
+            <motion.div variants={item} className="mb-5 flex flex-wrap gap-3">
+              <Link
+                href="/contact"
+                className="inline-flex items-center rounded-full bg-white px-6 py-2.5 text-[0.875rem] font-semibold text-sage-800 transition-all duration-300 hover:bg-sage-100 hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
-                <span aria-hidden="true">✓</span>
-                {label}
-              </span>
-            ))}
-          </motion.div>
-        </div>
+                Get a Free Quote
+              </Link>
+              <Link
+                href="/services"
+                className="inline-flex items-center rounded-full border border-white/40 px-6 py-2.5 text-[0.875rem] font-semibold text-white transition-all duration-300 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                Explore Services
+              </Link>
+            </motion.div>
+
+            {/* Trust row — proof badges, lucide line icons, glassmorphism pills */}
+            <motion.div variants={item} className="mb-3 flex flex-wrap gap-2">
+              {TRUST_BADGES.map(({ label, Icon }) => (
+                <span
+                  key={label}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 backdrop-blur-sm px-3 py-1 text-[11px] font-medium text-white/90"
+                >
+                  <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
+                  {label}
+                </span>
+              ))}
+            </motion.div>
+
+            {/* Service chips — audience/category quick-scan, visually lighter
+                than the trust row */}
+            <motion.div variants={item} className="flex flex-wrap gap-2">
+              {SERVICE_CHIPS.map(({ label, Icon }) => (
+                <span
+                  key={label}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur-sm px-3 py-1 text-[12px] font-medium text-white"
+                >
+                  <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
+                  {label}
+                </span>
+              ))}
+            </motion.div>
+          </div>
         </div>
       </motion.div>
     </section>
