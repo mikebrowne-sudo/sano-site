@@ -3,17 +3,29 @@
 > Short. The "what's next this week" view. Bigger sequencing lives in [`docs/AI/ROADMAP.md`](./ROADMAP.md). Phase history lives in [`docs/PORTAL.md`](../PORTAL.md).
 
 ## In progress
-- **Phase 5B — amendment lock (invoice-existence)** on branch `feat/phase-5b-amendment-lock`. 3 commits, gauntlet green. Needs `/sano-ship` → Netlify preview smoke test (locked quote → admin "Edit anyway" → save → audit row appears) → merge.
+- **Verify Sano portal production after the 2026-05-14 fix marathon.** Production should be on commit `226a876`. Test path: (a) fresh staff password reset for `michael@sano.nz` from a clean incognito → expect password form, not "Link expired"; (b) fresh contractor invite end-to-end → expect `/contractor/jobs` after password set; (c) installed contractor PWA relaunched → topbar shows green Sano wordmark; (d) home-screen icon updates after manual remove + re-add. Capture the `[reset-password] init` console output once for the DECISIONS record.
 
 ## Next up (this week)
-- After Phase 5B merges + Netlify verifies: move the line to `STATE.md`, update `docs/PORTAL.md` Phase 5B section.
-- Dedupe `clients/[id]` activity timeline onto the new shared `<AuditTimelinePanel>` (deferred from Phase 5B to preserve the page's Promise.all batching).
+- Run the four manual config checks queued during the contractor-login diagnosis: Supabase Auth Site URL + Redirect URLs allowlist, Resend domain verification, Netlify production env vars, real contractor invite test.
+- After above verifies green: update `docs/AI/STATE.md` and `docs/PORTAL.md` to reflect the Phase 5B amendment lock, contractor invite audit panel, dual-flow reset-password fix, and real brand assets all live.
+- Clean up orphan AI placeholders: delete `public/brand/sano-mark.svg`, `sano-logo-horizontal.{png,svg}`, `sano-logo-stacked.{png,svg}`. Replace `src/app/favicon.ico` with the real Sano logomark while we're there.
+- Add `contractor.invite_accepted` audit verb + self-heal `auth_user_id` linkage on first password set (closes the secondary linkage issue from the contractor-login diagnosis).
+- Dedupe `clients/[id]` activity timeline onto the shared `<AuditTimelinePanel>` (deferred from Phase 5B; check the Promise.all batching cost first).
+
+## Pending decisions
+- Marketing site audit next decision: service-page differentiation, homepage hero review, or About page trust upgrade.
 
 ## Blocked / waiting
 - _(empty)_
 
 ## Recently completed (move to STATE.md once verified live)
-- _(empty)_
+- **Phase 5B amendment lock** — PR #139 merged 2026-05-13 (`a5e1a9e`). Docs ADR shipped via PR #140 (`b84d791`).
+- **Contractor invite-failure audit + activity timeline** — PR #141 merged 2026-05-14 (`b4cf784`).
+- **Contractor login flow restored** — PRs #142 (middleware, `eaa260d`) + #143 (PKCE, `c4be3c8`) + #144 (dual-flow + diagnostics, `e93ac61`).
+- **Real Sano brand assets** — PR #145 merged 2026-05-14 (`226a876`). PWA icons, browser favicon, contractor topbar all corrected.
+- **Marketing copy aligned with brand rules** — PR #146 merged 2026-05-19 (`0ae3feb`). Removed "premium" / "eco-friendly" from SEO surfaces; replaced with on-brand vocabulary.
+- **End-of-tenancy guarantee wording aligned** — PR #147 merged 2026-05-19 (`ac018c9`). Hybrid direction: "bond-ready clean designed to maximise your chance of bond recovery" + honest landlord-control caveat + quality-of-work commitment.
+- **Footer trust links + OG image** — PR #148 merged 2026-05-19 (`6c7413f`). Footer Company column +3 trust pages, trust badges 2 → 4 with flex-wrap, logo 67→48px, root metadata `openGraph.images` declared.
 
 ## How to use this doc
 - Keep this list ruthlessly short - 1-5 items max.
