@@ -76,7 +76,7 @@ export default function ServicePage({ params }: Props) {
           <ol className="grid grid-cols-1 md:grid-cols-3 gap-5 text-center">
             {[
               { n: '01', title: 'Book', body: "Fill in our quick quote form and we'll confirm your booking within hours." },
-              { n: '02', title: 'We clean', body: 'Our vetted cleaner arrives fully equipped with eco-friendly products.' },
+              { n: '02', title: 'We clean', body: 'Our vetted cleaner arrives fully equipped with carefully chosen products.' },
               { n: '03', title: 'You relax', body: 'Enjoy your spotless space. We guarantee your satisfaction.' },
             ].map((step) => (
               <li key={step.n}>

@@ -17,7 +17,7 @@ export const SERVICES: Service[] = [
       'Making beds and tidying rooms',
       'Spot-cleaning windows and mirrors',
     ],
-    metaDescription: 'Regular house cleaning in Auckland. Weekly or fortnightly visits by vetted, insured cleaners. Eco-friendly products. Get in touch for a tailored quote.',
+    metaDescription: 'Regular house cleaning in Auckland. Weekly or fortnightly visits by vetted, insured cleaners. Thoughtful product choices. Get in touch for a tailored quote.',
     relatedSlugs: ['deep-cleaning', 'carpet-upholstery', 'window-cleaning'],
   },
   {

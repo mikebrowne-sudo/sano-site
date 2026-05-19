@@ -1,6 +1,6 @@
 const TRUST_SIGNALS = [
   'Insured & vetted',
-  'Eco-friendly products',
+  'Thoughtful product choices',
   'No lock-in contracts',
   'Flexible scheduling',
 ]
