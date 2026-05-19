@@ -74,7 +74,7 @@ export default function RegularCleaningPage() {
       {/* Intro */}
       <section className="section-padding section-y bg-white">
         <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
             <FadeIn direction="left">
               <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
                 <Image
@@ -101,7 +101,7 @@ export default function RegularCleaningPage() {
       {/* What's included + image */}
       <section className="section-padding section-y bg-[#faf9f6]">
         <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
             <FadeIn>
               <h2 className="mb-8">What&apos;s included in a regular clean</h2>
               <Stagger staggerDelay={0.07}>
@@ -135,7 +135,7 @@ export default function RegularCleaningPage() {
       {/* Frequency + Who it suits — two columns, same section */}
       <section className="section-padding section-y bg-white">
         <div className="container-max">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 lg:gap-24">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-14">
             <FadeIn>
               <h2 className="mb-6">Cleaning that fits your routine</h2>
               <p className="body-text mb-6">We offer flexible cleaning schedules to suit your home and lifestyle:</p>
@@ -167,7 +167,7 @@ export default function RegularCleaningPage() {
       {/* Why Sano */}
       <section className="section-padding section-y bg-[#faf9f6]">
         <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
             <FadeIn direction="left">
               <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
                 <Image
@@ -194,7 +194,7 @@ export default function RegularCleaningPage() {
       {/* Process + FAQ — two columns */}
       <section className="section-padding section-y bg-white">
         <div className="container-max">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 lg:gap-24">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-14">
             <FadeIn>
               <h2 className="mb-8">Simple to get started</h2>
               <ol className="space-y-6">
