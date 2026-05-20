@@ -157,7 +157,7 @@ export function ServiceChecklist({
     <section
       id={sectionId}
       aria-labelledby={`${baseId}-heading`}
-      className="section-y bg-sage-50"
+      className="section-y bg-sage-50 overflow-x-clip"
     >
       {/* Header — narrower container, centred */}
       <div className="section-padding">
@@ -211,15 +211,17 @@ export function ServiceChecklist({
         </div>
       </div>
 
-      {/* Category tab row — uses a WIDER container than the items grid so 10
-          categories fit on one desktop line without a scrollbar. Mobile keeps
-          horizontal-scroll. Desktop has no overflow (md:overflow-visible). */}
-      <div className="section-padding mt-10">
-        <div className="mx-auto max-w-[88rem]">
+      {/* Category tab row — full-width band so 10 categories fit on one
+          desktop line at xl+ without a scrollbar AND without tiny tabs.
+          Mobile and small-desktop (< xl) keep horizontal scroll. The
+          section is overflow-x-clip so any rare spill at narrow viewports
+          can never trigger a page-level horizontal scrollbar. */}
+      <div className="mt-10 px-4 sm:px-6 xl:px-8">
+        <div className="mx-auto max-w-none">
           <div
             role="tablist"
             aria-label={`${checklist.name} categories`}
-            className="flex gap-1.5 overflow-x-auto pb-2 md:flex-nowrap md:justify-center md:overflow-visible md:pb-0"
+            className="flex gap-1.5 overflow-x-auto pb-2 xl:flex-nowrap xl:justify-center xl:overflow-visible xl:pb-0"
           >
           {rooms.map((room) => {
             const isActive = room.slug === activeSlug
@@ -240,7 +242,7 @@ export function ServiceChecklist({
                 onClick={() => setActiveSlug(room.slug)}
                 onKeyDown={(event) => onPillKeyDown(event, room.slug)}
                 className={[
-                  'inline-flex flex-shrink-0 snap-start items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11.5px] font-medium leading-none transition-colors duration-150',
+                  'inline-flex flex-shrink-0 snap-start items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-2 text-[13px] font-medium leading-none transition-colors duration-150',
                   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-500',
                   isActive
                     ? 'border-sage-800 bg-sage-800 text-white shadow-sm'
@@ -249,7 +251,7 @@ export function ServiceChecklist({
               >
                 {Icon && (
                   <Icon
-                    size={11}
+                    size={13}
                     strokeWidth={1.75}
                     aria-hidden="true"
                     className={isActive ? 'text-white' : 'text-sage-600'}
