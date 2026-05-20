@@ -141,6 +141,26 @@ describe('ServiceChecklist', () => {
     expect(container.contains(caveat)).toBe(true)
   })
 
+  it('renders the caveat note AFTER the CTA strip when both are present (caveat is the final block)', () => {
+    const withCaveatAndCta: Checklist = {
+      ...baseChecklist,
+      caveatTitle: 'A quick note on deep cleans',
+      caveat: 'Deep cleaning is condition-based.',
+    }
+    render(
+      <ServiceChecklist
+        checklist={withCaveatAndCta}
+        eyebrow="Deep Clean"
+        showQuoteCta
+        ctaLabel="Get a free quote for a deep clean"
+      />,
+    )
+    const cta = screen.getByRole('link', { name: 'Get a free quote for a deep clean' })
+    const caveat = screen.getByText('A quick note on deep cleans')
+    // Caveat must come AFTER the CTA in document order.
+    expect(cta.compareDocumentPosition(caveat) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('shows a DRAFT badge when checklist.isDraft is true', () => {
     const draft: Checklist = { ...baseChecklist, isDraft: true }
     render(<ServiceChecklist checklist={draft} eyebrow="Home Clean" />)

@@ -317,6 +317,20 @@ export function ServiceChecklist({
           </div>
         )}
 
+        {showQuoteCta && (
+          <div className="mx-auto mt-10 flex max-w-3xl flex-wrap items-center justify-center gap-4 text-center">
+            <p className="text-[0.875rem] text-sage-700">
+              See something that matches your space?
+            </p>
+            <Link
+              href={ctaHref}
+              className="inline-flex items-center rounded-full bg-sage-800 px-5 py-2 text-[13px] font-semibold text-white transition-colors duration-150 hover:bg-sage-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-500"
+            >
+              {ctaLabel}
+            </Link>
+          </div>
+        )}
+
         {checklist.caveat && (
           <aside
             role="note"
@@ -339,20 +353,6 @@ export function ServiceChecklist({
               </div>
             </div>
           </aside>
-        )}
-
-        {showQuoteCta && (
-          <div className="mx-auto mt-10 flex max-w-3xl flex-wrap items-center justify-center gap-4 text-center">
-            <p className="text-[0.875rem] text-sage-700">
-              See something that matches your space?
-            </p>
-            <Link
-              href={ctaHref}
-              className="inline-flex items-center rounded-full bg-sage-800 px-5 py-2 text-[13px] font-semibold text-white transition-colors duration-150 hover:bg-sage-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-500"
-            >
-              {ctaLabel}
-            </Link>
-          </div>
         )}
         </div>
       </div>
