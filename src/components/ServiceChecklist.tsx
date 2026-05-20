@@ -157,11 +157,12 @@ export function ServiceChecklist({
     <section
       id={sectionId}
       aria-labelledby={`${baseId}-heading`}
-      className="section-padding section-y bg-sage-50"
+      className="section-y bg-sage-50"
     >
-      <div className="container-max">
-        {/* Header — stacked eyebrow lead + large hero heading */}
-        <div className="mx-auto max-w-3xl text-center">
+      {/* Header — narrower container, centred */}
+      <div className="section-padding">
+        <div className="container-max">
+          <div className="mx-auto max-w-3xl text-center">
           <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
             <p className="eyebrow">{eyebrow}</p>
             {showDraftBadge && (
@@ -206,14 +207,20 @@ export function ServiceChecklist({
               </div>
             </aside>
           )}
+          </div>
         </div>
+      </div>
 
-        {/* Category tab row — single-line on desktop, horizontal-scroll fallback */}
-        <div
-          role="tablist"
-          aria-label={`${checklist.name} categories`}
-          className="mt-10 flex gap-1.5 overflow-x-auto pb-2 md:justify-center md:pb-0"
-        >
+      {/* Category tab row — uses a WIDER container than the items grid so 10
+          categories fit on one desktop line without a scrollbar. Mobile keeps
+          horizontal-scroll. Desktop has no overflow (md:overflow-visible). */}
+      <div className="section-padding mt-10">
+        <div className="mx-auto max-w-[88rem]">
+          <div
+            role="tablist"
+            aria-label={`${checklist.name} categories`}
+            className="flex gap-1.5 overflow-x-auto pb-2 md:flex-nowrap md:justify-center md:overflow-visible md:pb-0"
+          >
           {rooms.map((room) => {
             const isActive = room.slug === activeSlug
             const Icon = getIcon(room.icon)
@@ -233,7 +240,7 @@ export function ServiceChecklist({
                 onClick={() => setActiveSlug(room.slug)}
                 onKeyDown={(event) => onPillKeyDown(event, room.slug)}
                 className={[
-                  'inline-flex flex-shrink-0 snap-start items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[12.5px] font-medium leading-none transition-colors duration-150',
+                  'inline-flex flex-shrink-0 snap-start items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11.5px] font-medium leading-none transition-colors duration-150',
                   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-500',
                   isActive
                     ? 'border-sage-800 bg-sage-800 text-white shadow-sm'
@@ -242,7 +249,7 @@ export function ServiceChecklist({
               >
                 {Icon && (
                   <Icon
-                    size={13}
+                    size={11}
                     strokeWidth={1.75}
                     aria-hidden="true"
                     className={isActive ? 'text-white' : 'text-sage-600'}
@@ -252,9 +259,13 @@ export function ServiceChecklist({
               </button>
             )
           })}
+          </div>
         </div>
+      </div>
 
-        {/* Active panel */}
+      {/* Active panel — items in standard container-max */}
+      <div className="section-padding mt-8">
+        <div className="container-max">
         {activeRoom && (
           <div
             key={activeRoom.slug}
@@ -320,6 +331,7 @@ export function ServiceChecklist({
             </Link>
           </div>
         )}
+        </div>
       </div>
     </section>
   )
