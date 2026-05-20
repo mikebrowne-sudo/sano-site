@@ -47,29 +47,56 @@ describe('ServiceChecklist', () => {
     ).toBeInTheDocument()
   })
 
-  it('emphasises the "N-Point" portion inside the heading', () => {
-    render(<ServiceChecklist checklist={baseChecklist} eyebrow="Home Clean" />)
+  it('emphasises the headingHighlight phrase inside the heading when provided', () => {
+    render(
+      <ServiceChecklist
+        checklist={baseChecklist}
+        eyebrow="WHAT'S INCLUDED"
+        displayHeading="100-Point Home Clean Checklist"
+        headingHighlight="100-Point Home Clean"
+      />,
+    )
     const heading = screen.getByRole('heading', { level: 2 })
-    // The "100-Point" portion is wrapped in a styled bold sage span; assert
-    // via the span's distinctive classes (the text "100-Point" is also
-    // inside the heading's full text content).
     const emphasised = heading.querySelector('span.font-bold.text-sage-500')
     expect(emphasised).not.toBeNull()
-    expect(emphasised?.textContent).toBe('100-Point')
+    expect(emphasised?.textContent).toBe('100-Point Home Clean')
+    expect(heading.textContent).toBe('100-Point Home Clean Checklist')
   })
 
-  it('does not emphasise any "N-Point" span on the Deep Clean Detail heading', () => {
-    const deepClean: Checklist = {
-      ...baseChecklist,
-      slug: 'sano-deep-clean-detail',
-      name: 'Sano Deep Clean Detail Checklist',
-      shortName: 'Deep Clean Detail',
-      pointCountLabel: undefined,
-    }
-    render(<ServiceChecklist checklist={deepClean} eyebrow="Deep Clean Detail" />)
+  it('uses displayHeading in place of checklist.name when provided', () => {
+    render(
+      <ServiceChecklist
+        checklist={baseChecklist}
+        eyebrow="WHAT'S INCLUDED"
+        displayHeading="100-Point Home Clean Checklist"
+      />,
+    )
+    const heading = screen.getByRole('heading', { level: 2 })
+    expect(heading.textContent).toBe('100-Point Home Clean Checklist')
+    // No headingHighlight passed → no bold-sage span
+    expect(heading.querySelector('span.font-bold.text-sage-500')).toBeNull()
+  })
+
+  it('falls back to checklist.name when no displayHeading is provided', () => {
+    render(<ServiceChecklist checklist={baseChecklist} eyebrow="WHAT'S INCLUDED" />)
+    const heading = screen.getByRole('heading', { level: 2 })
+    expect(heading.textContent).toBe('Sano 100-Point Home Clean Checklist')
+    // No headingHighlight passed → no bold-sage span
+    expect(heading.querySelector('span.font-bold.text-sage-500')).toBeNull()
+  })
+
+  it('does not render a highlight span when headingHighlight is not found in the heading', () => {
+    render(
+      <ServiceChecklist
+        checklist={baseChecklist}
+        eyebrow="WHAT'S INCLUDED"
+        displayHeading="Some Heading"
+        headingHighlight="nonexistent-phrase"
+      />,
+    )
     const heading = screen.getByRole('heading', { level: 2 })
     expect(heading.querySelector('span.font-bold.text-sage-500')).toBeNull()
-    expect(heading.textContent).toBe('Sano Deep Clean Detail Checklist')
+    expect(heading.textContent).toBe('Some Heading')
   })
 
   it('renders the caveat when checklist.caveat is set', () => {

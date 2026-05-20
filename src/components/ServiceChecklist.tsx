@@ -53,22 +53,23 @@ function getIcon(name?: string): LucideIcon | null {
 }
 
 /**
- * Render the checklist name with the "N-Point" portion emphasised in
- * Sano green, so the point-count claim reads as part of the headline
- * rather than an external chip. Bold-weight + sage-500 (Sano primary
- * green) — matches the bright accent emphasis on equivalent industry
- * checklist hero treatments. Falls back to plain text for any name
- * without an "N-Point" pattern (e.g. the Deep Clean Detail Checklist).
+ * Render a heading with an optional `highlight` substring emphasised
+ * in Sano green (bold + sage-500). The caller passes both the full
+ * heading string and the substring they want highlighted — keeps the
+ * highlight phrase under caller control rather than guessed by regex.
+ *
+ * If `highlight` is omitted or not found in `heading`, falls back to
+ * rendering `heading` as plain text.
  */
-function renderChecklistName(name: string): ReactNode {
-  const match = name.match(/^(.*?)(\d+-Point)(.*)$/)
-  if (!match) return name
-  const [, before, point, after] = match
+function renderHeading(heading: string, highlight?: string): ReactNode {
+  if (!highlight) return heading
+  const idx = heading.indexOf(highlight)
+  if (idx < 0) return heading
   return (
     <>
-      {before}
-      <span className="font-bold text-sage-500">{point}</span>
-      {after}
+      {heading.slice(0, idx)}
+      <span className="font-bold text-sage-500">{highlight}</span>
+      {heading.slice(idx + highlight.length)}
     </>
   )
 }
@@ -80,6 +81,18 @@ interface ServiceChecklistProps {
   eyebrow: string
   /** Optional paragraph beneath the heading. */
   intro?: string
+  /**
+   * Optional display string for the main `<h2>`. Defaults to `checklist.name`.
+   * Use this when the data-file name carries a brand prefix that you want
+   * dropped visually (e.g. data: "Sano 100-Point Home Clean Checklist",
+   * heading: "100-Point Home Clean Checklist").
+   */
+  displayHeading?: string
+  /**
+   * Optional substring of the rendered heading to emphasise in sage-500
+   * bold. If not provided, the heading renders as plain text.
+   */
+  headingHighlight?: string
   /** Becomes the section's `id` attribute. Defaults to `checklist.slug`. */
   anchorId?: string
   /** Render the bottom CTA strip. Default: false. */
@@ -94,11 +107,14 @@ export function ServiceChecklist({
   checklist,
   eyebrow,
   intro,
+  displayHeading,
+  headingHighlight,
   anchorId,
   showQuoteCta = false,
   ctaHref = '/contact',
   ctaLabel = 'Get a free quote',
 }: ServiceChecklistProps) {
+  const heading = displayHeading ?? checklist.name
   const sectionId = anchorId ?? checklist.slug
   const baseId = useId()
   const pillIdFor = (roomSlug: string) => `${baseId}-pill-${roomSlug}`
@@ -180,7 +196,7 @@ export function ServiceChecklist({
             className="mb-4 font-sans font-bold text-sage-800"
             style={{ fontSize: 'clamp(1.875rem, 3vw, 2.5rem)', lineHeight: 1.15, letterSpacing: '-0.015em' }}
           >
-            {renderChecklistName(checklist.name)}
+            {renderHeading(heading, headingHighlight)}
           </h2>
 
           {intro && (
