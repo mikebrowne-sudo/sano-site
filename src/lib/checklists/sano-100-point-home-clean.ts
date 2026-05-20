@@ -4,19 +4,19 @@
 // Authored from scratch for Phase B visual review. Final item text, item
 // ordering, and item counts MUST come from Sano's own source DOCX
 // ("Sano Home Clean Checklist") before this file is integrated into
-// /services/regular-cleaning. The `pointCountLabel` is editorial and
-// stays "100-Point" even while drafted items are below 100.
+// /services/regular-cleaning.
 //
 // Originality boundary: this file MUST NOT derive items, room names,
 // ordering, or wording from the Enhanced Cleaning reference documents
 // at F:\Sano\20-Content\Sano Cleaning Checklist\. Source content only
 // from Sano's own DOCX.
 //
-// Category structure: 8 categories per the approved Phase B v2 direction
-// (Bedrooms, Bathrooms, Kitchen, Dining Room, Living Areas, Office/Study,
-// Laundry, Other). The "Other" category absorbs hallways/stairs/entry/
-// final-touches content for visual balance with the Enhanced reference;
-// may be renamed in a later Sano content pass.
+// Category structure: 8 categories with the approved item-count
+// distribution to total exactly 100 items:
+//   Bedrooms 15 · Bathrooms 17 · Kitchen 20 · Dining Room 10 ·
+//   Living Areas 16 · Office / Study 8 · Laundry 11 · Other 3
+// The "Other" category absorbs entry/final-touches content; may be
+// renamed in a later Sano content pass.
 
 import type { Checklist } from '@/types/checklist'
 
@@ -37,8 +37,11 @@ export const SANO_100_POINT_HOME_CLEAN: Checklist = {
         { text: 'Surfaces dusted' },
         { text: 'Bedside tables wiped' },
         { text: 'Dressers wiped' },
+        { text: 'Drawer fronts wiped' },
+        { text: 'Wardrobe doors spot-wiped' },
         { text: 'Mirrors cleaned' },
-        { text: 'Switches and door handles wiped' },
+        { text: 'Switches wiped' },
+        { text: 'Door handles wiped' },
         { text: 'Skirting boards spot-cleaned' },
         { text: 'Carpets vacuumed' },
         { text: 'Hard floors mopped' },
@@ -56,12 +59,17 @@ export const SANO_100_POINT_HOME_CLEAN: Checklist = {
         { text: 'Mirrors cleaned' },
         { text: 'Showers cleaned' },
         { text: 'Shower screens de-spotted' },
+        { text: 'Shower rails wiped' },
         { text: 'Bath cleaned' },
+        { text: 'Bath surrounds wiped' },
         { text: 'Toilet cleaned and sanitised' },
         { text: 'Toilet base wiped' },
         { text: 'Tiled walls spot-cleaned' },
-        { text: 'Floors mopped' },
+        { text: 'Vanity tops wiped' },
+        { text: 'Cabinet fronts spot-wiped' },
         { text: 'Towel rails wiped' },
+        { text: 'Soap and product holders wiped' },
+        { text: 'Floors mopped' },
         { text: 'Bins emptied' },
       ],
     },
@@ -74,12 +82,20 @@ export const SANO_100_POINT_HOME_CLEAN: Checklist = {
         { text: 'Sink polished' },
         { text: 'Tapware polished' },
         { text: 'Stovetop wiped' },
+        { text: 'Stovetop knobs wiped' },
         { text: 'Splashback wiped' },
-        { text: 'Appliance exteriors wiped' },
-        { text: 'Cupboard fronts spot-cleaned' },
+        { text: 'Oven exterior wiped' },
+        { text: 'Microwave exterior wiped' },
+        { text: 'Fridge exterior wiped' },
+        { text: 'Dishwasher exterior wiped' },
         { text: 'Rangehood exterior wiped' },
+        { text: 'Cupboard fronts spot-cleaned' },
+        { text: 'Drawer fronts spot-cleaned' },
+        { text: 'Handles wiped' },
+        { text: 'Small appliances wiped' },
         { text: 'Dining bench wiped' },
-        { text: 'Floors vacuumed and mopped' },
+        { text: 'Floors vacuumed' },
+        { text: 'Floors mopped' },
         { text: 'Bins emptied and re-lined' },
         { text: 'Mat shaken out' },
       ],
@@ -99,8 +115,6 @@ export const SANO_100_POINT_HOME_CLEAN: Checklist = {
         { text: 'Window sills wiped' },
         { text: 'Floors vacuumed' },
         { text: 'Hard floors mopped' },
-        { text: 'Cobwebs cleared where reachable' },
-        { text: 'Bin emptied' },
       ],
     },
     {
@@ -111,15 +125,19 @@ export const SANO_100_POINT_HOME_CLEAN: Checklist = {
         { text: 'Surfaces dusted' },
         { text: 'Coffee tables wiped' },
         { text: 'Side tables wiped' },
+        { text: 'Shelves dusted' },
+        { text: 'TV unit dusted' },
         { text: 'Cushions plumped' },
         { text: 'Throws straightened' },
-        { text: 'Mirrors and glass tops cleaned' },
-        { text: 'Switches and door handles wiped' },
+        { text: 'Mirrors cleaned' },
+        { text: 'Glass tops wiped' },
+        { text: 'Lamp bases dusted' },
+        { text: 'Switches wiped' },
+        { text: 'Door handles wiped' },
         { text: 'Skirting boards spot-cleaned' },
         { text: 'Carpets vacuumed' },
         { text: 'Hard floors mopped' },
         { text: 'Bins emptied' },
-        { text: 'Cobwebs cleared where reachable' },
       ],
     },
     {
@@ -130,15 +148,11 @@ export const SANO_100_POINT_HOME_CLEAN: Checklist = {
         { text: 'Desk surfaces wiped around items' },
         { text: 'Shelves dusted' },
         { text: 'Monitor stands dusted' },
-        { text: 'Cables tidied lightly' },
-        { text: 'Mirrors and glass tops wiped' },
         { text: 'Switches and door handles wiped' },
         { text: 'Skirting boards spot-cleaned' },
         { text: 'Window sills wiped' },
-        { text: 'Floors vacuumed' },
-        { text: 'Hard floors mopped' },
+        { text: 'Floors vacuumed and mopped' },
         { text: 'Bins emptied' },
-        { text: 'Cobwebs cleared where reachable' },
       ],
     },
     {
@@ -156,7 +170,6 @@ export const SANO_100_POINT_HOME_CLEAN: Checklist = {
         { text: 'Switches and door handles wiped' },
         { text: 'Skirting boards spot-cleaned' },
         { text: 'Floors vacuumed and mopped' },
-        { text: 'Mat shaken out' },
         { text: 'Bin emptied' },
       ],
     },
@@ -166,16 +179,7 @@ export const SANO_100_POINT_HOME_CLEAN: Checklist = {
       icon: 'Sparkles',
       items: [
         { text: 'Entry door wiped' },
-        { text: 'Entry mat shaken out' },
-        { text: 'Hallway floors vacuumed and mopped' },
-        { text: 'Hallway skirting boards spot-cleaned' },
-        { text: 'Stair treads vacuumed' },
-        { text: 'Banister rails wiped' },
-        { text: 'Stair landings dusted' },
-        { text: 'High-touch points wiped throughout' },
-        { text: 'Cobwebs cleared throughout where reachable' },
-        { text: 'Mirrors and glass surfaces re-checked' },
-        { text: 'Switches and door handles re-checked' },
+        { text: 'High-touch points re-checked throughout' },
         { text: 'Final walk-through to straighten and finish' },
       ],
     },
