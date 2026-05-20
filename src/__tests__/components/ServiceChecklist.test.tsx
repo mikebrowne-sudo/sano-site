@@ -50,10 +50,10 @@ describe('ServiceChecklist', () => {
   it('emphasises the "N-Point" portion inside the heading', () => {
     render(<ServiceChecklist checklist={baseChecklist} eyebrow="Home Clean" />)
     const heading = screen.getByRole('heading', { level: 2 })
-    // The "100-Point" portion is wrapped in a styled span; assert via the
-    // span's distinctive italic class rather than its text alone (the
-    // text "100-Point" is also inside the heading's full text content).
-    const emphasised = heading.querySelector('span.italic')
+    // The "100-Point" portion is wrapped in a styled bold sage span; assert
+    // via the span's distinctive classes (the text "100-Point" is also
+    // inside the heading's full text content).
+    const emphasised = heading.querySelector('span.font-bold.text-sage-600')
     expect(emphasised).not.toBeNull()
     expect(emphasised?.textContent).toBe('100-Point')
   })
@@ -68,7 +68,7 @@ describe('ServiceChecklist', () => {
     }
     render(<ServiceChecklist checklist={deepClean} eyebrow="Deep Clean Detail" />)
     const heading = screen.getByRole('heading', { level: 2 })
-    expect(heading.querySelector('span.italic')).toBeNull()
+    expect(heading.querySelector('span.font-bold.text-sage-600')).toBeNull()
     expect(heading.textContent).toBe('Sano Deep Clean Detail Checklist')
   })
 
