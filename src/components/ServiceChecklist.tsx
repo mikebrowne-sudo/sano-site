@@ -1,0 +1,268 @@
+'use client'
+
+import { useCallback, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import Link from 'next/link'
+import { Check, Info } from 'lucide-react'
+import {
+  type Checklist,
+  type ChecklistRoom,
+  totalChecklistItems,
+} from '@/types/checklist'
+
+interface ServiceChecklistProps {
+  /** The data source for this section. */
+  checklist: Checklist
+  /** Small uppercase label above the heading. */
+  eyebrow: string
+  /** Optional paragraph beneath the heading. */
+  intro?: string
+  /** Becomes the section's `id` attribute. Defaults to `checklist.slug`. */
+  anchorId?: string
+  /** Render the bottom CTA strip. Default: false. */
+  showQuoteCta?: boolean
+  /** CTA destination. Default: '/contact'. */
+  ctaHref?: string
+  /** CTA text. Default: 'Get a free quote'. */
+  ctaLabel?: string
+}
+
+export function ServiceChecklist({
+  checklist,
+  eyebrow,
+  intro,
+  anchorId,
+  showQuoteCta = false,
+  ctaHref = '/contact',
+  ctaLabel = 'Get a free quote',
+}: ServiceChecklistProps) {
+  const sectionId = anchorId ?? checklist.slug
+  const baseId = useId()
+  const pillIdFor = (roomSlug: string) => `${baseId}-pill-${roomSlug}`
+  const panelIdFor = (roomSlug: string) => `${baseId}-panel-${roomSlug}`
+
+  const rooms = checklist.rooms
+  const [activeSlug, setActiveSlug] = useState<string>(rooms[0]?.slug ?? '')
+  const activeRoom = useMemo<ChecklistRoom | undefined>(
+    () => rooms.find((r) => r.slug === activeSlug) ?? rooms[0],
+    [rooms, activeSlug],
+  )
+
+  const pillRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
+
+  const focusRoom = useCallback((slug: string) => {
+    const btn = pillRefs.current.get(slug)
+    btn?.focus()
+  }, [])
+
+  const onPillKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLButtonElement>, currentSlug: string) => {
+      const currentIndex = rooms.findIndex((r) => r.slug === currentSlug)
+      if (currentIndex < 0) return
+
+      let nextIndex: number | null = null
+      switch (event.key) {
+        case 'ArrowRight':
+        case 'ArrowDown':
+          nextIndex = (currentIndex + 1) % rooms.length
+          break
+        case 'ArrowLeft':
+        case 'ArrowUp':
+          nextIndex = (currentIndex - 1 + rooms.length) % rooms.length
+          break
+        case 'Home':
+          nextIndex = 0
+          break
+        case 'End':
+          nextIndex = rooms.length - 1
+          break
+        default:
+          return
+      }
+
+      event.preventDefault()
+      const nextSlug = rooms[nextIndex].slug
+      setActiveSlug(nextSlug)
+      focusRoom(nextSlug)
+    },
+    [rooms, focusRoom],
+  )
+
+  const totalItems = totalChecklistItems(checklist)
+  const showDraftBadge = checklist.isDraft === true
+
+  return (
+    <section
+      id={sectionId}
+      aria-labelledby={`${baseId}-heading`}
+      className="section-padding section-y bg-white"
+    >
+      <div className="container-max">
+        {/* Header */}
+        <div className="mx-auto max-w-3xl text-center">
+          <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
+            <p className="eyebrow">{eyebrow}</p>
+            {showDraftBadge && (
+              <span
+                className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-800"
+                aria-label="Draft content — not final"
+              >
+                Draft
+              </span>
+            )}
+          </div>
+
+          <h2 id={`${baseId}-heading`} className="text-sage-800 mb-3">
+            {checklist.name}
+          </h2>
+
+          {checklist.pointCountLabel && (
+            <div className="mb-4 flex justify-center">
+              <span className="inline-flex items-center rounded-full border border-sage-200 bg-sage-50 px-3 py-1 text-xs font-semibold tracking-wide text-sage-700">
+                {checklist.pointCountLabel}
+              </span>
+            </div>
+          )}
+
+          {intro && (
+            <p className="body-text mx-auto max-w-2xl">{intro}</p>
+          )}
+
+          {checklist.caveat && (
+            <aside
+              role="note"
+              className="mx-auto mt-6 max-w-2xl rounded-2xl border border-sage-200 bg-sage-50 p-5 text-left"
+            >
+              <div className="flex items-start gap-3">
+                <Info
+                  size={20}
+                  strokeWidth={1.75}
+                  className="mt-0.5 flex-shrink-0 text-sage-700"
+                  aria-hidden="true"
+                />
+                <p className="text-[0.9375rem] leading-relaxed text-sage-800">
+                  {checklist.caveat}
+                </p>
+              </div>
+            </aside>
+          )}
+        </div>
+
+        {/* Pills */}
+        <div
+          role="tablist"
+          aria-label={`${checklist.name} categories`}
+          className="scrollbar-thin mt-10 flex gap-2 overflow-x-auto pb-2 md:flex-wrap md:justify-center md:overflow-visible md:pb-0"
+        >
+          {rooms.map((room) => {
+            const isActive = room.slug === activeSlug
+            return (
+              <button
+                key={room.slug}
+                ref={(el) => {
+                  if (el) pillRefs.current.set(room.slug, el)
+                  else pillRefs.current.delete(room.slug)
+                }}
+                id={pillIdFor(room.slug)}
+                role="tab"
+                type="button"
+                aria-selected={isActive}
+                aria-controls={panelIdFor(room.slug)}
+                tabIndex={isActive ? 0 : -1}
+                onClick={() => setActiveSlug(room.slug)}
+                onKeyDown={(event) => onPillKeyDown(event, room.slug)}
+                className={[
+                  'flex-shrink-0 snap-start rounded-full border px-4 py-2 text-sm font-medium transition-all duration-200',
+                  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-500',
+                  isActive
+                    ? 'border-sage-700 bg-sage-700 text-white shadow-sm'
+                    : 'border-sage-200 bg-white text-sage-700 hover:border-sage-300 hover:bg-sage-50',
+                ].join(' ')}
+              >
+                <span>{room.name}</span>
+                <span
+                  aria-hidden="true"
+                  className={[
+                    'ml-2 inline-flex items-center justify-center rounded-full px-1.5 py-0 text-[11px] font-semibold',
+                    isActive ? 'bg-white/15 text-white' : 'bg-sage-100 text-sage-700',
+                  ].join(' ')}
+                >
+                  {room.items.length}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Active panel */}
+        {activeRoom && (
+          <div
+            key={activeRoom.slug}
+            id={panelIdFor(activeRoom.slug)}
+            role="tabpanel"
+            aria-labelledby={pillIdFor(activeRoom.slug)}
+            tabIndex={0}
+            className="mt-10"
+          >
+            <div className="mb-6 flex flex-wrap items-baseline justify-center gap-3">
+              <h3 className="text-sage-800">{activeRoom.name}</h3>
+              <span
+                className="inline-flex items-center rounded-full bg-sage-100 px-3 py-1 text-xs font-semibold text-sage-700"
+                aria-hidden="true"
+              >
+                {activeRoom.items.length} {activeRoom.items.length === 1 ? 'item' : 'items'}
+              </span>
+            </div>
+
+            <ul className="mx-auto grid max-w-5xl grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {activeRoom.items.map((item, index) => (
+                <li
+                  key={`${activeRoom.slug}-${index}`}
+                  className="flex items-start gap-3 rounded-xl border border-sage-100 bg-white p-4 transition-colors duration-200 hover:border-sage-200"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-sage-50 text-sage-600"
+                  >
+                    <Check size={14} strokeWidth={2.25} />
+                  </span>
+                  <div className="min-w-0 text-sage-800">
+                    <p className="text-[0.9375rem] leading-snug">{item.text}</p>
+                    {item.note && (
+                      <p className="mt-1 text-xs leading-relaxed text-sage-600">{item.note}</p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <p
+              aria-live="polite"
+              className="sr-only"
+            >
+              Showing {activeRoom.items.length} {activeRoom.items.length === 1 ? 'item' : 'items'} in {activeRoom.name}.
+            </p>
+          </div>
+        )}
+
+        {/* Footer count + CTA */}
+        <div className="mt-10 text-center text-xs uppercase tracking-widest text-sage-500">
+          {totalItems} items across {rooms.length} {rooms.length === 1 ? 'category' : 'categories'}
+        </div>
+
+        {showQuoteCta && (
+          <div className="mx-auto mt-8 flex max-w-3xl flex-wrap items-center justify-center gap-4 rounded-2xl border border-sage-100 bg-sage-50 p-6 text-center">
+            <p className="text-[0.9375rem] text-sage-700">
+              See something that matches your space?
+            </p>
+            <Link
+              href={ctaHref}
+              className="inline-flex items-center rounded-full bg-sage-800 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-sage-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-500"
+            >
+              {ctaLabel}
+            </Link>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
