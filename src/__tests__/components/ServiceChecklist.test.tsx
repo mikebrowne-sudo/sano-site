@@ -47,12 +47,18 @@ describe('ServiceChecklist', () => {
     ).toBeInTheDocument()
   })
 
-  it('renders the point-count chip when pointCountLabel is set', () => {
+  it('emphasises the "N-Point" portion inside the heading', () => {
     render(<ServiceChecklist checklist={baseChecklist} eyebrow="Home Clean" />)
-    expect(screen.getByText('100-Point')).toBeInTheDocument()
+    const heading = screen.getByRole('heading', { level: 2 })
+    // The "100-Point" portion is wrapped in a styled span; assert via the
+    // span's distinctive italic class rather than its text alone (the
+    // text "100-Point" is also inside the heading's full text content).
+    const emphasised = heading.querySelector('span.italic')
+    expect(emphasised).not.toBeNull()
+    expect(emphasised?.textContent).toBe('100-Point')
   })
 
-  it('does not render the point-count chip for the Deep Clean Detail checklist', () => {
+  it('does not emphasise any "N-Point" span on the Deep Clean Detail heading', () => {
     const deepClean: Checklist = {
       ...baseChecklist,
       slug: 'sano-deep-clean-detail',
@@ -61,8 +67,9 @@ describe('ServiceChecklist', () => {
       pointCountLabel: undefined,
     }
     render(<ServiceChecklist checklist={deepClean} eyebrow="Deep Clean Detail" />)
-    expect(screen.queryByText('100-Point')).not.toBeInTheDocument()
-    expect(screen.queryByText('125-Point')).not.toBeInTheDocument()
+    const heading = screen.getByRole('heading', { level: 2 })
+    expect(heading.querySelector('span.italic')).toBeNull()
+    expect(heading.textContent).toBe('Sano Deep Clean Detail Checklist')
   })
 
   it('renders the caveat when checklist.caveat is set', () => {

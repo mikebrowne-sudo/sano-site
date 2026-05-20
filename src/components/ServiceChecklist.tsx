@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import Link from 'next/link'
 import { Check, Info } from 'lucide-react'
 import {
@@ -8,6 +8,25 @@ import {
   type ChecklistRoom,
   totalChecklistItems,
 } from '@/types/checklist'
+
+/**
+ * Render the checklist name with the "N-Point" portion emphasised in sage,
+ * so the point-count claim feels like part of the headline rather than an
+ * extra chip beside it. Falls back to plain text for any name without an
+ * "N-Point" pattern (e.g. the Deep Clean Detail Checklist).
+ */
+function renderChecklistName(name: string): ReactNode {
+  const match = name.match(/^(.*?)(\d+-Point)(.*)$/)
+  if (!match) return name
+  const [, before, point, after] = match
+  return (
+    <>
+      {before}
+      <span className="italic font-medium text-sage-600">{point}</span>
+      {after}
+    </>
+  )
+}
 
 interface ServiceChecklistProps {
   /** The data source for this section. */
@@ -111,17 +130,9 @@ export function ServiceChecklist({
             )}
           </div>
 
-          <h2 id={`${baseId}-heading`} className="text-sage-800 mb-3">
-            {checklist.name}
+          <h2 id={`${baseId}-heading`} className="text-sage-800 mb-4">
+            {renderChecklistName(checklist.name)}
           </h2>
-
-          {checklist.pointCountLabel && (
-            <div className="mb-4 flex justify-center">
-              <span className="inline-flex items-center rounded-full border border-sage-200 bg-sage-50 px-3 py-1 text-xs font-semibold tracking-wide text-sage-700">
-                {checklist.pointCountLabel}
-              </span>
-            </div>
-          )}
 
           {intro && (
             <p className="body-text mx-auto max-w-2xl">{intro}</p>
@@ -130,16 +141,16 @@ export function ServiceChecklist({
           {checklist.caveat && (
             <aside
               role="note"
-              className="mx-auto mt-6 max-w-2xl rounded-xl border border-sage-200 bg-sage-50 px-5 py-4 text-left"
+              className="mx-auto mt-5 max-w-2xl rounded-lg border border-sage-200 bg-sage-50 px-4 py-3 text-left"
             >
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-2.5">
                 <Info
-                  size={18}
+                  size={16}
                   strokeWidth={1.75}
                   className="mt-0.5 flex-shrink-0 text-sage-700"
                   aria-hidden="true"
                 />
-                <p className="text-[0.875rem] leading-relaxed text-sage-800">
+                <p className="text-[13px] leading-relaxed text-sage-700">
                   {checklist.caveat}
                 </p>
               </div>
@@ -147,7 +158,7 @@ export function ServiceChecklist({
           )}
         </div>
 
-        {/* Pills */}
+        {/* Category tab row — flat selector, no inactive borders */}
         <div
           role="tablist"
           aria-label={`${checklist.name} categories`}
@@ -171,19 +182,19 @@ export function ServiceChecklist({
                 onClick={() => setActiveSlug(room.slug)}
                 onKeyDown={(event) => onPillKeyDown(event, room.slug)}
                 className={[
-                  'inline-flex flex-shrink-0 snap-start items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-medium leading-none transition-colors duration-150',
+                  'inline-flex flex-shrink-0 snap-start items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-medium leading-none transition-colors duration-150',
                   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-500',
                   isActive
-                    ? 'border-sage-800 bg-sage-800 text-white'
-                    : 'border-sage-200 bg-white text-sage-700 hover:border-sage-300 hover:bg-sage-50',
+                    ? 'bg-sage-800 text-white'
+                    : 'bg-sage-50 text-sage-700 hover:bg-sage-100',
                 ].join(' ')}
               >
                 <span>{room.name}</span>
                 <span
                   aria-hidden="true"
                   className={[
-                    'inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none',
-                    isActive ? 'bg-white/15 text-white' : 'bg-sage-100 text-sage-700',
+                    'inline-flex min-w-[1.125rem] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none',
+                    isActive ? 'bg-white/20 text-white' : 'bg-white text-sage-600',
                   ].join(' ')}
                 >
                   {room.items.length}
@@ -215,22 +226,22 @@ export function ServiceChecklist({
               </span>
             </div>
 
-            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
               {activeRoom.items.map((item, index) => (
                 <li
                   key={`${activeRoom.slug}-${index}`}
-                  className="flex items-start gap-2.5 rounded-lg border border-sage-100 bg-white px-3 py-2.5 transition-colors duration-150 hover:border-sage-200 hover:bg-sage-50/40"
+                  className="flex items-start gap-2 rounded-md border border-sage-100 bg-white px-3 py-2 transition-colors duration-150 hover:border-sage-200 hover:bg-sage-50/50"
                 >
                   <Check
-                    size={15}
+                    size={14}
                     strokeWidth={2.5}
                     aria-hidden="true"
-                    className="mt-0.5 flex-shrink-0 text-sage-600"
+                    className="mt-[3px] flex-shrink-0 text-sage-600"
                   />
                   <div className="min-w-0 text-sage-800">
-                    <p className="text-[13px] leading-snug">{item.text}</p>
+                    <p className="text-[13px] leading-[1.35]">{item.text}</p>
                     {item.note && (
-                      <p className="mt-1 text-[11px] leading-snug text-sage-500">{item.note}</p>
+                      <p className="mt-0.5 text-[11px] leading-snug text-sage-500">{item.note}</p>
                     )}
                   </div>
                 </li>
