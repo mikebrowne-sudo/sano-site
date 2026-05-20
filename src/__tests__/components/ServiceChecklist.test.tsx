@@ -99,15 +99,46 @@ describe('ServiceChecklist', () => {
     expect(heading.textContent).toBe('Some Heading')
   })
 
-  it('renders the caveat when checklist.caveat is set', () => {
+  it('renders the caveat note when checklist.caveat is set', () => {
     const withCaveat: Checklist = {
       ...baseChecklist,
-      caveat: 'Deep cleaning inclusions depend on property size, condition, access, selected scope and agreed time allowance.',
+      caveatTitle: 'A quick note on deep cleans',
+      caveat: 'Deep cleaning is condition-based. Inclusions depend on property size, condition, access, selected scope and agreed time allowance.',
     }
     render(<ServiceChecklist checklist={withCaveat} eyebrow="Deep Clean" />)
+    expect(screen.getByText('A quick note on deep cleans')).toBeInTheDocument()
     expect(
-      screen.getByText(/Deep cleaning inclusions depend on property size/),
+      screen.getByText(/Deep cleaning is condition-based/),
     ).toBeInTheDocument()
+  })
+
+  it('falls back to "A quick note" when caveat is set but caveatTitle is not', () => {
+    const withCaveatOnly: Checklist = {
+      ...baseChecklist,
+      caveat: 'Some scope-limiting clarification.',
+    }
+    render(<ServiceChecklist checklist={withCaveatOnly} eyebrow="Deep Clean" />)
+    expect(screen.getByText('A quick note')).toBeInTheDocument()
+    expect(screen.getByText('Some scope-limiting clarification.')).toBeInTheDocument()
+  })
+
+  it('renders the caveat note AFTER the active item list (below the cards, not in the header)', () => {
+    const withCaveat: Checklist = {
+      ...baseChecklist,
+      caveatTitle: 'A quick note on deep cleans',
+      caveat: 'Deep cleaning is condition-based.',
+    }
+    const { container } = render(
+      <ServiceChecklist checklist={withCaveat} eyebrow="Deep Clean" />,
+    )
+    const tabpanel = screen.getByRole('tabpanel')
+    const caveat = screen.getByText('A quick note on deep cleans')
+    // Caveat aside must come AFTER the tabpanel in document order
+    // (compareDocumentPosition: 0x04 = "follows").
+    expect(tabpanel.compareDocumentPosition(caveat) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Sanity: container actually has both nodes.
+    expect(container.contains(tabpanel)).toBe(true)
+    expect(container.contains(caveat)).toBe(true)
   })
 
   it('shows a DRAFT badge when checklist.isDraft is true', () => {

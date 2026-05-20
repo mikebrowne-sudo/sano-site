@@ -43,10 +43,10 @@ export default function ChecklistPreviewPage() {
 
       <ServiceChecklist
         checklist={SANO_100_POINT_HOME_CLEAN}
-        eyebrow="WHAT'S INCLUDED"
-        displayHeading="100-Point Home Clean Checklist"
-        headingHighlight="100-Point Home Clean"
-        intro="Click on each room to see what's included in your regular home clean."
+        eyebrow="OUR SIGNATURE SYSTEM"
+        displayHeading="Sano 100-Point Home Clean Checklist"
+        headingHighlight="Home Clean"
+        intro="Click on each room to see exactly what's included in your regular home clean."
         anchorId="home-clean-checklist"
         showQuoteCta
         ctaHref="/contact"
@@ -56,9 +56,9 @@ export default function ChecklistPreviewPage() {
       <ServiceChecklist
         checklist={SANO_DEEP_CLEAN_DETAIL}
         eyebrow="WHAT'S INCLUDED"
-        displayHeading="Deep Clean Detail Checklist"
-        headingHighlight="Deep Clean Detail"
-        intro="Click on each area to see what's included in a Sano deep clean."
+        displayHeading="Sano Deep Clean Checklist"
+        headingHighlight="Deep Clean"
+        intro="Click on each area to see what's included in your Sano deep clean."
         anchorId="deep-clean-checklist"
         showQuoteCta
         ctaHref="/contact"
@@ -68,9 +68,9 @@ export default function ChecklistPreviewPage() {
       <ServiceChecklist
         checklist={SANO_125_POINT_PROPERTY_RESET}
         eyebrow="WHAT'S INCLUDED"
-        displayHeading="125-Point Property Reset Checklist"
-        headingHighlight="125-Point Property Reset"
-        intro="Click on each area to see what's covered in your end-of-lease clean."
+        displayHeading="Sano 125-Point Property Reset Checklist"
+        headingHighlight="Property Reset"
+        intro="Click on each area to see exactly what's covered in your end-of-lease clean."
         anchorId="property-reset-checklist"
         showQuoteCta
         ctaHref="/contact"

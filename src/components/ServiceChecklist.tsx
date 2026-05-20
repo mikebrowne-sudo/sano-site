@@ -204,25 +204,6 @@ export function ServiceChecklist({
               {intro}
             </p>
           )}
-
-          {checklist.caveat && (
-            <aside
-              role="note"
-              className="mx-auto mt-5 max-w-2xl rounded-md border border-sage-200 bg-sage-50/70 px-4 py-3 text-left"
-            >
-              <div className="flex items-start gap-2.5">
-                <Info
-                  size={16}
-                  strokeWidth={1.75}
-                  className="mt-0.5 flex-shrink-0 text-sage-700"
-                  aria-hidden="true"
-                />
-                <p className="text-[13px] leading-relaxed text-sage-700">
-                  {checklist.caveat}
-                </p>
-              </div>
-            </aside>
-          )}
           </div>
         </div>
       </div>
@@ -334,6 +315,30 @@ export function ServiceChecklist({
               Showing {activeRoom.items.length} {activeRoom.items.length === 1 ? 'item' : 'items'} in {activeRoom.name}.
             </p>
           </div>
+        )}
+
+        {checklist.caveat && (
+          <aside
+            role="note"
+            className="mx-auto mt-8 max-w-3xl rounded-lg border border-sage-200 bg-sage-50/60 px-4 py-3.5"
+          >
+            <div className="flex items-start gap-2.5">
+              <Info
+                size={16}
+                strokeWidth={1.75}
+                className="mt-0.5 flex-shrink-0 text-sage-600"
+                aria-hidden="true"
+              />
+              <div className="min-w-0 text-sage-700">
+                <p className="mb-1 text-[13px] font-semibold text-sage-800">
+                  {checklist.caveatTitle ?? 'A quick note'}
+                </p>
+                <p className="text-[13px] leading-relaxed">
+                  {checklist.caveat}
+                </p>
+              </div>
+            </div>
+          </aside>
         )}
 
         {showQuoteCta && (
