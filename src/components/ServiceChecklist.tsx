@@ -103,7 +103,7 @@ export function ServiceChecklist({
             <p className="eyebrow">{eyebrow}</p>
             {showDraftBadge && (
               <span
-                className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-800"
+                className="inline-flex items-center rounded-full border border-amber-200/70 bg-amber-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-amber-700"
                 aria-label="Draft content — not final"
               >
                 Draft
@@ -130,16 +130,16 @@ export function ServiceChecklist({
           {checklist.caveat && (
             <aside
               role="note"
-              className="mx-auto mt-6 max-w-2xl rounded-2xl border border-sage-200 bg-sage-50 p-5 text-left"
+              className="mx-auto mt-6 max-w-2xl rounded-xl border border-sage-200 bg-sage-50 px-5 py-4 text-left"
             >
               <div className="flex items-start gap-3">
                 <Info
-                  size={20}
+                  size={18}
                   strokeWidth={1.75}
                   className="mt-0.5 flex-shrink-0 text-sage-700"
                   aria-hidden="true"
                 />
-                <p className="text-[0.9375rem] leading-relaxed text-sage-800">
+                <p className="text-[0.875rem] leading-relaxed text-sage-800">
                   {checklist.caveat}
                 </p>
               </div>
@@ -151,7 +151,7 @@ export function ServiceChecklist({
         <div
           role="tablist"
           aria-label={`${checklist.name} categories`}
-          className="scrollbar-thin mt-10 flex gap-2 overflow-x-auto pb-2 md:flex-wrap md:justify-center md:overflow-visible md:pb-0"
+          className="mt-8 flex gap-1.5 overflow-x-auto pb-2 md:flex-wrap md:justify-center md:overflow-visible md:pb-0"
         >
           {rooms.map((room) => {
             const isActive = room.slug === activeSlug
@@ -171,10 +171,10 @@ export function ServiceChecklist({
                 onClick={() => setActiveSlug(room.slug)}
                 onKeyDown={(event) => onPillKeyDown(event, room.slug)}
                 className={[
-                  'flex-shrink-0 snap-start rounded-full border px-4 py-2 text-sm font-medium transition-all duration-200',
+                  'inline-flex flex-shrink-0 snap-start items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-medium leading-none transition-colors duration-150',
                   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-500',
                   isActive
-                    ? 'border-sage-700 bg-sage-700 text-white shadow-sm'
+                    ? 'border-sage-800 bg-sage-800 text-white'
                     : 'border-sage-200 bg-white text-sage-700 hover:border-sage-300 hover:bg-sage-50',
                 ].join(' ')}
               >
@@ -182,7 +182,7 @@ export function ServiceChecklist({
                 <span
                   aria-hidden="true"
                   className={[
-                    'ml-2 inline-flex items-center justify-center rounded-full px-1.5 py-0 text-[11px] font-semibold',
+                    'inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none',
                     isActive ? 'bg-white/15 text-white' : 'bg-sage-100 text-sage-700',
                   ].join(' ')}
                 >
@@ -201,34 +201,36 @@ export function ServiceChecklist({
             role="tabpanel"
             aria-labelledby={pillIdFor(activeRoom.slug)}
             tabIndex={0}
-            className="mt-10"
+            className="mt-8"
           >
-            <div className="mb-6 flex flex-wrap items-baseline justify-center gap-3">
-              <h3 className="text-sage-800">{activeRoom.name}</h3>
+            <div className="mb-5 flex items-baseline justify-between gap-3 border-b border-sage-100 pb-3">
+              <h3 className="text-sage-800 text-lg md:text-xl font-semibold">
+                {activeRoom.name}
+              </h3>
               <span
-                className="inline-flex items-center rounded-full bg-sage-100 px-3 py-1 text-xs font-semibold text-sage-700"
+                className="flex-shrink-0 text-xs font-medium uppercase tracking-wider text-sage-500"
                 aria-hidden="true"
               >
                 {activeRoom.items.length} {activeRoom.items.length === 1 ? 'item' : 'items'}
               </span>
             </div>
 
-            <ul className="mx-auto grid max-w-5xl grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {activeRoom.items.map((item, index) => (
                 <li
                   key={`${activeRoom.slug}-${index}`}
-                  className="flex items-start gap-3 rounded-xl border border-sage-100 bg-white p-4 transition-colors duration-200 hover:border-sage-200"
+                  className="flex items-start gap-2.5 rounded-lg border border-sage-100 bg-white px-3 py-2.5 transition-colors duration-150 hover:border-sage-200 hover:bg-sage-50/40"
                 >
-                  <span
+                  <Check
+                    size={15}
+                    strokeWidth={2.5}
                     aria-hidden="true"
-                    className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-sage-50 text-sage-600"
-                  >
-                    <Check size={14} strokeWidth={2.25} />
-                  </span>
+                    className="mt-0.5 flex-shrink-0 text-sage-600"
+                  />
                   <div className="min-w-0 text-sage-800">
-                    <p className="text-[0.9375rem] leading-snug">{item.text}</p>
+                    <p className="text-[13px] leading-snug">{item.text}</p>
                     {item.note && (
-                      <p className="mt-1 text-xs leading-relaxed text-sage-600">{item.note}</p>
+                      <p className="mt-1 text-[11px] leading-snug text-sage-500">{item.note}</p>
                     )}
                   </div>
                 </li>
@@ -245,18 +247,18 @@ export function ServiceChecklist({
         )}
 
         {/* Footer count + CTA */}
-        <div className="mt-10 text-center text-xs uppercase tracking-widest text-sage-500">
-          {totalItems} items across {rooms.length} {rooms.length === 1 ? 'category' : 'categories'}
+        <div className="mt-8 text-center text-[11px] uppercase tracking-[0.15em] text-sage-500">
+          {totalItems} items · {rooms.length} {rooms.length === 1 ? 'category' : 'categories'}
         </div>
 
         {showQuoteCta && (
-          <div className="mx-auto mt-8 flex max-w-3xl flex-wrap items-center justify-center gap-4 rounded-2xl border border-sage-100 bg-sage-50 p-6 text-center">
-            <p className="text-[0.9375rem] text-sage-700">
+          <div className="mx-auto mt-6 flex max-w-3xl flex-wrap items-center justify-center gap-4 rounded-xl border border-sage-100 bg-sage-50/60 px-5 py-4 text-center">
+            <p className="text-[0.875rem] text-sage-700">
               See something that matches your space?
             </p>
             <Link
               href={ctaHref}
-              className="inline-flex items-center rounded-full bg-sage-800 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-sage-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-500"
+              className="inline-flex items-center rounded-full bg-sage-800 px-5 py-2 text-[13px] font-semibold text-white transition-colors duration-150 hover:bg-sage-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-500"
             >
               {ctaLabel}
             </Link>
