@@ -13,12 +13,14 @@
 - Dedupe `clients/[id]` activity timeline onto the shared `<AuditTimelinePanel>` (deferred from Phase 5B; check the Promise.all batching cost first).
 
 ## Pending decisions
-- Marketing site audit next decision: service-page differentiation, homepage hero review, or About page trust upgrade.
+- Marketing site audit next decision: service-page differentiation or About page trust upgrade. (Homepage hero review closed — hierarchy locked in via PRs #154/155/156; remaining hero work is content-blocked on real Sano photography.)
 
 ## Blocked / waiting
 - _(empty)_
 
 ## Recently completed (move to STATE.md once verified live)
+- **Homepage hero alignment refine** — PR #156 merged 2026-05-19 (`9d58469`). Content block widened to `max-w-2xl`, left inset reduced to `pl-2 lg:pl-4`, chip set rotated to Homes / Offices / Rentals / End of tenancy (ClipboardCheck icon for end-of-tenancy so no icon duplicated). Trust row + chip row now sit on a single line at desktop widths.
+- **Homepage hero polish (hierarchy + gradient)** — PR #155 merged 2026-05-19 (`ada9817`). Inline icon trust row (no boxed pills), soft white card-style chips, gradient lightened through centre/right (`0.78/0.50/0.10` → `0.72/0.38/0.06`).
 - **Phase 5B amendment lock** — PR #139 merged 2026-05-13 (`a5e1a9e`). Docs ADR shipped via PR #140 (`b84d791`).
 - **Contractor invite-failure audit + activity timeline** — PR #141 merged 2026-05-14 (`b4cf784`).
 - **Contractor login flow restored** — PRs #142 (middleware, `eaa260d`) + #143 (PKCE, `c4be3c8`) + #144 (dual-flow + diagnostics, `e93ac61`).
