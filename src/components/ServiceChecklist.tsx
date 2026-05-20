@@ -6,7 +6,6 @@ import { Check, Info } from 'lucide-react'
 import {
   type Checklist,
   type ChecklistRoom,
-  totalChecklistItems,
 } from '@/types/checklist'
 
 /**
@@ -108,7 +107,6 @@ export function ServiceChecklist({
     [rooms, focusRoom],
   )
 
-  const totalItems = totalChecklistItems(checklist)
   const showDraftBadge = checklist.isDraft === true
 
   return (
@@ -134,8 +132,8 @@ export function ServiceChecklist({
 
           <h2
             id={`${baseId}-heading`}
-            className="mb-4 text-sage-800"
-            style={{ fontSize: 'clamp(1.875rem, 3vw, 2.5rem)', lineHeight: 1.15 }}
+            className="mb-4 font-sans font-bold text-sage-800"
+            style={{ fontSize: 'clamp(1.875rem, 3vw, 2.5rem)', lineHeight: 1.15, letterSpacing: '-0.015em' }}
           >
             {renderChecklistName(checklist.name)}
           </h2>
@@ -234,22 +232,22 @@ export function ServiceChecklist({
               </span>
             </div>
 
-            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            <ul className="mx-auto grid max-w-4xl grid-cols-1 gap-x-8 gap-y-3 md:grid-cols-2">
               {activeRoom.items.map((item, index) => (
                 <li
                   key={`${activeRoom.slug}-${index}`}
-                  className="flex items-start gap-2.5 rounded-md border border-sage-100 bg-white px-3.5 py-2.5 transition-colors duration-150 hover:border-sage-200 hover:bg-sage-50/40"
+                  className="flex items-start gap-3 py-1"
                 >
                   <Check
-                    size={15}
+                    size={16}
                     strokeWidth={2.5}
                     aria-hidden="true"
                     className="mt-[3px] flex-shrink-0 text-sage-600"
                   />
                   <div className="min-w-0 text-sage-800">
-                    <p className="text-[14px] leading-snug">{item.text}</p>
+                    <p className="text-[15px] leading-snug">{item.text}</p>
                     {item.note && (
-                      <p className="mt-0.5 text-[11.5px] leading-snug text-sage-500">{item.note}</p>
+                      <p className="mt-0.5 text-[12px] leading-snug text-sage-500">{item.note}</p>
                     )}
                   </div>
                 </li>
@@ -265,13 +263,8 @@ export function ServiceChecklist({
           </div>
         )}
 
-        {/* Footer count + CTA */}
-        <div className="mt-8 text-center text-[11px] uppercase tracking-[0.15em] text-sage-500">
-          {totalItems} items · {rooms.length} {rooms.length === 1 ? 'category' : 'categories'}
-        </div>
-
         {showQuoteCta && (
-          <div className="mx-auto mt-6 flex max-w-3xl flex-wrap items-center justify-center gap-4 rounded-xl border border-sage-100 bg-sage-50/60 px-5 py-4 text-center">
+          <div className="mx-auto mt-10 flex max-w-3xl flex-wrap items-center justify-center gap-4 text-center">
             <p className="text-[0.875rem] text-sage-700">
               See something that matches your space?
             </p>
