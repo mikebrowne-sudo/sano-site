@@ -289,22 +289,22 @@ export function ServiceChecklist({
               </span>
             </div>
 
-            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
               {activeRoom.items.map((item, index) => (
                 <li
                   key={`${activeRoom.slug}-${index}`}
-                  className="flex items-start gap-2 rounded-lg border border-sage-200 bg-white px-3.5 py-2"
+                  className="flex min-h-[3.5rem] items-center gap-2.5 rounded-lg border border-sage-200 bg-white px-3.5 py-2"
                 >
                   <Check
-                    size={14}
+                    size={15}
                     strokeWidth={2.5}
                     aria-hidden="true"
-                    className="mt-[3px] flex-shrink-0 text-sage-500"
+                    className="flex-shrink-0 text-sage-500"
                   />
                   <div className="min-w-0 text-sage-800">
-                    <p className="text-[13.5px] leading-[1.3]">{item.text}</p>
+                    <p className="text-[14px] leading-snug">{item.text}</p>
                     {item.note && (
-                      <p className="mt-0.5 text-[11px] leading-[1.3] text-sage-500">{item.note}</p>
+                      <p className="mt-0.5 text-[11.5px] leading-snug text-sage-500">{item.note}</p>
                     )}
                   </div>
                 </li>
