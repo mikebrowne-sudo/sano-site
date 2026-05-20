@@ -3,6 +3,7 @@
 import { useCallback, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import Link from 'next/link'
 import {
+  BadgeCheck,
   Bath,
   BedDouble,
   Briefcase,
@@ -29,6 +30,7 @@ import {
 /** Lucide icon registry used by the tab row. Add new names here when a
  *  data file references an icon not yet imported. */
 const ICON_MAP: Record<string, LucideIcon> = {
+  BadgeCheck,
   Bath,
   BedDouble,
   Briefcase,
@@ -206,11 +208,11 @@ export function ServiceChecklist({
           )}
         </div>
 
-        {/* Category tab row — outlined pills, white inactive, sage-800 active */}
+        {/* Category tab row — single-line on desktop, horizontal-scroll fallback */}
         <div
           role="tablist"
           aria-label={`${checklist.name} categories`}
-          className="mt-10 flex gap-2 overflow-x-auto pb-2 md:flex-wrap md:justify-center md:overflow-visible md:pb-0"
+          className="mt-10 flex gap-1.5 overflow-x-auto pb-2 md:justify-center md:pb-0"
         >
           {rooms.map((room) => {
             const isActive = room.slug === activeSlug
@@ -231,7 +233,7 @@ export function ServiceChecklist({
                 onClick={() => setActiveSlug(room.slug)}
                 onKeyDown={(event) => onPillKeyDown(event, room.slug)}
                 className={[
-                  'inline-flex flex-shrink-0 snap-start items-center gap-2 rounded-full border px-4 py-2 text-[13px] font-medium leading-none transition-colors duration-150',
+                  'inline-flex flex-shrink-0 snap-start items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[12.5px] font-medium leading-none transition-colors duration-150',
                   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-500',
                   isActive
                     ? 'border-sage-800 bg-sage-800 text-white shadow-sm'
@@ -240,7 +242,7 @@ export function ServiceChecklist({
               >
                 {Icon && (
                   <Icon
-                    size={14}
+                    size={13}
                     strokeWidth={1.75}
                     aria-hidden="true"
                     className={isActive ? 'text-white' : 'text-sage-600'}
