@@ -45,7 +45,16 @@ export interface Checklist {
    * "100-Point" / "125-Point" / undefined for Deep Clean (condition-based).
    */
   pointCountLabel?: string
-  /** Optional caveat to render above the checklist (used by Deep Clean). */
+  /**
+   * Optional caveat title — used as the heading of the caveat note box.
+   * Defaults to "A quick note" if caveat is set but caveatTitle is not.
+   */
+  caveatTitle?: string
+  /**
+   * Optional caveat body to render below the checklist item grid as a calm
+   * note (used by Deep Clean to surface its condition-based scope without
+   * dominating the header).
+   */
   caveat?: string
   /** Ordered rooms/categories. */
   rooms: ChecklistRoom[]

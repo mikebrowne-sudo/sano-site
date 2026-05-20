@@ -47,40 +47,118 @@ describe('ServiceChecklist', () => {
     ).toBeInTheDocument()
   })
 
-  it('emphasises the "N-Point" portion inside the heading', () => {
-    render(<ServiceChecklist checklist={baseChecklist} eyebrow="Home Clean" />)
+  it('emphasises the headingHighlight phrase inside the heading when provided', () => {
+    render(
+      <ServiceChecklist
+        checklist={baseChecklist}
+        eyebrow="WHAT'S INCLUDED"
+        displayHeading="100-Point Home Clean Checklist"
+        headingHighlight="100-Point Home Clean"
+      />,
+    )
     const heading = screen.getByRole('heading', { level: 2 })
-    // The "100-Point" portion is wrapped in a styled bold sage span; assert
-    // via the span's distinctive classes (the text "100-Point" is also
-    // inside the heading's full text content).
-    const emphasised = heading.querySelector('span.font-bold.text-sage-500')
+    const emphasised = heading.querySelector('span.text-sage-500')
     expect(emphasised).not.toBeNull()
-    expect(emphasised?.textContent).toBe('100-Point')
+    expect(emphasised?.textContent).toBe('100-Point Home Clean')
+    expect(heading.textContent).toBe('100-Point Home Clean Checklist')
   })
 
-  it('does not emphasise any "N-Point" span on the Deep Clean Detail heading', () => {
-    const deepClean: Checklist = {
-      ...baseChecklist,
-      slug: 'sano-deep-clean-detail',
-      name: 'Sano Deep Clean Detail Checklist',
-      shortName: 'Deep Clean Detail',
-      pointCountLabel: undefined,
-    }
-    render(<ServiceChecklist checklist={deepClean} eyebrow="Deep Clean Detail" />)
+  it('uses displayHeading in place of checklist.name when provided', () => {
+    render(
+      <ServiceChecklist
+        checklist={baseChecklist}
+        eyebrow="WHAT'S INCLUDED"
+        displayHeading="100-Point Home Clean Checklist"
+      />,
+    )
     const heading = screen.getByRole('heading', { level: 2 })
-    expect(heading.querySelector('span.font-bold.text-sage-500')).toBeNull()
-    expect(heading.textContent).toBe('Sano Deep Clean Detail Checklist')
+    expect(heading.textContent).toBe('100-Point Home Clean Checklist')
+    // No headingHighlight passed → no bold-sage span
+    expect(heading.querySelector('span.text-sage-500')).toBeNull()
   })
 
-  it('renders the caveat when checklist.caveat is set', () => {
+  it('falls back to checklist.name when no displayHeading is provided', () => {
+    render(<ServiceChecklist checklist={baseChecklist} eyebrow="WHAT'S INCLUDED" />)
+    const heading = screen.getByRole('heading', { level: 2 })
+    expect(heading.textContent).toBe('Sano 100-Point Home Clean Checklist')
+    // No headingHighlight passed → no bold-sage span
+    expect(heading.querySelector('span.text-sage-500')).toBeNull()
+  })
+
+  it('does not render a highlight span when headingHighlight is not found in the heading', () => {
+    render(
+      <ServiceChecklist
+        checklist={baseChecklist}
+        eyebrow="WHAT'S INCLUDED"
+        displayHeading="Some Heading"
+        headingHighlight="nonexistent-phrase"
+      />,
+    )
+    const heading = screen.getByRole('heading', { level: 2 })
+    expect(heading.querySelector('span.text-sage-500')).toBeNull()
+    expect(heading.textContent).toBe('Some Heading')
+  })
+
+  it('renders the caveat note when checklist.caveat is set', () => {
     const withCaveat: Checklist = {
       ...baseChecklist,
-      caveat: 'Deep cleaning inclusions depend on property size, condition, access, selected scope and agreed time allowance.',
+      caveatTitle: 'A quick note on deep cleans',
+      caveat: 'Deep cleaning is condition-based. Inclusions depend on property size, condition, access, selected scope and agreed time allowance.',
     }
     render(<ServiceChecklist checklist={withCaveat} eyebrow="Deep Clean" />)
+    expect(screen.getByText('A quick note on deep cleans')).toBeInTheDocument()
     expect(
-      screen.getByText(/Deep cleaning inclusions depend on property size/),
+      screen.getByText(/Deep cleaning is condition-based/),
     ).toBeInTheDocument()
+  })
+
+  it('falls back to "A quick note" when caveat is set but caveatTitle is not', () => {
+    const withCaveatOnly: Checklist = {
+      ...baseChecklist,
+      caveat: 'Some scope-limiting clarification.',
+    }
+    render(<ServiceChecklist checklist={withCaveatOnly} eyebrow="Deep Clean" />)
+    expect(screen.getByText('A quick note')).toBeInTheDocument()
+    expect(screen.getByText('Some scope-limiting clarification.')).toBeInTheDocument()
+  })
+
+  it('renders the caveat note AFTER the active item list (below the cards, not in the header)', () => {
+    const withCaveat: Checklist = {
+      ...baseChecklist,
+      caveatTitle: 'A quick note on deep cleans',
+      caveat: 'Deep cleaning is condition-based.',
+    }
+    const { container } = render(
+      <ServiceChecklist checklist={withCaveat} eyebrow="Deep Clean" />,
+    )
+    const tabpanel = screen.getByRole('tabpanel')
+    const caveat = screen.getByText('A quick note on deep cleans')
+    // Caveat aside must come AFTER the tabpanel in document order
+    // (compareDocumentPosition: 0x04 = "follows").
+    expect(tabpanel.compareDocumentPosition(caveat) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Sanity: container actually has both nodes.
+    expect(container.contains(tabpanel)).toBe(true)
+    expect(container.contains(caveat)).toBe(true)
+  })
+
+  it('renders the caveat note AFTER the CTA strip when both are present (caveat is the final block)', () => {
+    const withCaveatAndCta: Checklist = {
+      ...baseChecklist,
+      caveatTitle: 'A quick note on deep cleans',
+      caveat: 'Deep cleaning is condition-based.',
+    }
+    render(
+      <ServiceChecklist
+        checklist={withCaveatAndCta}
+        eyebrow="Deep Clean"
+        showQuoteCta
+        ctaLabel="Get a free quote for a deep clean"
+      />,
+    )
+    const cta = screen.getByRole('link', { name: 'Get a free quote for a deep clean' })
+    const caveat = screen.getByText('A quick note on deep cleans')
+    // Caveat must come AFTER the CTA in document order.
+    expect(cta.compareDocumentPosition(caveat) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('shows a DRAFT badge when checklist.isDraft is true', () => {

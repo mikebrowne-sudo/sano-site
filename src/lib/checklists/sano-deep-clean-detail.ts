@@ -24,8 +24,9 @@ export const SANO_DEEP_CLEAN_DETAIL: Checklist = {
   slug: 'sano-deep-clean-detail',
   name: 'Sano Deep Clean Detail Checklist',
   shortName: 'Deep Clean Detail',
+  caveatTitle: 'A quick note on deep cleans',
   caveat:
-    'Deep cleaning inclusions depend on property size, condition, access, selected scope and agreed time allowance. The checklist below describes what can be addressed in a deep clean; your quote confirms what will be covered in your booked time.',
+    'Deep cleaning is condition-based. Inclusions depend on property size, condition, access, selected scope and agreed time allowance. Your quote confirms what will be covered in your booked clean.',
   isDraft: true,
   rooms: [
     {
