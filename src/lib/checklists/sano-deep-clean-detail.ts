@@ -1,22 +1,32 @@
-// Sano Deep Clean Detail Checklist
+// Sano Deep Clean Checklist
 //
-// DRAFT CONTENT — Phase B scaffold only.
-// Authored from scratch for Phase B visual review. Final item text MUST be
-// authored fresh per the Phase A planning doc §5.3 — items must be
-// DISTINCT from the Home Clean Standard, focused on build-up, edges,
-// fittings, surfaces, corners, high-touch points, reachable dust, and
-// areas commonly missed during routine cleaning. Final content must come
-// from a Sano-authored Deep Clean source before this file is integrated
-// into /services/deep-cleaning.
+// DRAFT CONTENT — Phase B preview.
+// Item wording supplied verbatim by the user on 2026-05-20 for the
+// Deep Clean wording pass. This file MUST NOT be integrated into
+// /services/deep-cleaning until the wording is operationally and
+// legally reviewed (see report attached to the commit that landed
+// this content). `isDraft: true` is the gating signal.
 //
-// This checklist intentionally has NO `pointCountLabel` — deep clean
-// inclusions are condition-based, not fixed-count. See §5.2 of the
-// Phase A planning doc.
+// Naming:
+// - Data-file `name` (canonical brand string): "Sano Deep Clean Detail
+//   Checklist" — kept for stable internal identifier alongside the
+//   `sano-deep-clean-detail` slug.
+// - Customer-facing display heading (set via the `displayHeading` prop
+//   on ServiceChecklist when the component is integrated into the
+//   deep-cleaning service page): "Sano Deep Clean Checklist".
+// - Highlight phrase when rendered: "Deep Clean".
+//
+// Structure (Phase B Deep Clean wording pass, 2026-05-20):
+//   Bedrooms 15 · Bathrooms 17 · Kitchen 21 · Dining Room 12 ·
+//   Living Areas 16 · Office / Study 12 · Laundry 12 · Other 8
+//   = 113 items total. NOT rendered as "113-Point" — Deep Clean is
+//   condition-based; the caveat (rendered as the final note after
+//   the CTA) carries the scope qualification.
 //
 // Originality boundary: this file MUST NOT derive items, room names,
 // ordering, or wording from the Enhanced Cleaning reference documents
-// at F:\Sano\20-Content\Sano Cleaning Checklist\. The deep clean
-// standard is authored fresh from Sano source material.
+// at F:\Sano\20-Content\Sano Cleaning Checklist\. Sano-original
+// content only.
 
 import type { Checklist } from '@/types/checklist'
 
@@ -30,19 +40,25 @@ export const SANO_DEEP_CLEAN_DETAIL: Checklist = {
   isDraft: true,
   rooms: [
     {
-      slug: 'kitchen',
-      name: 'Kitchen',
-      icon: 'ChefHat',
+      slug: 'bedrooms',
+      name: 'Bedrooms',
+      icon: 'BedDouble',
       items: [
-        { text: 'Inside oven cleaned' },
-        { text: 'Oven racks and trays cleaned' },
-        { text: 'Rangehood filters degreased' },
-        { text: 'Inside microwave cleaned' },
-        { text: 'Cupboard fronts detailed' },
-        { text: 'Splashback grout spot-treated' },
-        { text: 'Behind appliances cleaned', note: 'Where pull-out access allows.' },
-        { text: 'Sink and tapware de-scaled' },
-        { text: 'Floor edges and kick-boards detailed' },
+        { text: 'Furniture detailed' },
+        { text: 'Bedside tables cleaned' },
+        { text: 'Lamps dusted' },
+        { text: 'Window sills cleaned' },
+        { text: 'Skirting boards detailed' },
+        { text: 'Door frames wiped' },
+        { text: 'Doors spot cleaned' },
+        { text: 'Touch points wiped' },
+        { text: 'Mirrors cleaned' },
+        { text: 'Wall hangings dusted' },
+        { text: 'Cobwebs removed' },
+        { text: 'Ceiling fans dusted' },
+        { text: 'Under beds vacuumed' },
+        { text: 'Wardrobe fronts wiped' },
+        { text: 'Floors vacuumed/mopped' },
       ],
     },
     {
@@ -50,39 +66,51 @@ export const SANO_DEEP_CLEAN_DETAIL: Checklist = {
       name: 'Bathrooms',
       icon: 'Bath',
       items: [
-        { text: 'Shower glass de-scaled' },
-        { text: 'Frames and seals detailed' },
-        { text: 'Grout lines treated' },
-        { text: 'Tile walls scrubbed' },
-        { text: 'Toilet base and behind detailed' },
-        { text: 'Extractor fan vent wiped' },
-        { text: 'Floor edges detailed by hand' },
+        { text: 'Mirrors cleaned' },
+        { text: 'Vanity cleaned' },
+        { text: 'Basin polished' },
+        { text: 'Tapware polished' },
+        { text: 'Toilet detailed' },
+        { text: 'Shower glass cleaned' },
+        { text: 'Shower tiles cleaned' },
+        { text: 'Shower tracks cleaned' },
+        { text: 'Soap scum reduced' },
+        { text: 'Grout lines cleaned' },
+        { text: 'Bath cleaned' },
+        { text: 'Cupboard faces wiped' },
+        { text: 'Towel rails wiped' },
+        { text: 'Exhaust cover wiped' },
+        { text: 'Touch points wiped' },
+        { text: 'Skirting boards detailed' },
+        { text: 'Floors mopped' },
       ],
     },
     {
-      slug: 'bedrooms',
-      name: 'Bedrooms',
-      icon: 'BedDouble',
+      slug: 'kitchen',
+      name: 'Kitchen',
+      icon: 'ChefHat',
       items: [
-        { text: 'Skirting boards wiped' },
+        { text: 'Benchtops cleaned' },
+        { text: 'Cupboard faces wiped' },
+        { text: 'Drawer faces wiped' },
+        { text: 'Splashback cleaned' },
+        { text: 'Cooktop polished' },
+        { text: 'Rangehood exterior cleaned' },
+        { text: 'Rangehood filters cleaned' },
+        { text: 'Oven exterior cleaned' },
+        { text: 'Microwave cleaned' },
+        { text: 'Fridge exterior cleaned' },
+        { text: 'Dishwasher exterior wiped' },
+        { text: 'Sink polished' },
+        { text: 'Tapware polished' },
+        { text: 'Appliances wiped' },
+        { text: 'Light fittings dusted' },
+        { text: 'Skirting boards cleaned' },
+        { text: 'Doors spot cleaned' },
         { text: 'Door frames wiped' },
-        { text: 'Inside accessible wardrobes dusted' },
-        { text: 'Under bed vacuumed where access allows' },
-        { text: 'Ceiling fan blades dusted' },
-        { text: 'Window sills and tracks cleaned' },
-      ],
-    },
-    {
-      slug: 'living-areas',
-      name: 'Living Areas',
-      icon: 'Sofa',
-      items: [
-        { text: 'Skirting boards wiped' },
-        { text: 'Door frames and architraves wiped' },
-        { text: 'Under furniture vacuumed where access allows' },
-        { text: 'Soft furnishings vacuumed' },
-        { text: 'Ceiling fan blades dusted' },
-        { text: 'Window sills and tracks cleaned' },
+        { text: 'Cobwebs removed' },
+        { text: 'Grease build-up reduced' },
+        { text: 'Floors vacuumed/mopped' },
       ],
     },
     {
@@ -90,11 +118,41 @@ export const SANO_DEEP_CLEAN_DETAIL: Checklist = {
       name: 'Dining Room',
       icon: 'UtensilsCrossed',
       items: [
-        { text: 'Skirting boards wiped' },
+        { text: 'Dining table cleaned' },
+        { text: 'Furniture detailed' },
+        { text: 'Chair frames wiped' },
+        { text: 'Wall hangings dusted' },
+        { text: 'Light fittings dusted' },
+        { text: 'Window sills cleaned' },
+        { text: 'Skirting boards detailed' },
+        { text: 'Touch points wiped' },
+        { text: 'Doors spot cleaned' },
         { text: 'Door frames wiped' },
+        { text: 'Cobwebs removed' },
+        { text: 'Floors vacuumed/mopped' },
+      ],
+    },
+    {
+      slug: 'living-areas',
+      name: 'Living Areas',
+      icon: 'Sofa',
+      items: [
+        { text: 'General tidy' },
+        { text: 'Furniture detailed' },
+        { text: 'Coffee tables cleaned' },
+        { text: 'Entertainment units dusted' },
+        { text: 'Wall hangings dusted' },
+        { text: 'Mirrors cleaned' },
+        { text: 'Window sills cleaned' },
+        { text: 'Skirting boards detailed' },
+        { text: 'Touch points wiped' },
+        { text: 'Doors spot cleaned' },
+        { text: 'Door frames wiped' },
+        { text: 'Ceiling fans dusted' },
+        { text: 'Couches vacuumed' },
         { text: 'Under furniture vacuumed' },
-        { text: 'Chair legs and table underside cleaned' },
-        { text: 'Pendant lights dusted' },
+        { text: 'Cobwebs removed' },
+        { text: 'Floors vacuumed/mopped' },
       ],
     },
     {
@@ -102,10 +160,18 @@ export const SANO_DEEP_CLEAN_DETAIL: Checklist = {
       name: 'Office / Study',
       icon: 'Briefcase',
       items: [
-        { text: 'Skirting boards wiped' },
-        { text: 'Shelves dusted around items' },
-        { text: 'Cables and monitor stands dusted' },
-        { text: 'Window sills and tracks cleaned' },
+        { text: 'Desks cleaned' },
+        { text: 'Furniture detailed' },
+        { text: 'Shelves dusted' },
+        { text: 'Wall hangings dusted' },
+        { text: 'Window sills cleaned' },
+        { text: 'Skirting boards detailed' },
+        { text: 'Touch points wiped' },
+        { text: 'Doors spot cleaned' },
+        { text: 'Door frames wiped' },
+        { text: 'Cobwebs removed' },
+        { text: 'Ceiling fans dusted' },
+        { text: 'Floors vacuumed/mopped' },
       ],
     },
     {
@@ -113,45 +179,33 @@ export const SANO_DEEP_CLEAN_DETAIL: Checklist = {
       name: 'Laundry',
       icon: 'WashingMachine',
       items: [
-        { text: 'Behind appliances cleaned', note: 'Where pull-out access allows.' },
-        { text: 'Dryer lint trap area cleaned' },
-        { text: 'Tub and tapware de-scaled' },
-        { text: 'Floor edges detailed by hand' },
+        { text: 'Bench cleaned' },
+        { text: 'Sink polished' },
+        { text: 'Cupboard faces wiped' },
+        { text: 'Appliances wiped' },
+        { text: 'Splashback cleaned' },
+        { text: 'Tapware polished' },
+        { text: 'Skirting boards detailed' },
+        { text: 'Doors spot cleaned' },
+        { text: 'Door frames wiped' },
+        { text: 'Touch points wiped' },
+        { text: 'Cobwebs removed' },
+        { text: 'Floors vacuumed/mopped' },
       ],
     },
     {
-      slug: 'edges-touch-points',
-      name: 'Edges & Touch Points',
-      icon: 'Hand',
-      items: [
-        { text: 'Door handles wiped throughout' },
-        { text: 'Light switches wiped throughout' },
-        { text: 'Power-point faces wiped' },
-        { text: 'Skirting boards spot-detailed' },
-        { text: 'Banister rails detailed' },
-        { text: 'Picture rails dusted' },
-      ],
-    },
-    {
-      slug: 'entry-final-touches',
-      name: 'Entry & Final Touches',
+      slug: 'other',
+      name: 'Other',
       icon: 'Sparkles',
       items: [
-        { text: 'Entry door and frame detailed' },
-        { text: 'Threshold cleaned' },
-        { text: 'Cobwebs cleared at entry' },
-        { text: 'Final detail walk-through' },
-      ],
-    },
-    {
-      slug: 'optional-extras',
-      name: 'Optional Extras',
-      icon: 'PlusCircle',
-      items: [
-        { text: 'Inside fridge clean', note: 'Quoted separately.' },
-        { text: 'Inside cabinet detail', note: 'Cabinets to be emptied first.' },
-        { text: 'Wall spot-treatment', note: 'Subject to paint condition.' },
-        { text: 'Carpet steam clean', note: 'Quoted separately.' },
+        { text: 'Light dusting completed' },
+        { text: 'Cobwebs removed' },
+        { text: 'Touch points wiped' },
+        { text: 'Skirting boards detailed' },
+        { text: 'Doors spot cleaned' },
+        { text: 'Door frames wiped' },
+        { text: 'Floors vacuumed/mopped' },
+        { text: 'Final check completed' },
       ],
     },
   ],
