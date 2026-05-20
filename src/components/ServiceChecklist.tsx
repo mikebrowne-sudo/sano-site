@@ -2,17 +2,59 @@
 
 import { useCallback, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import Link from 'next/link'
-import { Check, Info } from 'lucide-react'
+import {
+  Bath,
+  BedDouble,
+  Briefcase,
+  Check,
+  ChefHat,
+  DoorOpen,
+  Hand,
+  Info,
+  PaintRoller,
+  PanelTop,
+  PlusCircle,
+  Sofa,
+  Sparkles,
+  UtensilsCrossed,
+  Warehouse,
+  WashingMachine,
+  type LucideIcon,
+} from 'lucide-react'
 import {
   type Checklist,
   type ChecklistRoom,
 } from '@/types/checklist'
 
+/** Lucide icon registry used by the tab row. Add new names here when a
+ *  data file references an icon not yet imported. */
+const ICON_MAP: Record<string, LucideIcon> = {
+  Bath,
+  BedDouble,
+  Briefcase,
+  ChefHat,
+  DoorOpen,
+  Hand,
+  PaintRoller,
+  PanelTop,
+  PlusCircle,
+  Sofa,
+  Sparkles,
+  UtensilsCrossed,
+  Warehouse,
+  WashingMachine,
+}
+
+function getIcon(name?: string): LucideIcon | null {
+  if (!name) return null
+  return ICON_MAP[name] ?? null
+}
+
 /**
  * Render the checklist name with the "N-Point" portion emphasised in
- * Sano sage, so the point-count claim reads as part of the headline
- * rather than an external chip. Bold-weight + sage-600 colour, no
- * italic — matches the structural feel of polished cleaning-industry
+ * Sano green, so the point-count claim reads as part of the headline
+ * rather than an external chip. Bold-weight + sage-500 (Sano primary
+ * green) — matches the bright accent emphasis on equivalent industry
  * checklist hero treatments. Falls back to plain text for any name
  * without an "N-Point" pattern (e.g. the Deep Clean Detail Checklist).
  */
@@ -23,7 +65,7 @@ function renderChecklistName(name: string): ReactNode {
   return (
     <>
       {before}
-      <span className="font-bold text-sage-600">{point}</span>
+      <span className="font-bold text-sage-500">{point}</span>
       {after}
     </>
   )
@@ -113,7 +155,7 @@ export function ServiceChecklist({
     <section
       id={sectionId}
       aria-labelledby={`${baseId}-heading`}
-      className="section-padding section-y bg-white"
+      className="section-padding section-y bg-sage-50"
     >
       <div className="container-max">
         {/* Header — stacked eyebrow lead + large hero heading */}
@@ -164,14 +206,15 @@ export function ServiceChecklist({
           )}
         </div>
 
-        {/* Category tab row — flat selector, no inactive borders */}
+        {/* Category tab row — outlined pills, white inactive, sage-800 active */}
         <div
           role="tablist"
           aria-label={`${checklist.name} categories`}
-          className="mt-8 flex gap-1.5 overflow-x-auto pb-2 md:flex-wrap md:justify-center md:overflow-visible md:pb-0"
+          className="mt-10 flex gap-2 overflow-x-auto pb-2 md:flex-wrap md:justify-center md:overflow-visible md:pb-0"
         >
           {rooms.map((room) => {
             const isActive = room.slug === activeSlug
+            const Icon = getIcon(room.icon)
             return (
               <button
                 key={room.slug}
@@ -188,23 +231,22 @@ export function ServiceChecklist({
                 onClick={() => setActiveSlug(room.slug)}
                 onKeyDown={(event) => onPillKeyDown(event, room.slug)}
                 className={[
-                  'inline-flex flex-shrink-0 snap-start items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-medium leading-none transition-colors duration-150',
+                  'inline-flex flex-shrink-0 snap-start items-center gap-2 rounded-full border px-4 py-2 text-[13px] font-medium leading-none transition-colors duration-150',
                   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-500',
                   isActive
-                    ? 'bg-sage-800 text-white'
-                    : 'bg-transparent text-sage-700 hover:bg-sage-50',
+                    ? 'border-sage-800 bg-sage-800 text-white shadow-sm'
+                    : 'border-sage-200 bg-white text-sage-700 hover:border-sage-300 hover:bg-sage-50',
                 ].join(' ')}
               >
+                {Icon && (
+                  <Icon
+                    size={14}
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                    className={isActive ? 'text-white' : 'text-sage-600'}
+                  />
+                )}
                 <span>{room.name}</span>
-                <span
-                  aria-hidden="true"
-                  className={[
-                    'text-[11px] font-normal leading-none',
-                    isActive ? 'text-white/70' : 'text-sage-400',
-                  ].join(' ')}
-                >
-                  {room.items.length}
-                </span>
               </button>
             )
           })}
@@ -220,34 +262,34 @@ export function ServiceChecklist({
             tabIndex={0}
             className="mt-8"
           >
-            <div className="mb-6 flex items-baseline justify-between gap-3 border-b border-sage-100 pb-3">
-              <h3 className="text-sage-800 text-xl md:text-2xl font-semibold">
+            <div className="mb-6 flex items-baseline justify-between gap-3 border-b border-sage-200 pb-3">
+              <h3 className="font-sans text-xl md:text-2xl font-bold text-sage-800">
                 {activeRoom.name}
               </h3>
               <span
-                className="flex-shrink-0 text-sm text-sage-500"
+                className="flex-shrink-0 inline-flex items-center rounded-full bg-sage-100/70 px-3 py-1 text-[13px] font-medium text-sage-700"
                 aria-hidden="true"
               >
                 {activeRoom.items.length} {activeRoom.items.length === 1 ? 'item' : 'items'}
               </span>
             </div>
 
-            <ul className="mx-auto grid max-w-4xl grid-cols-1 gap-x-8 gap-y-3 md:grid-cols-2">
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {activeRoom.items.map((item, index) => (
                 <li
                   key={`${activeRoom.slug}-${index}`}
-                  className="flex items-start gap-3 py-1"
+                  className="flex items-start gap-2.5 rounded-lg border border-sage-200 bg-white px-4 py-3"
                 >
                   <Check
                     size={16}
                     strokeWidth={2.5}
                     aria-hidden="true"
-                    className="mt-[3px] flex-shrink-0 text-sage-600"
+                    className="mt-[3px] flex-shrink-0 text-sage-500"
                   />
                   <div className="min-w-0 text-sage-800">
-                    <p className="text-[15px] leading-snug">{item.text}</p>
+                    <p className="text-[14px] leading-snug">{item.text}</p>
                     {item.note && (
-                      <p className="mt-0.5 text-[12px] leading-snug text-sage-500">{item.note}</p>
+                      <p className="mt-0.5 text-[11.5px] leading-snug text-sage-500">{item.note}</p>
                     )}
                   </div>
                 </li>
