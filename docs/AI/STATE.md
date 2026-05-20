@@ -2,10 +2,10 @@
 
 > Short, current. The deep history lives in [`docs/PORTAL.md`](../PORTAL.md). Update this after each Netlify-verified deploy.
 
-**Last verified:** 2026-05-09 (Phase J branch-shipped per PORTAL.md; not yet merged to `main` at time of writing - confirm before relying on this line.)
+**Last verified:** 2026-05-19 (homepage hero hierarchy locked in — PR #155 + #156 merged and confirmed live on sano.nz by polling served HTML.)
 
 ## Live in production today
-- Marketing site (homepage, services, about, contact, FAQ).
+- Marketing site (homepage, services, about, contact, FAQ). Homepage hero now uses real Sano residential photography (Herne Bay) with a softened sage gradient (`0.88 / 0.72 / 0.38 / 0.06`), inline icon trust row (`Insured · Vetted teams · Auckland wide · Satisfaction guarantee`), and a soft white card-style service chip row (`Homes · Offices · Rentals · End of tenancy`).
 - Portal CRM (`/portal`) - quotes, invoices, jobs, clients, people, payroll, settings.
 - Contractor mobile views (`/contractor`).
 - Public share routes (`/share/quote/[token]`, `/share/invoice/[token]`).
