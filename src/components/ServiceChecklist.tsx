@@ -53,10 +53,10 @@ function getIcon(name?: string): LucideIcon | null {
 }
 
 /**
- * Render a heading with an optional `highlight` substring emphasised
- * in Sano green (bold + sage-500). The caller passes both the full
- * heading string and the substring they want highlighted — keeps the
- * highlight phrase under caller control rather than guessed by regex.
+ * Render a heading with an optional `highlight` substring emphasised in
+ * Sano sage. Colour-only emphasis (no extra weight) — the heading itself
+ * carries the semibold weight, the highlight differs only in colour so
+ * the emphasis reads as refined rather than heavy.
  *
  * If `highlight` is omitted or not found in `heading`, falls back to
  * rendering `heading` as plain text.
@@ -68,7 +68,7 @@ function renderHeading(heading: string, highlight?: string): ReactNode {
   return (
     <>
       {heading.slice(0, idx)}
-      <span className="font-bold text-sage-500">{highlight}</span>
+      <span className="text-sage-500">{highlight}</span>
       {heading.slice(idx + highlight.length)}
     </>
   )
@@ -193,7 +193,7 @@ export function ServiceChecklist({
 
           <h2
             id={`${baseId}-heading`}
-            className="mb-4 font-sans font-bold text-sage-800"
+            className="mb-4 font-sans font-semibold text-sage-800"
             style={{ fontSize: 'clamp(1.875rem, 3vw, 2.5rem)', lineHeight: 1.15, letterSpacing: '-0.015em' }}
           >
             {renderHeading(heading, headingHighlight)}

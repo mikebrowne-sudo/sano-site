@@ -57,7 +57,7 @@ describe('ServiceChecklist', () => {
       />,
     )
     const heading = screen.getByRole('heading', { level: 2 })
-    const emphasised = heading.querySelector('span.font-bold.text-sage-500')
+    const emphasised = heading.querySelector('span.text-sage-500')
     expect(emphasised).not.toBeNull()
     expect(emphasised?.textContent).toBe('100-Point Home Clean')
     expect(heading.textContent).toBe('100-Point Home Clean Checklist')
@@ -74,7 +74,7 @@ describe('ServiceChecklist', () => {
     const heading = screen.getByRole('heading', { level: 2 })
     expect(heading.textContent).toBe('100-Point Home Clean Checklist')
     // No headingHighlight passed → no bold-sage span
-    expect(heading.querySelector('span.font-bold.text-sage-500')).toBeNull()
+    expect(heading.querySelector('span.text-sage-500')).toBeNull()
   })
 
   it('falls back to checklist.name when no displayHeading is provided', () => {
@@ -82,7 +82,7 @@ describe('ServiceChecklist', () => {
     const heading = screen.getByRole('heading', { level: 2 })
     expect(heading.textContent).toBe('Sano 100-Point Home Clean Checklist')
     // No headingHighlight passed → no bold-sage span
-    expect(heading.querySelector('span.font-bold.text-sage-500')).toBeNull()
+    expect(heading.querySelector('span.text-sage-500')).toBeNull()
   })
 
   it('does not render a highlight span when headingHighlight is not found in the heading', () => {
@@ -95,7 +95,7 @@ describe('ServiceChecklist', () => {
       />,
     )
     const heading = screen.getByRole('heading', { level: 2 })
-    expect(heading.querySelector('span.font-bold.text-sage-500')).toBeNull()
+    expect(heading.querySelector('span.text-sage-500')).toBeNull()
     expect(heading.textContent).toBe('Some Heading')
   })
 
