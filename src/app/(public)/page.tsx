@@ -87,13 +87,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      <ProcessSteps />
-
       {/* Signature System — homepage trust block teasing the
-          Sano 100-Point Home Clean Checklist. Light surface, sits between
-          the 3-step ProcessSteps band and the dark CtaBanner. CTA links to
-          the future /services/regular-cleaning checklist anchor (soft-fails
-          before Phase C integration; just lands the user at the page top). */}
+          Sano 100-Point Home Clean Checklist. Full-width dark sage banner
+          sits between the beige services grid above and the beige
+          ProcessSteps band below — the dark interruption signals it as a
+          feature block. CTA links to the future Phase C checklist anchor
+          on /services/regular-cleaning (soft-fails before integration;
+          lands the user at the page top in the meantime). */}
       <SignatureSystem
         eyebrow="OUR SIGNATURE SYSTEM"
         displayHeading="The Sano 100-Point Home Clean Checklist"
@@ -101,8 +101,9 @@ export default function HomePage() {
         body="A clear room-by-room standard for every Sano home clean. See exactly what's included before you book, with no surprises and no missed corners."
         ctaHref="/services/regular-cleaning#home-clean-checklist"
         ctaLabel="View the 100-Point Checklist"
-        specLine="100 items · 8 rooms · checked every visit"
       />
+
+      <ProcessSteps />
 
       {/* JSON-LD: LocalBusiness */}
       <script
