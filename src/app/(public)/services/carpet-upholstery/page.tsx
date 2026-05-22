@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
-import { HeroSection } from '@/components/HeroSection'
 import { CtaBanner } from '@/components/CtaBanner'
 import { FadeIn, Stagger, StaggerItem } from '@/components/FadeIn'
 import { QuoteButton } from '@/components/QuoteButton'
 import { ServiceCard } from '@/components/ServiceCard'
+import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { getRelatedServices } from '@/lib/services'
 
 export const metadata: Metadata = {
@@ -64,12 +64,14 @@ const related = getRelatedServices(['regular-cleaning', 'deep-cleaning', 'end-of
 export default function CarpetUpholsteryPage() {
   return (
     <>
-      <HeroSection
-        headline="Carpet & Upholstery Cleaning in Auckland"
-        subtext="Refresh carpets and furniture by removing built-up dirt, stains, and odours."
-        imageUrl="/images/carpet-upholstery.jpg"
-        imageAlt="Carpet and upholstery cleaning in progress"
-        showSecondaryButton={false}
+      {/* SubpageHero — canonical cleaning-service pattern. */}
+      <SubpageHero
+        eyebrow="CARPET & UPHOLSTERY CLEANING"
+        title="Carpet and upholstery cleaning across Auckland"
+        subtitle="Freshen up carpets, rugs, sofas, and fabric surfaces with careful cleaning from the Sano team."
+        imageSrc="/images/heroes/carpet-upholstery-cleaning-hero.jpg"
+        primaryCta={{ label: 'Get a Free Quote', href: '/contact' }}
+        trustItems={DEFAULT_TRUST_ITEMS}
       />
 
       {/* Intro */}

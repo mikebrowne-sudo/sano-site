@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Image from 'next/image'
 import { CtaBanner } from '@/components/CtaBanner'
 import { FadeIn, Stagger, StaggerItem } from '@/components/FadeIn'
+import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 
 export const metadata: Metadata = {
   title: 'About Sano Property Services | Auckland',
@@ -33,7 +34,25 @@ const values = [
 export default function AboutPage() {
   return (
     <>
-      {/* Hero */}
+      {/* SubpageHero — About uses the trust row (page is about Sano as
+          a company, so trust signals fit) and the homepage-style dual
+          CTA (primary Get a Free Quote + secondary Explore Services).
+          The existing two-column "about" content section below was
+          previously acting as the page's hero — it stays as a
+          secondary content block beneath the new SubpageHero. Its
+          inline h1 is demoted to h2 since the SubpageHero now carries
+          the page's single h1. */}
+      <SubpageHero
+        eyebrow="ABOUT SANO"
+        title="A cleaning company built on care, consistency, and trust"
+        subtitle="Sano provides residential and commercial cleaning across Auckland, with reliable systems, careful people, and clear communication."
+        imageSrc="/images/heroes/about-hero.jpg"
+        primaryCta={{ label: 'Get a Free Quote', href: '/contact' }}
+        secondaryCta={{ label: 'Explore Services', href: '/services' }}
+        trustItems={DEFAULT_TRUST_ITEMS}
+      />
+
+      {/* About content (was the original hero — now a secondary block) */}
       <section className="section-padding section-y bg-white">
         <div className="container-max">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
@@ -50,7 +69,7 @@ export default function AboutPage() {
             </FadeIn>
             <FadeIn delay={0.15}>
               <p className="eyebrow mb-4">About Sano</p>
-              <h1 className="mb-6">Cleaning done properly, by people who care about the result.</h1>
+              <h2 className="mb-6">Cleaning done properly, by people who care about the result.</h2>
               <p className="text-[0.9375rem] font-medium text-sage-500 mb-8 italic">
                 Clean spaces — Healthy living
               </p>
