@@ -35,9 +35,9 @@ export function ServiceInformation({
   secondaryImage,
 }: ServiceInformationProps) {
   return (
-    <section className="section-padding bg-white py-12 lg:py-14">
+    <section className="section-padding bg-white py-10 lg:py-12">
       <div className="container-max">
-        <div className="grid grid-cols-1 lg:grid-cols-[1.05fr_1fr] gap-8 lg:gap-12 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6 lg:gap-10 items-start">
           {/* Left — heading + body */}
           <div>
             <h2 className="mb-5 border-b border-sage-100 pb-4">{title}</h2>
