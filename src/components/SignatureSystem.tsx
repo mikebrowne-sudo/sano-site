@@ -57,39 +57,52 @@ function renderHeading(heading: string, highlight?: string): ReactNode {
 }
 
 /**
- * Soft oversized checklist/document watermark. Built from CSS shapes
- * rather than a lucide icon so it reads as a document silhouette
- * rather than a literal icon. Sits at the right edge, partially
+ * Soft checklist/document watermark. Built from CSS shapes rather than a
+ * lucide icon so it reads as an elegant document silhouette behind the
+ * heading rather than a literal icon. Sits at the right edge, partially
  * cropped, very low opacity. Pure presentational — aria-hidden.
  *
- * The outer wrapper carries `motion-safe:signature-drift` so the
- * shape gently drifts only when the user hasn't requested reduced
- * motion. The background image and overlay never move.
+ * Structure is split in two layers on purpose:
+ *
+ *   - Outer wrapper owns static positioning (`top-1/2 -translate-y-1/2`).
+ *     If we put the drift animation on this element directly, the
+ *     keyframe's `transform: translate(...)` would clobber the
+ *     `-translate-y-1/2` centering transform and the watermark would
+ *     jump down by half its height. So this wrapper never animates.
+ *
+ *   - Inner element owns the drift animation via `motion-safe:` so
+ *     reduced-motion users see a static watermark. Only this element
+ *     moves — the background image, overlays, heading, body and CTA
+ *     all stay completely static.
+ *
+ * Hidden below `sm:` so it never competes with text on mobile.
  */
 function DocumentWatermark() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute -right-32 top-1/2 hidden h-[34rem] w-[28rem] -translate-y-1/2 opacity-[0.07] sm:block lg:right-[-4rem] motion-safe:signature-drift"
+      className="pointer-events-none absolute right-[-3rem] top-1/2 hidden h-[21rem] w-[17rem] -translate-y-1/2 sm:block lg:right-[-2rem]"
     >
-      <div className="flex h-full w-full flex-col rounded-3xl border-2 border-white p-10">
-        {/* Document title bar */}
-        <div className="mb-8 h-3 w-40 rounded-full bg-white" />
+      <div className="h-full w-full opacity-[0.09] motion-safe:signature-drift">
+        <div className="flex h-full w-full flex-col rounded-2xl border border-white p-6">
+          {/* Document title bar */}
+          <div className="mb-5 h-1.5 w-20 rounded-full bg-white" />
 
-        {/* Six checklist rows */}
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="mb-6 flex items-center gap-4">
-            {/* Check tile */}
-            <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border-2 border-white">
-              <div className="h-2 w-2 rounded-[2px] bg-white" />
+          {/* Five checklist rows */}
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="mb-3.5 flex items-center gap-3">
+              {/* Check tile */}
+              <div className="flex h-3 w-3 flex-shrink-0 items-center justify-center rounded-[3px] border border-white">
+                <div className="h-1 w-1 rounded-[1px] bg-white" />
+              </div>
+              {/* Row label */}
+              <div
+                className="h-1.5 rounded-full bg-white"
+                style={{ width: `${78 - i * 8}%` }}
+              />
             </div>
-            {/* Row label */}
-            <div
-              className="h-2.5 rounded-full bg-white"
-              style={{ width: `${72 - i * 6}%` }}
-            />
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   )
