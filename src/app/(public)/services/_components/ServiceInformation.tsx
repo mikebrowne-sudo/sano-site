@@ -35,12 +35,12 @@ export function ServiceInformation({
   secondaryImage,
 }: ServiceInformationProps) {
   return (
-    <section className="section-padding section-y bg-white">
+    <section className="section-padding bg-white py-12 lg:py-14">
       <div className="container-max">
-        <div className="grid grid-cols-1 lg:grid-cols-[1.05fr_1fr] gap-10 lg:gap-14 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.05fr_1fr] gap-8 lg:gap-12 items-start">
           {/* Left — heading + body */}
           <div>
-            <h2 className="mb-6 border-b border-sage-100 pb-5">{title}</h2>
+            <h2 className="mb-5 border-b border-sage-100 pb-4">{title}</h2>
             <div className="body-text space-y-4">
               {body.map((paragraph, i) => (
                 <p key={i}>{paragraph}</p>
@@ -49,7 +49,7 @@ export function ServiceInformation({
           </div>
 
           {/* Right — two stacked 4:3 images */}
-          <div className="grid grid-cols-1 gap-5">
+          <div className="grid grid-cols-1 gap-4">
             <ServiceInfoImage image={primaryImage} />
             <ServiceInfoImage image={secondaryImage} />
           </div>

@@ -55,45 +55,45 @@ export function WhatWeCoverSection({
   items,
 }: WhatWeCoverSectionProps) {
   return (
-    <section className="section-padding section-y bg-[#faf9f6]">
+    <section className="section-padding bg-[#faf9f6] py-12 lg:py-14">
       <div className="container-max">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-sage-500">
             {eyebrow}
           </p>
           <h2
-            className="mt-3 font-display font-bold text-sage-800"
+            className="mt-2 font-display font-bold text-sage-800"
             style={{
-              fontSize: 'clamp(1.75rem, 3vw, 2.25rem)',
+              fontSize: 'clamp(1.625rem, 2.5vw, 2rem)',
               lineHeight: 1.15,
               letterSpacing: '-0.015em',
             }}
           >
             {renderHeading(heading, headingHighlight)}
           </h2>
-          {subtitle && <p className="mt-4 body-text">{subtitle}</p>}
+          {subtitle && <p className="mt-3 body-text">{subtitle}</p>}
         </div>
 
-        <ul className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
           {items.map((item) => {
             const Icon = item.icon
             return (
               <li
                 key={item.title}
-                className="rounded-2xl border border-sage-100 bg-white p-6 shadow-sm"
+                className="rounded-2xl border border-sage-100 bg-white p-5 shadow-sm"
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sage-100">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sage-100">
                   <Icon
-                    size={20}
+                    size={18}
                     strokeWidth={1.75}
                     className="text-sage-500"
                     aria-hidden="true"
                   />
                 </span>
-                <h3 className="mt-5 font-sans text-[1.0625rem] font-semibold text-sage-800">
+                <h3 className="mt-4 font-sans text-[1rem] font-semibold text-sage-800">
                   {item.title}
                 </h3>
-                <p className="mt-2 text-[0.9375rem] leading-relaxed text-sage-600">
+                <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-sage-600">
                   {item.body}
                 </p>
               </li>
