@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { SubpageHero } from '@/components/SubpageHero'
+import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 
 jest.mock('next/image', () => ({
   __esModule: true,
@@ -104,11 +104,47 @@ describe('SubpageHero — CTAs and chips', () => {
     render(
       <SubpageHero
         {...baseProps}
-        chips={[{ label: 'Insured' }, { label: 'Vetted teams' }]}
+        chips={[{ label: 'Studio' }, { label: 'Bookings'}]}
       />,
     )
+    expect(screen.getByText('Studio')).toBeInTheDocument()
+    expect(screen.getByText('Bookings')).toBeInTheDocument()
+  })
+})
+
+describe('SubpageHero — trust row', () => {
+  it('does not render a trust row when trustItems is omitted', () => {
+    render(<SubpageHero {...baseProps} />)
+    expect(screen.queryByText('Insured')).toBeNull()
+    expect(screen.queryByText('Vetted teams')).toBeNull()
+  })
+
+  it('renders each trust item label when trustItems is provided', () => {
+    render(<SubpageHero {...baseProps} trustItems={DEFAULT_TRUST_ITEMS} />)
     expect(screen.getByText('Insured')).toBeInTheDocument()
     expect(screen.getByText('Vetted teams')).toBeInTheDocument()
+    expect(screen.getByText('Auckland wide')).toBeInTheDocument()
+    expect(screen.getByText('Satisfaction guarantee')).toBeInTheDocument()
+  })
+
+  it('renders one inline icon per trust item', () => {
+    const { container } = render(
+      <SubpageHero {...baseProps} trustItems={DEFAULT_TRUST_ITEMS} />,
+    )
+    // Lucide icons render as inline <svg>; each trust item contributes one.
+    const trustIcons = container.querySelectorAll('svg[aria-hidden="true"]')
+    expect(trustIcons.length).toBeGreaterThanOrEqual(DEFAULT_TRUST_ITEMS.length)
+  })
+})
+
+describe('DEFAULT_TRUST_ITEMS — canonical cleaning-service trust row', () => {
+  it('exports the four homepage trust items in the expected order', () => {
+    expect(DEFAULT_TRUST_ITEMS.map((item) => item.label)).toEqual([
+      'Insured',
+      'Vetted teams',
+      'Auckland wide',
+      'Satisfaction guarantee',
+    ])
   })
 })
 

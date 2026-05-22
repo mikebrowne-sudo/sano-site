@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { SubpageHero } from '@/components/SubpageHero'
+import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 
 export const metadata: Metadata = {
   title: 'SubpageHero — preview',
@@ -16,9 +16,11 @@ export const metadata: Metadata = {
  * - Will be removed (or kept as an internal style surface) once the
  *   migration PRs land.
  *
- * Image picks are existing local Sano assets — best-fit only. Hero
- * imagery will be replaced as part of the live-page migration PRs
- * once the final source-set is locked in.
+ * Image picks are existing local Sano assets — best-fit only. The
+ * dedicated hero source set for each service (Regular House Cleaning,
+ * Deep Cleaning, End of Tenancy / Property Reset, Commercial & Office)
+ * lives in F:\Sano\10-Branding\Website images\ and will be wired into
+ * the live pages by the next rollout PR (PR-B in the audit).
  */
 export default function HeroPreviewPage() {
   return (
@@ -37,63 +39,68 @@ export default function HeroPreviewPage() {
             land on the live service and utility pages.
           </p>
           <p className="body-text mt-4 max-w-2xl">
-            Image picks are best-fit from existing local Sano assets and will be
-            revisited as part of the migration PRs once the final hero source-set
-            is locked in.
+            Gradient + mobile top-up + trust row visually mirror the homepage hero
+            exactly. Image picks are best-fit from existing local Sano assets and
+            will be replaced with the dedicated per-service hero photography during
+            the live-page migration PR.
           </p>
         </div>
       </header>
 
-      {/* Variant 1 — standard left-aligned service-page hero */}
-      <VariantLabel title="V1 — Standard, left-aligned service-page hero" />
+      {/* Variant 1 — cleaning service hero (the canonical pattern).
+          Primary CTA only (no "Explore Services" by convention), trust
+          row mirroring the homepage's four trust items. */}
+      <VariantLabel title="V1 — Cleaning service hero (canonical pattern)" />
       <SubpageHero
         eyebrow="REGULAR CLEANING"
         title="Regular house cleaning in Auckland"
         subtitle="Keep your home consistently clean, tidy, and easy to live in with reliable ongoing cleaning."
         imageSrc="/images/sano-auckland-team.jpeg"
         primaryCta={{ label: 'Get a Free Quote', href: '/contact' }}
+        trustItems={DEFAULT_TRUST_ITEMS}
       />
 
-      {/* Variant 2 — standard with secondary CTA and chips */}
-      <VariantLabel title="V2 — Standard, with secondary CTA + chips (e.g. Commercial)" />
+      {/* Variant 2 — cleaning service hero with an anchor-style
+          secondary CTA. Useful where the page has its own anchored
+          checklist (e.g. /services/regular-cleaning#home-clean-checklist)
+          and the secondary link signposts it. Still no "Explore Services". */}
+      <VariantLabel title="V2 — Cleaning service hero + anchor-style secondary link" />
       <SubpageHero
-        eyebrow="COMMERCIAL CLEANING"
-        title="Workplace cleaning that quietly keeps up"
-        titleHighlight="quietly keeps up"
-        subtitle="Reliable, detail-focused commercial cleaning across Auckland. After-hours, early-morning, or scheduled to suit your operations."
+        eyebrow="REGULAR CLEANING"
+        title="Regular house cleaning, built around your home"
+        titleHighlight="built around your home"
+        subtitle="Reliable, detail-focused cleaning across Auckland — weekly, fortnightly, or on a custom schedule."
         imageSrc="/images/sano-commercial-clean-auckland.jpeg"
         primaryCta={{ label: 'Get a Free Quote', href: '/contact' }}
-        secondaryCta={{ label: 'Explore Services', href: '/services' }}
-        chips={[
-          { label: 'Insured' },
-          { label: 'Vetted teams' },
-          { label: 'Auckland wide' },
-        ]}
+        secondaryCta={{ label: 'See the 100-Point Checklist', href: '#home-clean-checklist' }}
+        trustItems={DEFAULT_TRUST_ITEMS}
       />
 
-      {/* Variant 3 — compact centred utility-page hero */}
-      <VariantLabel title="V3 — Compact, centred utility-page hero (e.g. About / FAQ)" />
+      {/* Variant 3 — non-cleaning / general sub-page hero. Keeps the
+          "Explore Services" secondary CTA pattern from the homepage,
+          no trust row by default. */}
+      <VariantLabel title="V3 — Non-cleaning / general sub-page (with Explore Services)" />
       <SubpageHero
         eyebrow="ABOUT SANO"
         title="Cleaning that improves how a space feels"
         subtitle="Sano means healthy. We focus on consistent, detail-focused cleaning that leaves your space properly cared for."
         imageSrc="/images/cleaned-by-sano.jpg"
+        primaryCta={{ label: 'Get a Free Quote', href: '/contact' }}
+        secondaryCta={{ label: 'Explore Services', href: '/services' }}
+      />
+
+      {/* Variant 4 — compact utility-page hero. Centred, no CTAs or
+          trust row, no entrance animation. Fits short-content surfaces
+          like /faq, /policies, /service-area. */}
+      <VariantLabel title="V4 — Compact, centred utility-page hero" />
+      <SubpageHero
+        eyebrow="HELP"
+        title="Frequently asked questions"
+        subtitle="Answers to common questions about Sano Cleaning: pricing, booking, our cleaners, products, and more."
+        imageSrc="/images/Sano-crew-auckland.jpeg"
         align="center"
         size="compact"
         animate={false}
-      />
-
-      {/* Variant 4 — strong overlay over a busier image */}
-      <VariantLabel title="V4 — Strong overlay variant (busier image, more contrast)" />
-      <SubpageHero
-        eyebrow="OUR TEAM"
-        title="Auckland locals you can rely on"
-        titleHighlight="rely on"
-        subtitle="Carefully selected, properly trained, and consistent visit to visit."
-        imageSrc="/images/Sano-crew-auckland.jpeg"
-        overlayStrength="strong"
-        primaryCta={{ label: 'Meet the Team', href: '/about' }}
-        secondaryCta={{ label: 'Get a Quote', href: '/contact' }}
       />
 
       <footer className="section-padding py-12">
