@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
-import { HeroSection } from '@/components/HeroSection'
 import { CtaBanner } from '@/components/CtaBanner'
 import { FadeIn, Stagger, StaggerItem } from '@/components/FadeIn'
 import { QuoteButton } from '@/components/QuoteButton'
 import { ServiceCard } from '@/components/ServiceCard'
+import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { getRelatedServices } from '@/lib/services'
 
 export const metadata: Metadata = {
@@ -65,12 +65,20 @@ const related = getRelatedServices(['regular-cleaning', 'end-of-tenancy', 'post-
 export default function DeepCleaningPage() {
   return (
     <>
-      <HeroSection
-        headline="Deep Cleaning Services in Auckland"
-        subtext="A full top-to-bottom clean that resets your space and tackles the areas most people miss."
-        imageUrl="/images/deep-cleaning.jpg"
-        imageAlt="Deep cleaning in progress"
-        showSecondaryButton={false}
+      {/* SubpageHero — canonical cleaning-service pattern (matches the
+          Regular Cleaning rollout in PR #170). Primary CTA only,
+          full trust row (DEFAULT_TRUST_ITEMS), homepage-exact gradient
+          + entrance. No "Explore Services", no checklist link in the
+          hero — the deep-clean checklist content lives in the page
+          sections below and on the future deep-cleaning checklist
+          integration (separate rollout, not this PR). */}
+      <SubpageHero
+        eyebrow="DEEP CLEANING"
+        title="Deep cleaning for homes that need a proper reset"
+        subtitle="A more detailed clean for kitchens, bathrooms, living areas, and the spaces that need extra attention."
+        imageSrc="/images/heroes/deep-cleaning-hero.jpg"
+        primaryCta={{ label: 'Get a Free Quote', href: '/contact' }}
+        trustItems={DEFAULT_TRUST_ITEMS}
       />
 
       {/* Intro */}
