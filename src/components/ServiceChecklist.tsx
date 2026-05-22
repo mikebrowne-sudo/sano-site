@@ -95,6 +95,13 @@ interface ServiceChecklistProps {
   headingHighlight?: string
   /** Becomes the section's `id` attribute. Defaults to `checklist.slug`. */
   anchorId?: string
+  /**
+   * When false, suppress the amber "Draft" badge in the section header
+   * even if `checklist.isDraft` is true. Lets a service-page integration
+   * opt out of the draft signal while the underlying data file still
+   * carries the gating flag for internal preview surfaces. Default: true.
+   */
+  showDraftBadge?: boolean
   /** Render the bottom CTA strip. Default: false. */
   showQuoteCta?: boolean
   /** CTA destination. Default: '/contact'. */
@@ -110,6 +117,7 @@ export function ServiceChecklist({
   displayHeading,
   headingHighlight,
   anchorId,
+  showDraftBadge = true,
   showQuoteCta = false,
   ctaHref = '/contact',
   ctaLabel = 'Get a free quote',
@@ -167,7 +175,7 @@ export function ServiceChecklist({
     [rooms, focusRoom],
   )
 
-  const showDraftBadge = checklist.isDraft === true
+  const draftBadgeVisible = showDraftBadge && checklist.isDraft === true
 
   return (
     <section
@@ -181,7 +189,7 @@ export function ServiceChecklist({
           <div className="mx-auto max-w-3xl text-center">
           <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
             <p className="eyebrow">{eyebrow}</p>
-            {showDraftBadge && (
+            {draftBadgeVisible && (
               <span
                 className="inline-flex items-center rounded-full border border-amber-200/70 bg-amber-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-amber-700"
                 aria-label="Draft content — not final"

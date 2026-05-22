@@ -172,6 +172,18 @@ describe('ServiceChecklist', () => {
     expect(screen.queryByText('Draft')).not.toBeInTheDocument()
   })
 
+  it('suppresses the DRAFT badge when showDraftBadge is false, even if isDraft is true', () => {
+    const draft: Checklist = { ...baseChecklist, isDraft: true }
+    render(
+      <ServiceChecklist
+        checklist={draft}
+        eyebrow="Home Clean"
+        showDraftBadge={false}
+      />,
+    )
+    expect(screen.queryByText('Draft')).not.toBeInTheDocument()
+  })
+
   it('renders the first room as the active panel by default', () => {
     render(<ServiceChecklist checklist={baseChecklist} eyebrow="Home Clean" />)
     expect(
