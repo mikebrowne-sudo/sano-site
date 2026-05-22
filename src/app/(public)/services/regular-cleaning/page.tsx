@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
-import { HeroSection } from '@/components/HeroSection'
 import { CtaBanner } from '@/components/CtaBanner'
 import { FadeIn } from '@/components/FadeIn'
 import { QuoteButton } from '@/components/QuoteButton'
 import { ServiceCard } from '@/components/ServiceCard'
 import { ServiceChecklist } from '@/components/ServiceChecklist'
+import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { SANO_100_POINT_HOME_CLEAN } from '@/lib/checklists'
 import { getRelatedServices } from '@/lib/services'
 
@@ -56,12 +56,20 @@ const related = getRelatedServices(['deep-cleaning', 'carpet-upholstery', 'windo
 export default function RegularCleaningPage() {
   return (
     <>
-      <HeroSection
-        headline="Regular House Cleaning in Auckland"
-        subtext="Keep your home consistently clean, tidy, and easy to live in with reliable ongoing cleaning."
-        imageUrl="https://images.unsplash.com/photo-1631679706909-1844bbd07221?w=1600&q=80"
-        imageAlt="Clean, well-lit living space"
-        showSecondaryButton={false}
+      {/* SubpageHero — canonical cleaning-service pattern (matches the
+          approved /preview/hero V1). Primary CTA only ("Get a Free
+          Quote"), full trust row (DEFAULT_TRUST_ITEMS), homepage-exact
+          gradient + entrance. The 100-Point Home Clean Checklist
+          lives lower on the page at #home-clean-checklist — keep that
+          link OUT of the hero per the rollout spec; visitors arriving
+          from the homepage Signature System CTA scroll directly to it. */}
+      <SubpageHero
+        eyebrow="REGULAR CLEANING"
+        title="Regular house cleaning in Auckland"
+        subtitle="Keep your home consistently clean, tidy, and easy to live in with reliable ongoing cleaning from Sano."
+        imageSrc="/images/heroes/regular-house-cleaning-hero.jpg"
+        primaryCta={{ label: 'Get a Free Quote', href: '/contact' }}
+        trustItems={DEFAULT_TRUST_ITEMS}
       />
 
       {/* Intro */}
