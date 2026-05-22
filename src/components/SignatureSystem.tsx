@@ -57,17 +57,18 @@ function renderHeading(heading: string, highlight?: string): ReactNode {
 }
 
 /**
- * Soft angled document/checkmark watermark. Replaces a previously
- * detailed checklist-card watermark with a simpler, bolder shape that
- * reads as an atmospheric "approved document" silhouette behind the
- * heading. Pure presentational — aria-hidden.
+ * Angled checklist-card watermark. Matches "Option 1" in the supplied
+ * Signature System design guide — a rounded checklist card with five
+ * rows (some boxes ticked, some empty) tilted on a soft counter-clockwise
+ * angle, partially cropped off the right edge of the banner. Pure
+ * presentational — aria-hidden.
  *
- * Three-layer structure is deliberate — keeps each `transform`-related
- * concern on its own element so they never clobber each other:
+ * Three-layer structure keeps each `transform`-related concern on its
+ * own element so they never clobber each other:
  *
- *   1. Outer wrapper — absolute positioning, vertical centering
+ *   1. Outer wrapper — absolute positioning, vertical centring
  *      (`top-1/2 -translate-y-1/2`) and the static tilt
- *      (`rotate-[-14deg]`). Tailwind composes these into a single
+ *      (`rotate-[-16deg]`). Tailwind composes these into a single
  *      `transform` via shared CSS variables, which is safe.
  *
  *   2. Drift wrapper — owns ONLY the keyframe animation
@@ -77,31 +78,53 @@ function renderHeading(heading: string, highlight?: string): ReactNode {
  *      relative to the rotated parent, so the drift inherits the tilt
  *      naturally.
  *
- *   3. Shape — the actual rounded document outline + checkmark.
- *      Visually self-contained, no transforms.
+ *   3. Shape — the actual rounded card outline + five checklist rows.
+ *      Self-contained, no transforms.
  *
  * Hidden below `sm:` so it never competes with text on mobile.
  */
+const WATERMARK_ROWS: ReadonlyArray<{ checked: boolean; width: number }> = [
+  { checked: true,  width: 70 },
+  { checked: true,  width: 55 },
+  { checked: false, width: 80 },
+  { checked: true,  width: 50 },
+  { checked: false, width: 65 },
+]
+
 function DocumentWatermark() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute right-[-5rem] top-1/2 hidden h-[26rem] w-[22rem] -translate-y-1/2 rotate-[-14deg] sm:block lg:right-[-3rem]"
+      className="pointer-events-none absolute right-[-4rem] top-1/2 hidden h-[28rem] w-[24rem] -translate-y-1/2 rotate-[-16deg] sm:block lg:right-[-3rem]"
     >
       <div className="h-full w-full opacity-[0.13] motion-safe:signature-drift">
-        <div className="flex h-full w-full items-center justify-center rounded-[2.25rem] border-[5px] border-white">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={3}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-3/5 w-3/5 text-white"
-            aria-hidden="true"
-          >
-            <path d="M5 12.5l4.5 4.5L19 7.5" />
-          </svg>
+        <div className="flex h-full w-full flex-col justify-between rounded-[2rem] border-[5px] border-white px-10 py-12">
+          {WATERMARK_ROWS.map((row, i) => (
+            <div key={i} className="flex items-center gap-5">
+              {/* Checkbox tile */}
+              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border-[3px] border-white">
+                {row.checked && (
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={4}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4 text-white"
+                    aria-hidden="true"
+                  >
+                    <path d="M5 12l5 5L19 7" />
+                  </svg>
+                )}
+              </div>
+              {/* Row label line */}
+              <div
+                className="h-2 rounded-full bg-white"
+                style={{ width: `${row.width}%` }}
+              />
+            </div>
+          ))}
         </div>
       </div>
     </div>
