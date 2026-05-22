@@ -5,6 +5,8 @@ import { CtaBanner } from '@/components/CtaBanner'
 import { FadeIn, Stagger, StaggerItem } from '@/components/FadeIn'
 import { QuoteButton } from '@/components/QuoteButton'
 import { ServiceCard } from '@/components/ServiceCard'
+import { ServiceChecklist } from '@/components/ServiceChecklist'
+import { SANO_100_POINT_HOME_CLEAN } from '@/lib/checklists'
 import { getRelatedServices } from '@/lib/services'
 
 export const metadata: Metadata = {
@@ -131,6 +133,24 @@ export default function RegularCleaningPage() {
           </div>
         </div>
       </section>
+
+      {/* Sano 100-Point Home Clean Checklist — full interactive
+          drill-down of "What's included" above. Anchor target for the
+          homepage Signature System CTA (/services/regular-cleaning
+          #home-clean-checklist). Drops the "Sano" brand prefix from
+          the visual heading to keep the section title tight on the
+          page; data-file canonical name stays unchanged. */}
+      <ServiceChecklist
+        checklist={SANO_100_POINT_HOME_CLEAN}
+        eyebrow="OUR SIGNATURE SYSTEM"
+        displayHeading="The 100-Point Home Clean Checklist"
+        headingHighlight="100-Point Home Clean"
+        intro="See exactly what's included in our regular home cleaning. The checklist gives a clear room-by-room view of how we work, while each visit is still adjusted to suit your home."
+        anchorId="home-clean-checklist"
+        showQuoteCta
+        ctaHref="/contact"
+        ctaLabel="Get a free quote for your home"
+      />
 
       {/* Frequency + Who it suits — two columns, same section */}
       <section className="section-padding section-y bg-white">
