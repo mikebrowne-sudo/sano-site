@@ -57,23 +57,28 @@ function renderHeading(heading: string, highlight?: string): ReactNode {
 }
 
 /**
- * Soft checklist/document watermark. Built from CSS shapes rather than a
- * lucide icon so it reads as an elegant document silhouette behind the
- * heading rather than a literal icon. Sits at the right edge, partially
- * cropped, very low opacity. Pure presentational — aria-hidden.
+ * Soft angled document/checkmark watermark. Replaces a previously
+ * detailed checklist-card watermark with a simpler, bolder shape that
+ * reads as an atmospheric "approved document" silhouette behind the
+ * heading. Pure presentational — aria-hidden.
  *
- * Structure is split in two layers on purpose:
+ * Three-layer structure is deliberate — keeps each `transform`-related
+ * concern on its own element so they never clobber each other:
  *
- *   - Outer wrapper owns static positioning (`top-1/2 -translate-y-1/2`).
- *     If we put the drift animation on this element directly, the
- *     keyframe's `transform: translate(...)` would clobber the
- *     `-translate-y-1/2` centering transform and the watermark would
- *     jump down by half its height. So this wrapper never animates.
+ *   1. Outer wrapper — absolute positioning, vertical centering
+ *      (`top-1/2 -translate-y-1/2`) and the static tilt
+ *      (`rotate-[-14deg]`). Tailwind composes these into a single
+ *      `transform` via shared CSS variables, which is safe.
  *
- *   - Inner element owns the drift animation via `motion-safe:` so
- *     reduced-motion users see a static watermark. Only this element
- *     moves — the background image, overlays, heading, body and CTA
- *     all stay completely static.
+ *   2. Drift wrapper — owns ONLY the keyframe animation
+ *      (`motion-safe:signature-drift`). It has no Tailwind transform
+ *      classes of its own, so the keyframe's `transform: translate(...)`
+ *      has nothing to overwrite. The animation moves this element
+ *      relative to the rotated parent, so the drift inherits the tilt
+ *      naturally.
+ *
+ *   3. Shape — the actual rounded document outline + checkmark.
+ *      Visually self-contained, no transforms.
  *
  * Hidden below `sm:` so it never competes with text on mobile.
  */
@@ -81,27 +86,22 @@ function DocumentWatermark() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute right-[-3rem] top-1/2 hidden h-[21rem] w-[17rem] -translate-y-1/2 sm:block lg:right-[-2rem]"
+      className="pointer-events-none absolute right-[-5rem] top-1/2 hidden h-[26rem] w-[22rem] -translate-y-1/2 rotate-[-14deg] sm:block lg:right-[-3rem]"
     >
-      <div className="h-full w-full opacity-[0.09] motion-safe:signature-drift">
-        <div className="flex h-full w-full flex-col rounded-2xl border border-white p-6">
-          {/* Document title bar */}
-          <div className="mb-5 h-1.5 w-20 rounded-full bg-white" />
-
-          {/* Five checklist rows */}
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="mb-3.5 flex items-center gap-3">
-              {/* Check tile */}
-              <div className="flex h-3 w-3 flex-shrink-0 items-center justify-center rounded-[3px] border border-white">
-                <div className="h-1 w-1 rounded-[1px] bg-white" />
-              </div>
-              {/* Row label */}
-              <div
-                className="h-1.5 rounded-full bg-white"
-                style={{ width: `${78 - i * 8}%` }}
-              />
-            </div>
-          ))}
+      <div className="h-full w-full opacity-[0.13] motion-safe:signature-drift">
+        <div className="flex h-full w-full items-center justify-center rounded-[2.25rem] border-[5px] border-white">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-3/5 w-3/5 text-white"
+            aria-hidden="true"
+          >
+            <path d="M5 12.5l4.5 4.5L19 7.5" />
+          </svg>
         </div>
       </div>
     </div>

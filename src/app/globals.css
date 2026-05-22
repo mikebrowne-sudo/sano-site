@@ -104,12 +104,12 @@
 
   /* Slow drift — used on watermark elements that should float gently.
      Apply to an inner wrapper whose parent owns any static positioning
-     transform (e.g. `-translate-y-1/2`); otherwise the keyframe's
-     `transform` will clobber the parent's centering translate. Pair with
-     `motion-safe:` so users with prefers-reduced-motion stay still. */
+     or rotation transform; otherwise the keyframe's `transform` will
+     clobber those parent transforms. Pair with `motion-safe:` so users
+     with prefers-reduced-motion stay still. */
   @keyframes signature-drift {
     0%   { transform: translate(0, 0); }
-    50%  { transform: translate(-12px, 9px); }
+    50%  { transform: translate(-16px, 10px); }
     100% { transform: translate(0, 0); }
   }
   .signature-drift {
