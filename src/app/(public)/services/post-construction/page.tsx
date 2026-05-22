@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
-import { HeroSection } from '@/components/HeroSection'
 import { CtaBanner } from '@/components/CtaBanner'
 import { FadeIn, Stagger, StaggerItem } from '@/components/FadeIn'
 import { QuoteButton } from '@/components/QuoteButton'
 import { ServiceCard } from '@/components/ServiceCard'
+import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { getRelatedServices } from '@/lib/services'
 
 export const metadata: Metadata = {
@@ -65,12 +65,14 @@ const related = getRelatedServices(['deep-cleaning', 'end-of-tenancy', 'window-c
 export default function PostConstructionPage() {
   return (
     <>
-      <HeroSection
-        headline="Post-Construction Cleaning in Auckland"
-        subtext="We clear dust, debris, and residue so your space is clean, safe, and ready to use."
-        imageUrl="/images/post-construction.jpg"
-        imageAlt="Newly completed space being cleaned"
-        showSecondaryButton={false}
+      {/* SubpageHero — canonical cleaning-service pattern. */}
+      <SubpageHero
+        eyebrow="POST-CONSTRUCTION CLEANING"
+        title="Post-construction cleaning for finished spaces"
+        subtitle="Detailed cleaning for renovations, new builds, and handovers, helping spaces feel ready to use."
+        imageSrc="/images/heroes/post-construction-cleaning-hero.jpg"
+        primaryCta={{ label: 'Get a Free Quote', href: '/contact' }}
+        trustItems={DEFAULT_TRUST_ITEMS}
       />
 
       {/* Intro */}

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
-import { HeroSection } from '@/components/HeroSection'
+import { SubpageHero } from '@/components/SubpageHero'
 import { POSTS } from '@/lib/blog'
 
 export const metadata: Metadata = {
@@ -13,14 +13,17 @@ export const metadata: Metadata = {
 export default function BlogPage() {
   return (
     <>
-      <HeroSection
-        imageUrl="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1600&q=80"
-        imageAlt="Clean Auckland home"
-        badge="Tips & Guides"
-        headline="Cleaning Advice for Auckland Homes"
-        subtext="Practical tips, guides, and insights to help you keep your space clean and well-maintained."
-        showSecondaryButton={false}
-        centred
+      {/* SubpageHero — editorial pattern for the blog index. Centred,
+          no CTAs, no trust row (this is read content, not a conversion
+          surface). Compact height fits the editorial tone and keeps
+          the post grid above the fold sooner. */}
+      <SubpageHero
+        eyebrow="SANO JOURNAL"
+        title="Cleaning advice, updates, and practical guides"
+        subtitle="Helpful notes from Sano on keeping homes, rentals, and workplaces cleaner, calmer, and easier to manage."
+        imageSrc="/images/heroes/blog-hero.jpg"
+        align="center"
+        size="compact"
       />
 
       <section className="container-max section-padding py-14 pb-20">

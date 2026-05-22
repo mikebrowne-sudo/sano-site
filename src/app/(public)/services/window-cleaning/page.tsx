@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
-import { HeroSection } from '@/components/HeroSection'
 import { CtaBanner } from '@/components/CtaBanner'
 import { FadeIn, Stagger, StaggerItem } from '@/components/FadeIn'
 import { QuoteButton } from '@/components/QuoteButton'
 import { ServiceCard } from '@/components/ServiceCard'
+import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { getRelatedServices } from '@/lib/services'
 
 export const metadata: Metadata = {
@@ -64,12 +64,14 @@ const related = getRelatedServices(['regular-cleaning', 'commercial-cleaning', '
 export default function WindowCleaningPage() {
   return (
     <>
-      <HeroSection
-        headline="Window Cleaning in Auckland"
-        subtext="Clean, streak-free windows that lift the overall feel of your home or workplace."
-        imageUrl="/images/window-cleaning.jpg"
-        imageAlt="Clean windows on a residential property"
-        showSecondaryButton={false}
+      {/* SubpageHero — canonical cleaning-service pattern. */}
+      <SubpageHero
+        eyebrow="WINDOW CLEANING"
+        title="Window cleaning for clearer, brighter spaces"
+        subtitle="Interior and exterior window cleaning for homes and workplaces, carried out with care and attention to detail."
+        imageSrc="/images/heroes/window-cleaning-hero.jpg"
+        primaryCta={{ label: 'Get a Free Quote', href: '/contact' }}
+        trustItems={DEFAULT_TRUST_ITEMS}
       />
 
       {/* Intro */}
