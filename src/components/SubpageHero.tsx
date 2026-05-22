@@ -130,7 +130,7 @@ export const DEFAULT_TRUST_ITEMS: ReadonlyArray<SubpageHeroTrustItem> = [
 ]
 
 const SIZE_HEIGHT_CLASS: Record<NonNullable<SubpageHeroProps['size']>, string> = {
-  standard: 'h-[520px]',
+  standard: 'h-[560px]',
   compact: 'h-[380px]',
 }
 
@@ -245,7 +245,7 @@ export function SubpageHero({
                 className={`mb-4 text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-white/55 ${riseClass(
                   animate,
                 )}`}
-                style={riseStyle(animate, 0)}
+                style={riseStyle(animate, 0.2)}
               >
                 {eyebrow}
               </p>
@@ -257,7 +257,7 @@ export function SubpageHero({
                 fontSize: 'clamp(2rem, 4vw, 2.75rem)',
                 lineHeight: 1.08,
                 letterSpacing: '-0.025em',
-                ...riseStyle(animate, 0.08),
+                ...riseStyle(animate, 0.32),
               }}
             >
               {renderTitle(title, titleHighlight)}
@@ -271,7 +271,7 @@ export function SubpageHero({
                   showCtas || showTrust || showChips ? 'mb-7' : '',
                   riseClass(animate),
                 ].join(' ')}
-                style={riseStyle(animate, 0.16)}
+                style={riseStyle(animate, 0.44)}
               >
                 {subtitle}
               </p>
@@ -285,7 +285,7 @@ export function SubpageHero({
                   isCentred ? 'justify-center' : '',
                   riseClass(animate),
                 ].join(' ')}
-                style={riseStyle(animate, 0.24)}
+                style={riseStyle(animate, 0.56)}
               >
                 {primaryCta && (
                   <Link
@@ -309,12 +309,11 @@ export function SubpageHero({
             {showTrust && (
               <div
                 className={[
-                  'flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] font-medium text-white/85',
-                  showChips ? 'mb-4' : '',
+                  'mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] font-medium text-white/85',
                   isCentred ? 'justify-center' : '',
                   riseClass(animate),
                 ].join(' ')}
-                style={riseStyle(animate, 0.32)}
+                style={riseStyle(animate, 0.68)}
               >
                 {trustItems.map(({ label, icon: Icon }, i) => (
                   <span key={label} className="inline-flex items-center gap-x-3">
@@ -340,7 +339,7 @@ export function SubpageHero({
                   isCentred ? 'justify-center' : '',
                   riseClass(animate),
                 ].join(' ')}
-                style={riseStyle(animate, 0.4)}
+                style={riseStyle(animate, 0.8)}
               >
                 {chips.map((chip) => (
                   <span

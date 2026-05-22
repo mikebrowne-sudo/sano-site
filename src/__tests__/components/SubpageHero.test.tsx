@@ -161,10 +161,10 @@ describe('SubpageHero — align prop', () => {
 })
 
 describe('SubpageHero — size prop', () => {
-  it('renders standard height (520px) by default', () => {
+  it('renders standard height (560px) by default — matches the homepage hero', () => {
     const { container } = render(<SubpageHero {...baseProps} />)
     const section = container.querySelector('section')
-    expect(section?.className).toContain('h-[520px]')
+    expect(section?.className).toContain('h-[560px]')
   })
 
   it('renders compact height (380px) when size="compact"', () => {
