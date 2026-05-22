@@ -1,71 +1,22 @@
 import type { Metadata } from 'next'
-import Image from 'next/image'
+import { Bath, BadgeCheck, ChefHat, Footprints, HardHat, PaintRoller, PanelTop, PlusCircle, Trash2 } from 'lucide-react'
 import { CtaBanner } from '@/components/CtaBanner'
-import { FadeIn, Stagger, StaggerItem } from '@/components/FadeIn'
-import { QuoteButton } from '@/components/QuoteButton'
-import { ServiceCard } from '@/components/ServiceCard'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
-import { getRelatedServices } from '@/lib/services'
+import { BookingStepsSection } from '../_components/BookingStepsSection'
+import { ServiceInformation } from '../_components/ServiceInformation'
+import { WhatWeCoverSection } from '../_components/WhatWeCoverSection'
+import { WhyChooseSection } from '../_components/WhyChooseSection'
 
 export const metadata: Metadata = {
   title: 'Post-Construction Cleaning Auckland | Sano',
-  description: 'Post-construction cleaning in Auckland. We clear dust, debris, and residue so your space is clean, safe, and ready to use. Free quote from Sano.',
+  description:
+    'Post-construction cleaning in Auckland. We clear dust, debris, and residue so your space is clean, safe, and ready to use. Free quote from Sano.',
 }
-
-const includes = [
-  'Removal of dust from all surfaces',
-  'Cleaning of floors, including vacuuming and mopping',
-  'Kitchens and bathrooms wiped and finished',
-  'Internal glass and windows cleaned',
-  'Skirting boards, switches, and detailed areas cleaned',
-  'General debris and residue cleared',
-]
-
-const whenNeeded = [
-  'After new builds are completed',
-  'After renovations or alterations',
-  'Before handover to clients or tenants',
-  'Before moving into a newly finished space',
-]
-
-const whoItSuits = [
-  'Builders and contractors',
-  'Homeowners completing renovations',
-  'Property developers',
-  'Anyone preparing a space for handover or move-in',
-]
-
-const steps = [
-  'Send through details of the project',
-  'We provide a clear quote',
-  'We carry out the clean ready for handover',
-]
-
-const faqs = [
-  {
-    q: 'Do you remove all construction dust?',
-    a: 'We remove dust from surfaces and accessible areas as part of a thorough clean.',
-  },
-  {
-    q: 'Can you work around handover deadlines?',
-    a: 'Yes, we can schedule cleaning to align with your project timeline where possible.',
-  },
-  {
-    q: 'Do you bring your own equipment?',
-    a: 'Yes, we come fully equipped for the job.',
-  },
-  {
-    q: 'Is this suitable for both residential and commercial projects?',
-    a: 'Yes, we work across both types of spaces.',
-  },
-]
-
-const related = getRelatedServices(['deep-cleaning', 'end-of-tenancy', 'window-cleaning'])
 
 export default function PostConstructionPage() {
   return (
     <>
-      {/* SubpageHero — canonical cleaning-service pattern. */}
+      {/* SubpageHero — unchanged from #174 rollout. */}
       <SubpageHero
         eyebrow="POST-CONSTRUCTION CLEANING"
         title="Post-construction cleaning for finished spaces"
@@ -75,176 +26,127 @@ export default function PostConstructionPage() {
         trustItems={DEFAULT_TRUST_ITEMS}
       />
 
-      {/* Intro */}
-      <section className="section-padding section-y bg-white">
-        <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
-            <FadeIn direction="left">
-              <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
-                <Image
-                  src="/images/post-construction.jpg"
-                  alt="Clean, newly finished space"
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                />
-              </div>
-            </FadeIn>
-            <FadeIn delay={0.15}>
-              <p className="eyebrow mb-4">Post-construction cleaning</p>
-              <h2 className="mb-6">Ready to use, not just finished.</h2>
-              <div className="body-text space-y-4">
-                <p>After building or renovation work, the space often looks finished but still needs a proper clean before it&apos;s ready to use.</p>
-                <p>Dust, debris, and residue settle into surfaces and corners. A post-construction clean removes what&apos;s left behind and brings the space up to a clean, usable standard.</p>
-              </div>
-            </FadeIn>
-          </div>
-        </div>
-      </section>
+      {/* 1. Service Information */}
+      <ServiceInformation
+        body={[
+          'Sano post-construction cleaning handles the final clean after renovations, new builds, fit-outs, and trade work across Auckland. We clear dust, debris, and residue from every surface so the space is ready for handover, photography, or move-in.',
+          'Each project is shaped to its own scope — the volume of dust, the trades involved, and the deadline you are working to. Floors, glass, kitchens, bathrooms, skirting, and detail areas are all addressed in a methodical pass through the space.',
+          'For builders and developers, the goal is an inspection-ready finish that lifts the impression of the finished work. For homeowners completing a renovation, it is a clean reset before you live in the space.',
+        ]}
+        primaryImage={{
+          src: '/images/post-construction.jpg',
+          alt: 'A space being detail-cleaned after construction work',
+        }}
+        secondaryImage={{
+          src: '/images/cleaned-by-sano.jpg',
+          alt: 'A finished space ready for handover after Sano post-construction cleaning',
+        }}
+      />
 
-      {/* What's included + image */}
-      <section className="section-padding section-y bg-[#faf9f6]">
-        <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
-            <FadeIn>
-              <h2 className="mb-8">What&apos;s included in a post-construction clean</h2>
-              <Stagger staggerDelay={0.07}>
-                <ul className="space-y-4">
-                  {includes.map((item) => (
-                    <StaggerItem key={item}>
-                      <li className="flex items-start gap-3 body-text">
-                        <span className="mt-[0.45rem] flex-shrink-0 w-1.5 h-1.5 rounded-full bg-sage-500" aria-hidden="true" />
-                        {item}
-                      </li>
-                    </StaggerItem>
-                  ))}
-                </ul>
-              </Stagger>
-            </FadeIn>
-            <FadeIn delay={0.15} direction="right">
-              <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
-                <Image
-                  src="/images/sano-commercial-clean-auckland.jpeg"
-                  alt="Sano team clearing a post-construction site in Auckland"
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                />
-              </div>
-            </FadeIn>
-          </div>
-        </div>
-      </section>
+      {/* 3. Why Choose Sano */}
+      <WhyChooseSection
+        heading="Why choose Sano for post-construction cleaning"
+        headingHighlight="post-construction cleaning"
+        subtitle="Builder-friendly scheduling, heavy-duty cleaning, and an inspection-ready finish."
+        items={[
+          {
+            title: 'Builder-friendly',
+            body: 'Reliable for handover deadlines and tight project timelines.',
+          },
+          {
+            title: 'Heavy-duty cleaning',
+            body: 'Dust, debris, and residue removed properly, not just surface-wiped.',
+          },
+          {
+            title: 'Insured and vetted',
+            body: 'All cleaners background-checked, trained, and fully insured.',
+          },
+          {
+            title: 'Detail across surfaces',
+            body: 'Floors, internal glass, kitchens, bathrooms, and detail areas all covered.',
+          },
+          {
+            title: 'Inspection-ready finish',
+            body: 'Spaces prepared for handover, photography, or first occupation.',
+          },
+          {
+            title: 'Tailored to project scope',
+            body: 'Big or small, full builds or single renovations — agreed upfront.',
+          },
+        ]}
+      />
 
-      {/* When needed + Who it suits */}
-      <section className="section-padding section-y bg-white">
-        <div className="container-max">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-14">
-            <FadeIn>
-              <h2 className="mb-6">When to book a post-construction clean</h2>
-              <ul className="space-y-4">
-                {whenNeeded.map((item) => (
-                  <li key={item} className="flex items-start gap-3 body-text">
-                    <span className="mt-[0.45rem] flex-shrink-0 w-1.5 h-1.5 rounded-full bg-sage-500" aria-hidden="true" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </FadeIn>
-            <FadeIn delay={0.15}>
-              <h2 className="mb-6">Who this service suits</h2>
-              <ul className="space-y-5">
-                {whoItSuits.map((item) => (
-                  <li key={item} className="flex items-start gap-3 body-text">
-                    <span className="mt-[0.45rem] flex-shrink-0 w-1.5 h-1.5 rounded-full bg-sage-500" aria-hidden="true" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </FadeIn>
-          </div>
-        </div>
-      </section>
+      {/* 4. What We Cover */}
+      <WhatWeCoverSection
+        subtitle="The final detail pass — from dust removal to inspection-ready finish."
+        items={[
+          {
+            title: 'Dust removal',
+            body: 'From every surface, including hard-to-reach areas and detail edges.',
+            icon: HardHat,
+          },
+          {
+            title: 'Floor finishing',
+            body: 'Vacuumed, mopped, and detailed across hard and soft surfaces.',
+            icon: PaintRoller,
+          },
+          {
+            title: 'Internal glass',
+            body: 'Windows, doors, partitions cleaned both sides where accessible.',
+            icon: PanelTop,
+          },
+          {
+            title: 'Kitchen surfaces',
+            body: 'Benchtops, cupboards, appliances and finishes cleaned.',
+            icon: ChefHat,
+          },
+          {
+            title: 'Bathroom surfaces',
+            body: 'Tapware, glass, fixtures, and floors sanitised and finished.',
+            icon: Bath,
+          },
+          {
+            title: 'Skirting and trim',
+            body: 'Detailed touchpoint cleaning across edges and trim.',
+            icon: Footprints,
+          },
+          {
+            title: 'Debris removal',
+            body: 'General build-site residue and packaging cleared.',
+            icon: Trash2,
+          },
+          {
+            title: 'Inspection-ready finish',
+            body: 'Space prepared for handover, photography, or first occupation.',
+            icon: BadgeCheck,
+          },
+          {
+            title: 'Tailored scope',
+            body: 'Specific project requirements built into your quote.',
+            icon: PlusCircle,
+          },
+        ]}
+      />
 
-      {/* Why Sano */}
-      <section className="section-padding section-y bg-[#faf9f6]">
-        <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
-            <FadeIn direction="left">
-              <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
-                <Image
-                  src="/images/sano-auckland-team.jpeg"
-                  alt="The Sano team delivering post-construction cleaning in Auckland"
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                />
-              </div>
-            </FadeIn>
-            <FadeIn delay={0.15}>
-              <h2 className="mb-6">A handover-ready finish, not just a sweep</h2>
-              <div className="body-text space-y-4">
-                <p>After a build or renovation, the difference between &ldquo;construction complete&rdquo; and &ldquo;ready to use&rdquo; is the cleaning.</p>
-                <p>We clear builder&apos;s dust from every surface, including sills, tracks, fittings, inside cabinets and drawers, light switches, and vents. We also remove residue, stickers, and finishing-trade debris that&apos;s been left behind. The work happens at the pace it takes to be thorough, not whatever fits before the client walks through.</p>
-                <p>When we leave, the space presents the way the work deserves: clean, finished, and ready to hand over or move into.</p>
-              </div>
-            </FadeIn>
-          </div>
-        </div>
-      </section>
-
-      {/* Process + FAQ */}
-      <section className="section-padding section-y bg-white">
-        <div className="container-max">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-14">
-            <FadeIn>
-              <h2 className="mb-8">Simple to get started</h2>
-              <ol className="space-y-6">
-                {steps.map((step, i) => (
-                  <li key={step} className="flex items-start gap-4">
-                    <span className="flex-shrink-0 w-9 h-9 rounded-full bg-sage-50 border border-sage-100 flex items-center justify-center text-sm font-semibold text-sage-600">
-                      {i + 1}
-                    </span>
-                    <p className="body-text pt-1.5">{step}</p>
-                  </li>
-                ))}
-              </ol>
-              <div className="mt-10">
-                <QuoteButton label="Get a Quote" />
-              </div>
-            </FadeIn>
-            <FadeIn delay={0.15}>
-              <h2 className="mb-8">Common questions</h2>
-              <div className="space-y-7">
-                {faqs.map((faq) => (
-                  <div key={faq.q} className="border-b border-sage-100 pb-7 last:border-0 last:pb-0">
-                    <h3 className="mb-2">{faq.q}</h3>
-                    <p className="body-text">{faq.a}</p>
-                  </div>
-                ))}
-              </div>
-            </FadeIn>
-          </div>
-        </div>
-      </section>
-
-      {/* Related services */}
-      {related.length > 0 && (
-        <section className="section-padding section-y bg-[#faf9f6]">
-          <div className="container-max">
-            <FadeIn>
-              <h2 className="mb-10">You might also need</h2>
-            </FadeIn>
-            <ul className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              {related.map((s) => (
-                <li key={s.slug}>
-                  <ServiceCard service={s} />
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )}
+      {/* 5. Booking steps */}
+      <BookingStepsSection
+        heading="Book your post-construction clean in 3 simple steps"
+        headingHighlight="3 simple steps"
+        steps={[
+          {
+            title: 'Send through details',
+            body: 'Share the project details, scope, and handover date.',
+          },
+          {
+            title: 'We arrange a time',
+            body: 'Scheduled around your build timeline and inspection deadlines.',
+          },
+          {
+            title: 'Handover-ready',
+            body: 'Space cleaned, finished, and ready to use or hand over.',
+          },
+        ]}
+      />
 
       <script
         type="application/ld+json"
@@ -253,7 +155,8 @@ export default function PostConstructionPage() {
             '@context': 'https://schema.org',
             '@type': 'Service',
             name: 'Post-Construction Cleaning',
-            description: 'Post-construction cleaning in Auckland. We clear dust, debris, and residue so your space is clean, safe, and ready to use.',
+            description:
+              'Post-construction cleaning in Auckland. Detailed handover cleans for renovations, new builds, and fit-outs.',
             provider: { '@type': 'LocalBusiness', name: 'Sano Property Services' },
             areaServed: { '@type': 'City', name: 'Auckland' },
           }),
@@ -262,7 +165,7 @@ export default function PostConstructionPage() {
 
       <CtaBanner
         headline="Ready to finish the space properly?"
-        subtext="If your project needs a final clean before handover or use, we can help. Get in touch for a quick, no-pressure quote."
+        subtext="Get in touch with project details and handover date — we'll come back with a clear, practical quote."
       />
     </>
   )

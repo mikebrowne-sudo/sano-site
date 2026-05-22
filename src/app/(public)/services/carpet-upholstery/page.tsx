@@ -1,70 +1,22 @@
 import type { Metadata } from 'next'
-import Image from 'next/image'
+import { Armchair, Brush, Droplet, Footprints, PlusCircle, Sofa, Sparkles, Square, Wind } from 'lucide-react'
 import { CtaBanner } from '@/components/CtaBanner'
-import { FadeIn, Stagger, StaggerItem } from '@/components/FadeIn'
-import { QuoteButton } from '@/components/QuoteButton'
-import { ServiceCard } from '@/components/ServiceCard'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
-import { getRelatedServices } from '@/lib/services'
+import { BookingStepsSection } from '../_components/BookingStepsSection'
+import { ServiceInformation } from '../_components/ServiceInformation'
+import { WhatWeCoverSection } from '../_components/WhatWeCoverSection'
+import { WhyChooseSection } from '../_components/WhyChooseSection'
 
 export const metadata: Metadata = {
   title: 'Carpet & Upholstery Cleaning Auckland | Sano',
-  description: 'Professional carpet and upholstery cleaning in Auckland. Remove built-up dirt, stains, and odours from carpets and furniture. Free quote from Sano.',
+  description:
+    'Professional carpet and upholstery cleaning in Auckland. Remove built-up dirt, stains, and odours from carpets and furniture. Free quote from Sano.',
 }
-
-const includes = [
-  'Carpet cleaning to remove dirt and build-up',
-  'Upholstery cleaning for sofas, chairs, and fabric surfaces',
-  'Treatment of common stains and high-use areas',
-  'Removal of trapped odours where possible',
-  'A more even, refreshed finish across surfaces',
-]
-
-const whenNeeded = [
-  'High-traffic areas starting to look worn',
-  'Visible stains or marks',
-  'Furniture needing a refresh',
-  'General build-up over time',
-  'Preparing a home for guests or moving',
-]
-
-const whoItSuits = [
-  'Homes with carpets or fabric furniture',
-  'Busy households with regular wear and tear',
-  'Anyone wanting to refresh their space without replacing furniture',
-]
-
-const steps = [
-  'Send through details of what needs cleaning',
-  'We provide a clear quote',
-  'We carry out the clean and refresh the space',
-]
-
-const faqs = [
-  {
-    q: 'Can you remove all stains?',
-    a: 'We treat and reduce stains where possible, but results can vary depending on the material and how long the stain has been there.',
-  },
-  {
-    q: 'How long does it take to dry?',
-    a: 'Drying time depends on the material and conditions, but we\'ll give you a clear guide when quoting.',
-  },
-  {
-    q: 'Do you clean all types of upholstery?',
-    a: 'Most common fabrics can be cleaned. Let us know what you have and we\'ll confirm.',
-  },
-  {
-    q: 'Do you bring your own equipment?',
-    a: 'Yes, we come fully equipped for the job.',
-  },
-]
-
-const related = getRelatedServices(['regular-cleaning', 'deep-cleaning', 'end-of-tenancy'])
 
 export default function CarpetUpholsteryPage() {
   return (
     <>
-      {/* SubpageHero — canonical cleaning-service pattern. */}
+      {/* SubpageHero — unchanged from #174 rollout. */}
       <SubpageHero
         eyebrow="CARPET & UPHOLSTERY CLEANING"
         title="Carpet and upholstery cleaning across Auckland"
@@ -74,176 +26,128 @@ export default function CarpetUpholsteryPage() {
         trustItems={DEFAULT_TRUST_ITEMS}
       />
 
-      {/* Intro */}
-      <section className="section-padding section-y bg-white">
-        <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
-            <FadeIn direction="left">
-              <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
-                <Image
-                  src="/images/carpet-upholstery.jpg"
-                  alt="Carpet cleaning in progress"
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                />
-              </div>
-            </FadeIn>
-            <FadeIn delay={0.15}>
-              <p className="eyebrow mb-4">Carpet & upholstery cleaning</p>
-              <h2 className="mb-6">A fresher finish for carpets and furniture.</h2>
-              <div className="body-text space-y-4">
-                <p>Over time, carpets and furniture collect dirt, dust, and everyday wear that regular cleaning doesn&apos;t fully remove.</p>
-                <p>A professional clean helps lift the overall look and feel of your space, leaving surfaces fresher, cleaner, and more comfortable to use.</p>
-              </div>
-            </FadeIn>
-          </div>
-        </div>
-      </section>
+      {/* 1. Service Information */}
+      <ServiceInformation
+        body={[
+          'Sano carpet and upholstery cleaning refreshes the soft surfaces that everyday cleaning struggles with — carpets, rugs, sofas, chairs, and other fabric furniture across Auckland homes and workplaces.',
+          'We treat each surface based on the material and the level of wear. Build-up, common stains, and high-traffic areas all get focused attention, with care taken around colours and finishes.',
+          'The result is a more even, refreshed finish that helps your carpets and furniture look and feel like themselves again, without the cost of replacement.',
+        ]}
+        primaryImage={{
+          src: '/images/carpet-upholstery.jpg',
+          alt: 'Carpet cleaning in progress in an Auckland home',
+        }}
+        secondaryImage={{
+          src: '/images/cleaned-by-sano.jpg',
+          alt: 'A living space refreshed by Sano carpet and upholstery cleaning',
+        }}
+      />
 
-      {/* What's included + image */}
-      <section className="section-padding section-y bg-[#faf9f6]">
-        <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
-            <FadeIn>
-              <h2 className="mb-8">What&apos;s included in this service</h2>
-              <Stagger staggerDelay={0.07}>
-                <ul className="space-y-4">
-                  {includes.map((item) => (
-                    <StaggerItem key={item}>
-                      <li className="flex items-start gap-3 body-text">
-                        <span className="mt-[0.45rem] flex-shrink-0 w-1.5 h-1.5 rounded-full bg-sage-500" aria-hidden="true" />
-                        {item}
-                      </li>
-                    </StaggerItem>
-                  ))}
-                </ul>
-              </Stagger>
-            </FadeIn>
-            <FadeIn delay={0.15} direction="right">
-              <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
-                <Image
-                  src="/images/cleaning-shot-2.jpeg"
-                  alt="Sano cleaner treating carpet and upholstery"
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                />
-              </div>
-            </FadeIn>
-          </div>
-        </div>
-      </section>
+      {/* 3. Why Choose Sano (no checklist on this page — sits directly
+          after Service Information). */}
+      <WhyChooseSection
+        heading="Why choose Sano for carpet and upholstery cleaning"
+        headingHighlight="carpet and upholstery cleaning"
+        subtitle="Careful methods, considered timing, and a refreshed finish across soft surfaces."
+        items={[
+          {
+            title: 'Careful with fabrics',
+            body: 'Methods chosen to suit the material and finish.',
+          },
+          {
+            title: 'Stain treatment',
+            body: 'Common stains and high-use areas addressed with focused attention.',
+          },
+          {
+            title: 'Insured and vetted',
+            body: 'All cleaners background-checked, trained, and fully insured.',
+          },
+          {
+            title: 'Refresh without replacement',
+            body: 'Extends the life of carpets and furniture without the cost of new.',
+          },
+          {
+            title: 'Auckland-wide service',
+            body: 'Residential and commercial spaces covered across the city.',
+          },
+          {
+            title: 'Practical timing',
+            body: 'Drying time considered around your day, not the other way around.',
+          },
+        ]}
+      />
 
-      {/* When needed + Who it suits */}
-      <section className="section-padding section-y bg-white">
-        <div className="container-max">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-14">
-            <FadeIn>
-              <h2 className="mb-6">When this service makes a difference</h2>
-              <ul className="space-y-4">
-                {whenNeeded.map((item) => (
-                  <li key={item} className="flex items-start gap-3 body-text">
-                    <span className="mt-[0.45rem] flex-shrink-0 w-1.5 h-1.5 rounded-full bg-sage-500" aria-hidden="true" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </FadeIn>
-            <FadeIn delay={0.15}>
-              <h2 className="mb-6">Who this service suits</h2>
-              <ul className="space-y-5">
-                {whoItSuits.map((item) => (
-                  <li key={item} className="flex items-start gap-3 body-text">
-                    <span className="mt-[0.45rem] flex-shrink-0 w-1.5 h-1.5 rounded-full bg-sage-500" aria-hidden="true" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </FadeIn>
-          </div>
-        </div>
-      </section>
+      {/* 4. What We Cover — only on non-checklist service pages. */}
+      <WhatWeCoverSection
+        subtitle="Soft surfaces and detail areas that everyday cleaning struggles with."
+        items={[
+          {
+            title: 'Carpets',
+            body: 'Whole-room and high-traffic carpet cleaning across the home.',
+            icon: Footprints,
+          },
+          {
+            title: 'Rugs',
+            body: 'Loose rugs handled carefully on-site with care for fibres.',
+            icon: Square,
+          },
+          {
+            title: 'Sofas and lounges',
+            body: 'Fabric upholstery refreshed across cushions, backs, and arms.',
+            icon: Sofa,
+          },
+          {
+            title: 'Chairs and stools',
+            body: 'Fabric seating, dining chairs, and back panels detailed.',
+            icon: Armchair,
+          },
+          {
+            title: 'Stain treatment',
+            body: 'Treatment of common stains and marks where practical.',
+            icon: Droplet,
+          },
+          {
+            title: 'Odour reduction',
+            body: 'Trapped odours addressed where possible during cleaning.',
+            icon: Wind,
+          },
+          {
+            title: 'High-traffic areas',
+            body: 'Concentrated treatment where wear and build-up show.',
+            icon: Sparkles,
+          },
+          {
+            title: 'Edge and corner detail',
+            body: 'Areas that regular cleaning routines tend to miss.',
+            icon: Brush,
+          },
+          {
+            title: 'Tailored scope',
+            body: 'Specific surfaces and requirements on request, agreed upfront.',
+            icon: PlusCircle,
+          },
+        ]}
+      />
 
-      {/* Why Sano */}
-      <section className="section-padding section-y bg-[#faf9f6]">
-        <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
-            <FadeIn direction="left">
-              <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
-                <Image
-                  src="/images/sano-auckland-team.jpeg"
-                  alt="The Sano team — Auckland carpet and upholstery specialists"
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                />
-              </div>
-            </FadeIn>
-            <FadeIn delay={0.15}>
-              <h2 className="mb-6">Cleaner carpets, fresher rooms</h2>
-              <div className="body-text space-y-4">
-                <p>Carpet and upholstery hold onto more than they show. Embedded dirt, pet odours, food spills, traffic patterns that flatten and dull the pile.</p>
-                <p>We work through built-up dirt with proper extraction, treat stains and odours with attention, and choose products suited to the material so colours and fabrics aren&apos;t compromised. Some marks come fully out, some don&apos;t, and we&apos;ll tell you up front what to expect.</p>
-                <p>When the carpets are properly cleaned, the whole room feels different. Fresher to walk into, easier to live with.</p>
-              </div>
-            </FadeIn>
-          </div>
-        </div>
-      </section>
-
-      {/* Process + FAQ */}
-      <section className="section-padding section-y bg-white">
-        <div className="container-max">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-14">
-            <FadeIn>
-              <h2 className="mb-8">Simple to get started</h2>
-              <ol className="space-y-6">
-                {steps.map((step, i) => (
-                  <li key={step} className="flex items-start gap-4">
-                    <span className="flex-shrink-0 w-9 h-9 rounded-full bg-sage-50 border border-sage-100 flex items-center justify-center text-sm font-semibold text-sage-600">
-                      {i + 1}
-                    </span>
-                    <p className="body-text pt-1.5">{step}</p>
-                  </li>
-                ))}
-              </ol>
-              <div className="mt-10">
-                <QuoteButton label="Get a Quote" />
-              </div>
-            </FadeIn>
-            <FadeIn delay={0.15}>
-              <h2 className="mb-8">Common questions</h2>
-              <div className="space-y-7">
-                {faqs.map((faq) => (
-                  <div key={faq.q} className="border-b border-sage-100 pb-7 last:border-0 last:pb-0">
-                    <h3 className="mb-2">{faq.q}</h3>
-                    <p className="body-text">{faq.a}</p>
-                  </div>
-                ))}
-              </div>
-            </FadeIn>
-          </div>
-        </div>
-      </section>
-
-      {/* Related services */}
-      {related.length > 0 && (
-        <section className="section-padding section-y bg-[#faf9f6]">
-          <div className="container-max">
-            <FadeIn>
-              <h2 className="mb-10">You might also need</h2>
-            </FadeIn>
-            <ul className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              {related.map((s) => (
-                <li key={s.slug}>
-                  <ServiceCard service={s} />
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )}
+      {/* 5. Booking steps */}
+      <BookingStepsSection
+        heading="Book your carpet and upholstery clean in 3 simple steps"
+        headingHighlight="3 simple steps"
+        steps={[
+          {
+            title: 'Send through details',
+            body: 'Tell us what needs cleaning and when it suits you.',
+          },
+          {
+            title: 'We arrange a time',
+            body: 'Scheduled at a time that works around your day.',
+          },
+          {
+            title: 'Refreshed result',
+            body: 'Carpets and fabrics cleaned and finished — spaces feel cared for again.',
+          },
+        ]}
+      />
 
       <script
         type="application/ld+json"
@@ -252,7 +156,8 @@ export default function CarpetUpholsteryPage() {
             '@context': 'https://schema.org',
             '@type': 'Service',
             name: 'Carpet & Upholstery Cleaning',
-            description: 'Professional carpet and upholstery cleaning in Auckland. Remove built-up dirt, stains, and odours from carpets and furniture.',
+            description:
+              'Carpet and upholstery cleaning in Auckland. Careful cleaning for carpets, rugs, sofas, and fabric surfaces.',
             provider: { '@type': 'LocalBusiness', name: 'Sano Property Services' },
             areaServed: { '@type': 'City', name: 'Auckland' },
           }),
@@ -260,8 +165,8 @@ export default function CarpetUpholsteryPage() {
       />
 
       <CtaBanner
-        headline="Looking to refresh your space?"
-        subtext="If your carpets or furniture need a proper clean, we can help. Get in touch for a quick, no-pressure quote."
+        headline="Ready to refresh your soft surfaces?"
+        subtext="Get in touch with what needs cleaning and we'll come back with a clear, practical quote."
       />
     </>
   )
