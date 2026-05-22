@@ -10,7 +10,8 @@ export default async function EditContractorInvoicePage({ params }: { params: { 
   const [{ data: ci, error }, { data: contractors }, { data: jobs }] = await Promise.all([
     supabase.from('contractor_invoices').select('id, contractor_id, job_id, amount, date_submitted, notes, status').eq('id', params.id).single(),
     supabase.from('contractors').select('id, full_name').eq('status', 'active').order('full_name'),
-    supabase.from('jobs').select('id, job_number, title').order('created_at', { ascending: false }).limit(50),
+    // Job picker — no row cap. See sibling `new/page.tsx` for context.
+    supabase.from('jobs').select('id, job_number, title').order('job_number', { ascending: false }),
   ])
 
   if (error || !ci) notFound()

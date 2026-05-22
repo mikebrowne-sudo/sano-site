@@ -7,7 +7,13 @@ export default async function NewContractorInvoicePage() {
   const supabase = createClient()
   const [{ data: contractors }, { data: jobs }] = await Promise.all([
     supabase.from('contractors').select('id, full_name').eq('status', 'active').order('full_name'),
-    supabase.from('jobs').select('id, job_number, title').order('created_at', { ascending: false }).limit(50),
+    // Job picker — no row cap. Earlier `.limit(50)` silently dropped any
+    // job outside the 50 most-recent by created_at, blocking staff from
+    // allocating contractors against older or in-progress jobs once the
+    // job count grew past 50. Ordered by `job_number` descending so the
+    // dropdown lists jobs in the same JOB-#### sequence staff use when
+    // cross-referencing against invoice numbers.
+    supabase.from('jobs').select('id, job_number, title').order('job_number', { ascending: false }),
   ])
 
   return (
