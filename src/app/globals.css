@@ -117,6 +117,23 @@
     will-change: transform;
   }
 
+  /* Sub-page hero entrance — slide-in from the left, matching the
+     homepage hero's motion direction (Framer `item.hidden: { x: -40 }`).
+     Each item carries its own `animationDelay` inline for staggered
+     reveal. The class name keeps `hero-rise-item` (internal) so existing
+     usages don't need to change. Pair with `motion-safe:` so
+     reduced-motion users skip the animation and the element renders
+     at its final (visible) state. */
+  @keyframes hero-rise {
+    from { opacity: 0; transform: translateX(-40px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .hero-rise-item {
+    opacity: 0;
+    animation: hero-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    will-change: transform, opacity;
+  }
+
   /* Grain texture overlay */
   .grain::after {
     content: '';
