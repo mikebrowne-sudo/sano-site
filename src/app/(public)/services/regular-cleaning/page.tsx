@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Image from 'next/image'
 import { HeroSection } from '@/components/HeroSection'
 import { CtaBanner } from '@/components/CtaBanner'
-import { FadeIn, Stagger, StaggerItem } from '@/components/FadeIn'
+import { FadeIn } from '@/components/FadeIn'
 import { QuoteButton } from '@/components/QuoteButton'
 import { ServiceCard } from '@/components/ServiceCard'
 import { ServiceChecklist } from '@/components/ServiceChecklist'
@@ -13,15 +13,6 @@ export const metadata: Metadata = {
   title: 'Regular House Cleaning Auckland | Sano',
   description: 'Reliable regular house cleaning in Auckland. We keep your home consistently clean, tidy, and easy to live in — weekly or fortnightly. Get a free quote.',
 }
-
-const includes = [
-  'Kitchens cleaned and surfaces wiped',
-  'Bathrooms cleaned and sanitised',
-  'Floors vacuumed and mopped',
-  'Dusting of surfaces and furniture',
-  'Skirting boards, switches, and touchpoints',
-  'General tidying and finishing details',
-]
 
 const schedules = [
   'Weekly cleaning',
@@ -100,46 +91,16 @@ export default function RegularCleaningPage() {
         </div>
       </section>
 
-      {/* What's included + image */}
-      <section className="section-padding section-y bg-[#faf9f6]">
-        <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
-            <FadeIn>
-              <h2 className="mb-8">What&apos;s included in a regular clean</h2>
-              <Stagger staggerDelay={0.07}>
-                <ul className="space-y-4">
-                  {includes.map((item) => (
-                    <StaggerItem key={item}>
-                      <li className="flex items-start gap-3 body-text">
-                        <span className="mt-[0.45rem] flex-shrink-0 w-1.5 h-1.5 rounded-full bg-sage-500" aria-hidden="true" />
-                        {item}
-                      </li>
-                    </StaggerItem>
-                  ))}
-                </ul>
-              </Stagger>
-            </FadeIn>
-            <FadeIn delay={0.15} direction="right">
-              <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
-                <Image
-                  src="/images/cleaning-shot-2.jpeg"
-                  alt="Sano cleaner at work in an Auckland home"
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                />
-              </div>
-            </FadeIn>
-          </div>
-        </div>
-      </section>
-
       {/* Sano 100-Point Home Clean Checklist — full interactive
-          drill-down of "What's included" above. Anchor target for the
+          breakdown of every item we cover. Anchor target for the
           homepage Signature System CTA (/services/regular-cleaning
           #home-clean-checklist). Drops the "Sano" brand prefix from
           the visual heading to keep the section title tight on the
-          page; data-file canonical name stays unchanged. */}
+          page; data-file canonical name stays unchanged.
+
+          showDraftBadge={false} suppresses the amber "Draft" pill on
+          this public surface while the underlying data file still
+          carries isDraft: true for internal preview signalling. */}
       <ServiceChecklist
         checklist={SANO_100_POINT_HOME_CLEAN}
         eyebrow="OUR SIGNATURE SYSTEM"
@@ -147,6 +108,7 @@ export default function RegularCleaningPage() {
         headingHighlight="100-Point Home Clean"
         intro="See exactly what's included in our regular home cleaning. The checklist gives a clear room-by-room view of how we work, while each visit is still adjusted to suit your home."
         anchorId="home-clean-checklist"
+        showDraftBadge={false}
         showQuoteCta
         ctaHref="/contact"
         ctaLabel="Get a free quote for your home"
