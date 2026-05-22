@@ -102,6 +102,21 @@
     100% { background-position: 30% 80%,  80%  30%,  60%  60%,  0 0; }
   }
 
+  /* Slow drift — used on watermark elements that should float gently.
+     Apply to an inner wrapper whose parent owns any static positioning
+     or rotation transform; otherwise the keyframe's `transform` will
+     clobber those parent transforms. Pair with `motion-safe:` so users
+     with prefers-reduced-motion stay still. */
+  @keyframes signature-drift {
+    0%   { transform: translate(0, 0); }
+    50%  { transform: translate(-16px, 10px); }
+    100% { transform: translate(0, 0); }
+  }
+  .signature-drift {
+    animation: signature-drift 16s ease-in-out infinite;
+    will-change: transform;
+  }
+
   /* Grain texture overlay */
   .grain::after {
     content: '';

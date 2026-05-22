@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { HomeHero } from '@/components/HomeHero'
 import { ServiceCard } from '@/components/ServiceCard'
 import { ProcessSteps } from '@/components/ProcessSteps'
+import { SignatureSystem } from '@/components/SignatureSystem'
 import { CtaBanner } from '@/components/CtaBanner'
 import { FadeIn, Stagger, StaggerItem } from '@/components/FadeIn'
 import { SERVICES } from '@/lib/services'
@@ -85,6 +86,22 @@ export default function HomePage() {
           </Stagger>
         </div>
       </section>
+
+      {/* Signature System — homepage trust block teasing the
+          Sano 100-Point Home Clean Checklist. Full-width dark sage banner
+          sits between the beige services grid above and the beige
+          ProcessSteps band below — the dark interruption signals it as a
+          feature block. CTA links to the future Phase C checklist anchor
+          on /services/regular-cleaning (soft-fails before integration;
+          lands the user at the page top in the meantime). */}
+      <SignatureSystem
+        eyebrow="OUR SIGNATURE SYSTEM"
+        displayHeading="The Sano 100-Point Home Clean Checklist"
+        headingHighlight="100-Point Home Clean"
+        body="A clear room-by-room standard for every Sano home clean. See exactly what's included before you book, with no surprises and no missed corners."
+        ctaHref="/services/regular-cleaning#home-clean-checklist"
+        ctaLabel="View the 100-Point Checklist"
+      />
 
       <ProcessSteps />
 
