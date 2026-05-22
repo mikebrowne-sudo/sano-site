@@ -56,16 +56,16 @@ export function WhyChooseSection({
   items,
 }: WhyChooseSectionProps) {
   return (
-    <section className="section-padding section-y bg-sage-800">
+    <section className="section-padding bg-sage-800 py-12 lg:py-14">
       <div className="container-max">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-sage-300">
             {eyebrow}
           </p>
           <h2
-            className="mt-3 font-sans font-semibold text-white"
+            className="mt-2 font-sans font-semibold text-white"
             style={{
-              fontSize: 'clamp(1.75rem, 3vw, 2.25rem)',
+              fontSize: 'clamp(1.625rem, 2.5vw, 2rem)',
               lineHeight: 1.15,
               letterSpacing: '-0.015em',
             }}
@@ -73,13 +73,13 @@ export function WhyChooseSection({
             {renderHeading(heading, headingHighlight)}
           </h2>
           {subtitle && (
-            <p className="mt-4 text-[1rem] leading-[1.6] text-white/80">
+            <p className="mt-3 text-[0.9375rem] leading-[1.6] text-white/80">
               {subtitle}
             </p>
           )}
         </div>
 
-        <ul className="mt-12 grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
+        <ul className="mt-10 grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
           {items.map((item) => (
             <li
               key={item.title}
