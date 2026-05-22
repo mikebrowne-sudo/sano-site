@@ -10,8 +10,30 @@ interface Props {
   params: { slug: string }
 }
 
+/**
+ * Slugs that have their own dedicated `page.tsx` in this directory
+ * (e.g. `services/regular-cleaning/page.tsx`). Those routes own the
+ * URL; the dynamic `[slug]` route here must NOT also pre-generate
+ * static params for them at build time, or Next.js will occasionally
+ * resolve the URL toward this fallback instead of the dedicated
+ * page (build-determinism flake — see PRs #173, #177 history). Keep
+ * this list in sync with the directories that exist under
+ * `src/app/(public)/services/`.
+ */
+const DEDICATED_SLUGS: ReadonlySet<string> = new Set([
+  'regular-cleaning',
+  'deep-cleaning',
+  'end-of-tenancy',
+  'commercial-cleaning',
+  'carpet-upholstery',
+  'window-cleaning',
+  'post-construction',
+])
+
 export async function generateStaticParams() {
-  return SERVICES.map((service) => ({ slug: service.slug }))
+  return SERVICES
+    .filter((service) => !DEDICATED_SLUGS.has(service.slug))
+    .map((service) => ({ slug: service.slug }))
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
