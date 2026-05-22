@@ -45,3 +45,6 @@ next-env.d.ts
 docs/AI/New Text Document.txt
 docs/AI/Launch Sano Claude.bat
 docs/compliance/
+
+# Local-only template-extraction outputs (scripts/extract-standalone-*.mjs)
+.standalone-out/

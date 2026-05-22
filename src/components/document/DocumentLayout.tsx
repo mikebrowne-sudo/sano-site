@@ -5,16 +5,27 @@ import { QUOTE_INVOICE_CSS } from './QuoteInvoiceCss'
  * Shared chrome for the standard Sano Quote / Tax Invoice document.
  * Consumed by `QuoteDocument` and `InvoiceDocument`. Pages just supply
  * a `<wrapper>` (either `.share-page` for /share/* surfaces or
- * `.print-overlay` for /portal/.../print surfaces) — the document
- * card itself is identical.
+ * `.print-overlay` for /portal/.../print surfaces) — the document card
+ * itself is identical.
+ *
+ * Markup tracks the standalone bundled template referenced in
+ * BRAND.md §8 — flat sage-800 header (white logo lockup left, identity
+ * block right), serif "Invoice." / "Quote." with sage-300 dot,
+ * From / Billed-to (or Quote-for) parties divided by a sage-100
+ * hairline, three-column items table (No. / Description / Amount —
+ * the description cell takes an optional `sub` paragraph below the
+ * title for service detail since the portal data has no per-line
+ * Rate/Qty), notes + payment-details on the left, totals on the right
+ * with the sage-800 grand-total pill, cream Terms band, sage-800
+ * footer ending with the italic "Cleaning, done properly." line.
  */
 
 export type DocumentKind = 'quote' | 'invoice'
 
 export interface DocumentParty {
-  /** Bold first-line name. */
+  /** Bold first-line name (rendered in the display serif). */
   name: string
-  /** Optional company line beneath the name. */
+  /** Optional company line beneath the name (appears as the first detail row). */
   company?: string | null
   /** Optional address block (may contain newlines). */
   address?: string | null
@@ -29,7 +40,7 @@ export interface DocumentParty {
 }
 
 export interface DocumentMeta {
-  /** Document number (e.g. QUO-0081, INV-0062). */
+  /** Document number (e.g. QT-0081, INV-0062). */
   number: string
   /** Issue date formatted for display. */
   dateIssuedDisplay: string
@@ -39,14 +50,11 @@ export interface DocumentMeta {
   trailingDateDisplay: string
 }
 
-export interface DocumentService {
-  description?: string | null
-  serviceAddress?: string | null
-  scheduledDateDisplay?: string | null
-}
-
 export interface DocumentLineItem {
+  /** Title — first line of the description cell. */
   description: string
+  /** Optional secondary paragraph below the title (newlines respected). */
+  sub?: string | null
   /** Formatted dollar amount, e.g. "$120.00" or "-$50.00". */
   amount: string
 }
@@ -55,16 +63,6 @@ export interface DocumentTotals {
   subtotalExGstDisplay: string
   gstDisplay: string
   totalDisplay: string
-}
-
-export interface DocumentTerms {
-  /** Primary terms paragraph (varies by payment_type). */
-  primary: string
-  /** Optional supporting line. */
-  secondary?: string
-  /** Anchor text + href for the agreement/terms link. */
-  agreementLabel: string
-  agreementHref: string
 }
 
 export interface DocumentFooter {
@@ -77,18 +75,16 @@ export interface DocumentFooter {
 }
 
 export interface DocumentLayoutProps {
-  /** Wrapping class. Use `'share-page'` on share routes or
-   * `'print-overlay'` on the staff portal print routes. */
+  /** Wrapping class. `'share-page'` on share routes, `'print-overlay'`
+   * on staff portal print routes. */
   wrapper: 'share-page' | 'print-overlay'
-  /** Document type (selects title + party labels + payment section visibility). */
+  /** Selects header / party / total labels + payment-section visibility. */
   kind: DocumentKind
   /** Header metadata: number + dates. */
   meta: DocumentMeta
   /** From / To parties. */
   fromParty: DocumentParty
   toParty: DocumentParty
-  /** Service section content (description, address, scheduled date). */
-  service?: DocumentService
   /** Line items rendered in the items table. */
   lineItems: ReadonlyArray<DocumentLineItem>
   /** Notes block (free text). Optional. */
@@ -97,15 +93,15 @@ export interface DocumentLayoutProps {
   paymentDetails?: ReadonlyArray<{ label: string; value: string }>
   /** Totals (subtotal, gst, total). */
   totals: DocumentTotals
-  /** Terms block. */
-  terms: DocumentTerms
+  /** Terms paragraph — varies by kind + payment_type. */
+  termsBody: string
   /** Dark footer content. */
   footer: DocumentFooter
   /** Optional interactive slot (AcceptQuote / PayNowButton) — only
-   * rendered on share pages, hidden on PDF render. */
+   * rendered on share pages, hidden in PDF mode. */
   interactiveSlot?: ReactNode
   /** Optional share-page actions row (PDF download button) — only
-   * rendered on share pages, hidden on PDF render. */
+   * rendered on share pages, hidden in PDF mode. */
   shareActionsSlot?: ReactNode
 }
 
@@ -115,19 +111,20 @@ export function DocumentLayout({
   meta,
   fromParty,
   toParty,
-  service,
   lineItems,
   notes,
   paymentDetails,
   totals,
-  terms,
+  termsBody,
   footer,
   interactiveSlot,
   shareActionsSlot,
 }: DocumentLayoutProps) {
   const isQuote = kind === 'quote'
-  const typeLabel = isQuote ? 'QUOTE' : 'INVOICE'
-  const toPartyLabel = isQuote ? 'Quote for' : 'Invoiced to'
+  const eyebrow = isQuote ? 'Quote' : 'Tax Invoice'
+  const typeWord = isQuote ? 'Quote' : 'Invoice'
+  const toPartyLabel = isQuote ? 'Quote for' : 'Billed to'
+  const grandTotalLabel = isQuote ? 'Quote total' : 'Amount due'
 
   return (
     <>
@@ -135,169 +132,137 @@ export function DocumentLayout({
       <div className={wrapper}>
         {shareActionsSlot && <div className="doc-share-actions">{shareActionsSlot}</div>}
 
-        <article className="doc">
-          {/* Gradient header */}
+        <article className="doc" aria-label={typeWord}>
+          {/* Header — flat sage-800 with grain + bottom accent stripe. */}
           <header className="doc-header">
-            <div className="doc-logo-lockup">
-              <span className="doc-logo-name">sano</span>
-              <span className="doc-logo-tagline">Clean spaces · Healthy living</span>
-            </div>
-            <div className="doc-type-badge">
-              <div className="doc-type-label">{typeLabel}</div>
-              <table className="doc-meta-table">
-                <tbody>
-                  <tr>
-                    <td className="doc-meta-label">Number</td>
-                    <td className="doc-meta-value">{meta.number}</td>
-                  </tr>
-                  <tr>
-                    <td className="doc-meta-label">Date</td>
-                    <td className="doc-meta-value">{meta.dateIssuedDisplay}</td>
-                  </tr>
-                  <tr>
-                    <td className="doc-meta-label">{meta.trailingDateLabel}</td>
-                    <td className="doc-meta-value">{meta.trailingDateDisplay}</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div className="doc-header-row">
+              <div className="doc-logo-lockup">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  className="doc-logo-img"
+                  src="/brand/sano-full-white.png"
+                  alt="Sano — Cleaning, done properly"
+                />
+              </div>
+              <div className="doc-identity">
+                <div className="doc-eyebrow">{eyebrow}</div>
+                <h1 className="doc-type">
+                  {typeWord}
+                  <span className="dot">.</span>
+                </h1>
+                <dl className="doc-meta-grid">
+                  <dt>Number</dt>
+                  <dd>{meta.number}</dd>
+                  <dt>Issued</dt>
+                  <dd>{meta.dateIssuedDisplay}</dd>
+                  <dt>{meta.trailingDateLabel}</dt>
+                  <dd>{meta.trailingDateDisplay}</dd>
+                </dl>
+              </div>
             </div>
           </header>
 
           {/* Body */}
           <div className="doc-body">
-            {/* Parties */}
-            <div className="doc-parties">
-              <PartyBlock label="From" party={fromParty} />
-              <PartyBlock label={toPartyLabel} party={toParty} />
-            </div>
-
-            <div className="doc-divider" aria-hidden="true" />
-
-            {/* Service section */}
-            {service && (service.description || service.serviceAddress || service.scheduledDateDisplay) && (
-              <section className="doc-section">
-                <h2 className="doc-section-title">Service</h2>
-                {service.description && (
-                  <div className="doc-field">
-                    <div className="doc-field-label">Service description</div>
-                    <div className="doc-field-value">
-                      {service.description.split('\n\n').map((para, i) => (
-                        <p key={i}>{para}</p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {service.serviceAddress && (
-                  <div className="doc-field">
-                    <div className="doc-field-label">Service address</div>
-                    <div className="doc-field-value">{service.serviceAddress}</div>
-                  </div>
-                )}
-                {service.scheduledDateDisplay && (
-                  <div className="doc-field">
-                    <div className="doc-field-label">Scheduled date</div>
-                    <div className="doc-field-value">{service.scheduledDateDisplay}</div>
-                  </div>
-                )}
-              </section>
-            )}
-
-            {/* Items table */}
-            <table className="doc-items">
-              <thead>
-                <tr>
-                  <th className="doc-items-no">No.</th>
-                  <th>Description</th>
-                  <th className="doc-items-right" style={{ width: 120 }}>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lineItems.map((item, i) => (
-                  <tr key={`${i}-${item.description}`}>
-                    <td className="doc-items-no">{String(i + 1).padStart(2, '0')}</td>
-                    <td>{item.description}</td>
-                    <td className="doc-items-right">{item.amount}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* Bottom section: notes/payment | totals */}
-            <div className="doc-bottom">
+            {/* Parties — From | Billed to / Quote for. */}
+            <section className="doc-parties">
               <div>
+                <div className="doc-party-eyebrow">From</div>
+                <PartyBlock party={fromParty} />
+              </div>
+              <div>
+                <div className="doc-party-eyebrow">{toPartyLabel}</div>
+                <PartyBlock party={toParty} />
+              </div>
+            </section>
+
+            {/* Items table — No. / Description / Amount (incl. GST). */}
+            <section className="doc-items-section">
+              <table className="doc-items">
+                <thead>
+                  <tr>
+                    <th className="col-no">No.</th>
+                    <th className="col-desc">Description</th>
+                    <th className="col-amt is-right">Amount (incl. GST)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lineItems.map((item, i) => (
+                    <tr key={`${i}-${item.description}`}>
+                      <td className="col-no">{String(i + 1).padStart(2, '0')}</td>
+                      <td className="col-desc">
+                        <div className="desc-title">{item.description}</div>
+                        {item.sub && <div className="desc-sub">{item.sub}</div>}
+                      </td>
+                      <td className="col-amt">{item.amount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+
+            {/* Totals block — Notes/Payment left, Totals + grand-total right. */}
+            <section className="doc-totals-wrap">
+              <div className="doc-side-notes">
                 {notes && (
-                  <div className="doc-notes">
+                  <>
                     <h4>Notes</h4>
                     <div className="doc-notes-body">{notes}</div>
-                  </div>
+                  </>
                 )}
                 {paymentDetails && paymentDetails.length > 0 && (
-                  <div className="doc-payment">
+                  <>
                     <h4>Payment details</h4>
-                    {paymentDetails.map((row) => (
-                      <div key={row.label} className="doc-payment-row">
-                        <span>{row.label}</span>
-                        <strong>{row.value}</strong>
-                      </div>
-                    ))}
-                  </div>
+                    <dl className="doc-pay-list">
+                      {paymentDetails.map((row) => (
+                        <PayRow key={row.label} label={row.label} value={row.value} />
+                      ))}
+                    </dl>
+                  </>
                 )}
               </div>
+
               <div className="doc-totals">
-                <div className="doc-totals-row">
+                <div className="doc-total-row">
                   <span>Subtotal (excl. GST)</span>
-                  <span>{totals.subtotalExGstDisplay}</span>
+                  <span className="val">{totals.subtotalExGstDisplay}</span>
                 </div>
-                <div className="doc-totals-row gst-row">
+                <div className="doc-total-row">
                   <span>GST (15%)</span>
-                  <span>{totals.gstDisplay}</span>
+                  <span className="val">{totals.gstDisplay}</span>
                 </div>
-                <div className="doc-totals-total">
-                  <span>Total (incl. GST)</span>
-                  <span>{totals.totalDisplay}</span>
+                <div className="doc-total-divider" />
+                <div className="doc-grand-total">
+                  <span className="label">{grandTotalLabel}</span>
+                  <span className="val">{totals.totalDisplay}</span>
                 </div>
               </div>
-            </div>
+            </section>
           </div>
 
-          {/* Terms */}
+          {/* Terms — cream band with sage-100 top border. */}
           <section className="doc-terms">
-            <h4 className="doc-terms-title">Terms &amp; conditions</h4>
-            <p className="doc-terms-text">{terms.primary}</p>
-            {terms.secondary && <p className="doc-terms-text">{terms.secondary}</p>}
-            <p className="doc-terms-text" style={{ marginTop: 8 }}>
-              {isQuote
-                ? 'By accepting this quote you agree to our '
-                : 'By making payment you confirm acceptance of our '}
-              <a
-                href={terms.agreementHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="doc-terms-link"
-              >
-                {terms.agreementLabel}
-              </a>
-              .
-            </p>
+            <h4>Terms &amp; conditions</h4>
+            <p>{termsBody}</p>
           </section>
 
-          {/* Dark footer */}
+          {/* Dark footer — contacts + italic thank-you. */}
           <footer className="doc-footer">
-            <div className="doc-footer-contact">
+            <div className="doc-footer-contacts">
               <span className="doc-footer-item">
-                <FooterIcon kind="email" />
-                <strong>{footer.email}</strong>
+                <FooterIcon kind="mail" />
+                <span>{footer.email}</span>
               </span>
               <span className="doc-footer-item">
                 <FooterIcon kind="phone" />
-                <strong>{footer.phone}</strong>
+                <span>{footer.phone}</span>
               </span>
               <span className="doc-footer-item">
-                <FooterIcon kind="web" />
-                <strong>{footer.website}</strong>
+                <FooterIcon kind="globe" />
+                <span>{footer.website}</span>
               </span>
             </div>
-            <span className="doc-footer-thank">Thank you for your business ✦</span>
+            <div className="doc-footer-thanks">Cleaning, done properly.</div>
           </footer>
         </article>
 
@@ -307,67 +272,61 @@ export function DocumentLayout({
   )
 }
 
-function PartyBlock({ label, party }: { label: string; party: DocumentParty }) {
+function PartyBlock({ party }: { party: DocumentParty }) {
+  const detailLines: string[] = []
+  if (party.company) detailLines.push(party.company)
+  if (party.address) detailLines.push(party.address)
+  if (party.attn) detailLines.push(`Attn: ${party.attn}`)
+  if (party.email) detailLines.push(party.email)
+  if (party.phone) detailLines.push(party.phone)
+  if (party.gst) detailLines.push(`GST No. ${party.gst}`)
+  if (party.reference) detailLines.push(`Reference: ${party.reference}`)
+
   return (
-    <div>
-      <div className="doc-party-label">{label}</div>
+    <>
       <div className="doc-party-name">{party.name}</div>
-      {party.company && <div className="doc-party-line">{party.company}</div>}
-      {party.address && (
-        <div className="doc-party-line" style={{ whiteSpace: 'pre-line' }}>
-          {party.address}
-        </div>
+      {detailLines.length > 0 && (
+        <div className="doc-party-detail">{detailLines.join('\n')}</div>
       )}
-      {party.attn && <div className="doc-party-line">Attn: {party.attn}</div>}
-      {party.phone && <div className="doc-party-line">Phone: {party.phone}</div>}
-      {party.email && <div className="doc-party-line">Email: {party.email}</div>}
-      {party.gst && <div className="doc-party-line">GST: {party.gst}</div>}
-      {party.reference && (
-        <div className="doc-party-line" style={{ marginTop: 6 }}>
-          Your reference: <strong style={{ color: 'var(--text-main)' }}>{party.reference}</strong>
-        </div>
-      )}
-    </div>
+    </>
   )
 }
 
-function FooterIcon({ kind }: { kind: 'email' | 'phone' | 'web' }) {
-  const stroke = 'rgba(255,255,255,0.72)'
-  if (kind === 'email') {
+function PayRow({ label, value }: { label: string; value: string }) {
+  return (
+    <>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </>
+  )
+}
+
+function FooterIcon({ kind }: { kind: 'mail' | 'phone' | 'globe' }) {
+  if (kind === 'mail') {
     return (
-      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-        <path
-          d="M2 2.5h10a1 1 0 011 1v7a1 1 0 01-1 1H2a1 1 0 01-1-1v-7a1 1 0 011-1zm0 0l5 5 5-5"
-          stroke={stroke}
-          strokeWidth="1.3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" strokeWidth="2"
+           strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="m3 7 9 6 9-6" />
       </svg>
     )
   }
   if (kind === 'phone') {
     return (
-      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-        <path
-          d="M11.5 9.5c-.8-.8-1.7-1.3-2.5-.5l-.8.8c-.5.5-2-1-3-2s-2.5-2.5-2-3l.8-.8C4.7 3.2 4.2 2.3 3.4 1.5 2.6.7 2 .8 1.4 1.4L.8 2C-.3 3.1 1 7 4.5 10.5S10.9 14.3 12 13.2l.6-.6c.6-.6.7-1.3-.1-2.1z"
-          stroke={stroke}
-          strokeWidth="1.3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" strokeWidth="2"
+           strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
       </svg>
     )
   }
   return (
-    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <circle cx="7" cy="6" r="3" stroke={stroke} strokeWidth="1.3" />
-      <path
-        d="M7 13c2-2 5-4 5-7A5 5 0 002 6c0 3 3 5 5 7z"
-        stroke={stroke}
-        strokeWidth="1.3"
-        strokeLinejoin="round"
-      />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" strokeWidth="2"
+         strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
     </svg>
   )
 }

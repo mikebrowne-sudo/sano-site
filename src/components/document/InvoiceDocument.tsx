@@ -8,18 +8,23 @@ import {
 
 /**
  * Standard Sano Tax Invoice document. Wraps `DocumentLayout` with the
- * invoice-specific data shape, label strings, terms and Payment
+ * invoice-specific data shape, label strings, terms, and Payment
  * Details block. Used by both the staff portal print page and the
  * public share page.
  *
  * Quote vs Invoice differences encapsulated here:
  *   - Trailing date label = "Due" (Quote = "Valid until")
- *   - Right-party header = "Invoiced to" (Quote = "Quote for")
- *   - Renders the Payment Details block (bank/account/reference)
- *   - Terms wording (payment confirmation + service terms link)
+ *   - Right-party header = "Billed to" (Quote = "Quote for")
+ *   - Renders the Payment Details block (Account / Number / Reference)
+ *   - Terms wording (14-day or cash-sale)
  *   - `interactiveSlot` is wired to `PayNowButton` on share pages
  *   - Accounts contact + accounts email override the regular contact
  *     fields on the To party (matches the existing print page logic)
+ *
+ * The portal data has no per-line Rate / Qty — the table renders as
+ * No. / Description / Amount and the long service description sits
+ * under the pricing-label title via the `sub` field on the first
+ * line item.
  */
 
 export interface InvoiceDocumentInput {
@@ -116,8 +121,8 @@ export function InvoiceDocument({
   }
 
   // Accounts email/contact takes precedence over the regular contact
-  // fields on the To party — matches the existing print page logic
-  // so the invoice copy mirrors the routing used to send it.
+  // fields on the To party — matches the existing print page logic so
+  // the invoice copy mirrors the routing used to send it.
   const toParty: DocumentParty = {
     name: client?.name ?? '—',
     company: client?.company_name ?? null,
@@ -128,9 +133,31 @@ export function InvoiceDocument({
     reference: invoice.client_reference ?? null,
   }
 
+  // First line item carries the pricing label as title + the long
+  // service description as the sub paragraph. Service address +
+  // scheduled date are folded into the same sub paragraph so the
+  // table stays one consistent column (no separate "Service" section).
+  const subParts: string[] = []
+  if (description) subParts.push(description)
+  const meta: string[] = []
+  if (invoice.service_address) meta.push(`Service address: ${invoice.service_address}`)
+  if (invoice.scheduled_clean_date) meta.push(`Service date: ${fmtDate(invoice.scheduled_clean_date)}`)
+  if (meta.length) subParts.push(meta.join(' · '))
+  const primarySub = subParts.join('\n\n') || null
+
   const lineItems: DocumentLineItem[] = []
   if ((invoice.base_price ?? 0) > 0) {
-    lineItems.push({ description: pricingLabel, amount: fmt(invoice.base_price ?? 0) })
+    lineItems.push({
+      description: pricingLabel,
+      sub: primarySub,
+      amount: fmt(invoice.base_price ?? 0),
+    })
+  } else if (primarySub) {
+    lineItems.push({
+      description: pricingLabel || 'Service',
+      sub: primarySub,
+      amount: fmt(0),
+    })
   }
   for (const addon of addons) {
     lineItems.push({ description: addon.label, amount: fmt(addon.price ?? 0) })
@@ -140,13 +167,17 @@ export function InvoiceDocument({
   }
 
   const paymentDetails: { label: string; value: string }[] = [
-    { label: 'Bank', value: 'Sano Property Services Limited' },
-    { label: 'Account', value: '12-3627-0005597-00' },
+    { label: 'Account', value: 'Sano Property Services Limited' },
+    { label: 'Number', value: '12-3627-0005597-00' },
     { label: 'Reference', value: invoice.invoice_number },
   ]
   if (invoice.client_reference) {
     paymentDetails.push({ label: 'Your reference / PO', value: invoice.client_reference })
   }
+
+  const termsBody = isCashSale
+    ? 'Payment is required in full before or on the day of service, unless otherwise agreed. All amounts are in New Zealand Dollars and include GST. Sano Property Services Limited is GST registered (GST No. 141-577-062) under the Goods and Services Tax Act 1985. Please use your invoice number as the payment reference.'
+    : 'Payment is due within 14 days of the invoice date. All amounts are in New Zealand Dollars and include GST. Sano Property Services Limited is GST registered (GST No. 141-577-062) under the Goods and Services Tax Act 1985. Please use your invoice number as the payment reference.'
 
   return (
     <DocumentLayout
@@ -160,11 +191,6 @@ export function InvoiceDocument({
       }}
       fromParty={fromParty}
       toParty={toParty}
-      service={{
-        description,
-        serviceAddress: invoice.service_address,
-        scheduledDateDisplay: invoice.scheduled_clean_date ? fmtDate(invoice.scheduled_clean_date) : null,
-      }}
       lineItems={lineItems}
       notes={invoice.notes}
       paymentDetails={paymentDetails}
@@ -173,14 +199,7 @@ export function InvoiceDocument({
         gstDisplay: fmt(gstAmount),
         totalDisplay: fmt(total),
       }}
-      terms={{
-        primary: isCashSale
-          ? 'Payment is required in full before or on the day of service, unless otherwise agreed.'
-          : 'Payment is due within 14 days of invoice date, unless otherwise agreed.',
-        secondary: 'Please use your invoice number as the payment reference.',
-        agreementLabel: 'Service Terms',
-        agreementHref: '/share/invoice-terms',
-      }}
+      termsBody={termsBody}
       footer={{
         email: 'hello@sano.nz',
         phone: '022 394 3982',

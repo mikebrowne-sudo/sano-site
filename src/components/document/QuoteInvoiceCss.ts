@@ -8,53 +8,59 @@
  *   - src/app/share/invoice/[token]/page.tsx             (public share)
  *
  * The same CSS supports both the screen preview (share/print pages
- * have a soft sage background and the document floats as a centred
- * card) and the PDF / @media print output (the document fills the
- * A4 page edge-to-edge with the gradient header bleeding to the
- * margins).
+ * have a soft cream background and the document floats as a centred
+ * 880px card) and the PDF / @media print output (the document fills
+ * the A4 page edge-to-edge, gradient stripe stays under the dark
+ * header, soft card chrome drops out).
  *
- * Design reference: Templates/sano-invoice-quote-template.html in the
- * brand-asset repo. Colours pulled into the existing Sano sage palette
- * (`#7EC87A` / `#076653` / `#06231D`) so the document family stays in
- * step with the rest of the brand.
+ * Design reference: the standalone bundled HTML at
+ * `F:\Sano\30-Accounting\Templates\Examples\Sano Invoice _ Quote _standalone_.html`
+ * (BRAND.md §8 "Invoice / Quote document spec"). Sage palette pinned to
+ * #7EC87A / #076653 / #06231D, typography is Poppins (body / UI) +
+ * Noto Serif (display / "Invoice." / "Quote." / grand-total value /
+ * footer thank-you), per BRAND.md §5.
  *
  * PDF rendering note: render-pdf.ts already runs Puppeteer with
  * `preferCSSPageSize: true` and zero outer margins, so `@page` controls
- * the page geometry from inside this CSS. Internal padding on
- * `.doc-body` / `.doc-footer` / `.doc-header` provides the safe area.
+ * the page geometry from inside this CSS. The internal safe-area
+ * padding lives on `.doc-header`, `.doc-body`, `.terms`, `.doc-footer`.
  */
 
 export const QUOTE_INVOICE_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Noto+Serif:ital,wght@0,400;0,700;1,400&display=swap');
 
   :root {
-    --sano-light: #7EC87A;
-    --sano-mid:   #076653;
-    --sano-dark:  #06231D;
-    --text-main:  #06231D;
-    --text-muted: #5C6B64;
-    --border:     #E0EAE3;
-    --row-tint:   #F7F9F7;
-    --screen-bg:  #F7F9F7;
-    --accent-pill-bg: rgba(126, 200, 122, 0.16);
+    --sage-50:  #F7F9F7;
+    --sage-100: #E0EAE3;
+    --sage-200: #A8C5B0;
+    --sage-300: #7EC87A;
+    --sage-500: #076653;
+    --sage-600: #5C6B64;
+    --sage-700: #344C3D;
+    --sage-800: #06231D;
+    --cream:    #faf9f6;
+    --white:    #FFFFFF;
+    --gray-400: #9CA3AF;
+
+    --font-sans:    'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-display: 'Noto Serif', Georgia, serif;
   }
 
-  body { margin: 0; }
-
-  /* Screen background — only shows on the share/print pages while
-     reading on screen. The PDF render emulateMediaType('print')
-     activates @media print further down and the page background
-     drops out. */
+  /* Page wrappers — .share-page on /share/* surfaces, .print-overlay
+     on staff /portal/.../print surfaces. Both share the cream wash +
+     centred-card preview, both flatten in @media print. */
   .share-page,
   .print-overlay {
     min-height: 100vh;
-    background: var(--screen-bg);
-    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 9.75pt;
-    line-height: 1.6;
-    color: var(--text-main);
-    -webkit-print-color-adjust: exact;
+    background: var(--cream);
+    color: var(--sage-800);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 36px 24px 80px;
+    -webkit-font-smoothing: antialiased;
     print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 
   .print-overlay {
@@ -64,378 +70,392 @@ export const QUOTE_INVOICE_CSS = `
     overflow: auto;
   }
 
-  /* The document itself — fills the A4 area on print, floats as a
-     centred card on screen. */
+  /* The document card itself. */
   .doc {
-    max-width: 210mm;
-    margin: 32px auto;
-    background: #fff;
-    border-radius: 16px;
+    max-width: 880px;
+    margin: 0 auto;
+    background: var(--white);
+    border-radius: 20px;
     overflow: hidden;
-    box-shadow: 0 8px 40px rgba(6, 35, 29, 0.10);
+    border: 1px solid var(--sage-100);
+    box-shadow:
+      0 1px 2px rgba(6, 35, 29, 0.04),
+      0 20px 50px -20px rgba(6, 35, 29, 0.18);
   }
 
-  /* GRADIENT HEADER — sage-300 → sage-500 → sage-800, with a soft
-     decorative circle in the top-right corner. */
+  /* ====================== HEADER ====================== */
   .doc-header {
+    background: var(--sage-800);
+    color: var(--white);
     position: relative;
+    padding: 40px 48px 36px;
     overflow: hidden;
-    background: linear-gradient(135deg,
-      var(--sano-light) 0%,
-      var(--sano-mid) 50%,
-      var(--sano-dark) 100%);
-    padding: 36px 44px 32px;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 24px;
   }
-  .doc-header::after {
-    content: '';
+  .doc-header::before {
+    content: "";
     position: absolute;
-    right: -80px;
-    top: -80px;
-    width: 280px;
-    height: 280px;
-    background: rgba(255, 255, 255, 0.06);
-    border-radius: 50%;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 85% 20%, rgba(126,200,122,0.10) 0%, transparent 45%),
+      radial-gradient(circle at 5% 110%, rgba(126,200,122,0.06) 0%, transparent 50%);
     pointer-events: none;
   }
-  .doc-logo-lockup { position: relative; z-index: 1; }
-  .doc-logo-name {
-    display: block;
-    font-size: 30pt;
-    font-weight: 800;
-    line-height: 1;
-    letter-spacing: -0.5px;
-    color: rgba(255, 255, 255, 0.96);
+  .doc-header::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--sage-300) 0%, var(--sage-500) 60%, transparent 100%);
   }
-  .doc-logo-tagline {
-    display: block;
-    margin-top: 6px;
-    font-size: 8.5pt;
-    font-weight: 500;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.7);
-  }
-
-  .doc-type-badge {
+  .doc-header-row {
     position: relative;
-    z-index: 1;
-    text-align: right;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: flex-start;
+    gap: 32px;
   }
-  .doc-type-label {
-    font-size: 26pt;
-    font-weight: 800;
-    line-height: 1;
-    letter-spacing: -0.5px;
-    color: rgba(255, 255, 255, 0.96);
+  .doc-logo-lockup { display: block; }
+  .doc-logo-img {
+    height: 72px;
+    width: auto;
+    display: block;
   }
-  .doc-meta-table {
-    margin-top: 10px;
-    margin-left: auto;
-    border-collapse: collapse;
-    font-size: 9pt;
-  }
-  .doc-meta-table td {
-    padding: 2px 0;
-    line-height: 1.5;
-  }
-  .doc-meta-label {
-    padding-right: 14px;
-    color: rgba(255, 255, 255, 0.65);
-    text-align: right;
-  }
-  .doc-meta-value {
-    color: rgba(255, 255, 255, 0.95);
+
+  .doc-identity { text-align: right; }
+  .doc-eyebrow {
+    font-size: 11px;
     font-weight: 600;
-    text-align: left;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--sage-300);
+    margin-bottom: 8px;
+  }
+  .doc-type {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 44px;
+    line-height: 1;
+    letter-spacing: -0.025em;
+    color: var(--white);
+    margin: 0;
+  }
+  .doc-type .dot { color: var(--sage-300); }
+
+  .doc-meta-grid {
+    margin: 18px 0 0;
+    display: grid;
+    grid-template-columns: auto auto;
+    column-gap: 14px;
+    row-gap: 5px;
+    justify-content: end;
+    font-size: 12.5px;
+  }
+  .doc-meta-grid dt {
+    color: rgba(255,255,255,0.55);
+    text-align: right;
+    font-weight: 500;
+    margin: 0;
+  }
+  .doc-meta-grid dd {
+    color: var(--white);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    margin: 0;
   }
 
-  /* BODY — internal safe-area padding for the print PDF. */
-  .doc-body { padding: 36px 44px 4px; }
+  /* ====================== BODY ====================== */
+  .doc-body { padding: 40px 48px 8px; }
 
-  /* PARTIES GRID — From / Invoiced To or Quote For. */
+  /* PARTIES — From | Billed to / Quote for, divided by sage-100 hairline. */
   .doc-parties {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 36px;
-    margin-bottom: 28px;
+    gap: 40px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--sage-100);
   }
-  .doc-party-label {
-    font-size: 8pt;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--sano-mid);
-    margin-bottom: 8px;
-  }
-  .doc-party-name {
-    font-size: 11pt;
-    font-weight: 700;
-    color: var(--text-main);
-    margin-bottom: 4px;
-  }
-  .doc-party-line {
-    color: var(--text-muted);
-    font-size: 9pt;
-    line-height: 1.6;
-  }
-
-  /* Gradient divider — sage-300 → sage-100 → transparent. */
-  .doc-divider {
-    height: 1.5px;
-    margin: 0 0 28px;
-    background: linear-gradient(90deg,
-      var(--sano-light) 0%,
-      var(--border) 60%,
-      transparent 100%);
-    border-radius: 2px;
-  }
-
-  /* SERVICE SECTION — compact field stack between parties and items. */
-  .doc-section { margin-bottom: 24px; }
-  .doc-section-title {
-    font-size: 8pt;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--sano-mid);
-    margin-bottom: 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--border);
-  }
-  .doc-field { margin-bottom: 10px; }
-  .doc-field-label {
-    font-size: 7.5pt;
+  .doc-party-eyebrow {
+    font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-    margin-bottom: 2px;
+    letter-spacing: 0.22em;
+    color: var(--sage-500);
+    margin-bottom: 12px;
   }
-  .doc-field-value {
-    font-size: 9.5pt;
-    color: var(--text-main);
+  .doc-party-name {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 19px;
+    line-height: 1.25;
+    color: var(--sage-800);
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
   }
-  .doc-field-value p { margin: 0 0 0.5em; }
-  .doc-field-value p:last-child { margin-bottom: 0; }
+  .doc-party-detail {
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--sage-600);
+    white-space: pre-line;
+  }
 
-  /* ITEMS TABLE — dark sage-800 header, alternating row tint. */
+  /* ====================== ITEMS TABLE ====================== */
+  .doc-items-section { padding-top: 32px; }
+
   .doc-items {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 24px;
-    font-size: 9.5pt;
-  }
-  .doc-items thead tr {
-    background: var(--sano-dark);
   }
   .doc-items thead th {
-    padding: 11px 14px;
-    font-size: 7.5pt;
-    font-weight: 700;
+    font-size: 11px;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: rgba(255, 255, 255, 0.88);
+    letter-spacing: 0.18em;
+    color: var(--sage-500);
     text-align: left;
+    padding: 0 0 12px;
+    border-bottom: 1.5px solid var(--sage-800);
   }
-  .doc-items thead th.doc-items-right { text-align: right; }
-  .doc-items thead th.doc-items-no { width: 42px; }
+  .doc-items thead th.is-right { text-align: right; }
+  .doc-items thead th.col-no  { width: 38px; }
+  .doc-items thead th.col-amt { width: 150px; }
+
   .doc-items tbody tr {
-    border-bottom: 1px solid var(--border);
-  }
-  .doc-items tbody tr:nth-child(even) {
-    background: var(--row-tint);
+    border-bottom: 1px solid var(--sage-100);
   }
   .doc-items tbody td {
-    padding: 10px 14px;
-    color: var(--text-main);
-    font-size: 9.5pt;
+    padding: 16px 0;
+    font-size: 14px;
+    color: var(--sage-800);
     vertical-align: top;
   }
-  .doc-items tbody td.doc-items-no {
-    color: var(--text-muted);
-    font-size: 8.5pt;
-    width: 42px;
+  .doc-items td.col-no {
+    color: var(--gray-400);
     font-variant-numeric: tabular-nums;
+    font-size: 12.5px;
+    padding-top: 18px;
+    font-weight: 500;
   }
-  .doc-items tbody td.doc-items-right {
+  .doc-items td.col-desc { padding-right: 16px; }
+  .doc-items td.col-desc .desc-title {
+    font-weight: 500;
+    color: var(--sage-800);
+    line-height: 1.5;
+  }
+  .doc-items td.col-desc .desc-sub {
+    margin-top: 3px;
+    font-size: 12.5px;
+    color: var(--sage-600);
+    line-height: 1.55;
+    white-space: pre-line;
+  }
+  .doc-items td.col-amt {
     text-align: right;
     font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    padding-top: 18px;
   }
 
-  /* BOTTOM SECTION — Notes/Payment left, Totals right. */
-  .doc-bottom {
+  /* ====================== TOTALS ====================== */
+  .doc-totals-wrap {
+    margin-top: 32px;
     display: grid;
-    grid-template-columns: 1.05fr 0.95fr;
-    gap: 28px;
-    margin-bottom: 24px;
+    grid-template-columns: 1fr 320px;
+    gap: 40px;
+    align-items: start;
   }
-  .doc-notes h4,
-  .doc-payment h4 {
-    font-size: 8pt;
-    font-weight: 700;
+
+  .doc-side-notes h4 {
+    font-size: 11px;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--sano-mid);
-    margin: 0 0 10px;
+    letter-spacing: 0.22em;
+    color: var(--sage-500);
+    margin: 0 0 12px;
   }
   .doc-notes-body {
-    font-size: 9pt;
-    line-height: 1.65;
-    color: var(--text-muted);
-    white-space: pre-wrap;
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--sage-600);
+    margin-bottom: 24px;
+    white-space: pre-line;
   }
-  .doc-payment { margin-top: 18px; }
-  .doc-payment-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    font-size: 9pt;
-    color: var(--text-muted);
-    padding: 3px 0;
+  .doc-pay-list {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 16px;
+    row-gap: 6px;
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0;
   }
-  .doc-payment-row strong {
-    color: var(--text-main);
-    font-weight: 600;
+  .doc-pay-list dt { color: var(--sage-600); margin: 0; }
+  .doc-pay-list dd {
+    color: var(--sage-800);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    margin: 0;
   }
 
   .doc-totals {
-    background: var(--row-tint);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px 22px;
-    align-self: start;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
-  .doc-totals-row {
+  .doc-total-row {
     display: flex;
     justify-content: space-between;
-    padding: 5px 0;
-    font-size: 9.5pt;
-    color: var(--text-muted);
+    align-items: baseline;
+    font-size: 13.5px;
+    color: var(--sage-600);
+  }
+  .doc-total-row .val {
     font-variant-numeric: tabular-nums;
+    color: var(--sage-800);
+    font-weight: 500;
   }
-  .doc-totals-row span:last-child {
-    color: var(--text-main);
-    font-weight: 600;
+  .doc-total-divider {
+    height: 1px;
+    background: var(--sage-100);
+    margin: 4px 0;
   }
-  .doc-totals-row.gst-row {
-    border-top: 1px solid var(--border);
-    margin-top: 4px;
-    padding-top: 10px;
-  }
-  .doc-totals-total {
+  .doc-grand-total {
+    margin-top: 8px;
+    background: var(--sage-800);
+    color: var(--white);
+    border-radius: 14px;
+    padding: 18px 22px;
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-top: 12px;
-    padding: 12px 16px;
-    background: var(--sano-dark);
-    color: rgba(255, 255, 255, 0.96);
-    border-radius: 8px;
-    font-size: 11pt;
-    font-weight: 800;
-    letter-spacing: -0.3px;
-    font-variant-numeric: tabular-nums;
+    align-items: baseline;
+    position: relative;
+    overflow: hidden;
   }
-
-  /* TERMS — small block above the dark footer. */
-  .doc-terms {
-    padding: 20px 44px 24px;
-    border-top: 1px solid var(--border);
+  .doc-grand-total::after {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    width: 4px;
+    background: var(--sage-300);
   }
-  .doc-terms-title {
-    font-size: 8pt;
-    font-weight: 700;
+  .doc-grand-total .label {
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--sano-mid);
-    margin-bottom: 8px;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.7);
   }
-  .doc-terms-text {
-    font-size: 8.5pt;
-    color: var(--text-muted);
-    line-height: 1.65;
-    margin-bottom: 4px;
-  }
-  .doc-terms-text:last-child { margin-bottom: 0; }
-  .doc-terms-link {
-    color: var(--sano-mid);
-    text-decoration: underline;
+  .doc-grand-total .val {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 26px;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
   }
 
-  /* DARK FOOTER — contact row + thank-you. */
+  /* ====================== TERMS ====================== */
+  .doc-terms {
+    margin-top: 40px;
+    background: var(--cream);
+    border-top: 1px solid var(--sage-100);
+    padding: 24px 48px 28px;
+  }
+  .doc-terms h4 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--sage-500);
+    margin: 0 0 8px;
+  }
+  .doc-terms p {
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--sage-600);
+    max-width: 70ch;
+    margin: 0;
+  }
+
+  /* ====================== FOOTER ====================== */
   .doc-footer {
-    background: var(--sano-dark);
-    padding: 22px 44px;
-    display: flex;
-    justify-content: space-between;
+    background: var(--sage-800);
+    color: var(--white);
+    padding: 24px 48px;
+    display: grid;
+    grid-template-columns: 1fr auto;
     align-items: center;
     gap: 24px;
-    flex-wrap: wrap;
+    position: relative;
   }
-  .doc-footer-contact {
+  .doc-footer::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: 1px;
+    background: rgba(126,200,122,0.25);
+  }
+  .doc-footer-contacts {
     display: flex;
-    gap: 26px;
+    gap: 28px;
     flex-wrap: wrap;
+    font-size: 12.5px;
   }
   .doc-footer-item {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    font-size: 9pt;
-    color: rgba(255, 255, 255, 0.72);
+    gap: 8px;
+    color: rgba(255,255,255,0.85);
   }
-  .doc-footer-item strong {
-    color: rgba(255, 255, 255, 0.92);
-    font-weight: 600;
+  .doc-footer-item svg {
+    flex: none;
+    color: var(--sage-300);
   }
-  .doc-footer-thank {
-    font-size: 9.5pt;
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.88);
+  .doc-footer-thanks {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 14px;
+    color: rgba(255,255,255,0.75);
     white-space: nowrap;
   }
 
-  /* SHARE PAGE EXTRAS — only on /share/* pages, not in PDF render. */
+  /* ====================== SHARE-PAGE EXTRAS ====================== */
+  /* Only on screen — not in the PDF. */
   .doc-share-actions {
-    max-width: 210mm;
-    margin: 16px auto 8px;
-    padding: 0 4px;
+    max-width: 880px;
+    margin: 0 auto 22px;
     display: flex;
     justify-content: flex-end;
   }
 
-  /* PAGE BREAKS — keep totals + sections intact. */
+  /* Keep critical sections together when paginating to a multi-page PDF. */
   .doc-parties,
-  .doc-section,
-  .doc-items,
-  .doc-bottom,
-  .doc-totals,
-  .doc-terms { break-inside: avoid; page-break-inside: avoid; }
-  .doc-items tr { break-inside: avoid; }
+  .doc-totals-wrap,
+  .doc-grand-total,
+  .doc-terms,
+  .doc-footer { break-inside: avoid; page-break-inside: avoid; }
+  .doc-items tr { break-inside: avoid; page-break-inside: avoid; }
 
-  /* A4 PAGE — full-bleed via @page margin: 0 + internal safe-area
-     padding inside the doc. Matches the design reference template. */
-  @page { margin: 0; size: A4; }
+  /* ====================== PRINT ====================== */
+  @page { size: A4; margin: 0; }
 
   @media print {
-    /* Hide screen chrome on PDF render. */
+    html, body { background: var(--white); padding: 0; margin: 0; }
     .share-page,
     .print-overlay {
       position: static;
-      background: #fff;
+      background: var(--white);
+      padding: 0;
     }
     .doc {
+      max-width: 100%;
       margin: 0;
       border-radius: 0;
+      border: none;
       box-shadow: none;
-      max-width: 100%;
     }
-    .doc-share-actions { display: none; }
+    .doc-share-actions { display: none !important; }
     .accept-panel,
-    .pay-now-panel { display: none; }
+    .pay-now-panel { display: none !important; }
   }
 `

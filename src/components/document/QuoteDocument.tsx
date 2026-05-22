@@ -13,10 +13,15 @@ import {
  *
  * Quote vs Invoice differences encapsulated here:
  *   - Trailing date label = "Valid until" (Invoice = "Due")
- *   - Right-party header = "Quote for" (Invoice = "Invoiced to")
+ *   - Right-party header = "Quote for" (Invoice = "Billed to")
  *   - No Payment Details block (Invoice has one)
- *   - Terms wording (acceptance + service agreement link)
+ *   - Terms wording
  *   - `interactiveSlot` is wired to `AcceptQuote` on share pages
+ *
+ * The portal data has no per-line Rate / Qty — the table renders as
+ * No. / Description / Amount and the long service description sits
+ * under the pricing-label title via the `sub` field on the first
+ * line item.
  */
 
 export interface QuoteDocumentInput {
@@ -85,9 +90,9 @@ export function QuoteDocument({
   interactiveSlot,
   shareActionsSlot,
 }: QuoteDocumentProps) {
-  // Existing GST + totals logic preserved verbatim from the previous
-  // print/share pages — `gst_included = true` means the entered prices
-  // are GST-inclusive and we back-derive the GST component (×3/23);
+  // GST + totals logic preserved verbatim from the previous print/share
+  // pages — `gst_included = true` means the entered prices are
+  // GST-inclusive and we back-derive the GST component (×3/23);
   // otherwise we add 15% on top.
   const addons = items.filter((a) => (a.price ?? 0) > 0)
   const addonsTotal = addons.reduce((sum, i) => sum + (i.price ?? 0), 0)
@@ -120,9 +125,31 @@ export function QuoteDocument({
     reference: quote.client_reference ?? null,
   }
 
+  // First line item carries the pricing label as title + the long
+  // service description as the sub paragraph. Service address +
+  // scheduled date are folded into the same sub paragraph so the
+  // table stays one consistent column (no separate "Service" section).
+  const subParts: string[] = []
+  if (description) subParts.push(description)
+  const meta: string[] = []
+  if (quote.service_address) meta.push(`Service address: ${quote.service_address}`)
+  if (quote.scheduled_clean_date) meta.push(`Scheduled: ${fmtDate(quote.scheduled_clean_date)}`)
+  if (meta.length) subParts.push(meta.join(' · '))
+  const primarySub = subParts.join('\n\n') || null
+
   const lineItems: DocumentLineItem[] = []
   if ((quote.base_price ?? 0) > 0) {
-    lineItems.push({ description: pricingLabel, amount: fmt(quote.base_price ?? 0) })
+    lineItems.push({
+      description: pricingLabel,
+      sub: primarySub,
+      amount: fmt(quote.base_price ?? 0),
+    })
+  } else if (primarySub) {
+    lineItems.push({
+      description: pricingLabel || 'Service',
+      sub: primarySub,
+      amount: fmt(0),
+    })
   }
   for (const addon of addons) {
     lineItems.push({ description: addon.label, amount: fmt(addon.price ?? 0) })
@@ -130,6 +157,10 @@ export function QuoteDocument({
   if ((quote.discount ?? 0) > 0) {
     lineItems.push({ description: 'Discount', amount: `-${fmt(quote.discount ?? 0)}` })
   }
+
+  const termsBody = isCashSale
+    ? 'This quote is valid for 30 days from the issue date. Prices are in New Zealand Dollars and include GST. Payment is required in full before or on the day of service, unless otherwise agreed. Sano Property Services Limited is GST registered (GST No. 141-577-062). No lock-in contracts — you can pause or cancel any time.'
+    : 'This quote is valid for 30 days from the issue date. Prices are in New Zealand Dollars and include GST. Payment is due within 14 days of the invoice date, unless otherwise agreed. Sano Property Services Limited is GST registered (GST No. 141-577-062). No lock-in contracts — you can pause or cancel any time.'
 
   return (
     <DocumentLayout
@@ -143,11 +174,6 @@ export function QuoteDocument({
       }}
       fromParty={fromParty}
       toParty={toParty}
-      service={{
-        description,
-        serviceAddress: quote.service_address,
-        scheduledDateDisplay: quote.scheduled_clean_date ? fmtDate(quote.scheduled_clean_date) : null,
-      }}
       lineItems={lineItems}
       notes={quote.notes}
       totals={{
@@ -155,14 +181,7 @@ export function QuoteDocument({
         gstDisplay: fmt(gstAmount),
         totalDisplay: fmt(total),
       }}
-      terms={{
-        primary: isCashSale
-          ? 'Payment is required in full before or on the day of service, unless otherwise agreed.'
-          : 'Payment is due within 14 days of invoice date, unless otherwise agreed.',
-        secondary: 'If anything is unclear, please let us know.',
-        agreementLabel: 'Service Agreement',
-        agreementHref: '/share/service-agreement',
-      }}
+      termsBody={termsBody}
       footer={{
         email: 'hello@sano.nz',
         phone: '022 394 3982',
