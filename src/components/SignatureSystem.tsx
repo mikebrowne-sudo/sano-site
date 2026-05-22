@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ListChecks } from 'lucide-react'
 
 interface SignatureSystemProps {
   /** Small uppercase eyebrow rendered as a pill above the heading. */
@@ -10,8 +9,8 @@ interface SignatureSystemProps {
   displayHeading: string
   /**
    * Optional substring of displayHeading to emphasise in sage-300 (lighter
-   * sage chosen for contrast on the dark band). Colour-only emphasis; the
-   * heading itself carries the semibold weight.
+   * sage chosen for contrast on the dark sage overlay). Colour-only emphasis;
+   * inherits parent semibold weight.
    */
   headingHighlight?: string
   /** Short paragraph beneath the heading. */
@@ -21,25 +20,28 @@ interface SignatureSystemProps {
   /** CTA button label. */
   ctaLabel: string
   /**
-   * Optional background image path served from /public. When provided, renders
-   * full-bleed behind the gradient overlay at reduced opacity. When omitted
-   * (default), the dark sage gradient stands alone. Lets a future PR drop a
-   * real Sano photo in via a single prop change.
+   * Optional override of the default background image path. Default points
+   * at `/images/homepage-signature-system.jpg`. Lets a future PR swap the
+   * image without component changes.
    */
   backgroundImage?: string
+  /** Optional alt text override for the background image. Aria-hidden on
+   *  default since the heading already carries the section meaning. */
+  backgroundAlt?: string
   /**
-   * Optional `id` for the rendered h2. When provided, the section element also
-   * gets `aria-labelledby` pointing at it so the section is labelled by its
-   * heading. Useful for sibling navigation / skip-links.
+   * Optional `id` for the rendered h2. When provided, the section element
+   * also gets `aria-labelledby` pointing at it.
    */
   ariaLabelledById?: string
 }
 
+const DEFAULT_BACKGROUND = '/images/homepage-signature-system.jpg'
+
 /**
  * Render a heading with an optional `highlight` substring emphasised in
- * Sano sage-300 (lighter accent green for legibility on dark surfaces).
- * Colour-only emphasis — inherits parent semibold weight. Falls back to plain
- * text if highlight is missing or not found in heading.
+ * sage-300 (lighter accent for legibility on dark surfaces). Colour-only
+ * emphasis — inherits parent semibold weight. Falls back to plain text if
+ * highlight is missing or not found in heading.
  */
 function renderHeading(heading: string, highlight?: string): ReactNode {
   if (!highlight) return heading
@@ -55,14 +57,59 @@ function renderHeading(heading: string, highlight?: string): ReactNode {
 }
 
 /**
- * Homepage trust block — Sano "Signature System" / 100-Point Home Clean
- * Checklist teaser. Full-width dark sage band with centred content. Sits
- * between the services grid and ProcessSteps, where the visual interruption
- * between two beige sections reinforces it as a feature block.
+ * Soft oversized checklist/document watermark. Built from CSS shapes
+ * rather than a lucide icon so it reads as a document silhouette
+ * rather than a literal icon. Sits at the right edge, partially
+ * cropped, very low opacity. Pure presentational — aria-hidden.
  *
- * Background defaults to a dark sage gradient with a subtle watermark
- * ListChecks icon. A future PR can drop a real Sano photo in via the
- * `backgroundImage` prop without any other component change.
+ * The outer wrapper carries `motion-safe:signature-drift` so the
+ * shape gently drifts only when the user hasn't requested reduced
+ * motion. The background image and overlay never move.
+ */
+function DocumentWatermark() {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute -right-32 top-1/2 hidden h-[34rem] w-[28rem] -translate-y-1/2 opacity-[0.07] sm:block lg:right-[-4rem] motion-safe:signature-drift"
+    >
+      <div className="flex h-full w-full flex-col rounded-3xl border-2 border-white p-10">
+        {/* Document title bar */}
+        <div className="mb-8 h-3 w-40 rounded-full bg-white" />
+
+        {/* Six checklist rows */}
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="mb-6 flex items-center gap-4">
+            {/* Check tile */}
+            <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border-2 border-white">
+              <div className="h-2 w-2 rounded-[2px] bg-white" />
+            </div>
+            {/* Row label */}
+            <div
+              className="h-2.5 rounded-full bg-white"
+              style={{ width: `${72 - i * 6}%` }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Homepage trust block — Sano "Signature System" / 100-Point Home Clean
+ * Checklist teaser. Full-width image-backed dark sage banner with centred
+ * content. Sits between the services grid and ProcessSteps.
+ *
+ * - Background image: real Sano photography supplied at
+ *   /images/homepage-signature-system.jpg. Static (never animates).
+ * - Layered sage overlay: solid sage-800/[0.85] base + radial sage-500
+ *   highlight to give the dark band depth without going harsh-black.
+ * - Watermark: document/checklist shape built from CSS, very low
+ *   opacity, partially cropped at the right edge. Gentle drift via
+ *   the `signature-drift` keyframe in globals.css, gated by
+ *   `motion-safe:` so reduced-motion users see it static.
+ * - Content: centred, white text, sage-300 highlight, white CTA
+ *   with sage-800 text.
  */
 export function SignatureSystem({
   eyebrow,
@@ -71,7 +118,8 @@ export function SignatureSystem({
   body,
   ctaHref,
   ctaLabel,
-  backgroundImage,
+  backgroundImage = DEFAULT_BACKGROUND,
+  backgroundAlt = '',
   ariaLabelledById,
 }: SignatureSystemProps) {
   return (
@@ -79,43 +127,40 @@ export function SignatureSystem({
       aria-labelledby={ariaLabelledById}
       className="relative overflow-hidden bg-sage-800 section-padding py-20 lg:py-24"
     >
-      {/* Optional full-bleed image (default: none — gradient stands alone) */}
-      {backgroundImage && (
-        <Image
-          src={backgroundImage}
-          alt=""
-          fill
-          className="object-cover object-center opacity-40"
-          sizes="100vw"
-          aria-hidden="true"
-        />
-      )}
+      {/* Static background image */}
+      <Image
+        src={backgroundImage}
+        alt={backgroundAlt}
+        fill
+        sizes="100vw"
+        className="object-cover object-center"
+        priority={false}
+      />
 
-      {/* Gradient overlay — gives depth on a flat dark band and ensures
-          text readability on top of any future background image */}
+      {/* Base dark sage overlay — strong enough for clear white text */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-sage-800/85"
+      />
+
+      {/* Subtle radial sage highlight on top of the base overlay — gives
+          the dark band depth and a soft centre-focus glow */}
       <div
         aria-hidden="true"
         className="absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse at top, rgba(7,102,83,0.5) 0%, transparent 65%), linear-gradient(180deg, rgba(6,35,29,0.95) 0%, rgba(52,76,61,0.95) 100%)',
+            'radial-gradient(ellipse at center, rgba(7,102,83,0.30) 0%, transparent 60%)',
         }}
       />
 
-      {/* Watermark ListChecks icon — large, subtle, sits behind content
-          on the right edge. Clipped by overflow-hidden on the section
-          so it never spills off the page on narrow viewports. */}
-      <ListChecks
-        aria-hidden="true"
-        size={420}
-        strokeWidth={0.6}
-        className="pointer-events-none absolute -right-16 top-1/2 -translate-y-1/2 text-sage-300/[0.07] lg:right-4"
-      />
+      {/* Document watermark — drifts only on motion-safe */}
+      <DocumentWatermark />
 
       {/* Centred content */}
       <div className="container-max relative">
         <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/85 backdrop-blur-sm">
+          <span className="inline-flex items-center rounded-full border border-white/25 bg-white/10 px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/90 backdrop-blur-sm">
             {eyebrow}
           </span>
 

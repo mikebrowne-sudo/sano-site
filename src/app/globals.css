@@ -102,6 +102,17 @@
     100% { background-position: 30% 80%,  80%  30%,  60%  60%,  0 0; }
   }
 
+  /* Slow drift — used on watermark elements that should float gently.
+     Pair with `motion-safe:` so users with prefers-reduced-motion stay still. */
+  @keyframes signature-drift {
+    0%   { transform: translate(0, 0); }
+    50%  { transform: translate(-8px, 6px); }
+    100% { transform: translate(0, 0); }
+  }
+  .signature-drift {
+    animation: signature-drift 18s ease-in-out infinite;
+  }
+
   /* Grain texture overlay */
   .grain::after {
     content: '';
