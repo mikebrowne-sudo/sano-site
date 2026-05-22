@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
-import { HeroSection } from '@/components/HeroSection'
 import { CtaBanner } from '@/components/CtaBanner'
 import { FadeIn, Stagger, StaggerItem } from '@/components/FadeIn'
 import { QuoteButton } from '@/components/QuoteButton'
 import { ServiceCard } from '@/components/ServiceCard'
+import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { getRelatedServices } from '@/lib/services'
 
 export const metadata: Metadata = {
@@ -64,12 +64,20 @@ const related = getRelatedServices(['regular-cleaning', 'window-cleaning', 'carp
 export default function CommercialCleaningPage() {
   return (
     <>
-      <HeroSection
-        headline="Commercial & Office Cleaning in Auckland"
-        subtext="Reliable cleaning that keeps your workspace clean, consistent, and easy to maintain."
-        imageUrl="https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=1600&q=80"
-        imageAlt="Clean, modern office space"
-        showSecondaryButton={false}
+      {/* SubpageHero — canonical cleaning-service pattern (matches the
+          Regular Cleaning, Deep Cleaning, and End of Tenancy rollouts
+          in #170 / #171 / #172). Primary CTA only, full trust row
+          (DEFAULT_TRUST_ITEMS), homepage-exact gradient + entrance.
+          No "Explore Services". No checklist link in the hero —
+          commercial cleaning doesn't have a dedicated checklist
+          surface in the current site. */}
+      <SubpageHero
+        eyebrow="COMMERCIAL CLEANING"
+        title="Commercial and office cleaning across Auckland"
+        subtitle="Reliable cleaning for offices, workplaces, and commercial spaces, with clear communication and consistent standards from Sano."
+        imageSrc="/images/heroes/commercial-office-cleaning-hero.jpg"
+        primaryCta={{ label: 'Get a Free Quote', href: '/contact' }}
+        trustItems={DEFAULT_TRUST_ITEMS}
       />
 
       {/* Intro */}
