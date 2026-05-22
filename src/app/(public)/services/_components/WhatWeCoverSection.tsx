@@ -55,7 +55,7 @@ export function WhatWeCoverSection({
   items,
 }: WhatWeCoverSectionProps) {
   return (
-    <section className="section-padding bg-[#faf9f6] py-12 lg:py-14">
+    <section className="section-padding bg-[#faf9f6] py-10 lg:py-12">
       <div className="container-max">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-sage-500">
@@ -64,7 +64,7 @@ export function WhatWeCoverSection({
           <h2
             className="mt-2 font-display font-bold text-sage-800"
             style={{
-              fontSize: 'clamp(1.625rem, 2.5vw, 2rem)',
+              fontSize: 'clamp(1.5rem, 2.25vw, 1.875rem)',
               lineHeight: 1.15,
               letterSpacing: '-0.015em',
             }}
@@ -74,7 +74,7 @@ export function WhatWeCoverSection({
           {subtitle && <p className="mt-3 body-text">{subtitle}</p>}
         </div>
 
-        <ul className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+        <ul className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
           {items.map((item) => {
             const Icon = item.icon
             return (
@@ -90,7 +90,7 @@ export function WhatWeCoverSection({
                     aria-hidden="true"
                   />
                 </span>
-                <h3 className="mt-4 font-sans text-[1rem] font-semibold text-sage-800">
+                <h3 className="mt-3 font-sans text-[1rem] font-semibold text-sage-800">
                   {item.title}
                 </h3>
                 <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-sage-600">

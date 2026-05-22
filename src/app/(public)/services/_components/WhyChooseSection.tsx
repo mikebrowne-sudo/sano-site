@@ -56,7 +56,7 @@ export function WhyChooseSection({
   items,
 }: WhyChooseSectionProps) {
   return (
-    <section className="section-padding bg-sage-800 py-12 lg:py-14">
+    <section className="section-padding bg-sage-800 py-10 lg:py-12">
       <div className="container-max">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-sage-300">
@@ -65,7 +65,7 @@ export function WhyChooseSection({
           <h2
             className="mt-2 font-sans font-semibold text-white"
             style={{
-              fontSize: 'clamp(1.625rem, 2.5vw, 2rem)',
+              fontSize: 'clamp(1.5rem, 2.25vw, 1.875rem)',
               lineHeight: 1.15,
               letterSpacing: '-0.015em',
             }}
@@ -79,11 +79,11 @@ export function WhyChooseSection({
           )}
         </div>
 
-        <ul className="mt-10 grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
+        <ul className="mt-8 grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
           {items.map((item) => (
             <li
               key={item.title}
-              className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-4"
+              className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5"
             >
               {/* Small sage-300 check — matches the medical-cleaning reference
                   inline check on dark feature items. */}
