@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
-import { HeroSection } from '@/components/HeroSection'
 import { CtaBanner } from '@/components/CtaBanner'
 import { FadeIn, Stagger, StaggerItem } from '@/components/FadeIn'
 import { QuoteButton } from '@/components/QuoteButton'
 import { ServiceCard } from '@/components/ServiceCard'
+import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { getRelatedServices } from '@/lib/services'
 
 export const metadata: Metadata = {
@@ -57,12 +57,21 @@ const related = getRelatedServices(['deep-cleaning', 'carpet-upholstery', 'post-
 export default function EndOfTenancyPage() {
   return (
     <>
-      <HeroSection
-        headline="End of Tenancy Cleaning in Auckland"
-        subtext="A thorough clean to leave your property in the right condition before moving out."
-        imageUrl="/images/end-of-tenancy.jpg"
-        imageAlt="Clean, empty property ready for inspection"
-        showSecondaryButton={false}
+      {/* SubpageHero — canonical cleaning-service pattern (matches the
+          Regular Cleaning and Deep Cleaning rollouts in #170 / #171).
+          Primary CTA only, full trust row (DEFAULT_TRUST_ITEMS),
+          homepage-exact gradient + entrance. No "Explore Services",
+          no checklist link in the hero — the 125-Point Property Reset
+          checklist content lives in /preview/checklists (unlinked)
+          and any future end-of-tenancy checklist integration would
+          land in a separate rollout. */}
+      <SubpageHero
+        eyebrow="END OF TENANCY CLEANING"
+        title="End of tenancy cleaning for a proper property reset"
+        subtitle="A detailed clean for move-outs, rental handovers, and homes that need to be brought back to a high standard."
+        imageSrc="/images/heroes/end-of-tenancy-hero.jpg"
+        primaryCta={{ label: 'Get a Free Quote', href: '/contact' }}
+        trustItems={DEFAULT_TRUST_ITEMS}
       />
 
       {/* Intro */}
