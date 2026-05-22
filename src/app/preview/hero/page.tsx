@@ -60,11 +60,12 @@ export default function HeroPreviewPage() {
         trustItems={DEFAULT_TRUST_ITEMS}
       />
 
-      {/* Variant 2 — cleaning service hero with an anchor-style
-          secondary CTA. Useful where the page has its own anchored
-          checklist (e.g. /services/regular-cleaning#home-clean-checklist)
-          and the secondary link signposts it. Still no "Explore Services". */}
-      <VariantLabel title="V2 — Cleaning service hero + anchor-style secondary link" />
+      {/* Variant 2 — second cleaning-service hero example. Different
+          image, demonstrates the `titleHighlight` substring emphasis
+          pattern (colour-only sage-300 highlight on a phrase within the
+          h1). Same canonical structure as V1: primary CTA only, full
+          trust row, no secondary CTA. */}
+      <VariantLabel title="V2 — Cleaning service hero with titleHighlight emphasis" />
       <SubpageHero
         eyebrow="REGULAR CLEANING"
         title="Regular house cleaning, built around your home"
@@ -72,14 +73,16 @@ export default function HeroPreviewPage() {
         subtitle="Reliable, detail-focused cleaning across Auckland — weekly, fortnightly, or on a custom schedule."
         imageSrc="/images/sano-commercial-clean-auckland.jpeg"
         primaryCta={{ label: 'Get a Free Quote', href: '/contact' }}
-        secondaryCta={{ label: 'See the 100-Point Checklist', href: '#home-clean-checklist' }}
         trustItems={DEFAULT_TRUST_ITEMS}
       />
 
       {/* Variant 3 — non-cleaning / general sub-page hero. Keeps the
-          "Explore Services" secondary CTA pattern from the homepage,
-          no trust row by default. */}
-      <VariantLabel title="V3 — Non-cleaning / general sub-page (with Explore Services)" />
+          "Explore Services" secondary CTA pattern from the homepage.
+          Trust row included here per visual-review feedback — for real
+          non-cleaning pages, trust row is opt-in via the `trustItems`
+          prop; pages like /about or /service-area would typically pass
+          it, while pages like /policies or /blog might omit it. */}
+      <VariantLabel title="V3 — Non-cleaning / general sub-page (with Explore Services + trust row)" />
       <SubpageHero
         eyebrow="ABOUT SANO"
         title="Cleaning that improves how a space feels"
@@ -87,15 +90,20 @@ export default function HeroPreviewPage() {
         imageSrc="/images/cleaned-by-sano.jpg"
         primaryCta={{ label: 'Get a Free Quote', href: '/contact' }}
         secondaryCta={{ label: 'Explore Services', href: '/services' }}
+        trustItems={DEFAULT_TRUST_ITEMS}
       />
 
       {/* Variant 4 — compact utility-page hero. Centred, no CTAs or
           trust row, no entrance animation. Fits short-content surfaces
-          like /faq, /policies, /service-area. */}
+          like /faq, /policies, /service-area. "Help" is promoted from
+          the eyebrow into the title with `titleHighlight` so it reads
+          as the strongest word in the hero (sage-300 colour emphasis,
+          no weight change — subtle, not overdone). */}
       <VariantLabel title="V4 — Compact, centred utility-page hero" />
       <SubpageHero
-        eyebrow="HELP"
-        title="Frequently asked questions"
+        eyebrow="FAQ"
+        title="Help and common questions"
+        titleHighlight="Help"
         subtitle="Answers to common questions about Sano Cleaning: pricing, booking, our cleaners, products, and more."
         imageSrc="/images/Sano-crew-auckland.jpeg"
         align="center"
