@@ -213,6 +213,8 @@ Copy-paste this into a future session when ready to draft:
 Draft the Mount Eden suburb pilot page from the approved spec at:
 docs/superpowers/specs/2026-05-25-mount-eden-suburb-pilot.md
 
+Do not create a reusable suburb-page generator yet. Build Mount Eden as the pilot first, then review the pattern before abstracting anything.
+
 Decisions locked by the spec — do not change without going back to Mike:
 - Route: /service-area/mount-eden
 - File: src/app/(public)/service-area/mount-eden/page.tsx
