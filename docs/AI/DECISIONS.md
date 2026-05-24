@@ -20,6 +20,17 @@ Each entry is a short ADR. Newest at the top. Don't rewrite history - if a decis
 
 ---
 
+## 2026-05-25 - Quote / Tax Invoice document visual reference = bundled standalone HTML
+- **Status:** accepted
+- **Context:** PR #180 originally pinned the shared quote/invoice document family to the readable template at `F:\Sano\30-Accounting\Templates\sano-invoice-quote-template.html`. Visual review found that wasn't the intended reference — the accounting team's actual source is the bundled standalone HTML at `F:\Sano\30-Accounting\Templates\Examples\Sano Invoice _ Quote _standalone_.html` (BRAND.md §8 describes the same layout). The bundled file is base64+gzip-encoded inside `<script type="__bundler/template">` + `<script type="__bundler/manifest">` tags, so raw text inspection alone misses the actual CSS / JSX.
+- **Options:**
+  1. Keep the readable template as the reference, accept the design drift. Easiest, wrong outcome.
+  2. Render the bundled standalone in a real browser and reverse-engineer pixel-by-pixel. High effort, hard to reproduce, no audit trail.
+  3. Write a reproducible extractor (`scripts/extract-standalone-{template,jsx}.mjs`) that decodes `__bundler/template` + `__bundler/manifest` payloads and writes resolved HTML / CSS / JSX to a gitignored `.standalone-out/`. The extracted CSS / JSX become the literal source for the redesign.
+- **Decision:** Option 3. The bundled standalone is canonical; BRAND.md §8 is the second source of truth. Extractor scripts live in `scripts/` so future template updates re-run the same pipeline. `.standalone-out/` is gitignored (large base64 blobs + binary fonts; the standalone HTML stays in the accounting folder, never committed to the site repo).
+- **Consequences:** The redesigned document family uses Poppins + Noto Serif (not Manrope), flat sage-800 header (not 135° gradient), real `/brand/sano-full-white.png` logo (not inline text), serif `Quote.` / `Invoice.` with sage-300 dot, `Service address` / `Service description` sub-blocks (not a separate "Service" section), sage-800 grand-total pill, cream Terms band, italic *"Cleaning, done properly."* footer. PDF architecture, schema, lifecycle, email-attach flow, share routes, AcceptQuote / PayNowButton / `?pdf=1` / sent→viewed tracking all untouched. Bash classifier blocks reads against `F:\Sano\30-Accounting\` per `feedback_external_folders`; PowerShell tool was the working escape hatch — that's a known operational pattern for explicit one-off access to external folders. Render-side `due_date` falls back to `computeInvoiceDueDate` only when stored is null (operator overrides on custom invoices preserved); `payment_terms` passthrough deferred until a custom-terms client hits the null-due-date path.
+- **Links:** PR [#180](https://github.com/mikebrowne-sudo/sano-site/pull/180) (`66fb318`). Extractor scripts at `scripts/extract-standalone-template.mjs` + `scripts/extract-standalone-jsx.mjs`.
+
 ## 2026-05-14 - Contractor portal + browser favicon use real Sano logomark
 - **Status:** accepted
 - **Context:** PWA app icon, browser favicon, Apple touch icon, and the contractor-portal topbar were all using AI-generated placeholder art (a procedural green-gradient S-shape SVG and PNG renders of it). Real Sano brand assets exist at `F:\Sano\10-Branding\Logos\` but had never been pulled into the repo. Per `feedback_external_folders`, the user normally moves brand assets in by hand — this was an explicit one-off override for two named files.

@@ -19,6 +19,7 @@
 - _(empty)_
 
 ## Recently completed (move to STATE.md once verified live)
+- **Quote / Tax Invoice document redesign** — PR #180 merged 2026-05-25 (`66fb318`). Shared document family under `src/components/document/`, pinned to the bundled standalone HTML at `F:\Sano\30-Accounting\Templates\Examples\Sano Invoice _ Quote _standalone_.html` (BRAND.md §8). Poppins + Noto Serif, flat sage-800 header with 56px logo + 34px serif `Quote.` / `Invoice.`, `SERVICE ADDRESS` / `SERVICE DESCRIPTION` sub-blocks, `0800 726 686` footer, `Quote #` / `Invoice #` header label, render-side `due_date` fallback via `computeInvoiceDueDate`. Awaiting production smoke on the 8 surfaces (staff + share print + PDF, both kinds).
 - **Homepage hero alignment refine** — PR #156 merged 2026-05-19 (`9d58469`). Content block widened to `max-w-2xl`, left inset reduced to `pl-2 lg:pl-4`, chip set rotated to Homes / Offices / Rentals / End of tenancy (ClipboardCheck icon for end-of-tenancy so no icon duplicated). Trust row + chip row now sit on a single line at desktop widths.
 - **Homepage hero polish (hierarchy + gradient)** — PR #155 merged 2026-05-19 (`ada9817`). Inline icon trust row (no boxed pills), soft white card-style chips, gradient lightened through centre/right (`0.78/0.50/0.10` → `0.72/0.38/0.06`).
 - **Phase 5B amendment lock** — PR #139 merged 2026-05-13 (`a5e1a9e`). Docs ADR shipped via PR #140 (`b84d791`).

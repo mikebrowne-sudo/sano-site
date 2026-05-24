@@ -16,6 +16,8 @@
 ## Most recent shipped phase
 **Phase J - Quote & Invoice PDF** (per [`docs/PORTAL.md`](../PORTAL.md) "Phase J - Quote & Invoice PDF"). 5 server-rendered PDF routes share `src/lib/pdf/render-pdf.ts` (`puppeteer-core` + `@sparticuz/chromium`). Send Quote / Send Invoice emails auto-attach the share-page PDF with a fail-fast contract. Branch-shipped on `feat/quote-invoice-pdf`.
 
+**Quote / Tax Invoice document redesign** - PR [#180](https://github.com/mikebrowne-sudo/sano-site/pull/180) merged 2026-05-25 (`66fb318`). Shared document family under `src/components/document/` (`QuoteInvoiceCss.ts`, `DocumentLayout.tsx`, `QuoteDocument.tsx`, `InvoiceDocument.tsx`) consumed by all 4 staff-print + share-page surfaces. Pinned to the bundled standalone HTML at `F:\Sano\30-Accounting\Templates\Examples\Sano Invoice _ Quote _standalone_.html` (BRAND.md §8): Poppins + Noto Serif, flat sage-800 header with 56px logo + 34px serif `Quote.` / `Invoice.`, `Service address` / `Service description` sub-blocks in the line item, `0800 726 686` footer, `Quote #` / `Invoice #` header label, render-side `due_date` fallback via `computeInvoiceDueDate`. Awaiting production smoke (open print + share + PDF on both kinds; verify A4 portrait, no clipping, due-date matches terms wording per `payment_type`).
+
 ## Verification status
 - `npm test` baseline: 3 failing suites (`submit-application`, `services`, `Header`) - pre-existing, leave alone.
 - `npx next lint` should be clean (Errors fail Netlify builds).

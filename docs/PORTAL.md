@@ -12,6 +12,8 @@
 
 **Recently shipped to branch:** Phase J — Quote & Invoice PDF (server-rendered, fail-fast email auto-attach). Pending Netlify deploy + production verification before "Current system status" treats it as live.
 
+**Recently merged to `main` (awaiting production smoke):** PR #180 — Quote / Tax Invoice document redesign. New shared document family under `src/components/document/` (consumed by all 4 staff-print + share-page surfaces) pinned to the bundled standalone HTML at `F:\Sano\30-Accounting\Templates\Examples\Sano Invoice _ Quote _standalone_.html` (BRAND.md §8). Poppins + Noto Serif, flat sage-800 header with 56px logo + 34px serif `Quote.` / `Invoice.`, `Service address` / `Service description` sub-blocks in the line item, `0800 726 686` footer, `Quote #` / `Invoice #` header label, render-side `due_date` fallback via `computeInvoiceDueDate`. See `docs/AI/DECISIONS.md` 2026-05-25 entry for the standalone-reference decision.
+
 *Convention: this section reflects the ONE active focus. Each major phase (Notifications, Payroll, Recurring, etc.) supports an "In Flight" subsection below its "shipped" section. Shipped sections remain unchanged; in-flight sections track real-time development state and update only at phase boundaries (push → PR → merge → verified).*
 
 ---
