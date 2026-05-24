@@ -29,7 +29,7 @@ export default function EndOfTenancyPage() {
       {/* 1. Service Information */}
       <ServiceInformation
         body={[
-          'Sano end of tenancy cleaning is designed for tenants, landlords, and property managers who need a property brought back to a high standard before handover. We work methodically through the home — room by room, surface by surface — so nothing is missed in the rush of moving out.',
+          'Sano end of tenancy cleaning is designed for tenants, landlords, and property managers who need a property brought back to a high standard before handover. We work methodically through the home, room by room and surface by surface, so nothing is missed in the rush of moving out.',
           'Each clean covers kitchens, bathrooms, internal windows, floors, skirting boards, switches, and the detail areas that inspections focus on. Time is allowed to address build-up and finish surfaces properly, not just wipe them down.',
           'The goal is a property that is genuinely inspection-ready. If something does get missed, let us know and we will make it right where reasonable.',
         ]}
@@ -79,7 +79,7 @@ export default function EndOfTenancyPage() {
           },
           {
             title: 'Methodical, room-by-room',
-            body: 'Nothing missed in the move-out rush — everything covered in order.',
+            body: 'Nothing missed in the move-out rush. Everything covered in order.',
           },
           {
             title: 'Final walkthrough',
