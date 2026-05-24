@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
+import { computeInvoiceDueDate } from '@/lib/invoice-dates'
 import {
   DocumentLayout,
   type DocumentLineItem,
@@ -125,6 +126,25 @@ export function InvoiceDocument({
 
   const isCashSale = (invoice.payment_type ?? 'cash_sale') === 'cash_sale'
 
+  // Due-date display: trust the stored value when set (operator
+  // overrides on custom invoices, and the send / conversion actions
+  // already stamp this via computeInvoiceDueDate). When stored is
+  // null, fall back to the same canonical rule so the header reads
+  // a meaningful date instead of "—":
+  //   cash_sale → scheduled_clean_date − 1 day if present, else issued
+  //   on_account → issued + 14 days
+  // payment_terms is unavailable on the invoice payload here, so the
+  // helper falls back to the payment_type axis above — matches the
+  // default invoice terms text rendered below.
+  const dueDateForDisplay =
+    invoice.due_date ??
+    computeInvoiceDueDate({
+      payment_type: invoice.payment_type ?? 'cash_sale',
+      payment_terms: null,
+      date_issued: invoice.date_issued,
+      service_date: invoice.scheduled_clean_date ?? null,
+    })
+
   const client = invoice.clients ?? null
 
   const fromParty: DocumentParty = {
@@ -212,7 +232,7 @@ export function InvoiceDocument({
         number: invoice.invoice_number,
         dateIssuedDisplay: fmtDate(invoice.date_issued),
         trailingDateLabel: 'Due',
-        trailingDateDisplay: fmtDate(invoice.due_date),
+        trailingDateDisplay: fmtDate(dueDateForDisplay),
       }}
       fromParty={fromParty}
       toParty={toParty}
