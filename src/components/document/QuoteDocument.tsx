@@ -101,9 +101,24 @@ export function QuoteDocument({
   const subtotalExGst = quote.gst_included ? lineTotal - gstAmount : lineTotal
   const total = quote.gst_included ? lineTotal : lineTotal + gstAmount
 
-  // Description override: generated_scope wins, else compose from fields.
+  // Service Description source order (parallels InvoiceDocument):
+  //   1. quote.generated_scope (operator-edited or AI-generated wording)
+  //   2. buildServiceDescription(quote) (composed from structured
+  //      frequency / type_of_clean / scope_size)
+  //   3. omit the sub-block if neither yields content
   const description = (quote.generated_scope ?? '').trim() || buildServiceDescription(quote)
-  const pricingLabel = buildPricingLabel(quote)
+
+  // Title: prefer buildPricingLabel. Its bare "Service" fallback fires
+  // when type_of_clean / property_category are both empty (quote has
+  // no service_description field) — reach for the description's first
+  // line, and only then fall back to a friendlier last resort.
+  const rawPricingLabel = buildPricingLabel(quote)
+  const descFirstLine = description.split('\n').map((l) => l.trim()).find((l) => l.length > 0) ?? ''
+  const pricingLabel =
+    rawPricingLabel && rawPricingLabel !== 'Service'
+      ? rawPricingLabel
+      : descFirstLine || 'Cleaning service'
+
   const isCashSale = (quote.payment_type ?? 'cash_sale') === 'cash_sale'
 
   const client = quote.clients ?? null
@@ -131,9 +146,22 @@ export function QuoteDocument({
   // fields live inside the line item's description cell. The Notes
   // side block stays reserved for actual notes (`quote.notes`).
   const address = quote.service_address ?? client?.service_address ?? null
+
+  // Sub-block dedup: if the description's first line is the same as the
+  // title we just chose, strip it so the Service Description block
+  // never repeats the title verbatim. If nothing is left after the
+  // strip, omit the block entirely.
+  let descBlockValue = description.trim()
+  if (descBlockValue) {
+    const lines = descBlockValue.split('\n')
+    if (lines[0].trim() === pricingLabel.trim()) {
+      descBlockValue = lines.slice(1).join('\n').trim()
+    }
+  }
+
   const primarySubBlocks: { label: string; value: string }[] = []
   if (address) primarySubBlocks.push({ label: 'Service address', value: address })
-  if (description) primarySubBlocks.push({ label: 'Service description', value: description })
+  if (descBlockValue) primarySubBlocks.push({ label: 'Service description', value: descBlockValue })
 
   const lineItems: DocumentLineItem[] = []
   if ((quote.base_price ?? 0) > 0) {
