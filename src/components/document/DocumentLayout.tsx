@@ -126,6 +126,7 @@ export function DocumentLayout({
   const isQuote = kind === 'quote'
   const eyebrow = isQuote ? 'Quote' : 'Tax Invoice'
   const typeWord = isQuote ? 'Quote' : 'Invoice'
+  const numberLabel = isQuote ? 'Quote #' : 'Invoice #'
   const toPartyLabel = isQuote ? 'Quote for' : 'Billed to'
   const grandTotalLabel = isQuote ? 'Quote total' : 'Amount due'
 
@@ -154,7 +155,7 @@ export function DocumentLayout({
                   <span className="dot">.</span>
                 </h1>
                 <dl className="doc-meta-grid">
-                  <dt>Number</dt>
+                  <dt>{numberLabel}</dt>
                   <dd>{meta.number}</dd>
                   <dt>Issued</dt>
                   <dd>{meta.dateIssuedDisplay}</dd>

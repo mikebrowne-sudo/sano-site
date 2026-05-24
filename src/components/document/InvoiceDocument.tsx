@@ -115,7 +115,7 @@ export function InvoiceDocument({
 
   const fromParty: DocumentParty = {
     name: 'Sano Property Services Limited',
-    phone: '022 394 3982',
+    phone: '0800 726 686',
     email: 'hello@sano.nz',
     gst: '141-577-062',
   }
@@ -200,7 +200,7 @@ export function InvoiceDocument({
       termsBody={termsBody}
       footer={{
         email: 'hello@sano.nz',
-        phone: '022 394 3982',
+        phone: '0800 726 686',
         website: 'sano.nz',
       }}
       interactiveSlot={interactiveSlot}
