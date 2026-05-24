@@ -11,8 +11,11 @@ export function buildServiceDescription(fields: {
   const parts: string[] = []
 
   // Frequency first: "One-off", "Weekly", etc.
+  // Stored enum values can be snake_case (e.g. one_off, x_per_week) —
+  // collapse the underscore to a hyphen so the customer-facing string
+  // reads "One-off" rather than "One_off".
   if (fields.frequency) {
-    parts.push(fields.frequency.toLowerCase())
+    parts.push(fields.frequency.toLowerCase().replace(/_/g, '-'))
   }
 
   // Clean type: "regular cleaning" → "regular clean"
