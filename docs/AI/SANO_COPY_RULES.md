@@ -108,7 +108,7 @@ En dashes (`–`) for ranges (`2–4 hours`) are still fine — en dash ≠ em d
 - **No emoji.** Anywhere. Ever.
 - **Curly quotes** in blockquotes (`"…"`), not straight quotes.
 - Literal Unicode marks: `✓` ticks (in `sage-500`), `★` stars.
-- Headings end with a full stop (sentence case).
+- Display H1 and H2 headings may use sentence case with a full stop where the page design calls for it. Reusable component section headings, cards, labels, navigation items, CTAs, and compact UI headings do not need full stops.
 - Eyebrows are ALL CAPS with `0.22em` letter-spacing.
 
 ---
