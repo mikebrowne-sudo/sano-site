@@ -242,8 +242,19 @@ export const QUOTE_INVOICE_CSS = `
     color: var(--sage-800);
     line-height: 1.5;
   }
-  .doc-items td.col-desc .desc-sub {
-    margin-top: 3px;
+  /* Labelled sub-rows: small uppercase label sitting above the value
+     on its own line. Used for Service address + Service description
+     in the first line item. */
+  .doc-items td.col-desc .desc-block { margin-top: 12px; }
+  .doc-items td.col-desc .desc-block-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--sage-500);
+    margin-bottom: 3px;
+  }
+  .doc-items td.col-desc .desc-block-value {
     font-size: 12.5px;
     color: var(--sage-600);
     line-height: 1.55;

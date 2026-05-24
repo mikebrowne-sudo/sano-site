@@ -53,8 +53,11 @@ export interface DocumentMeta {
 export interface DocumentLineItem {
   /** Title — first line of the description cell. */
   description: string
-  /** Optional secondary paragraph below the title (newlines respected). */
-  sub?: string | null
+  /** Optional labelled sub-rows rendered beneath the title (each row
+   * shows a small uppercase label and a value paragraph on its own
+   * line below). Used by Quote/InvoiceDocument to show Service
+   * address + Service description in the first line item. */
+  subBlocks?: ReadonlyArray<{ label: string; value: string }>
   /** Formatted dollar amount, e.g. "$120.00" or "-$50.00". */
   amount: string
 }
@@ -192,7 +195,12 @@ export function DocumentLayout({
                       <td className="col-no">{String(i + 1).padStart(2, '0')}</td>
                       <td className="col-desc">
                         <div className="desc-title">{item.description}</div>
-                        {item.sub && <div className="desc-sub">{item.sub}</div>}
+                        {item.subBlocks?.map((block) => (
+                          <div className="desc-block" key={block.label}>
+                            <div className="desc-block-label">{block.label}</div>
+                            <div className="desc-block-value">{block.value}</div>
+                          </div>
+                        ))}
                       </td>
                       <td className="col-amt">{item.amount}</td>
                     </tr>

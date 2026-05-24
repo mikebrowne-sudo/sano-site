@@ -133,35 +133,27 @@ export function InvoiceDocument({
     reference: invoice.client_reference ?? null,
   }
 
-  // First line item carries the pricing label as title + a structured
-  // sub paragraph containing service address and service description.
-  // The portal data has no per-line Rate/Qty, so the table stays one
-  // column and these structured fields live inside the line item's
-  // description cell — `invoice.notes` remains reserved for actual
-  // notes and is rendered separately in the Notes side block.
+  // First line item carries the pricing label as title + a labelled
+  // sub-block stack for service address and service description.
+  // The portal data has no per-line Rate/Qty, so these structured
+  // fields live inside the line item's description cell. The Notes
+  // side block stays reserved for actual notes (`invoice.notes`).
   const address = invoice.service_address ?? client?.service_address ?? null
-  const subLines: string[] = []
-  let n = 1
-  if (address) {
-    subLines.push(`${n} - Service address: ${address}`)
-    n += 1
-  }
-  if (description) {
-    subLines.push(`${n} - Service description: ${description}`)
-  }
-  const primarySub = subLines.length > 0 ? subLines.join('\n') : null
+  const primarySubBlocks: { label: string; value: string }[] = []
+  if (address) primarySubBlocks.push({ label: 'Service address', value: address })
+  if (description) primarySubBlocks.push({ label: 'Service description', value: description })
 
   const lineItems: DocumentLineItem[] = []
   if ((invoice.base_price ?? 0) > 0) {
     lineItems.push({
       description: pricingLabel,
-      sub: primarySub,
+      subBlocks: primarySubBlocks.length > 0 ? primarySubBlocks : undefined,
       amount: fmt(invoice.base_price ?? 0),
     })
-  } else if (primarySub) {
+  } else if (primarySubBlocks.length > 0) {
     lineItems.push({
       description: pricingLabel || 'Service',
-      sub: primarySub,
+      subBlocks: primarySubBlocks,
       amount: fmt(0),
     })
   }
