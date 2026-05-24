@@ -116,7 +116,7 @@ export const QUOTE_INVOICE_CSS = `
   }
   .doc-logo-lockup { display: block; }
   .doc-logo-img {
-    height: 72px;
+    height: 56px;
     width: auto;
     display: block;
   }
@@ -133,7 +133,7 @@ export const QUOTE_INVOICE_CSS = `
   .doc-type {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 44px;
+    font-size: 34px;
     line-height: 1;
     letter-spacing: -0.025em;
     color: var(--white);

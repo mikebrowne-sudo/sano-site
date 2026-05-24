@@ -125,17 +125,23 @@ export function QuoteDocument({
     reference: quote.client_reference ?? null,
   }
 
-  // First line item carries the pricing label as title + the long
-  // service description as the sub paragraph. Service address +
-  // scheduled date are folded into the same sub paragraph so the
-  // table stays one consistent column (no separate "Service" section).
-  const subParts: string[] = []
-  if (description) subParts.push(description)
-  const meta: string[] = []
-  if (quote.service_address) meta.push(`Service address: ${quote.service_address}`)
-  if (quote.scheduled_clean_date) meta.push(`Scheduled: ${fmtDate(quote.scheduled_clean_date)}`)
-  if (meta.length) subParts.push(meta.join(' · '))
-  const primarySub = subParts.join('\n\n') || null
+  // First line item carries the pricing label as title + a structured
+  // sub paragraph containing service address and service description.
+  // The portal data has no per-line Rate/Qty, so the table stays one
+  // column and these structured fields live inside the line item's
+  // description cell — `quote.notes` remains reserved for actual notes
+  // and is rendered separately in the Notes side block.
+  const address = quote.service_address ?? client?.service_address ?? null
+  const subLines: string[] = []
+  let n = 1
+  if (address) {
+    subLines.push(`${n} - Service address: ${address}`)
+    n += 1
+  }
+  if (description) {
+    subLines.push(`${n} - Service description: ${description}`)
+  }
+  const primarySub = subLines.length > 0 ? subLines.join('\n') : null
 
   const lineItems: DocumentLineItem[] = []
   if ((quote.base_price ?? 0) > 0) {
@@ -159,8 +165,8 @@ export function QuoteDocument({
   }
 
   const termsBody = isCashSale
-    ? 'This quote is valid for 30 days from the issue date. Prices are in New Zealand Dollars and include GST. Payment is required in full before or on the day of service, unless otherwise agreed. Sano Property Services Limited is GST registered (GST No. 141-577-062). No lock-in contracts — you can pause or cancel any time.'
-    : 'This quote is valid for 30 days from the issue date. Prices are in New Zealand Dollars and include GST. Payment is due within 14 days of the invoice date, unless otherwise agreed. Sano Property Services Limited is GST registered (GST No. 141-577-062). No lock-in contracts — you can pause or cancel any time.'
+    ? 'This quote is valid for 30 days from the issue date. Prices are in New Zealand Dollars and include GST. Payment is required prior to the clean. Sano Property Services Limited is GST registered (GST No. 141-577-062). No lock-in contracts — you can pause or cancel any time.'
+    : 'This quote is valid for 30 days from the issue date. Prices are in New Zealand Dollars and include GST. Payment is due within 14 days of the invoice date. Sano Property Services Limited is GST registered (GST No. 141-577-062). No lock-in contracts — you can pause or cancel any time.'
 
   return (
     <DocumentLayout

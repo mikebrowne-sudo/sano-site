@@ -133,17 +133,23 @@ export function InvoiceDocument({
     reference: invoice.client_reference ?? null,
   }
 
-  // First line item carries the pricing label as title + the long
-  // service description as the sub paragraph. Service address +
-  // scheduled date are folded into the same sub paragraph so the
-  // table stays one consistent column (no separate "Service" section).
-  const subParts: string[] = []
-  if (description) subParts.push(description)
-  const meta: string[] = []
-  if (invoice.service_address) meta.push(`Service address: ${invoice.service_address}`)
-  if (invoice.scheduled_clean_date) meta.push(`Service date: ${fmtDate(invoice.scheduled_clean_date)}`)
-  if (meta.length) subParts.push(meta.join(' · '))
-  const primarySub = subParts.join('\n\n') || null
+  // First line item carries the pricing label as title + a structured
+  // sub paragraph containing service address and service description.
+  // The portal data has no per-line Rate/Qty, so the table stays one
+  // column and these structured fields live inside the line item's
+  // description cell — `invoice.notes` remains reserved for actual
+  // notes and is rendered separately in the Notes side block.
+  const address = invoice.service_address ?? client?.service_address ?? null
+  const subLines: string[] = []
+  let n = 1
+  if (address) {
+    subLines.push(`${n} - Service address: ${address}`)
+    n += 1
+  }
+  if (description) {
+    subLines.push(`${n} - Service description: ${description}`)
+  }
+  const primarySub = subLines.length > 0 ? subLines.join('\n') : null
 
   const lineItems: DocumentLineItem[] = []
   if ((invoice.base_price ?? 0) > 0) {
@@ -176,7 +182,7 @@ export function InvoiceDocument({
   }
 
   const termsBody = isCashSale
-    ? 'Payment is required in full before or on the day of service, unless otherwise agreed. All amounts are in New Zealand Dollars and include GST. Sano Property Services Limited is GST registered (GST No. 141-577-062) under the Goods and Services Tax Act 1985. Please use your invoice number as the payment reference.'
+    ? 'Payment is required prior to the clean. All amounts are in New Zealand Dollars and include GST. Sano Property Services Limited is GST registered (GST No. 141-577-062) under the Goods and Services Tax Act 1985. Please use your invoice number as the payment reference.'
     : 'Payment is due within 14 days of the invoice date. All amounts are in New Zealand Dollars and include GST. Sano Property Services Limited is GST registered (GST No. 141-577-062) under the Goods and Services Tax Act 1985. Please use your invoice number as the payment reference.'
 
   return (
