@@ -82,7 +82,7 @@ export default function MountEdenServiceAreaPage() {
         <div className="container-max">
           <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6 lg:gap-10 items-start">
             <div>
-              <h2 className="mb-5 border-b border-sage-100 pb-4">Service Information</h2>
+              <h2 className="mb-5 border-b border-sage-100 pb-4">Cleaning across Mount Eden</h2>
               <div className="body-text space-y-4">
                 <p>
                   Mount Eden has a mix of homes, rentals, apartments, and small commercial properties, so cleaning needs can vary. Some properties need regular upkeep, others need a deeper reset, and some need to be ready for inspection, handover, or daily presentation.
@@ -155,7 +155,7 @@ export default function MountEdenServiceAreaPage() {
               Services available in <span className="text-sage-500">Mount Eden</span>
             </h2>
             <p className="mt-3 body-text">
-              From everyday home cleaning to specialist surfaces and commercial spaces, every Sano service is available here. Pick one to read its full scope.
+              From regular home cleaning to workplace presentation and specialist surfaces, Sano services are available across the area. Pick a service to read its full scope.
             </p>
           </div>
 
