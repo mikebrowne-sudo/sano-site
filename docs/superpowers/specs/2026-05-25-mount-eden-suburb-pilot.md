@@ -1,12 +1,15 @@
 # Mount Eden Suburb Pilot — Approved Brief
 
-> **Status:** approved brief, ready for drafting. No code changes yet.
+> **Status:** **shipped** via PR [#181](https://github.com/mikebrowne-sudo/sano-site/pull/181), merged 2026-05-25 (merge commit `638d581`).
 > **Date:** 2026-05-25
 > **Slug:** `mount-eden`
 > **Route:** `/service-area/mount-eden`
-> **Related:** `/service-area`, `/services/regular-cleaning`, `/services/deep-cleaning`, `/services/end-of-tenancy`, `/contact`, `/guarantee`, `/faq`
-> **Source:** second-pass output of `sano-suburb-page-planner` (2026-05-25), with Mike's confirmed hero + meta wording substituted in §3.
+> **File:** `src/app/(public)/service-area/mount-eden/page.tsx`
+> **Related:** `/service-area`, `/services/regular-cleaning`, `/services/deep-cleaning`, `/services/end-of-tenancy`, `/services/commercial-cleaning`, `/services/post-construction`, `/services/carpet-upholstery`, `/services/window-cleaning`, `/contact`, `/guarantee`, `/faq`
+> **Source:** second-pass output of `sano-suburb-page-planner` (2026-05-25), with Mike's confirmed wording iterated through three visual-review passes before merge.
 > **Pilot status:** this is the first Sano suburb page. The pattern set here becomes the template for ~30 future suburbs, so the guard rails matter as much as the content.
+>
+> **Reading order:** §§1–10 capture the original brief (preserved as the historical record). **§11 captures the final shipped state** — the structural additions made during visual review (property-type section, grouped 7-service catalogue, trimmed WhyChooseSection, always-on `/guarantee` + `/faq` links). If §5 / §7 / §9 conflict with §11, **§11 is the canonical reference for future suburb pages.**
 
 ---
 
@@ -39,33 +42,37 @@ No repo-level blocker. The `(public)/service-area/` directory exists with a plan
 
 ## 3. Approved hero + meta wording
 
-**Locked by Mike (2026-05-25). Use verbatim — no rewording during draft.**
+**Final wording as shipped in PR #181 (2026-05-25).** The hero went through three iterations during visual review; the v3 wording below is what landed in production. Meta description + eyebrow stayed unchanged throughout. See §11 for the v1 → v3 evolution.
 
-### Meta description
+### Meta description (unchanged through all versions)
 
 > Regular, deep, and end-of-tenancy cleaning for Mount Eden homes and rentals. Sano helps prepare properties for everyday living, inspections, and handovers.
 
 (154 chars; under the 155 cap.)
 
-### Hero eyebrow
+### Hero eyebrow (unchanged through all versions)
 
 > Mount Eden cleaning services
 
 (All caps in the rendered hero — handled by `SubpageHero`.)
 
-### Hero title
+### Hero title (v3 final — changed from v1)
 
-> Mount Eden cleaning for homes, rentals, and move-outs.
+> Cleaning for homes, rentals, and workplaces.
 
-(Sentence case, ends with a full stop per the updated `SANO_COPY_RULES.md` H1/H2 rule.)
+(Sentence case, ends with a full stop per the `SANO_COPY_RULES.md` H1/H2 rule. **Suburb name dropped from the title** — eyebrow carries the suburb signal.)
 
-### Hero subtitle
+### Hero subtitle (v3 final — changed from v1)
 
-> Whether you need a recurring clean, a deeper reset, or a property prepared for handover, Sano keeps the scope clear and the process simple.
+> From older homes and apartments to rentals, offices, and handovers, Sano helps match the cleaning scope to the property and the reason for the clean.
+
+(Suburb name not mentioned. Use-case-led framing covering all four audience types on the page.)
 
 ### Meta title
 
-(Not Mike-locked — recommend `Mount Eden Cleaning Services | Sano` to match the existing `<Service> Services | Sano` pattern visible on sibling service pages. Confirm during draft.)
+> Mount Eden Cleaning Services | Sano
+
+(Matches the existing `<Service> Services | Sano` pattern on sibling service pages.)
 
 ---
 
@@ -292,6 +299,72 @@ Hard stops:
 - Do not skip the reviewer pipeline.
 - Do not commit until reviewers + gauntlet are green.
 ```
+
+---
+
+## 11. Final shipped state — what actually landed (canonical reference)
+
+PR #181 shipped a structurally richer page than §5 originally specified. The page evolved through three iterations during visual review. **For future suburb pages, this section is the canonical template, not §5.**
+
+### Hero (v3 — landed)
+
+- Eyebrow / Title / Subtitle / Meta as documented in §3 above (final wording).
+- Image: `/images/heroes/regular-house-cleaning-hero.jpg` — accepted for the pilot; per-suburb hero selection deferred until ≥3 suburbs ship.
+
+### Page sections — actual scroll order
+
+| # | Section | Component | What shipped |
+|---|---|---|---|
+| 1 | Hero | `SubpageHero` | §3 v3 strings. Primary CTA `Get a Free Quote` → `/contact`. `DEFAULT_TRUST_ITEMS`. |
+| 2 | Intro / property context | `ServiceInformation` | **No custom title prop** (uses default sibling pattern). Two paragraphs grounded in Mike-approved property-mix wording: *"Mount Eden has a mix of homes, rentals, apartments, and small commercial properties…"*. Suburb named once in opener. |
+| 3 | Why Sano | `WhyChooseSection` | **Moved earlier** (was originally planned later). **4 cards on a 2x2 grid**, not the 6-card sibling pattern. Cards: `Clear scopes and simple quotes`, `Careful cleaners`, `Insured and vetted teams`, `Follow-up if needed`. No Mount Eden mentions in any card. |
+| 4 | Services available in Mount Eden | **Custom inline section** (not `WhatWeCoverSection`) | Three labelled groups on cream, each rendered as `<h3>` + inline-link `<p>`: **Home cleaning** (regular, deep, end-of-tenancy), **Property and workplace cleaning** (commercial, post-construction), **Specialist cleaning** (carpet, window). **All seven Sano services linked through.** Replaces the originally-planned 3-card `WhatWeCoverSection` so the page never implies only 3 services are available. |
+| 5 | Cleaning needs by property type | `WhatWeCoverSection` | **NEW section, not in original §5.** Four cards: `Older homes and detailed interiors` (`Home` icon), `Apartments and townhouses` (`Building2`), `Rentals and handovers` (`KeyRound`), `Workplaces and small commercial spaces` (`Briefcase`). Eyebrow `HOW WE APPROACH IT` + supply-side subtitle so the section reads as cleaning-needs framing, not a Mount Eden housing-stock claim. Renders 4 cards on `lg:grid-cols-3` (3+1 orphan at lg — accepted for pilot; future call). |
+| 6 | Booking steps | `BookingStepsSection` | Heading genericised to `Book your clean in 3 simple steps` (no suburb). Three generic steps. |
+| 7 | Schema (invisible) | inline `<script type="application/ld+json">` | `Service` `@type`, `LocalBusiness` provider, `areaServed: { '@type': 'City', name: 'Auckland' }`. Description lists all 7 services: *"Cleaning services across Mount Eden: regular, deep, end of tenancy, commercial, carpet, window, and post-construction."* |
+| 8 | CtaBanner | `CtaBanner` | Headline genericised to `Ready to book your clean?`. No suburb mention. |
+| 9 | Closing trust strip | Inline `<section>` on cream | Three text links: `Check another suburb → /service-area`, `Our guarantee → /guarantee`, `FAQ → /faq`. **`SuburbChecker` intentionally NOT mounted** per §5 spec decision. |
+
+### Internal links — actual rendered
+
+All seven service pages linked from the grouped services section (§4 above), not just the three primary residential services originally specified in §7. Always-on `/guarantee` + `/faq` shipped in the closing strip (originally specified as always-on in spec §7 but only landed in v3 after `sano-thin-content-guard` flagged the gap).
+
+### Mount Eden mention count — final
+
+Customer-facing mentions: **7 total**:
+- 4 in metadata where suburb naming belongs (meta title, meta description, schema name, schema description)
+- 3 in visible content (hero eyebrow, intro body opener, services section heading)
+
+**Zero mentions in hero title, hero subtitle, all 4 WhyChooseSection cards, the grouped services list bodies, all 4 property-type card bodies, BookingStepsSection, CtaBanner, or the closing strip.**
+
+### Pilot pattern — what to template, post-merge
+
+Updated from §9 to reflect what actually shipped:
+
+**Template these (durable across all suburb pages):**
+
+- **Route + file:** `src/app/(public)/service-area/<slug>/page.tsx`, one static file per suburb. No dynamic `[slug]` route until ≥3 suburbs ship and the pattern is proven.
+- **Component composition** (final order): `SubpageHero` → `ServiceInformation` (no custom title) → `WhyChooseSection` (4 cards) → custom inline grouped services section → `WhatWeCoverSection` (4 property-type cards) → `BookingStepsSection` → JSON-LD → `CtaBanner` → closing trust strip.
+- **Schema:** `Service` `@type`, `LocalBusiness` provider, `areaServed = City Auckland`. No suburb-level `Place`.
+- **CTA:** single `Get a Free Quote` → `/contact`, repeated in hero + `CtaBanner`.
+- **Closing strip:** three text links — `Check another suburb`, `Our guarantee`, `FAQ`. No `SuburbChecker`.
+- **Mount Eden mention cadence:** keep customer-facing mentions concentrated in metadata + one or two headings. Hero title + subtitle stay suburb-free.
+- **"What we will never claim" guard rail:** Mike's §8 Do-not-claim list is durable. Plus: do not claim Sano has cleaned specific property types in the suburb specifically (Mike's v3 instruction).
+
+**Keep flexible per-suburb:**
+
+- **Hero copy.** Each suburb needs its own use-case-led hero and meta wording approved by Mike before draft. Do not template-swap.
+- **Intro `ServiceInformation` body.** Each suburb needs its own Mike-confirmed property-mix sentence (e.g. for Mount Eden: *"a mix of homes, rentals, apartments, and small commercial properties"*). No template-swap.
+- **Grouped services mix.** Mount Eden surfaced all 7 services because all 7 are available. If a suburb has a different practical service mix (e.g. no commercial demand), the grouped section can drop categories — but each grouped row must still list real Sano services that actually serve the area.
+- **Property-type cards.** The four property-type cards Mike approved for Mount Eden (older homes / apartments / rentals / workplaces) reflect the property mix Mike confirmed for this suburb. **Each new suburb needs its own Mike-confirmed property mix** before the property-type section is drafted. Same supply-side wording rule applies: describe how Sano approaches the property type, not what Sano has done with it in that suburb.
+
+### What changed during visual review (v1 → v3, briefly)
+
+- **v1:** 3-card `WhatWeCoverSection` for the three primary residential services + "Read more" router + "Also available" inline list. Hero title `Mount Eden cleaning for homes, rentals, and move-outs.` (suburb-named).
+- **v2:** Hero title kept; meta + eyebrow unchanged. Wording polished. Schema description expanded. Supply-side wording fixes for "most relevant" / "most often booked" applied per `sano-thin-content-guard`.
+- **v3 (shipped):** Hero rewritten to suburb-free title + subtitle. `WhyChooseSection` moved earlier and trimmed to 4 cards. 3-card services replaced with the grouped 7-service inline section. **New property-type `WhatWeCoverSection` added.** `/guarantee` + `/faq` always-on links added to closing strip.
+
+The §10 next-prompt below was executed in v1; v2 and v3 followed from operator visual-review feedback. For suburb #2, do not copy the §10 prompt verbatim — copy this §11 instead.
 
 ---
 
