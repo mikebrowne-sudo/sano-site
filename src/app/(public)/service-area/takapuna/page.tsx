@@ -76,10 +76,10 @@ export default function TakapunaServiceAreaPage() {
         <div className="container-max">
           <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6 lg:gap-10 items-start">
             <div>
-              <h2 className="mb-5 border-b border-sage-100 pb-4">Service Information</h2>
+              <h2 className="mb-5 border-b border-sage-100 pb-4">Cleaning across Takapuna</h2>
               <div className="body-text space-y-4">
                 <p>
-                  Takapuna has a mix of apartments, family homes, offices, rentals, and commercial spaces, so cleaning needs can vary from regular upkeep through to handovers, workplace presentation, and specialist surface cleaning.
+                  Takapuna has a mix of apartments, family homes, offices, rentals, and commercial spaces. That means cleaning needs can range from regular upkeep through to handovers, workplace presentation, and specialist surface cleaning.
                 </p>
                 <p>
                   Takapuna is within Sano&apos;s Auckland service area, with the same careful cleaners, clear scopes, and practical quote process available across the wider city.
@@ -147,7 +147,7 @@ export default function TakapunaServiceAreaPage() {
               Services available in <span className="text-sage-500">Takapuna</span>
             </h2>
             <p className="mt-3 body-text">
-              From everyday home cleaning to specialist surfaces and commercial spaces, every Sano service is available here. Pick one to read its full scope.
+              From regular home cleaning to workplace presentation and specialist surfaces, Sano services are available across the area. Pick a service to read its full scope.
             </p>
           </div>
 
@@ -243,7 +243,7 @@ export default function TakapunaServiceAreaPage() {
           },
           {
             title: 'Family homes',
-            body: 'Regular upkeep across multiple living areas, kitchens, bathrooms, and finishing details that hold a household standard.',
+            body: 'Regular upkeep across living areas, kitchens, bathrooms, and finishing details that help maintain a household standard.',
             icon: Home,
           },
           {
