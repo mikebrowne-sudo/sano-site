@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
 import { Briefcase, Building2, Home, KeyRound } from 'lucide-react'
 import { CtaBanner } from '@/components/CtaBanner'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { BookingStepsSection } from '../../services/_components/BookingStepsSection'
-import { ServiceInformation } from '../../services/_components/ServiceInformation'
 import { WhatWeCoverSection } from '../../services/_components/WhatWeCoverSection'
 import { WhyChooseSection } from '../../services/_components/WhyChooseSection'
 
@@ -25,6 +25,12 @@ import { WhyChooseSection } from '../../services/_components/WhyChooseSection'
  *   - NEW property-type cards section (Character homes / Apartments /
  *     Rentals / Workplaces) using existing WhatWeCoverSection
  *   - CTA + Booking unchanged in voice; suburb-light
+ *
+ * v4 (post-merge visual tweak):
+ *   - Intro section uses ONE smaller image instead of the shared
+ *     ServiceInformation component's dual-stacked images. Built inline
+ *     to keep the shared component (and the six service pages that
+ *     use it) untouched. Suburb-pattern decision per Mike.
  *
  * Decisions locked by the spec (do not change without going back to Mike):
  *   - Route: /service-area/mount-eden
@@ -57,25 +63,41 @@ export default function MountEdenServiceAreaPage() {
         trustItems={DEFAULT_TRUST_ITEMS}
       />
 
-      {/* 1. Intro / local property context — cautious property-mix
-          framing per Mike's brief. Two paragraphs, suburb named once
-          in the opener. No housing-stock claims about Mount Eden
-          specifically; the wording stays at "has a mix of" which is
-          observable from any street view. */}
-      <ServiceInformation
-        body={[
-          'Mount Eden has a mix of homes, rentals, apartments, and small commercial properties, so cleaning needs can vary. Some properties need regular upkeep, others need a deeper reset, and some need to be ready for inspection, handover, or daily presentation.',
-          'Sano helps keep that process simple with clear scopes, careful cleaners, and a quote process that matches the clean to the property.',
-        ]}
-        primaryImage={{
-          src: '/images/herne-bay-residential.jpg',
-          alt: 'A residential Auckland home cared for by Sano',
-        }}
-        secondaryImage={{
-          src: '/images/sano-auckland-team.jpeg',
-          alt: 'The Sano cleaning team',
-        }}
-      />
+      {/* 1. Intro / local property context — single-image variant
+          built inline (not via the shared ServiceInformation
+          component). Suburb pages use one smaller image so the
+          body text reads as the primary content; the existing six
+          service pages keep their dual-image render. Same overall
+          look (white band, H2 with sage-100 underline, body-text
+          paragraphs, 4:3 rounded image) so the section still feels
+          part of the family. */}
+      <section className="section-padding bg-white py-10 lg:py-12">
+        <div className="container-max">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 lg:gap-10 items-start">
+            <div>
+              <h2 className="mb-5 border-b border-sage-100 pb-4">Service Information</h2>
+              <div className="body-text space-y-4">
+                <p>
+                  Mount Eden has a mix of homes, rentals, apartments, and small commercial properties, so cleaning needs can vary. Some properties need regular upkeep, others need a deeper reset, and some need to be ready for inspection, handover, or daily presentation.
+                </p>
+                <p>
+                  Sano helps keep that process simple with clear scopes, careful cleaners, and a quote process that matches the clean to the property.
+                </p>
+              </div>
+            </div>
+
+            <div className="relative aspect-[4/3] overflow-hidden rounded-2xl">
+              <Image
+                src="/images/herne-bay-residential.jpg"
+                alt="A residential Auckland home cared for by Sano"
+                fill
+                className="object-cover"
+                sizes="(max-width: 1024px) 100vw, 320px"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* 2. Why Sano — moved earlier per Mike's brief. Tightened to
           four cards (2x2 on desktop). Covers Mike's five focus areas:
