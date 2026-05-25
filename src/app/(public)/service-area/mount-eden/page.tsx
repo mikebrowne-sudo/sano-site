@@ -27,10 +27,16 @@ import { WhyChooseSection } from '../../services/_components/WhyChooseSection'
  *   - CTA + Booking unchanged in voice; suburb-light
  *
  * v4 (post-merge visual tweak):
- *   - Intro section uses ONE smaller image instead of the shared
+ *   - Intro section uses ONE image instead of the shared
  *     ServiceInformation component's dual-stacked images. Built inline
  *     to keep the shared component (and the six service pages that
  *     use it) untouched. Suburb-pattern decision per Mike.
+ *   - Image sized and treated to match the existing service-page
+ *     system: same 1.2fr / 0.8fr grid, same 4:3 aspect ratio, same
+ *     rounded-2xl + object-cover, same responsive sizes hint. The
+ *     only difference vs ServiceInformation is that the right column
+ *     holds one image instead of two stacked. Consistency with the
+ *     site system wins over a more compact one-image layout.
  *
  * Decisions locked by the spec (do not change without going back to Mike):
  *   - Route: /service-area/mount-eden
@@ -65,15 +71,16 @@ export default function MountEdenServiceAreaPage() {
 
       {/* 1. Intro / local property context — single-image variant
           built inline (not via the shared ServiceInformation
-          component). Suburb pages use one smaller image so the
-          body text reads as the primary content; the existing six
-          service pages keep their dual-image render. Same overall
-          look (white band, H2 with sage-100 underline, body-text
-          paragraphs, 4:3 rounded image) so the section still feels
-          part of the family. */}
+          component). One image, sized and treated to match the
+          existing service-page system: same 1.2fr / 0.8fr grid,
+          same 4:3 aspect ratio, same rounded-2xl + object-cover,
+          same responsive sizes hint. The only difference vs
+          ServiceInformation is that the right column holds one
+          image instead of two stacked. The shared component (and
+          the six service pages that use it) stays untouched. */}
       <section className="section-padding bg-white py-10 lg:py-12">
         <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 lg:gap-10 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6 lg:gap-10 items-start">
             <div>
               <h2 className="mb-5 border-b border-sage-100 pb-4">Service Information</h2>
               <div className="body-text space-y-4">
@@ -92,7 +99,7 @@ export default function MountEdenServiceAreaPage() {
                 alt="A residential Auckland home cared for by Sano"
                 fill
                 className="object-cover"
-                sizes="(max-width: 1024px) 100vw, 320px"
+                sizes="(max-width: 1024px) 100vw, 45vw"
               />
             </div>
           </div>
