@@ -142,6 +142,9 @@ describe('sendInvoiceEmail — fail-fast PDF render', () => {
     expect(sendArgs.attachments).toEqual([
       { filename: 'Sano Tax Invoice - INV-99.pdf', content: Buffer.from('PDF-CONTENT') },
     ])
+    // Replies must route to Carol so customers reach a real inbox
+    // instead of the noreply sender.
+    expect(sendArgs.replyTo).toBe('carol@sano.nz')
     expect(statusUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'sent' }),
     )

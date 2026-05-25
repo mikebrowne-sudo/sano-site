@@ -8,6 +8,7 @@ import type { PricingBreakdown, PricingMode } from '@/lib/quote-pricing'
 import { validateCreateQuoteOverride } from '../new/_actions-validation'
 import { renderPdfFromUrl } from '@/lib/pdf/render-pdf'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
+import { getCustomerReplyToEmail } from '@/lib/email-reply-to'
 import {
   assertCanAmend,
   findLockingInvoiceForQuote,
@@ -356,6 +357,7 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
 
   const { error: emailErr } = await resend.emails.send({
     from: 'Sano <noreply@sano.nz>',
+    replyTo: getCustomerReplyToEmail(),
     to: input.to.trim(),
     ...(ccList.length > 0 ? { cc: ccList } : {}),
     subject: input.subject,

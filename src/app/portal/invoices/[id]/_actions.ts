@@ -8,6 +8,7 @@ import { sendNotification } from '@/lib/notifications/send'
 import { renderPdfFromUrl } from '@/lib/pdf/render-pdf'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { computeInvoiceDueDate, resolveServiceDate } from '@/lib/invoice-dates'
+import { getCustomerReplyToEmail } from '@/lib/email-reply-to'
 
 interface SendInvoiceInput {
   invoice_id: string
@@ -125,6 +126,7 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
 
   const { error: emailErr } = await resend.emails.send({
     from: 'Sano <noreply@sano.nz>',
+    replyTo: getCustomerReplyToEmail(),
     to: input.to.trim(),
     ...(ccList.length > 0 ? { cc: ccList } : {}),
     subject: input.subject,

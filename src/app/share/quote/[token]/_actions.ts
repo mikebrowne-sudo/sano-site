@@ -3,6 +3,7 @@
 import { Resend } from 'resend'
 import { revalidatePath } from 'next/cache'
 import { getServiceSupabase } from '@/lib/supabase-service'
+import { getCustomerReplyToEmail } from '@/lib/email-reply-to'
 
 // Phase 5.5.6 — uses service-role for the share-route flow. See the
 // page.tsx comment for the rationale.
@@ -72,6 +73,7 @@ export async function acceptQuote(shareToken: string) {
       const resend = new Resend(process.env.RESEND_API_KEY)
       await resend.emails.send({
         from: 'Sano <noreply@sano.nz>',
+        replyTo: getCustomerReplyToEmail(),
         to: client.email,
         subject: `Quote ${quote.quote_number} accepted — Sano`,
         html: `

@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { getCustomerReplyToEmail } from '@/lib/email-reply-to'
 
 function escHtml(s: string): string {
   return s
@@ -27,6 +28,7 @@ export async function sendQuoteConfirmation(params: QuoteEmailParams) {
   const resend = getResendClient()
   const { error } = await resend.emails.send({
     from: 'Sano Cleaning <noreply@sano.nz>',
+    replyTo: getCustomerReplyToEmail(),
     to: params.email,
     subject: 'We received your quote request — Sano Cleaning',
     html: `
