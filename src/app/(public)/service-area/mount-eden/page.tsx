@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ClipboardCheck, Home, Sparkles } from 'lucide-react'
+import { Briefcase, Building2, Home, KeyRound } from 'lucide-react'
 import { CtaBanner } from '@/components/CtaBanner'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { BookingStepsSection } from '../../services/_components/BookingStepsSection'
@@ -13,29 +13,28 @@ import { WhyChooseSection } from '../../services/_components/WhyChooseSection'
  *
  * Spec: docs/superpowers/specs/2026-05-25-mount-eden-suburb-pilot.md
  *
- * v2 (post visual review):
- *   - Reduced "Mount Eden" repetition across hero + body
- *   - Hero refined to read less suburb-name-swap-y
- *   - Services section expanded: 3 primary residential cards +
- *     "Also available" secondary inline list for commercial, carpet,
- *     window, post-construction (so we don't imply Sano only offers
- *     three services in this area)
- *   - WhyChooseSection trimmed to 4 stronger cards, no Mount Eden
- *     mentions, audience-relevant across home / rental / workplace /
- *     handover
- *   - Booking + CTA headings genericised
+ * v3 (second visual-review pass):
+ *   - Reworked around property mix + cleaning needs, not just suburb name
+ *   - Hero use-case-led ("homes, rentals, and workplaces"); no suburb
+ *     name in title or subtitle
+ *   - Intro replaced with cautious property-context paragraph
+ *     ("homes, rentals, apartments, and small commercial properties")
+ *   - Why Sano moved earlier (now section 3, before services)
+ *   - Services grouped into Home / Property + Workplace / Specialist
+ *     (all 7 services linked, no implication of only 3)
+ *   - NEW property-type cards section (Character homes / Apartments /
+ *     Rentals / Workplaces) using existing WhatWeCoverSection
+ *   - CTA + Booking unchanged in voice; suburb-light
  *
  * Decisions locked by the spec (do not change without going back to Mike):
  *   - Route: /service-area/mount-eden
  *   - Schema: Auckland-level City areaServed (no suburb-level Place)
- *   - Component order: SubpageHero -> ServiceInformation ->
- *     WhatWeCoverSection -> WhyChooseSection -> BookingStepsSection ->
- *     CtaBanner. No new shared components.
  *   - SuburbChecker NOT mounted; closing text link "Check another
- *     suburb" routes back to /service-area.
- *   - Nearby-suburb links deferred until >= 3 sibling pages exist.
- *   - No Mount-Eden-specific local claims beyond "sits inside Sano's
- *     normal Auckland service area" (Mike's operational truth).
+ *     suburb" routes back to /service-area
+ *   - Nearby-suburb links deferred until >= 3 sibling pages exist
+ *   - No Mount-Eden-specific local claims beyond "within Sano's
+ *     Auckland service area" and cautious property-mix wording
+ *     ("homes, rentals, apartments, and small commercial properties")
  */
 
 export const metadata: Metadata = {
@@ -47,25 +46,26 @@ export const metadata: Metadata = {
 export default function MountEdenServiceAreaPage() {
   return (
     <>
-      {/* Hero — refined wording: one suburb mention in the subtitle,
-          title is service-led not suburb-led. */}
+      {/* Hero — use-case-led title, no suburb name in title/subtitle.
+          Eyebrow carries the suburb signal. */}
       <SubpageHero
         eyebrow="Mount Eden cleaning services"
-        title="Cleaning help for homes, rentals, and handovers."
-        subtitle="Sano provides regular cleaning, deeper one-off cleans, and property handover cleaning across Mount Eden, with clear scopes and a simple quote process."
+        title="Cleaning for homes, rentals, and workplaces."
+        subtitle="From older homes and apartments to rentals, offices, and handovers, Sano helps match the cleaning scope to the property and the reason for the clean."
         imageSrc="/images/heroes/regular-house-cleaning-hero.jpg"
         primaryCta={{ label: 'Get a Free Quote', href: '/contact' }}
         trustItems={DEFAULT_TRUST_ITEMS}
       />
 
-      {/* 1. Intro / Why Sano — opens with the coverage statement
-          (Mike's operational truth) then pivots to how the process
-          works. Two paragraphs, suburb named once. */}
+      {/* 1. Intro / local property context — cautious property-mix
+          framing per Mike's brief. Two paragraphs, suburb named once
+          in the opener. No housing-stock claims about Mount Eden
+          specifically; the wording stays at "has a mix of" which is
+          observable from any street view. */}
       <ServiceInformation
-        title="Sano in Mount Eden"
         body={[
-          "Mount Eden is within Sano's Auckland service area, which means you can book the same careful cleaners, clear scopes, and practical quote process available across the wider city.",
-          'Whether it is a regular home clean, a deeper reset, or a property being prepared for handover, we will help match the scope to what the property actually needs, and come back with a quote you can act on.',
+          'Mount Eden has a mix of homes, rentals, apartments, and small commercial properties, so cleaning needs can vary. Some properties need regular upkeep, others need a deeper reset, and some need to be ready for inspection, handover, or daily presentation.',
+          'Sano helps keep that process simple with clear scopes, careful cleaners, and a quote process that matches the clean to the property.',
         ]}
         primaryImage={{
           src: '/images/herne-bay-residential.jpg',
@@ -77,135 +77,166 @@ export default function MountEdenServiceAreaPage() {
         }}
       />
 
-      {/* 2. Services available in Mount Eden — three primary
-          residential cards (Mike's confirmed order), followed by a
-          compact "Also available" inline list for commercial,
-          carpet, window, and post-construction. All seven services
-          have real existing service pages — the inline list links
-          to them so we don't imply Sano only offers three. */}
-      <WhatWeCoverSection
-        eyebrow="WHAT WE COVER"
-        heading="Services available in Mount Eden"
-        headingHighlight="Mount Eden"
-        subtitle="For homes and rentals, three Sano services cover most needs. Other Sano services are available in the area where required."
+      {/* 2. Why Sano — moved earlier per Mike's brief. Tightened to
+          four cards (2x2 on desktop). Covers Mike's five focus areas:
+          clear scopes + simple quote merged into one card; careful
+          cleaners; insured and vetted; follow-up if needed. No
+          Mount Eden mentions in any card. */}
+      <WhyChooseSection
+        heading="Why choose Sano"
+        subtitle="What to expect from Sano on any clean, regardless of the property or the reason."
         items={[
           {
-            title: 'Regular house cleaning',
-            body: 'Weekly, fortnightly, or a schedule shaped around the home. Kitchens, bathrooms, floors, dusting, and touchpoints, on a repeat visit you can rely on.',
-            icon: Home,
+            title: 'Clear scopes and simple quotes',
+            body: 'Scope and pricing agreed upfront. Send through the property details and the service you need, and we come back with a clear, practical quote.',
           },
           {
-            title: 'Deep cleaning',
-            body: 'One-off reset with focused attention on build-up, corners, and the detail areas everyday cleaning skips.',
-            icon: Sparkles,
+            title: 'Careful cleaners',
+            body: 'Methodical work with detail-focused finishing on touchpoints, skirting boards, and the obvious surfaces.',
           },
           {
-            title: 'End of tenancy cleaning',
-            body: 'Detailed clean for tenants, owners, or property managers preparing a property for inspection or handover.',
-            icon: ClipboardCheck,
+            title: 'Insured and vetted teams',
+            body: 'All cleaners background-checked, trained, and fully insured.',
+          },
+          {
+            title: 'Follow-up if needed',
+            body: 'If something is missed, let us know and we will make it right where reasonable.',
           },
         ]}
       />
 
-      {/* Read-more router for the three primary services. Same cream
-          band as WhatWeCoverSection, zero-padded on top so it reads
-          as a continuation. */}
-      <section className="section-padding bg-[#faf9f6] pt-0 pb-6">
-        <div className="container-max text-center">
-          <p className="text-[0.875rem] text-sage-600">
-            Read more:{' '}
-            <Link
-              href="/services/regular-cleaning"
-              className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-            >
-              Regular house cleaning
-            </Link>
-            {' · '}
-            <Link
-              href="/services/deep-cleaning"
-              className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-            >
-              Deep cleaning
-            </Link>
-            {' · '}
-            <Link
-              href="/services/end-of-tenancy"
-              className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-            >
-              End of tenancy cleaning
-            </Link>
-          </p>
-        </div>
-      </section>
-
-      {/* "Also available" — secondary services that exist on the Sano
-          site and can be booked in the area, presented as a single
-          inline link list (lighter than another card grid). Sits on
-          the same cream band, separated by a thin sage hairline. */}
-      <section className="section-padding bg-[#faf9f6] pt-2 pb-10 lg:pb-12">
+      {/* 3. Services available in Mount Eden — three labelled groups
+          covering all seven Sano services. Inline link lists (not
+          card grids) so the page doesn't implicitly weight any
+          subset above the others. */}
+      <section className="section-padding bg-[#faf9f6] py-10 lg:py-12">
         <div className="container-max">
-          <div className="mx-auto max-w-3xl border-t border-sage-100 pt-6 text-center">
-            <p className="text-[0.875rem] text-sage-600">
-              Also available:{' '}
-              <Link
-                href="/services/commercial-cleaning"
-                className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-              >
-                Commercial and office cleaning
-              </Link>
-              {' · '}
-              <Link
-                href="/services/carpet-upholstery"
-                className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-              >
-                Carpet and upholstery cleaning
-              </Link>
-              {' · '}
-              <Link
-                href="/services/window-cleaning"
-                className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-              >
-                Window cleaning
-              </Link>
-              {' · '}
-              <Link
-                href="/services/post-construction"
-                className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-              >
-                Post-construction cleaning
-              </Link>
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-sage-500">
+              WHAT WE COVER
             </p>
+            <h2
+              className="mt-2 font-display font-bold text-sage-800"
+              style={{
+                fontSize: 'clamp(1.5rem, 2.25vw, 1.875rem)',
+                lineHeight: 1.15,
+                letterSpacing: '-0.015em',
+              }}
+            >
+              Services available in <span className="text-sage-500">Mount Eden</span>
+            </h2>
+            <p className="mt-3 body-text">
+              From everyday home cleaning to specialist surfaces and commercial spaces, every Sano service is available here. Pick one to read its full scope.
+            </p>
+          </div>
+
+          <div className="mx-auto mt-8 max-w-3xl space-y-6">
+            <div>
+              <h3 className="mb-2 text-[1rem] font-semibold text-sage-800">Home cleaning</h3>
+              <p className="text-[0.9375rem] leading-relaxed text-sage-600">
+                <Link
+                  href="/services/regular-cleaning"
+                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
+                >
+                  Regular house cleaning
+                </Link>
+                {' · '}
+                <Link
+                  href="/services/deep-cleaning"
+                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
+                >
+                  Deep cleaning
+                </Link>
+                {' · '}
+                <Link
+                  href="/services/end-of-tenancy"
+                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
+                >
+                  End of tenancy cleaning
+                </Link>
+              </p>
+            </div>
+
+            <div>
+              <h3 className="mb-2 text-[1rem] font-semibold text-sage-800">
+                Property and workplace cleaning
+              </h3>
+              <p className="text-[0.9375rem] leading-relaxed text-sage-600">
+                <Link
+                  href="/services/commercial-cleaning"
+                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
+                >
+                  Commercial and office cleaning
+                </Link>
+                {' · '}
+                <Link
+                  href="/services/post-construction"
+                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
+                >
+                  Post-construction cleaning
+                </Link>
+              </p>
+            </div>
+
+            <div>
+              <h3 className="mb-2 text-[1rem] font-semibold text-sage-800">
+                Specialist cleaning
+              </h3>
+              <p className="text-[0.9375rem] leading-relaxed text-sage-600">
+                <Link
+                  href="/services/carpet-upholstery"
+                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
+                >
+                  Carpet and upholstery cleaning
+                </Link>
+                {' · '}
+                <Link
+                  href="/services/window-cleaning"
+                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
+                >
+                  Window cleaning
+                </Link>
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* 3. Why choose Sano — trimmed to 4 stronger cards, no
-          Mount Eden mentions, audience-relevant across home /
-          rental / workplace / handover. */}
-      <WhyChooseSection
-        heading="Why choose Sano"
-        subtitle="Careful people, clear scopes, and finishing details that get the same attention as the obvious surfaces."
+      {/* 4. Cleaning needs vary by property type — four cards
+          covering the property mix Mike noted (character homes /
+          apartments / rentals / workplaces). Wording is cautious
+          and supply-side; no claims about Sano's specific history
+          with these property types in Mount Eden. */}
+      <WhatWeCoverSection
+        eyebrow="HOW WE APPROACH IT"
+        heading="Cleaning needs vary by property type"
+        headingHighlight="property type"
+        subtitle="A short note on what we typically focus on for each kind of property."
         items={[
           {
-            title: 'Insured and vetted',
-            body: 'All cleaners background-checked, trained, and fully insured.',
+            title: 'Older homes and detailed interiors',
+            body: 'More detailed dusting, skirting boards, room-by-room work, and care around detailed surfaces.',
+            icon: Home,
           },
           {
-            title: 'Clear scopes and quotes',
-            body: 'Scope and pricing agreed upfront, so the work and the price match.',
+            title: 'Apartments and townhouses',
+            body: 'Compact layouts where kitchens, bathrooms, glass, floors, and access timing matter.',
+            icon: Building2,
           },
           {
-            title: 'Detail-focused finish',
-            body: 'Touchpoints, skirting boards, and finishing details get the same care as the obvious surfaces.',
+            title: 'Rentals and handovers',
+            body: 'Clear scopes, practical timing, and attention to the areas owners or property managers are likely to check.',
+            icon: KeyRound,
           },
           {
-            title: 'Easy to deal with',
-            body: 'A direct line for questions or changes. No ticket-and-wait system.',
+            title: 'Workplaces and small commercial spaces',
+            body: 'Regular presentation, shared amenities, touchpoints, and cleaning that works around the business.',
+            icon: Briefcase,
           },
         ]}
       />
 
-      {/* 4. Booking steps — generic to all services. */}
+      {/* 5. How it works — generic three-step booking. */}
       <BookingStepsSection
         heading="Book your clean in 3 simple steps"
         headingHighlight="3 simple steps"
@@ -226,9 +257,7 @@ export default function MountEdenServiceAreaPage() {
       />
 
       {/* Schema.org — matches sibling service-page convention.
-          Auckland-level City areaServed, no suburb-level Place.
-          Description updated to reflect the broader service catalogue
-          surfaced on the page. */}
+          Auckland-level City areaServed, no suburb-level Place. */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -250,10 +279,10 @@ export default function MountEdenServiceAreaPage() {
         subtext="Send through the property details and the service you need. We will come back with a clear, practical quote."
       />
 
-      {/* "Check another suburb" — the only routing affordance back
-          to the parent /service-area page. SuburbChecker
-          intentionally omitted on the pilot per spec §5. Sits on
-          cream to soften the transition from the dark CtaBanner. */}
+      {/* "Check another suburb" + always-on trust links (per spec §7).
+          SuburbChecker intentionally omitted on the pilot per spec §5.
+          Sits on cream to soften the transition from the dark
+          CtaBanner. */}
       <section className="bg-[#faf9f6] py-6 text-center">
         <p className="text-[0.875rem] text-sage-600">
           <Link
@@ -261,6 +290,20 @@ export default function MountEdenServiceAreaPage() {
             className="font-semibold text-sage-500 underline-offset-4 hover:underline"
           >
             Check another suburb
+          </Link>
+          {' · '}
+          <Link
+            href="/guarantee"
+            className="font-semibold text-sage-500 underline-offset-4 hover:underline"
+          >
+            Our guarantee
+          </Link>
+          {' · '}
+          <Link
+            href="/faq"
+            className="font-semibold text-sage-500 underline-offset-4 hover:underline"
+          >
+            FAQ
           </Link>
         </p>
       </section>
