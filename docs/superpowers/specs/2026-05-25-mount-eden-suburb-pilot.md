@@ -1,6 +1,6 @@
 # Mount Eden Suburb Pilot — Approved Brief
 
-> **Status:** **shipped** via PR [#181](https://github.com/mikebrowne-sudo/sano-site/pull/181), merged 2026-05-25 (merge commit `638d581`).
+> **Status:** **shipped** via PR [#181](https://github.com/mikebrowne-sudo/sano-site/pull/181) (merge commit `638d581`) and refined via PR [#182](https://github.com/mikebrowne-sudo/sano-site/pull/182) intro-layout follow-up (merge commit `586425e`). Both merged 2026-05-25.
 > **Date:** 2026-05-25
 > **Slug:** `mount-eden`
 > **Route:** `/service-area/mount-eden`
@@ -316,7 +316,7 @@ PR #181 shipped a structurally richer page than §5 originally specified. The pa
 | # | Section | Component | What shipped |
 |---|---|---|---|
 | 1 | Hero | `SubpageHero` | §3 v3 strings. Primary CTA `Get a Free Quote` → `/contact`. `DEFAULT_TRUST_ITEMS`. |
-| 2 | Intro / property context | `ServiceInformation` | **No custom title prop** (uses default sibling pattern). Two paragraphs grounded in Mike-approved property-mix wording: *"Mount Eden has a mix of homes, rentals, apartments, and small commercial properties…"*. Suburb named once in opener. |
+| 2 | Intro / property context | **Inline `<section>`** built per PR [#182](https://github.com/mikebrowne-sudo/sano-site/pull/182) — NOT the shared `ServiceInformation` component | **One image only.** Image `/images/herne-bay-residential.jpg`, sized + treated to match the standard service-page system exactly: `lg:grid-cols-[1.2fr_0.8fr]` grid, `aspect-[4/3]`, `rounded-2xl`, `object-cover`, `sizes="(max-width: 1024px) 100vw, 45vw"`. H2 `Service Information` with `border-b border-sage-100` underline + `body-text space-y-4` paragraphs match sibling styling. Two paragraphs grounded in Mike-approved property-mix wording: *"Mount Eden has a mix of homes, rentals, apartments, and small commercial properties…"*. Suburb named once in opener. The shared `ServiceInformation` component (and the six service pages that use it) stays untouched. |
 | 3 | Why Sano | `WhyChooseSection` | **Moved earlier** (was originally planned later). **4 cards on a 2x2 grid**, not the 6-card sibling pattern. Cards: `Clear scopes and simple quotes`, `Careful cleaners`, `Insured and vetted teams`, `Follow-up if needed`. No Mount Eden mentions in any card. |
 | 4 | Services available in Mount Eden | **Custom inline section** (not `WhatWeCoverSection`) | Three labelled groups on cream, each rendered as `<h3>` + inline-link `<p>`: **Home cleaning** (regular, deep, end-of-tenancy), **Property and workplace cleaning** (commercial, post-construction), **Specialist cleaning** (carpet, window). **All seven Sano services linked through.** Replaces the originally-planned 3-card `WhatWeCoverSection` so the page never implies only 3 services are available. |
 | 5 | Cleaning needs by property type | `WhatWeCoverSection` | **NEW section, not in original §5.** Four cards: `Older homes and detailed interiors` (`Home` icon), `Apartments and townhouses` (`Building2`), `Rentals and handovers` (`KeyRound`), `Workplaces and small commercial spaces` (`Briefcase`). Eyebrow `HOW WE APPROACH IT` + supply-side subtitle so the section reads as cleaning-needs framing, not a Mount Eden housing-stock claim. Renders 4 cards on `lg:grid-cols-3` (3+1 orphan at lg — accepted for pilot; future call). |
@@ -344,7 +344,7 @@ Updated from §9 to reflect what actually shipped:
 **Template these (durable across all suburb pages):**
 
 - **Route + file:** `src/app/(public)/service-area/<slug>/page.tsx`, one static file per suburb. No dynamic `[slug]` route until ≥3 suburbs ship and the pattern is proven.
-- **Component composition** (final order): `SubpageHero` → `ServiceInformation` (no custom title) → `WhyChooseSection` (4 cards) → custom inline grouped services section → `WhatWeCoverSection` (4 property-type cards) → `BookingStepsSection` → JSON-LD → `CtaBanner` → closing trust strip.
+- **Component composition** (final order): `SubpageHero` → **custom inline single-image intro section** (matches `ServiceInformation` proportions but with one image — see Section 2 row above for the exact Tailwind classes) → `WhyChooseSection` (4 cards) → custom inline grouped services section → `WhatWeCoverSection` (4 property-type cards) → `BookingStepsSection` → JSON-LD → `CtaBanner` → closing trust strip.
 - **Schema:** `Service` `@type`, `LocalBusiness` provider, `areaServed = City Auckland`. No suburb-level `Place`.
 - **CTA:** single `Get a Free Quote` → `/contact`, repeated in hero + `CtaBanner`.
 - **Closing strip:** three text links — `Check another suburb`, `Our guarantee`, `FAQ`. No `SuburbChecker`.
@@ -354,17 +354,21 @@ Updated from §9 to reflect what actually shipped:
 **Keep flexible per-suburb:**
 
 - **Hero copy.** Each suburb needs its own use-case-led hero and meta wording approved by Mike before draft. Do not template-swap.
-- **Intro `ServiceInformation` body.** Each suburb needs its own Mike-confirmed property-mix sentence (e.g. for Mount Eden: *"a mix of homes, rentals, apartments, and small commercial properties"*). No template-swap.
+- **Intro body + image.** Each suburb needs its own Mike-confirmed property-mix sentence (e.g. for Mount Eden: *"a mix of homes, rentals, apartments, and small commercial properties"*). No template-swap on the words. The intro image can be reused across suburbs initially (Mount Eden uses `/images/herne-bay-residential.jpg`) — swap per suburb if/when Mike supplies suburb-specific photography.
 - **Grouped services mix.** Mount Eden surfaced all 7 services because all 7 are available. If a suburb has a different practical service mix (e.g. no commercial demand), the grouped section can drop categories — but each grouped row must still list real Sano services that actually serve the area.
 - **Property-type cards.** The four property-type cards Mike approved for Mount Eden (older homes / apartments / rentals / workplaces) reflect the property mix Mike confirmed for this suburb. **Each new suburb needs its own Mike-confirmed property mix** before the property-type section is drafted. Same supply-side wording rule applies: describe how Sano approaches the property type, not what Sano has done with it in that suburb.
 
-### What changed during visual review (v1 → v3, briefly)
+### What changed during visual review (v1 → v5)
 
-- **v1:** 3-card `WhatWeCoverSection` for the three primary residential services + "Read more" router + "Also available" inline list. Hero title `Mount Eden cleaning for homes, rentals, and move-outs.` (suburb-named).
+PR #181 carried v1 → v3 (initial pilot draft + two visual-review iterations + merge). PR #182 carried v4 → v5 (post-merge intro-layout refinement).
+
+- **v1:** 3-card `WhatWeCoverSection` for the three primary residential services + "Read more" router + "Also available" inline list. Hero title `Mount Eden cleaning for homes, rentals, and move-outs.` (suburb-named). Intro section used the shared `ServiceInformation` with two stacked images.
 - **v2:** Hero title kept; meta + eyebrow unchanged. Wording polished. Schema description expanded. Supply-side wording fixes for "most relevant" / "most often booked" applied per `sano-thin-content-guard`.
-- **v3 (shipped):** Hero rewritten to suburb-free title + subtitle. `WhyChooseSection` moved earlier and trimmed to 4 cards. 3-card services replaced with the grouped 7-service inline section. **New property-type `WhatWeCoverSection` added.** `/guarantee` + `/faq` always-on links added to closing strip.
+- **v3 (shipped via PR #181, merge commit `638d581`):** Hero rewritten to suburb-free title + subtitle. `WhyChooseSection` moved earlier and trimmed to 4 cards. 3-card services replaced with the grouped 7-service inline section. **New property-type `WhatWeCoverSection` added.** `/guarantee` + `/faq` always-on links added to closing strip. Intro section still used the shared `ServiceInformation` with two stacked images at this point.
+- **v4 (intermediate, shipped + reviewed within PR #182):** Intro section replaced with an inline single-image variant. First attempt used a fixed-width 320px image column — visually too small compared to the rest of the Sano service-page system.
+- **v5 (final, shipped via PR #182, merge commit `586425e`):** Intro single-image variant sized to match the service-page system exactly: `lg:grid-cols-[1.2fr_0.8fr]`, `aspect-[4/3]`, `rounded-2xl`, `object-cover`, `sizes="(max-width: 1024px) 100vw, 45vw"`. Visual consistency with the rest of the public site preserved. One image only (`/images/herne-bay-residential.jpg`).
 
-The §10 next-prompt below was executed in v1; v2 and v3 followed from operator visual-review feedback. For suburb #2, do not copy the §10 prompt verbatim — copy this §11 instead.
+The §10 next-prompt below was executed in v1; v2 through v5 followed from operator visual-review feedback across PRs #181 and #182. For suburb #2, do not copy the §10 prompt verbatim — copy this §11 instead.
 
 ---
 
