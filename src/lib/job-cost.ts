@@ -6,25 +6,41 @@
 //
 // The canonical formula is:
 //
-//   labour_cost = job_workers.pay_rate × COALESCE(approved_hours, actual_hours)
+//   labour_cost = rate × COALESCE(approved_hours, actual_hours)
+//
+//   where rate prefers job_workers.pay_rate (the snapshotted job rate)
+//   and falls back to contractors.hourly_rate when pay_rate is null.
+//   The fallback exists only because historical rows pre-date the
+//   assignment-time snapshot added in Phase G.1. Use `getWorkerRateSource`
+//   to render a clear "estimated" indicator on any UI surface that
+//   displays a rate sourced from the fallback.
 //
 // Notes:
 // - `pay_rate` is the snapshotted job rate. Phase G.1 snapshots it at
 //   assignment time; Phase E continues to snapshot it at approval
 //   time as a safety net for rows that pre-date the assignment-time
 //   write.
-// - Historical / persisted reporting MUST NOT fall back to
-//   `contractors.hourly_rate`. The live `hourly_rate` is only allowed
-//   as a *display* fallback for the pre-snapshot estimate
-//   (see `getWorkerRate` with an explicit fallback argument).
-// - When either side of the formula is null, labour cost is 0. We
-//   never fabricate a cost — a job that has not yet had hours captured
-//   simply has no labour cost yet, and the cleanup-flag layer (Phase
-//   G.2) will surface it.
+// - `contractor_hourly_rate` is the live rate from the contractor
+//   profile. It IS allowed as a transitional fallback when pay_rate
+//   is null (typical for historical rows). Once those rows are
+//   approved, the Phase E snapshot writes pay_rate and the fallback
+//   stops applying.
+// - The cost helper returns 0 only when BOTH pay_rate and
+//   contractor_hourly_rate are missing, OR payable hours are missing.
+//   We never fabricate a cost — a job that has no rate AND no hours
+//   simply has no labour cost yet.
 
 /** Minimal shape these helpers need from a job_workers row. */
 export interface JobWorkerCostInput {
   pay_rate: number | null
+  /**
+   * Optional fallback rate from the joined contractors row. Used only
+   * when pay_rate is null (typical for rows that pre-date the Phase
+   * G.1 assignment-time snapshot). Surfaces displaying a cost computed
+   * from this fallback should label it as estimated via
+   * `getWorkerRateSource`.
+   */
+  contractor_hourly_rate?: number | null
   approved_hours: number | null
   actual_hours: number | null
   hours_allocated: number | null
@@ -34,6 +50,9 @@ export interface JobWorkerVariance {
   hoursVariance: number
   costVariance: number
 }
+
+/** Origin of the rate used by the cost helpers — for UI labelling. */
+export type WorkerRateSource = 'snapshot' | 'estimate' | 'missing'
 
 /**
  * The hours we treat as payable for cost reporting.
@@ -65,10 +84,10 @@ export function getWorkerEstimatedHours(jw: JobWorkerCostInput): number | null {
 /**
  * Pay rate for cost calculations.
  *
- * Prefers the snapshotted `pay_rate`. The optional `fallbackHourlyRate`
- * argument is for live UI display only (rows that pre-date the
- * assignment-time snapshot may still have a null `pay_rate` until
- * approval). Persisted reporting paths should NOT pass a fallback.
+ * Prefers the snapshotted `pay_rate`. Falls back to the optional
+ * `fallbackHourlyRate` argument (typically `contractors.hourly_rate`
+ * via the join). The fallback exists for historical rows; new rows
+ * have `pay_rate` snapshotted at assignment time.
  */
 export function getWorkerRate(
   jw: { pay_rate: number | null },
@@ -80,15 +99,37 @@ export function getWorkerRate(
 }
 
 /**
+ * Origin of the rate currently in use for this row.
+ *
+ * - `'snapshot'`  — the canonical `job_workers.pay_rate` is set.
+ * - `'estimate'`  — `pay_rate` is null but `contractor_hourly_rate`
+ *                   is present (transitional fallback for rows that
+ *                   pre-date Phase G.1's assignment-time snapshot).
+ *                   UI should label these as estimated.
+ * - `'missing'`   — neither rate is available; no cost can be computed.
+ */
+export function getWorkerRateSource(jw: JobWorkerCostInput): WorkerRateSource {
+  if (jw.pay_rate != null) return 'snapshot'
+  if (jw.contractor_hourly_rate != null) return 'estimate'
+  return 'missing'
+}
+
+/**
  * Canonical per-worker labour cost.
  *
- * Returns 0 when either pay_rate or payable hours are missing — never
- * fabricates a cost from `contractors.hourly_rate`. Surfaces that need
- * a live estimate before the snapshot lands should compute their own
- * estimate using `getWorkerEstimatedHours` + `getWorkerRate(jw, fallback)`.
+ * Uses `pay_rate × payable_hours` when both are present. Falls back
+ * to `contractor_hourly_rate × payable_hours` when only the fallback
+ * rate is present — needed because historical rows pre-date the
+ * assignment-time snapshot.
+ *
+ * Returns 0 only when:
+ *   • payable hours are null, OR
+ *   • both pay_rate and contractor_hourly_rate are null.
+ *
+ * We never fabricate a cost from a default rate.
  */
 export function getWorkerLabourCost(jw: JobWorkerCostInput): number {
-  const rate = jw.pay_rate
+  const rate = jw.pay_rate ?? jw.contractor_hourly_rate ?? null
   const hours = getWorkerPayableHours(jw)
   if (rate == null || hours == null) return 0
   return rate * hours
@@ -110,7 +151,8 @@ export function getJobLabourCost(jobWorkers: JobWorkerCostInput[] | null | undef
  *
  * Returns null when allowed hours are not set (variance is meaningless
  * without a target). Uses payable hours (approved → actual) on the
- * "actual" side and the snapshotted pay_rate for the dollar variance.
+ * "actual" side and the same rate selection as the cost helper above
+ * (`pay_rate` preferred; `contractor_hourly_rate` as fallback).
  */
 export function getWorkerVariance(
   jw: JobWorkerCostInput,
@@ -119,7 +161,7 @@ export function getWorkerVariance(
   if (allowedHours == null) return null
   const payable = getWorkerPayableHours(jw)
   if (payable == null) return null
-  const rate = jw.pay_rate ?? 0
+  const rate = jw.pay_rate ?? jw.contractor_hourly_rate ?? 0
   return {
     hoursVariance: payable - allowedHours,
     costVariance: (payable - allowedHours) * rate,

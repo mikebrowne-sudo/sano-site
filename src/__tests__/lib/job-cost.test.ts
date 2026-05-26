@@ -10,6 +10,7 @@ import {
   getWorkerPayableHours,
   getWorkerEstimatedHours,
   getWorkerRate,
+  getWorkerRateSource,
   getWorkerLabourCost,
   getJobLabourCost,
   getWorkerVariance,
@@ -19,6 +20,7 @@ import {
 function jw(partial: Partial<JobWorkerCostInput> = {}): JobWorkerCostInput {
   return {
     pay_rate: null,
+    contractor_hourly_rate: null,
     approved_hours: null,
     actual_hours: null,
     hours_allocated: null,
@@ -86,8 +88,18 @@ describe('getWorkerLabourCost', () => {
     expect(getWorkerLabourCost(jw({ pay_rate: 50, actual_hours: 4.5 }))).toBe(225)
   })
 
-  it('returns 0 when pay_rate is null (no fabricated cost)', () => {
-    expect(getWorkerLabourCost(jw({ pay_rate: null, approved_hours: 4 }))).toBe(0)
+  it('falls back to contractor_hourly_rate when pay_rate is null', () => {
+    // Transitional path for historical rows that pre-date the
+    // Phase G.1 assignment-time snapshot.
+    expect(getWorkerLabourCost(jw({ pay_rate: null, contractor_hourly_rate: 45, approved_hours: 4 }))).toBe(180)
+  })
+
+  it('prefers pay_rate over contractor_hourly_rate when both are set', () => {
+    expect(getWorkerLabourCost(jw({ pay_rate: 50, contractor_hourly_rate: 99, approved_hours: 4 }))).toBe(200)
+  })
+
+  it('returns 0 only when both pay_rate AND contractor_hourly_rate are null', () => {
+    expect(getWorkerLabourCost(jw({ pay_rate: null, contractor_hourly_rate: null, approved_hours: 4 }))).toBe(0)
   })
 
   it('returns 0 when payable hours are null (no fabricated cost)', () => {
@@ -97,13 +109,27 @@ describe('getWorkerLabourCost', () => {
   it('does NOT fall back to hours_allocated for the cost calculation', () => {
     expect(getWorkerLabourCost(jw({ pay_rate: 50, hours_allocated: 4 }))).toBe(0)
   })
+})
 
-  it('does NOT use contractors.hourly_rate (no such argument exists)', () => {
-    // The function signature explicitly excludes hourly_rate. This is a
-    // compile-time guarantee, but we also assert it behaviourally: a
-    // worker with no pay_rate produces zero cost regardless of what
-    // any joined contractor row says.
-    expect(getWorkerLabourCost(jw({ pay_rate: null, approved_hours: 4 }))).toBe(0)
+describe('getWorkerRateSource', () => {
+  it('returns "snapshot" when pay_rate is set', () => {
+    expect(getWorkerRateSource(jw({ pay_rate: 50 }))).toBe('snapshot')
+  })
+
+  it('returns "snapshot" even when contractor_hourly_rate is also set', () => {
+    expect(getWorkerRateSource(jw({ pay_rate: 50, contractor_hourly_rate: 99 }))).toBe('snapshot')
+  })
+
+  it('returns "estimate" when only contractor_hourly_rate is available', () => {
+    expect(getWorkerRateSource(jw({ pay_rate: null, contractor_hourly_rate: 45 }))).toBe('estimate')
+  })
+
+  it('returns "missing" when neither rate is available', () => {
+    expect(getWorkerRateSource(jw({}))).toBe('missing')
+  })
+
+  it('treats pay_rate=0 as a valid snapshot (not missing)', () => {
+    expect(getWorkerRateSource(jw({ pay_rate: 0, contractor_hourly_rate: 50 }))).toBe('snapshot')
   })
 })
 
@@ -112,9 +138,18 @@ describe('getJobLabourCost', () => {
     const workers = [
       jw({ pay_rate: 50, approved_hours: 4 }), // 200
       jw({ pay_rate: 40, actual_hours: 3 }),   // 120
-      jw({ pay_rate: null, approved_hours: 2 }), // 0 (no rate)
+      jw({ pay_rate: null, contractor_hourly_rate: null, approved_hours: 2 }), // 0 (no rate at all)
     ]
     expect(getJobLabourCost(workers)).toBe(320)
+  })
+
+  it('mixes snapshotted and fallback-rate workers correctly', () => {
+    const workers = [
+      jw({ pay_rate: 50, approved_hours: 4 }),                                   // 200 (snapshot)
+      jw({ pay_rate: null, contractor_hourly_rate: 45, actual_hours: 3 }),       // 135 (estimate)
+      jw({ pay_rate: null, contractor_hourly_rate: null, approved_hours: 2 }),   //   0 (missing)
+    ]
+    expect(getJobLabourCost(workers)).toBe(335)
   })
 
   it('returns 0 for empty / null / undefined input', () => {
@@ -151,5 +186,10 @@ describe('getWorkerVariance', () => {
   it('uses pay_rate=0 fallback for cost variance when rate is null', () => {
     const v = getWorkerVariance(jw({ pay_rate: null, actual_hours: 5 }), 4)
     expect(v).toEqual({ hoursVariance: 1, costVariance: 0 })
+  })
+
+  it('uses contractor_hourly_rate for cost variance when pay_rate is null', () => {
+    const v = getWorkerVariance(jw({ pay_rate: null, contractor_hourly_rate: 45, actual_hours: 5 }), 4)
+    expect(v).toEqual({ hoursVariance: 1, costVariance: 45 })
   })
 })

@@ -24,10 +24,17 @@ import { getJobLabourCost, type JobWorkerCostInput } from '@/lib/job-cost'
  * portal does in production.
  */
 function fixture(
-  workers: Array<{ pay_rate: number | null; approved_hours: number | null; actual_hours: number | null; hours_allocated?: number | null }>,
+  workers: Array<{
+    pay_rate: number | null
+    contractor_hourly_rate?: number | null
+    approved_hours: number | null
+    actual_hours: number | null
+    hours_allocated?: number | null
+  }>,
 ) {
   const jobCostInput: JobWorkerCostInput[] = workers.map((w) => ({
     pay_rate: w.pay_rate,
+    contractor_hourly_rate: w.contractor_hourly_rate ?? null,
     approved_hours: w.approved_hours,
     actual_hours: w.actual_hours,
     hours_allocated: w.hours_allocated ?? null,
@@ -35,11 +42,13 @@ function fixture(
   // labour-calc uses actual hours via calculateActualLabour. To make
   // its output comparable we feed it the same payable hours the
   // dashboard derives (approved → actual) by setting actual_hours
-  // accordingly. This mirrors the dashboard rule.
+  // accordingly. labour-calc's WorkerInput.hourly_rate plays the
+  // same fallback role that contractor_hourly_rate plays in
+  // JobWorkerCostInput.
   const labourCalcInput: WorkerInput[] = workers.map((w, i) => ({
     contractor_id: `c-${i}`,
     full_name: `Worker ${i}`,
-    hourly_rate: null,
+    hourly_rate: w.contractor_hourly_rate ?? null,
     pay_rate: w.pay_rate,
     hours_allocated: w.hours_allocated ?? null,
     actual_hours: w.approved_hours ?? w.actual_hours ?? null,
@@ -75,9 +84,9 @@ describe('finance dashboard vs job page — same contractor cost', () => {
     expect(dashboard).toBe(jobPage)
   })
 
-  it('matches at zero when no pay rates are snapshotted', () => {
+  it('matches at zero when no rate is available anywhere', () => {
     const { jobCostInput, labourCalcInput } = fixture([
-      { pay_rate: null, approved_hours: 4, actual_hours: 4 },
+      { pay_rate: null, contractor_hourly_rate: null, approved_hours: 4, actual_hours: 4 },
     ])
     const dashboard = getJobLabourCost(jobCostInput)
     const jobPage = calculateActualLabour(500, labourCalcInput).totalLabourCost
@@ -92,6 +101,31 @@ describe('finance dashboard vs job page — same contractor cost', () => {
     const dashboard = getJobLabourCost(jobCostInput)
     const jobPage = calculateActualLabour(500, labourCalcInput).totalLabourCost
     expect(dashboard).toBe(0)
+    expect(dashboard).toBe(jobPage)
+  })
+
+  // Phase G.1 fix — historical rows have pay_rate=null but the
+  // contractor profile still carries hourly_rate. Both surfaces must
+  // fall back to that rate so existing jobs don't show $0 cost.
+  it('matches when only the fallback contractor rate is available (historical row)', () => {
+    const { jobCostInput, labourCalcInput } = fixture([
+      { pay_rate: null, contractor_hourly_rate: 45, approved_hours: 4, actual_hours: 4 },
+    ])
+    const dashboard = getJobLabourCost(jobCostInput)
+    const jobPage = calculateActualLabour(500, labourCalcInput).totalLabourCost
+    expect(dashboard).toBe(180)
+    expect(dashboard).toBe(jobPage)
+  })
+
+  it('matches with a mix of snapshotted and fallback workers (historical + new)', () => {
+    const { jobCostInput, labourCalcInput } = fixture([
+      { pay_rate: 50, contractor_hourly_rate: 99, approved_hours: 4, actual_hours: 4 }, // 200 — snapshot wins
+      { pay_rate: null, contractor_hourly_rate: 45, approved_hours: 3, actual_hours: 3 }, // 135 — fallback
+      { pay_rate: null, contractor_hourly_rate: null, approved_hours: 2, actual_hours: 2 }, //   0 — missing
+    ])
+    const dashboard = getJobLabourCost(jobCostInput)
+    const jobPage = calculateActualLabour(1000, labourCalcInput).totalLabourCost
+    expect(dashboard).toBe(335)
     expect(dashboard).toBe(jobPage)
   })
 })

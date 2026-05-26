@@ -523,8 +523,17 @@ export default async function JobDetailPage({
                             const approvedHours = (raw?.approved_hours as number | null) ?? null
                             // Prefer snapshotted pay_rate; fall back to
                             // live hourly_rate for rows that pre-date
-                            // the assignment-time snapshot.
-                            const payRate = (w?.pay_rate as number | null) ?? w?.hourly_rate ?? 0
+                            // the assignment-time snapshot. The badge
+                            // below labels which source is in use.
+                            const snapshotPayRate = (w?.pay_rate as number | null) ?? null
+                            const fallbackRate = w?.hourly_rate ?? null
+                            const payRate = snapshotPayRate ?? fallbackRate ?? 0
+                            const rateSource: 'snapshot' | 'estimate' | 'missing' =
+                              snapshotPayRate != null
+                                ? 'snapshot'
+                                : fallbackRate != null
+                                  ? 'estimate'
+                                  : 'missing'
                             const approvedPay = approvedHours != null ? approvedHours * payRate : null
                             const payStatus = (raw?.pay_status as string | null) ?? 'pending'
                             // Per-worker variance: payable hours
@@ -542,7 +551,27 @@ export default async function JobDetailPage({
                                   <ActualHoursEditor jobId={job.id} contractorId={ew.contractorId} currentHours={w?.actual_hours ?? null} />
                                 </td>
                                 <td className="py-2 pr-2 text-right text-sage-700">{approvedHours != null ? `${approvedHours.toFixed(1)}h` : <span className="text-sage-300">—</span>}</td>
-                                <td className="py-2 pr-2 text-right text-sage-700">{formatCurrency(payRate)}</td>
+                                <td className="py-2 pr-2 text-right text-sage-700">
+                                  <span className="inline-flex items-center gap-1 justify-end">
+                                    <span>{formatCurrency(payRate)}</span>
+                                    {rateSource === 'estimate' && (
+                                      <span
+                                        className="text-[9px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded"
+                                        title="Rate not snapshotted on this job. Estimated from the contractor's current profile rate; the next hours-approval will snapshot a permanent pay_rate."
+                                      >
+                                        est.
+                                      </span>
+                                    )}
+                                    {rateSource === 'missing' && (
+                                      <span
+                                        className="text-[9px] font-semibold uppercase tracking-wide text-red-700 bg-red-50 px-1.5 py-0.5 rounded"
+                                        title="No pay rate on this job and no hourly rate on the contractor profile. Set the contractor's hourly rate to compute labour cost."
+                                      >
+                                        missing
+                                      </span>
+                                    )}
+                                  </span>
+                                </td>
                                 <td className="py-2 pr-2 text-right">
                                   {approvedPay != null
                                     ? <span className="font-bold text-sage-800">{formatCurrency(approvedPay)}</span>

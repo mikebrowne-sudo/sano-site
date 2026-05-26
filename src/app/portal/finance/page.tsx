@@ -38,7 +38,7 @@ export default async function FinancePage({
       .gte('created_at', `${from}T00:00:00`)
       .lte('created_at', `${to}T23:59:59`)
       .order('created_at', { ascending: false }),
-    // Phase G.1 — contractor cost now reads from the per-worker
+    // Phase G.1 — contractor cost reads from the per-worker
     // snapshotted rates and approved/actual hours on `job_workers`,
     // not the denormalised `jobs.contractor_price` column. This puts
     // the finance dashboard on the same source of truth as the job
@@ -47,9 +47,15 @@ export default async function FinancePage({
     // table can keep its row identity even where job_workers data is
     // incomplete; the displayed dollar figure always comes from the
     // canonical helper.
+    //
+    // Phase G.1 fix — historical rows can have `pay_rate = null`
+    // because the assignment-time snapshot is new. The
+    // `contractors ( hourly_rate )` join feeds `getJobLabourCost`'s
+    // optional fallback so those jobs still show their real cost
+    // until the next approval action snapshots a permanent pay_rate.
     supabase
       .from('jobs')
-      .select('id, job_number, title, scheduled_date, status, contractor_price, assigned_to, invoice_id, job_workers ( pay_rate, approved_hours, actual_hours, hours_allocated )')
+      .select('id, job_number, title, scheduled_date, status, contractor_price, assigned_to, invoice_id, job_workers ( pay_rate, approved_hours, actual_hours, hours_allocated, contractors ( hourly_rate ) )')
       .gte('scheduled_date', from)
       .lte('scheduled_date', to)
       .order('scheduled_date', { ascending: false }),
@@ -82,14 +88,30 @@ export default async function FinancePage({
   const overdueInvoices = invoiceRows.filter((i) => i.status === 'sent' && i.dueDate && i.dueDate < today)
 
   // Contractor costs — Phase G.1.
-  // Cost is the sum of (pay_rate × payable hours) across all
-  // job_workers rows on the job. Jobs that haven't yet had pay rates
-  // snapshotted or hours captured resolve to $0 and are filtered out
-  // below so the Contractor Costs section stays focused on actionable
-  // rows. The same canonical helper is used by the job detail page.
+  // Cost is the sum of (rate × payable hours) across all job_workers
+  // rows on the job, where rate prefers the snapshotted pay_rate and
+  // falls back to the joined contractors.hourly_rate for historical
+  // rows that pre-date the assignment-time snapshot. Jobs with neither
+  // a rate nor any payable hours resolve to $0 and are filtered out so
+  // the Contractor Costs section stays focused on actionable rows.
+  // The same canonical helper is used by the job detail page.
+  type RawJobWorker = {
+    pay_rate: number | null
+    approved_hours: number | null
+    actual_hours: number | null
+    hours_allocated: number | null
+    contractors: { hourly_rate: number | null } | null
+  }
   const jobRows = (jobs ?? [])
     .map((j) => {
-      const workers = (j.job_workers ?? []) as Parameters<typeof getJobLabourCost>[0]
+      const rawWorkers = (j.job_workers ?? []) as unknown as RawJobWorker[]
+      const workers = rawWorkers.map((w) => ({
+        pay_rate: w.pay_rate,
+        contractor_hourly_rate: w.contractors?.hourly_rate ?? null,
+        approved_hours: w.approved_hours,
+        actual_hours: w.actual_hours,
+        hours_allocated: w.hours_allocated,
+      }))
       const contractorPrice = getJobLabourCost(workers)
       return {
         id: j.id,
