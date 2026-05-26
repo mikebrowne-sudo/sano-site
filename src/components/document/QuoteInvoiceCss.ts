@@ -439,6 +439,177 @@ export const QUOTE_INVOICE_CSS = `
     justify-content: flex-end;
   }
 
+  /* ====================== SHARE-PAGE CTA CARD ====================== */
+  /* Customer-facing action card rendered directly below the document
+     on /share/quote and /share/invoice. Centred, capped width, soft
+     border + subtle shadow to match the document chrome above. */
+  .accept-panel,
+  .pay-panel {
+    max-width: 560px;
+    margin: 32px auto 0;
+    background: var(--white);
+    border: 1px solid var(--sage-100);
+    border-radius: 18px;
+    box-shadow:
+      0 1px 2px rgba(6, 35, 29, 0.04),
+      0 20px 50px -28px rgba(6, 35, 29, 0.14);
+    padding: 32px 36px;
+    text-align: center;
+  }
+
+  .accept-title,
+  .pay-title {
+    margin: 0 0 8px;
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--sage-800);
+    letter-spacing: -0.01em;
+  }
+
+  .accept-sub,
+  .pay-sub {
+    margin: 0 0 24px;
+    color: var(--sage-600);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .accept-checkbox-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 0 auto 24px;
+    text-align: left;
+    font-size: 14px;
+    color: var(--sage-700);
+    cursor: pointer;
+    max-width: 420px;
+  }
+  .accept-checkbox {
+    flex: none;
+    margin-top: 3px;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--sage-500);
+    cursor: pointer;
+  }
+  .accept-link {
+    color: var(--sage-500);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .accept-link:hover { color: var(--sage-700); }
+
+  .pay-amount-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    margin: 0 0 24px;
+    padding: 18px 0;
+    background: var(--cream);
+    border-radius: 12px;
+  }
+  .pay-amount-label {
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--sage-600);
+  }
+  .pay-amount-value {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--sage-800);
+  }
+
+  .accept-button,
+  .pay-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px 24px;
+    background: var(--sage-500);
+    color: var(--white);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 600;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 6px 18px -8px rgba(7, 102, 83, 0.55);
+  }
+  .accept-button:hover:not(:disabled),
+  .pay-button:hover:not(:disabled) {
+    background: var(--sage-700);
+  }
+  .accept-button:disabled,
+  .pay-button:disabled {
+    background: var(--sage-200);
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .accept-error,
+  .pay-error {
+    margin: 16px 0 0;
+    color: #b3261e;
+    font-size: 13px;
+  }
+
+  .pay-cancelled {
+    margin: 0 0 18px;
+    padding: 10px 14px;
+    background: #fff7ed;
+    color: #92400e;
+    border-radius: 10px;
+    font-size: 13px;
+  }
+
+  .accept-done,
+  .pay-done {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .accept-done-icon,
+  .pay-done-icon {
+    color: var(--sage-500);
+    margin-bottom: 10px;
+  }
+  .accept-done-title,
+  .pay-done-title {
+    margin: 0 0 6px;
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--sage-800);
+  }
+  .accept-done-sub,
+  .pay-done-sub {
+    margin: 0 0 4px;
+    color: var(--sage-600);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  @media (max-width: 480px) {
+    .accept-panel,
+    .pay-panel {
+      padding: 26px 22px;
+      margin: 24px auto 0;
+      border-radius: 16px;
+    }
+    .accept-title,
+    .pay-title { font-size: 21px; }
+    .pay-amount-value { font-size: 28px; }
+  }
+
   /* Keep critical sections together when paginating to a multi-page PDF. */
   .doc-parties,
   .doc-totals-wrap,
@@ -467,6 +638,6 @@ export const QUOTE_INVOICE_CSS = `
     }
     .doc-share-actions { display: none !important; }
     .accept-panel,
-    .pay-now-panel { display: none !important; }
+    .pay-panel { display: none !important; }
   }
 `

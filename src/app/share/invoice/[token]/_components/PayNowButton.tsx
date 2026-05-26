@@ -23,56 +23,67 @@ export function PayNowButton({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Already paid
   if (status === 'paid') {
     return (
       <div className="pay-panel pay-done">
-        <CheckCircle size={24} className="pay-done-icon" />
-        <div>
-          <p className="pay-done-title">Payment received</p>
-          <p className="pay-done-sub">{datePaid ? `Paid on ${fmtDate(datePaid)}` : 'Thank you for your payment.'}</p>
-        </div>
+        <CheckCircle size={32} className="pay-done-icon" />
+        <p className="pay-done-title">Payment received</p>
+        <p className="pay-done-sub">
+          {datePaid ? `Paid on ${fmtDate(datePaid)}` : 'Thank you for your payment.'}
+        </p>
       </div>
     )
   }
 
-  // Just returned from successful payment
   if (paymentResult === 'success') {
     return (
       <div className="pay-panel pay-done">
-        <CheckCircle size={24} className="pay-done-icon" />
-        <div>
-          <p className="pay-done-title">Payment received — thank you</p>
-          <p className="pay-done-sub">Your payment is being processed. The invoice will update shortly.</p>
-        </div>
+        <CheckCircle size={32} className="pay-done-icon" />
+        <p className="pay-done-title">Payment received — thank you</p>
+        <p className="pay-done-sub">Your payment is being processed. The invoice will update shortly.</p>
       </div>
     )
   }
 
-  // Cancelled payment
-  if (paymentResult === 'cancelled') {
-    return (
-      <div className="pay-panel">
-        <p className="pay-cancelled">Payment was cancelled. You can try again below.</p>
-        <PayButton shareToken={shareToken} total={total} loading={loading} setLoading={setLoading} error={error} setError={setError} />
-      </div>
-    )
-  }
-
-  // Draft or cancelled invoice — don't show pay button
+  // Draft or cancelled invoice — don't show the pay card at all.
   if (status === 'draft' || status === 'cancelled') {
     return null
   }
 
+  const cancelledMessage =
+    paymentResult === 'cancelled' ? 'Payment was cancelled. You can try again below.' : null
+
   return (
     <div className="pay-panel">
-      <PayButton shareToken={shareToken} total={total} loading={loading} setLoading={setLoading} error={error} setError={setError} />
+      <h3 className="pay-title">Pay this invoice</h3>
+      <p className="pay-sub">Secure payment powered by Stripe.</p>
+
+      {cancelledMessage && <p className="pay-cancelled">{cancelledMessage}</p>}
+
+      <div className="pay-amount-row">
+        <span className="pay-amount-label">Amount due</span>
+        <span className="pay-amount-value">{total}</span>
+      </div>
+
+      <PayButton
+        shareToken={shareToken}
+        total={total}
+        loading={loading}
+        setLoading={setLoading}
+        error={error}
+        setError={setError}
+      />
     </div>
   )
 }
 
 function PayButton({ shareToken, total, loading, setLoading, error, setError }: {
-  shareToken: string; total: string; loading: boolean; setLoading: (v: boolean) => void; error: string | null; setError: (v: string | null) => void
+  shareToken: string
+  total: string
+  loading: boolean
+  setLoading: (v: boolean) => void
+  error: string | null
+  setError: (v: string | null) => void
 }) {
   async function handlePay() {
     setError(null)
@@ -113,7 +124,6 @@ function PayButton({ shareToken, total, loading, setLoading, error, setError }: 
         <CreditCard size={18} />
         {loading ? 'Redirecting to payment…' : `Pay ${total}`}
       </button>
-      <p className="pay-secure">Secure payment via Stripe</p>
       {error && <p className="pay-error">{error}</p>}
     </>
   )
