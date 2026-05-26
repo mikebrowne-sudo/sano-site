@@ -34,23 +34,19 @@ export function AcceptQuote({
     })
   }
 
-  // Already accepted
   if (accepted || status === 'accepted') {
     return (
       <div className="accept-panel accept-done">
-        <CheckCircle size={24} className="accept-done-icon" />
-        <div>
-          <p className="accept-done-title">Quote accepted</p>
-          <p className="accept-done-sub">
-            {acceptedAt ? `Accepted on ${fmtDate(acceptedAt)}` : "Thanks, your quote has been accepted."}
-          </p>
-          <p className="accept-done-sub">We&apos;ll be in touch shortly to confirm next steps.</p>
-        </div>
+        <CheckCircle size={32} className="accept-done-icon" />
+        <p className="accept-done-title">Quote accepted</p>
+        <p className="accept-done-sub">
+          {acceptedAt ? `Accepted on ${fmtDate(acceptedAt)}` : 'Thanks, your quote has been accepted.'}
+        </p>
+        <p className="accept-done-sub">We&apos;ll be in touch shortly to confirm next steps.</p>
       </div>
     )
   }
 
-  // Declined
   if (status === 'declined') {
     return null
   }
@@ -58,6 +54,7 @@ export function AcceptQuote({
   return (
     <div className="accept-panel">
       <h3 className="accept-title">Accept this quote</h3>
+      <p className="accept-sub">Review the quote above, then accept to confirm the booking.</p>
 
       <label className="accept-checkbox-row">
         <input
@@ -74,8 +71,6 @@ export function AcceptQuote({
         </span>
       </label>
 
-      {error && <p className="accept-error">{error}</p>}
-
       <button
         onClick={handleAccept}
         disabled={!agreed || isPending}
@@ -83,6 +78,8 @@ export function AcceptQuote({
       >
         {isPending ? 'Accepting…' : 'Accept Quote'}
       </button>
+
+      {error && <p className="accept-error">{error}</p>}
     </div>
   )
 }
