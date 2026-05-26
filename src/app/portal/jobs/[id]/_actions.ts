@@ -327,12 +327,28 @@ export async function assignJob(input: AssignJobInput) {
   // worker_type) for the new gate below.
   const { data: contractor } = await supabase
     .from('contractors')
-    .select('full_name, email, phone, insurance_expiry, status, onboarding_status, trial_required, trial_status, worker_type')
+    .select('full_name, email, phone, hourly_rate, insurance_expiry, status, onboarding_status, trial_required, trial_status, worker_type')
     .eq('id', contractorId)
     .single()
 
   if (!contractor) {
     return { error: 'Contractor not found.' }
+  }
+
+  // Phase G.1 — block assignment when the contractor has no hourly
+  // rate on file. Silent assignment in that state produces job_workers
+  // rows with null pay_rate, which then surface as missing labour cost
+  // everywhere downstream (job page, finance dashboard, contractor
+  // pay run). Admin must set the rate on the contractor profile first.
+  const contractorRate = contractor.hourly_rate
+  if (
+    contractorRate == null ||
+    !Number.isFinite(Number(contractorRate)) ||
+    Number(contractorRate) <= 0
+  ) {
+    return {
+      error: `Cannot assign — ${contractor.full_name} has no hourly rate on file. Set the contractor's hourly rate on their profile first.`,
+    }
   }
 
   // Phase 5.4 (locked) — Workflow gate driven by workforce_settings.
@@ -448,10 +464,37 @@ export async function assignJob(input: AssignJobInput) {
   // tracking (allocated by the staff ActualHoursEditor or captured
   // by contractorStartJob/contractorCompleteJob) has a record to
   // write against. Idempotent via upsert on the composite key.
+  //
+  // Phase G.1 — also snapshot the contractor's current hourly rate
+  // onto job_workers.pay_rate at this point. The snapshot is
+  // preserved on subsequent reassign actions: if a pay_rate has
+  // already been set (e.g. via earlier assignment, approval-time
+  // snapshot in Phase E, or a future admin override), we keep that
+  // value rather than overwriting it. Historical pay must remain
+  // stable regardless of later rate changes on the contractor profile.
+  const { data: existingJw } = await supabase
+    .from('job_workers')
+    .select('pay_rate')
+    .eq('job_id', jobId)
+    .eq('contractor_id', contractorId)
+    .maybeSingle()
+
+  const existingPayRate =
+    existingJw?.pay_rate != null && Number(existingJw.pay_rate) > 0
+      ? Number(existingJw.pay_rate)
+      : null
+  const payRateToSet = existingPayRate ?? Number(contractorRate)
+
   await supabase
     .from('job_workers')
     .upsert(
-      { job_id: jobId, contractor_id: contractorId, hours_allocated: allowedHoursAllowed ? (allowedHours ?? null) : (job.allowed_hours as number | null) },
+      {
+        job_id: jobId,
+        contractor_id: contractorId,
+        hours_allocated: allowedHoursAllowed ? (allowedHours ?? null) : (job.allowed_hours as number | null),
+        pay_rate: payRateToSet,
+        pay_type: 'hourly',
+      },
       { onConflict: 'job_id,contractor_id' },
     )
 
