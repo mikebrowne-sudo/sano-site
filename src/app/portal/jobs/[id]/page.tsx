@@ -407,6 +407,9 @@ export default async function JobDetailPage({
         {/* Labour & Margin */}
         <Section title="Labour &amp; Margin">
           {(() => {
+            // Phase G.1 — pass the snapshotted job-specific pay_rate
+            // through to the calculator so cost figures reflect the
+            // rate captured on this job, not the live contractor rate.
             const workers = (jobWorkers ?? []).map((w) => {
               const c = w.contractors as unknown as {
                 full_name: string; hourly_rate: number | null; worker_type: string | null
@@ -417,6 +420,7 @@ export default async function JobDetailPage({
                 contractor_id: w.contractor_id,
                 full_name: c?.full_name ?? '—',
                 hourly_rate: c?.hourly_rate ?? null,
+                pay_rate: (w.pay_rate as number | null) ?? null,
                 hours_allocated: w.hours_allocated,
                 actual_hours: w.actual_hours ?? null,
                 worker_type: c?.worker_type ?? 'contractor',
@@ -489,7 +493,11 @@ export default async function JobDetailPage({
                   </table>
                 </div>
 
-                {/* Per-worker breakdown */}
+                {/* Per-worker breakdown — Phase G.1.
+                    Columns prioritise the financial story for the job:
+                    allowed vs actual vs approved hours, snapshotted job
+                    pay rate, the final approved payable amount (bold),
+                    hours+cost variance, and the current pay status. */}
                 {v.estimated.workers.length > 0 && (
                   <div className="border-t border-sage-100 pt-3">
                     <span className="text-xs text-sage-500 font-semibold uppercase tracking-wide">Worker Breakdown</span>
@@ -499,30 +507,87 @@ export default async function JobDetailPage({
                           <tr className="text-left text-sage-500 border-b border-gray-100">
                             <th className="py-2 pr-2">Worker</th>
                             <th className="py-2 pr-2">Type</th>
-                            <th className="py-2 pr-2 text-right">Est. hrs</th>
-                            <th className="py-2 pr-2 text-right">Actual hrs</th>
+                            <th className="py-2 pr-2 text-right">Allowed</th>
+                            <th className="py-2 pr-2 text-right">Actual</th>
+                            <th className="py-2 pr-2 text-right">Approved</th>
                             <th className="py-2 pr-2 text-right">Rate</th>
-                            <th className="py-2 pr-2 text-right">Est. cost</th>
-                            <th className="py-2 pr-2 text-right">Actual cost</th>
-                            <th className="py-2 text-right">Variance</th>
+                            <th className="py-2 pr-2 text-right">Approved pay</th>
+                            <th className="py-2 pr-2 text-right">Variance</th>
+                            <th className="py-2 text-right">Status</th>
                           </tr>
                         </thead>
                         <tbody>
                           {v.estimated.workers.map((ew, i) => {
-                            const aw = v.actual.workers[i]
-                            const costVar = aw ? aw.totalCost - ew.totalCost : 0
+                            const w = workers[i]
+                            const raw = jobWorkers?.[i]
+                            const approvedHours = (raw?.approved_hours as number | null) ?? null
+                            // Prefer snapshotted pay_rate; fall back to
+                            // live hourly_rate for rows that pre-date
+                            // the assignment-time snapshot. The badge
+                            // below labels which source is in use.
+                            const snapshotPayRate = (w?.pay_rate as number | null) ?? null
+                            const fallbackRate = w?.hourly_rate ?? null
+                            const payRate = snapshotPayRate ?? fallbackRate ?? 0
+                            const rateSource: 'snapshot' | 'estimate' | 'missing' =
+                              snapshotPayRate != null
+                                ? 'snapshot'
+                                : fallbackRate != null
+                                  ? 'estimate'
+                                  : 'missing'
+                            const approvedPay = approvedHours != null ? approvedHours * payRate : null
+                            const payStatus = (raw?.pay_status as string | null) ?? 'pending'
+                            // Per-worker variance: payable hours
+                            // (approved → actual) against allocated.
+                            const allowedHrs = w?.hours_allocated ?? null
+                            const payableHrs = approvedHours ?? (w?.actual_hours ?? null)
+                            const hoursVar = (allowedHrs != null && payableHrs != null) ? payableHrs - allowedHrs : null
+                            const costVar = hoursVar != null ? hoursVar * payRate : null
                             return (
                               <tr key={ew.contractorId} className="border-b border-gray-50">
                                 <td className="py-2 pr-2 font-medium text-sage-800">{ew.fullName}</td>
                                 <td className="py-2 pr-2 text-sage-600 capitalize">{ew.workerType.replace('_', ' ')}</td>
-                                <td className="py-2 pr-2 text-right text-sage-700">{ew.hours.toFixed(1)}</td>
+                                <td className="py-2 pr-2 text-right text-sage-700">{allowedHrs != null ? `${allowedHrs.toFixed(1)}h` : '—'}</td>
                                 <td className="py-2 pr-2 text-right">
-                                  <ActualHoursEditor jobId={job.id} contractorId={ew.contractorId} currentHours={workers[i]?.actual_hours ?? null} />
+                                  <ActualHoursEditor jobId={job.id} contractorId={ew.contractorId} currentHours={w?.actual_hours ?? null} />
                                 </td>
-                                <td className="py-2 pr-2 text-right text-sage-700">{formatCurrency(ew.hourlyRate)}</td>
-                                <td className="py-2 pr-2 text-right text-sage-800">{formatCurrency(ew.totalCost)}</td>
-                                <td className="py-2 pr-2 text-right text-sage-800">{aw ? formatCurrency(aw.totalCost) : '—'}</td>
-                                <td className="py-2 text-right">{aw && aw.hours > 0 ? <VarCell value={costVar} currency /> : <span className="text-sage-300">—</span>}</td>
+                                <td className="py-2 pr-2 text-right text-sage-700">{approvedHours != null ? `${approvedHours.toFixed(1)}h` : <span className="text-sage-300">—</span>}</td>
+                                <td className="py-2 pr-2 text-right text-sage-700">
+                                  <span className="inline-flex items-center gap-1 justify-end">
+                                    <span>{formatCurrency(payRate)}</span>
+                                    {rateSource === 'estimate' && (
+                                      <span
+                                        className="text-[9px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded"
+                                        title="Rate not snapshotted on this job. Estimated from the contractor's current profile rate; the next hours-approval will snapshot a permanent pay_rate."
+                                      >
+                                        est.
+                                      </span>
+                                    )}
+                                    {rateSource === 'missing' && (
+                                      <span
+                                        className="text-[9px] font-semibold uppercase tracking-wide text-red-700 bg-red-50 px-1.5 py-0.5 rounded"
+                                        title="No pay rate on this job and no hourly rate on the contractor profile. Set the contractor's hourly rate to compute labour cost."
+                                      >
+                                        missing
+                                      </span>
+                                    )}
+                                  </span>
+                                </td>
+                                <td className="py-2 pr-2 text-right">
+                                  {approvedPay != null
+                                    ? <span className="font-bold text-sage-800">{formatCurrency(approvedPay)}</span>
+                                    : <span className="text-sage-300">—</span>}
+                                </td>
+                                <td className="py-2 pr-2 text-right">
+                                  {hoursVar != null && hoursVar !== 0
+                                    ? (
+                                      <span className="inline-flex flex-col items-end gap-0.5">
+                                        <VarCell value={hoursVar} suffix="h" />
+                                        {costVar != null && <VarCell value={costVar} currency />}
+                                      </span>
+                                    )
+                                    : <span className="text-sage-300">—</span>}
+                                </td>
+                                <td className="py-2 text-right"><PayStatusPill status={payStatus} /></td>
                               </tr>
                             )
                           })}
@@ -623,4 +688,26 @@ function VarCell({ value, currency, suffix, invert }: { value: number; currency?
     ? `${sign}${new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(rounded)}`
     : `${sign}${rounded.toFixed(1)}${suffix ?? ''}`
   return <span className={clsx('font-medium', color)}>{display}</span>
+}
+
+// Phase G.1 — pay status badge for the per-worker breakdown row.
+// Matches the styling vocabulary of STATUS_STYLES / PAYMENT_STATUS_STYLES
+// above so the financial summary reads consistently.
+const PAY_STATUS_STYLES: Record<string, string> = {
+  pending:              'bg-gray-100 text-gray-600',
+  approved:             'bg-blue-50 text-blue-700',
+  included_in_pay_run:  'bg-amber-50 text-amber-700',
+  paid:                 'bg-emerald-50 text-emerald-700',
+}
+const PAY_STATUS_LABELS: Record<string, string> = {
+  pending:              'Pending',
+  approved:             'Approved',
+  included_in_pay_run:  'In pay run',
+  paid:                 'Paid',
+}
+
+function PayStatusPill({ status }: { status: string }) {
+  const styles = PAY_STATUS_STYLES[status] ?? PAY_STATUS_STYLES.pending
+  const label = PAY_STATUS_LABELS[status] ?? status
+  return <span className={clsx('inline-block px-2 py-0.5 rounded-full text-[10px] font-medium', styles)}>{label}</span>
 }

@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { DollarSign, TrendingUp, Receipt, Briefcase, AlertTriangle } from 'lucide-react'
 import { PeriodFilter } from './_components/PeriodFilter'
 import { resolvePeriod, getMonthsBetween } from './_lib/periods'
+import { getJobLabourCost } from '@/lib/job-cost'
 import clsx from 'clsx'
 
 function fmt(dollars: number) {
@@ -37,11 +38,24 @@ export default async function FinancePage({
       .gte('created_at', `${from}T00:00:00`)
       .lte('created_at', `${to}T23:59:59`)
       .order('created_at', { ascending: false }),
+    // Phase G.1 — contractor cost reads from the per-worker
+    // snapshotted rates and approved/actual hours on `job_workers`,
+    // not the denormalised `jobs.contractor_price` column. This puts
+    // the finance dashboard on the same source of truth as the job
+    // detail page's Labour & Margin section. The `contractor_price`
+    // column is still selected for the time being so the cost-jobs
+    // table can keep its row identity even where job_workers data is
+    // incomplete; the displayed dollar figure always comes from the
+    // canonical helper.
+    //
+    // Phase G.1 fix — historical rows can have `pay_rate = null`
+    // because the assignment-time snapshot is new. The
+    // `contractors ( hourly_rate )` join feeds `getJobLabourCost`'s
+    // optional fallback so those jobs still show their real cost
+    // until the next approval action snapshots a permanent pay_rate.
     supabase
       .from('jobs')
-      .select('id, job_number, title, scheduled_date, status, contractor_price, assigned_to, invoice_id')
-      .not('contractor_price', 'is', null)
-      .gt('contractor_price', 0)
+      .select('id, job_number, title, scheduled_date, status, contractor_price, assigned_to, invoice_id, job_workers ( pay_rate, approved_hours, actual_hours, hours_allocated, contractors ( hourly_rate ) )')
       .gte('scheduled_date', from)
       .lte('scheduled_date', to)
       .order('scheduled_date', { ascending: false }),
@@ -73,17 +87,44 @@ export default async function FinancePage({
   const today = new Date().toISOString().slice(0, 10)
   const overdueInvoices = invoiceRows.filter((i) => i.status === 'sent' && i.dueDate && i.dueDate < today)
 
-  // Contractor costs
-  const jobRows = (jobs ?? []).map((j) => ({
-    id: j.id,
-    jobNumber: j.job_number,
-    title: j.title ?? '—',
-    scheduledDate: j.scheduled_date,
-    status: j.status,
-    contractorPrice: j.contractor_price ?? 0,
-    assignedTo: j.assigned_to ?? '—',
-    invoiceId: j.invoice_id,
-  }))
+  // Contractor costs — Phase G.1.
+  // Cost is the sum of (rate × payable hours) across all job_workers
+  // rows on the job, where rate prefers the snapshotted pay_rate and
+  // falls back to the joined contractors.hourly_rate for historical
+  // rows that pre-date the assignment-time snapshot. Jobs with neither
+  // a rate nor any payable hours resolve to $0 and are filtered out so
+  // the Contractor Costs section stays focused on actionable rows.
+  // The same canonical helper is used by the job detail page.
+  type RawJobWorker = {
+    pay_rate: number | null
+    approved_hours: number | null
+    actual_hours: number | null
+    hours_allocated: number | null
+    contractors: { hourly_rate: number | null } | null
+  }
+  const jobRows = (jobs ?? [])
+    .map((j) => {
+      const rawWorkers = (j.job_workers ?? []) as unknown as RawJobWorker[]
+      const workers = rawWorkers.map((w) => ({
+        pay_rate: w.pay_rate,
+        contractor_hourly_rate: w.contractors?.hourly_rate ?? null,
+        approved_hours: w.approved_hours,
+        actual_hours: w.actual_hours,
+        hours_allocated: w.hours_allocated,
+      }))
+      const contractorPrice = getJobLabourCost(workers)
+      return {
+        id: j.id,
+        jobNumber: j.job_number,
+        title: j.title ?? '—',
+        scheduledDate: j.scheduled_date,
+        status: j.status,
+        contractorPrice,
+        assignedTo: j.assigned_to ?? '—',
+        invoiceId: j.invoice_id,
+      }
+    })
+    .filter((j) => j.contractorPrice > 0)
 
   const totalCost = jobRows.reduce((s, j) => s + j.contractorPrice, 0)
   const estimatedMargin = totalRevenue - totalCost

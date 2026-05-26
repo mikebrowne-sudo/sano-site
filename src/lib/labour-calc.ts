@@ -4,6 +4,12 @@ export interface WorkerInput {
   contractor_id: string
   full_name: string
   hourly_rate: number | null
+  // Phase G.1 — snapshotted job-specific rate. When set, this is the
+  // canonical rate for the worker on this job and overrides the live
+  // hourly_rate. Older job_workers rows that pre-date the assignment-
+  // time snapshot may still have a null pay_rate; in that case the
+  // calculator falls back to hourly_rate as before.
+  pay_rate?: number | null
   hours_allocated: number | null
   actual_hours: number | null
   worker_type: string | null
@@ -87,7 +93,10 @@ function buildSummary(
   }
 
   const workerCosts: WorkerCost[] = workers.map((w) => {
-    const rate = w.hourly_rate ?? 0
+    // Phase G.1 — prefer the snapshotted job pay_rate when present;
+    // fall back to the live hourly_rate for rows that pre-date the
+    // assignment-time snapshot.
+    const rate = w.pay_rate ?? w.hourly_rate ?? 0
     const hours = useActual
       ? (w.actual_hours ?? 0)
       : (w.hours_allocated ?? (allowedHours ? allowedHours / workers.length : 0))
