@@ -14,6 +14,7 @@ import { ArrowLeft, Briefcase, Download } from 'lucide-react'
 import { isAdminEmail } from '@/lib/is-admin'
 import clsx from 'clsx'
 import { PayRunActions } from './_components/PayRunActions'
+import { computePayRunVariance } from '@/lib/pay-run-variance'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,7 +53,35 @@ type ItemRow = {
     job_number: string
     title: string | null
     scheduled_date: string | null
+    /** Phase G.2 step 4 — used for the allowed-hours fallback split. */
+    allowed_hours: number | null
   } | null
+}
+
+type WorkerRow = {
+  job_id: string
+  contractor_id: string
+  hours_allocated: number | null
+  actual_hours: number | null
+}
+
+function fmtHours(value: number | null): string {
+  if (value == null) return '—'
+  return `${value.toFixed(1)}h`
+}
+
+function fmtSignedHours(value: number | null): string {
+  if (value == null) return '—'
+  if (value === 0) return '0 hrs'
+  const sign = value > 0 ? '+' : ''
+  return `${sign}${value.toFixed(1)} hrs`
+}
+
+function fmtSignedCurrency(value: number | null): string {
+  if (value == null) return '—'
+  if (value === 0) return '$0.00'
+  const sign = value > 0 ? '+' : ''
+  return `${sign}${new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(value)}`
 }
 
 export default async function ContractorPayRunDetailPage({ params }: { params: { id: string } }) {
@@ -76,12 +105,34 @@ export default async function ContractorPayRunDetailPage({ params }: { params: {
     .select(`
       id, job_id, contractor_id, approved_hours, pay_rate, amount, status,
       contractors ( full_name, email ),
-      jobs ( id, job_number, title, scheduled_date )
+      jobs ( id, job_number, title, scheduled_date, allowed_hours )
     `)
     .eq('pay_run_id', params.id)
     .order('contractor_id')
 
   const items = ((itemsRaw ?? []) as unknown as ItemRow[])
+
+  // Phase G.2 step 4 — load the job_workers slice needed for variance
+  // columns. Pulls every assigned worker for every job on the pay run
+  // (not just those who appear on this run) so the allowed-hours
+  // fallback can split jobs.allowed_hours across the actual assigned
+  // worker count when an individual row's hours_allocated is null.
+  const jobIds = Array.from(new Set(items.map((it) => it.job_id))).filter(Boolean)
+  const { data: workersRaw } = jobIds.length > 0
+    ? await supabase
+        .from('job_workers')
+        .select('job_id, contractor_id, hours_allocated, actual_hours')
+        .in('job_id', jobIds)
+    : { data: [] as WorkerRow[] }
+  const workers = (workersRaw ?? []) as WorkerRow[]
+
+  // Lookups for the row-level variance computation.
+  const workerByKey = new Map<string, WorkerRow>()
+  const workerCountByJob = new Map<string, number>()
+  for (const w of workers) {
+    workerByKey.set(`${w.job_id}:${w.contractor_id}`, w)
+    workerCountByJob.set(w.job_id, (workerCountByJob.get(w.job_id) ?? 0) + 1)
+  }
 
   // Group by contractor.
   const byContractor = new Map<string, {
@@ -180,33 +231,61 @@ export default async function ContractorPayRunDetailPage({ params }: { params: {
                   {fmtCurrency(g.totalAmount)}
                 </span>
               </header>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 text-left text-sage-600">
-                    <th className="px-5 py-2.5 font-semibold">Job</th>
-                    <th className="px-5 py-2.5 font-semibold">Date</th>
-                    <th className="px-5 py-2.5 font-semibold text-right">Hours</th>
-                    <th className="px-5 py-2.5 font-semibold text-right">Rate</th>
-                    <th className="px-5 py-2.5 font-semibold text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {g.rows.map((it) => (
-                    <tr key={it.id} className="border-b border-gray-50 last:border-0">
-                      <td className="px-5 py-2.5">
-                        <Link href={`/portal/jobs/${it.jobs?.id ?? ''}`} className="font-medium text-sage-800 hover:underline">
-                          {it.jobs?.job_number ?? '—'}
-                        </Link>
-                        {it.jobs?.title && <span className="block text-xs text-sage-500">{it.jobs.title}</span>}
-                      </td>
-                      <td className="px-5 py-2.5 text-sage-600 text-xs">{fmtDate(it.jobs?.scheduled_date ?? null)}</td>
-                      <td className="px-5 py-2.5 text-right text-sage-800">{it.approved_hours ?? 0}</td>
-                      <td className="px-5 py-2.5 text-right text-sage-800">{fmtCurrency(it.pay_rate ?? 0)}</td>
-                      <td className="px-5 py-2.5 text-right font-semibold text-sage-800">{fmtCurrency(it.amount ?? 0)}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-left text-sage-600">
+                      <th className="px-5 py-2.5 font-semibold">Job</th>
+                      <th className="px-5 py-2.5 font-semibold">Date</th>
+                      <th className="px-5 py-2.5 font-semibold text-right">Allowed</th>
+                      <th className="px-5 py-2.5 font-semibold text-right">Actual</th>
+                      <th className="px-5 py-2.5 font-semibold text-right">Approved</th>
+                      <th className="px-5 py-2.5 font-semibold text-right">Variance</th>
+                      <th className="px-5 py-2.5 font-semibold text-right">Rate</th>
+                      <th className="px-5 py-2.5 font-semibold text-right">Amount</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {g.rows.map((it) => {
+                      const worker = workerByKey.get(`${it.job_id}:${it.contractor_id}`) ?? null
+                      const variance = computePayRunVariance({
+                        approvedHours: it.approved_hours,
+                        payRate: it.pay_rate,
+                        hoursAllocated: worker?.hours_allocated ?? null,
+                        jobAllowedHours: it.jobs?.allowed_hours ?? null,
+                        workerCount: workerCountByJob.get(it.job_id) ?? 0,
+                      })
+                      const actualHours = worker?.actual_hours ?? null
+                      return (
+                        <tr key={it.id} className="border-b border-gray-50 last:border-0">
+                          <td className="px-5 py-2.5">
+                            <Link href={`/portal/jobs/${it.jobs?.id ?? ''}`} className="font-medium text-sage-800 hover:underline">
+                              {it.jobs?.job_number ?? '—'}
+                            </Link>
+                            {it.jobs?.title && <span className="block text-xs text-sage-500">{it.jobs.title}</span>}
+                          </td>
+                          <td className="px-5 py-2.5 text-sage-600 text-xs whitespace-nowrap">{fmtDate(it.jobs?.scheduled_date ?? null)}</td>
+                          <td className="px-5 py-2.5 text-right text-sage-700 whitespace-nowrap">{fmtHours(variance.allowedHours)}</td>
+                          <td className="px-5 py-2.5 text-right text-sage-700 whitespace-nowrap">{fmtHours(actualHours)}</td>
+                          <td className="px-5 py-2.5 text-right text-sage-800 whitespace-nowrap">{fmtHours(it.approved_hours)}</td>
+                          <td className="px-5 py-2.5 text-right whitespace-nowrap">
+                            {variance.varianceHours == null ? (
+                              <span className="text-sage-300">—</span>
+                            ) : (
+                              <span className="inline-flex flex-col items-end gap-0.5 text-sage-700">
+                                <span>{fmtSignedHours(variance.varianceHours)}</span>
+                                <span className="text-xs text-sage-500">{fmtSignedCurrency(variance.varianceDollars)}</span>
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-5 py-2.5 text-right text-sage-800 whitespace-nowrap">{fmtCurrency(it.pay_rate ?? 0)}</td>
+                          <td className="px-5 py-2.5 text-right font-semibold text-sage-800 whitespace-nowrap">{fmtCurrency(it.amount ?? 0)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </section>
           ))}
         </div>
