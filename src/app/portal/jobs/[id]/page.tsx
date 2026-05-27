@@ -13,6 +13,8 @@ import { ArchiveJobButton } from './_components/ArchiveJobButton'
 import { JobWorkflowBar } from './_components/JobWorkflowBar'
 import { MarkJobReviewedButton } from './_components/MarkJobReviewedButton'
 import { ApproveHoursButton } from './_components/ApproveHoursButton'
+import { JobReadyToInvoice } from './_components/JobReadyToInvoice'
+import { reconcileJob, type ReconciliationInput } from '@/lib/job-reconciliation'
 import { JobNotificationsPanel } from './_components/JobNotificationsPanel'
 import { JobMismatchBanner } from './_components/JobMismatchBanner'
 import { LifecycleActions } from '../../_components/LifecycleActions'
@@ -115,19 +117,50 @@ export default async function JobDetailPage({
   // one Promise.all roughly halves the wall time on this page.
   // Each branch resolves to its own narrow row (or null) so the
   // post-batch destructuring stays straightforward.
-  const [linkedQuoteRes, linkedInvoiceRes, contractorPhoneRes, clientPhoneRes] = await Promise.all([
+  const [
+    linkedQuoteRes,
+    linkedInvoiceRes,
+    contractorPhoneRes,
+    clientPhoneRes,
+    // Phase G.2 step 3 — supplementary fetches used by the
+    // Ready-to-invoice panel. The linked-invoice query is extended to
+    // also pull the totals fields so reconcileJob's
+    // flagInvoiceTotalDiffersFromPrice has data to compare against.
+    contractorInvoiceRes,
+    payRunItemRes,
+  ] = await Promise.all([
     job.quote_id
       ? supabase.from('quotes').select('quote_number, client_id').eq('id', job.quote_id).single()
       : Promise.resolve({ data: null as { quote_number: string | null; client_id: string | null } | null }),
     job.invoice_id
-      ? supabase.from('invoices').select('invoice_number, status').eq('id', job.invoice_id).single()
-      : Promise.resolve({ data: null as { invoice_number: string | null; status: string | null } | null }),
+      ? supabase
+          .from('invoices')
+          .select('invoice_number, status, base_price, discount, invoice_items ( price )')
+          .eq('id', job.invoice_id)
+          .single()
+      : Promise.resolve({
+          data: null as {
+            invoice_number: string | null
+            status: string | null
+            base_price: number | null
+            discount: number | null
+            invoice_items: { price: number | null }[] | null
+          } | null,
+        }),
     needsRecipientPhones && job.contractor_id
       ? supabase.from('contractors').select('phone').eq('id', job.contractor_id).single()
       : Promise.resolve({ data: null as { phone: string | null } | null }),
     needsRecipientPhones && job.client_id
       ? supabase.from('clients').select('phone').eq('id', job.client_id).single()
       : Promise.resolve({ data: null as { phone: string | null } | null }),
+    supabase
+      .from('contractor_invoices')
+      .select('job_id, contractor_id')
+      .eq('job_id', params.id),
+    supabase
+      .from('pay_run_items')
+      .select('job_id, contractor_id')
+      .eq('job_id', params.id),
   ])
 
   const quoteNumber  = linkedQuoteRes.data?.quote_number ?? null
@@ -136,6 +169,52 @@ export default async function JobDetailPage({
   const linkedInvoiceStatus = linkedInvoiceRes.data?.status ?? null
   const hasContractorPhone = !!(contractorPhoneRes.data?.phone && String(contractorPhoneRes.data.phone).trim())
   const hasCustomerPhone   = !!(clientPhoneRes.data?.phone     && String(clientPhoneRes.data.phone).trim())
+
+  // Phase G.2 step 3 — compute reconciliation flags for the Ready-to-invoice
+  // panel. Mirrors the data-shape contract used by /portal/finance's
+  // attention widget (see src/lib/finance-attention-data.ts).
+  const linkedInvoiceRow = linkedInvoiceRes.data
+  const linkedInvoiceTotal = (() => {
+    if (!linkedInvoiceRow) return null
+    const items = (linkedInvoiceRow.invoice_items ?? []) as { price: number | null }[]
+    const addons = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
+    return (linkedInvoiceRow.base_price ?? 0) + addons - (linkedInvoiceRow.discount ?? 0)
+  })()
+
+  const reconcileInput: ReconciliationInput = {
+    job: {
+      id: job.id as string,
+      job_number: (job.job_number as string | null) ?? null,
+      status: job.status as string,
+      client_id: (job.client_id as string | null) ?? null,
+      job_price: (job.job_price as number | null) ?? null,
+      allowed_hours: (job.allowed_hours as number | null) ?? null,
+      description: (job.description as string | null) ?? null,
+      scope_snapshot: (job.scope_snapshot as unknown) ?? null,
+      invoice_id: (job.invoice_id as string | null) ?? null,
+      completed_at: (job.completed_at as string | null) ?? null,
+    },
+    workers: (jobWorkers ?? []).map((w) => {
+      const c = w.contractors as unknown as { hourly_rate: number | null } | null
+      return {
+        contractor_id: w.contractor_id as string,
+        pay_rate: (w.pay_rate as number | null) ?? null,
+        contractor_hourly_rate: c?.hourly_rate ?? null,
+        approved_hours: (w.approved_hours as number | null) ?? null,
+        actual_hours: (w.actual_hours as number | null) ?? null,
+        hours_allocated: (w.hours_allocated as number | null) ?? null,
+        pay_status: (w.pay_status as string | null) ?? null,
+        approved_at: (w.approved_at as string | null) ?? null,
+      }
+    }),
+    invoice: linkedInvoiceTotal != null ? { total: linkedInvoiceTotal } : null,
+    contractorInvoices: (contractorInvoiceRes.data ?? []) as Array<{ job_id: string; contractor_id: string }>,
+    payRunItems: (payRunItemRes.data ?? []) as Array<{ job_id: string; contractor_id: string }>,
+  }
+
+  const readyToInvoiceFlags = reconcileJob(reconcileInput)
+  const readyToInvoiceSeverityCounts = { hard: 0, warning: 0, info: 0 }
+  for (const f of readyToInvoiceFlags) readyToInvoiceSeverityCounts[f.severity] += 1
 
   // Phase 5.5.10 — flag jobs whose linked quote belongs to a different client.
   const hasClientMismatch = !!quoteClientId && quoteClientId !== job.client_id
@@ -631,6 +710,14 @@ export default async function JobDetailPage({
             )
           })()}
         </Section>
+
+        {/* Phase G.2 step 3 — Ready-to-invoice panel. Signal-not-gate:
+            surfaces cleanup issues that may affect invoicing, contractor
+            pay, or reporting; does not block any conversion flow. */}
+        <JobReadyToInvoice
+          flags={readyToInvoiceFlags}
+          severityCounts={readyToInvoiceSeverityCounts}
+        />
 
         {/* Notes */}
         {(job.internal_notes || job.contractor_notes) && (
