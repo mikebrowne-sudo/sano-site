@@ -2,9 +2,16 @@ import { createClient } from '@/lib/supabase-server'
 import Link from 'next/link'
 import { DollarSign, TrendingUp, Receipt, Briefcase, AlertTriangle } from 'lucide-react'
 import { PeriodFilter } from './_components/PeriodFilter'
+import { JobsNeedingAttention } from './_components/JobsNeedingAttention'
 import { resolvePeriod, getMonthsBetween } from './_lib/periods'
 import { getJobLabourCost } from '@/lib/job-cost'
+import {
+  buildFinanceAttentionRows,
+  type FinanceAttentionJob,
+} from '@/lib/finance-attention-data'
 import clsx from 'clsx'
+
+const ATTENTION_ROW_LIMIT = 25
 
 function fmt(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
@@ -53,13 +60,89 @@ export default async function FinancePage({
     // `contractors ( hourly_rate )` join feeds `getJobLabourCost`'s
     // optional fallback so those jobs still show their real cost
     // until the next approval action snapshots a permanent pay_rate.
+    //
+    // Phase G.2 step 2 — the same query is extended with the columns
+    // and joins reconcileJob needs (client name, job_price, scope,
+    // allowed_hours, completed_at, per-worker pay_status / approved_at)
+    // so the "Jobs needing attention" widget below can run off the
+    // same data load without an extra round-trip.
     supabase
       .from('jobs')
-      .select('id, job_number, title, scheduled_date, status, contractor_price, assigned_to, invoice_id, job_workers ( pay_rate, approved_hours, actual_hours, hours_allocated, contractors ( hourly_rate ) )')
+      .select(`
+        id, job_number, title, scheduled_date, status, contractor_price, assigned_to, invoice_id,
+        client_id, job_price, description, scope_snapshot, allowed_hours, completed_at,
+        clients ( name ),
+        job_workers (
+          contractor_id, pay_rate, approved_hours, actual_hours, hours_allocated,
+          pay_status, approved_at,
+          contractors ( hourly_rate )
+        )
+      `)
       .gte('scheduled_date', from)
       .lte('scheduled_date', to)
       .order('scheduled_date', { ascending: false }),
   ])
+
+  // Phase G.2 step 2 — fan out the supplemental queries reconcileJob
+  // needs in parallel: invoice totals for any linked invoices (not
+  // already in the period-filtered `invoices` set above), and the
+  // contractor_invoices + pay_run_items rows used by the convergence
+  // info flag. Each `.in()` query is guarded against empty IDs so the
+  // request short-circuits when there are no jobs in the period.
+  const jobInvoiceIds = Array.from(
+    new Set(
+      ((jobs ?? []) as Array<{ invoice_id: string | null }>)
+        .map((j) => j.invoice_id)
+        .filter((id): id is string => !!id),
+    ),
+  )
+  const jobIds = ((jobs ?? []) as Array<{ id: string }>).map((j) => j.id)
+
+  const [
+    { data: jobLinkedInvoices },
+    { data: contractorInvoiceRefs },
+    { data: payRunItemRefs },
+  ] = await Promise.all([
+    jobInvoiceIds.length > 0
+      ? supabase
+          .from('invoices')
+          .select('id, base_price, discount, invoice_items ( price )')
+          .in('id', jobInvoiceIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; base_price: number; discount: number; invoice_items: { price: number }[] }> }),
+    jobIds.length > 0
+      ? supabase
+          .from('contractor_invoices')
+          .select('job_id, contractor_id')
+          .in('job_id', jobIds)
+      : Promise.resolve({ data: [] as Array<{ job_id: string; contractor_id: string }> }),
+    jobIds.length > 0
+      ? supabase
+          .from('pay_run_items')
+          .select('job_id, contractor_id')
+          .in('job_id', jobIds)
+      : Promise.resolve({ data: [] as Array<{ job_id: string; contractor_id: string }> }),
+  ])
+
+  const invoiceTotalById = new Map<string, number>()
+  for (const inv of (jobLinkedInvoices ?? []) as Array<{
+    id: string
+    base_price: number
+    discount: number
+    invoice_items: { price: number }[] | null
+  }>) {
+    const items = inv.invoice_items ?? []
+    const addons = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
+    const total = (inv.base_price ?? 0) + addons - (inv.discount ?? 0)
+    invoiceTotalById.set(inv.id, total)
+  }
+
+  const attentionResult = buildFinanceAttentionRows({
+    jobs: (jobs ?? []) as unknown as FinanceAttentionJob[],
+    invoiceTotalById,
+    contractorInvoices: contractorInvoiceRefs ?? [],
+    payRunItems: payRunItemRefs ?? [],
+    limit: ATTENTION_ROW_LIMIT,
+  })
 
   // Calculate invoice totals
   const invoiceRows = (invoices ?? []).map((inv) => {
@@ -219,6 +302,15 @@ export default async function FinancePage({
         </Section>
       )}
 
+      {/* Phase G.2 step 2 — finance cleanup visibility. Signal-not-gate:
+          surfaces cleanup issues; does not block any existing flow. */}
+      <JobsNeedingAttention
+        rows={attentionResult.rows}
+        totalIssueCount={attentionResult.totalIssueCount}
+        limit={ATTENTION_ROW_LIMIT}
+        severityCounts={attentionResult.severityCounts}
+      />
+
       {/* Revenue detail */}
       <Section title={`Invoices (${invoiceRows.length})`}>
         {invoiceRows.length === 0 ? (
@@ -319,6 +411,7 @@ export default async function FinancePage({
           </div>
         </div>
         <p className="text-xs text-sage-400 mt-4">Margin is estimated from invoice totals minus job contractor costs for the selected period. Some jobs may not have linked invoices.</p>
+        <p className="text-xs text-sage-400 mt-1">Estimated margin only includes jobs with captured contractor cost. Review jobs needing attention to improve accuracy.</p>
       </div>
     </div>
   )
