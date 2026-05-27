@@ -628,6 +628,9 @@ export const QUOTE_INVOICE_CSS = `
       position: static;
       background: var(--white);
       padding: 0;
+      /* Drop the screen-only 100vh wrapper height so .doc below
+         controls the page-fill behaviour directly. */
+      min-height: 0;
     }
     .doc {
       max-width: 100%;
@@ -635,6 +638,39 @@ export const QUOTE_INVOICE_CSS = `
       border-radius: 0;
       border: none;
       box-shadow: none;
+      /* overflow:hidden is needed in screen mode to clip the rounded
+         corners, but in print it makes Chromium treat the whole
+         article as a single atomic box and push it to a fresh page
+         when its natural height exceeds A4 — the cause of "page 1
+         empty, doc starts on page 2". Reset here so pagination
+         works normally. */
+      overflow: visible;
+      /* Flex column with a one-page min-height lets .doc-footer
+         below use margin-top:auto to anchor itself to the bottom
+         of the final page on single-page documents. On multi-page
+         documents the doc naturally exceeds 100vh and the footer
+         sits at the end of content. */
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    .doc-terms {
+      /* Tighter spacing keeps terms closer to totals so they're
+         more likely to stay on the same page. */
+      margin-top: 24px;
+      /* break-inside:avoid on terms (defined above for screen) was
+         forcing terms + footer onto a fresh page whenever they
+         couldn't fit as a unit, producing a near-empty final page
+         with footer near the top. Allow natural flow in print. */
+      break-inside: auto;
+      page-break-inside: auto;
+    }
+    .doc-footer {
+      /* Anchor footer to the bottom of the final page on
+         single-page documents (paired with .doc's flex column +
+         100vh min-height above). Harmless on multi-page docs —
+         the auto margin only takes effect when there's slack. */
+      margin-top: auto;
     }
     .doc-share-actions { display: none !important; }
     .accept-panel,
