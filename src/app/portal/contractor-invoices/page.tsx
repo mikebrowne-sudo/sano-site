@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { Receipt, Plus } from 'lucide-react'
 import clsx from 'clsx'
+import { PayablesTransitionNote } from './_components/PayablesTransitionNote'
 
 const STATUS_STYLES: Record<string, string> = {
   pending:  'bg-gray-100 text-gray-700',
@@ -45,6 +46,8 @@ export default async function ContractorInvoicesPage() {
           <Plus size={16} /> New Invoice
         </Link>
       </div>
+
+      <PayablesTransitionNote />
 
       {rows.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
