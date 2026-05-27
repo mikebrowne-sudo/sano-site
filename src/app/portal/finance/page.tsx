@@ -308,6 +308,7 @@ export default async function FinancePage({
         rows={attentionResult.rows}
         totalIssueCount={attentionResult.totalIssueCount}
         limit={ATTENTION_ROW_LIMIT}
+        severityCounts={attentionResult.severityCounts}
       />
 
       {/* Revenue detail */}
@@ -410,6 +411,7 @@ export default async function FinancePage({
           </div>
         </div>
         <p className="text-xs text-sage-400 mt-4">Margin is estimated from invoice totals minus job contractor costs for the selected period. Some jobs may not have linked invoices.</p>
+        <p className="text-xs text-sage-400 mt-1">Estimated margin only includes jobs with captured contractor cost. Review jobs needing attention to improve accuracy.</p>
       </div>
     </div>
   )

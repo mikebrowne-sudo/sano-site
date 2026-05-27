@@ -61,12 +61,14 @@ describe('buildFinanceAttentionRows — empty + clean cases', () => {
     const result = buildFinanceAttentionRows(makeInput({ jobs: [] }))
     expect(result.rows).toEqual([])
     expect(result.totalIssueCount).toBe(0)
+    expect(result.severityCounts).toEqual({ hard: 0, warning: 0, info: 0 })
   })
 
   it('returns no rows when every job is clean', () => {
     const result = buildFinanceAttentionRows(makeInput({ jobs: [makeJob()] }))
     expect(result.rows).toEqual([])
     expect(result.totalIssueCount).toBe(0)
+    expect(result.severityCounts).toEqual({ hard: 0, warning: 0, info: 0 })
   })
 })
 
@@ -158,6 +160,7 @@ describe('buildFinanceAttentionRows — severity ordering', () => {
     )
     const severities = result.rows.map((r) => r.flag.severity)
     expect(severities).toEqual(['hard', 'warning', 'info'])
+    expect(result.severityCounts).toEqual({ hard: 1, warning: 1, info: 1 })
   })
 
   it('breaks ties within a severity bucket by job_number alphabetically', () => {
@@ -182,6 +185,8 @@ describe('buildFinanceAttentionRows — row cap', () => {
     const result = buildFinanceAttentionRows(makeInput({ jobs }))
     expect(result.rows).toHaveLength(25)
     expect(result.totalIssueCount).toBe(30)
+    // severityCounts counts the FULL period, not just the visible rows.
+    expect(result.severityCounts.hard).toBe(30)
   })
 
   it('respects an explicit limit override', () => {

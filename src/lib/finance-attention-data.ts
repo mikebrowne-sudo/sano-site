@@ -65,6 +65,16 @@ export interface FinanceAttentionResult {
   rows: FinanceAttentionRow[]
   /** Total issue-bearing jobs in the period before the row cap. */
   totalIssueCount: number
+  /**
+   * Counts of issue-bearing jobs grouped by their primary (highest-
+   * severity) flag. Reflects the full period, not just the visible
+   * row cap — used by the widget's summary line at the top.
+   */
+  severityCounts: {
+    hard: number
+    warning: number
+    info: number
+  }
 }
 
 export function buildFinanceAttentionRows(
@@ -145,8 +155,17 @@ export function buildFinanceAttentionRows(
     return (a.jobNumber ?? '').localeCompare(b.jobNumber ?? '')
   })
 
+  // Count primary-flag severities across the full period (not just the
+  // capped slice) so the widget's summary line stays accurate when the
+  // row cap bites.
+  const severityCounts = { hard: 0, warning: 0, info: 0 }
+  for (const row of allRows) {
+    severityCounts[row.flag.severity] += 1
+  }
+
   return {
     rows: allRows.slice(0, limit),
     totalIssueCount: allRows.length,
+    severityCounts,
   }
 }

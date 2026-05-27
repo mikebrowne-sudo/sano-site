@@ -11,15 +11,21 @@ import Link from 'next/link'
 import clsx from 'clsx'
 import type { FinanceAttentionRow } from '@/lib/finance-attention-data'
 
+// UI-only relabel — underlying helper severity values stay as
+// 'hard' | 'warning' | 'info' so callers and tests don't shift.
 const SEVERITY_STYLES: Record<FinanceAttentionRow['flag']['severity'], string> = {
   hard:    'bg-red-50 text-red-700',
   warning: 'bg-amber-50 text-amber-700',
   info:    'bg-sage-50 text-sage-700',
 }
 const SEVERITY_LABELS: Record<FinanceAttentionRow['flag']['severity'], string> = {
-  hard:    'Hard',
-  warning: 'Warning',
+  hard:    'Needs fixing',
+  warning: 'Check',
   info:    'Info',
+}
+
+function otherFlagsLabel(count: number): string {
+  return count === 1 ? '+1 other cleanup item' : `+${count} other cleanup items`
 }
 
 export interface JobsNeedingAttentionProps {
@@ -28,19 +34,31 @@ export interface JobsNeedingAttentionProps {
   totalIssueCount: number
   /** Row cap actually applied (used only for the "showing X of Y" footer). */
   limit: number
+  /** Counts of issue-bearing jobs grouped by their primary severity. */
+  severityCounts: { hard: number; warning: number; info: number }
 }
 
-export function JobsNeedingAttention({ rows, totalIssueCount, limit }: JobsNeedingAttentionProps) {
+export function JobsNeedingAttention({ rows, totalIssueCount, limit, severityCounts }: JobsNeedingAttentionProps) {
   const headingCount = totalIssueCount > 0 ? ` (${totalIssueCount})` : ''
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
       <h2 className="text-lg font-semibold text-sage-800">
         Jobs needing attention{headingCount}
       </h2>
-      <p className="text-sm text-sage-500 mt-1 mb-4">
+      <p className="text-sm text-sage-500 mt-1">
         Jobs with missing rates, hours, approvals, invoice links, or other cleanup items
         that may affect invoicing, contractor pay, or reporting.
       </p>
+      {totalIssueCount > 0 && (
+        <p className="text-sm text-sage-600 mt-2 mb-4">
+          <span className="text-red-700 font-medium">{severityCounts.hard}</span> need fixing
+          {' · '}
+          <span className="text-amber-700 font-medium">{severityCounts.warning}</span> to check
+          {' · '}
+          <span className="text-sage-700 font-medium">{severityCounts.info}</span> info
+        </p>
+      )}
+      {totalIssueCount === 0 && <div className="mb-4" />}
 
       {rows.length === 0 ? (
         <p className="text-sage-500 text-sm">
@@ -87,7 +105,7 @@ export function JobsNeedingAttention({ rows, totalIssueCount, limit }: JobsNeedi
                         {row.flag.message}
                         {row.otherFlagCount > 0 && (
                           <span className="ml-2 text-xs text-sage-500">
-                            +{row.otherFlagCount} more
+                            {otherFlagsLabel(row.otherFlagCount)}
                           </span>
                         )}
                       </Link>
