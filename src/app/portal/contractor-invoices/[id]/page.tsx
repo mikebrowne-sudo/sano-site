@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { CIStatusActions } from './_components/CIStatusActions'
+import { PayablesTransitionNote } from '../_components/PayablesTransitionNote'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -53,6 +54,8 @@ export default async function ContractorInvoiceDetailPage({ params }: { params: 
   return (
     <div>
       <Link href="/portal/contractor-invoices" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"><ArrowLeft size={14} /> Back</Link>
+
+      <PayablesTransitionNote />
 
       <div className="flex items-center justify-between mb-8">
         <div>
