@@ -48,6 +48,15 @@ export interface DocumentMeta {
   trailingDateLabel: string
   /** Trailing date formatted for display. */
   trailingDateDisplay: string
+  /**
+   * Optional client reference / PO label — rendered as an extra
+   * meta-grid row in the document header when both label + display
+   * are present. Used by QuoteDocument / InvoiceDocument to surface
+   * `client_reference` prominently next to Number / Issued / Due.
+   */
+  referenceLabel?: string
+  /** Optional client reference / PO value paired with `referenceLabel`. */
+  referenceDisplay?: string
 }
 
 export interface DocumentLineItem {
@@ -161,6 +170,12 @@ export function DocumentLayout({
                   <dd>{meta.dateIssuedDisplay}</dd>
                   <dt>{meta.trailingDateLabel}</dt>
                   <dd>{meta.trailingDateDisplay}</dd>
+                  {meta.referenceLabel && meta.referenceDisplay && (
+                    <>
+                      <dt>{meta.referenceLabel}</dt>
+                      <dd>{meta.referenceDisplay}</dd>
+                    </>
+                  )}
                 </dl>
               </div>
             </div>

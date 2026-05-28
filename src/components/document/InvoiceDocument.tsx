@@ -32,6 +32,15 @@ export interface InvoiceDocumentInput {
   invoice_number: string
   date_issued: string | null
   due_date: string | null
+  /**
+   * Optional `invoices.created_at`. Used as a display-only fallback
+   * for the Issued date in the document header when `date_issued`
+   * is null (e.g. invoices downloaded as PDF before being emailed,
+   * where the send-flow's pre-render stamp hasn't run). Never
+   * back-written to the DB — historical rows stay honest about
+   * what was actually stamped.
+   */
+  created_at?: string | null
   property_category?: string | null
   type_of_clean?: string | null
   frequency?: string | null
@@ -157,6 +166,12 @@ export function InvoiceDocument({
   // Accounts email/contact takes precedence over the regular contact
   // fields on the To party — matches the existing print page logic so
   // the invoice copy mirrors the routing used to send it.
+  //
+  // client_reference is intentionally NOT passed through `toParty.reference`
+  // here — it's surfaced as a dedicated row in the document meta-grid
+  // header (alongside Invoice # / Issued / Due) and also in the Payment
+  // Details block below for bank-transfer reference routing. Including it
+  // in the address block as well would render the value three times.
   const toParty: DocumentParty = {
     name: client?.name ?? '—',
     company: client?.company_name ?? null,
@@ -164,8 +179,19 @@ export function InvoiceDocument({
     attn: invoice.accounts_contact_name ?? invoice.contact_name ?? null,
     phone: invoice.contact_phone ?? client?.phone ?? null,
     email: invoice.accounts_email ?? invoice.contact_email ?? client?.email ?? null,
-    reference: invoice.client_reference ?? null,
   }
+
+  // Issued date display fallback. `invoices.date_issued` is null at
+  // creation by design and is stamped by sendInvoiceEmail before the
+  // PDF render. PDFs downloaded outside that send path (e.g. direct
+  // staff download, or manual status flips) leave the column null and
+  // produced an ugly "Issued —" header. Fall back to `created_at` as
+  // a sensible display proxy; never back-write to the DB.
+  const dateIssuedForDisplay = invoice.date_issued ?? invoice.created_at ?? null
+
+  // Trim the reference for the meta-grid so whitespace-only values
+  // don't render an empty row.
+  const trimmedReference = (invoice.client_reference ?? '').trim()
 
   // First line item carries the pricing label as title + a labelled
   // sub-block stack for service address and service description.
@@ -216,8 +242,8 @@ export function InvoiceDocument({
     { label: 'Number', value: '12-3627-0005597-00' },
     { label: 'Reference', value: invoice.invoice_number },
   ]
-  if (invoice.client_reference) {
-    paymentDetails.push({ label: 'Your reference / PO', value: invoice.client_reference })
+  if (trimmedReference) {
+    paymentDetails.push({ label: 'Your reference / PO', value: trimmedReference })
   }
 
   const termsBody = isCashSale
@@ -230,9 +256,12 @@ export function InvoiceDocument({
       kind="invoice"
       meta={{
         number: invoice.invoice_number,
-        dateIssuedDisplay: fmtDate(invoice.date_issued),
+        dateIssuedDisplay: fmtDate(dateIssuedForDisplay),
         trailingDateLabel: 'Due',
         trailingDateDisplay: fmtDate(dueDateForDisplay),
+        ...(trimmedReference
+          ? { referenceLabel: 'Your reference / PO', referenceDisplay: trimmedReference }
+          : {}),
       }}
       fromParty={fromParty}
       toParty={toParty}

@@ -34,7 +34,7 @@ export default async function PrintQuotePage({ params }: { params: { id: string 
     supabase
       .from('quotes')
       .select(`
-        id, quote_number, status, date_issued, valid_until,
+        id, quote_number, status, date_issued, valid_until, created_at,
         property_category, type_of_clean, frequency, scope_size,
         generated_scope,
         service_address, scheduled_clean_date, notes,

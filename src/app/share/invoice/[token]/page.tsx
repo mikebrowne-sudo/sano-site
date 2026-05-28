@@ -49,7 +49,7 @@ export default async function PublicInvoicePage({
   const { data: invoice, error } = await supabase
     .from('invoices')
     .select(`
-      id, invoice_number, status, date_paid, date_issued, due_date,
+      id, invoice_number, status, date_paid, date_issued, due_date, created_at,
       property_category, type_of_clean, frequency, scope_size,
       service_address, scheduled_clean_date, notes, service_description,
       base_price, discount, gst_included, payment_type,
