@@ -56,7 +56,8 @@ export default async function PublicInvoicePage({
       contact_name, contact_email, contact_phone,
       accounts_contact_name, accounts_email,
       client_reference,
-      clients ( name, company_name, service_address, phone, email )
+      clients ( name, company_name, service_address, phone, email ),
+      quotes ( client_reference )
     `)
     .eq('share_token', params.token)
     .is('deleted_at', null)

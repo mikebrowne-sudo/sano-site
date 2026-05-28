@@ -29,6 +29,7 @@ function makeInvoice(partial: Partial<InvoiceDocumentInput> = {}): InvoiceDocume
     accounts_contact_name: null,
     accounts_email: null,
     client_reference: null,
+    quotes: null,
     clients: {
       name: 'Test Client',
       company_name: null,
@@ -88,6 +89,82 @@ describe('InvoiceDocument — client_reference in the meta-grid header', () => {
       />,
     )
     expect(screen.queryByText(/^Reference: PO-12345$/)).toBeNull()
+  })
+})
+
+describe('InvoiceDocument — reference inheritance from linked quote', () => {
+  // Invoices created via the job→invoice path historically did not copy
+  // client_reference forward from the source quote. Display-time fallback
+  // covers those existing rows; the conversion path itself was also
+  // patched so new invoices carry the value through.
+
+  it('uses invoice.client_reference when set, ignoring the quote', () => {
+    render(
+      <InvoiceDocument
+        wrapper="share-page"
+        invoice={makeInvoice({
+          client_reference: 'INV-OWN-REF',
+          quotes: { client_reference: 'QUOTE-REF' },
+        })}
+        items={[]}
+      />,
+    )
+    expect(screen.getAllByText('INV-OWN-REF').length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText('QUOTE-REF')).toBeNull()
+  })
+
+  it('falls back to invoice.quotes.client_reference when invoice.client_reference is null', () => {
+    render(
+      <InvoiceDocument
+        wrapper="share-page"
+        invoice={makeInvoice({
+          client_reference: null,
+          quotes: { client_reference: 'QUOTE-PO-99' },
+        })}
+        items={[]}
+      />,
+    )
+    expect(screen.getAllByText('Your reference / PO').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('QUOTE-PO-99').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('falls back to invoice.quotes.client_reference when invoice.client_reference is whitespace-only', () => {
+    render(
+      <InvoiceDocument
+        wrapper="share-page"
+        invoice={makeInvoice({
+          client_reference: '   ',
+          quotes: { client_reference: 'QUOTE-PO-WS' },
+        })}
+        items={[]}
+      />,
+    )
+    expect(screen.getAllByText('QUOTE-PO-WS').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('renders no reference row when both invoice.client_reference and invoice.quotes.client_reference are null', () => {
+    render(
+      <InvoiceDocument
+        wrapper="share-page"
+        invoice={makeInvoice({
+          client_reference: null,
+          quotes: { client_reference: null },
+        })}
+        items={[]}
+      />,
+    )
+    expect(screen.queryByText('Your reference / PO')).toBeNull()
+  })
+
+  it('renders no reference row when the invoice has no linked quote at all', () => {
+    render(
+      <InvoiceDocument
+        wrapper="share-page"
+        invoice={makeInvoice({ client_reference: null, quotes: null })}
+        items={[]}
+      />,
+    )
+    expect(screen.queryByText('Your reference / PO')).toBeNull()
   })
 })
 

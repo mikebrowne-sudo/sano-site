@@ -41,7 +41,8 @@ export default async function PrintInvoicePage({ params }: { params: { id: strin
         contact_name, contact_email, contact_phone,
         accounts_contact_name, accounts_email,
         client_reference, requires_po,
-        clients ( name, company_name, service_address, phone, email )
+        clients ( name, company_name, service_address, phone, email ),
+        quotes ( client_reference )
       `)
       .eq('id', params.id)
       .single(),

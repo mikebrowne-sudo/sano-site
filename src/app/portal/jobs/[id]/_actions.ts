@@ -97,16 +97,28 @@ export async function createInvoiceFromJob(jobId: string) {
   // Pull the client's payment terms so the due date respects the
   // configured terms. We also need the quote's payment_type when
   // available — payment_type lives on the quote, not the job.
+  //
+  // Phase quote-flow-clarity follow-up: also pull client_reference +
+  // requires_po from the linked quote so the new invoice inherits them.
+  // Previously this conversion path silently dropped both fields, which
+  // meant invoices created via job → invoice never showed the customer's
+  // PO number on the PDF even though the quote captured it.
   const [{ data: client }, { data: quote }] = await Promise.all([
     supabase.from('clients').select('payment_type, payment_terms').eq('id', job.client_id).maybeSingle(),
     job.quote_id
-      ? supabase.from('quotes').select('payment_type').eq('id', job.quote_id).maybeSingle()
+      ? supabase
+          .from('quotes')
+          .select('payment_type, client_reference, requires_po')
+          .eq('id', job.quote_id)
+          .maybeSingle()
       : Promise.resolve({ data: null }),
   ])
   const paymentType = (quote?.payment_type as string | null)
     ?? (client?.payment_type as string | null)
     ?? 'on_account'
   const paymentTerms = (client?.payment_terms as string | null) ?? null
+  const inheritedClientReference = (quote?.client_reference as string | null) ?? null
+  const inheritedRequiresPo = (quote?.requires_po as boolean | null) ?? false
 
   // date_issued stays null at creation — it's set on Send. The due
   // date is computed only when both date_issued and a known terms
@@ -144,6 +156,14 @@ export async function createInvoiceFromJob(jobId: string) {
       notes: job.description || job.title || null,
       payment_type: paymentType,
       due_date: dueDate,
+      // Carry the customer's PO / reference forward from the source
+      // quote so the invoice PDF can render it next to Invoice # /
+      // Issued / Due. Without this the conversion silently dropped
+      // the reference even though the other two invoice-creation
+      // paths (quote → invoice, quote → job-and-invoice) already
+      // copy it across.
+      client_reference: inheritedClientReference,
+      requires_po: inheritedRequiresPo,
     })
     .select('id')
     .single()

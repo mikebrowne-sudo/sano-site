@@ -59,6 +59,14 @@ export interface InvoiceDocumentInput {
   accounts_contact_name?: string | null
   accounts_email?: string | null
   client_reference?: string | null
+  /**
+   * Optional join to the linked quote. Used to inherit
+   * `client_reference` (PO number / work-order reference) onto invoices
+   * that came through the job→invoice conversion path, which historically
+   * did NOT copy the reference forward. Display-only — the invoice's
+   * own `client_reference` column is unchanged.
+   */
+  quotes?: { client_reference: string | null } | null
   clients?: {
     name: string
     company_name?: string | null
@@ -189,9 +197,19 @@ export function InvoiceDocument({
   // a sensible display proxy; never back-write to the DB.
   const dateIssuedForDisplay = invoice.date_issued ?? invoice.created_at ?? null
 
-  // Trim the reference for the meta-grid so whitespace-only values
-  // don't render an empty row.
-  const trimmedReference = (invoice.client_reference ?? '').trim()
+  // Client reference / PO display chain (per priority order):
+  //   1. invoice.client_reference (the invoice's own captured value)
+  //   2. invoice.quotes.client_reference (inherited from the source
+  //      quote when the invoice was created via the job→invoice path,
+  //      which historically did not copy client_reference forward)
+  //   3. otherwise omit the row entirely
+  //
+  // Whitespace-only values are treated as absent so the meta-grid
+  // doesn't render an empty row. Display-only — the DB stays honest
+  // about which field actually holds the value.
+  const ownReference = (invoice.client_reference ?? '').trim()
+  const quoteReference = (invoice.quotes?.client_reference ?? '').trim()
+  const trimmedReference = ownReference || quoteReference
 
   // First line item carries the pricing label as title + a labelled
   // sub-block stack for service address and service description.
