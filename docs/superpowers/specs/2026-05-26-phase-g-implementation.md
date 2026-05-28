@@ -9,6 +9,46 @@
 
 ---
 
+## Sano operating model: flexible invoicing, internal costing, and contractor pay
+
+Sano is a small, evolving service business. The portal must stay nimble — it should not assume every job follows a single strict sequence of `complete → approve hours → invoice → pay → contractor pay`. In practice:
+
+- Sano may invoice **before** a job is completed.
+- Sano may take **payment** before a job is completed.
+- Site conditions, scope, and hours may change after invoicing.
+- Contractor payable hours may be approved **after** an invoice has been sent or paid.
+- Sano may absorb extra labour cost without charging the client.
+- Sano may need to charge a client extra after the original invoice has been sent.
+- Customer-facing invoices should remain professional and stable once sent.
+
+### Preferred operating model
+
+| Concept | Role |
+|---|---|
+| Quote | Expected scope and price |
+| Job | Operational work record + internal costing record |
+| Invoice | Customer-facing payment document |
+| Contractor payable / pay run | What Sano owes the worker |
+| Finance | Reconciled view of what actually happened |
+
+### Important rules
+
+1. **Invoice timing is flexible.** Invoice creation must not require the job to be completed. Payment may happen before the job is complete. Ready-to-invoice checks are guidance only, never blockers.
+2. **Internal job costing can continue after invoice.** Actual hours can be recorded post-invoice. Approved payable hours can be recorded post-invoice. Contractor pay can be updated post-invoice. Job margin updates naturally as the true labour cost becomes known.
+3. **Sent / paid customer invoices stay stable.** Once an invoice is sent or paid, customer-facing financial records should not be silently amended. If the picture changes, Sano follows up explicitly.
+4. **Extra charges after invoice are handled simply.** If extra customer charges are needed after an invoice is sent or paid, the simple workflow is to create an **additional invoice**. If Sano absorbs the cost, update internal job cost only. Full invoice-revision / credit-note logic is later scope, not now.
+5. **Contractor pay stays hours-first for now.** Approved job-worker hours remain the source of truth. Contractor pay is calculated from `approved_hours × job_workers.pay_rate`. Don't build reverse "invoice amount → implied hours" logic yet — revisit only if staff struggle.
+6. **Contractor invoices / payables direction.** Some contractors invoice Sano; some don't. The future Contractor Payables surface should support both contractor-supplied invoices and Sano-generated internal payables. The first version stays hours-first: approved hours → payable amount → pay run / payable summary. Don't let a contractor-supplied invoice amount silently change the captured job hours.
+
+### What this means for Phase G
+
+- The Ready-to-invoice panel on `/portal/jobs/[id]` is informational — it never blocks `createInvoiceFromJob`.
+- Hours approval (`approveJobWorkerHours`) is allowed pre- or post-invoice; jobs already invoiced still need real hours captured and approved so the internal cost story stays honest.
+- The finance dashboard cost source is shared with the job page so post-invoice cost updates flow through naturally.
+- Existing Phase D `job_settings` gates (`require_review_before_invoicing`, `allow_job_before_payment`) are admin-configurable and admin-overridable. They exist for operators who want stricter discipline, not as a baseline requirement.
+
+---
+
 ## 1. Executive summary
 
 Today, three different surfaces compute contractor labour cost three different ways, and `/portal/finance` reads a denormalised number (`jobs.contractor_price`) that nothing keeps in sync with the underlying hours-and-rate data on `job_workers`. The job page already uses the correct source via `src/lib/labour-calc.ts`, but only the job page does.
@@ -63,7 +103,7 @@ All margin/profit values are live-computed on every render. Only `actual_hours`,
 
 ### 2.4 Hours approval — `src/app/portal/jobs/[id]/_actions-approve-hours.ts`
 
-Admin-only. Gates on job status ∈ {completed, invoiced}, contractor having an `hourly_rate`, and (when on) `require_review_before_invoicing`. Writes `pay_rate`, `pay_type='hourly'`, `approved_hours`, `approved_at`, `approved_by`, `pay_status='approved'`. Audited via `audit_log` action `job_worker.hours_approved`.
+Admin-only. Gates on job status ∈ {completed, invoiced}, contractor having an `hourly_rate`, and (when on) `require_review_before_invoicing`. Writes `pay_rate`, `pay_type='hourly'`, `approved_hours`, `approved_at`, `approved_by`, `pay_status='approved'`. Audited via `audit_log` action `job_worker.hours_approved`. **Approving post-invoice is supported** — Sano frequently invoices before the real hours land, and the action is designed to keep working after the invoice has been sent or paid.
 
 ### 2.5 Finance dashboard — `src/app/portal/finance/page.tsx`
 
@@ -187,7 +227,7 @@ A compact panel near the Labour & Margin section. Two states per check: ✓ (gre
 - "Fix" link that scrolls to the section that resolves the issue (e.g. the per-worker row, the Edit Job page, the Assign modal)
 - For hard blocks only: an "Admin override" button that opens a small modal asking for a reason. The override is audited via `audit_log` action `job.ready_to_invoice_override`. The override unlocks Convert-to-Invoice for the current session only; reloading re-checks.
 
-This panel is **read-only output of computed checks** — it does not change any existing invoice / quote / job conversion behaviour. The Phase D `createInvoiceFromJob` gates already exist; Phase G adds nothing to those gates other than the soft check display. Hard blocks here are an additional layer on top of existing gates; if an existing gate already blocks, this panel just shows the same reason in the same surface.
+This panel is **read-only output of computed checks** — it does not change any existing invoice / quote / job conversion behaviour. The Phase D `createInvoiceFromJob` gates are admin-configurable via `job_settings` and remain the only system-level conversion constraint; Phase G adds nothing to those gates other than the soft check display. "Needs fixing" rows in the panel are strong visual nudges but never block invoicing or any other action — Sano frequently invoices before the downstream data is captured, and the panel must stay out of the way.
 
 ### 3.8 Contractor Payables — transition guidance (Phase G.2, not G.1)
 
