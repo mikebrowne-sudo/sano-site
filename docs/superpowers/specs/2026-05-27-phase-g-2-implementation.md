@@ -10,6 +10,46 @@
 
 ---
 
+## Sano operating model: flexible invoicing, internal costing, and contractor pay
+
+Sano is a small, evolving service business. The portal must stay nimble — it should not assume every job follows a single strict sequence of `complete → approve hours → invoice → pay → contractor pay`. In practice:
+
+- Sano may invoice **before** a job is completed.
+- Sano may take **payment** before a job is completed.
+- Site conditions, scope, and hours may change after invoicing.
+- Contractor payable hours may be approved **after** an invoice has been sent or paid.
+- Sano may absorb extra labour cost without charging the client.
+- Sano may need to charge a client extra after the original invoice has been sent.
+- Customer-facing invoices should remain professional and stable once sent.
+
+### Preferred operating model
+
+| Concept | Role |
+|---|---|
+| Quote | Expected scope and price |
+| Job | Operational work record + internal costing record |
+| Invoice | Customer-facing payment document |
+| Contractor payable / pay run | What Sano owes the worker |
+| Finance | Reconciled view of what actually happened |
+
+### Important rules
+
+1. **Invoice timing is flexible.** Invoice creation must not require the job to be completed. Payment may happen before the job is complete. Ready-to-invoice checks are guidance only, never blockers.
+2. **Internal job costing can continue after invoice.** Actual hours can be recorded post-invoice. Approved payable hours can be recorded post-invoice. Contractor pay can be updated post-invoice. Job margin updates naturally as the true labour cost becomes known.
+3. **Sent / paid customer invoices stay stable.** Once an invoice is sent or paid, customer-facing financial records should not be silently amended. If the picture changes, Sano follows up explicitly.
+4. **Extra charges after invoice are handled simply.** If extra customer charges are needed after an invoice is sent or paid, the simple workflow is to create an **additional invoice**. If Sano absorbs the cost, update internal job cost only. Full invoice-revision / credit-note logic is later scope, not now.
+5. **Contractor pay stays hours-first for now.** Approved job-worker hours remain the source of truth. Contractor pay is calculated from `approved_hours × job_workers.pay_rate`. Don't build reverse "invoice amount → implied hours" logic yet — revisit only if staff struggle.
+6. **Contractor invoices / payables direction.** Some contractors invoice Sano; some don't. The future Contractor Payables surface should support both contractor-supplied invoices and Sano-generated internal payables. The first version stays hours-first: approved hours → payable amount → pay run / payable summary. Don't let a contractor-supplied invoice amount silently change the captured job hours.
+
+### What this means for Phase G.2
+
+- The Ready-to-invoice panel on `/portal/jobs/[id]` is **signal-not-gate**. It surfaces hard / warning / info checks but never blocks `createInvoiceFromJob` or any other conversion flow. The "hard" severity is a strong nudge, not a system block. Existing Phase D `job_settings` gates are admin-configurable; they exist for stricter discipline, not as a baseline requirement.
+- The Jobs needing attention widget on `/portal/finance` is **signal-not-gate**. Severity badges (Needs fixing / Check / Info) are guidance, not gates.
+- Pay-run variance columns on `/portal/payroll/contractor-runs/[id]` are **read-only**. Variance signals a story; it doesn't change the payable amount, which still comes from `approved_hours × job_workers.pay_rate`.
+- Warning flags about post-execution data (actual hours missing, approved hours missing, pay not approved, etc.) only fire on `completed` / `invoiced` jobs. Their *purpose* is to nudge admin to capture the real story even after invoicing; their *behaviour* is informational only.
+
+---
+
 ## 1. Executive summary
 
 Phase G.1 made labour cost calculate consistently across the portal and snapshotted contractor rates onto `job_workers` at assignment time. Phase G.2 adds a **visibility layer** on top: a per-job "Ready to invoice" panel that surfaces cleanup issues before an invoice is created, a small "Jobs needing attention" widget on `/portal/finance` that lets Mike scan his whole queue, and read-only variance columns on the contractor pay-run detail so payable variances are visible where the payment happens. Plus an optional soft transition note on `/portal/contractor-invoices` describing the Contractor Payables direction — no legacy framing, no disabled actions.
@@ -41,7 +81,7 @@ The bet is: once admin can see which jobs need fixing in two glances (job page +
 
 ### Quote → job → invoice → pay flow today (the surfaces Phase G.2 touches)
 
-1. Job detail (`/portal/jobs/[id]`) — shows Labour & Margin; admin sees per-worker rate/hours/pay status; the "Next Step" panel (`JobNextStepCard`) lets admin create an invoice when status is `completed` (gated by `job_settings.require_review_before_invoicing` etc.).
+1. Job detail (`/portal/jobs/[id]`) — shows Labour & Margin; admin sees per-worker rate/hours/pay status; the "Next Step" panel (`JobNextStepCard`) is the in-page entry to invoice creation. The conversion action itself is configurable via `job_settings` (e.g. `require_review_before_invoicing`, `allow_job_before_payment`) but those gates are admin-tunable, not baseline requirements — by default invoicing is allowed at any job status.
 2. Finance dashboard (`/portal/finance`) — period selector + summary cards + monthly breakdown + invoice register + contractor cost register.
 3. Contractor pay-run detail (`/portal/payroll/contractor-runs/[id]`) — lists per-item Pay rate × Approved hours = Amount, grouped by contractor.
 4. Contractor invoices list (`/portal/contractor-invoices`) — active surface (NOT legacy).
@@ -100,17 +140,17 @@ export function reconcileJob(input: {
 
 ### 3.2 Ready-to-invoice panel — `<JobReadyToInvoice>` on `/portal/jobs/[id]`
 
-A compact panel rendered inside the job detail page near the Labour & Margin section. **Informational only** — does not gate `createInvoiceFromJob`. Existing Phase D `job_settings` gates remain authoritative.
+A compact panel rendered inside the job detail page near the Labour & Margin section. **Informational only** — does not gate `createInvoiceFromJob`. Existing Phase D `job_settings` gates remain authoritative; they are admin-tunable, not baseline requirements.
 
 Renders the output of `reconcileJob` for the current job as a checklist with three states per line:
 
 - ✓ green — clean
-- ⚠ amber — soft warning
-- ✗ red — hard block
+- ⚠ amber — soft warning ("Check")
+- ✗ red — strong nudge ("Needs fixing") — visually loud but **does not block** invoicing or any other action
 
 When there are no issues, the panel collapses to a single line: *"✓ Ready to invoice."* When there are issues, each is one row with the message, a small inline suggested action (e.g. "Set job price") and an optional deep link.
 
-**No admin override modal in Phase G.2.** If a hard-block issue applies, admin fixes it (or proceeds anyway via the existing Convert-to-Invoice flow which has its own gates). The panel is signal, not gate. This is a deliberate "keep operations easy" decision.
+**No admin override modal in Phase G.2.** If a "Needs fixing" issue applies, admin fixes it or proceeds anyway via the existing Convert-to-Invoice flow. The panel is signal, not gate. This is a deliberate "keep operations easy" decision — Sano frequently invoices before all the downstream data is captured and the portal must not get in the way.
 
 ### 3.3 Jobs needing attention widget — section on `/portal/finance`
 
@@ -164,7 +204,7 @@ Explicitly NOT included in Phase G.2:
 - Full Contractor Payables automation (Workflow A matching + Workflow B generation, grouping by contractor + pay period). That lives in a later separately scoped phase.
 - New tables for Contractor Payables, payments, expenses, or accounting periods.
 - Route rename from `/portal/contractor-invoices` → `/portal/contractor-payables` (or similar). Phase G.2 keeps the route.
-- Admin override modal on Ready-to-invoice hard blocks. Existing Phase D conversion gates handle blocking.
+- Admin override modal on Ready-to-invoice "Needs fixing" rows. None needed: the panel never blocks invoicing. The existing Phase D `job_settings` gates are the only system-level conversion constraints, and they're admin-tunable.
 - A separate `/portal/reconcile` page. Issues widget lives on `/portal/finance`.
 - Settings-driven variance threshold. Hardcoded 20% with `// TODO: settings (Phase L+)` comment.
 - Expenses, expense categories, expense uploads.
@@ -258,7 +298,7 @@ Inside the job detail page, immediately after the Labour & Margin section, befor
 - Soft ⚠ → small amber triangle + amber text.
 - Clean ✓ → small emerald check + sage-700 text.
 - "Suggested action" → small inline link / button. Where the fix is a route, link directly (e.g. `/portal/jobs/{id}/edit`, contractor profile, the inline Pay Approvals row scroll target).
-- Section heading shows a small summary pill: `2 blocks · 3 warnings` when not clean; nothing when clean.
+- Section heading shows a small summary pill: `2 need fixing · 3 to check` when not clean; nothing when clean.
 - Mobile / narrow screens: rows stack; suggested action drops below message.
 
 ### Behaviour
@@ -269,7 +309,7 @@ Inside the job detail page, immediately after the Labour & Margin section, befor
 
 ### Edge cases
 
-- Job is in `draft` / `scheduled` / `assigned` status: panel shows but most soft warnings are skipped (no actual hours expected yet, no invoice expected). Hard blocks still apply.
+- Job is in `draft` / `scheduled` / `assigned` status: panel shows but most soft warnings are skipped (no actual hours expected yet). Invoice creation is still allowed at any status — admin can invoice early and the panel will not interfere.
 - Job is `invoiced`: panel becomes informational only — most checks have already happened. Still useful for reviewing whether labour cost is approved and in a pay run.
 
 ---
