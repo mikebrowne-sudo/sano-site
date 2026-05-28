@@ -28,6 +28,14 @@ export interface QuoteDocumentInput {
   quote_number: string
   date_issued: string | null
   valid_until: string | null
+  /**
+   * Optional `quotes.created_at`. Used as a display-only fallback
+   * for the Issued date in the document header when `date_issued`
+   * is null (e.g. quotes downloaded as PDF before being sent, where
+   * the send-flow's pre-render stamp hasn't run). Never back-written
+   * to the DB.
+   */
+  created_at?: string | null
   property_category?: string | null
   type_of_clean?: string | null
   frequency?: string | null
@@ -130,6 +138,10 @@ export function QuoteDocument({
     gst: '141-577-062',
   }
 
+  // client_reference is intentionally NOT passed through `toParty.reference`
+  // here — it's surfaced as a dedicated row in the document meta-grid
+  // header (alongside Quote # / Issued / Valid until). Including it in
+  // the address block as well would render the value twice.
   const toParty: DocumentParty = {
     name: client?.name ?? '—',
     company: client?.company_name ?? null,
@@ -137,8 +149,17 @@ export function QuoteDocument({
     attn: quote.contact_name ?? null,
     phone: quote.contact_phone ?? client?.phone ?? null,
     email: quote.contact_email ?? client?.email ?? null,
-    reference: quote.client_reference ?? null,
   }
+
+  // Issued date display fallback (parallel to InvoiceDocument):
+  // `quotes.date_issued` can be null on PDFs downloaded outside the
+  // send-flow's pre-render stamp. Fall back to `created_at` for the
+  // header so the document doesn't read "Issued —".
+  const dateIssuedForDisplay = quote.date_issued ?? quote.created_at ?? null
+
+  // Trim the reference for the meta-grid so whitespace-only values
+  // don't render an empty row.
+  const trimmedReference = (quote.client_reference ?? '').trim()
 
   // First line item carries the pricing label as title + a labelled
   // sub-block stack for service address and service description.
@@ -194,9 +215,12 @@ export function QuoteDocument({
       kind="quote"
       meta={{
         number: quote.quote_number,
-        dateIssuedDisplay: fmtDate(quote.date_issued),
+        dateIssuedDisplay: fmtDate(dateIssuedForDisplay),
         trailingDateLabel: 'Valid until',
         trailingDateDisplay: fmtDate(quote.valid_until),
+        ...(trimmedReference
+          ? { referenceLabel: 'Your reference / PO', referenceDisplay: trimmedReference }
+          : {}),
       }}
       fromParty={fromParty}
       toParty={toParty}

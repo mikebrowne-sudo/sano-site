@@ -52,7 +52,7 @@ export default async function PublicQuotePage({
   const { data: quote, error } = await supabase
     .from('quotes')
     .select(`
-      id, quote_number, status, accepted_at, date_issued, valid_until,
+      id, quote_number, status, accepted_at, date_issued, valid_until, created_at,
       property_category, type_of_clean, frequency, scope_size,
       generated_scope,
       service_address, scheduled_clean_date, notes,
