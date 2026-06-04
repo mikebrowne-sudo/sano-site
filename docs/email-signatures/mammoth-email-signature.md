@@ -9,47 +9,76 @@ That route is the install path — open it in a browser, select-all, copy,
 paste into Outlook. The signature markup is rendered inline; no separate
 HTML file needs editing.
 
+## Current design (v2 — live Take-Back strip)
+
+One 720 px-wide table with two rows:
+
+1. **Banner image** (`mammoth-signature-banner.png`, 720 × 286) wrapped
+   in a link to <https://mammoth.co.nz>. Logo, 25-year ribbon, contact
+   details, accreditation badges.
+2. **Live HTML Take-Back strip** — grey bar (`#46413B`) with white text
+   *"Recycling your offcuts? Mammoth takes them back, free."* and a red
+   *"Learn more ›"* button (`#EE2D24`) linking to
+   <https://www.mammoth.co.nz/pages/recycle>.
+
+The Take-Back strip is **live HTML, not an image** — it always renders
+in Outlook / Gmail / Apple Mail even when remote images are blocked.
+Square button corners in classic Outlook are expected (it ignores
+`border-radius`).
+
+The whole signature is table-based with inline styles and the Arial
+font stack so it renders consistently across Outlook desktop, Gmail,
+and Apple Mail.
+
 ## Hosted image assets
 
 Served under `public/email/` → `https://sano.nz/email/`:
 
-| File | Dimensions | Purpose |
-|---|---|---|
-| `mammoth-signature-top.png` | 904 × 292 | Banner image (logo, ribbon, contact details, badges). Links to <https://mammoth.co.nz>. |
-| `mammoth-signature-cta.png` | 904 × 57  | Take-Back CTA bar. Links to <https://www.mammoth.co.nz/pages/recycle>. |
-| `mammoth-signature-full.png` | 904 × 349 | One-image fallback. Use only if a single-link version is wanted. |
+| File | Dimensions | Status | Purpose |
+|---|---|---|---|
+| `mammoth-signature-banner.png` | 720 × 286 | **active (v2)** | Single banner image used by the current signature. Links to <https://mammoth.co.nz>. |
+| `mammoth-signature-top.png` | 904 × 292 | retained | v1 banner. Kept hosted so older installed signatures continue to load. |
+| `mammoth-signature-cta.png` | 904 × 57  | retained | v1 Take-Back CTA bar (image-based). Kept hosted for the same reason. |
+| `mammoth-signature-full.png` | 904 × 349 | retained | v1 one-image fallback. Kept hosted for the same reason. |
 
-## Why two images (not one)
-
-A single flat image can only carry one link. To get two separate links
-(website + Take Back Programme) the signature is built as two stacked
-images. This keeps the exact look and works reliably in Outlook desktop,
-where gradients and rounded corners in live HTML don't render.
+The v1 assets stay live so any Outlook clients still running an older
+copy of the signature don't suddenly show broken images. They can be
+retired in a separate cleanup once everyone is on v2.
 
 ## Install in Outlook (desktop)
 
 1. Open <https://sano.nz/email-signature-mammoth> in a browser.
-2. Select all (Ctrl+A) and copy (Ctrl+C).
+2. Select all (Ctrl+A) and copy (Ctrl+C). Start the selection at
+   *"Kind regards,"* so the prefix is included.
 3. Outlook → File → Options → Mail → Signatures → New.
 4. Paste (Ctrl+V) into the edit box. Save.
 
-Alternative: place the `.htm` file (and a matching `_files` folder if
-your tool makes one) into
-`%USERPROFILE%\AppData\Roaming\Microsoft\Signatures`.
+Alternative: copy `signature.html` (regenerate via the Claude design
+package — not stored in the repo) into
+`%USERPROFILE%\AppData\Roaming\Microsoft\Signatures` as `Mammoth.htm`,
+restart Outlook, and pick it under Signatures.
+
+For Gmail / Apple Mail: same open-and-copy approach as Outlook —
+Gmail Settings → See all settings → General → Signature; Apple Mail
+Settings → Signatures.
 
 ## Notes
 
-- The only outbound links from the signature are `mammoth.co.nz` and
-  `mammoth.co.nz/pages/recycle`. Nothing references or links back to
-  the Sano-hosted images.
-- Images are 904 px wide (matches the Sano banner). They scale down on
-  narrow screens via `max-width: 100%`.
+- The only outbound links from the signature are <https://mammoth.co.nz>
+  and <https://www.mammoth.co.nz/pages/recycle>. Nothing references or
+  links back to where the banner image is hosted; no tracking pixels.
+- The signature is 720 px wide and scales down on narrow screens via
+  `max-width: 100%`.
+- The Take-Back strip is **live HTML** so it always renders, even when
+  Outlook blocks remote images. This was the main reason for the v2
+  redesign — v1's image-based CTA bar would drop out under image blocks.
 - Need crisper / retina (2×) images, a narrower width, or any text
   change? The signature was generated through Claude design — request a
-  regenerated package, drop the new PNGs into `public/email/`, and
-  redeploy.
+  regenerated package, drop the new banner PNG into `public/email/`,
+  and redeploy.
 
 ## Repo touchpoints
 
 - Preview route: `src/app/email-signature-mammoth/page.tsx`
-- Hosted assets: `public/email/mammoth-signature-*.png`
+- Active asset: `public/email/mammoth-signature-banner.png`
+- Retained v1 assets: `public/email/mammoth-signature-{top,cta,full}.png`
