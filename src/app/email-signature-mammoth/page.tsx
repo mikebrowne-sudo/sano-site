@@ -32,7 +32,7 @@ const SIGNATURE_HTML = `<table role="presentation" width="720" cellpadding="0" c
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
         <tr>
           <td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:bold;color:#ECE8E2;line-height:1.2;padding-right:16px;">
-            Recycling your offcuts? <span style="color:#ffffff;">Mammoth takes them back, free.</span>
+            Recycling your offcuts? <span style="color:#ffffff;">Mammoth takes them back for free.</span>
           </td>
           <td bgcolor="#EE2D24" style="background:#EE2D24;border-radius:6px;">
             <a href="https://www.mammoth.co.nz/pages/recycle" target="_blank" rel="noopener noreferrer" style="display:inline-block;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:bold;color:#ffffff;text-decoration:none;line-height:1;padding:8px 16px;">Learn more &rsaquo;</a>
@@ -47,12 +47,18 @@ export default function EmailSignatureMammoth() {
   return (
     <div style={{ padding: '40px', background: '#f5f5f5', minHeight: '100vh' }}>
       <h2 style={{ fontFamily: 'Arial, sans-serif', marginTop: 0 }}>
-        Mammoth Email Signature
+        Mammoth Email Signature — Full (badges + Take Back)
       </h2>
 
-      <p style={{ fontFamily: 'Arial, sans-serif', marginBottom: '20px' }}>
+      <p style={{ fontFamily: 'Arial, sans-serif', marginBottom: '8px' }}>
         Highlight the block below (starting at &quot;Kind regards,&quot;), copy,
         and paste into Outlook signature.
+      </p>
+
+      <p style={{ fontFamily: 'Arial, sans-serif', fontSize: '12px', color: '#666', marginTop: 0, marginBottom: '20px' }}>
+        Other options:{' '}
+        <a href="/email-signature-mammoth-a" style={{ color: '#0066cc' }}>Signature A (slim, no Take Back)</a>{' · '}
+        <a href="/email-signature-mammoth-b" style={{ color: '#0066cc' }}>Signature B (slim + Take Back)</a>
       </p>
 
       {/*

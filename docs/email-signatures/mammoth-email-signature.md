@@ -1,84 +1,96 @@
 # Mammoth Email Signature — Mike Browne
 
-Reference notes for the Mammoth Modern Insulation email signature
-hosted on the Sano site.
+Reference notes for the Mammoth Modern Insulation email signatures
+hosted on the Sano site. Three options live concurrently — pick whichever
+fits the moment and paste into Outlook.
 
-The live signature is at: **`/email-signature-mammoth`**
-(production: <https://sano.nz/email-signature-mammoth>).
-That route is the install path — open it in a browser, select-all, copy,
-paste into Outlook. The signature markup is rendered inline; no separate
-HTML file needs editing.
+## The three options
 
-## Current design (v2 — live Take-Back strip)
+| Option | Route | Description | Banner | Take-Back |
+|---|---|---|---|---|
+| **Full** | <https://sano.nz/email-signature-mammoth> | The full version with five accreditation badges + Take Back strip | `mammoth-signature-banner.png` (720 × 286) | live HTML |
+| **Option A** | <https://sano.nz/email-signature-mammoth-a> | Slim banner, no badges, NO Take Back strip | `mammoth-signature-slim.png` (720 × 211) | none |
+| **Option B** | <https://sano.nz/email-signature-mammoth-b> | Slim banner, no badges, SLIM Take Back strip | `mammoth-signature-slim.png` (720 × 211) | live HTML (smaller padding/fonts than Full) |
 
-One 720 px-wide table with two rows:
+Options A and B share the same banner image — A is just the banner,
+B adds the slim Take Back strip beneath it.
 
-1. **Banner image** (`mammoth-signature-banner.png`, 720 × 286) wrapped
-   in a link to <https://mammoth.co.nz>. Logo, 25-year ribbon, contact
-   details, accreditation badges.
-2. **Live HTML Take-Back strip** — grey bar (`#46413B`) with white text
-   *"Recycling your offcuts? Mammoth takes them back, free."* and a red
-   *"Learn more ›"* button (`#EE2D24`) linking to
-   <https://www.mammoth.co.nz/pages/recycle>.
+## Take Back wording (canonical)
 
-The Take-Back strip is **live HTML, not an image** — it always renders
-in Outlook / Gmail / Apple Mail even when remote images are blocked.
-Square button corners in classic Outlook are expected (it ignores
-`border-radius`).
+Every Take Back strip uses this exact wording:
 
-The whole signature is table-based with inline styles and the Arial
-font stack so it renders consistently across Outlook desktop, Gmail,
-and Apple Mail.
+> Recycling your offcuts? **Mammoth takes them back for free.**
+
+If you regenerate or edit a signature, keep the wording identical.
 
 ## Hosted image assets
 
 Served under `public/email/` → `https://sano.nz/email/`:
 
-| File | Dimensions | Status | Purpose |
+| File | Dimensions | Used by | Status |
 |---|---|---|---|
-| `mammoth-signature-banner.png` | 720 × 286 | **active (v2)** | Single banner image used by the current signature. Links to <https://mammoth.co.nz>. |
-| `mammoth-signature-top.png` | 904 × 292 | retained | v1 banner. Kept hosted so older installed signatures continue to load. |
-| `mammoth-signature-cta.png` | 904 × 57  | retained | v1 Take-Back CTA bar (image-based). Kept hosted for the same reason. |
-| `mammoth-signature-full.png` | 904 × 349 | retained | v1 one-image fallback. Kept hosted for the same reason. |
+| `mammoth-signature-banner.png` | 720 × 286 | Full | active |
+| `mammoth-signature-slim.png` | 720 × 211 | Option A + Option B | active |
+| `mammoth-signature-top.png` | 904 × 292 | (v1, no longer wired up) | retained |
+| `mammoth-signature-cta.png` | 904 × 57  | (v1, no longer wired up) | retained |
+| `mammoth-signature-full.png` | 904 × 349 | (v1, no longer wired up) | retained |
 
-The v1 assets stay live so any Outlook clients still running an older
-copy of the signature don't suddenly show broken images. They can be
-retired in a separate cleanup once everyone is on v2.
+The v1 PNGs are kept hosted so any Outlook clients still running an
+installed v1 signature don't break. They can be retired in a separate
+cleanup once everyone is on the current options.
+
+## Take Back strip — live HTML, not an image
+
+Every Take Back row (Full + Option B) is built as live HTML, not as an
+image. This means it always renders in Outlook / Gmail / Apple Mail,
+even when remote images are blocked. The earlier v1 take-back row was
+image-based and would drop out under image-blocking — the live HTML
+fixes that.
+
+Visual shape: grey bar (`#46413B`), white sans-serif text, red button
+(`#EE2D24`) labelled *"Learn more ›"*. Outlook's classic engine renders
+square corners (it ignores `border-radius`) — that's expected.
 
 ## Install in Outlook (desktop)
 
-1. Open <https://sano.nz/email-signature-mammoth> in a browser.
+1. Open the option's preview URL in a browser (any of the three above).
 2. Select all (Ctrl+A) and copy (Ctrl+C). Start the selection at
    *"Kind regards,"* so the prefix is included.
 3. Outlook → File → Options → Mail → Signatures → New.
 4. Paste (Ctrl+V) into the edit box. Save.
 
-Alternative: copy `signature.html` (regenerate via the Claude design
-package — not stored in the repo) into
-`%USERPROFILE%\AppData\Roaming\Microsoft\Signatures` as `Mammoth.htm`,
-restart Outlook, and pick it under Signatures.
+For Gmail / Apple Mail: same open-and-copy approach — Gmail Settings →
+See all settings → General → Signature; Apple Mail Settings → Signatures.
 
-For Gmail / Apple Mail: same open-and-copy approach as Outlook —
-Gmail Settings → See all settings → General → Signature; Apple Mail
-Settings → Signatures.
+## Links inside every signature
 
-## Notes
+- Banner image → <https://mammoth.co.nz>
+- Take-Back "Learn more" button (Full + Option B only) → <https://www.mammoth.co.nz/pages/recycle>
 
-- The only outbound links from the signature are <https://mammoth.co.nz>
-  and <https://www.mammoth.co.nz/pages/recycle>. Nothing references or
-  links back to where the banner image is hosted; no tracking pixels.
-- The signature is 720 px wide and scales down on narrow screens via
-  `max-width: 100%`.
-- The Take-Back strip is **live HTML** so it always renders, even when
-  Outlook blocks remote images. This was the main reason for the v2
-  redesign — v1's image-based CTA bar would drop out under image blocks.
-- Need crisper / retina (2×) images, a narrower width, or any text
-  change? The signature was generated through Claude design — request a
-  regenerated package, drop the new banner PNG into `public/email/`,
-  and redeploy.
+These are the only outbound links. No tracking pixels, no references
+back to where the images are hosted.
 
 ## Repo touchpoints
 
-- Preview route: `src/app/email-signature-mammoth/page.tsx`
-- Active asset: `public/email/mammoth-signature-banner.png`
-- Retained v1 assets: `public/email/mammoth-signature-{top,cta,full}.png`
+- Preview routes:
+  - `src/app/email-signature-mammoth/page.tsx` — Full
+  - `src/app/email-signature-mammoth-a/page.tsx` — Option A
+  - `src/app/email-signature-mammoth-b/page.tsx` — Option B
+- Active assets:
+  - `public/email/mammoth-signature-banner.png` (Full)
+  - `public/email/mammoth-signature-slim.png` (Options A + B)
+- Retained v1 assets:
+  - `public/email/mammoth-signature-{top,cta,full}.png`
+
+## Source packages
+
+Generated through Claude design. The deploy packages live under
+`F:\Sano\10-Branding\Marketing collateral\Email banner\` as
+`Mammoth Signature A (deploy)` (Option A source) and
+`Mammoth Signature B (deploy)` (Option B source). The Full v2 source
+sits in its own `Mammoth Signature (deploy)` folder under the same
+branding root.
+
+To regenerate any banner: ask for a new package via Claude design,
+drop the new PNG into `public/email/` with the matching filename,
+and redeploy. The HTML routes don't need to change.
