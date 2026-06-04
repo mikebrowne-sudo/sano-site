@@ -1,50 +1,55 @@
-MAMMOTH EMAIL SIGNATURE — Mike Browne
-=====================================
+# Mammoth Email Signature — Mike Browne
 
-WHAT'S IN THIS FOLDER
----------------------
-- signature.html               The signature markup (two linked images).
-- mammoth-signature-top.png    Banner image (logo, ribbon, details, badges). 904 x 292.
-- mammoth-signature-cta.png    Take Back bar image. 904 x 57.
-- mammoth-signature-full.png   The whole signature as one image (904 x 349) —
-                               use this only if you want a single, one-link version.
+Reference notes for the Mammoth Modern Insulation email signature
+hosted on the Sano site.
 
-WHY TWO IMAGES
---------------
-A single flat image can only carry ONE link. To get your two separate links
-(website + Take Back Programme) the signature is built as two stacked images:
-  - Top banner  -> https://mammoth.co.nz
-  - Take Back bar -> https://www.mammoth.co.nz/pages/recycle
-This keeps the exact look and works reliably in Outlook (desktop), where
-gradients/rounded corners in live HTML don't render.
+The live signature is at: **`/email-signature-mammoth`**
+(production: <https://sano.nz/email-signature-mammoth>).
+That route is the install path — open it in a browser, select-all, copy,
+paste into Outlook. The signature markup is rendered inline; no separate
+HTML file needs editing.
 
-SETUP (one-time)
-----------------
-1. Upload BOTH PNGs (top + cta) to your website / image host.
-   Example: https://www.mammoth.co.nz/brand/
-2. Open signature.html in a text editor and replace the two instances of
-   "BASE_URL" with that folder URL (no trailing slash), e.g.:
-       BASE_URL/mammoth-signature-top.png
-   becomes
-       https://www.mammoth.co.nz/brand/mammoth-signature-top.png
-3. Save.
+## Hosted image assets
 
-INSTALL IN OUTLOOK (desktop)
-----------------------------
-Easiest method:
-  a. Open the edited signature.html in a web browser.
-  b. Select all (Ctrl+A) and copy (Ctrl+C).
-  c. Outlook > File > Options > Mail > Signatures > New.
-  d. Paste (Ctrl+V) into the edit box. Save.
-Alternative: place the .htm file (and a matching _files folder if your tool
-makes one) into:
-  %USERPROFILE%\AppData\Roaming\Microsoft\Signatures
+Served under `public/email/` → `https://sano.nz/email/`:
 
-NOTES
------
-- The only outbound links are mammoth.co.nz and mammoth.co.nz/pages/recycle.
-  Nothing references or links back to wherever the images are hosted.
-- Images are 904px wide (matches the Sano banner). They scale down on
-  narrow screens via max-width:100%.
-- Need crisper / retina (2x) images, a narrower width, or any text change?
-  Ask and I'll regenerate.
+| File | Dimensions | Purpose |
+|---|---|---|
+| `mammoth-signature-top.png` | 904 × 292 | Banner image (logo, ribbon, contact details, badges). Links to <https://mammoth.co.nz>. |
+| `mammoth-signature-cta.png` | 904 × 57  | Take-Back CTA bar. Links to <https://www.mammoth.co.nz/pages/recycle>. |
+| `mammoth-signature-full.png` | 904 × 349 | One-image fallback. Use only if a single-link version is wanted. |
+
+## Why two images (not one)
+
+A single flat image can only carry one link. To get two separate links
+(website + Take Back Programme) the signature is built as two stacked
+images. This keeps the exact look and works reliably in Outlook desktop,
+where gradients and rounded corners in live HTML don't render.
+
+## Install in Outlook (desktop)
+
+1. Open <https://sano.nz/email-signature-mammoth> in a browser.
+2. Select all (Ctrl+A) and copy (Ctrl+C).
+3. Outlook → File → Options → Mail → Signatures → New.
+4. Paste (Ctrl+V) into the edit box. Save.
+
+Alternative: place the `.htm` file (and a matching `_files` folder if
+your tool makes one) into
+`%USERPROFILE%\AppData\Roaming\Microsoft\Signatures`.
+
+## Notes
+
+- The only outbound links from the signature are `mammoth.co.nz` and
+  `mammoth.co.nz/pages/recycle`. Nothing references or links back to
+  the Sano-hosted images.
+- Images are 904 px wide (matches the Sano banner). They scale down on
+  narrow screens via `max-width: 100%`.
+- Need crisper / retina (2×) images, a narrower width, or any text
+  change? The signature was generated through Claude design — request a
+  regenerated package, drop the new PNGs into `public/email/`, and
+  redeploy.
+
+## Repo touchpoints
+
+- Preview route: `src/app/email-signature-mammoth/page.tsx`
+- Hosted assets: `public/email/mammoth-signature-*.png`
