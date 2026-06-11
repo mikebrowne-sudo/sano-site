@@ -57,10 +57,15 @@ export default async function InvoicesPage({
 }) {
   const supabase = createClient()
 
-  // Phase 5.5.14 — cleanup-mode gate.
-  const cleanup = await getCleanupAccess(supabase)
+  // Perf — cleanup gate, auth, and display settings are independent
+  // reads, so run them concurrently (round-trips overlap instead of
+  // stacking). Phase 5.5.14 cleanup-mode gate semantics are unchanged.
+  const [cleanup, { data: { user } }, display] = await Promise.all([
+    getCleanupAccess(supabase),
+    supabase.auth.getUser(),
+    loadDisplaySettings(supabase),
+  ])
   const canCleanup = cleanup.canCleanup
-  const { data: { user } } = await supabase.auth.getUser()
   const isAdmin = isAdminUser(user)
   const activeTab    = parseInvoiceTab(searchParams?.tab)
   const showArchived = canCleanup && searchParams?.show_archived === '1'
@@ -69,7 +74,6 @@ export default async function InvoicesPage({
 
   // Phase list-view-uxp-1 — display settings drive column visibility,
   // mobile primary/secondary fields, and the default sort.
-  const display = await loadDisplaySettings(supabase)
   const invoicesList = display.invoices.list
   const visible = new Set(invoicesList.visibleFields)
 
