@@ -125,13 +125,13 @@ Tailwind tokens live in `tailwind.config.ts` (sage palette). Type styles in `src
 
 - Auto-deploys from GitHub `main`; PR previews per branch.
 - Required env (verify via `netlify env:list` — never read `.env*` files directly):
-  - `RESEND_API_KEY`, `SANO_NOTIFY_EMAIL`
+  - `RESEND_API_KEY`, `SANO_NOTIFY_EMAIL`, `SANO_EMAIL_REPLY_TO`
   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
   - `NEXT_PUBLIC_SITE_URL`
   - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
   - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_MESSAGING_SERVICE_SID`
   - `NEXT_PUBLIC_MAPBOX_TOKEN`
-  - `CRON_SECRET`, `REVIEW_ID`, `NEXT_TELEMETRY_DISABLED`
+  - `CRON_SECRET`, `NEXT_TELEMETRY_DISABLED`
 - **Do NOT set `PUPPETEER_EXECUTABLE_PATH` in production** — it forces a local Chrome path; `@sparticuz/chromium` handles Lambda. Only set in local `.env.local` for dev.
 
 ### Supabase
