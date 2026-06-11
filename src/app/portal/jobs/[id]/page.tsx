@@ -66,39 +66,47 @@ export default async function JobDetailPage({
   searchParams?: { override?: string }
 }) {
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+
+  // Perf — auth, the cleanup gate, the job row, and its workers are all
+  // independent (each keyed by params.id, not by another's result), so run
+  // them concurrently instead of in a 4-deep sequential waterfall. This
+  // also speeds up job *saves*, since saving re-renders this page.
+  const [
+    { data: { user } },
+    cleanup,
+    { data: job, error },
+    { data: jobWorkers },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    getCleanupAccess(supabase),
+    supabase
+      .from('jobs')
+      .select(`
+        id, job_number, client_id, quote_id, invoice_id, recurring_job_id, status, assigned_to,
+        title, description, address,
+        scheduled_date, scheduled_time, duration_estimate,
+        contractor_id, contractor_price, job_price, allowed_hours,
+        started_at, completed_at,
+        payment_status, reviewed_at, reviewed_by, access_instructions,
+        internal_notes, contractor_notes,
+        deleted_at, deleted_by, is_test,
+        scope_snapshot,
+        created_at, updated_at,
+        clients ( name, company_name )
+      `)
+      .eq('id', params.id)
+      .single(),
+    // Assigned workers with payroll fields for costing (Phase E pay
+    // snapshot columns included for the ApproveHours read-only summary).
+    supabase
+      .from('job_workers')
+      .select('contractor_id, hours_allocated, actual_start_time, actual_end_time, actual_hours, pay_rate, pay_type, approved_hours, approved_at, approved_by, pay_status, contractors ( full_name, hourly_rate, worker_type, holiday_pay_method, holiday_pay_percent, kiwisaver_enrolled, kiwisaver_employer_rate )')
+      .eq('job_id', params.id),
+  ])
   const isAdmin = isAdminUser(user)
-  // Phase 5.5.14 — cleanup mode gates the per-record lifecycle UI.
-  const cleanup = await getCleanupAccess(supabase)
   const canCleanup = cleanup.canCleanup
 
-  const { data: job, error } = await supabase
-    .from('jobs')
-    .select(`
-      id, job_number, client_id, quote_id, invoice_id, recurring_job_id, status, assigned_to,
-      title, description, address,
-      scheduled_date, scheduled_time, duration_estimate,
-      contractor_id, contractor_price, job_price, allowed_hours,
-      started_at, completed_at,
-      payment_status, reviewed_at, reviewed_by, access_instructions,
-      internal_notes, contractor_notes,
-      deleted_at, deleted_by, is_test,
-      scope_snapshot,
-      created_at, updated_at,
-      clients ( name, company_name )
-    `)
-    .eq('id', params.id)
-    .single()
-
   if (error || !job) notFound()
-
-  // Load assigned workers with payroll fields for costing.
-  // Phase E — also select the pay snapshot columns so ApproveHours
-  // can render its read-only summary once approval has happened.
-  const { data: jobWorkers } = await supabase
-    .from('job_workers')
-    .select('contractor_id, hours_allocated, actual_start_time, actual_end_time, actual_hours, pay_rate, pay_type, approved_hours, approved_at, approved_by, pay_status, contractors ( full_name, hourly_rate, worker_type, holiday_pay_method, holiday_pay_percent, kiwisaver_enrolled, kiwisaver_employer_rate )')
-    .eq('job_id', params.id)
 
   const client = job.clients as unknown as { name: string; company_name: string | null } | null
 
