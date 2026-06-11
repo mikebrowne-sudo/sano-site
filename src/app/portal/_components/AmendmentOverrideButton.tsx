@@ -13,23 +13,41 @@
 import { useState, useTransition } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { ShieldAlert, X } from 'lucide-react'
+import { logAmendmentOverride } from '../_actions-amendment'
 
 export function AmendmentOverrideButton({
   invoiceNumber,
   /** Entity label used in the warning copy. */
   entity,
+  /** The quote/job id — used to audit-log the override reason. */
+  entityId,
 }: {
   invoiceNumber: string
   entity: 'quote' | 'job'
+  entityId: string
 }) {
   const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  const [err, setErr] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
   function confirm() {
-    startTransition(() => {
+    const trimmed = reason.trim()
+    if (!trimmed) {
+      setErr('Please enter a reason for this change.')
+      return
+    }
+    setErr(null)
+    startTransition(async () => {
+      // Record WHO / WHY at the approval gate before entering override mode.
+      const result = await logAmendmentOverride({ entity, entityId, invoiceNumber, reason: trimmed })
+      if (result && 'error' in result) {
+        setErr(result.error)
+        return
+      }
       const params = new URLSearchParams(searchParams.toString())
       params.set('override', '1')
       router.push(`${pathname}?${params.toString()}`)
@@ -86,6 +104,19 @@ export function AmendmentOverrideButton({
                 Use this only to reconcile genuine billing errors or post-invoice
                 amendments the customer has agreed to.
               </p>
+              <div>
+                <label htmlFor="amendment-reason" className="block text-sm font-medium text-sage-800 mb-1">
+                  Reason for this change
+                </label>
+                <textarea
+                  id="amendment-reason"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="e.g. Property manager requested an updated scope after sign-off."
+                  className="w-full border border-sage-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-sage-500 min-h-[80px]"
+                />
+                {err && <p className="text-xs text-red-700 mt-1">{err}</p>}
+              </div>
             </div>
             <footer className="flex items-center justify-end gap-2 border-t border-gray-100 p-5">
               <button
@@ -98,11 +129,11 @@ export function AmendmentOverrideButton({
               <button
                 type="button"
                 onClick={confirm}
-                disabled={isPending}
+                disabled={isPending || !reason.trim()}
                 aria-busy={isPending || undefined}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-amber-700 hover:bg-amber-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {isPending ? 'Opening…' : 'Edit anyway'}
+                {isPending ? 'Saving…' : 'Edit anyway'}
               </button>
             </footer>
           </div>

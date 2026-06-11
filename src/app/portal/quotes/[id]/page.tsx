@@ -371,6 +371,7 @@ export default async function QuoteDetailPage({
               <AmendmentOverrideButton
                 invoiceNumber={linkedInvoice.invoice_number ?? ''}
                 entity="quote"
+                entityId={params.id}
               />
             ) : undefined
           }

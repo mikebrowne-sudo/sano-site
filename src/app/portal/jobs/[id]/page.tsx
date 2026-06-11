@@ -275,7 +275,7 @@ export default async function JobDetailPage({
           invoiceHref={`/portal/invoices/${job.invoice_id}`}
           override={
             isAdmin ? (
-              <AmendmentOverrideButton invoiceNumber={invoiceNumber} entity="job" />
+              <AmendmentOverrideButton invoiceNumber={invoiceNumber} entity="job" entityId={params.id} />
             ) : undefined
           }
         />
