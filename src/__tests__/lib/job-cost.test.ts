@@ -155,21 +155,21 @@ describe('getJobLabourCost', () => {
 
 describe('getWorkerVariance (approved extra hours)', () => {
   it('is zero when there are no approved extra hours', () => {
-    expect(getWorkerVariance(jw({ pay_rate: 50, hours_allocated: 4 }), 4)).toEqual({ hoursVariance: 0, costVariance: 0 })
+    expect(getWorkerVariance(jw({ pay_rate: 50, hours_allocated: 4 }))).toEqual({ hoursVariance: 0, costVariance: 0 })
   })
 
   it('reports approved extra hours and their cost', () => {
-    const v = getWorkerVariance(jw({ pay_rate: 50, hours_allocated: 4, extra_hours: 2, extra_hours_status: 'approved' }), 4)
+    const v = getWorkerVariance(jw({ pay_rate: 50, hours_allocated: 4, extra_hours: 2, extra_hours_status: 'approved' }))
     expect(v).toEqual({ hoursVariance: 2, costVariance: 100 })
   })
 
   it('ignores unapproved extra hours', () => {
-    const v = getWorkerVariance(jw({ pay_rate: 50, hours_allocated: 4, extra_hours: 2, extra_hours_status: 'pending' }), 4)
+    const v = getWorkerVariance(jw({ pay_rate: 50, hours_allocated: 4, extra_hours: 2, extra_hours_status: 'pending' }))
     expect(v).toEqual({ hoursVariance: 0, costVariance: 0 })
   })
 
   it('uses contractor_hourly_rate for the cost when pay_rate is null', () => {
-    const v = getWorkerVariance(jw({ pay_rate: null, contractor_hourly_rate: 45, hours_allocated: 4, extra_hours: 2, extra_hours_status: 'approved' }), 4)
+    const v = getWorkerVariance(jw({ pay_rate: null, contractor_hourly_rate: 45, hours_allocated: 4, extra_hours: 2, extra_hours_status: 'approved' }))
     expect(v).toEqual({ hoursVariance: 2, costVariance: 90 })
   })
 })

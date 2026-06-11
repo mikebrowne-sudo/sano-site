@@ -162,7 +162,6 @@ export function getJobLabourCost(jobWorkers: JobWorkerCostInput[] | null | undef
  */
 export function getWorkerVariance(
   jw: JobWorkerCostInput,
-  _allowedHours: number | null,
 ): JobWorkerVariance | null {
   // In the allowed-hours model the only variance is APPROVED extra hours
   // (the job ran over and an admin signed it off).
