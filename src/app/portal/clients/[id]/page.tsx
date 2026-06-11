@@ -31,15 +31,19 @@ type AuditEntry = {
 export default async function ClientDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
 
-  const { data: client, error } = await supabase
-    .from('clients')
-    .select('id, name, company_name, email, phone, service_address, billing_address, billing_same_as_service, notes, auth_user_id, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, is_archived, archived_at')
-    .eq('id', params.id)
-    .single()
+  // Perf — auth is independent of the client record, so fetch both
+  // concurrently instead of sequentially (saves a round-trip).
+  const [{ data: client, error }, { data: { user } }] = await Promise.all([
+    supabase
+      .from('clients')
+      .select('id, name, company_name, email, phone, service_address, billing_address, billing_same_as_service, notes, auth_user_id, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, is_archived, archived_at')
+      .eq('id', params.id)
+      .single(),
+    supabase.auth.getUser(),
+  ])
 
   if (error || !client) notFound()
 
-  const { data: { user } } = await supabase.auth.getUser()
   const isAdmin = isAdminUser(user)
 
   // Each parallel branch is wrapped so a single failure (RLS edge,

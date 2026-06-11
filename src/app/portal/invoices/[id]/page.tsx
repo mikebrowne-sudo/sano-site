@@ -30,13 +30,12 @@ function fmtDate(iso: string | null) {
 
 export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  const isAdmin = isAdminUser(user)
-  // Phase 5.5.14 — cleanup mode gates the per-record lifecycle UI.
-  const cleanup = await getCleanupAccess(supabase)
-  const canCleanup = cleanup.canCleanup
-
-  const [{ data: invoice, error }, { data: items }] = await Promise.all([
+  // Perf — auth + cleanup gate are independent of the id-keyed invoice
+  // and items reads, so run all four concurrently instead of stacking.
+  // Phase 5.5.14 — cleanup mode still gates the per-record lifecycle UI.
+  const [{ data: { user } }, cleanup, { data: invoice, error }, { data: items }] = await Promise.all([
+    supabase.auth.getUser(),
+    getCleanupAccess(supabase),
     supabase
       .from('invoices')
       .select(`
@@ -65,6 +64,8 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       .eq('invoice_id', params.id)
       .order('sort_order'),
   ])
+  const isAdmin = isAdminUser(user)
+  const canCleanup = cleanup.canCleanup
 
   if (error || !invoice) notFound()
 
