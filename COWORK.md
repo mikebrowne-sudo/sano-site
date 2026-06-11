@@ -1,6 +1,8 @@
 # COWORK.md — Sano Portal (code repo)
 
-> **For Claude Cowork desktop sessions starting in `F:\Sano\01-Site\` (the Sano website / portal / CRM code repo).** Read this first; it overrides the generic [Cowork Session Starter](F:\Second Brain\06 Prompts\General\Cowork Session Starter.md).
+> **Paths:** `C:\Projects\...` is canonical on this machine. `D:\` is the old read-only safety/source copy. `F:\` does not exist — ignore old `F:\` paths unless clearly marked as historical.
+
+> **For Claude Cowork desktop sessions starting in `C:\Projects\Sano\01-Site\` (the Sano website / portal / CRM code repo).** Read this first; it overrides the generic [Cowork Session Starter](C:\Second Brain\06 Prompts\General\Cowork Session Starter.md).
 >
 > **Claude Code is preferred for actual code changes.** Cowork is for thinking, planning, reviewing, and documentation. If the task requires editing files in this repo, redirect to Claude Code (open VS Code via the Sano launcher, run `/start-session`).
 
@@ -8,7 +10,7 @@
 
 Sano website + portal + CRM. Production at https://sano.nz. Two surfaces in one Next.js codebase (Next.js 14, TypeScript, Tailwind, Supabase, Resend, Stripe, Twilio, Mapbox, Puppeteer). Deployed via Netlify (`sanonz1`) from `main`.
 
-For wider Sano business work (branding, accounting, contractors, ops), use [F:\Sano\COWORK.md](F:\Sano\COWORK.md) instead.
+For wider Sano business work (branding, accounting, contractors, ops), use [C:\Projects\Sano\COWORK.md](C:\Projects\Sano\COWORK.md) instead.
 
 ## What Cowork is good for here
 
@@ -37,11 +39,11 @@ Before doing anything substantive:
 1. Confirm scope: is this code-editing or planning / review / docs? If code-editing → redirect to Claude Code.
 2. Confirm current branch and working tree (ask me — Cowork doesn't have live git access). **Normal work should start from `main`.** If I'm already on a feature branch, confirm that's intentional.
 3. Read the relevant repo docs as needed:
-   - `F:\Sano\01-Site\CLAUDE.md` — first 60 seconds of repo orientation
-   - `F:\Sano\01-Site\docs\AI\SANO_EXECUTION_MODE.md` — operating mode + hard-stop list
-   - `F:\Sano\01-Site\docs\PORTAL.md` — master architecture brief
-   - `F:\Sano\01-Site\docs\AI\STATE.md`, `NEXT.md`, `DECISIONS.md`, `ROADMAP.md` — current status
-4. Confirm the summary save path: `F:\Second Brain\04 Claude Sessions\Sano\YYYY-MM-DD-<short-slug>.md`.
+   - `C:\Projects\Sano\01-Site\CLAUDE.md` — first 60 seconds of repo orientation
+   - `C:\Projects\Sano\01-Site\docs\AI\SANO_EXECUTION_MODE.md` — operating mode + hard-stop list
+   - `C:\Projects\Sano\01-Site\docs\PORTAL.md` — master architecture brief
+   - `C:\Projects\Sano\01-Site\docs\AI\STATE.md`, `NEXT.md`, `DECISIONS.md`, `ROADMAP.md` — current status
+4. Confirm the summary save path: `C:\Second Brain\04 Claude Sessions\Sano\YYYY-MM-DD-<short-slug>.md`.
 5. Wait for the actual task.
 
 ## CI parity reminders (before calling code work complete)
@@ -59,24 +61,24 @@ The Sano pre-push gauntlet hook (`~/.claude/hooks/sano-pre-push-gauntlet.sh`) ru
 
 If the session produced anything load-bearing, suggest updates to:
 
-- `F:\Sano\01-Site\docs\PORTAL.md` — master architecture; phase history; recently-shipped features
-- `F:\Sano\01-Site\docs\AI\STATE.md` — what's currently live
-- `F:\Sano\01-Site\docs\AI\NEXT.md` — immediate queue
-- `F:\Sano\01-Site\docs\AI\DECISIONS.md` — architectural decisions log
-- `F:\Sano\01-Site\docs\AI\ROADMAP.md` — sequencing
+- `C:\Projects\Sano\01-Site\docs\PORTAL.md` — master architecture; phase history; recently-shipped features
+- `C:\Projects\Sano\01-Site\docs\AI\STATE.md` — what's currently live
+- `C:\Projects\Sano\01-Site\docs\AI\NEXT.md` — immediate queue
+- `C:\Projects\Sano\01-Site\docs\AI\DECISIONS.md` — architectural decisions log
+- `C:\Projects\Sano\01-Site\docs\AI\ROADMAP.md` — sequencing
 
 Suggest exact 1-2 line snippets I can paste; don't edit them from Cowork.
 
 ## Second Brain capture rules
 
-- **Session summaries**: `F:\Second Brain\04 Claude Sessions\Sano\YYYY-MM-DD-<short-slug>.md`
-- **Reusable prompts** (e.g., the actual Claude Code prompt to run after this Cowork planning session): `F:\Second Brain\06 Prompts\Sano\<name>.md`
-- **Cross-project / personal decisions**: vault `F:\Second Brain\05 Decisions\YYYY-MM-DD-<slug>.md`
-- **Portal architecture decisions**: repo `F:\Sano\01-Site\docs\AI\DECISIONS.md` (canonical — point at it, suggest the snippet, don't edit yourself)
+- **Session summaries**: `C:\Second Brain\04 Claude Sessions\Sano\YYYY-MM-DD-<short-slug>.md`
+- **Reusable prompts** (e.g., the actual Claude Code prompt to run after this Cowork planning session): `C:\Second Brain\06 Prompts\Sano\<name>.md`
+- **Cross-project / personal decisions**: vault `C:\Second Brain\05 Decisions\YYYY-MM-DD-<slug>.md`
+- **Portal architecture decisions**: repo `C:\Projects\Sano\01-Site\docs\AI\DECISIONS.md` (canonical — point at it, suggest the snippet, don't edit yourself)
 
 ## End-of-session summary requirement
 
-At the end of meaningful sessions, produce a summary and save to `F:\Second Brain\04 Claude Sessions\Sano\YYYY-MM-DD-<short-slug>.md`:
+At the end of meaningful sessions, produce a summary and save to `C:\Second Brain\04 Claude Sessions\Sano\YYYY-MM-DD-<short-slug>.md`:
 
 ```
 ---
@@ -102,7 +104,7 @@ scope: <planning | review | docs | UX | project-mgmt | other>
 <non-trivial calls with the *why*>
 
 ## Recommended Claude Code prompt
-<the literal prompt to paste into Claude Code in F:\Sano\01-Site to do the actual work>
+<the literal prompt to paste into Claude Code in C:\Projects\Sano\01-Site to do the actual work>
 
 ## CI parity reminder (before claiming done)
 - npm test (baseline 3 failures — submit-application, services, Header)
@@ -140,10 +142,10 @@ scope: <planning | review | docs | UX | project-mgmt | other>
 
 ## See also
 
-- Wider Sano business: `F:\Sano\COWORK.md`
-- Sano repo orientation: `F:\Sano\01-Site\CLAUDE.md`
-- Operating mode: `F:\Sano\01-Site\docs\AI\SANO_EXECUTION_MODE.md`
-- Architecture brief: `F:\Sano\01-Site\docs\PORTAL.md`
-- Sano Portal hub: `F:\Second Brain\03 Active Projects\Sano Portal\Sano Portal.md`
-- Generic Cowork starter: `F:\Second Brain\06 Prompts\General\Cowork Session Starter.md`
-- Workflow: `F:\Second Brain\99 System\Session Workflow.md`
+- Wider Sano business: `C:\Projects\Sano\COWORK.md`
+- Sano repo orientation: `C:\Projects\Sano\01-Site\CLAUDE.md`
+- Operating mode: `C:\Projects\Sano\01-Site\docs\AI\SANO_EXECUTION_MODE.md`
+- Architecture brief: `C:\Projects\Sano\01-Site\docs\PORTAL.md`
+- Sano Portal hub: `C:\Second Brain\03 Active Projects\Sano Portal\Sano Portal.md`
+- Generic Cowork starter: `C:\Second Brain\06 Prompts\General\Cowork Session Starter.md`
+- Workflow: `C:\Second Brain\99 System\Session Workflow.md`

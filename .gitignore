@@ -48,3 +48,6 @@ docs/compliance/
 
 # Local-only template-extraction outputs (scripts/extract-standalone-*.mjs)
 .standalone-out/
+
+# Local Netlify folder
+.netlify

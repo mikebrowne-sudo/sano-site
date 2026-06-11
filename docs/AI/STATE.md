@@ -12,6 +12,7 @@
 - Stripe-powered Pay-Now button on share-page invoices.
 - Twilio SMS notifications (Phase H).
 - Mapbox NZ-biased address autocomplete.
+- Mike's email signature preview routes on the Sano domain: `/email-signature` (Sano default), `/email-signature-michael` (Sano/Michael), `/email-signature-mammoth` (Mammoth Full — badges + live HTML Take-Back), `/email-signature-mammoth-a` (Mammoth slim, no Take-Back), `/email-signature-mammoth-b` (Mammoth slim + Take-Back). Mammoth banner assets hosted under `public/email/`. PRs #196 / #197 / #198.
 
 ## Most recent shipped phase
 **Phase J - Quote & Invoice PDF** (per [`docs/PORTAL.md`](../PORTAL.md) "Phase J - Quote & Invoice PDF"). 5 server-rendered PDF routes share `src/lib/pdf/render-pdf.ts` (`puppeteer-core` + `@sparticuz/chromium`). Send Quote / Send Invoice emails auto-attach the share-page PDF with a fail-fast contract. Branch-shipped on `feat/quote-invoice-pdf`.
@@ -27,6 +28,7 @@
 ## Known caveats
 - Do **NOT** set `PUPPETEER_EXECUTABLE_PATH` in Netlify production env. Local `.env.local` only.
 - `docs/compliance/` and `docs/AI/New Text Document.txt` are untracked operational scratch - never `git add`.
+- **Production outage 2026-05-31 04:05–04:29 UTC** — every Next.js-handled route (including `/favicon.ico`) returned plain-text `Internal Server Error` while static files served fine. Rollback to a prior known-good SHA did NOT fix it; a fresh redeploy of the same source DID. Strong evidence: bad Netlify function bundle / artifact corruption, not a code regression. **Recovery rule: when symptoms match (dynamic routes 500, static files 200, no `X-Powered-By: Next.js`), Netlify dashboard → Deploys → Trigger deploy → "Clear cache and deploy site" BEFORE attempting a source rollback.** Prevention items queued in [`NEXT.md`](./NEXT.md).
 
 ## How to update this doc
 - Append-style entries are fine but keep the "Live in production today" list short and accurate.

@@ -3,6 +3,8 @@
 > Auto-loaded by Claude Code when working in this repo. This file is a
 > **navigation hub** — it tells Claude where to find the deep info,
 > not the info itself. Keep it slim.
+>
+> **Paths:** `C:\Projects\...` is canonical on this machine. `D:\` is the old read-only safety/source copy. `F:\` does not exist — ignore old `F:\` paths unless clearly marked as historical.
 
 ## Read these first (in this order)
 
@@ -21,13 +23,13 @@ Short, current. Link to PORTAL.md for depth.
 - **[`docs/AI/NEXT.md`](docs/AI/NEXT.md)** — immediate queue.
 - **[`docs/AI/ROADMAP.md`](docs/AI/ROADMAP.md)** — sequencing.
 - **[`docs/AI/DECISIONS.md`](docs/AI/DECISIONS.md)** — architectural decisions log.
-- **[`docs/AI/OBSIDIAN_SECOND_BRAIN.md`](docs/AI/OBSIDIAN_SECOND_BRAIN.md)** — Obsidian vault pointer (`F:\Second Brain\`).
+- **[`docs/AI/OBSIDIAN_SECOND_BRAIN.md`](docs/AI/OBSIDIAN_SECOND_BRAIN.md)** — Obsidian vault pointer (`C:\Second Brain\`).
 
 ---
 
 ## Quick orient
 
-- **Repo root:** `F:\Sano\01-Site\`
+- **Repo root:** `C:\Projects\Sano\01-Site\`
 - **GitHub:** `mikebrowne-sudo/sano-site`
 - **Live site:** https://sano.nz
 - **Netlify project:** `sanonz1` — auto-deploys from GitHub `main`, PR previews per branch
@@ -123,13 +125,13 @@ Tailwind tokens live in `tailwind.config.ts` (sage palette). Type styles in `src
 
 - Auto-deploys from GitHub `main`; PR previews per branch.
 - Required env (verify via `netlify env:list` — never read `.env*` files directly):
-  - `RESEND_API_KEY`, `SANO_NOTIFY_EMAIL`
+  - `RESEND_API_KEY`, `SANO_NOTIFY_EMAIL`, `SANO_EMAIL_REPLY_TO`
   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
   - `NEXT_PUBLIC_SITE_URL`
   - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
   - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_MESSAGING_SERVICE_SID`
   - `NEXT_PUBLIC_MAPBOX_TOKEN`
-  - `CRON_SECRET`, `REVIEW_ID`, `NEXT_TELEMETRY_DISABLED`
+  - `CRON_SECRET`, `NEXT_TELEMETRY_DISABLED`
 - **Do NOT set `PUPPETEER_EXECUTABLE_PATH` in production** — it forces a local Chrome path; `@sparticuz/chromium` handles Lambda. Only set in local `.env.local` for dev.
 
 ### Supabase
@@ -180,7 +182,7 @@ Deeper detail and remaining work → [`docs/PORTAL.md`](docs/PORTAL.md) "Phase J
 
 ## What NOT to commit
 
-- Anything from `F:\Sano\30-Accounting\`, `F:\Sano\40-Business\`, or outside this repo root.
+- Anything from `C:\Projects\Sano\30-Accounting\`, `C:\Projects\Sano\40-Business\`, or outside this repo root.
 - `docs/compliance/` and `docs/AI/New Text Document.txt` — pre-existing untracked operational scratch dirs/files. Treat as human-managed.
 - `.env`, `.env.local`, `.env.production` — secrets.
 - `.next/`, `node_modules/`.
