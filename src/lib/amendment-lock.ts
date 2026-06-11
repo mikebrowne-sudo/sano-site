@@ -1,11 +1,11 @@
-// Phase 5B — Invoice-existence lock for material quote/job amendments.
+// Phase 5B — Invoice-sent lock for material quote/job amendments.
 //
 // Business rule:
-//   Until an invoice exists on the chain (quote → job → invoice),
-//   staff can freely amend material fields. Once an invoice exists,
-//   material edits are blocked for normal staff. Admin can override
-//   with an explicit `force: true` flag — every override is audit-
-//   logged.
+//   Until an invoice has been SENT on the chain (quote → job → invoice),
+//   staff can freely amend material fields. Once an invoice is sent,
+//   material edits are blocked for normal staff. Admin can override with
+//   an explicit `force: true` flag + a reason — every override is audit-
+//   logged with the reason.
 //
 // One concept, one lock helper, one guard. The previous status-string
 // gates (isQuoteLocked) stay exported but are now legacy — code should
@@ -17,40 +17,47 @@ import { isAdminUser } from './is-admin'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SB = SupabaseClient<any, 'public'>
 
-/** True when a linked invoice exists. Single rule, single signal. */
+/** True when a (sent) locking invoice id was resolved. */
 export function isLockedByInvoice(linkedInvoiceId: string | null | undefined): boolean {
   return !!linkedInvoiceId
 }
 
+// An invoice only locks the chain once it has actually been SENT to the
+// client (or progressed beyond — paid / overdue). A draft invoice that
+// hasn't gone out yet leaves the quote/job freely amendable; a cancelled
+// invoice is void and never locks.
+const LOCKING_INVOICE_STATUSES = ['sent', 'paid', 'overdue']
+
 // ── Resolve the locking invoice ─────────────────────────────────────
 
 /**
- * Find any invoice that locks edits on the given quote. An invoice
- * locks a quote when either:
+ * Find a SENT invoice that locks edits on the given quote. An invoice
+ * locks a quote when it has been sent and either:
  *   - it has invoice.quote_id pointing at this quote, OR
  *   - it has invoice.job_id pointing at a job whose quote_id is this quote
  *
- * Returns the first matching invoice id or null. Used by every quote-
- * side write path before applying a material change.
+ * Returns the first matching (sent) invoice id or null. Used by every
+ * quote-side write path before applying a material change.
  */
 export async function findLockingInvoiceForQuote(
   supabase: SB,
   quoteId: string,
 ): Promise<string | null> {
-  // Direct: an invoice was created with quote_id pointing at this quote.
+  // Direct: a SENT invoice with quote_id pointing at this quote.
   const { data: directInv } = await supabase
     .from('invoices')
     .select('id')
     .eq('quote_id', quoteId)
+    .in('status', LOCKING_INVOICE_STATUSES)
     .is('deleted_at', null)
     .limit(1)
     .maybeSingle()
   if (directInv?.id) return directInv.id as string
 
-  // Indirect: a job was created from this quote and that job has an
-  // invoice. createInvoiceFromJob populates invoices.quote_id, so the
-  // direct check above usually catches this — but a job created with
-  // a custom invoice flow may have invoice_id without invoices.quote_id.
+  // Indirect: a job created from this quote whose invoice has been sent.
+  // (createInvoiceFromJob populates invoices.quote_id so the direct check
+  // usually catches this — but a custom-invoice job may only have
+  // jobs.invoice_id.)
   const { data: jobWithInv } = await supabase
     .from('jobs')
     .select('invoice_id')
@@ -59,23 +66,43 @@ export async function findLockingInvoiceForQuote(
     .not('invoice_id', 'is', null)
     .limit(1)
     .maybeSingle()
-  return (jobWithInv?.invoice_id as string | null) ?? null
+  if (!jobWithInv?.invoice_id) return null
+
+  // Only treat it as a lock once that invoice has actually been sent.
+  const { data: indirectInv } = await supabase
+    .from('invoices')
+    .select('id')
+    .eq('id', jobWithInv.invoice_id as string)
+    .in('status', LOCKING_INVOICE_STATUSES)
+    .is('deleted_at', null)
+    .maybeSingle()
+  return (indirectInv?.id as string | null) ?? null
 }
 
 /**
- * Find the invoice locking edits on the given job. A job is locked
- * when jobs.invoice_id is set. Returns the invoice id or null.
+ * Find the invoice locking edits on the given job. A job is locked when
+ * jobs.invoice_id is set AND that invoice has been sent. Returns the
+ * invoice id or null.
  */
 export async function findLockingInvoiceForJob(
   supabase: SB,
   jobId: string,
 ): Promise<string | null> {
-  const { data } = await supabase
+  const { data: job } = await supabase
     .from('jobs')
     .select('invoice_id')
     .eq('id', jobId)
     .maybeSingle()
-  return (data?.invoice_id as string | null) ?? null
+  if (!job?.invoice_id) return null
+
+  const { data: inv } = await supabase
+    .from('invoices')
+    .select('id')
+    .eq('id', job.invoice_id as string)
+    .in('status', LOCKING_INVOICE_STATUSES)
+    .is('deleted_at', null)
+    .maybeSingle()
+  return (inv?.id as string | null) ?? null
 }
 
 // ── The guard ───────────────────────────────────────────────────────
@@ -115,7 +142,7 @@ export function assertCanAmend(input: AmendmentGuardInput): AmendmentGuardResult
     return { ok: true, overridden: true }
   }
   return {
-    error: 'This record is locked because an invoice has been created. Admin override is required to amend.',
+    error: 'This record is locked because an invoice has been sent. Admin override (with a reason) is required to amend.',
   }
 }
 
@@ -145,6 +172,10 @@ export interface WriteAmendmentAuditInput {
  * after the write succeeds; doesn't throw on audit failure (audit is
  * append-only history, not a transaction). Failures log to console
  * for ops visibility.
+ *
+ * Note: the operator's *reason* for an override is captured separately at
+ * the approval gate by `logAmendmentOverride` (a distinct, earlier audit
+ * row) — see src/app/portal/_actions-amendment.ts.
  */
 export async function writeAmendmentAudit(input: WriteAmendmentAuditInput): Promise<void> {
   try {
