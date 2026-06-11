@@ -33,28 +33,24 @@ import { loadJobSettings } from '@/lib/job-settings'
 export interface ApproveJobWorkerHoursInput {
   jobId: string
   contractorId: string
-  approvedHours: number
   note?: string | null
 }
 
 export async function approveJobWorkerHours(input: ApproveJobWorkerHoursInput) {
   const supabase = createClient()
-  const { jobId, contractorId, approvedHours, note } = input
+  const { jobId, contractorId, note } = input
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
   if (!isAdminEmail(user.email)) return { error: 'Admin only.' }
 
   if (!jobId || !contractorId) return { error: 'Job and contractor are required.' }
-  if (!Number.isFinite(approvedHours) || approvedHours < 0) {
-    return { error: 'Approved hours must be zero or more.' }
-  }
 
   // Job guardrails — must exist, not archived, must be completed
   // or invoiced, optionally require a review gate.
   const { data: job, error: jobErr } = await supabase
     .from('jobs')
-    .select('id, status, deleted_at, reviewed_at')
+    .select('id, status, deleted_at, reviewed_at, allowed_hours')
     .eq('id', jobId)
     .single()
   if (jobErr || !job) return { error: 'Job not found.' }
@@ -73,7 +69,7 @@ export async function approveJobWorkerHours(input: ApproveJobWorkerHoursInput) {
   // Worker row must exist + not already beyond "approved".
   const { data: worker, error: wErr } = await supabase
     .from('job_workers')
-    .select('job_id, contractor_id, pay_status')
+    .select('job_id, contractor_id, pay_status, hours_allocated, extra_hours, extra_hours_status')
     .eq('job_id', jobId)
     .eq('contractor_id', contractorId)
     .single()
@@ -85,6 +81,20 @@ export async function approveJobWorkerHours(input: ApproveJobWorkerHoursInput) {
   }
   if (worker.pay_status === 'paid') {
     return { error: 'Worker has already been paid for this job.' }
+  }
+
+  // Allowed-hours model: payable hours are computed, not typed.
+  // payable = (this worker's allowed hours, falling back to the job's
+  // allowed_hours) + any admin-APPROVED extra hours. Pending / rejected
+  // extra never counts.
+  const allowed = worker.hours_allocated ?? job.allowed_hours ?? 0
+  const approvedExtra = worker.extra_hours_status === 'approved' ? (worker.extra_hours ?? 0) : 0
+  const approvedHours = Math.round((allowed + approvedExtra) * 100) / 100
+  if (worker.extra_hours_status === 'pending') {
+    return { error: 'This worker has extra hours awaiting sign-off. Approve or decline them before approving pay.' }
+  }
+  if (!Number.isFinite(approvedHours) || approvedHours <= 0) {
+    return { error: 'This worker has no allowed hours set. Set allowed hours on the job before approving pay.' }
   }
 
   // Snapshot the contractor's current rate. This value is stored
