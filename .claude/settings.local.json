@@ -49,7 +49,11 @@
       "Bash(node _build_health_safety_plan.js)",
       "Bash(node _build_harm_register.js)",
       "Bash(rm -rf _extracted _extract_for_review.js)",
-      "Bash(node _build_all.js)"
+      "Bash(node _build_all.js)",
+      "Bash(git fetch *)",
+      "Bash(git rev-list *)",
+      "Bash(gh --version)",
+      "Bash(gh auth *)"
     ]
   }
 }
