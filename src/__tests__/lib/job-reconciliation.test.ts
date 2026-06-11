@@ -478,11 +478,11 @@ describe('flagLowMargin', () => {
   })
 
   it('flags warning when margin is below 10%', () => {
-    // labour 470, price 500 → 6%
+    // labour 470 (10 allowed hrs × 47), price 500 → 6%
     const f = flagLowMargin(
       makeInput({
         job: makeJob({ job_price: 500 }),
-        workers: [makeWorker({ pay_rate: 47, approved_hours: 10 })],
+        workers: [makeWorker({ pay_rate: 47, hours_allocated: 10 })],
       }),
     )
     expect(f).toMatchObject({ flag: 'low-margin', severity: 'warning' })
@@ -490,11 +490,11 @@ describe('flagLowMargin', () => {
   })
 
   it('labels negative margin specifically', () => {
-    // labour 600, price 500 → -20%
+    // labour 600 (10 allowed hrs × 60), price 500 → -20%
     const f = flagLowMargin(
       makeInput({
         job: makeJob({ job_price: 500 }),
-        workers: [makeWorker({ pay_rate: 60, approved_hours: 10 })],
+        workers: [makeWorker({ pay_rate: 60, hours_allocated: 10 })],
       }),
     )
     expect(f?.message).toMatch(/^Negative margin/)

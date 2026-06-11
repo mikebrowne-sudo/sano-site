@@ -100,7 +100,7 @@ export default async function JobDetailPage({
     // snapshot columns included for the ApproveHours read-only summary).
     supabase
       .from('job_workers')
-      .select('contractor_id, hours_allocated, actual_start_time, actual_end_time, actual_hours, pay_rate, pay_type, approved_hours, approved_at, approved_by, pay_status, contractors ( full_name, hourly_rate, worker_type, holiday_pay_method, holiday_pay_percent, kiwisaver_enrolled, kiwisaver_employer_rate )')
+      .select('contractor_id, hours_allocated, actual_start_time, actual_end_time, actual_hours, pay_rate, pay_type, approved_hours, approved_at, approved_by, pay_status, extra_hours, extra_hours_status, extra_hours_reason, contractors ( full_name, hourly_rate, worker_type, holiday_pay_method, holiday_pay_percent, kiwisaver_enrolled, kiwisaver_employer_rate )')
       .eq('job_id', params.id),
   ])
   const isAdmin = isAdminUser(user)
@@ -510,6 +510,8 @@ export default async function JobDetailPage({
                 pay_rate: (w.pay_rate as number | null) ?? null,
                 hours_allocated: w.hours_allocated,
                 actual_hours: w.actual_hours ?? null,
+                extra_hours: (w.extra_hours as number | null) ?? 0,
+                extra_hours_status: (w.extra_hours_status as string | null) ?? 'none',
                 worker_type: c?.worker_type ?? 'contractor',
                 holiday_pay_method: c?.holiday_pay_method ?? null,
                 holiday_pay_percent: c?.holiday_pay_percent ?? null,

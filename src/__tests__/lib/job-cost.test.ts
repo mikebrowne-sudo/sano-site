@@ -1,10 +1,10 @@
 // Unit tests for the canonical contractor labour-cost helpers
-// (Phase G.1).
+// (allowed-hours model, 2026-06).
 //
-// These helpers are the single source of truth for "what does this
-// contractor cost on this job?" The tests guard the no-fabricated-cost
-// rule, the approved → actual fallback, and the pay_rate / hourly_rate
-// precedence.
+// Single source of truth for "what does this contractor cost on this
+// job?" Basis: rate × (hours_allocated + approved extra_hours), where
+// rate prefers job_workers.pay_rate over the contractor's hourly_rate.
+// No fabricated cost — 0 when there's no rate or no allocated hours.
 
 import {
   getWorkerPayableHours,
@@ -24,37 +24,37 @@ function jw(partial: Partial<JobWorkerCostInput> = {}): JobWorkerCostInput {
     approved_hours: null,
     actual_hours: null,
     hours_allocated: null,
+    extra_hours: 0,
+    extra_hours_status: 'none',
     ...partial,
   }
 }
 
-describe('getWorkerPayableHours', () => {
-  it('returns approved_hours when present', () => {
-    expect(getWorkerPayableHours(jw({ approved_hours: 4, actual_hours: 5 }))).toBe(4)
+describe('getWorkerPayableHours (allowed + approved extra)', () => {
+  it('returns allocated hours when there is no extra', () => {
+    expect(getWorkerPayableHours(jw({ hours_allocated: 4 }))).toBe(4)
   })
 
-  it('falls back to actual_hours when approved is null', () => {
-    expect(getWorkerPayableHours(jw({ approved_hours: null, actual_hours: 5 }))).toBe(5)
+  it('adds admin-approved extra hours', () => {
+    expect(getWorkerPayableHours(jw({ hours_allocated: 4, extra_hours: 2, extra_hours_status: 'approved' }))).toBe(6)
   })
 
-  it('does NOT fall back to hours_allocated', () => {
-    expect(getWorkerPayableHours(jw({ approved_hours: null, actual_hours: null, hours_allocated: 4 }))).toBeNull()
+  it('ignores unapproved (pending / rejected) extra hours', () => {
+    expect(getWorkerPayableHours(jw({ hours_allocated: 4, extra_hours: 2, extra_hours_status: 'pending' }))).toBe(4)
+    expect(getWorkerPayableHours(jw({ hours_allocated: 4, extra_hours: 2, extra_hours_status: 'rejected' }))).toBe(4)
   })
 
-  it('returns null when both approved and actual are null', () => {
+  it('returns null when allocated hours are not set', () => {
     expect(getWorkerPayableHours(jw({}))).toBeNull()
   })
 
-  it('treats 0 as a valid value (not a missing value)', () => {
-    expect(getWorkerPayableHours(jw({ approved_hours: 0 }))).toBe(0)
-    expect(getWorkerPayableHours(jw({ approved_hours: null, actual_hours: 0 }))).toBe(0)
+  it('treats 0 allocated as a valid value (not missing)', () => {
+    expect(getWorkerPayableHours(jw({ hours_allocated: 0 }))).toBe(0)
   })
 })
 
 describe('getWorkerEstimatedHours', () => {
-  it('follows approved → actual → allocated fallback chain', () => {
-    expect(getWorkerEstimatedHours(jw({ approved_hours: 3, actual_hours: 5, hours_allocated: 4 }))).toBe(3)
-    expect(getWorkerEstimatedHours(jw({ actual_hours: 5, hours_allocated: 4 }))).toBe(5)
+  it('returns the allocated baseline', () => {
     expect(getWorkerEstimatedHours(jw({ hours_allocated: 4 }))).toBe(4)
     expect(getWorkerEstimatedHours(jw({}))).toBeNull()
   })
@@ -80,34 +80,28 @@ describe('getWorkerRate', () => {
 })
 
 describe('getWorkerLabourCost', () => {
-  it('uses pay_rate × approved_hours when both present', () => {
-    expect(getWorkerLabourCost(jw({ pay_rate: 50, approved_hours: 4 }))).toBe(200)
+  it('uses pay_rate × allocated hours', () => {
+    expect(getWorkerLabourCost(jw({ pay_rate: 50, hours_allocated: 4 }))).toBe(200)
   })
 
-  it('uses pay_rate × actual_hours when approved is missing', () => {
-    expect(getWorkerLabourCost(jw({ pay_rate: 50, actual_hours: 4.5 }))).toBe(225)
+  it('adds approved extra hours to the cost', () => {
+    expect(getWorkerLabourCost(jw({ pay_rate: 50, hours_allocated: 4, extra_hours: 1, extra_hours_status: 'approved' }))).toBe(250)
   })
 
-  it('falls back to contractor_hourly_rate when pay_rate is null', () => {
-    // Transitional path for historical rows that pre-date the
-    // Phase G.1 assignment-time snapshot.
-    expect(getWorkerLabourCost(jw({ pay_rate: null, contractor_hourly_rate: 45, approved_hours: 4 }))).toBe(180)
+  it('falls back to contractor_hourly_rate when pay_rate is null (historical row)', () => {
+    expect(getWorkerLabourCost(jw({ pay_rate: null, contractor_hourly_rate: 45, hours_allocated: 4 }))).toBe(180)
   })
 
   it('prefers pay_rate over contractor_hourly_rate when both are set', () => {
-    expect(getWorkerLabourCost(jw({ pay_rate: 50, contractor_hourly_rate: 99, approved_hours: 4 }))).toBe(200)
+    expect(getWorkerLabourCost(jw({ pay_rate: 50, contractor_hourly_rate: 99, hours_allocated: 4 }))).toBe(200)
   })
 
-  it('returns 0 only when both pay_rate AND contractor_hourly_rate are null', () => {
-    expect(getWorkerLabourCost(jw({ pay_rate: null, contractor_hourly_rate: null, approved_hours: 4 }))).toBe(0)
+  it('returns 0 when both pay_rate AND contractor_hourly_rate are null', () => {
+    expect(getWorkerLabourCost(jw({ pay_rate: null, contractor_hourly_rate: null, hours_allocated: 4 }))).toBe(0)
   })
 
-  it('returns 0 when payable hours are null (no fabricated cost)', () => {
-    expect(getWorkerLabourCost(jw({ pay_rate: 50, approved_hours: null, actual_hours: null }))).toBe(0)
-  })
-
-  it('does NOT fall back to hours_allocated for the cost calculation', () => {
-    expect(getWorkerLabourCost(jw({ pay_rate: 50, hours_allocated: 4 }))).toBe(0)
+  it('returns 0 when allocated hours are null (no fabricated cost)', () => {
+    expect(getWorkerLabourCost(jw({ pay_rate: 50, hours_allocated: null }))).toBe(0)
   })
 })
 
@@ -136,20 +130,20 @@ describe('getWorkerRateSource', () => {
 describe('getJobLabourCost', () => {
   it('sums per-worker labour cost across an array', () => {
     const workers = [
-      jw({ pay_rate: 50, approved_hours: 4 }), // 200
-      jw({ pay_rate: 40, actual_hours: 3 }),   // 120
-      jw({ pay_rate: null, contractor_hourly_rate: null, approved_hours: 2 }), // 0 (no rate at all)
+      jw({ pay_rate: 50, hours_allocated: 4 }), // 200
+      jw({ pay_rate: 40, hours_allocated: 3 }), // 120
+      jw({ pay_rate: null, contractor_hourly_rate: null, hours_allocated: 2 }), // 0 (no rate)
     ]
     expect(getJobLabourCost(workers)).toBe(320)
   })
 
-  it('mixes snapshotted and fallback-rate workers correctly', () => {
+  it('includes approved extra and mixes fallback-rate workers', () => {
     const workers = [
-      jw({ pay_rate: 50, approved_hours: 4 }),                                   // 200 (snapshot)
-      jw({ pay_rate: null, contractor_hourly_rate: 45, actual_hours: 3 }),       // 135 (estimate)
-      jw({ pay_rate: null, contractor_hourly_rate: null, approved_hours: 2 }),   //   0 (missing)
+      jw({ pay_rate: 50, hours_allocated: 4, extra_hours: 1, extra_hours_status: 'approved' }), // 250
+      jw({ pay_rate: null, contractor_hourly_rate: 45, hours_allocated: 3 }), // 135 (fallback)
+      jw({ pay_rate: null, contractor_hourly_rate: null, hours_allocated: 2 }), //   0 (missing)
     ]
-    expect(getJobLabourCost(workers)).toBe(335)
+    expect(getJobLabourCost(workers)).toBe(385)
   })
 
   it('returns 0 for empty / null / undefined input', () => {
@@ -159,37 +153,23 @@ describe('getJobLabourCost', () => {
   })
 })
 
-describe('getWorkerVariance', () => {
-  it('returns null when allowedHours is null', () => {
-    expect(getWorkerVariance(jw({ pay_rate: 50, actual_hours: 4 }), null)).toBeNull()
+describe('getWorkerVariance (approved extra hours)', () => {
+  it('is zero when there are no approved extra hours', () => {
+    expect(getWorkerVariance(jw({ pay_rate: 50, hours_allocated: 4 }), 4)).toEqual({ hoursVariance: 0, costVariance: 0 })
   })
 
-  it('returns null when payable hours are not yet known', () => {
-    expect(getWorkerVariance(jw({ pay_rate: 50 }), 4)).toBeNull()
+  it('reports approved extra hours and their cost', () => {
+    const v = getWorkerVariance(jw({ pay_rate: 50, hours_allocated: 4, extra_hours: 2, extra_hours_status: 'approved' }), 4)
+    expect(v).toEqual({ hoursVariance: 2, costVariance: 100 })
   })
 
-  it('computes positive variance when over allowed', () => {
-    const v = getWorkerVariance(jw({ pay_rate: 50, actual_hours: 5 }), 4)
-    expect(v).toEqual({ hoursVariance: 1, costVariance: 50 })
-  })
-
-  it('computes negative variance when under allowed', () => {
-    const v = getWorkerVariance(jw({ pay_rate: 50, approved_hours: 3 }), 4)
-    expect(v).toEqual({ hoursVariance: -1, costVariance: -50 })
-  })
-
-  it('prefers approved over actual for the variance', () => {
-    const v = getWorkerVariance(jw({ pay_rate: 50, approved_hours: 4, actual_hours: 6 }), 4)
+  it('ignores unapproved extra hours', () => {
+    const v = getWorkerVariance(jw({ pay_rate: 50, hours_allocated: 4, extra_hours: 2, extra_hours_status: 'pending' }), 4)
     expect(v).toEqual({ hoursVariance: 0, costVariance: 0 })
   })
 
-  it('uses pay_rate=0 fallback for cost variance when rate is null', () => {
-    const v = getWorkerVariance(jw({ pay_rate: null, actual_hours: 5 }), 4)
-    expect(v).toEqual({ hoursVariance: 1, costVariance: 0 })
-  })
-
-  it('uses contractor_hourly_rate for cost variance when pay_rate is null', () => {
-    const v = getWorkerVariance(jw({ pay_rate: null, contractor_hourly_rate: 45, actual_hours: 5 }), 4)
-    expect(v).toEqual({ hoursVariance: 1, costVariance: 45 })
+  it('uses contractor_hourly_rate for the cost when pay_rate is null', () => {
+    const v = getWorkerVariance(jw({ pay_rate: null, contractor_hourly_rate: 45, hours_allocated: 4, extra_hours: 2, extra_hours_status: 'approved' }), 4)
+    expect(v).toEqual({ hoursVariance: 2, costVariance: 90 })
   })
 })

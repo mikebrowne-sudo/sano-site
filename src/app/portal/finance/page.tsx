@@ -74,7 +74,7 @@ export default async function FinancePage({
         clients ( name ),
         job_workers (
           contractor_id, pay_rate, approved_hours, actual_hours, hours_allocated,
-          pay_status, approved_at,
+          pay_status, approved_at, extra_hours, extra_hours_status,
           contractors ( hourly_rate )
         )
       `)
@@ -183,6 +183,8 @@ export default async function FinancePage({
     approved_hours: number | null
     actual_hours: number | null
     hours_allocated: number | null
+    extra_hours: number | null
+    extra_hours_status: string | null
     contractors: { hourly_rate: number | null } | null
   }
   const jobRows = (jobs ?? [])
@@ -194,6 +196,8 @@ export default async function FinancePage({
         approved_hours: w.approved_hours,
         actual_hours: w.actual_hours,
         hours_allocated: w.hours_allocated,
+        extra_hours: w.extra_hours ?? 0,
+        extra_hours_status: w.extra_hours_status ?? 'none',
       }))
       const contractorPrice = getJobLabourCost(workers)
       return {
