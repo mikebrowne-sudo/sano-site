@@ -36,11 +36,14 @@ export default async function QuoteDetailPage({
   searchParams?: { override?: string }
 }) {
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // Perf — auth + cleanup gate are independent, so run them concurrently.
+  // Per-record lifecycle controls still only render when cleanup mode is
+  // enabled (admin-only setting).
+  const [{ data: { user } }, cleanup] = await Promise.all([
+    supabase.auth.getUser(),
+    getCleanupAccess(supabase),
+  ])
   const isAdmin = isAdminUser(user)
-  // Phase 5.5.14 — per-record lifecycle controls only render when
-  // cleanup mode is enabled (admin-only setting).
-  const cleanup = await getCleanupAccess(supabase)
   const canCleanup = cleanup.canCleanup
 
   // Load quote
