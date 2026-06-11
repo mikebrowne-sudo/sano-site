@@ -172,55 +172,22 @@ export async function createInvoiceFromJob(jobId: string) {
   redirect(`/portal/invoices/${invoice.id}`)
 }
 
-// Phase D.1 — staff-side start/complete now also sync the assigned
-// worker's job_workers row (actual_start_time / actual_end_time /
-// actual_hours) so the Allowed vs Actual variance stays accurate
-// regardless of whether the contractor self-closes the job or staff
-// closes it from the portal. Mirrors contractorStartJob +
-// contractorCompleteJob in src/app/contractor/jobs/[id]/_actions.ts.
-export async function startJob(jobId: string) {
-  const supabase = createClient()
-  const now = new Date().toISOString()
-
-  const { data: priorJob, error: readErr } = await supabase
-    .from('jobs')
-    .select('contractor_id')
-    .eq('id', jobId)
-    .single()
-  if (readErr || !priorJob) {
-    return { error: `Job not found: ${readErr?.message ?? 'missing row'}` }
-  }
-
-  const { error } = await supabase
-    .from('jobs')
-    .update({ status: 'in_progress', started_at: now })
-    .eq('id', jobId)
-
-  if (error) {
-    return { error: `Failed to start job: ${error.message}` }
-  }
-
-  // Mirror to job_workers for the primary assigned contractor.
-  if (priorJob.contractor_id) {
-    await supabase
-      .from('job_workers')
-      .update({ actual_start_time: now })
-      .eq('job_id', jobId)
-      .eq('contractor_id', priorJob.contractor_id)
-  }
-
-  revalidatePath(`/portal/jobs/${jobId}`)
-  revalidatePath('/portal/jobs')
-  return { success: true }
-}
-
+// Allowed-hours model (2026-06) — staff "Mark complete".
+//
+// The old two-step Start → Finish clock-in/out flow is archived: a
+// job's labour/pay basis is its allowed hours, not a stopwatch, so we
+// no longer capture actual_start_time / actual_end_time / actual_hours.
+// Staff (and contractors, via contractorCompleteJob) simply mark the
+// job complete. We stamp started_at on the way through when it was
+// never set, so the lifecycle ("In progress" → "Completed") and the
+// job-status derivation stay coherent.
 export async function completeJob(jobId: string) {
   const supabase = createClient()
   const now = new Date().toISOString()
 
   const { data: priorJob, error: readErr } = await supabase
     .from('jobs')
-    .select('contractor_id')
+    .select('started_at')
     .eq('id', jobId)
     .single()
   if (readErr || !priorJob) {
@@ -229,60 +196,21 @@ export async function completeJob(jobId: string) {
 
   const { error } = await supabase
     .from('jobs')
-    .update({ status: 'completed', completed_at: now })
+    .update({
+      status: 'completed',
+      completed_at: now,
+      // Back-fill a start timestamp for jobs marked complete directly
+      // from assigned (no separate Start step in the new model).
+      started_at: priorJob.started_at ?? now,
+    })
     .eq('id', jobId)
 
   if (error) {
     return { error: `Failed to complete job: ${error.message}` }
   }
 
-  // Mirror to job_workers for the primary assigned contractor. If
-  // actual_start_time was captured (by either this action's start
-  // pair or contractorStartJob), compute actual_hours from the
-  // elapsed window rounded to 2dp. Otherwise just set the end time
-  // and let ActualHoursEditor fill in actual_hours manually.
-  if (priorJob.contractor_id) {
-    const { data: worker } = await supabase
-      .from('job_workers')
-      .select('actual_start_time, actual_hours')
-      .eq('job_id', jobId)
-      .eq('contractor_id', priorJob.contractor_id)
-      .single()
-
-    const updates: { actual_end_time: string; actual_hours?: number } = {
-      actual_end_time: now,
-    }
-    if (worker?.actual_start_time && worker.actual_hours == null) {
-      const elapsedMs = new Date(now).getTime() - new Date(worker.actual_start_time).getTime()
-      if (Number.isFinite(elapsedMs) && elapsedMs > 0) {
-        updates.actual_hours = Math.round((elapsedMs / 3_600_000) * 100) / 100
-      }
-    }
-
-    await supabase
-      .from('job_workers')
-      .update(updates)
-      .eq('job_id', jobId)
-      .eq('contractor_id', priorJob.contractor_id)
-  }
-
   revalidatePath(`/portal/jobs/${jobId}`)
   revalidatePath('/portal/jobs')
-  return { success: true }
-}
-
-export async function updateWorkerActualHours(jobId: string, contractorId: string, actualHours: number) {
-  const supabase = createClient()
-
-  const { error } = await supabase
-    .from('job_workers')
-    .update({ actual_hours: actualHours })
-    .eq('job_id', jobId)
-    .eq('contractor_id', contractorId)
-
-  if (error) return { error: error.message }
-
-  revalidatePath(`/portal/jobs/${jobId}`)
   return { success: true }
 }
 
