@@ -33,6 +33,8 @@ export function CustomInvoiceForm({ clients }: { clients: ClientOption[] }) {
   const [basePrice, setBasePrice] = useState('')
   const [gstIncluded, setGstIncluded] = useState(true)
   const [paymentType, setPaymentType] = useState<'cash_sale' | 'on_account'>('on_account')
+  const [clientReference, setClientReference] = useState('')
+  const [requiresPo, setRequiresPo] = useState(false)
 
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof CustomInvoiceFormInput, string>>>({})
@@ -55,6 +57,8 @@ export function CustomInvoiceForm({ clients }: { clients: ClientOption[] }) {
       base_price: Number.isFinite(priceNum) ? priceNum : NaN,
       gst_included: gstIncluded,
       payment_type: paymentType,
+      client_reference: clientReference.trim() || null,
+      requires_po: requiresPo,
     }
 
     startTransition(async () => {
@@ -151,6 +155,27 @@ export function CustomInvoiceForm({ clients }: { clients: ClientOption[] }) {
           value={serviceAddress}
           onChange={(e) => setServiceAddress(e.target.value)}
         />
+      </div>
+
+      <div>
+        <label className={labelCls} htmlFor="client_reference">Client reference / PO number (optional)</label>
+        <input
+          id="client_reference"
+          className={inputCls}
+          placeholder="e.g. PO-12345"
+          value={clientReference}
+          onChange={(e) => setClientReference(e.target.value)}
+          autoComplete="off"
+        />
+        <label className="inline-flex items-center text-sm text-sage-800 mt-2">
+          <input
+            type="checkbox"
+            className="mr-2"
+            checked={requiresPo}
+            onChange={(e) => setRequiresPo(e.target.checked)}
+          />
+          Client requires a PO before invoicing
+        </label>
       </div>
 
       <div>

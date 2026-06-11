@@ -11,6 +11,8 @@ export interface CustomInvoiceFormInput {
   base_price: number
   gst_included: boolean
   payment_type: CustomInvoicePaymentType
+  client_reference: string | null  // optional PO / "your reference"
+  requires_po: boolean
 }
 
 // After validation, optional free-text fields are normalised to
@@ -78,6 +80,7 @@ export function validateCustomInvoiceForm(raw: CustomInvoiceFormInput): Validati
       service_address: (raw.service_address ?? '').trim() || null,
       service_description: raw.service_description.trim(),
       notes: trimmedNotes.length > 0 ? trimmedNotes : null,
+      client_reference: (raw.client_reference ?? '').trim() || null,
     },
   }
 }

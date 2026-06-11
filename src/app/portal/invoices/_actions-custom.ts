@@ -93,6 +93,8 @@ export async function createCustomInvoice(input: CustomInvoiceFormInput): Promis
       base_price: v.base_price,
       gst_included: v.gst_included,
       payment_type: v.payment_type,
+      client_reference: v.client_reference,
+      requires_po: v.requires_po,
     })
     .select('id, invoice_number')
     .single()

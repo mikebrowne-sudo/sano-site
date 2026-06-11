@@ -74,15 +74,16 @@ export function computeInvoiceDueDate(input: DueDateInput): string | null {
   // 'custom' or null falls through to the payment_type axis.
 
   // Fallback — payment_type axis (quote/invoice columns).
-  // - cash_sale: due the day before the service so payment lands
-  //   pre-clean. Falls back to issued when no service date exists.
+  // - cash_sale: when the clean is still AHEAD of the issue/send date
+  //   (invoicing before the job), due the day before the service so
+  //   payment lands pre-clean. When the invoice is issued on/after the
+  //   clean (sent after the job is done) — or there's no service date —
+  //   due on the issue/send date itself, never a date in the past.
   // - on_account: due 14 days after the issued date — the prior
   //   default is preserved here when no `payment_terms` is set.
   if (input.payment_type === 'cash_sale') {
-    if (service) {
-      const d = new Date(service + 'T00:00:00Z')
-      d.setUTCDate(d.getUTCDate() - 1)
-      return d.toISOString().slice(0, 10)
+    if (service && (!issued || service > issued)) {
+      return addDaysISO(service, -1)
     }
     return issued ?? null
   }

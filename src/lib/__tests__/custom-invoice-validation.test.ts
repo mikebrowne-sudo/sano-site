@@ -11,12 +11,21 @@ const valid = {
   base_price: 450,
   gst_included: true,
   payment_type: 'on_account' as const,
+  client_reference: null,
+  requires_po: false,
 }
 
 describe('validateCustomInvoiceForm', () => {
   it('accepts a fully-valid input', () => {
     const result = validateCustomInvoiceForm(valid)
     expect(result.ok).toBe(true)
+  })
+
+  it('normalises a blank client_reference to null and trims a present one', () => {
+    const blank = validateCustomInvoiceForm({ ...valid, client_reference: '   ' })
+    expect(blank.ok && blank.value.client_reference).toBeNull()
+    const present = validateCustomInvoiceForm({ ...valid, client_reference: '  PO-12345  ' })
+    expect(present.ok && present.value.client_reference).toBe('PO-12345')
   })
 
   it('rejects when invoice_number is blank', () => {
