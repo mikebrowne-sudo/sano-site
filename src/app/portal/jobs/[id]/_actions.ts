@@ -70,7 +70,7 @@ export async function createInvoiceFromJob(jobId: string) {
   //    date, not the original quoted one) + payment context.
   const { data: job, error: jErr } = await supabase
     .from('jobs')
-    .select('client_id, quote_id, invoice_id, title, description, address, scheduled_date, completed_at, job_price, payment_status')
+    .select('client_id, quote_id, invoice_id, title, description, address, scheduled_date, completed_at, job_price, payment_status, client_reference, requires_po')
     .eq('id', jobId)
     .single()
 
@@ -144,6 +144,10 @@ export async function createInvoiceFromJob(jobId: string) {
       notes: job.description || job.title || null,
       payment_type: paymentType,
       due_date: dueDate,
+      // Phase 5D — auto-pull the PO / client reference from the job onto
+      // the invoice (covers the Quote → Job → Invoice path).
+      client_reference: (job as { client_reference?: string | null }).client_reference ?? null,
+      requires_po: (job as { requires_po?: boolean | null }).requires_po ?? false,
     })
     .select('id')
     .single()

@@ -143,6 +143,10 @@ export async function createJobFromQuote(quoteId: string) {
       status: 'draft',
       payment_status: 'on_account',
       scope_snapshot: scopeSnapshot,
+      // Phase 5D — carry the PO / client reference onto the job so it
+      // auto-pulls through to any invoice created from this job.
+      client_reference: quote.client_reference ?? null,
+      requires_po: quote.requires_po ?? false,
     })
     .select('id, job_number')
     .single()

@@ -26,6 +26,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { assertQuoteConvertible } from '@/lib/quote-conversion-guard'
+import { computeInvoiceDueDate, resolveServiceDate } from '@/lib/invoice-dates'
 
 type ResidentialItemRow = {
   label: string | null
@@ -101,18 +102,23 @@ export async function createJobAndInvoiceFromQuote(quoteId: string) {
   // 3. Invoice — mirrors convertToInvoice field-for-field so the
   // invoice detail page behaves identically whether it was created
   // via this path or the invoice-only path.
-  const today = new Date().toISOString().slice(0, 10)
-  const dateIssued = quote.date_issued || today
-  let dueDate: string | null = null
-  if ((quote.payment_type ?? 'cash_sale') === 'cash_sale' && quote.scheduled_clean_date) {
-    const d = new Date(quote.scheduled_clean_date)
-    d.setDate(d.getDate() - 1)
-    dueDate = d.toISOString().slice(0, 10)
-  } else if ((quote.payment_type ?? 'cash_sale') === 'on_account') {
-    const d = new Date(dateIssued)
-    d.setDate(d.getDate() + 14)
-    dueDate = d.toISOString().slice(0, 10)
-  }
+  // Dates mirror the invoice-only path: `date_issued` is stamped at the
+  // actual SEND (not creation); a provisional due_date is computed via the
+  // shared helper, and the send flow recomputes it from the real send date.
+  const { data: convClient } = await supabase
+    .from('clients')
+    .select('payment_terms')
+    .eq('id', quote.client_id)
+    .maybeSingle()
+
+  const dueDate = computeInvoiceDueDate({
+    payment_type: quote.payment_type ?? 'cash_sale',
+    payment_terms: (convClient?.payment_terms as string | null) ?? null,
+    date_issued: null,
+    service_date: resolveServiceDate({
+      quote_scheduled_clean_date: (quote.scheduled_clean_date as string | null) ?? null,
+    }),
+  })
 
   const { data: invoice, error: iErr } = await supabase
     .from('invoices')
@@ -131,7 +137,7 @@ export async function createJobAndInvoiceFromQuote(quoteId: string) {
       gst_included: quote.gst_included,
       payment_type: quote.payment_type,
       scheduled_clean_date: quote.scheduled_clean_date,
-      date_issued: dateIssued,
+      date_issued: null,
       due_date: dueDate,
       is_price_overridden: quote.is_price_overridden ?? false,
       override_price: quote.override_price ?? null,
@@ -234,6 +240,10 @@ export async function createJobAndInvoiceFromQuote(quoteId: string) {
       status: 'draft',
       payment_status: 'payment_pending',
       scope_snapshot: scopeSnapshot,
+      // Phase 5D — carry the PO / client reference onto the job too (the
+      // invoice already snapshots it) so it survives any later re-invoice.
+      client_reference: quote.client_reference ?? null,
+      requires_po: quote.requires_po ?? false,
     })
     .select('id, job_number')
     .single()

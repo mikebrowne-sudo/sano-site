@@ -21,7 +21,7 @@ export async function createJobFromInvoice(invoiceId: string) {
   // 2. Load invoice + client name + first line item
   const { data: invoice, error: iErr } = await supabase
     .from('invoices')
-    .select('client_id, quote_id, service_address, scheduled_clean_date, base_price, notes, invoice_number, type_of_clean, clients ( name )')
+    .select('client_id, quote_id, service_address, scheduled_clean_date, base_price, notes, invoice_number, type_of_clean, client_reference, requires_po, clients ( name )')
     .eq('id', invoiceId)
     .single()
 
@@ -66,6 +66,9 @@ export async function createJobFromInvoice(invoiceId: string) {
       // an invoice exists, so 'invoice_sent' best describes the state
       // (and is in the allowed CHECK set).
       payment_status: 'invoice_sent',
+      // Phase 5D — carry the PO / client reference onto the job.
+      client_reference: (invoice as { client_reference?: string | null }).client_reference ?? null,
+      requires_po: (invoice as { requires_po?: boolean | null }).requires_po ?? false,
     })
     .select('id')
     .single()

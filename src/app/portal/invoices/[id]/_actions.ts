@@ -52,17 +52,26 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
   // showing blanks. due_date computation reuses the canonical helper
   // from src/lib/invoice-dates so quote-conversion / send / Stripe
   // checkout all agree on the formula.
+  // Stamp the issue + due dates on the FIRST send and keep them sticky
+  // thereafter. `date_issued` reflects the day the invoice actually went
+  // out (a re-send never changes it), and `due_date` is computed from that
+  // send date — so an invoice sent AFTER the clean gets a send-based due
+  // date (cash sale: due on the send date; on account: send + 14), while
+  // one sent BEFORE the clean is still due the day before the job.
   const today = new Date().toISOString().slice(0, 10)
+  const isFirstSend = !invoice.date_issued
   const effectiveDateIssued = (invoice.date_issued as string | null) || today
 
   let effectiveDueDate: string | null = (invoice.due_date as string | null) ?? null
-  if (!effectiveDueDate) {
+  if (isFirstSend) {
     const { data: client } = await supabase
       .from('clients')
       .select('payment_terms')
       .eq('id', invoice.client_id)
       .maybeSingle()
 
+    // Recompute from the actual send date, overriding any provisional
+    // value written at creation.
     effectiveDueDate = computeInvoiceDueDate({
       payment_type: (invoice.payment_type as string | null) ?? 'cash_sale',
       payment_terms: (client?.payment_terms as string | null) ?? null,
@@ -74,8 +83,10 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
   }
 
   const datePatch: Record<string, string> = {}
-  if (!invoice.date_issued) datePatch.date_issued = effectiveDateIssued
-  if (!invoice.due_date && effectiveDueDate) datePatch.due_date = effectiveDueDate
+  if (isFirstSend) {
+    datePatch.date_issued = effectiveDateIssued
+    if (effectiveDueDate) datePatch.due_date = effectiveDueDate
+  }
 
   if (Object.keys(datePatch).length > 0) {
     const { error: dateUpdErr } = await supabase

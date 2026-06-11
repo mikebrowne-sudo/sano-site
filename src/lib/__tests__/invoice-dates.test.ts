@@ -47,6 +47,46 @@ describe('computeInvoiceDueDate', () => {
     })).toBe('2026-05-01')
   })
 
+  it('cash_sale: due on the SEND date when invoiced after the clean (issued > service)', () => {
+    // Invoice sent 3 days after the clean — the due date must be the send
+    // date, never a date in the past (service - 1).
+    expect(computeInvoiceDueDate({
+      payment_type: 'cash_sale',
+      payment_terms: null,
+      date_issued: '2026-05-18',
+      service_date: '2026-05-15',
+    })).toBe('2026-05-18')
+  })
+
+  it('cash_sale: due on the send date when the clean is the same day as the send', () => {
+    expect(computeInvoiceDueDate({
+      payment_type: 'cash_sale',
+      payment_terms: null,
+      date_issued: '2026-05-15',
+      service_date: '2026-05-15',
+    })).toBe('2026-05-15')
+  })
+
+  it('cash_sale: day before the clean when the clean is still in the future (issued < service)', () => {
+    expect(computeInvoiceDueDate({
+      payment_type: 'cash_sale',
+      payment_terms: null,
+      date_issued: '2026-05-10',
+      service_date: '2026-05-20',
+    })).toBe('2026-05-19')
+  })
+
+  it('cash_sale: provisional day-before-clean at creation when there is no issue date yet', () => {
+    // At creation date_issued is null (it is stamped at send); the
+    // provisional due date is the day before the booked clean.
+    expect(computeInvoiceDueDate({
+      payment_type: 'cash_sale',
+      payment_terms: null,
+      date_issued: null,
+      service_date: '2026-05-20',
+    })).toBe('2026-05-19')
+  })
+
   it('on_account: 14 days from issued (legacy fallback)', () => {
     expect(computeInvoiceDueDate({
       payment_type: 'on_account',

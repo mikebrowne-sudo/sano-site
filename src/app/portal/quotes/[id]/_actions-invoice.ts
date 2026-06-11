@@ -42,11 +42,10 @@ export async function convertToInvoice(quoteId: string) {
     .eq('quote_id', quoteId)
     .order('sort_order')
 
-  // 3. Calculate dates via the shared helpers — same logic the
-  //    job→invoice path uses, plus client.payment_terms when present.
-  const today = new Date().toISOString().slice(0, 10)
-  const dateIssued = quote.date_issued || today
-
+  // 3. Dates are NOT stamped at creation. `date_issued` is set to the
+  //    actual SEND date when the invoice goes out (see sendInvoiceEmail)
+  //    and is sticky on re-send. We compute a provisional due_date for the
+  //    draft preview; the send flow recomputes it from the real send date.
   const { data: client } = await supabase
     .from('clients')
     .select('payment_terms')
@@ -60,7 +59,7 @@ export async function convertToInvoice(quoteId: string) {
   const dueDate = computeInvoiceDueDate({
     payment_type: quote.payment_type ?? 'cash_sale',
     payment_terms: (client?.payment_terms as string | null) ?? null,
-    date_issued: dateIssued,
+    date_issued: null,
     service_date: serviceDate,
   })
 
@@ -82,7 +81,7 @@ export async function convertToInvoice(quoteId: string) {
       gst_included: quote.gst_included,
       payment_type: quote.payment_type,
       scheduled_clean_date: quote.scheduled_clean_date,
-      date_issued: dateIssued,
+      date_issued: null,
       due_date: dueDate,
       // Audit snapshot of pricing override at time of conversion
       is_price_overridden: quote.is_price_overridden ?? false,
