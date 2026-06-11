@@ -13,3 +13,9 @@
 # this entry mirrors it so it remains visible in the deployment config.
 [functions."daily-notifications"]
   schedule = "0 21 * * *"
+
+# Keep-warm heartbeat — pings a dynamic portal route every 5 min so the
+# SSR Lambda stays warm and the "first click after idle" cold start (~3.5s)
+# goes away. Schedule mirrors netlify/functions/keep-warm.mts.
+[functions."keep-warm"]
+  schedule = "*/5 * * * *"
