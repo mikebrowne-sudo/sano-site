@@ -20,6 +20,7 @@ export function ContractorTopbar({ name }: { name: string }) {
 
   const navItems = [
     { href: '/contractor/jobs', label: 'Jobs' },
+    { href: '/contractor/payroll', label: 'Pay' },
     { href: '/contractor/training', label: 'Training' },
   ]
 

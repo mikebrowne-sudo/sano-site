@@ -5,11 +5,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Briefcase, BookOpen, User } from 'lucide-react'
+import { Briefcase, BookOpen, User, Wallet } from 'lucide-react'
 import clsx from 'clsx'
 
 const ITEMS = [
   { href: '/contractor/jobs',       label: 'Jobs',       Icon: Briefcase },
+  { href: '/contractor/payroll',    label: 'Pay',        Icon: Wallet },
   // Phase 5.5.7 — was 'Training'; renamed and re-pointed at the new
   // read-only onboarding page. Training stays accessible from inside
   // the onboarding page and from /contractor/profile.
