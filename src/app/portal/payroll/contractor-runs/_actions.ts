@@ -9,11 +9,10 @@
 //   approved_at BETWEEN period_start AND period_end (inclusive)
 //
 // Rationale: approved_at is a timestamptz set by
-// approveJobWorkerHours, so it always exists for eligible rows.
-// Using job.completed_at would also work but it's nullable on
-// completed-via-staff jobs that never had the worker's
-// actual_end_time captured — using approved_at keeps the rule
-// simple and predictable.
+// approveJobWorkerHours (the per-worker "Approve for pay" step), so it
+// always exists for eligible rows. The payable amount is recomputed at
+// run time as (allowed hours + admin-approved extra) × pay_rate — see
+// the inline note on the eligibility query below.
 //
 // Concurrency note: the eligibility query + insert are not in a
 // single transaction (Supabase JS doesn't expose explicit txns at
@@ -52,14 +51,22 @@ export async function createContractorPayRun(
   }
 
   // Eligibility — approved within the window, not yet in any pay run,
-  // job not archived. Joining jobs lets us filter deleted_at without
-  // a follow-up query.
+  // job not archived. Joining jobs lets us filter deleted_at + read
+  // the job's allowed_hours fallback without a follow-up query.
+  //
+  // Allowed-hours model (2026-06): the payable figure is recomputed
+  // here from source — (this worker's hours_allocated, falling back to
+  // the job's allowed_hours) + any admin-APPROVED extra hours — rather
+  // than trusting the approved_hours snapshot. This keeps the pay run
+  // correct even when extra hours were signed off after pay approval.
   type Eligible = {
     contractor_id: string
     job_id: string
-    approved_hours: number | null
     pay_rate: number | null
-    jobs: { id: string; deleted_at: string | null } | null
+    hours_allocated: number | null
+    extra_hours: number | null
+    extra_hours_status: string | null
+    jobs: { id: string; deleted_at: string | null; allowed_hours: number | null } | null
   }
 
   // approved_at is a timestamptz; bound the window with the start
@@ -71,8 +78,8 @@ export async function createContractorPayRun(
   const { data: rowsRaw, error: readErr } = await supabase
     .from('job_workers')
     .select(`
-      contractor_id, job_id, approved_hours, pay_rate,
-      jobs!inner ( id, deleted_at )
+      contractor_id, job_id, pay_rate, hours_allocated, extra_hours, extra_hours_status,
+      jobs!inner ( id, deleted_at, allowed_hours )
     `)
     .eq('pay_status', 'approved')
     .gte('approved_at', startOfPeriod)
@@ -80,9 +87,17 @@ export async function createContractorPayRun(
   if (readErr) {
     return { error: `Could not load eligible rows: ${readErr.message}` }
   }
+
+  // Payable hours = allowed (worker, then job) + approved extra.
+  const payableHoursFor = (r: Eligible): number => {
+    const allowed = r.hours_allocated ?? r.jobs?.allowed_hours ?? 0
+    const approvedExtra = r.extra_hours_status === 'approved' ? (r.extra_hours ?? 0) : 0
+    return Math.round((allowed + approvedExtra) * 100) / 100
+  }
+
   const eligible = ((rowsRaw ?? []) as unknown as Eligible[])
     .filter((r) => r.jobs && !r.jobs.deleted_at)
-    .filter((r) => r.approved_hours != null && r.pay_rate != null)
+    .filter((r) => r.pay_rate != null && payableHoursFor(r) > 0)
 
   if (eligible.length === 0) {
     return { error: 'No approved hours fall in this period. Approve hours from a completed job first.' }
@@ -106,16 +121,21 @@ export async function createContractorPayRun(
     return { error: `Failed to create pay run: ${prErr?.message ?? 'insert returned no row'}` }
   }
 
-  // Items.
-  const items = eligible.map((r) => ({
-    pay_run_id: payRun.id,
-    job_id: r.job_id,
-    contractor_id: r.contractor_id,
-    approved_hours: r.approved_hours ?? 0,
-    pay_rate: r.pay_rate ?? 0,
-    amount: Math.round((r.approved_hours ?? 0) * (r.pay_rate ?? 0) * 100) / 100,
-    status: 'pending',
-  }))
+  // Items. approved_hours on the item records the payable hours that
+  // were actually paid (allowed + approved extra) at run time.
+  const items = eligible.map((r) => {
+    const hours = payableHoursFor(r)
+    const rate = r.pay_rate ?? 0
+    return {
+      pay_run_id: payRun.id,
+      job_id: r.job_id,
+      contractor_id: r.contractor_id,
+      approved_hours: hours,
+      pay_rate: rate,
+      amount: Math.round(hours * rate * 100) / 100,
+      status: 'pending',
+    }
+  })
   const { error: piErr } = await supabase.from('pay_run_items').insert(items)
   if (piErr) {
     // Roll back the empty header so we don't leave an orphan.
