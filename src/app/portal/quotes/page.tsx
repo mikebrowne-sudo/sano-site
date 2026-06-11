@@ -66,14 +66,17 @@ export default async function QuotesPage({
 }) {
   const supabase = createClient()
 
-  const display = await loadDisplaySettings(supabase)
+  // Perf — display settings + cleanup gate are independent reads, so run
+  // them concurrently (round-trips overlap instead of stacking). cleanup
+  // mode is still the master gate for bulk actions, the show-archived
+  // toggle, and per-row test/archive controls (canCleanup === admin AND
+  // cleanup-mode-enabled).
+  const [display, cleanup] = await Promise.all([
+    loadDisplaySettings(supabase),
+    getCleanupAccess(supabase),
+  ])
   const quotesList = display.quotes.list
   const visible = new Set(quotesList.visibleFields)
-
-  // Phase 5.5.14 — cleanup mode is the master gate for bulk actions,
-  // the show-archived toggle, and per-row test/archive controls.
-  // canCleanup === (admin AND cleanup-mode-enabled).
-  const cleanup = await getCleanupAccess(supabase)
   const canCleanup = cleanup.canCleanup
 
   const activeTab    = parseTab(searchParams?.tab)

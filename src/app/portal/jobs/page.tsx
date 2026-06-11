@@ -84,9 +84,14 @@ export default async function JobsPage({
   const view = searchParams.view ?? ''
   const contractorFilter = searchParams.contractor ?? ''
   const search = searchParams.q?.trim() ?? ''
-  // Phase 5.5.14 — cleanup mode gates the show-archived toggle and
-  // the bulk-select UI. canCleanup === (admin AND cleanup-mode-enabled).
-  const cleanup = await getCleanupAccess(supabase)
+  // Perf — cleanup gate + display settings are independent reads, so run
+  // them concurrently (round-trips overlap instead of stacking). cleanup
+  // mode still gates the show-archived toggle and the bulk-select UI
+  // (canCleanup === admin AND cleanup-mode-enabled).
+  const [cleanup, display] = await Promise.all([
+    getCleanupAccess(supabase),
+    loadDisplaySettings(supabase),
+  ])
   const canCleanup = cleanup.canCleanup
   const activeTab    = parseJobTab(searchParams.tab)
   const showArchived = canCleanup && searchParams.show_archived === '1'
@@ -94,9 +99,8 @@ export default async function JobsPage({
   const today = todayStr()
   const tomorrow = tomorrowStr()
 
-  // Phase 2 — load display settings, then resolve the active sort from
-  // (URL override → settings → fallback default).
-  const display = await loadDisplaySettings(supabase)
+  // Phase 2 — resolve the active sort from (URL override → settings →
+  // fallback default).
   const jobsList = display.jobs.list
   const activeSort = urlSortToSettings(searchParams.sort) ?? {
     sortBy: jobsList.sortBy,
