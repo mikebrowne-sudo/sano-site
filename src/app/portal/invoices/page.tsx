@@ -68,6 +68,10 @@ export default async function InvoicesPage({
   const canCleanup = cleanup.canCleanup
   const isAdmin = isAdminUser(user)
   const activeTab    = parseInvoiceTab(searchParams?.tab)
+  // Needs-attention is a VIRTUAL tab filtered in JS (getInvoiceAttention),
+  // so it can't be paginated in the DB — it fetches all candidates and
+  // paginates in JS below. See the jobs list for the canonical fix.
+  const isAttention  = activeTab === 'needs_attention'
   const showArchived = canCleanup && searchParams?.show_archived === '1'
   const search       = searchParams?.q?.trim() ?? ''
   const sort         = searchParams?.sort ?? undefined
@@ -163,7 +167,11 @@ export default async function InvoicesPage({
 
   query = applyInvoiceSort(query, sort)
   // Phase 4D — range supersedes .limit() now that pagination is real.
-  query = query.range(from, to)
+  // Needs-attention fetches all candidates (pre-filtered by status) and
+  // paginates in JS below, so it must NOT range here.
+  if (!isAttention) {
+    query = query.range(from, to)
+  }
 
   const { data: invoices, count, error } = await query
 
@@ -243,9 +251,13 @@ export default async function InvoicesPage({
   // needed: the DB query above pre-resolves matching client / quote /
   // job IDs and folds them into the OR clause, so any row that should
   // match has already arrived.
-  const rows = activeTab === 'needs_attention'
-    ? allRows.filter((r) => r.attention.needsAttention)
-    : allRows
+  let rows = allRows
+  let attentionTotal: number | null = null
+  if (isAttention) {
+    const flagged = allRows.filter((r) => r.attention.needsAttention)
+    attentionTotal = flagged.length
+    rows = flagged.slice(from, to + 1)
+  }
 
   const emptyCopy: Record<InvoiceTab, { title: string; sub: string }> = {
     needs_attention: { title: 'Nothing needs your attention right now.', sub: 'Drafts, overdue, and outstanding invoices surface here.' },
@@ -399,7 +411,7 @@ export default async function InvoicesPage({
         }
         footer={
           <ListPagination
-            total={activeTab === 'needs_attention' ? null : (count ?? null)}
+            total={isAttention ? attentionTotal : (count ?? null)}
             page={pageNum}
             rowsPerPage={rowsPerPage}
             defaultRowsPerPage={INVOICES_LIST_CONFIG.rowsPerPage}
