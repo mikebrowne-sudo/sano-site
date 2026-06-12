@@ -27,6 +27,7 @@ import { Panel } from '../../_components/Panel'
 import { LockBanner } from '../../_components/LockBanner'
 import { AmendmentOverrideButton } from '../../_components/AmendmentOverrideButton'
 import { AuditTimelinePanel } from '../../_components/AuditTimelinePanel'
+import { StatusBadge } from '../../_components/StatusBadge'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -530,7 +531,7 @@ export default async function JobDetailPage({
               <>
                 {/* Estimate vs Actual comparison */}
                 <div className="overflow-x-auto mb-4">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm tnum">
                     <thead>
                       <tr className="text-left text-sage-500 border-b border-gray-100">
                         <th className="py-2 pr-4"></th>
@@ -595,7 +596,7 @@ export default async function JobDetailPage({
                   <div className="border-t border-sage-100 pt-3">
                     <span className="text-xs text-sage-500 font-semibold uppercase tracking-wide">Worker Breakdown</span>
                     <div className="overflow-x-auto mt-2">
-                      <table className="w-full text-xs">
+                      <table className="w-full text-xs tnum">
                         <thead>
                           <tr className="text-left text-sage-500 border-b border-gray-100">
                             <th className="py-2 pr-2">Worker</th>
@@ -685,7 +686,7 @@ export default async function JobDetailPage({
                                     )
                                     : <span className="text-sage-300">—</span>}
                                 </td>
-                                <td className="py-2 text-right"><PayStatusPill status={payStatus} /></td>
+                                <td className="py-2 text-right"><StatusBadge kind="pay" status={payStatus} /></td>
                               </tr>
                             )
                           })}
@@ -799,24 +800,5 @@ function VarCell({ value, currency, suffix, invert }: { value: number; currency?
   return <span className={clsx('font-medium', color)}>{display}</span>
 }
 
-// Phase G.1 — pay status badge for the per-worker breakdown row.
-// Matches the styling vocabulary of STATUS_STYLES / PAYMENT_STATUS_STYLES
-// above so the financial summary reads consistently.
-const PAY_STATUS_STYLES: Record<string, string> = {
-  pending:              'bg-gray-100 text-gray-600',
-  approved:             'bg-blue-50 text-blue-700',
-  included_in_pay_run:  'bg-amber-50 text-amber-700',
-  paid:                 'bg-emerald-50 text-emerald-700',
-}
-const PAY_STATUS_LABELS: Record<string, string> = {
-  pending:              'Pending',
-  approved:             'Approved',
-  included_in_pay_run:  'In pay run',
-  paid:                 'Paid',
-}
-
-function PayStatusPill({ status }: { status: string }) {
-  const styles = PAY_STATUS_STYLES[status] ?? PAY_STATUS_STYLES.pending
-  const label = PAY_STATUS_LABELS[status] ?? status
-  return <span className={clsx('inline-block px-2 py-0.5 rounded-full text-[10px] font-medium', styles)}>{label}</span>
-}
+// (Pay-status pill consolidated into <StatusBadge kind="pay" /> — the
+// canonical labels/styles now live in src/lib/quote-status.ts.)
