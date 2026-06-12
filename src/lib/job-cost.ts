@@ -4,9 +4,9 @@
 // job?" Used by the finance dashboard, the job detail page, and any
 // future surface that needs to compute per-job labour cost.
 //
-// The canonical formula is:
+// The canonical formula (allowed-hours model, 2026-06) is:
 //
-//   labour_cost = rate × COALESCE(approved_hours, actual_hours)
+//   labour_cost = rate × (hours_allocated + approved extra_hours)
 //
 //   where rate prefers job_workers.pay_rate (the snapshotted job rate)
 //   and falls back to contractors.hourly_rate when pay_rate is null.
@@ -44,6 +44,12 @@ export interface JobWorkerCostInput {
   approved_hours: number | null
   actual_hours: number | null
   hours_allocated: number | null
+  // Allowed-hours model (2026-06): admin-approved extra hours beyond
+  // hours_allocated. Only count toward cost when extra_hours_status is
+  // 'approved'. (approved_hours / actual_hours are retained for history
+  // but are no longer the cost basis.)
+  extra_hours?: number | null
+  extra_hours_status?: string | null
 }
 
 export interface JobWorkerVariance {
@@ -63,9 +69,11 @@ export type WorkerRateSource = 'snapshot' | 'estimate' | 'missing'
  * for the live UI estimate that does include the allocated fallback.
  */
 export function getWorkerPayableHours(jw: JobWorkerCostInput): number | null {
-  if (jw.approved_hours != null) return jw.approved_hours
-  if (jw.actual_hours != null) return jw.actual_hours
-  return null
+  // Allowed-hours model: cost/pay = allocated (allowed) hours plus any
+  // admin-APPROVED extra hours. Timestamp-actual hours are not the basis.
+  if (jw.hours_allocated == null) return null
+  const extra = jw.extra_hours_status === 'approved' ? (jw.extra_hours ?? 0) : 0
+  return jw.hours_allocated + extra
 }
 
 /**
@@ -75,10 +83,8 @@ export function getWorkerPayableHours(jw: JobWorkerCostInput): number | null {
  * live UI "estimated pay" hint; never for persisted reporting.
  */
 export function getWorkerEstimatedHours(jw: JobWorkerCostInput): number | null {
-  if (jw.approved_hours != null) return jw.approved_hours
-  if (jw.actual_hours != null) return jw.actual_hours
-  if (jw.hours_allocated != null) return jw.hours_allocated
-  return null
+  // The allowed-hours baseline (before any approved extra). UI hint only.
+  return jw.hours_allocated
 }
 
 /**
@@ -156,14 +162,10 @@ export function getJobLabourCost(jobWorkers: JobWorkerCostInput[] | null | undef
  */
 export function getWorkerVariance(
   jw: JobWorkerCostInput,
-  allowedHours: number | null,
 ): JobWorkerVariance | null {
-  if (allowedHours == null) return null
-  const payable = getWorkerPayableHours(jw)
-  if (payable == null) return null
+  // In the allowed-hours model the only variance is APPROVED extra hours
+  // (the job ran over and an admin signed it off).
+  const extra = jw.extra_hours_status === 'approved' ? (jw.extra_hours ?? 0) : 0
   const rate = jw.pay_rate ?? jw.contractor_hourly_rate ?? 0
-  return {
-    hoursVariance: payable - allowedHours,
-    costVariance: (payable - allowedHours) * rate,
-  }
+  return { hoursVariance: extra, costVariance: extra * rate }
 }

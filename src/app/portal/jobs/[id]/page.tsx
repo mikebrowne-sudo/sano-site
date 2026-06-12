@@ -8,7 +8,7 @@ import { AssignJobSlot } from './_components/AssignJobSlot'
 import { DuplicateJobButton } from './_components/DuplicateJobButton'
 import { CreateRecurringButton } from './_components/CreateRecurringButton'
 import { calculateVariance } from '@/lib/labour-calc'
-import { ActualHoursEditor } from './_components/ActualHoursEditor'
+import { ExtraHoursControl } from './_components/ExtraHoursControl'
 import { ArchiveJobButton } from './_components/ArchiveJobButton'
 import { JobWorkflowBar } from './_components/JobWorkflowBar'
 import { MarkJobReviewedButton } from './_components/MarkJobReviewedButton'
@@ -100,7 +100,7 @@ export default async function JobDetailPage({
     // snapshot columns included for the ApproveHours read-only summary).
     supabase
       .from('job_workers')
-      .select('contractor_id, hours_allocated, actual_start_time, actual_end_time, actual_hours, pay_rate, pay_type, approved_hours, approved_at, approved_by, pay_status, contractors ( full_name, hourly_rate, worker_type, holiday_pay_method, holiday_pay_percent, kiwisaver_enrolled, kiwisaver_employer_rate )')
+      .select('contractor_id, hours_allocated, actual_start_time, actual_end_time, actual_hours, pay_rate, pay_type, approved_hours, approved_at, approved_by, pay_status, extra_hours, extra_hours_status, extra_hours_reason, contractors ( full_name, hourly_rate, worker_type, holiday_pay_method, holiday_pay_percent, kiwisaver_enrolled, kiwisaver_employer_rate )')
       .eq('job_id', params.id),
   ])
   const isAdmin = isAdminUser(user)
@@ -510,6 +510,9 @@ export default async function JobDetailPage({
                 pay_rate: (w.pay_rate as number | null) ?? null,
                 hours_allocated: w.hours_allocated,
                 actual_hours: w.actual_hours ?? null,
+                extra_hours: (w.extra_hours as number | null) ?? 0,
+                extra_hours_status: (w.extra_hours_status as string | null) ?? 'none',
+                extra_hours_reason: (w.extra_hours_reason as string | null) ?? null,
                 worker_type: c?.worker_type ?? 'contractor',
                 holiday_pay_method: c?.holiday_pay_method ?? null,
                 holiday_pay_percent: c?.holiday_pay_percent ?? null,
@@ -518,7 +521,10 @@ export default async function JobDetailPage({
               }
             })
             const v = calculateVariance(job.job_price ?? 0, job.allowed_hours, workers)
-            const hasActuals = workers.some((w) => (w.actual_hours ?? 0) > 0)
+            // Allowed-hours model: the "Actual" column only appears when
+            // there are admin-APPROVED extra hours (the job ran over and
+            // was signed off). Allowed hours alone are the default basis.
+            const hasExtra = workers.some((w) => w.extra_hours_status === 'approved' && (w.extra_hours ?? 0) > 0)
 
             return (
               <>
@@ -529,38 +535,38 @@ export default async function JobDetailPage({
                       <tr className="text-left text-sage-500 border-b border-gray-100">
                         <th className="py-2 pr-4"></th>
                         <th className="py-2 pr-4 text-right">Estimated</th>
-                        {hasActuals && <th className="py-2 pr-4 text-right">Actual</th>}
-                        {hasActuals && <th className="py-2 text-right">Variance</th>}
+                        {hasExtra && <th className="py-2 pr-4 text-right">With extra</th>}
+                        {hasExtra && <th className="py-2 text-right">Variance</th>}
                       </tr>
                     </thead>
                     <tbody>
                       <tr className="border-b border-gray-50">
                         <td className="py-2 pr-4 text-sage-600">Job value</td>
-                        <td className="py-2 pr-4 text-right font-bold text-sage-800" colSpan={hasActuals ? 3 : 1}>{formatCurrency(job.job_price)}</td>
+                        <td className="py-2 pr-4 text-right font-bold text-sage-800" colSpan={hasExtra ? 3 : 1}>{formatCurrency(job.job_price)}</td>
                       </tr>
                       <tr className="border-b border-gray-50">
                         <td className="py-2 pr-4 text-sage-600">Hours</td>
                         <td className="py-2 pr-4 text-right text-sage-800">{v.estimated.totalHours.toFixed(1)}h</td>
-                        {hasActuals && <td className="py-2 pr-4 text-right text-sage-800">{v.actual.totalHours.toFixed(1)}h</td>}
-                        {hasActuals && <td className="py-2 text-right"><VarCell value={v.hoursVariance} suffix="h" /></td>}
+                        {hasExtra && <td className="py-2 pr-4 text-right text-sage-800">{v.actual.totalHours.toFixed(1)}h</td>}
+                        {hasExtra && <td className="py-2 text-right"><VarCell value={v.hoursVariance} suffix="h" /></td>}
                       </tr>
                       <tr className="border-b border-gray-50">
                         <td className="py-2 pr-4 text-sage-600">Labour cost</td>
                         <td className="py-2 pr-4 text-right text-sage-800">{formatCurrency(v.estimated.totalLabourCost)}</td>
-                        {hasActuals && <td className="py-2 pr-4 text-right text-sage-800">{formatCurrency(v.actual.totalLabourCost)}</td>}
-                        {hasActuals && <td className="py-2 text-right"><VarCell value={v.costVariance} currency /></td>}
+                        {hasExtra && <td className="py-2 pr-4 text-right text-sage-800">{formatCurrency(v.actual.totalLabourCost)}</td>}
+                        {hasExtra && <td className="py-2 text-right"><VarCell value={v.costVariance} currency /></td>}
                       </tr>
                       <tr className="border-b border-gray-50">
                         <td className="py-2 pr-4 text-sage-600">Employer KS</td>
                         <td className="py-2 pr-4 text-right text-sage-600">{formatCurrency(v.estimated.totalEmployerKs)}</td>
-                        {hasActuals && <td className="py-2 pr-4 text-right text-sage-600">{formatCurrency(v.actual.totalEmployerKs)}</td>}
-                        {hasActuals && <td className="py-2 text-right"></td>}
+                        {hasExtra && <td className="py-2 pr-4 text-right text-sage-600">{formatCurrency(v.actual.totalEmployerKs)}</td>}
+                        {hasExtra && <td className="py-2 text-right"></td>}
                       </tr>
                       <tr className="border-b border-gray-50">
                         <td className="py-2 pr-4 text-sage-600">ACC (1.7%)</td>
                         <td className="py-2 pr-4 text-right text-sage-600">{formatCurrency(v.estimated.totalAccCost)}</td>
-                        {hasActuals && <td className="py-2 pr-4 text-right text-sage-600">{formatCurrency(v.actual.totalAccCost)}</td>}
-                        {hasActuals && <td className="py-2 text-right"></td>}
+                        {hasExtra && <td className="py-2 pr-4 text-right text-sage-600">{formatCurrency(v.actual.totalAccCost)}</td>}
+                        {hasExtra && <td className="py-2 text-right"></td>}
                       </tr>
                       <tr className={clsx(v.estimated.grossProfit >= 0 ? 'bg-emerald-50' : 'bg-red-50')}>
                         <td className="py-2.5 pr-4 font-semibold text-sage-800">Gross margin</td>
@@ -568,13 +574,13 @@ export default async function JobDetailPage({
                           <span className={v.estimated.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}>{formatCurrency(v.estimated.grossProfit)}</span>
                           <span className="text-sage-500 font-normal text-xs ml-1">({v.estimated.marginPercent}%)</span>
                         </td>
-                        {hasActuals && (
+                        {hasExtra && (
                           <td className="py-2.5 pr-4 text-right font-bold">
                             <span className={v.actual.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}>{formatCurrency(v.actual.grossProfit)}</span>
                             <span className="text-sage-500 font-normal text-xs ml-1">({v.actual.marginPercent}%)</span>
                           </td>
                         )}
-                        {hasActuals && <td className="py-2.5 text-right"><VarCell value={v.marginVariance} currency invert /></td>}
+                        {hasExtra && <td className="py-2.5 text-right"><VarCell value={v.marginVariance} currency invert /></td>}
                       </tr>
                     </tbody>
                   </table>
@@ -595,11 +601,9 @@ export default async function JobDetailPage({
                             <th className="py-2 pr-2">Worker</th>
                             <th className="py-2 pr-2">Type</th>
                             <th className="py-2 pr-2 text-right">Allowed</th>
-                            <th className="py-2 pr-2 text-right">Actual</th>
-                            <th className="py-2 pr-2 text-right">Approved</th>
+                            <th className="py-2 pr-2 text-right">Extra</th>
                             <th className="py-2 pr-2 text-right">Rate</th>
-                            <th className="py-2 pr-2 text-right">Approved pay</th>
-                            <th className="py-2 pr-2 text-right">Variance</th>
+                            <th className="py-2 pr-2 text-right">Pay</th>
                             <th className="py-2 text-right">Status</th>
                           </tr>
                         </thead>
@@ -607,7 +611,6 @@ export default async function JobDetailPage({
                           {v.estimated.workers.map((ew, i) => {
                             const w = workers[i]
                             const raw = jobWorkers?.[i]
-                            const approvedHours = (raw?.approved_hours as number | null) ?? null
                             // Prefer snapshotted pay_rate; fall back to
                             // live hourly_rate for rows that pre-date
                             // the assignment-time snapshot. The badge
@@ -621,30 +624,41 @@ export default async function JobDetailPage({
                                 : fallbackRate != null
                                   ? 'estimate'
                                   : 'missing'
-                            const approvedPay = approvedHours != null ? approvedHours * payRate : null
                             const payStatus = (raw?.pay_status as string | null) ?? 'pending'
-                            // Per-worker variance: payable hours
-                            // (approved → actual) against allocated.
+                            // Allowed-hours model: payable = allowed +
+                            // admin-APPROVED extra. Pending / rejected
+                            // extra never counts toward pay.
                             const allowedHrs = w?.hours_allocated ?? null
-                            const payableHrs = approvedHours ?? (w?.actual_hours ?? null)
-                            const hoursVar = (allowedHrs != null && payableHrs != null) ? payableHrs - allowedHrs : null
-                            const costVar = hoursVar != null ? hoursVar * payRate : null
+                            const extraStatus = (w?.extra_hours_status as string | null) ?? 'none'
+                            const extraHrs = (w?.extra_hours as number | null) ?? 0
+                            const approvedExtra = extraStatus === 'approved' ? extraHrs : 0
+                            const payableHrs = allowedHrs != null ? allowedHrs + approvedExtra : null
+                            const pay = payableHrs != null ? payableHrs * payRate : null
+                            const locked = payStatus === 'included_in_pay_run' || payStatus === 'paid'
                             return (
                               <tr key={ew.contractorId} className="border-b border-gray-50">
                                 <td className="py-2 pr-2 font-medium text-sage-800">{ew.fullName}</td>
                                 <td className="py-2 pr-2 text-sage-600 capitalize">{ew.workerType.replace('_', ' ')}</td>
                                 <td className="py-2 pr-2 text-right text-sage-700">{allowedHrs != null ? `${allowedHrs.toFixed(1)}h` : '—'}</td>
                                 <td className="py-2 pr-2 text-right">
-                                  <ActualHoursEditor jobId={job.id} contractorId={ew.contractorId} currentHours={w?.actual_hours ?? null} />
+                                  <ExtraHoursControl
+                                    jobId={job.id}
+                                    contractorId={ew.contractorId}
+                                    contractorName={ew.fullName}
+                                    extraHours={extraHrs}
+                                    extraStatus={extraStatus}
+                                    extraReason={(w?.extra_hours_reason as string | null) ?? null}
+                                    isAdmin={isAdmin}
+                                    locked={locked}
+                                  />
                                 </td>
-                                <td className="py-2 pr-2 text-right text-sage-700">{approvedHours != null ? `${approvedHours.toFixed(1)}h` : <span className="text-sage-300">—</span>}</td>
                                 <td className="py-2 pr-2 text-right text-sage-700">
                                   <span className="inline-flex items-center gap-1 justify-end">
                                     <span>{formatCurrency(payRate)}</span>
                                     {rateSource === 'estimate' && (
                                       <span
                                         className="text-[9px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded"
-                                        title="Rate not snapshotted on this job. Estimated from the contractor's current profile rate; the next hours-approval will snapshot a permanent pay_rate."
+                                        title="Rate not snapshotted on this job. Estimated from the contractor's current profile rate; approving the worker for pay snapshots a permanent pay_rate."
                                       >
                                         est.
                                       </span>
@@ -660,16 +674,13 @@ export default async function JobDetailPage({
                                   </span>
                                 </td>
                                 <td className="py-2 pr-2 text-right">
-                                  {approvedPay != null
-                                    ? <span className="font-bold text-sage-800">{formatCurrency(approvedPay)}</span>
-                                    : <span className="text-sage-300">—</span>}
-                                </td>
-                                <td className="py-2 pr-2 text-right">
-                                  {hoursVar != null && hoursVar !== 0
+                                  {pay != null
                                     ? (
-                                      <span className="inline-flex flex-col items-end gap-0.5">
-                                        <VarCell value={hoursVar} suffix="h" />
-                                        {costVar != null && <VarCell value={costVar} currency />}
+                                      <span className="inline-flex flex-col items-end">
+                                        <span className="font-bold text-sage-800">{formatCurrency(pay)}</span>
+                                        {approvedExtra > 0 && (
+                                          <span className="text-[10px] text-sage-400">{(payableHrs ?? 0).toFixed(1)}h</span>
+                                        )}
                                       </span>
                                     )
                                     : <span className="text-sage-300">—</span>}
@@ -694,6 +705,10 @@ export default async function JobDetailPage({
                     <div className="mt-2 space-y-2">
                       {workers.map((w, i) => {
                         const raw = jobWorkers?.[i]
+                        const allowed = w.hours_allocated ?? job.allowed_hours ?? 0
+                        const approvedExtra = w.extra_hours_status === 'approved' ? (w.extra_hours ?? 0) : 0
+                        const payableHours = Math.round((allowed + approvedExtra) * 100) / 100
+                        const rate = (w.pay_rate as number | null) ?? w.hourly_rate ?? null
                         return (
                           <div key={w.contractor_id} className="flex flex-wrap items-center gap-2 text-xs">
                             <span className="text-sage-700 font-medium">{w.full_name}</span>
@@ -701,9 +716,8 @@ export default async function JobDetailPage({
                               jobId={job.id}
                               contractorId={w.contractor_id}
                               contractorName={w.full_name}
-                              allowedHours={w.hours_allocated ?? job.allowed_hours ?? null}
-                              actualHours={w.actual_hours ?? null}
-                              hourlyRate={w.hourly_rate ?? null}
+                              payableHours={payableHours}
+                              rate={rate}
                               payStatus={(raw?.pay_status as string | null) ?? 'pending'}
                               approvedHours={(raw?.approved_hours as number | null) ?? null}
                               payRate={(raw?.pay_rate as number | null) ?? null}

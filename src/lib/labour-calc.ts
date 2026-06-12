@@ -12,6 +12,10 @@ export interface WorkerInput {
   pay_rate?: number | null
   hours_allocated: number | null
   actual_hours: number | null
+  // Allowed-hours model (2026-06): admin-approved extra hours beyond
+  // hours_allocated. Counts only when extra_hours_status === 'approved'.
+  extra_hours?: number | null
+  extra_hours_status?: string | null
   worker_type: string | null
   holiday_pay_method: string | null
   holiday_pay_percent: number | null
@@ -84,7 +88,7 @@ function calcWorkerCost(
 function buildSummary(
   jobValue: number,
   workers: WorkerInput[],
-  useActual: boolean,
+  includeExtra: boolean,
   allowedHours: number | null,
   accRate: number,
 ): LabourSummary {
@@ -97,9 +101,11 @@ function buildSummary(
     // fall back to the live hourly_rate for rows that pre-date the
     // assignment-time snapshot.
     const rate = w.pay_rate ?? w.hourly_rate ?? 0
-    const hours = useActual
-      ? (w.actual_hours ?? 0)
-      : (w.hours_allocated ?? (allowedHours ? allowedHours / workers.length : 0))
+    // Allowed-hours model: cost = allocated (allowed) hours, plus any
+    // admin-approved extra hours when this summary includes them.
+    const allocated = w.hours_allocated ?? (allowedHours ? allowedHours / workers.length : 0)
+    const extra = (includeExtra && w.extra_hours_status === 'approved') ? (w.extra_hours ?? 0) : 0
+    const hours = allocated + extra
     const wt = w.worker_type ?? 'contractor'
 
     const cost = calcWorkerCost(hours, rate, wt, w.holiday_pay_method, w.holiday_pay_percent, w.kiwisaver_enrolled, w.kiwisaver_employer_rate, accRate)
@@ -117,15 +123,19 @@ function buildSummary(
   return { workers: workerCosts, totalLabourCost, totalAccCost, totalEmployerKs, totalHours, grossProfit, marginPercent }
 }
 
+// True labour cost on the allowed-hours basis (allocated + approved extra).
 export function calculateLabour(
   jobValue: number,
   allowedHours: number | null,
   workers: WorkerInput[],
   accRate?: number,
 ): LabourSummary {
-  return buildSummary(jobValue, workers, false, allowedHours, accRate ?? DEFAULT_ACC_RATE)
+  return buildSummary(jobValue, workers, true, allowedHours, accRate ?? DEFAULT_ACC_RATE)
 }
 
+// Allowed-hours basis WITHOUT the allowedHours fallback — used for the
+// cross-surface consistency check against getJobLabourCost (job-cost.ts),
+// which works purely off job_workers rows (hours_allocated + approved extra).
 export function calculateActualLabour(
   jobValue: number,
   workers: WorkerInput[],
@@ -141,8 +151,10 @@ export function calculateVariance(
   accRate?: number,
 ): VarianceSummary {
   const acc = accRate ?? DEFAULT_ACC_RATE
+  // Baseline (allowed only) vs allowed + approved extra hours. The variance
+  // is the cost/margin impact of admin-approved extra hours.
   const estimated = buildSummary(jobValue, workers, false, allowedHours, acc)
-  const actual = buildSummary(jobValue, workers, true, null, acc)
+  const actual = buildSummary(jobValue, workers, true, allowedHours, acc)
 
   return {
     estimated,

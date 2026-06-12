@@ -53,11 +53,26 @@ describe('labour-calc — pay_rate precedence (Phase G.1)', () => {
     expect(summary.workers[0].totalCost).toBe(0)
   })
 
-  it('uses pay_rate on the actual-hours calculation too', () => {
-    const w = worker({ pay_rate: 50, hourly_rate: 99, actual_hours: 5 })
+  it('uses pay_rate on the allowed-hours basis (calculateActualLabour, no allowedHours fallback)', () => {
+    const w = worker({ pay_rate: 50, hourly_rate: 99, hours_allocated: 5 })
     const summary = calculateActualLabour(500, [w])
     expect(summary.workers[0].hourlyRate).toBe(50)
     expect(summary.workers[0].totalCost).toBe(250)
+  })
+
+  it('adds admin-approved extra hours to the cost basis', () => {
+    const w = worker({ pay_rate: 50, hours_allocated: 4, extra_hours: 2, extra_hours_status: 'approved' })
+    const summary = calculateLabour(500, 4, [w])
+    // (4 + 2) × 50 = 300
+    expect(summary.workers[0].totalCost).toBe(300)
+    expect(summary.totalLabourCost).toBe(300)
+  })
+
+  it('ignores extra hours that are not approved (pending / rejected)', () => {
+    const pending = worker({ pay_rate: 50, hours_allocated: 4, extra_hours: 2, extra_hours_status: 'pending' })
+    expect(calculateLabour(500, 4, [pending]).totalLabourCost).toBe(200)
+    const rejected = worker({ pay_rate: 50, hours_allocated: 4, extra_hours: 2, extra_hours_status: 'rejected' })
+    expect(calculateLabour(500, 4, [rejected]).totalLabourCost).toBe(200)
   })
 
   it('mixes pay_rate and hourly_rate per worker independently', () => {

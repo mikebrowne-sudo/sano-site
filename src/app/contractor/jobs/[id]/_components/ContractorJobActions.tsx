@@ -1,79 +1,44 @@
 'use client'
 
+// Allowed-hours model (2026-06) — single "Mark complete" action.
+// The old Start → Complete clock-in/out flow is archived; the
+// contractor just marks the job complete when it's done.
+
 import { useEffect, useState, useTransition } from 'react'
-import { contractorStartJob, contractorCompleteJob } from '../_actions'
-import { Play, CheckCircle } from 'lucide-react'
+import { contractorCompleteJob } from '../_actions'
+import { CheckCircle } from 'lucide-react'
 
 export function ContractorJobActions({ jobId, status: initialStatus }: { jobId: string; status: string }) {
   const [isPending, startTransition] = useTransition()
   const [currentStatus, setCurrentStatus] = useState(initialStatus)
   const [error, setError] = useState<string | null>(null)
-  // Phase 5.5.7 — brief success flash after Start / Complete so the
-  // contractor gets confirmation before the button shape changes.
-  const [flash, setFlash] = useState<'idle' | 'started' | 'completed'>('idle')
+  // Brief success flash after Complete so the contractor gets
+  // confirmation before the button shape changes.
+  const [flash, setFlash] = useState(false)
 
   useEffect(() => {
-    if (flash === 'idle') return
-    const t = setTimeout(() => setFlash('idle'), 2200)
+    if (!flash) return
+    const t = setTimeout(() => setFlash(false), 2200)
     return () => clearTimeout(t)
   }, [flash])
 
-  function handle(action: 'start' | 'complete') {
+  function handle() {
     setError(null)
     startTransition(async () => {
-      const result = action === 'start'
-        ? await contractorStartJob(jobId)
-        : await contractorCompleteJob(jobId)
+      const result = await contractorCompleteJob(jobId)
       if (result?.error) {
         setError(result.error)
       } else {
-        setCurrentStatus(action === 'start' ? 'in_progress' : 'completed')
-        setFlash(action === 'start' ? 'started' : 'completed')
+        setCurrentStatus('completed')
+        setFlash(true)
       }
     })
-  }
-
-  if (currentStatus === 'draft' || currentStatus === 'assigned') {
-    return (
-      <div>
-        <button
-          onClick={() => handle('start')}
-          disabled={isPending}
-          className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold px-6 py-4 rounded-2xl text-base hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 min-h-[52px]"
-        >
-          <Play size={20} />
-          {isPending ? 'Starting…' : 'Start Job'}
-        </button>
-        {error && <p className="text-red-600 text-xs mt-2 text-center">{error}</p>}
-      </div>
-    )
-  }
-
-  if (currentStatus === 'in_progress') {
-    return (
-      <div>
-        {flash === 'started' && (
-          <p className="text-xs text-blue-700 bg-blue-50 rounded-lg px-3 py-1.5 mb-2 text-center">
-            Job started — good luck.
-          </p>
-        )}
-        <button
-          onClick={() => handle('complete')}
-          disabled={isPending}
-          className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white font-semibold px-6 py-4 rounded-2xl text-base hover:bg-emerald-700 active:bg-emerald-800 transition-colors disabled:opacity-50 min-h-[52px]"
-        >
-          <CheckCircle size={20} />
-          {isPending ? 'Completing…' : 'Complete Job'}
-        </button>
-        {error && <p className="text-red-600 text-xs mt-2 text-center">{error}</p>}
-      </div>
-    )
   }
 
   if (currentStatus === 'completed' || currentStatus === 'invoiced') {
     return (
       <div>
-        {flash === 'completed' && (
+        {flash && (
           <p className="text-xs text-emerald-800 bg-emerald-100 rounded-lg px-3 py-1.5 mb-2 text-center font-medium">
             Job marked complete. Nice work.
           </p>
@@ -86,5 +51,17 @@ export function ContractorJobActions({ jobId, status: initialStatus }: { jobId: 
     )
   }
 
-  return null
+  return (
+    <div>
+      <button
+        onClick={handle}
+        disabled={isPending}
+        className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white font-semibold px-6 py-4 rounded-2xl text-base hover:bg-emerald-700 active:bg-emerald-800 transition-colors disabled:opacity-50 min-h-[52px]"
+      >
+        <CheckCircle size={20} />
+        {isPending ? 'Marking complete…' : 'Mark complete'}
+      </button>
+      {error && <p className="text-red-600 text-xs mt-2 text-center">{error}</p>}
+    </div>
+  )
 }
