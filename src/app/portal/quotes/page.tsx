@@ -80,6 +80,10 @@ export default async function QuotesPage({
   const canCleanup = cleanup.canCleanup
 
   const activeTab    = parseTab(searchParams?.tab)
+  // Needs-attention is a VIRTUAL tab filtered in JS (getQuoteAttention),
+  // so it can't be paginated in the DB — it fetches all candidates and
+  // paginates in JS below. See the jobs list for the canonical fix.
+  const isAttention  = activeTab === 'needs_attention'
   // show_archived is ignored when cleanup mode is off — operational
   // users never see archived/test rows.
   const showArchived = canCleanup && searchParams?.show_archived === '1'
@@ -166,7 +170,11 @@ export default async function QuotesPage({
 
   query = applyQuoteSort(query, activeSort.sortBy, activeSort.sortDirection)
   // Phase 4D — range supersedes .limit() now that pagination is real.
-  query = query.range(from, to)
+  // Needs-attention fetches all candidates (pre-filtered by status) and
+  // paginates in JS below, so it must NOT range here.
+  if (!isAttention) {
+    query = query.range(from, to)
+  }
 
   const { data: quotes, count, error } = await query
 
@@ -292,10 +300,16 @@ export default async function QuotesPage({
 
   // For Needs attention tab, drop rows where the attention rules
   // didn't flag anything (e.g. a recently-sent quote inside the
-  // follow-up grace period, an accepted quote that already has a job).
-  const rows = activeTab === 'needs_attention'
-    ? allRows.filter((r) => r.attention.needsAttention)
-    : allRows
+  // follow-up grace period, an accepted quote that already has a job),
+  // then paginate the filtered set in JS. attentionTotal is the real
+  // total for the footer; the DB `count` is the pre-attention set.
+  let rows = allRows
+  let attentionTotal: number | null = null
+  if (isAttention) {
+    const flagged = allRows.filter((r) => r.attention.needsAttention)
+    attentionTotal = flagged.length
+    rows = flagged.slice(from, to + 1)
+  }
 
   // Render-time helpers
   function cell(row: typeof rows[number], key: string): React.ReactNode {
@@ -451,7 +465,7 @@ export default async function QuotesPage({
         }
         footer={
           <ListPagination
-            total={activeTab === 'needs_attention' ? null : (count ?? null)}
+            total={isAttention ? attentionTotal : (count ?? null)}
             page={pageNum}
             rowsPerPage={rowsPerPage}
             defaultRowsPerPage={QUOTES_LIST_CONFIG.rowsPerPage}

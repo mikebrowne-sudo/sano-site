@@ -94,6 +94,11 @@ export default async function JobsPage({
   ])
   const canCleanup = cleanup.canCleanup
   const activeTab    = parseJobTab(searchParams.tab)
+  // Needs-attention is a VIRTUAL tab: its predicate (getJobAttention)
+  // is JS logic over several columns, not a SQL WHERE. So it can't be
+  // paginated in the DB — doing so filters only the current page. We
+  // fetch all candidates for this tab and paginate in JS instead.
+  const isAttention  = activeTab === 'needs_attention'
   const showArchived = canCleanup && searchParams.show_archived === '1'
 
   const today = todayStr()
@@ -196,7 +201,14 @@ export default async function JobsPage({
 
   query = applyJobSort(query, activeSort.sortBy, activeSort.sortDirection)
   // Phase 4D — range supersedes .limit() now that pagination is real.
-  query = query.range(from, to)
+  // Needs-attention is the exception: it must fetch ALL candidate rows
+  // (status pre-filtered above) so the JS attention filter + JS
+  // pagination below see the whole set. Every other tab paginates in
+  // the DB here. (Candidate volume is bounded — active + completed,
+  // non-test, non-archived — well under the PostgREST row cap.)
+  if (!isAttention) {
+    query = query.range(from, to)
+  }
 
   const [{ data: jobs, count, error }, { data: contractors }] = await Promise.all([
     query,
@@ -279,10 +291,18 @@ export default async function JobsPage({
     }
   })
 
-  // Needs-attention is a virtual tab — narrow to flagged rows only.
-  const rows = activeTab === 'needs_attention'
-    ? allRows.filter((r) => r.attention.needsAttention)
-    : allRows
+  // Needs-attention is a virtual tab — narrow to flagged rows only,
+  // then paginate the filtered set in JS (the query above fetched ALL
+  // candidates unpaginated for exactly this). attentionTotal is the
+  // real total the footer needs to drive page navigation; the DB
+  // `count` reflects the pre-attention candidate set and is wrong here.
+  let rows = allRows
+  let attentionTotal: number | null = null
+  if (isAttention) {
+    const flagged = allRows.filter((r) => r.attention.needsAttention)
+    attentionTotal = flagged.length
+    rows = flagged.slice(from, to + 1)
+  }
 
   // Phase 5A — strict single-line cell renderers.
   // No inner anchors (the row-href Link in <PortalListTable> handles
@@ -452,7 +472,7 @@ export default async function JobsPage({
         }
         footer={
           <ListPagination
-            total={activeTab === 'needs_attention' ? null : (count ?? null)}
+            total={isAttention ? attentionTotal : (count ?? null)}
             page={pageNum}
             rowsPerPage={rowsPerPage}
             defaultRowsPerPage={JOBS_LIST_CONFIG.rowsPerPage}
