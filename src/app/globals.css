@@ -57,6 +57,14 @@
     @apply max-w-6xl mx-auto;
   }
 
+  /* Tabular figures — give every digit a fixed width so money / hours
+     columns and stat readouts align cleanly down a table. Apply to any
+     numeric cell or figure. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
   /* Eyebrow label above headings */
   .eyebrow {
     @apply text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-sage-500;

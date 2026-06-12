@@ -1,4 +1,4 @@
-// Phase 6 — universal status pill for quotes + invoices.
+// Phase 6 — universal status pill for quotes + invoices + jobs + pay.
 // Reads styling from src/lib/quote-status.ts so labels/colours stay in sync.
 
 import clsx from 'clsx'
@@ -9,9 +9,12 @@ import {
   INVOICE_STATUS_STYLES,
   JOB_STATUS_LABELS,
   JOB_STATUS_STYLES,
+  PAY_STATUS_LABELS,
+  PAY_STATUS_STYLES,
   type QuoteStatus,
   type InvoiceStatus,
   type JobStatus,
+  type PayStatus,
 } from '@/lib/quote-status'
 
 type Size = 'sm' | 'md'
@@ -27,7 +30,7 @@ export function StatusBadge({
   size = 'sm',
   className,
 }: {
-  kind: 'quote' | 'invoice' | 'job'
+  kind: 'quote' | 'invoice' | 'job' | 'pay'
   status: string
   size?: Size
   className?: string
@@ -52,6 +55,17 @@ export function StatusBadge({
     return (
       <span className={clsx(base, SIZE_CLASSES[size], JOB_STATUS_STYLES[s], className)}>
         {JOB_STATUS_LABELS[s]}
+      </span>
+    )
+  }
+
+  if (kind === 'pay') {
+    const s = (status as PayStatus) in PAY_STATUS_LABELS
+      ? (status as PayStatus)
+      : 'pending'
+    return (
+      <span className={clsx(base, SIZE_CLASSES[size], PAY_STATUS_STYLES[s], className)}>
+        {PAY_STATUS_LABELS[s]}
       </span>
     )
   }

@@ -238,3 +238,33 @@ export const JOB_STATUS_STYLES: Record<JobStatus, string> = {
   ready_to_invoice: 'bg-emerald-50 text-emerald-700',
   follow_up:        'bg-amber-50 text-amber-700',
 }
+
+// ── Contractor pay status ──────────────────────────────────────────
+// job_workers.pay_status — the gate that moves a worker's labour into
+// a pay run. Canonical home so the job detail page, payroll surfaces,
+// and the contractor pay statement all render one consistent pill via
+// <StatusBadge kind="pay" />. Mirrors the family palette: pending =
+// neutral, approved = blue (in motion), in pay run = amber (active),
+// paid = emerald (done).
+export const PAY_STATUSES = [
+  'pending',
+  'approved',
+  'included_in_pay_run',
+  'paid',
+] as const
+
+export type PayStatus = (typeof PAY_STATUSES)[number]
+
+export const PAY_STATUS_LABELS: Record<PayStatus, string> = {
+  pending:             'Pending',
+  approved:            'Approved',
+  included_in_pay_run: 'In pay run',
+  paid:                'Paid',
+}
+
+export const PAY_STATUS_STYLES: Record<PayStatus, string> = {
+  pending:             'bg-gray-100 text-gray-600',
+  approved:            'bg-blue-50 text-blue-700',
+  included_in_pay_run: 'bg-amber-50 text-amber-700',
+  paid:                'bg-emerald-50 text-emerald-700',
+}
