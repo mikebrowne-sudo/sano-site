@@ -5,6 +5,9 @@ import { ArrowLeft, MapPin, Calendar, Clock, Timer } from 'lucide-react'
 import { ContractorJobActions } from './_components/ContractorJobActions'
 import { ContractorNotesForm } from './_components/ContractorNotesForm'
 import { OnTheWayButton } from './_components/OnTheWayButton'
+import { ContractorPhotos } from './_components/ContractorPhotos'
+import { getWorkerPayableHours, getWorkerLabourCost, getWorkerRate } from '@/lib/job-cost'
+import { getJobPhotos } from '@/lib/job-photos'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -44,18 +47,33 @@ export default async function ContractorJobDetailPage({ params }: { params: { id
   // Safe fields only — no job_price, internal_notes, quote/invoice data.
   // Phase D.1 adds allowed_hours + access_instructions; both are safe
   // for the contractor to see (not margin / not client pricing).
-  const { data: job, error } = await supabase
-    .from('jobs')
-    .select(`
-      id, job_number, title, description, address,
-      scheduled_date, scheduled_time, duration_estimate,
-      allowed_hours, access_instructions,
-      status, contractor_notes, contractor_price,
-      started_at, completed_at
-    `)
-    .eq('id', params.id)
-    .eq('contractor_id', contractor.id)
-    .single()
+  // The worker row is read alongside so we can show the contractor
+  // their pay for this job on the SAME basis as the pay statement
+  // (allowed hours + admin-approved extra × snapshotted rate), instead
+  // of the stale denormalised jobs.contractor_price.
+  const [{ data: job, error }, { data: worker }, photos] = await Promise.all([
+    supabase
+      .from('jobs')
+      .select(`
+        id, job_number, title, description, address,
+        scheduled_date, scheduled_time, duration_estimate,
+        allowed_hours, access_instructions,
+        status, contractor_notes,
+        started_at, completed_at
+      `)
+      .eq('id', params.id)
+      .eq('contractor_id', contractor.id)
+      .single(),
+    supabase
+      .from('job_workers')
+      .select('hours_allocated, pay_rate, extra_hours, extra_hours_status')
+      .eq('job_id', params.id)
+      .eq('contractor_id', contractor.id)
+      .maybeSingle(),
+    // Ownership is re-checked below via the job query; photos are only
+    // rendered after that guard passes.
+    getJobPhotos(params.id),
+  ])
 
   // Job doesn't exist or doesn't belong to this contractor → back to list
   if (error || !job) {
@@ -65,7 +83,21 @@ export default async function ContractorJobDetailPage({ params }: { params: { id
   const scheduledDate = fmtDate(job.scheduled_date)
   const startedAt = fmtDateTime(job.started_at)
   const completedAt = fmtDateTime(job.completed_at)
-  const price = fmtCurrency(job.contractor_price)
+
+  // Pay for this job — canonical helpers, same basis as the statement.
+  const costInput = {
+    pay_rate: (worker?.pay_rate as number | null) ?? null,
+    contractor_hourly_rate: contractor.hourly_rate ?? null,
+    approved_hours: null,
+    actual_hours: null,
+    hours_allocated: (worker?.hours_allocated as number | null) ?? job.allowed_hours ?? null,
+    extra_hours: (worker?.extra_hours as number | null) ?? 0,
+    extra_hours_status: (worker?.extra_hours_status as string | null) ?? 'none',
+  }
+  const payableHours = getWorkerPayableHours(costInput)
+  const jobPay = getWorkerLabourCost(costInput)
+  const payRate = getWorkerRate(costInput, contractor.hourly_rate)
+  const approvedExtra = costInput.extra_hours_status === 'approved' ? (costInput.extra_hours ?? 0) : 0
 
   return (
     // Phase 5.5.4 — extra mobile bottom padding so the sticky action bar
@@ -203,11 +235,20 @@ export default async function ContractorJobDetailPage({ params }: { params: { id
         </div>
       )}
 
-      {/* Pay */}
-      {price && (
+      {/* Pay for this job — allowed hours × rate (+ approved extra),
+          the same basis as the contractor pay statement. */}
+      {payableHours != null && payRate != null && (
         <div className="bg-white rounded-2xl border border-sage-100 p-5 mt-4">
-          <h2 className="text-xs text-sage-500 font-semibold uppercase tracking-wide mb-2">Your Rate</h2>
-          <p className="text-sage-800 text-lg font-bold">{price}</p>
+          <h2 className="text-xs text-sage-500 font-semibold uppercase tracking-wide mb-2">Your pay for this job</h2>
+          <p className="text-sage-800 text-2xl font-bold tabular-nums">{fmtCurrency(jobPay)}</p>
+          <p className="text-xs text-sage-500 mt-1 tabular-nums">
+            {payableHours} hr{payableHours === 1 ? '' : 's'} × {fmtCurrency(payRate)}/hr
+            {approvedExtra > 0 && <span className="text-sage-400"> · incl. {approvedExtra} approved extra</span>}
+          </p>
+          <p className="text-[11px] text-sage-400 mt-2">
+            See all your jobs and pay-run totals in{' '}
+            <Link href="/contractor/payroll" className="text-sage-600 underline">Pay</Link>.
+          </p>
         </div>
       )}
 
@@ -215,6 +256,16 @@ export default async function ContractorJobDetailPage({ params }: { params: { id
       <div className="bg-white rounded-2xl border border-sage-100 p-5 mt-4">
         <h2 className="text-xs text-sage-500 font-semibold uppercase tracking-wide mb-3">Your Notes</h2>
         <ContractorNotesForm jobId={job.id} currentNotes={job.contractor_notes ?? ''} />
+      </div>
+
+      {/* Photos — proof of completion. Visible to Sano staff on the
+          portal job page; not shown to the client. */}
+      <div className="bg-white rounded-2xl border border-sage-100 p-5 mt-4">
+        <h2 className="text-xs text-sage-500 font-semibold uppercase tracking-wide mb-3">Photos</h2>
+        <ContractorPhotos
+          jobId={job.id}
+          photos={photos.map((p) => ({ id: p.id, url: p.url, createdAt: p.createdAt }))}
+        />
       </div>
 
     </div>
