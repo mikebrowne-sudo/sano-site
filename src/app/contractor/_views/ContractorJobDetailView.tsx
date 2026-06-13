@@ -13,6 +13,7 @@ import { ContractorNotesForm } from '../jobs/[id]/_components/ContractorNotesFor
 import { OnTheWayButton } from '../jobs/[id]/_components/OnTheWayButton'
 import { ContractorPhotos } from '../jobs/[id]/_components/ContractorPhotos'
 import { JobPhotoGallery } from '@/components/JobPhotoGallery'
+import { contractorJobTitle } from '../_lib/job-title'
 import type { ContractorJobDetail } from '../_lib/contractor-job-detail-data'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -68,7 +69,7 @@ export function ContractorJobDetailView({
             {STATUS_LABELS[job.status] ?? job.status}
           </span>
         </div>
-        {job.title && <p className="text-sage-600 text-sm mt-1">{job.title}</p>}
+        {contractorJobTitle(job.title) && <p className="text-sage-600 text-sm mt-1">{contractorJobTitle(job.title)}</p>}
       </div>
 
       {/* Primary action */}
