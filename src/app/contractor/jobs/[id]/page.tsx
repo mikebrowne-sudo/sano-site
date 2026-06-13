@@ -5,7 +5,9 @@ import { ArrowLeft, MapPin, Calendar, Clock, Timer } from 'lucide-react'
 import { ContractorJobActions } from './_components/ContractorJobActions'
 import { ContractorNotesForm } from './_components/ContractorNotesForm'
 import { OnTheWayButton } from './_components/OnTheWayButton'
+import { ContractorPhotos } from './_components/ContractorPhotos'
 import { getWorkerPayableHours, getWorkerLabourCost, getWorkerRate } from '@/lib/job-cost'
+import { getJobPhotos } from '@/lib/job-photos'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -49,7 +51,7 @@ export default async function ContractorJobDetailPage({ params }: { params: { id
   // their pay for this job on the SAME basis as the pay statement
   // (allowed hours + admin-approved extra × snapshotted rate), instead
   // of the stale denormalised jobs.contractor_price.
-  const [{ data: job, error }, { data: worker }] = await Promise.all([
+  const [{ data: job, error }, { data: worker }, photos] = await Promise.all([
     supabase
       .from('jobs')
       .select(`
@@ -68,6 +70,9 @@ export default async function ContractorJobDetailPage({ params }: { params: { id
       .eq('job_id', params.id)
       .eq('contractor_id', contractor.id)
       .maybeSingle(),
+    // Ownership is re-checked below via the job query; photos are only
+    // rendered after that guard passes.
+    getJobPhotos(params.id),
   ])
 
   // Job doesn't exist or doesn't belong to this contractor → back to list
@@ -251,6 +256,16 @@ export default async function ContractorJobDetailPage({ params }: { params: { id
       <div className="bg-white rounded-2xl border border-sage-100 p-5 mt-4">
         <h2 className="text-xs text-sage-500 font-semibold uppercase tracking-wide mb-3">Your Notes</h2>
         <ContractorNotesForm jobId={job.id} currentNotes={job.contractor_notes ?? ''} />
+      </div>
+
+      {/* Photos — proof of completion. Visible to Sano staff on the
+          portal job page; not shown to the client. */}
+      <div className="bg-white rounded-2xl border border-sage-100 p-5 mt-4">
+        <h2 className="text-xs text-sage-500 font-semibold uppercase tracking-wide mb-3">Photos</h2>
+        <ContractorPhotos
+          jobId={job.id}
+          photos={photos.map((p) => ({ id: p.id, url: p.url, createdAt: p.createdAt }))}
+        />
       </div>
 
     </div>

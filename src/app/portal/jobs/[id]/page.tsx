@@ -28,6 +28,8 @@ import { LockBanner } from '../../_components/LockBanner'
 import { AmendmentOverrideButton } from '../../_components/AmendmentOverrideButton'
 import { AuditTimelinePanel } from '../../_components/AuditTimelinePanel'
 import { StatusBadge } from '../../_components/StatusBadge'
+import { getJobPhotos } from '@/lib/job-photos'
+import { JobPhotoGallery } from '@/components/JobPhotoGallery'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -77,6 +79,7 @@ export default async function JobDetailPage({
     cleanup,
     { data: job, error },
     { data: jobWorkers },
+    jobPhotos,
   ] = await Promise.all([
     supabase.auth.getUser(),
     getCleanupAccess(supabase),
@@ -103,6 +106,8 @@ export default async function JobDetailPage({
       .from('job_workers')
       .select('contractor_id, hours_allocated, actual_start_time, actual_end_time, actual_hours, pay_rate, pay_type, approved_hours, approved_at, approved_by, pay_status, extra_hours, extra_hours_status, extra_hours_reason, contractors ( full_name, hourly_rate, worker_type, holiday_pay_method, holiday_pay_percent, kiwisaver_enrolled, kiwisaver_employer_rate )')
       .eq('job_id', params.id),
+    // Contractor proof-of-completion photos (read-only for staff).
+    getJobPhotos(params.id),
   ])
   const isAdmin = isAdminUser(user)
   const canCleanup = cleanup.canCleanup
@@ -757,6 +762,14 @@ export default async function JobDetailPage({
                 <p className="text-sage-600 text-sm whitespace-pre-wrap mt-1">{job.contractor_notes}</p>
               </div>
             )}
+          </Section>
+        )}
+
+        {/* Contractor photos — proof of completion (read-only for staff). */}
+        {jobPhotos.length > 0 && (
+          <Section title={`Photos (${jobPhotos.length})`}>
+            <JobPhotoGallery photos={jobPhotos.map((p) => ({ id: p.id, url: p.url, createdAt: p.createdAt }))} />
+            <p className="text-[11px] text-sage-400 mt-3">Uploaded by the contractor as proof of completion.</p>
           </Section>
         )}
 
