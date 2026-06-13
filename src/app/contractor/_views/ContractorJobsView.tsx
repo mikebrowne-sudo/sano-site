@@ -8,6 +8,7 @@
 import Link from 'next/link'
 import { Briefcase, MapPin, Calendar, ChevronRight } from 'lucide-react'
 import clsx from 'clsx'
+import { contractorJobTitle } from '../_lib/job-title'
 
 const STATUS_STYLES: Record<string, string> = {
   draft:       'bg-gray-100 text-gray-700',
@@ -120,6 +121,7 @@ function Group({ label, tone, children }: { label: string; tone?: 'urgent' | 'wa
 }
 
 function JobCard({ job, href, highlight }: { job: ContractorJobRow; href: string; highlight?: 'today' | 'overdue' }) {
+  const cleanTitle = contractorJobTitle(job.title)
   return (
     <Link
       href={href}
@@ -136,22 +138,24 @@ function JobCard({ job, href, highlight }: { job: ContractorJobRow; href: string
           {job.status.replace('_', ' ')}
         </span>
       </div>
-      {job.title && <p className="text-sage-700 text-sm mb-2 line-clamp-2">{job.title}</p>}
-      <div className="flex items-center gap-3 text-xs text-sage-500 flex-wrap">
-        {job.scheduled_date && (
-          <span className="inline-flex items-center gap-1">
-            <Calendar size={12} />
-            {fmtDate(job.scheduled_date)}
-            {job.scheduled_time && <span className="ml-0.5">· {job.scheduled_time}</span>}
-          </span>
-        )}
+      {cleanTitle && <p className="text-sage-700 text-sm mb-2 line-clamp-2">{cleanTitle}</p>}
+      <div className="space-y-1.5 text-xs text-sage-500">
+        <div className="flex items-center gap-3">
+          {job.scheduled_date && (
+            <span className="inline-flex items-center gap-1">
+              <Calendar size={12} />
+              {fmtDate(job.scheduled_date)}
+              {job.scheduled_time && <span className="ml-0.5">· {job.scheduled_time}</span>}
+            </span>
+          )}
+          <ChevronRight size={14} className="ml-auto text-sage-300" />
+        </div>
         {job.address && (
-          <span className="inline-flex items-center gap-1 truncate max-w-[60%]">
-            <MapPin size={12} />
-            <span className="truncate">{job.address}</span>
-          </span>
+          <div className="flex items-start gap-1.5">
+            <MapPin size={12} className="mt-0.5 shrink-0" />
+            <span className="leading-snug">{job.address}</span>
+          </div>
         )}
-        <ChevronRight size={14} className="ml-auto text-sage-300" />
       </div>
     </Link>
   )

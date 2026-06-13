@@ -3,6 +3,7 @@
 
 import { formatCurrency, formatDate } from '@/lib/format'
 import { Wallet, CheckCircle2, Clock } from 'lucide-react'
+import { contractorJobTitle } from '../_lib/job-title'
 import type { ContractorPayData } from '../_lib/contractor-pay-data'
 
 function statusPill(status: string) {
@@ -77,7 +78,7 @@ export function ContractorPayView({ data }: { data: ContractorPayData }) {
                   <li key={l.jobId} className="px-4 py-3 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-sage-800 truncate">
-                        {l.title || l.jobNumber || 'Job'}
+                        {contractorJobTitle(l.title) || l.jobNumber || 'Job'}
                       </div>
                       <div className="text-[11px] text-sage-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                         {l.jobNumber && <span>{l.jobNumber}</span>}
