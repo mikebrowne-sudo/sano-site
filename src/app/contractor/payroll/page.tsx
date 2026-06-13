@@ -124,7 +124,7 @@ export default async function ContractorPayrollPage() {
   const paidTotal = Math.round((grandTotal - upcomingTotal) * 100) / 100
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 pb-28 md:pb-10">
+    <div className="max-w-3xl mx-auto px-4 py-6 pb-28 md:pb-10 tnum">
       <header className="mb-5">
         <h1 className="text-xl font-semibold text-sage-800">Pay statement</h1>
         <p className="text-sm text-sage-500 mt-0.5">

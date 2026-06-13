@@ -238,7 +238,7 @@ export default async function FinancePage({
   })
 
   return (
-    <div>
+    <div className="tnum">
       <h1 className="text-3xl tracking-tight font-bold text-sage-800 mb-8">Finance</h1>
 
       <PeriodFilter current={periodKey} customFrom={searchParams.from} customTo={searchParams.to} />
