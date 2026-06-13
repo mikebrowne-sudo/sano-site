@@ -66,17 +66,24 @@ export async function loadContractorPayStatement(
 
   const rows = (rowsRaw ?? []) as unknown as RawRow[]
 
-  // A job appears on the pay statement as soon as it's INVOICED (the
-  // work has been billed) — it no longer has to be separately "marked
-  // complete" first. We also include anything the contractor is already
-  // being paid for (in a pay run / paid) so paid work can never drop
-  // off. Upcoming vs Paid is driven by pay_status below.
+  // A job appears on the contractor's pay screen once it is PAYABLE and
+  // the job has actually happened:
+  //   • payable = marked complete (by anyone), OR already in a pay run /
+  //     paid (so contractor-paid work can never drop off).
+  //   • date guard = the job's scheduled date is on or before today (NZ).
+  //     This keeps a prepaid job — e.g. a cash account invoiced + paid
+  //     before the clean — off the contractor's pay screen until the job
+  //     date arrives. Staff still see it on their system; the contractor
+  //     only sees it once the work is due to have been done.
+  // Upcoming vs Paid is driven by pay_status below.
+  const todayNZ = new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' })
   const lines: PayLine[] = rows
     .filter((r) => {
       const j = r.jobs
       if (!j) return false
-      const inPayFlow = r.pay_status === 'included_in_pay_run' || r.pay_status === 'paid'
-      return j.status === 'invoiced' || inPayFlow
+      const payable = !!j.completed_at || r.pay_status === 'included_in_pay_run' || r.pay_status === 'paid'
+      if (!payable) return false
+      return !j.scheduled_date || j.scheduled_date <= todayNZ
     })
     .map((r) => {
       const j = r.jobs!
