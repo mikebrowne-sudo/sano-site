@@ -9,6 +9,7 @@ import { renderPdfFromUrl } from '@/lib/pdf/render-pdf'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { computeInvoiceDueDate, resolveServiceDate } from '@/lib/invoice-dates'
 import { getCustomerReplyToEmail } from '@/lib/email-reply-to'
+import { stampJobCompleteOnPaidInvoice } from '@/lib/job-paid-complete'
 
 interface SendInvoiceInput {
   invoice_id: string
@@ -229,7 +230,11 @@ export async function markInvoicePaid(invoiceId: string) {
     return { error: `Failed to update invoice: ${error.message}` }
   }
 
+  // A paid invoice means the job is paid work — stamp it complete.
+  await stampJobCompleteOnPaidInvoice(supabase, invoiceId)
+
   revalidatePath(`/portal/invoices/${invoiceId}`)
   revalidatePath('/portal/invoices')
+  revalidatePath('/portal/jobs')
   return { success: true }
 }

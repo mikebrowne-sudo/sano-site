@@ -22,6 +22,8 @@ interface RawRow {
     title: string | null
     status: string | null
     completed_at: string | null
+    scheduled_date: string | null
+    created_at: string | null
     allowed_hours: number | null
   } | null
 }
@@ -58,26 +60,39 @@ export async function loadContractorPayStatement(
     .from('job_workers')
     .select(`
       hours_allocated, extra_hours, extra_hours_status, pay_rate, pay_status,
-      jobs!inner ( id, job_number, title, status, completed_at, allowed_hours )
+      jobs!inner ( id, job_number, title, status, completed_at, scheduled_date, created_at, allowed_hours )
     `)
     .eq('contractor_id', contractorId)
 
   const rows = (rowsRaw ?? []) as unknown as RawRow[]
 
+  // A job appears on the pay statement as soon as it's INVOICED (the
+  // work has been billed) — it no longer has to be separately "marked
+  // complete" first. We also include anything the contractor is already
+  // being paid for (in a pay run / paid) so paid work can never drop
+  // off. Upcoming vs Paid is driven by pay_status below.
   const lines: PayLine[] = rows
-    .filter((r) => r.jobs && (r.jobs.status === 'completed' || r.jobs.status === 'invoiced'))
-    .filter((r) => !!r.jobs?.completed_at)
+    .filter((r) => {
+      const j = r.jobs
+      if (!j) return false
+      const inPayFlow = r.pay_status === 'included_in_pay_run' || r.pay_status === 'paid'
+      return j.status === 'invoiced' || inPayFlow
+    })
     .map((r) => {
       const j = r.jobs!
       const allowed = r.hours_allocated ?? j.allowed_hours ?? 0
       const approvedExtra = r.extra_hours_status === 'approved' ? (r.extra_hours ?? 0) : 0
       const hours = Math.round((allowed + approvedExtra) * 100) / 100
       const rate = r.pay_rate ?? fallbackRate
+      // Pay-period date: completion mark if present, else the booked
+      // clean date, else created. Guarantees a date for bucketing even
+      // on invoiced jobs that were never explicitly marked complete.
+      const periodDate = j.completed_at ?? j.scheduled_date ?? (j.created_at as string)
       return {
         jobId: j.id,
         jobNumber: j.job_number,
         title: j.title,
-        completedAt: j.completed_at as string,
+        completedAt: periodDate,
         hours,
         amount: Math.round(hours * rate * 100) / 100,
         payStatus: r.pay_status ?? 'pending',

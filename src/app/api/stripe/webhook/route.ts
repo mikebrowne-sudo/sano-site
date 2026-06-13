@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe'
 import { createClient } from '@supabase/supabase-js'
+import { stampJobCompleteOnPaidInvoice } from '@/lib/job-paid-complete'
 import Stripe from 'stripe'
 
 function getServerSupabase() {
@@ -54,6 +55,8 @@ export async function POST(req: NextRequest) {
       console.error('[stripe-webhook] Failed to update invoice:', error.message)
     } else {
       console.log(`[stripe-webhook] Invoice ${session.metadata?.invoice_number} marked as paid`)
+      // A paid invoice means the job is paid work — stamp it complete.
+      await stampJobCompleteOnPaidInvoice(supabase, invoiceId)
     }
   }
 
