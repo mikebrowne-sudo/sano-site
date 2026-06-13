@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Pencil } from 'lucide-react'
+import { ArrowLeft, Pencil, Smartphone } from 'lucide-react'
 import { DocumentUpload } from '../_components/DocumentUpload'
 import { DocumentList } from '../_components/DocumentList'
 import { PayPreview } from '../_components/PayPreview'
@@ -172,13 +172,22 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
             <ComplianceBadge status={compliance.status} reasons={compliance.reasons} />
           </div>
         </div>
-        <Link
-          href={`/portal/contractors/${params.id}/edit`}
-          className="inline-flex items-center gap-2 bg-sage-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
-        >
-          <Pencil size={14} />
-          Edit
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/portal/contractors/${params.id}/preview`}
+            className="inline-flex items-center gap-2 bg-white border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
+          >
+            <Smartphone size={14} />
+            Preview portal
+          </Link>
+          <Link
+            href={`/portal/contractors/${params.id}/edit`}
+            className="inline-flex items-center gap-2 bg-sage-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
+          >
+            <Pencil size={14} />
+            Edit
+          </Link>
+        </div>
       </div>
 
       {isAdmin && (
