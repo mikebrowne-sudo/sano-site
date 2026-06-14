@@ -14,6 +14,7 @@ import { ArrowLeft, Briefcase, Download } from 'lucide-react'
 import { isAdminEmail } from '@/lib/is-admin'
 import clsx from 'clsx'
 import { PayRunActions } from './_components/PayRunActions'
+import { SendRemittancesButton } from './_components/SendRemittancesButton'
 import { computePayRunVariance } from '@/lib/pay-run-variance'
 
 export const dynamic = 'force-dynamic'
@@ -134,6 +135,20 @@ export default async function ContractorPayRunDetailPage({ params }: { params: {
     workerCountByJob.set(w.job_id, (workerCountByJob.get(w.job_id) ?? 0) + 1)
   }
 
+  // Remittance status per contractor (sent indicator + view links).
+  const { data: remittancesRaw } = await supabase
+    .from('pay_run_remittances')
+    .select('contractor_id, remittance_number, sent_at, token')
+    .eq('pay_run_id', params.id)
+  const remByContractor = new Map<string, { number: string; sentAt: string | null; token: string }>()
+  for (const r of remittancesRaw ?? []) {
+    remByContractor.set(r.contractor_id as string, {
+      number: r.remittance_number as string,
+      sentAt: (r.sent_at as string | null) ?? null,
+      token: r.token as string,
+    })
+  }
+
   // Group by contractor.
   const byContractor = new Map<string, {
     contractorId: string
@@ -196,6 +211,7 @@ export default async function ContractorPayRunDetailPage({ params }: { params: {
           >
             <Download size={16} /> Export CSV
           </a>
+          {status === 'paid' && <SendRemittancesButton payRunId={run.id} />}
           <PayRunActions payRunId={run.id} status={status} />
         </div>
       </div>
@@ -227,6 +243,18 @@ export default async function ContractorPayRunDetailPage({ params }: { params: {
                 <span className="text-xs text-sage-500">
                   {g.rows.length} job{g.rows.length === 1 ? '' : 's'} · {g.totalHours} hrs
                 </span>
+                {(() => {
+                  const rem = remByContractor.get(g.contractorId)
+                  if (!rem) return null
+                  return rem.sentAt ? (
+                    <a href={`/remittance/${rem.token}`} target="_blank" rel="noopener noreferrer"
+                      className="text-[11px] inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full hover:bg-emerald-100">
+                      {rem.number} · sent {fmtDate(rem.sentAt)}
+                    </a>
+                  ) : (
+                    <span className="text-[11px] text-sage-500 bg-sage-100 px-2 py-0.5 rounded-full">{rem.number} · not sent</span>
+                  )
+                })()}
                 <span className="ml-auto text-sm font-semibold text-sage-800">
                   {fmtCurrency(g.totalAmount)}
                 </span>
