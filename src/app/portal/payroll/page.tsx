@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
-import { DollarSign, Plus, ClipboardCheck, FileSpreadsheet, FilePlus } from 'lucide-react'
+import { DollarSign, Plus, ClipboardCheck, FileSpreadsheet, FilePlus, Wallet } from 'lucide-react'
 import clsx from 'clsx'
 import { isAdminEmail } from '@/lib/is-admin'
 
@@ -52,9 +52,16 @@ export default async function PayrollPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl tracking-tight font-bold text-sage-800">Payroll</h1>
-        <Link href="/portal/payroll/new" className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors">
-          <Plus size={16} /> New Pay Run
-        </Link>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Link href="/portal/payroll/contractors" className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors">
+              <Wallet size={16} /> Pay contractors
+            </Link>
+          )}
+          <Link href="/portal/payroll/new" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
+            <Plus size={16} /> New Pay Run
+          </Link>
+        </div>
       </div>
 
       {/* Phase E — contractor approvals card. Admin-only link into
