@@ -136,7 +136,7 @@ export function ContractorJobDetailView({
           <p className="text-sage-800 text-2xl font-bold tabular-nums">{fmtCurrency(job.jobPay)}</p>
           <p className="text-xs text-sage-500 mt-1 tabular-nums">
             {job.payableHours} hr{job.payableHours === 1 ? '' : 's'} × {fmtCurrency(job.payRate)}/hr
-            {job.approvedExtra > 0 && <span className="text-sage-400"> · incl. {job.approvedExtra} approved extra</span>}
+            {job.approvedExtra !== 0 && <span className="text-sage-400"> · incl. {job.approvedExtra > 0 ? '+' : ''}{job.approvedExtra}h adjustment</span>}
           </p>
         </Card>
       )}

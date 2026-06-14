@@ -45,7 +45,7 @@ export function ExtraHoursControl(props: ExtraHoursControlProps) {
   const [isPending, startTransition] = useTransition()
 
   const status = props.extraStatus || 'none'
-  const has = (props.extraHours ?? 0) > 0 && status !== 'none'
+  const has = (props.extraHours ?? 0) !== 0 && status !== 'none'
 
   function run(fn: () => Promise<{ ok?: boolean; error?: string }>) {
     setError(null)
@@ -59,29 +59,32 @@ export function ExtraHoursControl(props: ExtraHoursControlProps) {
 
   function save() {
     const n = Number(hours)
-    if (!Number.isFinite(n) || n < 0) { setError('Enter a number of hours (0 to clear).'); return }
-    if (n > 0 && !reason.trim()) { setError('Add a short reason for the extra hours.'); return }
+    if (!Number.isFinite(n)) { setError('Enter a number of hours (0 to clear).'); return }
+    if (n !== 0 && !reason.trim()) { setError('Add a short reason for the adjustment.'); return }
     run(() => recordExtraHours(props.jobId, props.contractorId, n, reason))
   }
+
+  // Signed display, e.g. "+2h" / "-1h".
+  const signed = (n: number) => `${n > 0 ? '+' : ''}${fmtHours(n)}`
 
   // ---- Editor ----------------------------------------------------------
   if (editing) {
     return (
       <div className="text-left bg-white border border-sage-200 rounded-lg p-3 space-y-2 w-56 shadow-sm">
-        <div className="text-xs font-semibold text-sage-800">Extra hours — {props.contractorName}</div>
+        <div className="text-xs font-semibold text-sage-800">Hours adjustment — {props.contractorName}</div>
         <input
-          type="number" min="0" step="0.25" value={hours} autoFocus
+          type="number" step="0.25" value={hours} autoFocus
           onChange={(e) => setHours(e.target.value)}
-          placeholder="0"
+          placeholder="+ over / − early"
           className="w-full rounded-md border border-sage-200 px-2.5 py-1.5 text-sm text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500"
         />
         <textarea
           value={reason} rows={2}
           onChange={(e) => setReason(e.target.value)}
-          placeholder="Reason (e.g. extra room, access delay)"
+          placeholder="Reason (e.g. extra room, or finished early)"
           className="w-full rounded-md border border-sage-200 px-2.5 py-1.5 text-xs text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500"
         />
-        <p className="text-[10px] text-sage-400 leading-snug">Set to 0 to clear. Saved as pending until an admin signs off.</p>
+        <p className="text-[10px] text-sage-400 leading-snug">+ adds hours, − reduces. Set to 0 to clear. Saved as pending until an admin signs off.</p>
         {error && <p className="text-[11px] text-red-600">{error}</p>}
         <div className="flex items-center gap-2 pt-0.5">
           <button type="button" onClick={save} disabled={isPending}
@@ -108,7 +111,7 @@ export function ExtraHoursControl(props: ExtraHoursControlProps) {
     return (
       <button type="button" onClick={() => { setHours(''); setReason(''); setEditing(true) }}
         className="inline-flex items-center gap-1 text-[11px] text-sage-500 hover:text-sage-700 border border-dashed border-sage-200 rounded px-2 py-0.5 hover:border-sage-300">
-        <Plus size={11} />Extra
+        <Plus size={11} />Adjust
       </button>
     )
   }
@@ -117,9 +120,9 @@ export function ExtraHoursControl(props: ExtraHoursControlProps) {
 
   return (
     <span className="inline-flex flex-col items-end gap-1">
-      {status === 'approved' && chip('text-emerald-700 bg-emerald-50', <Check size={11} />, `+${fmtHours(props.extraHours)} approved`)}
-      {status === 'pending' && chip('text-amber-700 bg-amber-50', <Clock size={11} />, `+${fmtHours(props.extraHours)} pending`)}
-      {status === 'rejected' && chip('text-sage-500 bg-sage-50 line-through', <X size={11} />, `+${fmtHours(props.extraHours)}`)}
+      {status === 'approved' && chip('text-emerald-700 bg-emerald-50', <Check size={11} />, `${signed(props.extraHours)} approved`)}
+      {status === 'pending' && chip('text-amber-700 bg-amber-50', <Clock size={11} />, `${signed(props.extraHours)} pending`)}
+      {status === 'rejected' && chip('text-sage-500 bg-sage-50 line-through', <X size={11} />, signed(props.extraHours))}
 
       {error && <span className="text-[10px] text-red-600">{error}</span>}
 
