@@ -34,13 +34,15 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
-type Bucket = 'today' | 'overdue' | 'upcoming' | 'past'
+type Bucket = 'today' | 'upcoming' | 'hidden'
+// Contractors see only current, assigned work on My Jobs: no drafts,
+// no undated jobs, no past/overdue. Just Today and (dated) Upcoming.
 function bucketFor(scheduledDate: string | null, status: string, todayIso: string): Bucket {
-  if (!scheduledDate) return 'upcoming'
-  if (status === 'completed' || status === 'invoiced') return 'past'
+  if (status === 'draft') return 'hidden'
+  if (!scheduledDate) return 'hidden'
   if (scheduledDate === todayIso) return 'today'
-  if (scheduledDate < todayIso) return 'overdue'
-  return 'upcoming'
+  if (scheduledDate > todayIso) return 'upcoming'
+  return 'hidden' // past / overdue
 }
 
 export function ContractorJobsView({
@@ -53,22 +55,19 @@ export function ContractorJobsView({
   todayIso?: string
 }) {
   const today: ContractorJobRow[] = []
-  const overdue: ContractorJobRow[] = []
   const upcoming: ContractorJobRow[] = []
-  const past: ContractorJobRow[] = []
   for (const j of jobs) {
     const b = bucketFor(j.scheduled_date, j.status, todayIso)
     if (b === 'today') today.push(j)
-    else if (b === 'overdue') overdue.push(j)
     else if (b === 'upcoming') upcoming.push(j)
-    else past.push(j)
   }
+  const hasVisible = today.length + upcoming.length > 0
 
   return (
     <div>
       <h1 className="text-xl font-bold text-sage-800 mb-6">My Jobs</h1>
 
-      {jobs.length === 0 ? (
+      {!hasVisible ? (
         <div className="bg-white rounded-2xl border border-sage-100 p-10 text-center">
           <div className="inline-flex w-12 h-12 items-center justify-center rounded-full bg-sage-50 mb-3">
             <Briefcase size={22} className="text-sage-400" />
@@ -83,19 +82,9 @@ export function ContractorJobsView({
               {today.map((j) => <JobCard key={j.id} job={j} href={jobHref(j.id)} highlight="today" />)}
             </Group>
           )}
-          {overdue.length > 0 && (
-            <Group label="Overdue" tone="warn">
-              {overdue.map((j) => <JobCard key={j.id} job={j} href={jobHref(j.id)} highlight="overdue" />)}
-            </Group>
-          )}
           {upcoming.length > 0 && (
             <Group label="Upcoming">
               {upcoming.map((j) => <JobCard key={j.id} job={j} href={jobHref(j.id)} />)}
-            </Group>
-          )}
-          {past.length > 0 && (
-            <Group label="Earlier">
-              {past.map((j) => <JobCard key={j.id} job={j} href={jobHref(j.id)} />)}
             </Group>
           )}
         </div>
