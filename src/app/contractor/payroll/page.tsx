@@ -12,8 +12,8 @@ import { ContractorPayView } from '../_views/ContractorPayView'
 export const dynamic = 'force-dynamic'
 
 export default async function ContractorPayrollPage() {
-  const { supabase, contractor } = await getContractor()
-  const data = await loadContractorPayStatement(supabase, contractor.id, contractor.hourly_rate ?? 0)
+  const { contractor } = await getContractor()
+  const data = await loadContractorPayStatement(contractor.id)
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 pb-28 md:pb-10">
