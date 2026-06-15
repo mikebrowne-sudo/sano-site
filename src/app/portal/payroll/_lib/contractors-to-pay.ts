@@ -1,11 +1,15 @@
-// "Pay contractors" data — completed-but-unpaid contractor work, grouped
-// by contractor, ready for one-click pay.
+// "Pay contractors" data — completed-but-unpaid contractor work.
 //
-// In the allowed-hours model a completed job is payable the moment it's
-// done (allowed hours + admin-approved extra × rate) — no separate
-// "approve hours" step. A job is ELIGIBLE to pay when it's completed,
-// not yet in a pay run / paid, and has both a rate and hours. Anything
-// missing those is surfaced as "needs pricing" rather than a silent $0.
+// Splits into two:
+//   • contractors[] — each with their PAYABLE jobs (priced) + total,
+//     ready for one-click pay.
+//   • needsTidying[] — a flat list of completed jobs that can't be paid
+//     yet (no rate / no hours). Staff fix or exclude these in the
+//     Tidy-up section. Excluded rows (pay_status='excluded') drop out
+//     entirely.
+//
+// A completed job is payable the moment it's done (allowed hours +
+// approved adjustment × rate) — no separate approve-hours step.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -36,8 +40,6 @@ export interface ToPayJob {
   hours: number
   rate: number
   amount: number
-  needsPricing: boolean
-  reason: string | null
 }
 
 export interface ToPayContractor {
@@ -47,10 +49,22 @@ export interface ToPayContractor {
   jobs: ToPayJob[]
   payableTotal: number
   payableCount: number
-  needsPricingCount: number
 }
 
-export async function loadContractorsToPay(supabase: SupabaseClient): Promise<ToPayContractor[]> {
+export interface TidyJob {
+  jobId: string
+  jobNumber: string
+  contractorId: string
+  contractorName: string
+  reason: string
+}
+
+export interface ToPayResult {
+  contractors: ToPayContractor[]
+  needsTidying: TidyJob[]
+}
+
+export async function loadContractorsToPay(supabase: SupabaseClient): Promise<ToPayResult> {
   const { data: rowsRaw } = await supabase
     .from('job_workers')
     .select(`
@@ -62,6 +76,7 @@ export async function loadContractorsToPay(supabase: SupabaseClient): Promise<To
 
   const rows = (rowsRaw ?? []) as unknown as Row[]
   const groups = new Map<string, ToPayContractor>()
+  const needsTidying: TidyJob[] = []
 
   for (const r of rows) {
     const j = r.jobs
@@ -69,13 +84,22 @@ export async function loadContractorsToPay(supabase: SupabaseClient): Promise<To
 
     const rate = r.pay_rate ?? r.contractors?.hourly_rate ?? 0
     const allowed = r.hours_allocated ?? j.allowed_hours ?? 0
-    const approvedExtra = r.extra_hours_status === 'approved' ? (r.extra_hours ?? 0) : 0
-    const hours = Math.round((allowed + approvedExtra) * 100) / 100
-    const amount = Math.round(hours * rate * 100) / 100
-
+    const approvedAdj = r.extra_hours_status === 'approved' ? (r.extra_hours ?? 0) : 0
+    const hours = Math.round((allowed + approvedAdj) * 100) / 100
     const reason = rate <= 0 ? 'No pay rate set' : hours <= 0 ? 'No hours set' : null
-    const needsPricing = reason != null
 
+    if (reason) {
+      needsTidying.push({
+        jobId: j.id,
+        jobNumber: j.job_number ?? '—',
+        contractorId: r.contractor_id,
+        contractorName: r.contractors?.full_name ?? 'Contractor',
+        reason,
+      })
+      continue
+    }
+
+    const amount = Math.round(hours * rate * 100) / 100
     const g = groups.get(r.contractor_id) ?? {
       contractorId: r.contractor_id,
       name: r.contractors?.full_name ?? 'Contractor',
@@ -83,7 +107,6 @@ export async function loadContractorsToPay(supabase: SupabaseClient): Promise<To
       jobs: [],
       payableTotal: 0,
       payableCount: 0,
-      needsPricingCount: 0,
     }
     g.jobs.push({
       jobId: j.id,
@@ -93,19 +116,16 @@ export async function loadContractorsToPay(supabase: SupabaseClient): Promise<To
       hours,
       rate,
       amount,
-      needsPricing,
-      reason,
     })
-    if (needsPricing) g.needsPricingCount += 1
-    else {
-      g.payableTotal = Math.round((g.payableTotal + amount) * 100) / 100
-      g.payableCount += 1
-    }
+    g.payableTotal = Math.round((g.payableTotal + amount) * 100) / 100
+    g.payableCount += 1
     groups.set(r.contractor_id, g)
   }
 
-  const out = Array.from(groups.values())
-  out.forEach((g) => g.jobs.sort((a, b) => (a.jobDate ?? '').localeCompare(b.jobDate ?? '')))
-  out.sort((a, b) => b.payableTotal - a.payableTotal)
-  return out
+  const contractors = Array.from(groups.values())
+  contractors.forEach((g) => g.jobs.sort((a, b) => (a.jobDate ?? '').localeCompare(b.jobDate ?? '')))
+  contractors.sort((a, b) => b.payableTotal - a.payableTotal)
+  needsTidying.sort((a, b) => a.contractorName.localeCompare(b.contractorName))
+
+  return { contractors, needsTidying }
 }
