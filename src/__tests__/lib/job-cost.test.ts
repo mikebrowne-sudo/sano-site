@@ -39,6 +39,10 @@ describe('getWorkerPayableHours (allowed + approved extra)', () => {
     expect(getWorkerPayableHours(jw({ hours_allocated: 4, extra_hours: 2, extra_hours_status: 'approved' }))).toBe(6)
   })
 
+  it('subtracts an admin-approved negative adjustment (job finished early)', () => {
+    expect(getWorkerPayableHours(jw({ hours_allocated: 5, extra_hours: -1, extra_hours_status: 'approved' }))).toBe(4)
+  })
+
   it('ignores unapproved (pending / rejected) extra hours', () => {
     expect(getWorkerPayableHours(jw({ hours_allocated: 4, extra_hours: 2, extra_hours_status: 'pending' }))).toBe(4)
     expect(getWorkerPayableHours(jw({ hours_allocated: 4, extra_hours: 2, extra_hours_status: 'rejected' }))).toBe(4)
@@ -86,6 +90,10 @@ describe('getWorkerLabourCost', () => {
 
   it('adds approved extra hours to the cost', () => {
     expect(getWorkerLabourCost(jw({ pay_rate: 50, hours_allocated: 4, extra_hours: 1, extra_hours_status: 'approved' }))).toBe(250)
+  })
+
+  it('reduces the cost for an approved negative adjustment', () => {
+    expect(getWorkerLabourCost(jw({ pay_rate: 50, hours_allocated: 5, extra_hours: -1, extra_hours_status: 'approved' }))).toBe(200)
   })
 
   it('falls back to contractor_hourly_rate when pay_rate is null (historical row)', () => {

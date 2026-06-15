@@ -50,22 +50,34 @@ export async function recordExtraHours(
   if (!user) return { error: 'Not authenticated.' }
 
   if (!jobId || !contractorId) return { error: 'Job and contractor are required.' }
-  if (!Number.isFinite(hours) || hours < 0) {
-    return { error: 'Extra hours must be zero or more.' }
+  // `hours` is a signed ADJUSTMENT: positive = job ran over, negative =
+  // it finished early (pay less), 0 = clear. The extra_hours column
+  // holds the signed value; the pay basis adds it to allowed hours.
+  if (!Number.isFinite(hours)) {
+    return { error: 'Enter a valid number of hours.' }
   }
 
   const { data: worker, error: wErr } = await supabase
     .from('job_workers')
-    .select('extra_hours, extra_hours_status, pay_status')
+    .select('extra_hours, extra_hours_status, pay_status, hours_allocated, jobs ( allowed_hours )')
     .eq('job_id', jobId)
     .eq('contractor_id', contractorId)
     .single()
   if (wErr || !worker) return { error: 'Worker is not assigned to this job.' }
   if (worker.pay_status === 'included_in_pay_run' || worker.pay_status === 'paid') {
-    return { error: 'This worker is already in a pay run — extra hours can no longer be changed.' }
+    return { error: 'This worker is already in a pay run — hours can no longer be adjusted.' }
   }
 
   const clearing = hours === 0
+  if (!clearing && !reason?.trim()) {
+    return { error: 'Add a short reason for the adjustment.' }
+  }
+  // Floor guard — an adjustment can never take payable hours below zero.
+  const baseHours = (worker.hours_allocated as number | null)
+    ?? ((worker.jobs as unknown as { allowed_hours: number | null } | null)?.allowed_hours ?? 0)
+  if (!clearing && baseHours + hours < 0) {
+    return { error: `Adjustment can’t reduce below the allowed ${baseHours}h.` }
+  }
   const updates = clearing
     ? {
         extra_hours: 0,
@@ -119,10 +131,10 @@ export async function approveExtraHours(jobId: string, contractorId: string) {
     .single()
   if (wErr || !worker) return { error: 'Worker is not assigned to this job.' }
   if (worker.extra_hours_status !== 'pending') {
-    return { error: 'There are no pending extra hours to approve for this worker.' }
+    return { error: 'There is no pending hours adjustment to approve for this worker.' }
   }
-  if ((worker.extra_hours ?? 0) <= 0) {
-    return { error: 'No extra hours have been recorded.' }
+  if ((worker.extra_hours ?? 0) === 0) {
+    return { error: 'No hours adjustment has been recorded.' }
   }
   if (worker.pay_status === 'included_in_pay_run' || worker.pay_status === 'paid') {
     return { error: 'This worker is already in a pay run.' }

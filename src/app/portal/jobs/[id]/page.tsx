@@ -530,7 +530,7 @@ export default async function JobDetailPage({
             // Allowed-hours model: the "Actual" column only appears when
             // there are admin-APPROVED extra hours (the job ran over and
             // was signed off). Allowed hours alone are the default basis.
-            const hasExtra = workers.some((w) => w.extra_hours_status === 'approved' && (w.extra_hours ?? 0) > 0)
+            const hasExtra = workers.some((w) => w.extra_hours_status === 'approved' && (w.extra_hours ?? 0) !== 0)
 
             return (
               <>
@@ -541,7 +541,7 @@ export default async function JobDetailPage({
                       <tr className="text-left text-sage-500 border-b border-gray-100">
                         <th className="py-2 pr-4"></th>
                         <th className="py-2 pr-4 text-right">Estimated</th>
-                        {hasExtra && <th className="py-2 pr-4 text-right">With extra</th>}
+                        {hasExtra && <th className="py-2 pr-4 text-right">With adjustment</th>}
                         {hasExtra && <th className="py-2 text-right">Variance</th>}
                       </tr>
                     </thead>
@@ -607,7 +607,7 @@ export default async function JobDetailPage({
                             <th className="py-2 pr-2">Worker</th>
                             <th className="py-2 pr-2">Type</th>
                             <th className="py-2 pr-2 text-right">Allowed</th>
-                            <th className="py-2 pr-2 text-right">Extra</th>
+                            <th className="py-2 pr-2 text-right">Adjustment</th>
                             <th className="py-2 pr-2 text-right">Rate</th>
                             <th className="py-2 pr-2 text-right">Pay</th>
                             <th className="py-2 text-right">Status</th>
@@ -684,7 +684,7 @@ export default async function JobDetailPage({
                                     ? (
                                       <span className="inline-flex flex-col items-end">
                                         <span className="font-bold text-sage-800">{formatCurrency(pay)}</span>
-                                        {approvedExtra > 0 && (
+                                        {approvedExtra !== 0 && (
                                           <span className="text-[10px] text-sage-400">{(payableHrs ?? 0).toFixed(1)}h</span>
                                         )}
                                       </span>
