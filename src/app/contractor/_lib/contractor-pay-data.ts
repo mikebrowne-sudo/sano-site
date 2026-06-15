@@ -77,7 +77,7 @@ export async function loadContractorPayStatement(contractorId: string): Promise<
       jobs!inner ( id, job_number, title, status, completed_at, scheduled_date, allowed_hours, deleted_at )
     `)
     .eq('contractor_id', contractorId)
-    .neq('pay_status', 'paid')
+    .not('pay_status', 'in', '("paid","excluded")')
 
   const upcoming: UpcomingLine[] = []
   for (const r of (jwRaw ?? []) as unknown as UpcomingRaw[]) {
