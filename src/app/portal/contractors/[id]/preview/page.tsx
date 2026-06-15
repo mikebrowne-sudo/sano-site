@@ -78,7 +78,7 @@ export default async function ContractorPreviewPage({
       ? <ContractorJobDetailView job={detail} readOnly backHref={`${base}?tab=jobs`} />
       : <EmptyScreen label="No job to show. Pick one from the Jobs tab." />
   } else if (tab === 'pay') {
-    const data = await loadContractorPayStatement(svc, params.id, fallbackRate)
+    const data = await loadContractorPayStatement(params.id)
     screen = <ContractorPayView data={data} />
   } else if (tab === 'training') {
     const items = await loadContractorTraining(svc, params.id)
