@@ -227,6 +227,11 @@ export default async function QuoteDetailPage({
     currentClient?.name ?? null,
   )
 
+  // Stage 2A — account contacts for the contact picker on the edit form.
+  const { data: accountContacts } = await supabase
+    .from('contacts')
+    .select('id, client_id, full_name, contact_type, email, phone')
+
   return (
     <div>
       <Link
@@ -399,6 +404,7 @@ export default async function QuoteDetailPage({
         <EditQuoteForm
           quote={quote}
           clients={clients ?? []}
+          contacts={accountContacts ?? []}
           items={items ?? []}
           commercialDetails={commercialDetails ?? null}
           commercialScope={commercialScope ?? []}

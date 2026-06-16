@@ -36,6 +36,8 @@ import {
   toContactBillingInput,
   type ContactBillingFormState,
 } from '../../_components/ContactBillingSection'
+import { ContactPicker, contactsForClient, type QuoteContact } from '../../_components/ContactPicker'
+import { accountLabel } from '@/lib/account-label'
 import { computeCommercialPreview, type CommercialPreviewScopeRow, type ScopeFrequency } from '@/lib/commercialQuote'
 import type { PricingSettings } from '@/lib/pricingSettings'
 import type { ResidentialPricingSettings } from '@/lib/residentialPricingSettings'
@@ -94,11 +96,14 @@ function formatNZD(dollars: number) {
 
 export function NewQuoteForm({
   clients,
+  contacts = [],
   calc,
   pricingSettings,
   residentialPricingSettings,
 }: {
   clients: Client[]
+  /** Stage 2A — all account contacts; filtered to the selected account. */
+  contacts?: QuoteContact[]
   calc?: CommercialCalculationRow | null
   /** Phase 3B.1: DB-backed commercial pricing knobs, forwarded to
    *  CommercialPricingPreview. Optional — falls back to in-code
@@ -115,6 +120,8 @@ export function NewQuoteForm({
     clients.length > 0 ? 'existing' : 'new',
   )
   const [clientId, setClientId] = useState('')
+  // Stage 2A — selected contact person (from the account's contacts).
+  const [contactId, setContactId] = useState('')
 
   // Phase 5.5.16 — duplicate-quote suspicion check.
   // When the operator picks an existing client, fetch their recent live
@@ -349,6 +356,29 @@ export function NewQuoteForm({
     // the existing payment-type buttons further down the form.
     if (c.payment_type === 'prepaid') setPaymentType('cash_sale')
     else if (c.payment_type === 'on_account') setPaymentType('on_account')
+
+    // Stage 2A — reset the contact selection for the new account, and
+    // preselect when the account has exactly one contact.
+    const accountContacts = contactsForClient(contacts, id)
+    if (accountContacts.length === 1) {
+      applyContact(accountContacts[0])
+    } else {
+      setContactId('')
+    }
+  }
+
+  // Stage 2A — selecting a contact sets contact_id and snapshots the
+  // person's name/email/phone into the contact fields the quote persists.
+  function applyContact(c: QuoteContact | null) {
+    setContactId(c?.id ?? '')
+    if (c) {
+      setContactBilling((prev) => ({
+        ...prev,
+        contact_name: c.full_name ?? prev.contact_name,
+        contact_email: c.email ?? prev.contact_email,
+        contact_phone: c.phone ?? prev.contact_phone,
+      }))
+    }
   }
 
   function handleClientModeSwitch(mode: 'existing' | 'new') {
@@ -494,6 +524,9 @@ export function NewQuoteForm({
         commercial_scope: isCommercial ? toScopeItemsInput(commercialScope) : undefined,
         // Phase 5D — universal contact / billing / reference fields
         ...toContactBillingInput(contactBilling),
+        // Stage 2A — link the selected account contact (snapshot fields
+        // above already carry the person's name/email/phone).
+        contact_id: clientMode === 'existing' ? (contactId || null) : null,
         discount: disc,
         gst_included: gstIncluded,
         payment_type: paymentType,
@@ -590,11 +623,21 @@ export function NewQuoteForm({
               onChange={handleClientSelect}
               options={[...createdClients, ...clients].map((c) => ({
                 value: c.id,
-                label: c.company_name ? `${c.name} — ${c.company_name}` : c.name,
+                label: accountLabel(c.name, c.company_name),
               }))}
               placeholder="Choose a client…"
               error={validationErrors.clientName}
             />
+            {clientId && (
+              <div className="mt-4">
+                <ContactPicker
+                  contacts={contacts}
+                  clientId={clientId}
+                  value={contactId}
+                  onChange={(_id, c) => applyContact(c)}
+                />
+              </div>
+            )}
             {clientId && (
               <div className="mt-4 space-y-4 bg-sage-50 rounded-lg p-4">
                 <p className="text-xs font-medium text-sage-500 uppercase tracking-wide">Client details — edit if needed for this quote</p>

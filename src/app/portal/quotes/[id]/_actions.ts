@@ -76,6 +76,8 @@ interface UpdateQuoteInput {
   accounts_email?: string | null
   client_reference?: string | null
   requires_po?: boolean
+  // Stage 2A — selected account contact (contacts.id).
+  contact_id?: string | null
 
   // Phase 5B — admin override flag. When true and the caller is admin,
   // bypass the invoice-existence lock for this amendment. Every override
@@ -183,6 +185,7 @@ export async function updateQuote(input: UpdateQuoteInput) {
       accounts_email:         input.accounts_email         ?? null,
       client_reference:       input.client_reference       ?? null,
       requires_po:            input.requires_po            ?? false,
+      contact_id:             input.contact_id             ?? null,
     })
     .eq('id', input.id)
 

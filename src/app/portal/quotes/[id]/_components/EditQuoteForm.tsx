@@ -46,6 +46,8 @@ import {
   toContactBillingInput,
   type ContactBillingFormState,
 } from '../../_components/ContactBillingSection'
+import { ContactPicker, type QuoteContact } from '../../_components/ContactPicker'
+import { accountLabel } from '@/lib/account-label'
 import { computeCommercialPreview, type CommercialPreviewScopeRow, type ScopeFrequency } from '@/lib/commercialQuote'
 import type { PricingSettings } from '@/lib/pricingSettings'
 import type { ResidentialPricingSettings } from '@/lib/residentialPricingSettings'
@@ -172,6 +174,7 @@ function formatDate(iso: string | null) {
 export function EditQuoteForm({
   quote,
   clients,
+  contacts = [],
   items,
   commercialDetails: commercialDetailsRow = null,
   commercialScope: commercialScopeRows = [],
@@ -182,6 +185,8 @@ export function EditQuoteForm({
 }: {
   quote: Quote
   clients: Client[]
+  /** Stage 2A — all account contacts; filtered to the selected account. */
+  contacts?: QuoteContact[]
   items: QuoteItem[]
   commercialDetails?: CommercialQuoteDetails | null
   commercialScope?: CommercialScopeItem[]
@@ -202,8 +207,11 @@ export function EditQuoteForm({
    *  code-defined defaults when absent. */
   residentialPricingSettings?: ResidentialPricingSettings
 }) {
-  // Client
+  // Client + selected account contact (Stage 2A).
   const [clientId, setClientId] = useState(quote.client_id)
+  const [contactId, setContactId] = useState<string>(
+    (quote as { contact_id?: string | null }).contact_id ?? '',
+  )
 
   // Status + dates
   const [status, setStatus] = useState(quote.status)
@@ -300,6 +308,27 @@ export function EditQuoteForm({
   const [contactBilling, setContactBilling] = useState<ContactBillingFormState>(
     () => hydrateContactBilling(quote),
   )
+
+  // Stage 2A — selecting a contact sets contact_id and snapshots the
+  // person's name/email/phone into the persisted contact fields.
+  function applyContact(c: QuoteContact | null) {
+    setContactId(c?.id ?? '')
+    if (c) {
+      setContactBilling((prev) => ({
+        ...prev,
+        contact_name: c.full_name ?? prev.contact_name,
+        contact_email: c.email ?? prev.contact_email,
+        contact_phone: c.phone ?? prev.contact_phone,
+      }))
+    }
+  }
+
+  // Changing the account clears the selected contact (it belonged to the
+  // previous account). Snapshot fields are left as-is for the operator.
+  function handleClientChange(id: string) {
+    setClientId(id)
+    if (id !== clientId) setContactId('')
+  }
 
   // Commercial preview — same computation as NewQuoteForm; see that file
   // for the full explanation. Persisted hours go back onto commercial_
@@ -513,6 +542,8 @@ export function EditQuoteForm({
         ...overridePayload,
         // Phase 5D — universal contact / billing / reference fields
         ...toContactBillingInput(contactBilling),
+        // Stage 2A — selected account contact.
+        contact_id: contactId || null,
         discount: disc,
         gst_included: gstIncluded,
         payment_type: paymentType,
@@ -665,13 +696,23 @@ export function EditQuoteForm({
         <Select
           label="Client"
           value={clientId}
-          onChange={setClientId}
+          onChange={handleClientChange}
           options={clients.map((c) => ({
             value: c.id,
-            label: c.company_name ? `${c.name} — ${c.company_name}` : c.name,
+            label: accountLabel(c.name, c.company_name),
           }))}
           placeholder="Choose a client…"
         />
+        {clientId && (
+          <div className="mt-4">
+            <ContactPicker
+              contacts={contacts}
+              clientId={clientId}
+              value={contactId}
+              onChange={(_id, c) => applyContact(c)}
+            />
+          </div>
+        )}
       </Section>
 
       {/* ── Section: Contact & Billing (Phase 5D — universal) ─── */}
