@@ -24,7 +24,7 @@ describe('classifyDuplicateKind', () => {
   })
 })
 
-function makeClient(row: { name: string | null; company_name: string | null } | null) {
+function makeClient(row: { name: string | null; company_name: string | null; branch_name?: string | null } | null) {
   const maybeSingle = jest.fn().mockResolvedValue({ data: row })
   const selectEq = { eq: jest.fn().mockReturnValue({ maybeSingle }) }
   const updateEq = jest.fn().mockResolvedValue({ error: null })
@@ -40,19 +40,33 @@ function makeClient(row: { name: string | null; company_name: string | null } | 
   }
 }
 
-describe('applyProposedAccountName', () => {
-  it('renames the account and clears the company field', async () => {
-    const { client, update } = makeClient({ name: 'Barfoot & Thompson', company_name: 'Ellerslie' })
+describe('applyProposedAccountName (structured)', () => {
+  it('structures the account: display name + parent brand + branch, nothing flattened', async () => {
+    const { client, update } = makeClient({ name: 'Barfoot & Thompson', company_name: 'Ellerslie', branch_name: null })
     mockedCreate.mockReturnValue(client)
 
     const res = await applyProposedAccountName('cid')
 
     expect(res).toEqual({ ok: true, name: 'Barfoot & Thompson - Ellerslie' })
-    expect(update).toHaveBeenCalledWith({ name: 'Barfoot & Thompson - Ellerslie', company_name: null })
+    expect(update).toHaveBeenCalledWith({
+      name: 'Barfoot & Thompson - Ellerslie',
+      company_name: 'Barfoot & Thompson',
+      branch_name: 'Ellerslie',
+    })
   })
 
-  it('refuses when there is no safe rename (e.g. person-led record)', async () => {
-    const { client, update } = makeClient({ name: 'Kevin Maio', company_name: 'Barfoot & Thompson - Royal Heights' })
+  it('refuses person-led records', async () => {
+    const { client, update } = makeClient({ name: 'Kevin Maio', company_name: 'Barfoot & Thompson - Royal Heights', branch_name: null })
+    mockedCreate.mockReturnValue(client)
+
+    const res = await applyProposedAccountName('cid')
+
+    expect('error' in res).toBe(true)
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('refuses an already-structured account (branch already set)', async () => {
+    const { client, update } = makeClient({ name: 'Barfoot & Thompson - Ellerslie', company_name: 'Barfoot & Thompson', branch_name: 'Ellerslie' })
     mockedCreate.mockReturnValue(client)
 
     const res = await applyProposedAccountName('cid')

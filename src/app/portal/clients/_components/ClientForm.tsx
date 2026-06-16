@@ -9,6 +9,7 @@ interface ClientData {
   id?: string
   name: string
   company_name: string | null
+  branch_name?: string | null
   email: string | null
   phone: string | null
   service_address: string | null
@@ -22,6 +23,7 @@ export function ClientForm({ client }: { client?: ClientData }) {
 
   const [name, setName] = useState(client?.name ?? '')
   const [companyName, setCompanyName] = useState(client?.company_name ?? '')
+  const [branchName, setBranchName] = useState(client?.branch_name ?? '')
   const [email, setEmail] = useState(client?.email ?? '')
   const [phone, setPhone] = useState(client?.phone ?? '')
   const [serviceAddress, setServiceAddress] = useState(client?.service_address ?? '')
@@ -46,6 +48,7 @@ export function ClientForm({ client }: { client?: ClientData }) {
     const input = {
       name: name.trim(),
       company_name: companyName.trim() || undefined,
+      branch_name: branchName.trim() || undefined,
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
       service_address: serviceAddress.trim() || undefined,
@@ -71,12 +74,22 @@ export function ClientForm({ client }: { client?: ClientData }) {
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-10">
       {/* ── Account details ──────────────────────── */}
-      {/* Labels only — DB columns (name, company_name, email, phone) are
-          unchanged. This record is the account/branch, not the contact
-          person; contacts live in the contacts table. */}
+      {/* This record is the account/branch, not the contact person —
+          real people (property managers, agents) live under Contacts.
+          Company / parent brand + Branch are kept separate; Display name
+          is what shows on quotes, invoices and pickers. */}
       <Section title="Account details">
-        <Field label="Account name" required value={name} onChange={setName} />
-        <Field label="Branch / company name" value={companyName} onChange={setCompanyName} className="mt-4" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Company / parent brand" value={companyName} onChange={setCompanyName} />
+          <Field label="Branch / location" value={branchName} onChange={setBranchName} />
+        </div>
+        <Field label="Display name (account name)" required value={name} onChange={setName} className="mt-4" />
+        {companyName.trim() && branchName.trim() && (
+          <p className="text-[11px] text-sage-500 mt-1.5">
+            Tip: for a branch account the display name usually reads
+            <span className="font-medium text-sage-700"> {companyName.trim()} - {branchName.trim()}</span>.
+          </p>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <Field label="Main email" type="email" value={email} onChange={setEmail} />
           <Field label="Phone" type="tel" value={phone} onChange={setPhone} />

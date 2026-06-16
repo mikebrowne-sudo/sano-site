@@ -38,7 +38,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   const [{ data: client, error }, { data: { user } }] = await Promise.all([
     supabase
       .from('clients')
-      .select('id, name, company_name, email, phone, service_address, billing_address, billing_same_as_service, notes, auth_user_id, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, is_archived, archived_at')
+      .select('id, name, company_name, branch_name, email, phone, service_address, billing_address, billing_same_as_service, notes, auth_user_id, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, is_archived, archived_at')
       .eq('id', params.id)
       .single(),
     supabase.auth.getUser(),
@@ -131,6 +131,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     id:                      asStr(c.id),
     name:                    asStr(c.name) || 'Unnamed client',
     company_name:            asStrOrNull(c.company_name),
+    branch_name:             asStrOrNull(c.branch_name),
     email:                   asStrOrNull(c.email),
     phone:                   asStrOrNull(c.phone),
     service_address:         asStrOrNull(c.service_address),
@@ -177,10 +178,12 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         <Panel className="mb-6">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="min-w-0">
-              <h2 className="text-base font-semibold text-sage-800">Tidy account name</h2>
+              <h2 className="text-base font-semibold text-sage-800">Structure this branch account</h2>
               <p className="text-xs text-sage-600 mt-1">
-                Proposed: <span className="font-medium text-sage-800">{proposedName}</span>. This moves the branch into
-                the account name and clears the company field, so it reads as one clean branch account.
+                Set the display name to <span className="font-medium text-sage-800">{proposedName}</span> and keep the
+                parent brand (<span className="font-medium text-sage-800">{vm.name}</span>) and branch
+                (<span className="font-medium text-sage-800">{vm.company_name}</span>) in their own fields. Nothing is
+                flattened, and quotes/jobs/invoices stay linked.
               </p>
             </div>
             <ApplyProposedNameButton clientId={vm.id} proposedName={proposedName} />
@@ -272,6 +275,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           id: vm.id,
           name: vm.name === 'Unnamed client' ? '' : vm.name,
           company_name: vm.company_name,
+          branch_name: vm.branch_name,
           email: vm.email,
           phone: vm.phone,
           service_address: vm.service_address,

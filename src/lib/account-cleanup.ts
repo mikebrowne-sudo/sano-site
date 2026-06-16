@@ -66,6 +66,25 @@ export function proposedAccountName(name?: string | null, companyName?: string |
   return `${n} - ${co}`
 }
 
+/**
+ * Structured remap for a company-led branch record. Splits name +
+ * company_name into parent brand + branch and a clean display name:
+ *   name="Barfoot & Thompson", company_name="Greenlane"  →
+ *   { company: "Barfoot & Thompson", branch: "Greenlane",
+ *     display: "Barfoot & Thompson - Greenlane" }
+ * Returns null when there's no safe structured proposal (no company,
+ * already combined, or a person-led record). Preserves company + branch
+ * separately rather than flattening.
+ */
+export function structuredBranchFields(
+  name?: string | null,
+  companyName?: string | null,
+): { company: string; branch: string; display: string } | null {
+  const display = proposedAccountName(name, companyName)
+  if (!display) return null
+  return { company: (name ?? '').trim(), branch: (companyName ?? '').trim(), display }
+}
+
 /** A contact whose name reads like a company/branch, not a person. */
 export function isCompanyNamedContact(fullName?: string | null, accountName?: string | null): boolean {
   const n = (fullName ?? '').trim()
