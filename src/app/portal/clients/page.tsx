@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
-import { Users, Plus, Archive } from 'lucide-react'
+import { Users, Plus, Archive, ListChecks } from 'lucide-react'
 import { ClientSearch } from './_components/ClientSearch'
 import { PortalPageHeader } from '../_components/PortalPageHeader'
 import { buttonClasses } from '../_components/Button'
@@ -110,10 +110,16 @@ export default async function ClientsPage({
         <PortalPageHeader
           title="Clients"
           actions={
-            <Link href="/portal/clients/new" className={buttonClasses({ variant: 'primary' })}>
-              <Plus size={16} />
-              New Client
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/portal/clients/cleanup" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
+                <ListChecks size={16} />
+                Cleanup review
+              </Link>
+              <Link href="/portal/clients/new" className={buttonClasses({ variant: 'primary' })}>
+                <Plus size={16} />
+                New Client
+              </Link>
+            </div>
           }
         />
       }
