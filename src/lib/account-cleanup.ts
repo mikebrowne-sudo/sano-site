@@ -83,20 +83,29 @@ export function looksLikeTestRecord(name?: string | null, companyName?: string |
   return false
 }
 
-/** Account names that share an email or name with another account. */
+/**
+ * Accounts that are LIKELY true duplicates: they share an email, or share
+ * the same name AND the same branch (company_name). Same-name-only with a
+ * different branch is treated as a separate branch of one parent brand
+ * (e.g. Barfoot & Thompson / Ellerslie vs / Ponsonby) — NOT a duplicate.
+ */
 export function duplicateClientIds(
-  clients: Array<{ id: string; name: string | null; email: string | null }>,
+  clients: Array<{ id: string; name: string | null; email: string | null; company_name?: string | null }>,
 ): Set<string> {
   const byEmail = new Map<string, string[]>()
-  const byName = new Map<string, string[]>()
+  const byNameBranch = new Map<string, string[]>()
   for (const c of clients) {
     const e = (c.email ?? '').trim().toLowerCase()
     const n = (c.name ?? '').trim().toLowerCase()
+    const co = (c.company_name ?? '').trim().toLowerCase()
     if (e) byEmail.set(e, [...(byEmail.get(e) ?? []), c.id])
-    if (n) byName.set(n, [...(byName.get(n) ?? []), c.id])
+    if (n) {
+      const key = `${n}||${co}` // name + branch — different branches don't collide
+      byNameBranch.set(key, [...(byNameBranch.get(key) ?? []), c.id])
+    }
   }
   const dups = new Set<string>()
-  for (const group of [...Array.from(byEmail.values()), ...Array.from(byName.values())]) {
+  for (const group of [...Array.from(byEmail.values()), ...Array.from(byNameBranch.values())]) {
     if (group.length > 1) group.forEach((id) => dups.add(id))
   }
   return dups

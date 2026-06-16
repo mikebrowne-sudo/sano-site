@@ -5,10 +5,12 @@ import Link from 'next/link'
 import { Archive } from 'lucide-react'
 import { ClientAccessPanel } from './_components/ClientAccessPanel'
 import { ClientCleanupActions } from './_components/ClientCleanupActions'
+import { ApplyProposedNameButton } from '../_components/ApplyProposedNameButton'
 import { PortalPageHeader } from '../../_components/PortalPageHeader'
 import { Panel } from '../../_components/Panel'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
 import { findPossibleDuplicates, getClientLinkCounts } from '../_lib-cleanup'
+import { proposedAccountName } from '@/lib/account-cleanup'
 import { isAdminUser } from '@/lib/is-admin'
 
 // Phase 5.5.7 — read-only audit timeline mirroring the staff pattern.
@@ -109,7 +111,12 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   const linkCounts = (linkCountsRes && typeof linkCountsRes === 'object' && 'error' in linkCountsRes)
     ? { quotes: 0, jobs: 0, invoices: 0, contacts: 0, sites: 0 }
     : (linkCountsRes ?? { quotes: 0, jobs: 0, invoices: 0, contacts: 0, sites: 0 })
-  const duplicates = Array.isArray(dupesRes) ? dupesRes : []
+  const allMatches = Array.isArray(dupesRes) ? dupesRes : []
+  // Branch-style matches (same parent brand, different branch) are NOT
+  // merge candidates — show them separately so Carol isn't nudged to
+  // merge e.g. Barfoot & Thompson / Ellerslie into / Ponsonby.
+  const duplicates = allMatches.filter((d) => (d as { kind?: string }).kind !== 'branch')
+  const branchAccounts = allMatches.filter((d) => (d as { kind?: string }).kind === 'branch')
   const mergeCandidates = (mergeCandidatesRaw ?? []) as { id: string; name: string; company_name: string | null }[]
   const isArchived = !!(client as { is_archived?: boolean }).is_archived
   const customerPortalEnabled = !!settings?.enable_customer_portal
@@ -137,6 +144,11 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     access_disabled_reason:  asStrOrNull(c.access_disabled_reason),
   }
 
+  const proposedName = proposedAccountName(
+    vm.name === 'Unnamed client' ? null : vm.name,
+    vm.company_name,
+  )
+
   return (
     <div>
       <PortalPageHeader
@@ -161,11 +173,57 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         />
       )}
 
+      {proposedName && isAdmin && (
+        <Panel className="mb-6">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-sage-800">Tidy account name</h2>
+              <p className="text-xs text-sage-600 mt-1">
+                Proposed: <span className="font-medium text-sage-800">{proposedName}</span>. This moves the branch into
+                the account name and clears the company field, so it reads as one clean branch account.
+              </p>
+            </div>
+            <ApplyProposedNameButton clientId={vm.id} proposedName={proposedName} />
+          </div>
+        </Panel>
+      )}
+
+      {branchAccounts.length > 0 && isAdmin && (
+        <Panel className="mb-6">
+          <h2 className="text-base font-semibold text-sage-800 mb-2">Related branch accounts</h2>
+          <p className="text-xs text-sage-600 mb-3">
+            These share the same parent brand but appear to be separate branches. <strong>Do not merge</strong> unless
+            you are sure they are the same account.
+          </p>
+          <ul className="divide-y divide-sage-100">
+            {branchAccounts
+              .filter((d) => d && typeof d.id === 'string')
+              .map((d) => (
+                <li key={d.id} className="py-2.5 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <Link href={`/portal/clients/${d.id}`} className="text-sage-800 font-medium hover:underline">
+                      {(typeof d.name === 'string' && d.name) || 'Unnamed client'}
+                    </Link>
+                    <p className="text-xs text-sage-500 mt-0.5">
+                      {d.company_name ? <>{d.company_name} · </> : null}
+                      {d.email ? <>{d.email}</> : null}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-2 py-0.5">
+                    Branch
+                  </span>
+                </li>
+              ))}
+          </ul>
+        </Panel>
+      )}
+
       {duplicates.length > 0 && isAdmin && (
         <Panel variant="warning" className="mb-6">
           <h2 className="text-base font-semibold text-amber-900 mb-2">Possible duplicates</h2>
           <p className="text-xs text-amber-800 mb-3">
-            These active clients share an email, phone number, or name with this one. Use Merge above to combine them.
+            These active clients share an email, phone number, or the same name <em>and</em> branch. Use Merge above only
+            if they are genuinely the same account.
           </p>
           <ul className="divide-y divide-amber-100">
             {duplicates
@@ -202,6 +260,12 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         accessDisabledReason={vm.access_disabled_reason}
         featureEnabled={customerPortalEnabled}
       />
+
+      <div className="mb-4 text-xs text-sage-600 bg-sage-50 border border-sage-100 rounded-lg px-4 py-3 max-w-2xl">
+        This record is the <strong>account</strong>. For a branch like Barfoot &amp; Thompson, the account name should be
+        the branch (e.g. <em>Barfoot &amp; Thompson - Ellerslie</em>). Add the property managers, agents or booking
+        contacts as <strong>Contacts</strong> — they&apos;re chosen per quote so emails greet the right person.
+      </div>
 
       <ClientForm
         client={{

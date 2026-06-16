@@ -42,6 +42,29 @@ export interface DuplicateMatch {
   email: string | null
   phone: string | null
   matched_on: 'email' | 'phone' | 'name'
+  // 'branch' = same name but a different non-empty company/branch (same
+  // parent brand, separate branch — NOT a merge candidate). 'duplicate'
+  // = a genuine likely-duplicate (shared email/phone, or same name with
+  // the same/empty branch).
+  kind: 'duplicate' | 'branch'
+}
+
+/**
+ * Same-name matches are only true duplicates when the branch
+ * (company_name) is the same or empty. Two accounts sharing a name but
+ * carrying different non-empty branches are separate branches of one
+ * parent brand (e.g. Barfoot & Thompson / Ellerslie vs / Ponsonby).
+ */
+export function classifyDuplicateKind(
+  matchedOn: 'email' | 'phone' | 'name',
+  selfCompany: string | null,
+  otherCompany: string | null,
+): 'duplicate' | 'branch' {
+  if (matchedOn !== 'name') return 'duplicate'
+  const a = (selfCompany ?? '').trim().toLowerCase()
+  const b = (otherCompany ?? '').trim().toLowerCase()
+  if (a && b && a !== b) return 'branch'
+  return 'duplicate'
 }
 
 function normalisePhone(p: string | null): string {
@@ -104,7 +127,7 @@ export async function findPossibleDuplicates(clientId: string): Promise<Duplicat
 
     const { data: c, error: meErr } = await supabase
       .from('clients')
-      .select('id, name, email, phone, is_archived')
+      .select('id, name, company_name, email, phone, is_archived')
       .eq('id', clientId)
       .maybeSingle()
     if (meErr) {
@@ -112,7 +135,7 @@ export async function findPossibleDuplicates(clientId: string): Promise<Duplicat
       return []
     }
     if (!c) return []
-    const me = c as { id: string; name: string; email: string | null; phone: string | null }
+    const me = c as { id: string; name: string; company_name: string | null; email: string | null; phone: string | null }
 
     const matches = new Map<string, DuplicateMatch>()
 
@@ -129,7 +152,7 @@ export async function findPossibleDuplicates(clientId: string): Promise<Duplicat
         } else {
           for (const r of byEmail ?? []) {
             if (!r?.id) continue
-            matches.set(r.id, { ...(r as DuplicateMatch), matched_on: 'email' })
+            matches.set(r.id, { ...(r as DuplicateMatch), matched_on: 'email', kind: 'duplicate' })
           }
         }
       } catch (err) {
@@ -150,7 +173,8 @@ export async function findPossibleDuplicates(clientId: string): Promise<Duplicat
         } else {
           for (const r of byName ?? []) {
             if (!r?.id || matches.has(r.id)) continue
-            matches.set(r.id, { ...(r as DuplicateMatch), matched_on: 'name' })
+            const kind = classifyDuplicateKind('name', me.company_name, (r as { company_name: string | null }).company_name)
+            matches.set(r.id, { ...(r as DuplicateMatch), matched_on: 'name', kind })
           }
         }
       } catch (err) {
@@ -177,7 +201,7 @@ export async function findPossibleDuplicates(clientId: string): Promise<Duplicat
             if (!r?.id || matches.has(r.id)) continue
             if (!r.phone) continue
             if (normalisePhone(r.phone as string | null) === myDigits) {
-              matches.set(r.id, { ...(r as DuplicateMatch), matched_on: 'phone' })
+              matches.set(r.id, { ...(r as DuplicateMatch), matched_on: 'phone', kind: 'duplicate' })
             }
           }
         }

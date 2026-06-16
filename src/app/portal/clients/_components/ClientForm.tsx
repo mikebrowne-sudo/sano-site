@@ -70,12 +70,15 @@ export function ClientForm({ client }: { client?: ClientData }) {
 
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-10">
-      {/* ── Contact ──────────────────────────────── */}
-      <Section title="Contact">
-        <Field label="Name" required value={name} onChange={setName} />
-        <Field label="Company name" value={companyName} onChange={setCompanyName} className="mt-4" />
+      {/* ── Account details ──────────────────────── */}
+      {/* Labels only — DB columns (name, company_name, email, phone) are
+          unchanged. This record is the account/branch, not the contact
+          person; contacts live in the contacts table. */}
+      <Section title="Account details">
+        <Field label="Account name" required value={name} onChange={setName} />
+        <Field label="Branch / company name" value={companyName} onChange={setCompanyName} className="mt-4" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-          <Field label="Email" type="email" value={email} onChange={setEmail} />
+          <Field label="Main email" type="email" value={email} onChange={setEmail} />
           <Field label="Phone" type="tel" value={phone} onChange={setPhone} />
         </div>
       </Section>
