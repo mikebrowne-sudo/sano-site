@@ -85,8 +85,10 @@ export default async function CalendarPage({
 }) {
   const supabase = createClient()
 
+  // Default to Month view when no (or an unrecognised) view is in the URL;
+  // explicit Day/Week selections from the toggle are still honoured.
   const view: 'day' | 'week' | 'month' =
-    searchParams.view === 'day' ? 'day' : searchParams.view === 'month' ? 'month' : 'week'
+    searchParams.view === 'day' ? 'day' : searchParams.view === 'week' ? 'week' : 'month'
   const today = todayStr()
   const selectedDate = searchParams.date || today
   const contractorFilter = searchParams.contractor ?? ''
@@ -252,7 +254,7 @@ export default async function CalendarPage({
             const dayJobs = jobsByDate[date]
             const isToday = date === today
             return (
-              <div key={date} className={clsx('bg-white rounded-xl border p-3 min-h-[120px]', isToday ? 'border-sage-300 ring-1 ring-sage-200' : 'border-sage-100')}>
+              <div key={date} className={clsx('rounded-xl border p-3 min-h-[120px]', isToday ? 'border-sage-500 ring-2 ring-sage-500/50 bg-sage-50/40' : 'border-sage-100 bg-white')}>
                 <div className="flex items-center justify-between mb-2">
                   <Link href={buildUrl({ view: 'day', date })} className={clsx('text-xs font-semibold hover:text-sage-700 transition-colors', isToday ? 'text-sage-800' : 'text-sage-500')}>
                     {fmtDayHeader(date)}
@@ -294,20 +296,27 @@ export default async function CalendarPage({
                 <div
                   key={date}
                   className={clsx(
-                    'bg-white rounded-lg border p-2 min-h-[110px] flex flex-col',
-                    isToday ? 'border-sage-300 ring-1 ring-sage-200' : 'border-sage-100',
+                    'rounded-lg border p-2 min-h-[110px] flex flex-col',
+                    isToday ? 'border-sage-500 ring-2 ring-sage-500/50 bg-sage-50/40' : 'border-sage-100 bg-white',
                     !isInMonth && 'opacity-50',
                   )}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <Link
                       href={buildUrl({ view: 'day', date })}
-                      className={clsx(
-                        'text-xs font-semibold hover:text-sage-700 transition-colors',
-                        isToday ? 'text-sage-800' : 'text-sage-500',
-                      )}
+                      className="hover:opacity-80 transition-opacity"
+                      aria-current={isToday ? 'date' : undefined}
                     >
-                      {new Date(date).getDate()}
+                      <span
+                        className={clsx(
+                          'text-xs font-semibold inline-flex items-center justify-center',
+                          isToday
+                            ? 'w-6 h-6 rounded-full bg-sage-600 text-white'
+                            : 'text-sage-500',
+                        )}
+                      >
+                        {new Date(date).getDate()}
+                      </span>
                     </Link>
                     {dayJobs.length > 0 && (
                       <span className="text-[10px] text-sage-400 font-medium">{dayJobs.length}</span>
