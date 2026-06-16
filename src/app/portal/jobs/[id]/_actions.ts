@@ -100,13 +100,35 @@ export async function createInvoiceFromJob(jobId: string) {
   const [{ data: client }, { data: quote }] = await Promise.all([
     supabase.from('clients').select('payment_type, payment_terms').eq('id', job.client_id).maybeSingle(),
     job.quote_id
-      ? supabase.from('quotes').select('payment_type').eq('id', job.quote_id).maybeSingle()
+      ? supabase.from('quotes').select('payment_type, property_category, type_of_clean, service_type, frequency, scope_size, notes').eq('id', job.quote_id).maybeSingle()
       : Promise.resolve({ data: null }),
   ])
-  const paymentType = (quote?.payment_type as string | null)
+  const q = quote as {
+    payment_type?: string | null
+    property_category?: string | null
+    type_of_clean?: string | null
+    service_type?: string | null
+    frequency?: string | null
+    scope_size?: string | null
+    notes?: string | null
+  } | null
+  const paymentType = (q?.payment_type as string | null)
     ?? (client?.payment_type as string | null)
     ?? 'on_account'
   const paymentTerms = (client?.payment_terms as string | null) ?? null
+
+  // Service scope vs customer notes (same logic as the quote→invoice path).
+  // Copy the quote's structured clean type so the invoice document shows a
+  // real service heading + composed description UNDER the line item — not
+  // "Cleaning service" with the scope dumped into Notes. When the quote
+  // carries a clean type the document composes the description, so
+  // service_description stays null (mirrors quote→invoice); otherwise (a
+  // manual job with no quote) fall back to the job's own description so the
+  // scope still renders under the line item. Notes is reserved for genuine
+  // customer notes (carried from the quote), never the job scope.
+  const qType = (q?.type_of_clean as string | null) ?? null
+  const serviceDescription = qType ? null : (job.description?.trim() || null)
+  const customerNotes = (q?.notes as string | null) ?? null
 
   // date_issued stays null at creation — it's set on Send. The due
   // date is computed only when both date_issued and a known terms
@@ -141,7 +163,14 @@ export async function createInvoiceFromJob(jobId: string) {
       // invoices honest.
       scheduled_clean_date: serviceDate,
       base_price: job.job_price,
-      notes: job.description || job.title || null,
+      // Structured clean type → real service heading + composed description.
+      property_category: (q?.property_category as string | null) ?? null,
+      type_of_clean: qType,
+      service_type: (q?.service_type as string | null) ?? null,
+      frequency: (q?.frequency as string | null) ?? null,
+      scope_size: (q?.scope_size as string | null) ?? null,
+      service_description: serviceDescription,
+      notes: customerNotes,
       payment_type: paymentType,
       due_date: dueDate,
       // Phase 5D — auto-pull the PO / client reference from the job onto
@@ -157,9 +186,10 @@ export async function createInvoiceFromJob(jobId: string) {
   }
 
   // 3. Link invoice to job and set status to invoiced.
-  // No invoice_items insert — the work is captured in `notes` and
-  // shown via the "Base price" line on the invoice detail.
-  // payment_status moves to 'invoice_sent' to reflect the new state.
+  // No invoice_items insert — a job-based invoice has no add-on lines; the
+  // work shows via the service heading + description (from the structured
+  // clean type) above the "Base price" line. payment_status moves to
+  // 'invoice_sent' to reflect the new state.
   await supabase
     .from('jobs')
     .update({ invoice_id: invoice.id, status: 'invoiced', payment_status: 'invoice_sent' })
