@@ -142,6 +142,9 @@ interface CreateQuoteInput {
   accounts_email?: string | null
   client_reference?: string | null
   requires_po?: boolean
+  // Stage 2A — selected account contact (contacts.id). Snapshot fields
+  // above carry the person's details; this links the source contact.
+  contact_id?: string | null
 
   // Add-ons (priced line items — distinct from addons_wording)
   addons: AddonInput[]
@@ -257,6 +260,7 @@ export async function createQuote(input: CreateQuoteInput) {
       accounts_email:         input.accounts_email         ?? null,
       client_reference:       input.client_reference       ?? null,
       requires_po:            input.requires_po            ?? false,
+      contact_id:             input.contact_id             ?? null,
     })
     .select('id')
     .single()

@@ -16,16 +16,20 @@ export default async function NewQuotePage({
   // Parallel reads: client list + commercial pricing settings + residential
   // pricing settings. All loaders fall back to in-code constants on any
   // error so the form never blocks on a settings read.
-  const [clientsRes, pricingSettings, residentialPricingSettings] = await Promise.all([
+  const [clientsRes, contactsRes, pricingSettings, residentialPricingSettings] = await Promise.all([
     supabase
       .from('clients')
       .select('id, name, company_name, email, phone, service_address, billing_address, billing_same_as_service, payment_type, payment_terms, accounts_email')
       .eq('is_archived', false)
       .order('name'),
+    supabase
+      .from('contacts')
+      .select('id, client_id, full_name, contact_type, email, phone'),
     loadPricingSettings(supabase),
     loadResidentialPricingSettings(supabase),
   ])
   const clients = clientsRes.data
+  const contacts = contactsRes.data ?? []
 
   let calc: CommercialCalculationRow | null = null
   if (searchParams?.calc_id) {
@@ -55,6 +59,7 @@ export default async function NewQuotePage({
 
       <NewQuoteForm
         clients={clients ?? []}
+        contacts={contacts}
         calc={calc}
         pricingSettings={pricingSettings}
         residentialPricingSettings={residentialPricingSettings}
