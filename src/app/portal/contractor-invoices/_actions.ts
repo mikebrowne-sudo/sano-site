@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase-server'
+import { isAdminUser } from '@/lib/is-admin'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 
@@ -13,8 +14,15 @@ interface CIInput {
   status?: string
 }
 
+async function requireAdmin(supabase: ReturnType<typeof createClient>): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser()
+  return isAdminUser(user) ? null : 'Admin only.'
+}
+
 export async function createContractorInvoice(input: CIInput) {
   const supabase = createClient()
+  const gate = await requireAdmin(supabase)
+  if (gate) return { error: gate }
 
   if (!input.contractor_id) return { error: 'Contractor is required.' }
   if (!input.amount || input.amount <= 0) return { error: 'Amount is required.' }
@@ -38,6 +46,8 @@ export async function createContractorInvoice(input: CIInput) {
 
 export async function updateContractorInvoice(id: string, input: CIInput) {
   const supabase = createClient()
+  const gate = await requireAdmin(supabase)
+  if (gate) return { error: gate }
 
   const { error } = await supabase
     .from('contractor_invoices')
@@ -59,6 +69,8 @@ export async function updateContractorInvoice(id: string, input: CIInput) {
 
 export async function markContractorInvoicePaid(id: string) {
   const supabase = createClient()
+  const gate = await requireAdmin(supabase)
+  if (gate) return { error: gate }
   const today = new Date().toISOString().slice(0, 10)
 
   const { error } = await supabase
@@ -74,6 +86,8 @@ export async function markContractorInvoicePaid(id: string) {
 
 export async function approveContractorInvoice(id: string) {
   const supabase = createClient()
+  const gate = await requireAdmin(supabase)
+  if (gate) return { error: gate }
 
   const { error } = await supabase
     .from('contractor_invoices')
