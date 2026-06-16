@@ -1,0 +1,180 @@
+'use server'
+
+// Stage A — shared contractor-pay approval. The single source of truth
+// for turning a completed job + contractor into an APPROVED contractor
+// payable (contractor_invoice), which then flows into the existing
+// remittance batch builder. Both the future Pending-approvals worklist
+// and the job-page panel will call this, so they can't create duplicates.
+//
+// Admin/staff only. Does NOT mark paid, create remittances, or send email.
+
+import { createClient } from '@/lib/supabase-server'
+import { isAdminUser } from '@/lib/is-admin'
+import { getWorkerPayableHours } from '@/lib/job-cost'
+import { computeApprovedAmount } from '@/lib/contractor-pay'
+import { revalidatePath } from 'next/cache'
+
+export interface ApproveContractorPayInput {
+  approvedHours?: number | null
+  fixedAmount?: number | null
+  note?: string | null
+}
+
+export interface ApprovedPayable {
+  id: string
+  invoice_number: string | null
+  amount: number
+  status: string | null
+}
+
+export interface ApproveContractorPayResult {
+  ok?: true
+  payable?: ApprovedPayable
+  error?: string
+  // Set when a payable already exists for this job + contractor.
+  alreadyApprovedId?: string
+}
+
+interface JobRow {
+  id: string
+  job_number: string | null
+  address: string | null
+  status: string | null
+  completed_at: string | null
+  deleted_at: string | null
+  description: string | null
+}
+
+interface WorkerRow {
+  pay_rate: number | null
+  pay_type: string | null
+  hours_allocated: number | null
+  extra_hours: number | null
+  extra_hours_status: string | null
+}
+
+export async function approveContractorPay(
+  jobId: string,
+  contractorId: string,
+  input: ApproveContractorPayInput = {},
+): Promise<ApproveContractorPayResult> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
+
+  if (!jobId) return { error: 'Job is required.' }
+  if (!contractorId) return { error: 'Contractor is required.' }
+
+  // 1. Job must exist, be live, and be completed (or invoiced — both mean
+  //    the work is done).
+  const { data: jobRaw } = await supabase
+    .from('jobs')
+    .select('id, job_number, address, status, completed_at, deleted_at, description')
+    .eq('id', jobId)
+    .maybeSingle()
+  const job = jobRaw as JobRow | null
+  if (!job) return { error: 'Job not found.' }
+  if (job.deleted_at) return { error: 'Cannot approve pay for an archived job.' }
+  if (job.status !== 'completed' && job.status !== 'invoiced') {
+    return { error: 'This job is not completed yet, so pay cannot be approved.' }
+  }
+
+  // 2. Contractor must be assigned to the job.
+  const { data: jwRaw } = await supabase
+    .from('job_workers')
+    .select('pay_rate, pay_type, hours_allocated, extra_hours, extra_hours_status')
+    .eq('job_id', jobId)
+    .eq('contractor_id', contractorId)
+    .maybeSingle()
+  const jw = jwRaw as WorkerRow | null
+  if (!jw) return { error: 'This contractor is not assigned to the job.' }
+
+  // 3. Duplicate protection — one payable per job + contractor. (Admin
+  //    override is a later stage.)
+  const { data: existing } = await supabase
+    .from('contractor_invoices')
+    .select('id')
+    .eq('job_id', jobId)
+    .eq('contractor_id', contractorId)
+    .limit(1)
+    .maybeSingle()
+  if (existing?.id) {
+    return { error: 'This job is already approved for pay for this contractor.', alreadyApprovedId: existing.id as string }
+  }
+
+  // 4. Resolve the amount. Fixed wins; otherwise hourly (approved hours
+  //    default to the worker's payable hours; rate from the job snapshot,
+  //    falling back to the contractor profile).
+  let calc
+  if (input.fixedAmount != null) {
+    calc = computeApprovedAmount({ fixedAmount: input.fixedAmount })
+  } else {
+    const effectiveHours = input.approvedHours ?? getWorkerPayableHours({
+      pay_rate: jw.pay_rate,
+      approved_hours: null,
+      actual_hours: null,
+      hours_allocated: jw.hours_allocated,
+      extra_hours: jw.extra_hours,
+      extra_hours_status: jw.extra_hours_status,
+    })
+    let rate = jw.pay_rate
+    if (rate == null) {
+      const { data: c } = await supabase.from('contractors').select('hourly_rate').eq('id', contractorId).maybeSingle()
+      rate = (c?.hourly_rate as number | null) ?? null
+    }
+    calc = computeApprovedAmount({ approvedHours: effectiveHours, rate })
+  }
+  if ('error' in calc) return { error: calc.error }
+
+  // 5. Date = job completion date by default (not today).
+  const dateSubmitted = job.completed_at ? String(job.completed_at).slice(0, 10) : new Date().toISOString().slice(0, 10)
+  const note = input.note?.trim() || job.description?.trim() || null
+
+  // 6. Create the approved payable. CI-#### is set by the DB trigger.
+  const { data: created, error: insErr } = await supabase
+    .from('contractor_invoices')
+    .insert({
+      contractor_id: contractorId,
+      job_id: jobId,
+      amount: calc.amount,
+      date_submitted: dateSubmitted,
+      notes: note,
+      status: 'approved',
+    })
+    .select('id, invoice_number, amount, status')
+    .single()
+  if (insErr || !created) {
+    return { error: `Could not create the contractor payable: ${insErr?.message ?? 'no row returned'}` }
+  }
+
+  await supabase.from('audit_log').insert({
+    actor_id: user.id,
+    actor_role: 'admin',
+    action: 'contractor_pay.approved',
+    entity_table: 'contractor_invoices',
+    entity_id: created.id,
+    before: null,
+    after: {
+      job_id: jobId,
+      job_number: job.job_number,
+      contractor_id: contractorId,
+      basis: calc.basis,
+      hours: calc.hours,
+      amount: calc.amount,
+      date_submitted: dateSubmitted,
+    },
+  })
+
+  revalidatePath('/portal/contractor-invoices')
+  revalidatePath(`/portal/jobs/${jobId}`)
+  return {
+    ok: true,
+    payable: {
+      id: created.id as string,
+      invoice_number: (created.invoice_number as string | null) ?? null,
+      amount: created.amount as number,
+      status: (created.status as string | null) ?? 'approved',
+    },
+  }
+}
