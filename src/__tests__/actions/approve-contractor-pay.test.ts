@@ -17,6 +17,7 @@ interface Cfg {
   rate?: number | null
   created?: Record<string, unknown> | null
   insertErr?: { message: string } | null
+  quote?: Record<string, unknown> | null
 }
 
 function selectChain(value: unknown) {
@@ -43,6 +44,7 @@ function makeSupabase(cfg: Cfg) {
     if (table === 'jobs') return selectChain(cfg.job ?? null)
     if (table === 'job_workers') return selectChain(cfg.jw ?? null)
     if (table === 'contractors') return selectChain(cfg.rate != null ? { hourly_rate: cfg.rate } : null)
+    if (table === 'quotes') return selectChain(cfg.quote ?? null)
     if (table === 'audit_log') return audit
     if (table === 'contractor_invoices') {
       const base = selectChain(cfg.dup ?? null) as Record<string, unknown>
@@ -94,6 +96,52 @@ describe('approveContractorPay', () => {
 
     expect(res).toMatchObject({ ok: true, payable: { amount: 280 } })
     expect(ciInsert.mock.calls[0][0]).toMatchObject({ amount: 280, status: 'approved' })
+  })
+
+  it('sets a concise work-type note from the linked quote (not the full job description)', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: { ...COMPLETED_JOB, quote_id: 'q1', description: 'Full move-out scope: kitchen, 2 bathrooms, oven, interior windows, skirting, wardrobes…' },
+      jw: { pay_rate: 35, pay_type: 'hourly', hours_allocated: 4, extra_hours: 0, extra_hours_status: 'none' },
+      dup: null,
+      quote: { type_of_clean: 'End of Tenancy Clean', service_type: null },
+      created: { id: 'ci1', invoice_number: 'CI-0099', amount: 140, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+
+    await approveContractorPay('j1', 'c1', {})
+
+    const payload = ciInsert.mock.calls[0][0]
+    expect(payload.notes).toBe('End of tenancy clean')
+    expect(payload.notes).not.toMatch(/scope|bathrooms|skirting/i)
+  })
+
+  it('uses the operator-supplied note over the derived work-type', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: { ...COMPLETED_JOB, quote_id: 'q1' },
+      jw: { pay_rate: 35, pay_type: 'hourly', hours_allocated: 4, extra_hours: 0, extra_hours_status: 'none' },
+      dup: null,
+      quote: { type_of_clean: 'Deep Clean' },
+      created: { id: 'ci1', invoice_number: 'CI-0099', amount: 140, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+
+    await approveContractorPay('j1', 'c1', { note: 'Regular clean + travel' })
+
+    expect(ciInsert.mock.calls[0][0].notes).toBe('Regular clean + travel')
+  })
+
+  it('leaves the note blank when there is no linked quote / work type (not the job description)', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: { ...COMPLETED_JOB, quote_id: null, description: 'Some long job description that must NOT become the note' },
+      jw: { pay_rate: 35, pay_type: 'hourly', hours_allocated: 4, extra_hours: 0, extra_hours_status: 'none' },
+      dup: null,
+      created: { id: 'ci1', invoice_number: 'CI-0099', amount: 140, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+
+    await approveContractorPay('j1', 'c1', {})
+
+    expect(ciInsert.mock.calls[0][0].notes).toBeNull()
   })
 
   it('blocks a duplicate (existing payable for job + contractor)', async () => {

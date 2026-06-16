@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { getWorkerPayableHours } from '@/lib/job-cost'
 import { computeApprovedAmount } from '@/lib/contractor-pay'
+import { conciseWorkType } from '@/lib/remittance-work-type'
 import { revalidatePath } from 'next/cache'
 
 export interface ApproveContractorPayInput {
@@ -43,6 +44,7 @@ interface JobRow {
   completed_at: string | null
   deleted_at: string | null
   description: string | null
+  quote_id: string | null
 }
 
 interface WorkerRow {
@@ -70,7 +72,7 @@ export async function approveContractorPay(
   //    the work is done).
   const { data: jobRaw } = await supabase
     .from('jobs')
-    .select('id, job_number, address, status, completed_at, deleted_at, description')
+    .select('id, job_number, address, status, completed_at, deleted_at, description, quote_id')
     .eq('id', jobId)
     .maybeSingle()
   const job = jobRaw as JobRow | null
@@ -129,7 +131,21 @@ export async function approveContractorPay(
 
   // 5. Date = job completion date by default (not today).
   const dateSubmitted = job.completed_at ? String(job.completed_at).slice(0, 10) : new Date().toISOString().slice(0, 10)
-  const note = input.note?.trim() || job.description?.trim() || null
+
+  // Note = a concise work type for the remittance advice, NOT the full job
+  // description (which made the advice cluttered). Operator-supplied note
+  // wins; otherwise derive a short clean type from the linked quote; if
+  // none, leave it blank rather than dumping the scope text.
+  let workType: string | null = null
+  if (job.quote_id) {
+    const { data: quote } = await supabase
+      .from('quotes')
+      .select('type_of_clean, service_type')
+      .eq('id', job.quote_id)
+      .maybeSingle()
+    workType = conciseWorkType((quote ?? {}) as { type_of_clean?: string | null; service_type?: string | null })
+  }
+  const note = input.note?.trim() || workType || null
 
   // 6. Create the approved payable. CI-#### is set by the DB trigger.
   const { data: created, error: insErr } = await supabase
