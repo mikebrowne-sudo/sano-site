@@ -54,29 +54,36 @@ describe('noteAddsValue', () => {
 })
 
 describe('cleanRemittanceNote', () => {
-  it('keeps only the meaningful label from a "label - address" note', () => {
-    expect(cleanRemittanceNote('Barfoot Royal Heights - 8/28 Buscomb Ave', '26 Buscomb Avenue, Henderson'))
-      .toBe('Barfoot Royal Heights')
+  const ADDR = '26 Buscomb Avenue, Henderson'
+
+  it('keeps genuine service-type notes', () => {
+    expect(cleanRemittanceNote('Carpet clean', ADDR)).toBe('Carpet clean')
+    expect(cleanRemittanceNote('Oven clean', ADDR)).toBe('Oven clean')
+    expect(cleanRemittanceNote('Fridge clean', ADDR)).toBe('Fridge clean')
+    expect(cleanRemittanceNote('Freezer clean', ADDR)).toBe('Freezer clean')
+    expect(cleanRemittanceNote('Stain removal', ADDR)).toBe('Stain removal')
   })
 
-  it('keeps a useful service-type note', () => {
+  it('keeps the service segment and drops the address half of a "service - address" note', () => {
     expect(cleanRemittanceNote('Carpet clean - 2 Crudge St', '2 Crudge Street, Massey')).toBe('Carpet clean')
-    expect(cleanRemittanceNote('Oven clean', null)).toBe('Oven clean')
   })
 
-  it('returns null when the note just restates the address', () => {
+  it('hides property-manager / client labels', () => {
+    expect(cleanRemittanceNote('Barfoot Royal Heights', ADDR)).toBeNull()
+    expect(cleanRemittanceNote('Barfoot Ponsonby', ADDR)).toBeNull()
+    expect(cleanRemittanceNote('Wendell Property', ADDR)).toBeNull()
+    expect(cleanRemittanceNote('Barfoot Royal Heights - 8/28 Buscomb Ave', ADDR)).toBeNull()
+  })
+
+  it('hides duplicate / partial address notes', () => {
     expect(cleanRemittanceNote('8/39 Pitt St', '8/39 Pitt Street, Auckland Central')).toBeNull()
     expect(cleanRemittanceNote('128 Marsden Ave', '128 Marsden Avenue, Mount Eden')).toBeNull()
     expect(cleanRemittanceNote('4 Alderly Road Mt Eden', '4 Alderley Road, Mount Eden')).toBeNull()
   })
 
-  it('keeps the original note rather than losing info when every segment looks like an address', () => {
-    // No dash split — single address-only segment is just suppressed (null).
-    expect(cleanRemittanceNote('28 Netherlands Avenue, Kelston', '28 Netherlands Avenue, Kelston')).toBeNull()
-  })
-
-  it('handles empty / null', () => {
-    expect(cleanRemittanceNote('', '4 Alderley Road')).toBeNull()
-    expect(cleanRemittanceNote(null, '4 Alderley Road')).toBeNull()
+  it('returns null with no address (note is the primary line) and for empty input', () => {
+    expect(cleanRemittanceNote('Oven clean', null)).toBeNull()
+    expect(cleanRemittanceNote('', ADDR)).toBeNull()
+    expect(cleanRemittanceNote(null, ADDR)).toBeNull()
   })
 })
