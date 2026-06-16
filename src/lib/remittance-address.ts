@@ -96,3 +96,55 @@ export function noteAddsValue(
   // enough distinct words (a property name, a service type) to be worth showing.
   return jaccard <= 0.5
 }
+
+const STREET_WORDS = new Set([
+  'road', 'avenue', 'street', 'drive', 'place', 'crescent', 'terrace',
+  'highway', 'lane', 'close', 'court', 'way', 'grove', 'rise', 'parade',
+  'square', 'mount',
+])
+
+/** A note segment that reads like a street address: starts with a number
+ *  and either names a street type or reuses a word from the job address. */
+function isAddressLike(segment: string, address: string): boolean {
+  const tokens = normTokens(segment)
+  if (tokens.length === 0) return false
+  const hasNumber = tokens.some((t) => /^\d/.test(t))
+  if (!hasNumber) return false
+  const hasStreetWord = tokens.some((t) => STREET_WORDS.has(t))
+  const addrTokens = new Set(normTokens(address))
+  const sharesAddrWord = tokens.some((t) => !/^\d/.test(t) && t.length > 2 && addrTokens.has(t))
+  return hasStreetWord || sharesAddrWord
+}
+
+/**
+ * The useful part of an invoice note for the remittance second line, or
+ * null when the note just restates the address.
+ *
+ * When the note is a "label - address" pair (e.g.
+ * "Barfoot Royal Heights - 8/28 Buscomb Ave") the address-like segment is
+ * dropped so only the meaningful label remains ("Barfoot Royal Heights").
+ * Conservative: if dropping segments would leave nothing, the original
+ * note is kept rather than losing information.
+ */
+export function cleanRemittanceNote(
+  note: string | null | undefined,
+  address: string | null | undefined,
+): string | null {
+  const trimmed = (note ?? '').trim()
+  if (!trimmed) return null
+  const a = (address ?? '').trim()
+  if (!a) return trimmed // no address — nothing to dedupe against
+
+  // Split on dash separators (hyphen / en / em dash) into segments and
+  // drop any that read like a street address.
+  const segments = trimmed.split(/\s+[-–—]\s+/).map((s) => s.trim()).filter(Boolean)
+  let useful = segments
+  if (segments.length > 1) {
+    const kept = segments.filter((s) => !isAddressLike(s, a))
+    if (kept.length > 0) useful = kept
+  }
+  const candidate = useful.join(' - ')
+
+  // If what's left is still basically the address, don't show a note line.
+  return noteAddsValue(candidate, a) ? candidate : null
+}
