@@ -37,6 +37,7 @@ import {
   type ContactBillingFormState,
 } from '../../_components/ContactBillingSection'
 import { ContactPicker, contactsForClient, type QuoteContact } from '../../_components/ContactPicker'
+import { AddContactInline } from '../../_components/AddContactInline'
 import { accountLabel } from '@/lib/account-label'
 import { computeCommercialPreview, type CommercialPreviewScopeRow, type ScopeFrequency } from '@/lib/commercialQuote'
 import type { PricingSettings } from '@/lib/pricingSettings'
@@ -122,6 +123,8 @@ export function NewQuoteForm({
   const [clientId, setClientId] = useState('')
   // Stage 2A — selected contact person (from the account's contacts).
   const [contactId, setContactId] = useState('')
+  // Stage 2B — contacts added inline during this session.
+  const [createdContacts, setCreatedContacts] = useState<QuoteContact[]>([])
 
   // Phase 5.5.16 — duplicate-quote suspicion check.
   // When the operator picks an existing client, fetch their recent live
@@ -631,10 +634,14 @@ export function NewQuoteForm({
             {clientId && (
               <div className="mt-4">
                 <ContactPicker
-                  contacts={contacts}
+                  contacts={[...contacts, ...createdContacts]}
                   clientId={clientId}
                   value={contactId}
                   onChange={(_id, c) => applyContact(c)}
+                />
+                <AddContactInline
+                  clientId={clientId}
+                  onAdded={(c) => { setCreatedContacts((prev) => [...prev, c]); applyContact(c) }}
                 />
               </div>
             )}
