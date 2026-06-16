@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Download, Printer } from 'lucide-react'
 import { SendInvoicePanel } from './_components/SendInvoicePanel'
+import { EditInvoiceDetailsButton } from './_components/EditInvoiceDetailsButton'
 import { MarkAsPaidButton } from './_components/MarkAsPaidButton'
 import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
 import { ArchiveInvoiceButton } from './_components/ArchiveInvoiceButton'
@@ -309,6 +310,27 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
                 </div>
               )}
             </dl>
+          )}
+
+          {isAdmin && (
+            <EditInvoiceDetailsButton
+              invoiceId={invoice.id}
+              isSent={['sent', 'paid', 'overdue'].includes(invoice.status ?? '')}
+              values={{
+                notes: invoice.notes ?? null,
+                service_description: invoice.service_description ?? null,
+                service_address: invoice.service_address ?? null,
+                client_reference: invoice.client_reference ?? null,
+                requires_po: invoice.requires_po ?? false,
+                contact_name: invoice.contact_name ?? null,
+                contact_email: invoice.contact_email ?? null,
+                contact_phone: invoice.contact_phone ?? null,
+                accounts_contact_name: invoice.accounts_contact_name ?? null,
+                accounts_email: invoice.accounts_email ?? null,
+                date_issued: invoice.date_issued ?? null,
+                due_date: invoice.due_date ?? null,
+              }}
+            />
           )}
         </Section>
 
