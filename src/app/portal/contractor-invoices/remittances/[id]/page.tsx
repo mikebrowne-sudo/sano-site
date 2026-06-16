@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { getRemittanceBatchById } from '@/lib/contractor-remittance-data'
 import { ContractorRemittanceDocument } from '@/components/ContractorRemittanceDocument'
+import { PrintButton } from '@/components/PrintButton'
 import { formatCurrency } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
@@ -35,10 +36,13 @@ export default async function RemittanceBatchViewPage({ params }: { params: { id
             {data.lines.length} line{data.lines.length === 1 ? '' : 's'} · <span className="font-semibold text-sage-800">{formatCurrency(data.total)}</span>
           </p>
         </div>
-        <a href={`/remittance-batch/${data.token}`} target="_blank" rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
-          <ExternalLink size={15} /> Open / print
-        </a>
+        <div className="flex items-center gap-2">
+          <a href={`/remittance-batch/${data.token}`} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
+            <ExternalLink size={15} /> Open share page
+          </a>
+          <PrintButton label="Print / save PDF" />
+        </div>
       </div>
 
       <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5 text-xs text-amber-800 flex items-center gap-2">
