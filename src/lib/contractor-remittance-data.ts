@@ -13,6 +13,10 @@ export interface RemittanceBatchLine {
   jobAddress: string | null
   note: string | null
   label: string | null
+  // Snapshotted display-only hours. Non-null only when the line was
+  // genuinely hourly and payable_hours × pay_rate matched the amount
+  // (see _actions-remittance-batch). Null for fixed-price / legacy lines.
+  hours: number | null
   amount: number
 }
 
@@ -44,7 +48,7 @@ interface Header {
 async function build(svc: SupabaseClient, h: Header): Promise<RemittanceBatch> {
   const { data: itemsRaw } = await svc
     .from('contractor_remittance_items')
-    .select('kind, contractor_name, job_number, job_address, note, label, amount, sort')
+    .select('kind, contractor_name, job_number, job_address, note, label, hours, amount, sort')
     .eq('remittance_id', h.id)
     .order('sort', { ascending: true })
 
@@ -55,6 +59,7 @@ async function build(svc: SupabaseClient, h: Header): Promise<RemittanceBatch> {
     jobAddress: (it.job_address as string | null) ?? null,
     note: (it.note as string | null) ?? null,
     label: (it.label as string | null) ?? null,
+    hours: (it.hours as number | null) ?? null,
     amount: (it.amount as number) ?? 0,
   }))
   const total = Math.round(lines.reduce((s, l) => s + l.amount, 0) * 100) / 100
