@@ -21,7 +21,7 @@ export async function createJobFromInvoice(invoiceId: string) {
   // 2. Load invoice + client name + first line item
   const { data: invoice, error: iErr } = await supabase
     .from('invoices')
-    .select('client_id, quote_id, service_address, scheduled_clean_date, base_price, notes, invoice_number, type_of_clean, client_reference, requires_po, clients ( name )')
+    .select('client_id, quote_id, service_address, scheduled_clean_date, base_price, notes, service_description, invoice_number, type_of_clean, client_reference, requires_po, clients ( name )')
     .eq('id', invoiceId)
     .single()
 
@@ -60,7 +60,9 @@ export async function createJobFromInvoice(invoiceId: string) {
       scheduled_date: invoice.scheduled_clean_date || null,
       job_price: invoice.base_price ?? null,
       title,
-      description: invoice.notes || null,
+      // Prefer the service scope (now the canonical place for the work
+      // description); fall back to notes for older/custom invoices.
+      description: (invoice as { service_description?: string | null }).service_description || invoice.notes || null,
       status: 'draft',
       // Phase 5.5.16 — be explicit. By definition this path runs after
       // an invoice exists, so 'invoice_sent' best describes the state
