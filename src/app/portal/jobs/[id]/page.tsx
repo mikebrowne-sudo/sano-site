@@ -12,7 +12,8 @@ import { ExtraHoursControl } from './_components/ExtraHoursControl'
 import { ArchiveJobButton } from './_components/ArchiveJobButton'
 import { JobWorkflowBar } from './_components/JobWorkflowBar'
 import { MarkJobReviewedButton } from './_components/MarkJobReviewedButton'
-import { ApproveHoursButton } from './_components/ApproveHoursButton'
+import { JobApprovePayButton } from './_components/JobApprovePayButton'
+import { classifyApprovalRow } from '@/lib/pending-approvals'
 import { JobReadyToInvoice } from './_components/JobReadyToInvoice'
 import { reconcileJob, type ReconciliationInput } from '@/lib/job-reconciliation'
 import { JobNotificationsPanel } from './_components/JobNotificationsPanel'
@@ -169,13 +170,20 @@ export default async function JobDetailPage({
       : Promise.resolve({ data: null as { phone: string | null } | null }),
     supabase
       .from('contractor_invoices')
-      .select('job_id, contractor_id')
+      .select('id, invoice_number, amount, status, job_id, contractor_id')
       .eq('job_id', params.id),
     supabase
       .from('pay_run_items')
       .select('job_id, contractor_id')
       .eq('job_id', params.id),
   ])
+
+  // Stage C — existing payables for this job, keyed by contractor, so the
+  // pay-approval panel and the cost-table badge reflect the canonical CI.
+  const ciByContractor = new Map<string, { id: string; invoice_number: string | null; amount: number | null; status: string | null }>()
+  for (const ci of (contractorInvoiceRes.data ?? []) as Array<{ id: string; invoice_number: string | null; amount: number | null; status: string | null; contractor_id: string | null }>) {
+    if (ci.contractor_id) ciByContractor.set(ci.contractor_id, { id: ci.id, invoice_number: ci.invoice_number, amount: ci.amount, status: ci.status })
+  }
 
   const quoteNumber  = linkedQuoteRes.data?.quote_number ?? null
   const quoteClientId = (linkedQuoteRes.data as { client_id?: string } | null)?.client_id ?? null
@@ -514,6 +522,7 @@ export default async function JobDetailPage({
                 full_name: c?.full_name ?? '—',
                 hourly_rate: c?.hourly_rate ?? null,
                 pay_rate: (w.pay_rate as number | null) ?? null,
+                pay_type: (w.pay_type as string | null) ?? null,
                 hours_allocated: w.hours_allocated,
                 actual_hours: w.actual_hours ?? null,
                 extra_hours: (w.extra_hours as number | null) ?? 0,
@@ -631,6 +640,12 @@ export default async function JobDetailPage({
                                   ? 'estimate'
                                   : 'missing'
                             const payStatus = (raw?.pay_status as string | null) ?? 'pending'
+                            // Stage C — the badge reflects the canonical payable (the
+                            // contractor_invoice) when one exists; otherwise the legacy
+                            // job_workers pay_status. `locked` stays on pay_status so the
+                            // extra-hours control behaviour is unchanged.
+                            const ciForWorker = ciByContractor.get(ew.contractorId)
+                            const payBadgeStatus = ciForWorker ? (ciForWorker.status ?? 'approved') : payStatus
                             // Allowed-hours model: payable = allowed +
                             // admin-APPROVED extra. Pending / rejected
                             // extra never counts toward pay.
@@ -691,7 +706,7 @@ export default async function JobDetailPage({
                                     )
                                     : <span className="text-sage-300">—</span>}
                                 </td>
-                                <td className="py-2 text-right"><StatusBadge kind="pay" status={payStatus} /></td>
+                                <td className="py-2 text-right"><StatusBadge kind="pay" status={payBadgeStatus} /></td>
                               </tr>
                             )
                           })}
@@ -708,25 +723,35 @@ export default async function JobDetailPage({
                 {isAdmin && (job.status === 'completed' || job.status === 'invoiced') && workers.length > 0 && (
                   <div className="border-t border-sage-100 pt-3 mt-4">
                     <span className="text-xs text-sage-500 font-semibold uppercase tracking-wide">Pay approvals</span>
+                    <p className="text-[11px] text-sage-400 mt-0.5">Approving creates an approved contractor invoice that flows into a remittance. Same as the Pending approvals worklist.</p>
                     <div className="mt-2 space-y-2">
-                      {workers.map((w, i) => {
-                        const raw = jobWorkers?.[i]
-                        const allowed = w.hours_allocated ?? job.allowed_hours ?? 0
+                      {workers.map((w) => {
+                        const allowed = w.hours_allocated ?? job.allowed_hours ?? null
                         const approvedExtra = w.extra_hours_status === 'approved' ? (w.extra_hours ?? 0) : 0
-                        const payableHours = Math.round((allowed + approvedExtra) * 100) / 100
+                        const payableHours = allowed != null ? Math.round((allowed + approvedExtra) * 100) / 100 : null
                         const rate = (w.pay_rate as number | null) ?? w.hourly_rate ?? null
+                        const existingCI = ciByContractor.get(w.contractor_id) ?? null
+                        const computed = classifyApprovalRow({
+                          payType: (w.pay_type as string | null) ?? null,
+                          rate,
+                          allowedHours: allowed,
+                          submittedHours: (w.actual_hours as number | null) ?? null,
+                          payableHours,
+                          hasExistingCI: !!existingCI,
+                          workersOnJob: workers.length,
+                        })
                         return (
                           <div key={w.contractor_id} className="flex flex-wrap items-center gap-2 text-xs">
                             <span className="text-sage-700 font-medium">{w.full_name}</span>
-                            <ApproveHoursButton
+                            <JobApprovePayButton
                               jobId={job.id}
                               contractorId={w.contractor_id}
                               contractorName={w.full_name}
-                              payableHours={payableHours}
+                              mode={computed.mode}
+                              defaultApprovedHours={payableHours}
                               rate={rate}
-                              payStatus={(raw?.pay_status as string | null) ?? 'pending'}
-                              approvedHours={(raw?.approved_hours as number | null) ?? null}
-                              payRate={(raw?.pay_rate as number | null) ?? null}
+                              computedAmount={computed.computedAmount}
+                              existingCI={existingCI}
                             />
                           </div>
                         )
