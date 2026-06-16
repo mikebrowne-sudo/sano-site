@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { ClientForm } from '../_components/ClientForm'
 import Link from 'next/link'
-import { Archive } from 'lucide-react'
+import { Archive, ChevronDown, Wrench } from 'lucide-react'
 import { ClientAccessPanel } from './_components/ClientAccessPanel'
 import { ClientCleanupActions } from './_components/ClientCleanupActions'
 import { ClientContactsSection } from '../_components/ClientContactsSection'
@@ -176,108 +176,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         )}
       />
 
-      {isAdmin && (
-        <ClientCleanupActions
-          clientId={vm.id}
-          clientName={vm.name}
-          isArchived={isArchived}
-          links={linkCounts}
-          mergeCandidates={mergeCandidates}
-        />
-      )}
-
-      {proposedName && isAdmin && (
-        <Panel className="mb-6">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="min-w-0">
-              <h2 className="text-base font-semibold text-sage-800">Structure this branch account</h2>
-              <p className="text-xs text-sage-600 mt-1">
-                Set the display name to <span className="font-medium text-sage-800">{proposedName}</span> and keep the
-                parent brand (<span className="font-medium text-sage-800">{vm.name}</span>) and branch
-                (<span className="font-medium text-sage-800">{vm.company_name}</span>) in their own fields. Nothing is
-                flattened, and quotes/jobs/invoices stay linked.
-              </p>
-            </div>
-            <ApplyProposedNameButton clientId={vm.id} proposedName={proposedName} />
-          </div>
-        </Panel>
-      )}
-
-      {branchAccounts.length > 0 && isAdmin && (
-        <Panel className="mb-6">
-          <h2 className="text-base font-semibold text-sage-800 mb-2">Related branch accounts</h2>
-          <p className="text-xs text-sage-600 mb-3">
-            These share the same parent brand but appear to be separate branches. <strong>Do not merge</strong> unless
-            you are sure they are the same account.
-          </p>
-          <ul className="divide-y divide-sage-100">
-            {branchAccounts
-              .filter((d) => d && typeof d.id === 'string')
-              .map((d) => (
-                <li key={d.id} className="py-2.5 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <Link href={`/portal/clients/${d.id}`} className="text-sage-800 font-medium hover:underline">
-                      {(typeof d.name === 'string' && d.name) || 'Unnamed client'}
-                    </Link>
-                    <p className="text-xs text-sage-500 mt-0.5">
-                      {d.company_name ? <>{d.company_name} · </> : null}
-                      {d.email ? <>{d.email}</> : null}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-2 py-0.5">
-                    Branch
-                  </span>
-                </li>
-              ))}
-          </ul>
-        </Panel>
-      )}
-
-      {duplicates.length > 0 && isAdmin && (
-        <Panel variant="warning" className="mb-6">
-          <h2 className="text-base font-semibold text-amber-900 mb-2">Possible duplicates</h2>
-          <p className="text-xs text-amber-800 mb-3">
-            These active clients share an email, phone number, or the same name <em>and</em> branch. Use Merge above only
-            if they are genuinely the same account.
-          </p>
-          <ul className="divide-y divide-amber-100">
-            {duplicates
-              .filter((d) => d && typeof d.id === 'string')
-              .map((d) => (
-                <li key={d.id} className="py-2.5 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <Link href={`/portal/clients/${d.id}`} className="text-sage-800 font-medium hover:underline">
-                      {(typeof d.name === 'string' && d.name) || 'Unnamed client'}
-                    </Link>
-                    <p className="text-xs text-sage-500 mt-0.5">
-                      {d.company_name ? <>{d.company_name} · </> : null}
-                      {d.email ? <>{d.email} · </> : null}
-                      {d.phone ? <>{d.phone}</> : null}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-[10px] uppercase tracking-wide font-semibold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">
-                    Same {d.matched_on ?? '—'}
-                  </span>
-                </li>
-              ))}
-          </ul>
-        </Panel>
-      )}
-
-      {isAdmin && <ClientContactsSection clientId={vm.id} contacts={accountContacts} />}
-
-      {/* Phase 5.5.6 — Client portal access (mirror of contractor 5.5.3). */}
-      <ClientAccessPanel
-        clientId={vm.id}
-        email={vm.email}
-        authUserId={vm.auth_user_id}
-        inviteSentAt={vm.invite_sent_at}
-        inviteAcceptedAt={vm.invite_accepted_at}
-        accessDisabledAt={vm.access_disabled_at}
-        accessDisabledReason={vm.access_disabled_reason}
-        featureEnabled={customerPortalEnabled}
-      />
-
+      {/* ── 1. Account details ─────────────────────────────── */}
       <div className="mb-4 text-xs text-sage-600 bg-sage-50 border border-sage-100 rounded-lg px-4 py-3 max-w-2xl">
         This record is the <strong>account</strong>. For a branch like Barfoot &amp; Thompson, the account name should be
         the branch (e.g. <em>Barfoot &amp; Thompson - Ellerslie</em>). Add the property managers, agents or booking
@@ -299,7 +198,14 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         }}
       />
 
-      {/* Phase 5.5.7 — Activity timeline (audit_log; read-only). */}
+      {/* ── 2. Contacts (normal workflow) ──────────────────── */}
+      {isAdmin && (
+        <div className="mt-6">
+          <ClientContactsSection clientId={vm.id} contacts={accountContacts} />
+        </div>
+      )}
+
+      {/* ── 3. Activity ────────────────────────────────────── */}
       <Panel title="Activity" padding="md" className="mt-6">
         {!Array.isArray(audit) || audit.length === 0 ? (
           <p className="text-sm text-sage-500">No history yet.</p>
@@ -322,6 +228,126 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           </ul>
         )}
       </Panel>
+
+      {/* ── 4. Maintenance (admin, collapsed) ──────────────── */}
+      {/* Structuring, branch/duplicate warnings, archive/merge, and (only
+          when enabled) portal access live here so they don't dominate the
+          day-to-day account workflow above. */}
+      {isAdmin && (
+        <details className="group mt-8 rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <summary className="cursor-pointer list-none select-none flex items-center justify-between gap-3 px-5 py-4">
+            <span className="inline-flex items-center gap-2 text-sm font-semibold text-sage-700">
+              <Wrench size={15} /> Maintenance
+            </span>
+            <span className="inline-flex items-center gap-2 text-xs text-sage-400">
+              structure · archive · merge · duplicates{customerPortalEnabled ? ' · portal' : ''}
+              <ChevronDown size={16} className="transition-transform group-open:rotate-180" />
+            </span>
+          </summary>
+
+          <div className="border-t border-gray-100 px-5 py-5 space-y-6">
+            <ClientCleanupActions
+              clientId={vm.id}
+              clientName={vm.name}
+              isArchived={isArchived}
+              links={linkCounts}
+              mergeCandidates={mergeCandidates}
+            />
+
+            {proposedName && (
+              <Panel>
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="min-w-0">
+                    <h2 className="text-base font-semibold text-sage-800">Structure this branch account</h2>
+                    <p className="text-xs text-sage-600 mt-1">
+                      Set the display name to <span className="font-medium text-sage-800">{proposedName}</span> and keep the
+                      parent brand (<span className="font-medium text-sage-800">{vm.name}</span>) and branch
+                      (<span className="font-medium text-sage-800">{vm.company_name}</span>) in their own fields. Nothing is
+                      flattened, and quotes/jobs/invoices stay linked.
+                    </p>
+                  </div>
+                  <ApplyProposedNameButton clientId={vm.id} proposedName={proposedName} />
+                </div>
+              </Panel>
+            )}
+
+            {branchAccounts.length > 0 && (
+              <Panel>
+                <h2 className="text-base font-semibold text-sage-800 mb-2">Related branch accounts</h2>
+                <p className="text-xs text-sage-600 mb-3">
+                  These share the same parent brand but appear to be separate branches. <strong>Do not merge</strong> unless
+                  you are sure they are the same account.
+                </p>
+                <ul className="divide-y divide-sage-100">
+                  {branchAccounts
+                    .filter((d) => d && typeof d.id === 'string')
+                    .map((d) => (
+                      <li key={d.id} className="py-2.5 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <Link href={`/portal/clients/${d.id}`} className="text-sage-800 font-medium hover:underline">
+                            {(typeof d.name === 'string' && d.name) || 'Unnamed client'}
+                          </Link>
+                          <p className="text-xs text-sage-500 mt-0.5">
+                            {d.company_name ? <>{d.company_name} · </> : null}
+                            {d.email ? <>{d.email}</> : null}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-[10px] uppercase tracking-wide font-semibold text-sage-600 bg-sage-100 rounded-full px-2 py-0.5">
+                          Branch
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              </Panel>
+            )}
+
+            {duplicates.length > 0 && (
+              <Panel variant="warning">
+                <h2 className="text-base font-semibold text-amber-900 mb-2">Possible duplicates</h2>
+                <p className="text-xs text-amber-800 mb-3">
+                  These active clients share an email, phone number, or the same name <em>and</em> branch. Use Merge above only
+                  if they are genuinely the same account.
+                </p>
+                <ul className="divide-y divide-amber-100">
+                  {duplicates
+                    .filter((d) => d && typeof d.id === 'string')
+                    .map((d) => (
+                      <li key={d.id} className="py-2.5 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <Link href={`/portal/clients/${d.id}`} className="text-sage-800 font-medium hover:underline">
+                            {(typeof d.name === 'string' && d.name) || 'Unnamed client'}
+                          </Link>
+                          <p className="text-xs text-sage-500 mt-0.5">
+                            {d.company_name ? <>{d.company_name} · </> : null}
+                            {d.email ? <>{d.email} · </> : null}
+                            {d.phone ? <>{d.phone}</> : null}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-[10px] uppercase tracking-wide font-semibold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">
+                          Same {d.matched_on ?? '—'}
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              </Panel>
+            )}
+
+            {/* Portal access only when the customer portal feature is on. */}
+            {customerPortalEnabled && (
+              <ClientAccessPanel
+                clientId={vm.id}
+                email={vm.email}
+                authUserId={vm.auth_user_id}
+                inviteSentAt={vm.invite_sent_at}
+                inviteAcceptedAt={vm.invite_accepted_at}
+                accessDisabledAt={vm.access_disabled_at}
+                accessDisabledReason={vm.access_disabled_reason}
+                featureEnabled={customerPortalEnabled}
+              />
+            )}
+          </div>
+        </details>
+      )}
     </div>
   )
 }
