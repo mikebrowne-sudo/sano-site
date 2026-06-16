@@ -4,7 +4,7 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ExternalLink, FileText, Printer } from 'lucide-react'
+import { ArrowLeft, ExternalLink, FileText, Printer, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { getRemittanceBatchById } from '@/lib/contractor-remittance-data'
@@ -42,11 +42,15 @@ export default async function RemittanceBatchViewPage({ params }: { params: { id
               className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
               <ExternalLink size={15} /> Open share page
             </a>
-            <PrintButton label="Print / save PDF" />
+            <PrintButton label="Print" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors" />
+            <a href={`/api/contractor-invoices/remittances/${data.id}/pdf`} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors">
+              <Download size={15} /> Download PDF
+            </a>
           </div>
-          <p className="inline-flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5 max-w-[300px] text-left leading-snug">
-            <Printer size={13} className="mt-0.5 shrink-0" />
-            <span>Before saving as PDF, open <span className="font-semibold">More settings</span> and turn off <span className="font-semibold">Headers and footers</span>.</span>
+          <p className="inline-flex items-start gap-1.5 text-[11px] text-sage-500 max-w-[340px] text-left leading-snug">
+            <Printer size={13} className="mt-0.5 shrink-0 text-sage-400" />
+            <span><span className="font-medium text-sage-600">Download PDF</span> gives a clean file with no browser headers. Browser <span className="font-medium">Print</span> adds them unless you turn off <span className="font-medium">Headers and footers</span> in More settings.</span>
           </p>
         </div>
       </div>
