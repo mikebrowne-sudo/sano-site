@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { notifyContractorAssigned } from '@/lib/notify-contractor'
 import { assertCanAmend, writeAmendmentAudit } from '@/lib/amendment-lock'
+import { resolveAllowedHours } from '@/lib/allowed-hours'
 
 // Returns an error message if the contractor's insurance is missing or expired; null otherwise.
 async function checkContractorInsurance(
@@ -58,6 +59,10 @@ export async function createJob(input: JobInput) {
     if (insuranceError) return { error: insuranceError }
   }
 
+  // Pay basis: fall back to a plain-number Duration estimate when
+  // Allowed hours is blank, so contractors don't end up with 0 hours.
+  const allowedHours = resolveAllowedHours(input.allowed_hours, input.duration_estimate)
+
   const { data, error } = await supabase
     .from('jobs')
     .insert({
@@ -74,7 +79,7 @@ export async function createJob(input: JobInput) {
       contractor_id: input.contractor_id || null,
       contractor_price: input.contractor_price ?? null,
       job_price: input.job_price ?? null,
-      allowed_hours: input.allowed_hours ?? null,
+      allowed_hours: allowedHours,
       internal_notes: input.internal_notes || null,
       // Phase 5.5.16 — be explicit. The CHECK only accepts
       // 'not_required'|'on_account'|'invoice_sent'|'payment_pending'|'paid'.
@@ -88,11 +93,14 @@ export async function createJob(input: JobInput) {
     return { error: `Failed to create job: ${error?.message}` }
   }
 
-  // Save worker assignments
+  // Save worker assignments. Seed each worker's hours_allocated from the
+  // job's allowed hours so the per-worker pay basis is populated up front
+  // (previously left null here, which stranded hours on multi-worker jobs).
   if (input.worker_ids?.length) {
     const rows = input.worker_ids.filter(Boolean).map((cid) => ({
       job_id: data.id,
       contractor_id: cid,
+      hours_allocated: allowedHours,
     }))
     if (rows.length > 0) {
       await supabase.from('job_workers').upsert(rows, { onConflict: 'job_id,contractor_id' })
@@ -173,6 +181,10 @@ export async function updateJob(input: UpdateJobInput) {
     if (insuranceError) return { error: insuranceError }
   }
 
+  // Pay basis: fall back to a plain-number Duration estimate when
+  // Allowed hours is blank, so contractors don't end up with 0 hours.
+  const allowedHours = resolveAllowedHours(input.allowed_hours, input.duration_estimate)
+
   const { error } = await supabase
     .from('jobs')
     .update({
@@ -190,7 +202,7 @@ export async function updateJob(input: UpdateJobInput) {
       contractor_id: input.contractor_id || null,
       contractor_price: input.contractor_price ?? null,
       job_price: input.job_price ?? null,
-      allowed_hours: input.allowed_hours ?? null,
+      allowed_hours: allowedHours,
       internal_notes: input.internal_notes || null,
       contractor_notes: input.contractor_notes || null,
     })
@@ -226,7 +238,7 @@ export async function updateJob(input: UpdateJobInput) {
   // action verb so the timeline can flag them.
   const materialChanged =
        (current?.job_price       ?? null) !== (input.job_price       ?? null)
-    || (current?.allowed_hours   ?? null) !== (input.allowed_hours   ?? null)
+    || (current?.allowed_hours   ?? null) !== (allowedHours          ?? null)
     || (current?.description     ?? null) !== (input.description     ?? null)
     || (current?.address         ?? null) !== (input.address         ?? null)
   if (materialChanged) {
@@ -244,19 +256,21 @@ export async function updateJob(input: UpdateJobInput) {
       },
       after: {
         job_price:     input.job_price ?? null,
-        allowed_hours: input.allowed_hours ?? null,
+        allowed_hours: allowedHours ?? null,
         description:   input.description ?? null,
         address:       input.address ?? null,
       },
     })
   }
 
-  // Replace worker assignments
+  // Replace worker assignments. Seed each worker's hours_allocated from
+  // the job's allowed hours so the per-worker pay basis is populated.
   if (input.worker_ids !== undefined) {
     await supabase.from('job_workers').delete().eq('job_id', input.id)
     const rows = (input.worker_ids ?? []).filter(Boolean).map((cid) => ({
       job_id: input.id,
       contractor_id: cid,
+      hours_allocated: allowedHours,
     }))
     if (rows.length > 0) {
       await supabase.from('job_workers').insert(rows)
