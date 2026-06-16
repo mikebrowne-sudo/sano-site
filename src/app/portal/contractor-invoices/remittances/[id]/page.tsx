@@ -36,12 +36,17 @@ export default async function RemittanceBatchViewPage({ params }: { params: { id
             {data.lines.length} line{data.lines.length === 1 ? '' : 's'} · <span className="font-semibold text-sage-800">{formatCurrency(data.total)}</span>
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <a href={`/remittance-batch/${data.token}`} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
-            <ExternalLink size={15} /> Open share page
-          </a>
-          <PrintButton label="Print / save PDF" />
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex items-center gap-2">
+            <a href={`/remittance-batch/${data.token}`} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
+              <ExternalLink size={15} /> Open share page
+            </a>
+            <PrintButton label="Print / save PDF" />
+          </div>
+          <p className="text-[11px] text-sage-400 max-w-[260px] text-right leading-snug">
+            Before saving as PDF, turn off <span className="font-medium text-sage-500">Headers and footers</span> in the print dialog.
+          </p>
         </div>
       </div>
 
