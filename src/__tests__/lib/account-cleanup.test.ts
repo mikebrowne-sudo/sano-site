@@ -1,10 +1,25 @@
 import {
   proposedAccountName,
+  structuredBranchFields,
   isCompanyNamedContact,
   looksLikeTestRecord,
   duplicateClientIds,
   analyzeAccount,
 } from '@/lib/account-cleanup'
+
+describe('structuredBranchFields', () => {
+  it('splits a company-led record into parent brand + branch + display', () => {
+    expect(structuredBranchFields('Barfoot & Thompson', 'Greenlane')).toEqual({
+      company: 'Barfoot & Thompson',
+      branch: 'Greenlane',
+      display: 'Barfoot & Thompson - Greenlane',
+    })
+  })
+  it('returns null for person-led or already-combined records', () => {
+    expect(structuredBranchFields('Kevin Maio', 'Barfoot & Thompson - Royal Heights')).toBeNull()
+    expect(structuredBranchFields('Ray White Lochores - Birkenhead', null)).toBeNull()
+  })
+})
 
 describe('proposedAccountName', () => {
   it('combines a company-led name + branch', () => {

@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 interface ClientInput {
   name: string
   company_name?: string
+  branch_name?: string
   email?: string
   phone?: string
   service_address?: string
@@ -23,6 +24,7 @@ export async function createClientAction(input: ClientInput) {
     .insert({
       name: input.name,
       company_name: input.company_name || null,
+      branch_name: input.branch_name || null,
       email: input.email || null,
       phone: input.phone || null,
       service_address: input.service_address || null,
@@ -48,6 +50,7 @@ export async function updateClientAction(id: string, input: ClientInput) {
     .update({
       name: input.name,
       company_name: input.company_name || null,
+      branch_name: input.branch_name || null,
       email: input.email || null,
       phone: input.phone || null,
       service_address: input.service_address || null,
