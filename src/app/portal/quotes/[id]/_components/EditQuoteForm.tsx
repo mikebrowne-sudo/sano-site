@@ -47,6 +47,7 @@ import {
   type ContactBillingFormState,
 } from '../../_components/ContactBillingSection'
 import { ContactPicker, type QuoteContact } from '../../_components/ContactPicker'
+import { AddContactInline } from '../../_components/AddContactInline'
 import { accountLabel } from '@/lib/account-label'
 import { computeCommercialPreview, type CommercialPreviewScopeRow, type ScopeFrequency } from '@/lib/commercialQuote'
 import type { PricingSettings } from '@/lib/pricingSettings'
@@ -212,6 +213,8 @@ export function EditQuoteForm({
   const [contactId, setContactId] = useState<string>(
     (quote as { contact_id?: string | null }).contact_id ?? '',
   )
+  // Stage 2B — contacts added inline during this session.
+  const [createdContacts, setCreatedContacts] = useState<QuoteContact[]>([])
 
   // Status + dates
   const [status, setStatus] = useState(quote.status)
@@ -706,10 +709,14 @@ export function EditQuoteForm({
         {clientId && (
           <div className="mt-4">
             <ContactPicker
-              contacts={contacts}
+              contacts={[...contacts, ...createdContacts]}
               clientId={clientId}
               value={contactId}
               onChange={(_id, c) => applyContact(c)}
+            />
+            <AddContactInline
+              clientId={clientId}
+              onAdded={(c) => { setCreatedContacts((prev) => [...prev, c]); applyContact(c) }}
             />
           </div>
         )}
