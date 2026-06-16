@@ -8,9 +8,14 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
+import { entityTable, type SensitiveEntity } from '@/lib/sensitive-edit'
+
+const VALID_ENTITIES: SensitiveEntity[] = ['quote', 'job', 'invoice', 'contractor_invoice']
 
 export interface LogAmendmentOverrideInput {
-  entity: 'quote' | 'job'
+  // Stage 2 — generalised beyond quote/job so the same override-gate audit
+  // row can be recorded for invoices and contractor invoices too.
+  entity: SensitiveEntity
   entityId: string
   invoiceNumber?: string | null
   reason: string
@@ -21,7 +26,7 @@ export async function logAmendmentOverride(
 ): Promise<{ ok: true } | { error: string }> {
   const reason = (input.reason ?? '').trim()
   if (!reason) return { error: 'A reason is required to override.' }
-  if (input.entity !== 'quote' && input.entity !== 'job') {
+  if (!VALID_ENTITIES.includes(input.entity)) {
     return { error: 'Invalid record type.' }
   }
   if (!input.entityId) return { error: 'Missing record id.' }
@@ -36,7 +41,7 @@ export async function logAmendmentOverride(
     actor_id: user!.id,
     actor_role: 'admin',
     action: `${input.entity}.override_initiated`,
-    entity_table: input.entity === 'quote' ? 'quotes' : 'jobs',
+    entity_table: entityTable(input.entity),
     entity_id: input.entityId,
     before: null,
     after: {
