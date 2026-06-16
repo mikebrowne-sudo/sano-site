@@ -10,6 +10,7 @@ import { ArrowLeft, FileText, Plus, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { listRemittanceBatches } from '@/lib/contractor-remittance-data'
+import { SendRemittanceButton } from '@/components/SendRemittanceButton'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
@@ -81,10 +82,13 @@ export default async function SavedRemittancesPage() {
                         )}
                       </td>
                       <td className="py-3 px-4 text-sage-500">{formatDate(b.createdAt)}</td>
-                      <td className="py-3 px-4 text-right">
-                        <Link href={`/portal/contractor-invoices/remittances/${b.id}`} className="inline-flex items-center gap-1.5 text-sage-600 hover:text-sage-800 font-medium">
-                          Open
-                        </Link>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center justify-end gap-3">
+                          {!b.sentAt && <SendRemittanceButton id={b.id} sentAt={b.sentAt} variant="compact" />}
+                          <Link href={`/portal/contractor-invoices/remittances/${b.id}`} className="inline-flex items-center gap-1.5 text-sage-600 hover:text-sage-800 font-medium">
+                            Open
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   )

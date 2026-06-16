@@ -1,16 +1,16 @@
 // Staff preview of a created remittance batch. Shows the branded
-// document + a link to open/print the PDF version. Sending is NOT wired
-// up here (deferred) — this is preview/generate only.
+// document, the print/PDF actions, and the admin Email-remittance action.
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ExternalLink, FileText, Printer, Download } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Printer, Download, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { getRemittanceBatchById } from '@/lib/contractor-remittance-data'
 import { ContractorRemittanceDocument } from '@/components/ContractorRemittanceDocument'
 import { PrintButton } from '@/components/PrintButton'
-import { formatCurrency } from '@/lib/format'
+import { SendRemittanceButton } from '@/components/SendRemittanceButton'
+import { formatCurrency, formatDateTime } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,6 +47,7 @@ export default async function RemittanceBatchViewPage({ params }: { params: { id
               className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors">
               <Download size={15} /> Download PDF
             </a>
+            <SendRemittanceButton id={data.id} sentAt={data.sentAt} />
           </div>
           <p className="inline-flex items-start gap-1.5 text-[11px] text-sage-500 max-w-[340px] text-left leading-snug">
             <Printer size={13} className="mt-0.5 shrink-0 text-sage-400" />
@@ -55,9 +56,11 @@ export default async function RemittanceBatchViewPage({ params }: { params: { id
         </div>
       </div>
 
-      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5 text-xs text-amber-800 flex items-center gap-2">
-        <FileText size={14} /> Preview only — sending to the contractor by email is not enabled yet. Confirm when you&apos;re ready and it can be wired up.
-      </div>
+      {data.sentAt && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mb-5 text-xs text-emerald-800 flex items-center gap-2">
+          <CheckCircle2 size={14} /> Sent to the contractor on {formatDateTime(data.sentAt)}.
+        </div>
+      )}
 
       {/* Branded document preview */}
       <div className="rounded-2xl overflow-hidden border border-sage-100">
