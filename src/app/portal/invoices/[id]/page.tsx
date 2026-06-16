@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft, Download, Printer } from 'lucide-react'
 import { SendInvoicePanel } from './_components/SendInvoicePanel'
 import { EditInvoiceDetailsButton } from './_components/EditInvoiceDetailsButton'
+import { EditInvoiceFinancials } from './_components/EditInvoiceFinancials'
 import { MarkAsPaidButton } from './_components/MarkAsPaidButton'
 import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
 import { ArchiveInvoiceButton } from './_components/ArchiveInvoiceButton'
@@ -408,6 +409,17 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
               <span className="text-xl font-bold text-sage-800">{fmt(total)}</span>
             </div>
           </Panel>
+          {isAdmin && (
+            <EditInvoiceFinancials
+              invoiceId={invoice.id}
+              isSent={['sent', 'paid', 'overdue'].includes(invoice.status ?? '')}
+              isPaid={invoice.status === 'paid'}
+              basePrice={invoice.base_price ?? 0}
+              discount={invoice.discount ?? 0}
+              gstIncluded={invoice.gst_included ?? false}
+              items={addons.map((a) => ({ label: a.label ?? null, price: a.price ?? null }))}
+            />
+          )}
         </Section>
 
         {/* Manual override audit block */}
