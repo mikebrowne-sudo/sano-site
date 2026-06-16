@@ -5,12 +5,14 @@ import Link from 'next/link'
 import { Archive } from 'lucide-react'
 import { ClientAccessPanel } from './_components/ClientAccessPanel'
 import { ClientCleanupActions } from './_components/ClientCleanupActions'
+import { ClientContactsSection } from '../_components/ClientContactsSection'
 import { ApplyProposedNameButton } from '../_components/ApplyProposedNameButton'
 import { PortalPageHeader } from '../../_components/PortalPageHeader'
 import { Panel } from '../../_components/Panel'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
 import { findPossibleDuplicates, getClientLinkCounts } from '../_lib-cleanup'
 import { proposedAccountName } from '@/lib/account-cleanup'
+import type { AccountContact } from '../_actions-contacts'
 import { isAdminUser } from '@/lib/is-admin'
 
 // Phase 5.5.7 — read-only audit timeline mirroring the staff pattern.
@@ -150,6 +152,16 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     vm.company_name,
   )
 
+  // Account contacts (the real people under this account). Read-only load;
+  // managed via the Contacts section. Same table the quote picker reads.
+  const { data: accountContactsRaw } = await supabase
+    .from('contacts')
+    .select('id, client_id, full_name, contact_type, email, phone, notes')
+    .eq('client_id', params.id)
+    .order('contact_type', { ascending: true })
+    .order('full_name', { ascending: true })
+  const accountContacts = (accountContactsRaw ?? []) as AccountContact[]
+
   return (
     <div>
       <PortalPageHeader
@@ -251,6 +263,8 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           </ul>
         </Panel>
       )}
+
+      {isAdmin && <ClientContactsSection clientId={vm.id} contacts={accountContacts} />}
 
       {/* Phase 5.5.6 — Client portal access (mirror of contractor 5.5.3). */}
       <ClientAccessPanel
