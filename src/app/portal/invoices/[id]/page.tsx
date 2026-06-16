@@ -13,7 +13,7 @@ import { LifecycleActions } from '../../_components/LifecycleActions'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
 import { isAdminUser } from '@/lib/is-admin'
 import { Panel } from '../../_components/Panel'
-import { firstName } from '@/lib/doc-helpers'
+import { resolveGreeting } from '@/lib/email-greeting'
 import { StatusBadge } from '../../_components/StatusBadge'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 import { CustomInvoiceBadge } from '../_components/CustomInvoiceBadge'
@@ -47,7 +47,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         created_at,
         is_price_overridden, override_price, override_reason, override_confirmed,
         override_confirmed_by, override_confirmed_at, calculated_price,
-        contact_name, contact_email, contact_phone,
+        contact_id, contact_name, contact_email, contact_phone,
         accounts_contact_name, accounts_email,
         client_reference, requires_po,
         job_id, source,
@@ -119,6 +119,24 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
   const shareUrl = `${siteUrl}/share/invoice/${invoice.share_token}`
+
+  // Email greeting — greet the contact PERSON, never the company/account
+  // name. Prefer the linked contact, then the invoice's snapshot contact,
+  // then the accounts contact; fall back to "Hi there,". (Recipient
+  // routing is unchanged.)
+  let linkedContactName: string | null = null
+  if (invoice.contact_id) {
+    const { data: linkedContact } = await supabase
+      .from('contacts')
+      .select('full_name')
+      .eq('id', invoice.contact_id as string)
+      .maybeSingle()
+    linkedContactName = (linkedContact?.full_name as string | null) ?? null
+  }
+  const greeting = resolveGreeting(
+    [linkedContactName, invoice.contact_name as string | null, invoice.accounts_contact_name as string | null],
+    clientRecord?.name ?? null,
+  )
 
   const serviceLines: { label: string; value: string }[] = []
   if (invoice.property_category) serviceLines.push({ label: 'Property', value: invoice.property_category })
@@ -206,7 +224,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             invoiceId={invoice.id}
             invoiceNumber={invoice.invoice_number}
             clientEmail={clientRecord?.email ?? ''}
-            clientName={firstName(clientRecord?.name)}
+            greeting={greeting}
             printUrl={shareUrl}
             accountsEmail={invoice.accounts_email ?? ''}
             primaryContactEmail={invoice.contact_email ?? ''}

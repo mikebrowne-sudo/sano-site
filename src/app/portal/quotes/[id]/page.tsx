@@ -5,7 +5,7 @@ import { QuoteCustomerDetails } from './_components/QuoteCustomerDetails'
 import Link from 'next/link'
 import { ArrowLeft, Printer, FileText } from 'lucide-react'
 import { RegenerateShareLink } from '../../_components/RegenerateShareLink'
-import { firstName } from '@/lib/doc-helpers'
+import { resolveGreeting } from '@/lib/email-greeting'
 import { loadPricingSettings } from '@/lib/pricingSettings'
 import { loadResidentialPricingSettings } from '@/lib/residentialPricingSettings'
 import { loadVersionChain } from '../_actions-versioning'
@@ -210,6 +210,23 @@ export default async function QuoteDetailPage({
   const overrideRequested = searchParams?.override === '1'
   const overrideActive = lockedByInvoice && isAdmin && overrideRequested
 
+  // Email greeting — greet the contact PERSON, never the company/account
+  // name. Prefer the linked contact, then the quote's snapshot contact;
+  // fall back to "Hi there,". (Recipient routing is unchanged.)
+  let linkedContactName: string | null = null
+  if (quote.contact_id) {
+    const { data: linkedContact } = await supabase
+      .from('contacts')
+      .select('full_name')
+      .eq('id', quote.contact_id as string)
+      .maybeSingle()
+    linkedContactName = (linkedContact?.full_name as string | null) ?? null
+  }
+  const greeting = resolveGreeting(
+    [linkedContactName, quote.contact_name as string | null],
+    currentClient?.name ?? null,
+  )
+
   return (
     <div>
       <Link
@@ -401,7 +418,7 @@ export default async function QuoteDetailPage({
         isCommercial={isCommercial}
         shareUrl={shareUrl}
         clientEmail={currentClient?.email ?? ''}
-        clientName={firstName(currentClient?.name)}
+        greeting={greeting}
         primaryContactEmail={quote.contact_email ?? ''}
         accountsEmail={quote.accounts_email ?? ''}
         clientReference={quote.client_reference ?? ''}
