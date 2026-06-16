@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
-import { Receipt, Plus, Search, AlertTriangle } from 'lucide-react'
+import { Receipt, Plus, Search, AlertTriangle, FileText } from 'lucide-react'
 import clsx from 'clsx'
 
 export const dynamic = 'force-dynamic'
@@ -149,9 +149,14 @@ export default async function ContractorInvoicesPage({ searchParams }: { searchP
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl tracking-tight font-bold text-sage-800">Contractor Invoices</h1>
-        <Link href="/portal/contractor-invoices/new" className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors">
-          <Plus size={16} /> New Invoice
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/portal/contractor-invoices/remittances/new" className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors">
+            <FileText size={16} /> New remittance
+          </Link>
+          <Link href="/portal/contractor-invoices/new" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
+            <Plus size={16} /> New Invoice
+          </Link>
+        </div>
       </div>
 
       {/* Summary */}
