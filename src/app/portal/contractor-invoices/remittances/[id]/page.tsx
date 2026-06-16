@@ -4,7 +4,7 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ExternalLink, FileText } from 'lucide-react'
+import { ArrowLeft, ExternalLink, FileText, Printer } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { getRemittanceBatchById } from '@/lib/contractor-remittance-data'
@@ -44,8 +44,9 @@ export default async function RemittanceBatchViewPage({ params }: { params: { id
             </a>
             <PrintButton label="Print / save PDF" />
           </div>
-          <p className="text-[11px] text-sage-400 max-w-[260px] text-right leading-snug">
-            Before saving as PDF, turn off <span className="font-medium text-sage-500">Headers and footers</span> in the print dialog.
+          <p className="inline-flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5 max-w-[300px] text-left leading-snug">
+            <Printer size={13} className="mt-0.5 shrink-0" />
+            <span>Before saving as PDF, open <span className="font-semibold">More settings</span> and turn off <span className="font-semibold">Headers and footers</span>.</span>
           </p>
         </div>
       </div>

@@ -41,14 +41,20 @@ const REMITTANCE_PRINT_CSS = `
   }
   .remit-card {
     width: 100% !important;
-    max-width: 100% !important;
+    max-width: none !important;
     margin: 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
+    /* overflow:hidden (screen, for the rounded corners) makes Chromium
+       treat the card as one atomic box and bump it to a fresh page when
+       taller than A4. Reset so pagination + full-width banner work. */
+    overflow: visible !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+  /* Banner spans the full document width — same edges as the page box. */
+  .remit-header { width: 100% !important; }
   .remit-header {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -158,8 +164,7 @@ export function ContractorRemittanceDocument({ data }: { data: RemittanceBatch }
           {data.notes && <p className="text-xs text-sage-600 mt-4 whitespace-pre-wrap">{data.notes}</p>}
 
           <p className="text-[11px] text-sage-400 mt-5 leading-relaxed">
-            Amounts shown are the total paid for each job. Please keep this remittance advice for your records.
-            For any payment questions, contact the Sano office.
+            Please keep this remittance advice for your records. For any payment questions, contact the Sano office.
           </p>
         </div>
       </div>
