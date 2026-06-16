@@ -9,7 +9,7 @@ export function SendInvoicePanel({
   invoiceId,
   invoiceNumber,
   clientEmail,
-  clientName,
+  greeting,
   printUrl,
   // Phase 5D — universal billing fields. Invoice routing rule:
   //   default to = accounts email (falls back to primary contact, then client record)
@@ -22,14 +22,15 @@ export function SendInvoicePanel({
   invoiceId: string
   invoiceNumber: string
   clientEmail: string
-  clientName: string
+  // Pre-resolved greeting line ("Hi Jamie," or "Hi there,") — greets the
+  // contact person, never the company/account name. See lib/email-greeting.
+  greeting: string
   printUrl: string
   accountsEmail?: string
   primaryContactEmail?: string
   clientReference?: string
   requiresPo?: boolean
 }) {
-  const greeting = clientName ? `Hi ${clientName},` : 'Hi there,'
   const referenceLine = clientReference
     ? `\n\nYour reference: ${clientReference}`
     : ''

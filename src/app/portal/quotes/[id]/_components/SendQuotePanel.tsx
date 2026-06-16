@@ -9,7 +9,7 @@ export function SendQuotePanel({
   quoteId,
   quoteNumber,
   clientEmail,
-  clientName,
+  greeting,
   printUrl,
   // Phase 5D — universal billing fields. Quote routing rule:
   //   default to = primary contact email (falls back to client record email)
@@ -21,13 +21,14 @@ export function SendQuotePanel({
   quoteId: string
   quoteNumber: string
   clientEmail: string
-  clientName: string
+  // Pre-resolved greeting line ("Hi Jamie," or "Hi there,") — greets the
+  // contact person, never the company/account name. See lib/email-greeting.
+  greeting: string
   printUrl: string
   primaryContactEmail?: string
   accountsEmail?: string
   clientReference?: string
 }) {
-  const greeting = clientName ? `Hi ${clientName},` : 'Hi there,'
   const referenceLine = clientReference
     ? `\n\nYour reference: ${clientReference}`
     : ''
