@@ -1,34 +1,22 @@
 'use server'
 
-// Phase E — approve job-worker hours for contractor pay.
+// Stage F — RETIRED. The per-worker "Approve hours" path wrote
+// job_workers.pay_status='approved', which fed a SEPARATE, conflicting
+// contractor pay track (pay_runs / pay_run_items + the old
+// /portal/payroll/contractor-pending queue).
 //
-// Flow:
-//   1. Admin opens a completed / invoiced job.
-//   2. Clicks Approve Hours on a worker row.
-//   3. This action validates state, snapshots the contractor's
-//      current hourly_rate, and writes the approval to job_workers:
-//        pay_rate       = contractors.hourly_rate at approval
-//        pay_type       = contractors.pay_type (default 'hourly')
-//        approved_hours = admin-supplied (defaults to actual)
-//        approved_at    = now
-//        approved_by    = admin uid
-//        pay_status     = 'approved'
-//   4. Audit-logs `job_worker.hours_approved`.
+// The canonical flow is `approveContractorPay`, which creates an approved
+// contractor_invoice (payable) that flows into the contractor remittance
+// batch builder. To stop the two tracks diverging, this action is disabled:
+// it writes nothing and returns a message pointing at the new flow.
 //
-// Guardrails:
-//   • admin-only (via isAdminUser)
-//   • job must be completed or invoiced (not draft / in_progress)
-//   • worker row must exist for (job_id, contractor_id)
-//   • cannot re-approve once in a pay run or paid
-//   • require_review_before_invoicing from job_settings is checked
-//     as "require_review_before_pay" by convention: when on, job
-//     must be reviewed before pay can be approved
-//   • archived jobs (deleted_at) are blocked
-
-import { createClient } from '@/lib/supabase-server'
-import { revalidatePath } from 'next/cache'
-import { isAdminEmail } from '@/lib/is-admin'
-import { loadJobSettings } from '@/lib/job-settings'
+// Approve contractor pay from:
+//   • Contractor invoices → Pending approvals
+//     (/portal/contractor-invoices/pending-approvals), or
+//   • the job page → Labour & Margin → Pay approvals (JobApprovePayButton).
+//
+// The export is kept (disabled) so nothing imports a missing symbol and the
+// retirement is covered by a test.
 
 export interface ApproveJobWorkerHoursInput {
   jobId: string
@@ -36,116 +24,12 @@ export interface ApproveJobWorkerHoursInput {
   note?: string | null
 }
 
-export async function approveJobWorkerHours(input: ApproveJobWorkerHoursInput) {
-  const supabase = createClient()
-  const { jobId, contractorId, note } = input
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated.' }
-  if (!isAdminEmail(user.email)) return { error: 'Admin only.' }
-
-  if (!jobId || !contractorId) return { error: 'Job and contractor are required.' }
-
-  // Job guardrails — must exist, not archived, must be completed
-  // or invoiced, optionally require a review gate.
-  const { data: job, error: jobErr } = await supabase
-    .from('jobs')
-    .select('id, status, deleted_at, reviewed_at, allowed_hours')
-    .eq('id', jobId)
-    .single()
-  if (jobErr || !job) return { error: 'Job not found.' }
-  if (job.deleted_at) return { error: 'Cannot approve pay for an archived job.' }
-  if (job.status !== 'completed' && job.status !== 'invoiced') {
-    return { error: 'Hours can only be approved on completed jobs.' }
+export async function approveJobWorkerHours(
+  input: ApproveJobWorkerHoursInput,
+): Promise<{ error: string }> {
+  void input // retired no-op; kept for the disabled signature
+  return {
+    error:
+      'Approving hours here has been retired. Approve contractor pay from Contractor invoices → Pending approvals, or the job’s Labour & Margin → Pay approvals.',
   }
-
-  const settings = await loadJobSettings(supabase)
-  if (settings.require_review_before_invoicing && !job.reviewed_at) {
-    return {
-      error: 'This job must be reviewed before pay can be approved. Mark the job as reviewed first.',
-    }
-  }
-
-  // Worker row must exist + not already beyond "approved".
-  const { data: worker, error: wErr } = await supabase
-    .from('job_workers')
-    .select('job_id, contractor_id, pay_status, hours_allocated, extra_hours, extra_hours_status')
-    .eq('job_id', jobId)
-    .eq('contractor_id', contractorId)
-    .single()
-  if (wErr || !worker) {
-    return { error: 'Worker is not assigned to this job.' }
-  }
-  if (worker.pay_status === 'included_in_pay_run') {
-    return { error: 'Worker is already included in a pay run — unable to re-approve.' }
-  }
-  if (worker.pay_status === 'paid') {
-    return { error: 'Worker has already been paid for this job.' }
-  }
-
-  // Allowed-hours model: payable hours are computed, not typed.
-  // payable = (this worker's allowed hours, falling back to the job's
-  // allowed_hours) + any admin-APPROVED extra hours. Pending / rejected
-  // extra never counts.
-  const allowed = worker.hours_allocated ?? job.allowed_hours ?? 0
-  const approvedExtra = worker.extra_hours_status === 'approved' ? (worker.extra_hours ?? 0) : 0
-  const approvedHours = Math.round((allowed + approvedExtra) * 100) / 100
-  if (worker.extra_hours_status === 'pending') {
-    return { error: 'This worker has extra hours awaiting sign-off. Approve or decline them before approving pay.' }
-  }
-  if (!Number.isFinite(approvedHours) || approvedHours <= 0) {
-    return { error: 'This worker has no allowed hours set. Set allowed hours on the job before approving pay.' }
-  }
-
-  // Snapshot the contractor's current rate. This value is stored
-  // on the job_workers row and never overwritten — future contractor
-  // rate changes don't alter historical pay.
-  const { data: contractor } = await supabase
-    .from('contractors')
-    .select('hourly_rate')
-    .eq('id', contractorId)
-    .single()
-  const hourlyRate = contractor?.hourly_rate ?? null
-  if (hourlyRate == null || !Number.isFinite(Number(hourlyRate)) || Number(hourlyRate) <= 0) {
-    return { error: 'Contractor has no hourly rate on file. Set it on the contractor profile first.' }
-  }
-
-  const now = new Date().toISOString()
-
-  const { error: updErr } = await supabase
-    .from('job_workers')
-    .update({
-      pay_rate: hourlyRate,
-      pay_type: 'hourly',
-      approved_hours: approvedHours,
-      approved_at: now,
-      approved_by: user.id,
-      pay_status: 'approved',
-    })
-    .eq('job_id', jobId)
-    .eq('contractor_id', contractorId)
-  if (updErr) {
-    return { error: `Failed to approve hours: ${updErr.message}` }
-  }
-
-  await supabase.from('audit_log').insert({
-    actor_id: user.id,
-    actor_role: 'admin',
-    action: 'job_worker.hours_approved',
-    entity_table: 'job_workers',
-    entity_id: `${jobId}:${contractorId}`,
-    before: { pay_status: worker.pay_status ?? 'pending' },
-    after: {
-      pay_status: 'approved',
-      pay_rate: hourlyRate,
-      approved_hours: approvedHours,
-      approved_by: user.id,
-      note: note ?? null,
-    },
-  })
-
-  revalidatePath(`/portal/jobs/${jobId}`)
-  revalidatePath('/portal/payroll/contractor-pending')
-  revalidatePath('/portal/payroll')
-  return { ok: true }
 }
