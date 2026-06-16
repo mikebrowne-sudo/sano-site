@@ -44,28 +44,9 @@ export async function createContractorInvoice(input: CIInput) {
   redirect(`/portal/contractor-invoices/${data.id}`)
 }
 
-export async function updateContractorInvoice(id: string, input: CIInput) {
-  const supabase = createClient()
-  const gate = await requireAdmin(supabase)
-  if (gate) return { error: gate }
-
-  const { error } = await supabase
-    .from('contractor_invoices')
-    .update({
-      contractor_id: input.contractor_id,
-      job_id: input.job_id || null,
-      amount: input.amount,
-      date_submitted: input.date_submitted,
-      notes: input.notes?.trim() || null,
-      status: input.status || 'pending',
-    })
-    .eq('id', id)
-
-  if (error) return { error: `Failed to update: ${error.message}` }
-  revalidatePath(`/portal/contractor-invoices/${id}`)
-  revalidatePath('/portal/contractor-invoices')
-  redirect(`/portal/contractor-invoices/${id}`)
-}
+// Editing an existing payable goes through the guarded, audited path in
+// `_actions-payable-edit.ts` (updateContractorPayable) — never a raw,
+// unaudited update. (Admin Full Edit Mode — Stage 4.)
 
 export async function markContractorInvoicePaid(id: string) {
   const supabase = createClient()

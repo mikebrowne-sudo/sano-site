@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { createContractorInvoice, updateContractorInvoice } from '../_actions'
+import { createContractorInvoice } from '../_actions'
+import { updateContractorPayable } from '../_actions-payable-edit'
 import { ChevronDown } from 'lucide-react'
-import clsx from 'clsx'
 
 interface Contractor { id: string; full_name: string }
 interface JobOption { id: string; job_number: string; title: string | null }
@@ -15,7 +15,6 @@ interface CIData {
   amount: number
   date_submitted: string
   notes: string | null
-  status: string
 }
 
 export function CIForm({ ci, contractors, jobs }: { ci?: CIData; contractors: Contractor[]; jobs: JobOption[] }) {
@@ -26,7 +25,7 @@ export function CIForm({ ci, contractors, jobs }: { ci?: CIData; contractors: Co
   const [amount, setAmount] = useState(ci?.amount ? String(ci.amount) : '')
   const [dateSubmitted, setDateSubmitted] = useState(ci?.date_submitted ?? new Date().toISOString().slice(0, 10))
   const [notes, setNotes] = useState(ci?.notes ?? '')
-  const [status, setStatus] = useState(ci?.status ?? 'pending')
+  const [reason, setReason] = useState('')
 
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -37,12 +36,28 @@ export function CIForm({ ci, contractors, jobs }: { ci?: CIData; contractors: Co
     if (!contractorId) { setError('Contractor is required.'); return }
     const amt = parseFloat(amount)
     if (!amt || amt <= 0) { setError('Amount must be greater than zero.'); return }
-
-    const input = { contractor_id: contractorId, job_id: jobId || undefined, amount: amt, date_submitted: dateSubmitted, notes: notes.trim() || undefined, status }
+    if (isEdit && !reason.trim()) { setError('A reason is required to edit a contractor payable.'); return }
 
     startTransition(async () => {
-      const result = isEdit ? await updateContractorInvoice(ci!.id!, input) : await createContractorInvoice(input)
-      if (result?.error) setError(result.error)
+      const result = isEdit
+        ? await updateContractorPayable({
+            id: ci!.id!,
+            contractor_id: contractorId,
+            job_id: jobId || null,
+            amount: amt,
+            date_submitted: dateSubmitted,
+            notes: notes.trim() || null,
+            reason: reason.trim(),
+          })
+        : await createContractorInvoice({
+            contractor_id: contractorId,
+            job_id: jobId || undefined,
+            amount: amt,
+            date_submitted: dateSubmitted,
+            notes: notes.trim() || undefined,
+          })
+      if (result && 'error' in result && result.error) { setError(result.error); return }
+      if (isEdit) window.location.href = `/portal/contractor-invoices/${ci!.id}`
     })
   }
 
@@ -57,6 +72,7 @@ export function CIForm({ ci, contractors, jobs }: { ci?: CIData; contractors: Co
           <label className="block">
             <span className="block text-sm font-semibold text-sage-800 mb-1.5">Amount ($) <span className="text-red-500">*</span></span>
             <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} required className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
+            {isEdit && <span className="block text-xs text-sage-400 mt-1">This is the payable total. Hours/rate aren’t stored on a payable.</span>}
           </label>
           <label className="block">
             <span className="block text-sm font-semibold text-sage-800 mb-1.5">Date submitted</span>
@@ -65,21 +81,16 @@ export function CIForm({ ci, contractors, jobs }: { ci?: CIData; contractors: Co
         </div>
       </Section>
 
-      {isEdit && (
-        <Section title="Status">
-          <div className="flex gap-2">
-            {(['pending', 'approved', 'paid'] as const).map((s) => (
-              <button key={s} type="button" onClick={() => setStatus(s)} className={clsx('px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize', status === s ? (s === 'paid' ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : s === 'approved' ? 'bg-blue-100 text-blue-700 border border-blue-300' : 'bg-gray-200 text-gray-700 border border-gray-300') : 'bg-sage-100 text-sage-600 hover:bg-sage-200')}>
-                {s}
-              </button>
-            ))}
-          </div>
-        </Section>
-      )}
-
       <Section title="Notes">
         <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Invoice notes…" className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-sage-500" />
       </Section>
+
+      {isEdit && (
+        <Section title="Reason for change">
+          <input value={reason} onChange={(e) => setReason(e.target.value)} required placeholder="e.g. corrected agreed amount with contractor" className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
+          <p className="text-xs text-sage-400 mt-1.5">Required. Saved to the audit log. Editing does not mark the payable paid/unpaid, and does not change any remittance.</p>
+        </Section>
+      )}
 
       {error && <p className="text-red-600 text-sm bg-red-50 rounded-lg px-4 py-3">{error}</p>}
 
