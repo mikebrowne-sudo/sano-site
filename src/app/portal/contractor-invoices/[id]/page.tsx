@@ -1,9 +1,10 @@
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Pencil } from 'lucide-react'
+import { ArrowLeft, Pencil, Lock } from 'lucide-react'
 import { CIStatusActions } from './_components/CIStatusActions'
 import { PayablesTransitionNote } from '../_components/PayablesTransitionNote'
+import { evaluatePayableEdit, flattenRef, type RemittanceRef } from '@/lib/contractor-payable-guard'
 import clsx from 'clsx'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -25,6 +26,16 @@ export default async function ContractorInvoiceDetailPage({ params }: { params: 
     .single()
 
   if (error || !ci) notFound()
+
+  // Remittance-aware edit guard (Stage 4): a paid or remittance-snapshotted
+  // payable is locked for editing to protect payment / remittance history.
+  const { data: linkRaw } = await supabase
+    .from('contractor_remittance_items')
+    .select('remittance_id, contractor_remittances ( sent_at )')
+    .eq('contractor_invoice_id', params.id)
+  const remittances = ((linkRaw ?? []) as unknown as Array<{ contractor_remittances: RemittanceRef }>)
+    .map((r) => ({ sent: !!flattenRef(r.contractor_remittances)?.sent_at }))
+  const guard = evaluatePayableEdit({ status: ci.status, datePaid: ci.date_paid, remittances })
 
   const contractor = ci.contractors as unknown as { full_name: string; hourly_rate: number | null } | null
   const job = ci.jobs as unknown as { job_number: string; title: string | null; job_price: number | null; allowed_hours: number | null } | null
@@ -65,7 +76,11 @@ export default async function ContractorInvoiceDetailPage({ params }: { params: 
         <div className="flex items-center gap-3">
           <span className={clsx('inline-block px-3 py-1 rounded-full text-sm font-medium capitalize', STATUS_STYLES[ci.status])}>{ci.status}</span>
           <CIStatusActions id={ci.id} status={ci.status} />
-          <Link href={`/portal/contractor-invoices/${params.id}/edit`} className="inline-flex items-center gap-2 bg-sage-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"><Pencil size={14} /> Edit</Link>
+          {guard.editable ? (
+            <Link href={`/portal/contractor-invoices/${params.id}/edit`} className="inline-flex items-center gap-2 bg-sage-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"><Pencil size={14} /> Edit</Link>
+          ) : (
+            <span title={guard.message ?? undefined} className="inline-flex items-center gap-2 bg-gray-100 text-gray-500 font-medium px-4 py-2.5 rounded-lg text-sm cursor-not-allowed"><Lock size={14} /> Locked</span>
+          )}
         </div>
       </div>
 
