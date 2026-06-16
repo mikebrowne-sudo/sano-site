@@ -13,6 +13,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { getWorkerPayableHours } from '@/lib/job-cost'
+import { reconcileRemittanceHours } from '@/lib/remittance-hours'
 import { revalidatePath } from 'next/cache'
 
 export interface RemittanceAdjustmentInput {
@@ -92,7 +93,7 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
     if (!ci.job_id || !ci.contractor_id) return null
     const w = workers.find((x) => x.job_id === ci.job_id && x.contractor_id === ci.contractor_id)
     if (!w || w.pay_rate == null) return null
-    const hours = getWorkerPayableHours({
+    const payable = getWorkerPayableHours({
       pay_rate: w.pay_rate,
       approved_hours: null,
       actual_hours: null,
@@ -100,9 +101,7 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
       extra_hours: w.extra_hours,
       extra_hours_status: w.extra_hours_status,
     })
-    if (hours == null) return null
-    const amount = ci.amount ?? 0
-    return Math.abs(hours * w.pay_rate - amount) < 0.01 ? hours : null
+    return reconcileRemittanceHours(payable, w.pay_rate, ci.amount ?? 0)
   }
 
   // Header.

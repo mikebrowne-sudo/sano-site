@@ -80,9 +80,12 @@ export function ContractorRemittanceDocument({ data }: { data: RemittanceBatch }
   return (
     <div className="remit-print-root min-h-screen bg-sage-50 py-10 px-4 print:bg-white print:py-0">
       <style dangerouslySetInnerHTML={{ __html: REMITTANCE_PRINT_CSS }} />
-      <div className="remit-card max-w-[760px] mx-auto bg-white rounded-2xl shadow-sm border border-sage-100 overflow-hidden tnum">
-        {/* Header banner — shares the document content width with the body. */}
-        <div className="remit-header bg-sage-800 px-10 py-7 flex items-start justify-between gap-6">
+      <div className="remit-card max-w-[760px] mx-auto bg-white rounded-[10px] shadow-sm border border-sage-100 overflow-hidden tnum">
+        {/* Header banner — shares the document content width with the body.
+            rounded-t on the banner itself (not just the card clip) so the
+            subtle rounded top corners survive in the server-generated PDF,
+            where the card's overflow clip is removed for pagination. */}
+        <div className="remit-header bg-sage-800 rounded-t-[10px] px-10 py-7 flex items-start justify-between gap-6">
           <div>
             <Image src="/brand/sano-full-white.png" alt="Sano" width={96} height={32} className="h-7 w-auto" priority />
             <h1 className="text-white text-xl font-semibold mt-3">Remittance Advice</h1>
@@ -164,7 +167,7 @@ export function ContractorRemittanceDocument({ data }: { data: RemittanceBatch }
           {data.notes && <p className="text-xs text-sage-600 mt-4 whitespace-pre-wrap">{data.notes}</p>}
 
           <p className="text-[11px] text-sage-400 mt-5 leading-relaxed">
-            Please keep this remittance advice for your records. For any payment questions, contact the Sano office.
+            Please keep this remittance advice for your records. For any payment questions, contact the Sano team.
           </p>
         </div>
       </div>

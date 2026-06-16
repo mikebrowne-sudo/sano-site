@@ -116,15 +116,37 @@ function isAddressLike(segment: string, address: string): boolean {
   return hasStreetWord || sharesAddrWord
 }
 
+// Words that mark a note segment as a genuine service type / payment
+// reason worth showing as a second line. Property-manager and client
+// labels ("Barfoot Royal Heights", "Wendell Property") and address
+// fragments contain none of these and are therefore hidden.
+const SERVICE_KEYWORDS = [
+  'carpet', 'oven', 'fridge', 'freezer', 'stain', 'removal', 'upholstery',
+  'window', 'tile', 'grout', 'mould', 'mold', 'steam', 'curtain', 'blind',
+  'mattress', 'sofa', 'rug', 'clean', 'wash', 'polish', 'sanitis', 'sanitiz',
+  'spring', 'declutter', 'tidy',
+]
+
+function hasServiceKeyword(segment: string): boolean {
+  const lower = segment.toLowerCase()
+  return SERVICE_KEYWORDS.some((k) => lower.includes(k))
+}
+
 /**
- * The useful part of an invoice note for the remittance second line, or
- * null when the note just restates the address.
+ * The note line to show UNDER a remittance job line, or null to show
+ * nothing. Deliberately conservative for a contractor-facing document:
+ * only a genuine service type / payment reason is shown.
  *
- * When the note is a "label - address" pair (e.g.
- * "Barfoot Royal Heights - 8/28 Buscomb Ave") the address-like segment is
- * dropped so only the meaningful label remains ("Barfoot Royal Heights").
- * Conservative: if dropping segments would leave nothing, the original
- * note is kept rather than losing information.
+ *   "Carpet clean - 2 Crudge St"            → "Carpet clean"
+ *   "Oven clean"                            → "Oven clean"
+ *   "Barfoot Royal Heights - 8/28 Buscomb"  → null (client/PM label)
+ *   "8/39 Pitt St" / "128 Marsden Ave"      → null (address fragment)
+ *
+ * A second line appears only when a note segment names a service keyword
+ * (carpet/oven/fridge/stain/clean/…) and does not read like an address.
+ * Property-manager labels, partial addresses and duplicate address text
+ * are never shown. When there is no job address the note is used as the
+ * primary line elsewhere, so this returns null.
  */
 export function cleanRemittanceNote(
   note: string | null | undefined,
@@ -133,18 +155,12 @@ export function cleanRemittanceNote(
   const trimmed = (note ?? '').trim()
   if (!trimmed) return null
   const a = (address ?? '').trim()
-  if (!a) return trimmed // no address — nothing to dedupe against
+  if (!a) return null // no address — the note is the primary line, no second line
 
-  // Split on dash separators (hyphen / en / em dash) into segments and
-  // drop any that read like a street address.
+  // Split on dash separators (hyphen / en / em dash); keep only segments
+  // that name a service type and don't read like a street address.
   const segments = trimmed.split(/\s+[-–—]\s+/).map((s) => s.trim()).filter(Boolean)
-  let useful = segments
-  if (segments.length > 1) {
-    const kept = segments.filter((s) => !isAddressLike(s, a))
-    if (kept.length > 0) useful = kept
-  }
-  const candidate = useful.join(' - ')
-
-  // If what's left is still basically the address, don't show a note line.
-  return noteAddsValue(candidate, a) ? candidate : null
+  const kept = segments.filter((s) => hasServiceKeyword(s) && !isAddressLike(s, a))
+  if (kept.length === 0) return null
+  return kept.join(' - ')
 }
