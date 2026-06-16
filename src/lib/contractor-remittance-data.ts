@@ -82,6 +82,63 @@ async function build(svc: SupabaseClient, h: Header): Promise<RemittanceBatch> {
 
 const HEADER_COLS = 'id, token, remittance_number, payment_date, reference, payee_label, notes, sent_at'
 
+export interface RemittanceBatchSummary {
+  id: string
+  remittanceNumber: string
+  paymentDate: string | null
+  payeeLabel: string | null
+  reference: string | null
+  total: number
+  sentAt: string | null
+  createdAt: string | null
+  contractorNames: string[]
+}
+
+/** Summary rows for the saved-remittances list. Totals + contractor
+ *  names are rolled up from the snapshotted line items. */
+export async function listRemittanceBatches(): Promise<RemittanceBatchSummary[]> {
+  const svc = getServiceSupabase()
+  const { data: headers } = await svc
+    .from('contractor_remittances')
+    .select('id, remittance_number, payment_date, reference, payee_label, sent_at, created_at')
+    .order('created_at', { ascending: false })
+  if (!headers || headers.length === 0) return []
+
+  const ids = headers.map((h) => h.id as string)
+  const { data: items } = await svc
+    .from('contractor_remittance_items')
+    .select('remittance_id, contractor_name, amount')
+    .in('remittance_id', ids)
+
+  const totals = new Map<string, number>()
+  const names = new Map<string, Set<string>>()
+  for (const it of items ?? []) {
+    const rid = it.remittance_id as string
+    totals.set(rid, (totals.get(rid) ?? 0) + ((it.amount as number) ?? 0))
+    const name = it.contractor_name as string | null
+    if (name) {
+      const set = names.get(rid) ?? new Set<string>()
+      set.add(name)
+      names.set(rid, set)
+    }
+  }
+
+  return headers.map((h) => {
+    const id = h.id as string
+    return {
+      id,
+      remittanceNumber: h.remittance_number as string,
+      paymentDate: (h.payment_date as string | null) ?? null,
+      payeeLabel: (h.payee_label as string | null) ?? null,
+      reference: (h.reference as string | null) ?? null,
+      total: Math.round((totals.get(id) ?? 0) * 100) / 100,
+      sentAt: (h.sent_at as string | null) ?? null,
+      createdAt: (h.created_at as string | null) ?? null,
+      contractorNames: Array.from(names.get(id) ?? []),
+    }
+  })
+}
+
 export async function getRemittanceBatchByToken(token: string): Promise<RemittanceBatch | null> {
   const svc = getServiceSupabase()
   const { data } = await svc.from('contractor_remittances').select(HEADER_COLS).eq('token', token).maybeSingle()

@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
-import { Receipt, Plus, Search, AlertTriangle, FileText } from 'lucide-react'
+import { Receipt, Plus, Search, AlertTriangle, FileText, FolderOpen } from 'lucide-react'
 import clsx from 'clsx'
 
 export const dynamic = 'force-dynamic'
@@ -150,6 +150,9 @@ export default async function ContractorInvoicesPage({ searchParams }: { searchP
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl tracking-tight font-bold text-sage-800">Contractor Invoices</h1>
         <div className="flex items-center gap-2">
+          <Link href="/portal/contractor-invoices/remittances" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
+            <FolderOpen size={16} /> Saved remittances
+          </Link>
           <Link href="/portal/contractor-invoices/remittances/new" className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors">
             <FileText size={16} /> New remittance
           </Link>
@@ -220,7 +223,7 @@ export default async function ContractorInvoicesPage({ searchParams }: { searchP
         <div className="flex items-center gap-2 mt-3">
           <button type="submit" className="bg-sage-500 text-white font-medium px-4 py-2 rounded-lg text-sm hover:bg-sage-700 transition-colors">Apply filters</button>
           <Link href="/portal/contractor-invoices" className="text-sm text-sage-500 hover:text-sage-700">Clear</Link>
-          <span className="ml-auto text-[11px] text-sage-400">Remittance: not available yet (CI-based remittance not built)</span>
+          <Link href="/portal/contractor-invoices/remittances" className="ml-auto text-[11px] text-sage-500 hover:text-sage-700">View saved remittances →</Link>
         </div>
       </form>
 
