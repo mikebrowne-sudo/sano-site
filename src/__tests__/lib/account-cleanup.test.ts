@@ -38,15 +38,19 @@ describe('looksLikeTestRecord', () => {
 })
 
 describe('duplicateClientIds', () => {
-  it('flags accounts sharing a name or email', () => {
+  it('flags true duplicates (same email, or same name + same branch) but not separate branches', () => {
     const ids = duplicateClientIds([
-      { id: '1', name: 'Ghee Cariappa', email: 'ghee@sansom.co.nz' },
-      { id: '2', name: 'Ghee Cariappa', email: 'ghee@sansom.co.nz' },
-      { id: '3', name: 'Unique Co', email: 'a@b.com' },
+      { id: '1', name: 'Ghee Cariappa', company_name: 'Sansom Limited', email: 'ghee@sansom.co.nz' },
+      { id: '2', name: 'Ghee Cariappa', company_name: 'Sansom Limited', email: 'ghee@sansom.co.nz' },
+      { id: '3', name: 'Barfoot & Thompson', company_name: 'Ellerslie', email: 'ellerslie.rental@barfoot.co.nz' },
+      { id: '4', name: 'Barfoot & Thompson', company_name: 'Ponsonby', email: 'ponsonby.rental@barfoot.co.nz' },
+      { id: '5', name: 'Unique Co', company_name: null, email: 'a@b.com' },
     ])
-    expect(ids.has('1')).toBe(true)
+    expect(ids.has('1')).toBe(true)  // same name + branch + email
     expect(ids.has('2')).toBe(true)
-    expect(ids.has('3')).toBe(false)
+    expect(ids.has('3')).toBe(false) // Barfoot branches: same name, different branch → not a duplicate
+    expect(ids.has('4')).toBe(false)
+    expect(ids.has('5')).toBe(false)
   })
 })
 

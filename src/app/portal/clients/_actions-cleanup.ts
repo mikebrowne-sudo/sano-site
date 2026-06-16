@@ -20,6 +20,7 @@ import { revalidatePath } from 'next/cache'
 import { getClientLinkCounts } from './_lib-cleanup'
 import type { ClientLinkCounts } from './_lib-cleanup'
 import { isAdminUser } from '@/lib/is-admin'
+import { proposedAccountName } from '@/lib/account-cleanup'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function requireAdmin(supabase: any): Promise<{ user: { id: string } } | { error: string }> {
@@ -71,6 +72,47 @@ export async function archiveClient(clientId: string): Promise<{ ok: true } | { 
   revalidatePath('/portal/clients')
   revalidatePath(`/portal/clients/${clientId}`)
   return { ok: true }
+}
+
+// ── Apply the proposed branch account name ──────────────────────────
+// One-record, explicit rename for a company-led account split across
+// name + company_name (e.g. "Barfoot & Thompson" + "Ellerslie" →
+// "Barfoot & Thompson - Ellerslie"). Moves the branch into the name and
+// clears company_name so the display never doubles up. Reversible (audit
+// keeps the before/after); links are by id so quotes/jobs/invoices are
+// unaffected.
+
+export async function applyProposedAccountName(clientId: string): Promise<{ ok: true; name: string } | { error: string }> {
+  const supabase = createClient()
+  const auth = await requireAdmin(supabase)
+  if ('error' in auth) return auth
+
+  const { data: c } = await supabase
+    .from('clients')
+    .select('id, name, company_name')
+    .eq('id', clientId)
+    .maybeSingle()
+  if (!c) return { error: 'Client not found.' }
+  const row = c as { name: string | null; company_name: string | null }
+
+  const proposed = proposedAccountName(row.name, row.company_name)
+  if (!proposed) return { error: 'No safe rename to apply for this account.' }
+
+  const { error } = await supabase
+    .from('clients')
+    .update({ name: proposed, company_name: null })
+    .eq('id', clientId)
+  if (error) return { error: error.message }
+
+  await writeAudit(supabase, auth.user.id, clientId,
+    { name: row.name, company_name: row.company_name },
+    { name: proposed, company_name: null },
+    'client.renamed', 'clients',
+  )
+  revalidatePath('/portal/clients')
+  revalidatePath('/portal/clients/cleanup')
+  revalidatePath(`/portal/clients/${clientId}`)
+  return { ok: true, name: proposed }
 }
 
 export async function unarchiveClient(clientId: string): Promise<{ ok: true } | { error: string }> {
