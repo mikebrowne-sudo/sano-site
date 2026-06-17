@@ -1,173 +1,119 @@
 // Contractor pay statement data — server-only.
 //
-// Two parts:
-//   • UPCOMING — completed, unpaid, PRICED jobs (allowed + approved
-//     adjustment × rate). Unpriced/$0 jobs are hidden from the
-//     contractor (staff fix or exclude them in the Tidy-up section).
-//   • PAID — a collapsed summary per PAY RUN (pay date + total), each
-//     opening its remittance document for the per-job detail.
+// Sourced from the CANONICAL payable model (contractor_invoices +
+// contractor_remittances), NOT the retired job_workers / pay_run flow:
+//   • PENDING — approved, unpaid contractor_invoices (the contractor's
+//     committed but-not-yet-paid pay).
+//   • PAID — paid contractor_invoices, grouped by the remittance batch
+//     that paid them (opening that batch's document), PLUS any legacy
+//     paid pay_run_items (retired flow, kept for historical totals only).
 //
-// Uses the service-role client scoped to the one contractor: the paid
-// history comes from pay_run_items / pay_runs, which contractors can't
-// read under RLS. Safe because the caller supplies a contractor id it
-// has already authorised (the signed-in contractor, or staff in the
-// preview).
+// Aggregation lives in the pure buildContractorPayData (testable); this
+// function just fetches + normalises. Uses the service-role client scoped
+// to the one contractor (the caller has already authorised it) because
+// contractor_invoices / remittances / pay_runs aren't contractor-readable
+// under RLS. A contractor only ever sees their own rows.
 
 import { getServiceSupabase } from '@/lib/supabase-service'
-import { getContractorPayStatus, type ContractorPayStatus } from './contractor-pay-status'
+import {
+  buildContractorPayData,
+  type ContractorPayData,
+  type RawContractorInvoice,
+  type RawRemittanceLink,
+  type RawRemittance,
+  type RawLegacyPayItem,
+  type RawLegacyToken,
+} from './contractor-pay-statement'
 
-interface UpcomingRaw {
-  hours_allocated: number | null
-  extra_hours: number | null
-  extra_hours_status: string | null
-  pay_rate: number | null
-  jobs: {
-    id: string
-    job_number: string | null
-    title: string | null
-    status: string | null
-    completed_at: string | null
-    scheduled_date: string | null
-    allowed_hours: number | null
-    deleted_at: string | null
-  } | null
-}
+export type { ContractorPayData, PendingLine, PaidBatch } from './contractor-pay-statement'
 
-export interface UpcomingLine {
-  jobId: string
-  jobNumber: string | null
-  title: string | null
-  date: string
-  hours: number
-  amount: number
-  // Contractor-facing approval status for this completed-but-unpaid job.
-  // Only 'awaiting_approval' or 'approved_pending' occur here (the Upcoming
-  // list is unpaid by definition).
-  status: ContractorPayStatus
-}
-
-export interface PaidRun {
-  payRunId: string
-  payDate: string | null
-  periodStart: string | null
-  periodEnd: string | null
-  total: number
-  jobCount: number
-  remittanceToken: string | null
-}
-
-export interface ContractorPayData {
-  upcoming: UpcomingLine[]
-  upcomingTotal: number
-  paidRuns: PaidRun[]
-  paidTotal: number
+function flattenOne<T>(rel: T | T[] | null | undefined): T | null {
+  if (!rel) return null
+  return Array.isArray(rel) ? (rel[0] ?? null) : rel
 }
 
 export async function loadContractorPayStatement(contractorId: string): Promise<ContractorPayData> {
   const svc = getServiceSupabase()
-  const todayNZ = new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' })
 
-  const { data: contractor } = await svc
-    .from('contractors')
-    .select('hourly_rate')
-    .eq('id', contractorId)
-    .maybeSingle()
-  const fallbackRate = (contractor?.hourly_rate as number | null) ?? 0
-
-  // ── Upcoming: completed, unpaid, priced jobs ──────────────────────
-  const { data: jwRaw } = await svc
-    .from('job_workers')
+  // ── Canonical payables for this contractor ────────────────────────
+  const { data: ciRaw } = await svc
+    .from('contractor_invoices')
     .select(`
-      hours_allocated, extra_hours, extra_hours_status, pay_rate,
-      jobs!inner ( id, job_number, title, status, completed_at, scheduled_date, allowed_hours, deleted_at )
+      id, amount, status, date_paid, date_submitted, job_id,
+      jobs ( job_number, title, completed_at, deleted_at )
     `)
     .eq('contractor_id', contractorId)
-    .not('pay_status', 'in', '("paid","excluded")')
 
-  const upcoming: UpcomingLine[] = []
-  for (const r of (jwRaw ?? []) as unknown as UpcomingRaw[]) {
-    const j = r.jobs
-    if (!j || j.deleted_at || !j.completed_at) continue
-    if (j.scheduled_date && j.scheduled_date > todayNZ) continue // not happened yet (prepaid)
-    const rate = r.pay_rate ?? fallbackRate
-    const allowed = r.hours_allocated ?? j.allowed_hours ?? 0
-    const approvedAdj = r.extra_hours_status === 'approved' ? (r.extra_hours ?? 0) : 0
-    const hours = Math.round((allowed + approvedAdj) * 100) / 100
-    const amount = Math.round(hours * rate * 100) / 100
-    if (amount <= 0) continue // hide unpriced/$0 — handled in staff Tidy-up
-    upcoming.push({
-      jobId: j.id,
-      jobNumber: j.job_number,
-      title: j.title,
-      date: j.completed_at,
-      hours,
-      amount,
-      status: 'awaiting_approval', // refined below from the new payable model
-    })
-  }
-  upcoming.sort((a, b) => b.date.localeCompare(a.date))
-  const upcomingTotal = Math.round(upcoming.reduce((s, l) => s + l.amount, 0) * 100) / 100
-
-  // Refine each upcoming line's status from the canonical payable model
-  // (contractor_invoices). An approved (or already-paid) payable for the
-  // job ⇒ "Approved — pending pay"; otherwise it's still awaiting Sano
-  // approval. Visibility only — no amounts come from the payable.
-  const upcomingJobIds = upcoming.map((l) => l.jobId)
-  if (upcomingJobIds.length > 0) {
-    const { data: cis } = await svc
-      .from('contractor_invoices')
-      .select('job_id, status, date_paid')
-      .eq('contractor_id', contractorId)
-      .in('job_id', upcomingJobIds)
-    const ciByJob = new Map<string, { status: string | null; date_paid: string | null }>()
-    for (const ci of (cis ?? []) as Array<{ job_id: string | null; status: string | null; date_paid: string | null }>) {
-      if (ci.job_id) ciByJob.set(ci.job_id, { status: ci.status, date_paid: ci.date_paid })
+  const cis: RawContractorInvoice[] = ((ciRaw ?? []) as unknown as Array<{
+    id: string
+    amount: number | null
+    status: string | null
+    date_paid: string | null
+    date_submitted: string | null
+    job_id: string | null
+    jobs: { job_number: string | null; title: string | null; completed_at: string | null; deleted_at: string | null } | Array<{ job_number: string | null; title: string | null; completed_at: string | null; deleted_at: string | null }> | null
+  }>).map((c) => {
+    const j = flattenOne(c.jobs)
+    return {
+      id: c.id,
+      amount: c.amount,
+      status: c.status,
+      date_paid: c.date_paid,
+      date_submitted: c.date_submitted,
+      jobId: c.job_id,
+      jobNumber: j?.job_number ?? null,
+      title: j?.title ?? null,
+      jobCompletedAt: j?.completed_at ?? null,
+      jobDeletedAt: j?.deleted_at ?? null,
     }
-    for (const line of upcoming) {
-      const ci = ciByJob.get(line.jobId)
-      line.status = getContractorPayStatus({
-        jobStatus: 'completed',
-        jobCompletedAt: line.date,
-        invoiceStatus: ci?.status ?? null,
-        invoiceDatePaid: null, // unpaid by definition in the Upcoming list
-        inSentRemittance: false,
-      })
+  })
+
+  // Remittance links for the PAID CIs (group + document link only).
+  const paidCiIds = cis.filter((c) => c.status === 'paid' || !!c.date_paid).map((c) => c.id)
+  let remLinks: RawRemittanceLink[] = []
+  let rems: RawRemittance[] = []
+  if (paidCiIds.length > 0) {
+    const { data: linkRaw } = await svc
+      .from('contractor_remittance_items')
+      .select('contractor_invoice_id, remittance_id')
+      .in('contractor_invoice_id', paidCiIds)
+    remLinks = ((linkRaw ?? []) as Array<{ contractor_invoice_id: string | null; remittance_id: string | null }>)
+      .filter((l): l is { contractor_invoice_id: string; remittance_id: string } => !!l.contractor_invoice_id && !!l.remittance_id)
+      .map((l) => ({ ciId: l.contractor_invoice_id, remittanceId: l.remittance_id }))
+
+    const remIds = Array.from(new Set(remLinks.map((l) => l.remittanceId)))
+    if (remIds.length > 0) {
+      const { data: remRaw } = await svc
+        .from('contractor_remittances')
+        .select('id, token, payment_date')
+        .in('id', remIds)
+      rems = ((remRaw ?? []) as Array<{ id: string; token: string | null; payment_date: string | null }>)
+        .map((r) => ({ id: r.id, token: r.token, paymentDate: r.payment_date }))
     }
   }
 
-  // ── Paid: one summary row per paid contractor pay run ─────────────
-  const { data: itemsRaw } = await svc
+  // ── Legacy paid pay runs (retired flow, historical only) ──────────
+  const { data: legacyRaw } = await svc
     .from('pay_run_items')
-    .select('amount, pay_runs!inner ( id, pay_date, pay_period_start, pay_period_end, status, kind )')
+    .select('amount, pay_runs!inner ( id, pay_date, status, kind )')
     .eq('contractor_id', contractorId)
     .eq('status', 'paid')
+  const legacyItems: RawLegacyPayItem[] = ((legacyRaw ?? []) as unknown as Array<{
+    amount: number | null
+    pay_runs: { id: string; pay_date: string | null; status: string | null; kind: string | null } | Array<{ id: string; pay_date: string | null; status: string | null; kind: string | null }> | null
+  }>).flatMap((it) => {
+    const run = flattenOne(it.pay_runs)
+    if (!run) return []
+    return [{ payRunId: run.id, payDate: run.pay_date, kind: run.kind, amount: it.amount }]
+  })
 
-  const { data: remsRaw } = await svc
+  const { data: legacyTokRaw } = await svc
     .from('pay_run_remittances')
     .select('pay_run_id, token')
     .eq('contractor_id', contractorId)
-  const tokenByRun = new Map<string, string>()
-  for (const r of remsRaw ?? []) tokenByRun.set(r.pay_run_id as string, r.token as string)
+  const legacyTokens: RawLegacyToken[] = ((legacyTokRaw ?? []) as Array<{ pay_run_id: string | null; token: string | null }>)
+    .filter((r): r is { pay_run_id: string; token: string } => !!r.pay_run_id && !!r.token)
+    .map((r) => ({ payRunId: r.pay_run_id, token: r.token }))
 
-  const runMap = new Map<string, PaidRun>()
-  for (const it of (itemsRaw ?? []) as unknown as Array<{ amount: number | null; pay_runs: { id: string; pay_date: string | null; pay_period_start: string | null; pay_period_end: string | null; kind: string | null } | null }>) {
-    const run = it.pay_runs
-    if (!run || run.kind !== 'contractor') continue
-    const g = runMap.get(run.id) ?? {
-      payRunId: run.id,
-      payDate: run.pay_date ?? null,
-      periodStart: run.pay_period_start ?? null,
-      periodEnd: run.pay_period_end ?? null,
-      total: 0,
-      jobCount: 0,
-      remittanceToken: tokenByRun.get(run.id) ?? null,
-    }
-    g.total = Math.round((g.total + (it.amount ?? 0)) * 100) / 100
-    g.jobCount += 1
-    runMap.set(run.id, g)
-  }
-  const paidRuns = Array.from(runMap.values()).sort((a, b) => (b.payDate ?? '').localeCompare(a.payDate ?? ''))
-  const paidTotal = Math.round(paidRuns.reduce((s, r) => s + r.total, 0) * 100) / 100
-
-  return { upcoming, upcomingTotal, paidRuns, paidTotal }
+  return buildContractorPayData({ cis, remLinks, rems, legacyItems, legacyTokens })
 }
