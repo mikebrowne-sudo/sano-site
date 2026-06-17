@@ -14,6 +14,7 @@
 // preview).
 
 import { getServiceSupabase } from '@/lib/supabase-service'
+import { getContractorPayStatus, type ContractorPayStatus } from './contractor-pay-status'
 
 interface UpcomingRaw {
   hours_allocated: number | null
@@ -39,6 +40,10 @@ export interface UpcomingLine {
   date: string
   hours: number
   amount: number
+  // Contractor-facing approval status for this completed-but-unpaid job.
+  // Only 'awaiting_approval' or 'approved_pending' occur here (the Upcoming
+  // list is unpaid by definition).
+  status: ContractorPayStatus
 }
 
 export interface PaidRun {
@@ -97,10 +102,38 @@ export async function loadContractorPayStatement(contractorId: string): Promise<
       date: j.completed_at,
       hours,
       amount,
+      status: 'awaiting_approval', // refined below from the new payable model
     })
   }
   upcoming.sort((a, b) => b.date.localeCompare(a.date))
   const upcomingTotal = Math.round(upcoming.reduce((s, l) => s + l.amount, 0) * 100) / 100
+
+  // Refine each upcoming line's status from the canonical payable model
+  // (contractor_invoices). An approved (or already-paid) payable for the
+  // job ⇒ "Approved — pending pay"; otherwise it's still awaiting Sano
+  // approval. Visibility only — no amounts come from the payable.
+  const upcomingJobIds = upcoming.map((l) => l.jobId)
+  if (upcomingJobIds.length > 0) {
+    const { data: cis } = await svc
+      .from('contractor_invoices')
+      .select('job_id, status, date_paid')
+      .eq('contractor_id', contractorId)
+      .in('job_id', upcomingJobIds)
+    const ciByJob = new Map<string, { status: string | null; date_paid: string | null }>()
+    for (const ci of (cis ?? []) as Array<{ job_id: string | null; status: string | null; date_paid: string | null }>) {
+      if (ci.job_id) ciByJob.set(ci.job_id, { status: ci.status, date_paid: ci.date_paid })
+    }
+    for (const line of upcoming) {
+      const ci = ciByJob.get(line.jobId)
+      line.status = getContractorPayStatus({
+        jobStatus: 'completed',
+        jobCompletedAt: line.date,
+        invoiceStatus: ci?.status ?? null,
+        invoiceDatePaid: null, // unpaid by definition in the Upcoming list
+        inSentRemittance: false,
+      })
+    }
+  }
 
   // ── Paid: one summary row per paid contractor pay run ─────────────
   const { data: itemsRaw } = await svc

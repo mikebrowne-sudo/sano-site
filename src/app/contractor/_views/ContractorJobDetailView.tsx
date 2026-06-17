@@ -15,6 +15,7 @@ import { ContractorPhotos } from '../jobs/[id]/_components/ContractorPhotos'
 import { JobPhotoGallery } from '@/components/JobPhotoGallery'
 import { contractorJobTitle } from '../_lib/job-title'
 import type { ContractorJobDetail } from '../_lib/contractor-job-detail-data'
+import { CONTRACTOR_PAY_STATUS_META } from '../_lib/contractor-pay-status'
 
 const STATUS_STYLES: Record<string, string> = {
   draft:       'bg-gray-100 text-gray-700',
@@ -140,6 +141,18 @@ export function ContractorJobDetailView({
           </p>
         </Card>
       )}
+
+      {/* Payment status — visibility only. Shown once the job is complete,
+          so the contractor can see where their pay is up to. */}
+      {isDone && (() => {
+        const meta = CONTRACTOR_PAY_STATUS_META[job.payStatus]
+        return (
+          <Card heading="Payment status">
+            <span className={clsx('inline-block px-3 py-1 rounded-full text-xs font-semibold', meta.chip)}>{meta.label}</span>
+            <p className="text-xs text-sage-500 mt-2 leading-relaxed">{meta.help}</p>
+          </Card>
+        )
+      })()}
 
       {/* Notes */}
       <Card heading="Your Notes">

@@ -5,6 +5,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getWorkerPayableHours, getWorkerLabourCost, getWorkerRate } from '@/lib/job-cost'
 import { getJobPhotos } from '@/lib/job-photos'
+import { getServiceSupabase } from '@/lib/supabase-service'
+import { getContractorPayStatus, type ContractorPayStatus } from './contractor-pay-status'
 
 export interface ContractorJobDetail {
   id: string
@@ -25,6 +27,7 @@ export interface ContractorJobDetail {
   jobPay: number
   payRate: number | null
   approvedExtra: number
+  payStatus: ContractorPayStatus
   photos: { id: string; url: string | null; createdAt: string }[]
 }
 
@@ -57,6 +60,42 @@ export async function loadContractorJobDetail(
 
   if (!job) return null
 
+  // Contractor-facing pay status. The contractor's own payable lives in
+  // contractor_invoices, which contractors can't read under RLS — so use
+  // the service client SCOPED to this contractor + job (the caller has
+  // already authorised the contractor). Only the status / paid flag is
+  // read; no amounts or internal fields are surfaced here.
+  const svc = getServiceSupabase()
+  const { data: ci } = await svc
+    .from('contractor_invoices')
+    .select('id, status, date_paid')
+    .eq('job_id', jobId)
+    .eq('contractor_id', contractorId)
+    .order('date_submitted', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  let inSentRemittance = false
+  if (ci?.id) {
+    const { data: links } = await svc
+      .from('contractor_remittance_items')
+      .select('contractor_remittances ( sent_at )')
+      .eq('contractor_invoice_id', ci.id as string)
+    inSentRemittance = ((links ?? []) as Array<{ contractor_remittances: { sent_at: string | null } | { sent_at: string | null }[] | null }>)
+      .some((r) => {
+        const cr = Array.isArray(r.contractor_remittances) ? r.contractor_remittances[0] : r.contractor_remittances
+        return !!cr?.sent_at
+      })
+  }
+
+  const payStatus = getContractorPayStatus({
+    jobStatus: (job.status as string | null) ?? null,
+    jobCompletedAt: (job.completed_at as string | null) ?? null,
+    invoiceStatus: (ci?.status as string | null) ?? null,
+    invoiceDatePaid: (ci?.date_paid as string | null) ?? null,
+    inSentRemittance,
+  })
+
   const costInput = {
     pay_rate: (worker?.pay_rate as number | null) ?? null,
     contractor_hourly_rate: fallbackRate,
@@ -86,6 +125,7 @@ export async function loadContractorJobDetail(
     jobPay: getWorkerLabourCost(costInput),
     payRate: getWorkerRate(costInput, fallbackRate),
     approvedExtra: costInput.extra_hours_status === 'approved' ? (costInput.extra_hours ?? 0) : 0,
+    payStatus,
     photos: photos.map((p) => ({ id: p.id, url: p.url, createdAt: p.createdAt })),
   }
 }
