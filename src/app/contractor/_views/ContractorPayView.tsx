@@ -4,10 +4,12 @@
 // Upcoming = priced, unpaid completed jobs (lines). Paid = one collapsed
 // row per pay run; tapping it opens that run's remittance document.
 
+import clsx from 'clsx'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { Wallet, ChevronRight } from 'lucide-react'
 import { contractorJobTitle } from '../_lib/job-title'
 import type { ContractorPayData } from '../_lib/contractor-pay-data'
+import { CONTRACTOR_PAY_STATUS_META } from '../_lib/contractor-pay-status'
 
 export function ContractorPayView({ data }: { data: ContractorPayData }) {
   const { upcoming, upcomingTotal, paidRuns, paidTotal } = data
@@ -47,6 +49,9 @@ export function ContractorPayView({ data }: { data: ContractorPayData }) {
                       <span>{formatDate(l.date)}</span>
                       <span>{l.hours.toFixed(1)}h</span>
                     </div>
+                    <span className={clsx('inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold', CONTRACTOR_PAY_STATUS_META[l.status].chip)}>
+                      {CONTRACTOR_PAY_STATUS_META[l.status].label}
+                    </span>
                   </div>
                   <div className="text-sm font-semibold text-sage-800 shrink-0">{formatCurrency(l.amount)}</div>
                 </li>
