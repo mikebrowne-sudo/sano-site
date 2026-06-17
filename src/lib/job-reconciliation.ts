@@ -359,10 +359,10 @@ export function flagApprovedNotInPayRun(
     severity: 'warning',
     message:
       stalled.length === input.workers.length
-        ? `Approved hours waiting for a pay run`
-        : `Approved hours waiting for a pay run (${stalled.length} of ${input.workers.length})`,
-    suggestedAction: 'Add to a contractor pay run',
-    href: `/portal/payroll/contractor-pending`,
+        ? `Approved contractor pay awaiting remittance`
+        : `Approved contractor pay awaiting remittance (${stalled.length} of ${input.workers.length})`,
+    suggestedAction: 'Review in Pending approvals',
+    href: `/portal/contractor-invoices/pending-approvals`,
   }
 }
 
