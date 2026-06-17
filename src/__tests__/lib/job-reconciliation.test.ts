@@ -589,6 +589,16 @@ describe('flagApprovedNotInPayRun', () => {
     ).toMatchObject({ flag: 'approved-not-in-pay-run', severity: 'warning' })
   })
 
+  it('uses current remittance wording and links to Pending approvals (no retired pay-run wording)', () => {
+    const f = flagApprovedNotInPayRun(
+      makeInput({ workers: [makeWorker({ pay_status: 'approved', approved_at: ISO(20) })] }),
+    )!
+    expect(f.message).toMatch(/awaiting remittance/i)
+    expect(f.message).not.toMatch(/waiting for a pay run/i)
+    expect(f.suggestedAction).toMatch(/pending approvals/i)
+    expect(f.href).toBe('/portal/contractor-invoices/pending-approvals')
+  })
+
   it('returns null when approved_at is missing', () => {
     expect(
       flagApprovedNotInPayRun(
