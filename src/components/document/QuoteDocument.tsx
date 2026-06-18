@@ -116,16 +116,16 @@ export function QuoteDocument({
   //   3. omit the sub-block if neither yields content
   const description = (quote.generated_scope ?? '').trim() || buildServiceDescription(quote)
 
-  // Title: prefer buildPricingLabel. Its bare "Service" fallback fires
-  // when type_of_clean / property_category are both empty (quote has
-  // no service_description field) — reach for the description's first
-  // line, and only then fall back to a friendlier last resort.
-  const rawPricingLabel = buildPricingLabel(quote)
-  const descFirstLine = description.split('\n').map((l) => l.trim()).find((l) => l.length > 0) ?? ''
-  const pricingLabel =
-    rawPricingLabel && rawPricingLabel !== 'Service'
-      ? rawPricingLabel
-      : descFirstLine || 'Cleaning service'
+  // Title comes from the STRUCTURED clean type only (type_of_clean →
+  // property_category), never the free-text scope wording — so the full
+  // scope always renders in its own "Service description" block instead
+  // of having its first line promoted into the heading (and stripped
+  // from the block). Mirrors InvoiceDocument.
+  const rawPricingLabel = buildPricingLabel({
+    property_category: quote.property_category,
+    type_of_clean: quote.type_of_clean,
+  })
+  const pricingLabel = rawPricingLabel !== 'Service' ? rawPricingLabel : 'Cleaning service'
 
   const isCashSale = (quote.payment_type ?? 'cash_sale') === 'cash_sale'
 
