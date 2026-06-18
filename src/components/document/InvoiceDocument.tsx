@@ -122,16 +122,17 @@ export function InvoiceDocument({
   //   3. omit the sub-block if neither yields content
   const description = (invoice.service_description ?? '').trim() || buildServiceDescription(invoice)
 
-  // Title: prefer buildPricingLabel. Its bare "Service" fallback fires
-  // when service_description / type_of_clean / property_category are
-  // all empty — in that case reach for the description's first line,
-  // and only then fall back to a friendlier last resort.
-  const rawPricingLabel = buildPricingLabel(invoice)
-  const descFirstLine = description.split('\n').map((l) => l.trim()).find((l) => l.length > 0) ?? ''
-  const pricingLabel =
-    rawPricingLabel && rawPricingLabel !== 'Service'
-      ? rawPricingLabel
-      : descFirstLine || 'Cleaning service'
+  // Title comes from the STRUCTURED clean type only (type_of_clean →
+  // property_category), never the free-text service description. This
+  // keeps the operator's full service_description in its own "Service
+  // description" block — previously the description's first line was
+  // promoted into the heading (and stripped from the block), so a
+  // single-line description vanished from the block entirely.
+  const rawPricingLabel = buildPricingLabel({
+    property_category: invoice.property_category,
+    type_of_clean: invoice.type_of_clean,
+  })
+  const pricingLabel = rawPricingLabel !== 'Service' ? rawPricingLabel : 'Cleaning service'
 
   const isCashSale = (invoice.payment_type ?? 'cash_sale') === 'cash_sale'
 

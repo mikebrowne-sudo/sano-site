@@ -91,6 +91,34 @@ describe('InvoiceDocument — client_reference in the meta-grid header', () => {
   })
 })
 
+describe('InvoiceDocument — service description renders in full (not promoted into the heading)', () => {
+  it('shows the whole service description in its own block and uses a generic heading when there is no clean type', () => {
+    render(
+      <InvoiceDocument
+        wrapper="share-page"
+        invoice={makeInvoice({ service_description: 'Full deep clean including oven and all interior windows' })}
+        items={[]}
+      />,
+    )
+    // The operator's full description renders verbatim…
+    expect(screen.getByText('Full deep clean including oven and all interior windows')).toBeInTheDocument()
+    // …and the line-item heading is the generic label, NOT the description text.
+    expect(screen.getByText('Cleaning service')).toBeInTheDocument()
+  })
+
+  it('uses the structured clean type as the heading and still shows the full description', () => {
+    render(
+      <InvoiceDocument
+        wrapper="share-page"
+        invoice={makeInvoice({ type_of_clean: 'End of Tenancy Clean', service_description: 'Includes oven, fridge and skirting boards' })}
+        items={[]}
+      />,
+    )
+    expect(screen.getByText('End of Tenancy Clean')).toBeInTheDocument()
+    expect(screen.getByText('Includes oven, fridge and skirting boards')).toBeInTheDocument()
+  })
+})
+
 describe('InvoiceDocument — Issued date fallback to created_at', () => {
   it('uses date_issued when present', () => {
     render(
