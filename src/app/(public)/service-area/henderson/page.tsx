@@ -59,10 +59,10 @@ export default function HendersonServiceAreaPage() {
               </h2>
               <div className="body-text space-y-4">
                 <p>
-                  Henderson is one of West Auckland&apos;s main centres, so it brings together family homes, townhouses, units, and rentals with a large retail core, offices, and a range of workplaces. Cleaning needs run right across that range, from regular home upkeep to workplace presentation, deeper resets, and move-related cleans.
+                  Sano provides regular, deep, commercial, and move-related cleaning across Henderson, including offices, retail and customer-facing spaces, family homes, townhouses, units, and rentals. Some need ongoing upkeep and presentation through the week, while others need a more detailed clean before a move, handover, or reopening.
                 </p>
                 <p>
-                  In a centre this size the clean often has to fit around staff, customers, and trading hours, so Sano agrees the scope upfront, books around the building, and focuses on what each home, rental, or workplace actually needs.
+                  We keep the process clear from the start, work around staff, customers, trading hours, and building access where needed, and focus on leaving the home or workplace clean, presentable, and properly looked after.
                 </p>
               </div>
             </div>

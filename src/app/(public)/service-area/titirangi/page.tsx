@@ -60,10 +60,10 @@ export default function TitirangiServiceAreaPage() {
               </h2>
               <div className="body-text space-y-4">
                 <p>
-                  Titirangi sits in the bush-covered hills at the edge of the Waitākere Ranges, so its homes are a real mix of timber houses, glass-fronted homes, and standalone houses set into native bush, along with rentals. Decks, large windows, indoor-outdoor living, and steeper driveways can all be part of the work, on top of the usual question of whether it is regular upkeep, a deeper reset, or a move-related clean.
+                  Sano provides regular, deep, and move-related cleaning across Titirangi, including timber and glass homes, bush-set houses, and rentals. Some need ongoing upkeep and others a more detailed clean before a move, and with the decks, big windows, and leaf-fall these homes bring, the glass and outdoor areas often need as much attention as the rooms inside.
                 </p>
                 <p>
-                  Sano agrees the scope upfront, allows for the access and the extra glass and timber these homes tend to have, and leaves the place clean and ready to use.
+                  We keep the process clear from the start, allow for the access and the extra glass these homes tend to have, and focus on leaving the home clean, presentable, and properly looked after.
                 </p>
               </div>
             </div>
@@ -106,7 +106,7 @@ export default function TitirangiServiceAreaPage() {
           },
           {
             title: 'Timber and glass homes',
-            body: 'Houses with a lot of timber, glass, and open living where the clean works across the surfaces and angles these homes are built around, not just the standard rooms.',
+            body: 'Houses with a lot of timber, glass, and open living, where the clean covers the extra surfaces and angles these homes bring, not just the standard rooms.',
             icon: Home,
           },
           {

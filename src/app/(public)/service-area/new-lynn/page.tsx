@@ -60,10 +60,10 @@ export default function NewLynnServiceAreaPage() {
               </h2>
               <div className="body-text space-y-4">
                 <p>
-                  New Lynn has built up around its town centre and transport hub, so a lot of its housing is medium-density: apartments and townhouses near the centre, with family homes and units on the streets around them, and rentals throughout. The right cleaning scope depends on the property, the access, and whether the job is regular upkeep, a deeper reset, or a move-related clean.
+                  Sano provides regular, deep, and move-related cleaning across New Lynn, including apartments, townhouses, units, and family homes. Some need ongoing weekly or fortnightly upkeep, while others need a more detailed clean before a move or a new tenancy.
                 </p>
                 <p>
-                  Sano sorts the scope before we start, plans around lifts, stairs, and shared access where the property has them, and leaves the place clean and ready to use.
+                  We keep the process clear from the start, plan around lifts, stairs, and shared access where a building has them, and focus on leaving the home clean, presentable, and properly looked after.
                 </p>
               </div>
             </div>
