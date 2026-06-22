@@ -7,6 +7,7 @@ import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { BookingStepsSection } from '../../services/_components/BookingStepsSection'
 import { WhatWeCoverSection } from '../../services/_components/WhatWeCoverSection'
 import { WhyChooseSection } from '../../services/_components/WhyChooseSection'
+import { SUBURB_WHY_SANO_ITEMS } from '@/lib/suburb-why-sano'
 
 /**
  * Takapuna service-area page — Sano's second suburb page.
@@ -105,24 +106,7 @@ export default function TakapunaServiceAreaPage() {
       <WhyChooseSection
         heading="Why choose Sano"
         subtitle="What to expect from Sano on any clean, regardless of the property or the reason."
-        items={[
-          {
-            title: 'Clear scopes and simple quotes',
-            body: 'Scope and pricing agreed upfront. Send through the property details and the service you need, and we come back with a clear, practical quote.',
-          },
-          {
-            title: 'Careful cleaners',
-            body: 'Methodical work with detail-focused finishing on touchpoints, skirting boards, and the obvious surfaces.',
-          },
-          {
-            title: 'Insured and vetted teams',
-            body: 'All cleaners background-checked, trained, and fully insured.',
-          },
-          {
-            title: 'Follow-up if needed',
-            body: 'If something is missed, let us know and we will make it right where reasonable.',
-          },
-        ]}
+        items={SUBURB_WHY_SANO_ITEMS}
       />
 
       {/* 3. Services available in Takapuna — three labelled groups

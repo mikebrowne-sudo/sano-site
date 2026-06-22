@@ -7,6 +7,7 @@ import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { BookingStepsSection } from '../../services/_components/BookingStepsSection'
 import { WhatWeCoverSection } from '../../services/_components/WhatWeCoverSection'
 import { WhyChooseSection } from '../../services/_components/WhyChooseSection'
+import { SUBURB_WHY_SANO_ITEMS } from '@/lib/suburb-why-sano'
 
 /**
  * Ponsonby service-area page — Sano's sixth suburb page, third of the
@@ -106,24 +107,7 @@ export default function PonsonbyServiceAreaPage() {
       <WhyChooseSection
         heading="Why choose Sano"
         subtitle="What to expect from Sano on any clean, regardless of the property or the reason."
-        items={[
-          {
-            title: 'Clear scopes and simple quotes',
-            body: 'Scope and pricing agreed upfront. Send through the property details and the service you need, and we come back with a clear, practical quote.',
-          },
-          {
-            title: 'A properly finished clean',
-            body: 'Methodical work that covers the detail as well as the obvious areas, leaving the property feeling clean, presentable, and properly looked after.',
-          },
-          {
-            title: 'Insured and vetted teams',
-            body: 'All cleaners background-checked, trained, and fully insured.',
-          },
-          {
-            title: 'Follow-up if needed',
-            body: 'If something is missed, let us know and we will make it right where reasonable.',
-          },
-        ]}
+        items={SUBURB_WHY_SANO_ITEMS}
       />
 
       {/* 3. Services available in Ponsonby — three labelled groups covering all
