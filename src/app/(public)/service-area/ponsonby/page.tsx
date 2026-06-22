@@ -8,6 +8,12 @@ import { BookingStepsSection } from '../../services/_components/BookingStepsSect
 import { WhatWeCoverSection } from '../../services/_components/WhatWeCoverSection'
 import { WhyChooseSection } from '../../services/_components/WhyChooseSection'
 import { SUBURB_WHY_SANO_ITEMS } from '@/lib/suburb-why-sano'
+import {
+  SuburbServicesSection,
+  HOME_CLEANING_GROUP,
+  PROPERTY_WORKPLACE_GROUP,
+  SPECIALIST_GROUP,
+} from '../_components/SuburbServicesSection'
 
 /**
  * Ponsonby service-area page — Sano's sixth suburb page, third of the
@@ -78,7 +84,7 @@ export default function PonsonbyServiceAreaPage() {
         <div className="container-max">
           <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6 lg:gap-10 items-start">
             <div>
-              <h2 className="mb-5 border-b border-sage-100 pb-4">Cleaning across Ponsonby</h2>
+              <h2 className="mb-5 border-b border-sage-100 pb-4">Cleaning across <span className="text-sage-500">Ponsonby</span></h2>
               <div className="body-text space-y-4">
                 <p>
                   Ponsonby has a varied mix of homes, from character properties and renovated homes through to terraces, apartments, townhouses, and rentals. That means the right cleaning scope can look different depending on the property, the access, and whether it is regular upkeep, a deeper reset, or a move-related clean.
@@ -116,98 +122,11 @@ export default function PonsonbyServiceAreaPage() {
           intro is Mike-supplied verbatim and names workplace cleaning (Ponsonby
           is the most commercial-aware Central page), but the grouping order
           keeps it secondary. Inline link lists. */}
-      <section className="section-padding bg-[#faf9f6] py-10 lg:py-12">
-        <div className="container-max">
-          <div className="mx-auto max-w-3xl text-center">
-            <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-sage-500">
-              WHAT WE COVER
-            </p>
-            <h2
-              className="mt-2 font-display font-bold text-sage-800"
-              style={{
-                fontSize: 'clamp(1.5rem, 2.25vw, 1.875rem)',
-                lineHeight: 1.15,
-                letterSpacing: '-0.015em',
-              }}
-            >
-              Services available in <span className="text-sage-500">Ponsonby</span>
-            </h2>
-            <p className="mt-3 body-text">
-              From regular home cleaning and deeper resets to move cleans, workplace cleaning, and specialist surfaces, the full range of Sano services is available across Ponsonby. Pick a service to read its full scope.
-            </p>
-          </div>
-
-          <div className="mx-auto mt-8 max-w-3xl space-y-6">
-            <div>
-              <h3 className="mb-2 text-[1rem] font-semibold text-sage-800">Home cleaning</h3>
-              <p className="text-[0.9375rem] leading-relaxed text-sage-600">
-                <Link
-                  href="/services/regular-cleaning"
-                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-                >
-                  Regular house cleaning
-                </Link>
-                {' · '}
-                <Link
-                  href="/services/deep-cleaning"
-                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-                >
-                  Deep cleaning
-                </Link>
-                {' · '}
-                <Link
-                  href="/services/end-of-tenancy"
-                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-                >
-                  End of tenancy cleaning
-                </Link>
-              </p>
-            </div>
-
-            <div>
-              <h3 className="mb-2 text-[1rem] font-semibold text-sage-800">
-                Property and workplace cleaning
-              </h3>
-              <p className="text-[0.9375rem] leading-relaxed text-sage-600">
-                <Link
-                  href="/services/commercial-cleaning"
-                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-                >
-                  Commercial and office cleaning
-                </Link>
-                {' · '}
-                <Link
-                  href="/services/post-construction"
-                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-                >
-                  Post-construction cleaning
-                </Link>
-              </p>
-            </div>
-
-            <div>
-              <h3 className="mb-2 text-[1rem] font-semibold text-sage-800">
-                Specialist cleaning
-              </h3>
-              <p className="text-[0.9375rem] leading-relaxed text-sage-600">
-                <Link
-                  href="/services/carpet-upholstery"
-                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-                >
-                  Carpet and upholstery cleaning
-                </Link>
-                {' · '}
-                <Link
-                  href="/services/window-cleaning"
-                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-                >
-                  Window cleaning
-                </Link>
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      <SuburbServicesSection
+        suburb="Ponsonby"
+        lead="From regular home cleaning and deeper resets to move cleans, workplace cleaning, and specialist surfaces, the full range of Sano services is available across Ponsonby. Pick a service to read its full scope."
+        groups={[HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP]}
+      />
 
       {/* 4. Cleaning needs vary by property type — four Mike-supplied cards
           matching Ponsonby's mix (Character homes / Renovated homes and
