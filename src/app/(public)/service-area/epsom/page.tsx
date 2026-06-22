@@ -14,6 +14,7 @@ import {
   PROPERTY_WORKPLACE_GROUP,
   SPECIALIST_GROUP,
 } from '../_components/SuburbServicesSection'
+import { NearbySuburbsSection } from '../_components/NearbySuburbsSection'
 
 /**
  * Epsom service-area page — Sano's fourth suburb page.
@@ -194,6 +195,15 @@ export default function EpsomServiceAreaPage() {
             areaServed: { '@type': 'City', name: 'Auckland' },
           }),
         }}
+      />
+
+      {/* Nearby areas — internal links to the nearest Central suburb pages. */}
+      <NearbySuburbsSection
+        suburbs={[
+          { name: 'Mount Eden', href: '/service-area/mount-eden' },
+          { name: 'Kingsland', href: '/service-area/kingsland' },
+          { name: 'Grey Lynn', href: '/service-area/grey-lynn' },
+        ]}
       />
 
       {/* CTA — single quote action, no suburb mention. */}
