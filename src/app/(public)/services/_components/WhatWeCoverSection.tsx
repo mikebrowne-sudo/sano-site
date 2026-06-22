@@ -74,13 +74,13 @@ export function WhatWeCoverSection({
           {subtitle && <p className="mt-3 body-text">{subtitle}</p>}
         </div>
 
-        <ul className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+        <ul className="mt-8 flex flex-wrap justify-center gap-4 lg:gap-5">
           {items.map((item) => {
             const Icon = item.icon
             return (
               <li
                 key={item.title}
-                className="rounded-2xl border border-sage-100 bg-white p-5 shadow-sm"
+                className="w-full rounded-2xl border border-sage-100 bg-white p-5 shadow-sm sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.834rem)]"
               >
                 <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sage-100">
                   <Icon

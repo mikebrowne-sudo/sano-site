@@ -8,6 +8,12 @@ import { BookingStepsSection } from '../../services/_components/BookingStepsSect
 import { WhatWeCoverSection } from '../../services/_components/WhatWeCoverSection'
 import { WhyChooseSection } from '../../services/_components/WhyChooseSection'
 import { SUBURB_WHY_SANO_ITEMS } from '@/lib/suburb-why-sano'
+import {
+  SuburbServicesSection,
+  HOME_CLEANING_GROUP,
+  PROPERTY_WORKPLACE_GROUP,
+  SPECIALIST_GROUP,
+} from '../_components/SuburbServicesSection'
 
 /**
  * Manukau service-area page — Sano's third suburb page.
@@ -82,7 +88,7 @@ export default function ManukauServiceAreaPage() {
         <div className="container-max">
           <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6 lg:gap-10 items-start">
             <div>
-              <h2 className="mb-5 border-b border-sage-100 pb-4">Cleaning across Manukau</h2>
+              <h2 className="mb-5 border-b border-sage-100 pb-4">Cleaning across <span className="text-sage-500">Manukau</span></h2>
               <div className="body-text space-y-4">
                 <p>
                   Manukau has a mix of offices, retail spaces, commercial premises, family homes, rentals, and properties being prepared for handover, so cleaning needs can range from workplace presentation and post-construction through to regular upkeep and inspection-ready cleans.
@@ -119,98 +125,11 @@ export default function ManukauServiceAreaPage() {
           the order per Mike's smaller-call lock (matches Takapuna,
           warranted further by Manukau's commercial weighting). Inline
           link lists (not card grids). */}
-      <section className="section-padding bg-[#faf9f6] py-10 lg:py-12">
-        <div className="container-max">
-          <div className="mx-auto max-w-3xl text-center">
-            <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-sage-500">
-              WHAT WE COVER
-            </p>
-            <h2
-              className="mt-2 font-display font-bold text-sage-800"
-              style={{
-                fontSize: 'clamp(1.5rem, 2.25vw, 1.875rem)',
-                lineHeight: 1.15,
-                letterSpacing: '-0.015em',
-              }}
-            >
-              Services available in <span className="text-sage-500">Manukau</span>
-            </h2>
-            <p className="mt-3 body-text">
-              From regular home cleaning to workplace presentation and specialist surfaces, Sano services are available across the area. Pick a service to read its full scope.
-            </p>
-          </div>
-
-          <div className="mx-auto mt-8 max-w-3xl space-y-6">
-            <div>
-              <h3 className="mb-2 text-[1rem] font-semibold text-sage-800">
-                Property and workplace cleaning
-              </h3>
-              <p className="text-[0.9375rem] leading-relaxed text-sage-600">
-                <Link
-                  href="/services/commercial-cleaning"
-                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-                >
-                  Commercial and office cleaning
-                </Link>
-                {' · '}
-                <Link
-                  href="/services/post-construction"
-                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-                >
-                  Post-construction cleaning
-                </Link>
-              </p>
-            </div>
-
-            <div>
-              <h3 className="mb-2 text-[1rem] font-semibold text-sage-800">Home cleaning</h3>
-              <p className="text-[0.9375rem] leading-relaxed text-sage-600">
-                <Link
-                  href="/services/regular-cleaning"
-                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-                >
-                  Regular house cleaning
-                </Link>
-                {' · '}
-                <Link
-                  href="/services/deep-cleaning"
-                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-                >
-                  Deep cleaning
-                </Link>
-                {' · '}
-                <Link
-                  href="/services/end-of-tenancy"
-                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-                >
-                  End of tenancy cleaning
-                </Link>
-              </p>
-            </div>
-
-            <div>
-              <h3 className="mb-2 text-[1rem] font-semibold text-sage-800">
-                Specialist cleaning
-              </h3>
-              <p className="text-[0.9375rem] leading-relaxed text-sage-600">
-                <Link
-                  href="/services/carpet-upholstery"
-                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-                >
-                  Carpet and upholstery cleaning
-                </Link>
-                {' · '}
-                <Link
-                  href="/services/window-cleaning"
-                  className="font-semibold text-sage-500 underline-offset-4 hover:underline"
-                >
-                  Window cleaning
-                </Link>
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      <SuburbServicesSection
+        suburb="Manukau"
+        lead="From regular home cleaning to workplace presentation and specialist surfaces, Sano services are available across the area. Pick a service to read its full scope."
+        groups={[PROPERTY_WORKPLACE_GROUP, HOME_CLEANING_GROUP, SPECIALIST_GROUP]}
+      />
 
       {/* 4. Cleaning needs vary by property type — four Manukau-specific
           cards reflecting the commercial-heavy mix. Offices promoted to
