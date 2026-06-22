@@ -14,6 +14,7 @@ import {
   PROPERTY_WORKPLACE_GROUP,
   SPECIALIST_GROUP,
 } from '../_components/SuburbServicesSection'
+import { NearbySuburbsSection } from '../_components/NearbySuburbsSection'
 
 /**
  * Kingsland service-area page — Sano's seventh suburb page, completing the
@@ -181,6 +182,15 @@ export default function KingslandServiceAreaPage() {
             areaServed: { '@type': 'City', name: 'Auckland' },
           }),
         }}
+      />
+
+      {/* Nearby areas — internal links to the nearest Central suburb pages. */}
+      <NearbySuburbsSection
+        suburbs={[
+          { name: 'Grey Lynn', href: '/service-area/grey-lynn' },
+          { name: 'Ponsonby', href: '/service-area/ponsonby' },
+          { name: 'Mount Eden', href: '/service-area/mount-eden' },
+        ]}
       />
 
       {/* CTA — single quote action, no suburb mention. */}

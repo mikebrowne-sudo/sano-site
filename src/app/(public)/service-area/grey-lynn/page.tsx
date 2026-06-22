@@ -14,6 +14,7 @@ import {
   PROPERTY_WORKPLACE_GROUP,
   SPECIALIST_GROUP,
 } from '../_components/SuburbServicesSection'
+import { NearbySuburbsSection } from '../_components/NearbySuburbsSection'
 
 /**
  * Grey Lynn service-area page — Sano's fifth suburb page, first of the
@@ -136,7 +137,7 @@ export default function GreyLynnServiceAreaPage() {
         items={[
           {
             title: 'Character homes',
-            body: 'Older homes that reward a careful, unhurried clean, so the detail is respected and the place is left feeling settled and properly looked after.',
+            body: 'Older homes that reward an unhurried, considered clean, so the detail is respected and the place is left feeling settled and properly looked after.',
             icon: Home,
           },
           {
@@ -193,6 +194,15 @@ export default function GreyLynnServiceAreaPage() {
             areaServed: { '@type': 'City', name: 'Auckland' },
           }),
         }}
+      />
+
+      {/* Nearby areas — internal links to the nearest Central suburb pages. */}
+      <NearbySuburbsSection
+        suburbs={[
+          { name: 'Ponsonby', href: '/service-area/ponsonby' },
+          { name: 'Kingsland', href: '/service-area/kingsland' },
+          { name: 'Mount Eden', href: '/service-area/mount-eden' },
+        ]}
       />
 
       {/* CTA — single quote action, no suburb mention. */}

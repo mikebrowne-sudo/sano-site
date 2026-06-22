@@ -14,6 +14,7 @@ import {
   PROPERTY_WORKPLACE_GROUP,
   SPECIALIST_GROUP,
 } from '../_components/SuburbServicesSection'
+import { NearbySuburbsSection } from '../_components/NearbySuburbsSection'
 
 /**
  * Mount Eden service-area page — Sano's first suburb pilot.
@@ -203,6 +204,15 @@ export default function MountEdenServiceAreaPage() {
             areaServed: { '@type': 'City', name: 'Auckland' },
           }),
         }}
+      />
+
+      {/* Nearby areas — internal links to the nearest Central suburb pages. */}
+      <NearbySuburbsSection
+        suburbs={[
+          { name: 'Kingsland', href: '/service-area/kingsland' },
+          { name: 'Grey Lynn', href: '/service-area/grey-lynn' },
+          { name: 'Epsom', href: '/service-area/epsom' },
+        ]}
       />
 
       {/* CTA — single quote action, no suburb mention. */}
