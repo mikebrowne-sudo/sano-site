@@ -59,10 +59,10 @@ export default function DevonportServiceAreaPage() {
               </h2>
               <div className="body-text space-y-4">
                 <p>
-                  Devonport sits at the end of the North Shore peninsula and has a lot of older housing, from villas and weatherboard homes to townhouses, apartments, and rentals, alongside a small village of shops. The right cleaning scope depends on the property, its age, the access, and whether the job is regular upkeep, a deeper reset, or a move-related clean.
+                  Across Devonport, Sano cleans character homes, family homes, townhouses, apartments, and rentals, from regular upkeep to a deeper clean, or a full move-out at the end of a tenancy.
                 </p>
                 <p>
-                  Sano works to the property in front of us, agreeing the scope upfront, giving older homes the time they need, and leaving the place clean, settled, and ready to use.
+                  We set out a clear plan from the start, work around the layout and access of each property, and leave the place clean, settled, and properly looked after.
                 </p>
               </div>
             </div>

@@ -77,10 +77,10 @@ export default function KingslandServiceAreaPage() {
               </h2>
               <div className="body-text space-y-4">
                 <p>
-                  Kingsland fits a lot of housing variety into a compact area, from character homes and renovated family homes through to townhouses, apartments, and rentals. The right scope for each property comes down to its layout, its access, and whether the job is regular upkeep, a deeper reset, or a move-related clean.
+                  Sano cleans character homes, renovated homes, townhouses, apartments, and rentals throughout Kingsland, from regular upkeep through to deeper cleans and move-out work.
                 </p>
                 <p>
-                  Because Kingsland sits on such a compact footprint, timing and access are often part of the plan, so Sano agrees the scope upfront and leaves the home feeling presentable, settled, and properly looked after.
+                  We confirm what needs doing upfront, allow for stairs, access, and timing where they matter, and leave the home tidy and ready.
                 </p>
               </div>
             </div>

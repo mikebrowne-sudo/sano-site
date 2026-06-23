@@ -59,10 +59,10 @@ export default function HendersonServiceAreaPage() {
               </h2>
               <div className="body-text space-y-4">
                 <p>
-                  Sano provides regular, deep, commercial, and move-related cleaning across Henderson, including offices, retail and customer-facing spaces, family homes, townhouses, units, and rentals. Some need ongoing upkeep and presentation through the week, while others need a more detailed clean before a move, handover, or reopening.
+                  Sano works across Henderson on both homes and workplaces, from offices, retail and customer-facing spaces to family homes, townhouses, units, and rentals. The work covers everything from regular upkeep and presentation to deep cleans and move-outs.
                 </p>
                 <p>
-                  We keep the process clear from the start, work around staff, customers, trading hours, and building access where needed, and focus on leaving the home or workplace clean, presentable, and properly looked after.
+                  We lock in the details first, allow for opening hours and building access where needed, and leave each home or workplace presentable and ready to use.
                 </p>
               </div>
             </div>

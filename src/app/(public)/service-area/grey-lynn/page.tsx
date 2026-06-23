@@ -84,10 +84,10 @@ export default function GreyLynnServiceAreaPage() {
               <h2 className="mb-5 border-b border-sage-100 pb-4">Cleaning across <span className="text-sage-500">Grey Lynn</span></h2>
               <div className="body-text space-y-4">
                 <p>
-                  Grey Lynn has a real mix of homes, from character properties and renovated family homes through to apartments, townhouses, and rentals. That means the right cleaning scope can look different depending on the property, the access, and whether it is regular upkeep, a deeper reset, or a move-related clean.
+                  Sano provides regular, deep, and move-related cleaning across Grey Lynn, including character homes, renovated homes, apartments, townhouses, and rentals. That runs from ongoing upkeep to a deeper clean before a move, handover, or new tenancy.
                 </p>
                 <p>
-                  For Sano, the focus is on agreeing the scope upfront, working around the property layout where needed, and leaving the home feeling presentable, settled, and properly looked after.
+                  We keep the process clear from the start, work around the property&apos;s layout and access where needed, and leave the home clean, presentable, and properly looked after.
                 </p>
               </div>
             </div>

@@ -93,10 +93,10 @@ export default function MountEdenServiceAreaPage() {
               <h2 className="mb-5 border-b border-sage-100 pb-4">Cleaning across <span className="text-sage-500">Mount Eden</span></h2>
               <div className="body-text space-y-4">
                 <p>
-                  Mount Eden has a mix of homes, rentals, apartments, and small commercial properties, so cleaning needs can vary. Some properties need regular upkeep, others need a deeper reset, and some need to be ready for inspection, handover, or daily presentation.
+                  Sano handles cleaning for family homes, character homes, apartments, townhouses, and rentals across Mount Eden, from weekly or fortnightly upkeep to one-off deep cleans and move-outs.
                 </p>
                 <p>
-                  Sano helps keep that process simple with clear scopes, careful cleaners, and a quote process that matches the clean to the property.
+                  We confirm what needs doing upfront, plan around the layout and access of the property, and leave it clean, tidy, and ready to use.
                 </p>
               </div>
             </div>

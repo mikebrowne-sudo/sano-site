@@ -91,10 +91,10 @@ export default function ManukauServiceAreaPage() {
               <h2 className="mb-5 border-b border-sage-100 pb-4">Cleaning across <span className="text-sage-500">Manukau</span></h2>
               <div className="body-text space-y-4">
                 <p>
-                  Manukau has a mix of offices, retail spaces, commercial premises, family homes, rentals, and properties being prepared for handover, so cleaning needs can range from workplace presentation and post-construction through to regular upkeep and inspection-ready cleans.
+                  Sano provides cleaning across Manukau for offices, retail and commercial spaces, as well as family homes and rentals. The work runs from workplace presentation and regular upkeep to deep cleans, move-outs, and handovers.
                 </p>
                 <p>
-                  Manukau is within Sano&apos;s Auckland service area, with the same careful cleaners, clear scopes, and practical quote process available across the wider city.
+                  We map out the job before we arrive, work around staff, customers, and business hours where needed, and leave the property clean and ready for staff and customers.
                 </p>
               </div>
             </div>

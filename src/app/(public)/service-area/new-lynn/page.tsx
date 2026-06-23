@@ -60,10 +60,10 @@ export default function NewLynnServiceAreaPage() {
               </h2>
               <div className="body-text space-y-4">
                 <p>
-                  Sano provides regular, deep, and move-related cleaning across New Lynn, including apartments, townhouses, units, and family homes. Some need ongoing weekly or fortnightly upkeep, while others need a more detailed clean before a move or a new tenancy.
+                  Across New Lynn, Sano takes care of apartments, townhouses, units, and family homes, from regular weekly or fortnightly upkeep to deeper cleans and end-of-tenancy work.
                 </p>
                 <p>
-                  We keep the process clear from the start, plan around lifts, stairs, and shared access where a building has them, and focus on leaving the home clean, presentable, and properly looked after.
+                  We get the details sorted first, work around lifts, stairs, and shared building access where needed, and leave the home clean and settled.
                 </p>
               </div>
             </div>

@@ -88,10 +88,10 @@ export default function PonsonbyServiceAreaPage() {
               <h2 className="mb-5 border-b border-sage-100 pb-4">Cleaning across <span className="text-sage-500">Ponsonby</span></h2>
               <div className="body-text space-y-4">
                 <p>
-                  Ponsonby has a varied mix of homes, from character properties and renovated homes through to terraces, apartments, townhouses, and rentals. That means the right cleaning scope can look different depending on the property, the access, and whether it is regular upkeep, a deeper reset, or a move-related clean.
+                  In Ponsonby, Sano looks after character homes, renovated homes, terraces, townhouses, apartments, and rentals, whether that&apos;s a regular clean, a deeper one, or an end-of-tenancy reset before new tenants arrive.
                 </p>
                 <p>
-                  For Sano, that range is the starting point. We agree the scope upfront, plan around the access and layout each property brings, and leave the home feeling presentable, settled, and properly looked after.
+                  We agree what needs doing before the clean, fit the work around each property&apos;s layout and timing, and leave it clean, settled, and ready.
                 </p>
               </div>
             </div>

@@ -86,10 +86,10 @@ export default function TakapunaServiceAreaPage() {
               <h2 className="mb-5 border-b border-sage-100 pb-4">Cleaning across <span className="text-sage-500">Takapuna</span></h2>
               <div className="body-text space-y-4">
                 <p>
-                  Takapuna has a mix of apartments, family homes, offices, rentals, and commercial spaces. That means cleaning needs can range from regular upkeep through to handovers, workplace presentation, and specialist surface cleaning.
+                  Sano cleans homes and workplaces across Takapuna, including apartments, family homes, townhouses, offices, and rentals. The work ranges from regular upkeep and workplace presentation to deeper cleans and move-out or handover jobs.
                 </p>
                 <p>
-                  Takapuna is within Sano&apos;s Auckland service area, with the same careful cleaners, clear scopes, and practical quote process available across the wider city.
+                  We confirm the job before we start, fit around building access and trading hours where needed, and leave the home or workplace clean, presentable, and ready.
                 </p>
               </div>
             </div>

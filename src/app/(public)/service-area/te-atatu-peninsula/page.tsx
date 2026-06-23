@@ -59,10 +59,10 @@ export default function TeAtatuPeninsulaServiceAreaPage() {
               </h2>
               <div className="body-text space-y-4">
                 <p>
-                  Sano provides regular, deep, and move-related cleaning across Te Atatū Peninsula, including established family homes, newer townhouses, subdivision builds, and rentals. Some homes need ongoing upkeep through a busy week, while others need a more detailed clean before a move or handover.
+                  In Te Atatū Peninsula, Sano cleans family homes, townhouses, new builds, and rentals, whether that&apos;s keeping on top of a busy household, a deeper one-off clean, or a move or handover.
                 </p>
                 <p>
-                  We keep the process clear from the start, fit the work to the size and age of each home, and focus on leaving the home clean, presentable, and properly looked after.
+                  We plan the work around each home&apos;s size and layout, keep the steps clear from the quote on, and leave it clean, settled, and properly looked after.
                 </p>
               </div>
             </div>

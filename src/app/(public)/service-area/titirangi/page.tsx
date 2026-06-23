@@ -60,10 +60,10 @@ export default function TitirangiServiceAreaPage() {
               </h2>
               <div className="body-text space-y-4">
                 <p>
-                  Sano provides regular, deep, and move-related cleaning across Titirangi, including timber and glass homes, bush-set houses, and rentals. Some need ongoing upkeep and others a more detailed clean before a move, and with the decks, big windows, and leaf-fall these homes bring, the glass and outdoor areas often need as much attention as the rooms inside.
+                  Sano cleans family homes, standalone properties, larger homes, and rentals across Titirangi, from regular upkeep to deeper cleans and move-in or move-out work.
                 </p>
                 <p>
-                  We keep the process clear from the start, allow for the access and the extra glass these homes tend to have, and focus on leaving the home clean, presentable, and properly looked after.
+                  We sort the details before the first visit, allow for access and timing where a property calls for it, and leave the home clean, presentable, and ready.
                 </p>
               </div>
             </div>
