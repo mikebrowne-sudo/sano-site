@@ -97,11 +97,13 @@ export default async function ContractorInvoicesPage({ searchParams }: { searchP
   const allRows: Row[] = (invoices as unknown as RawCI[] ?? []).map((ci) => {
     const c = ci.contractors
     const j = ci.jobs
-    const expected = c?.hourly_rate != null && j?.allowed_hours != null ? c.hourly_rate * j.allowed_hours : null
-    const variance = expected != null && ci.amount != null ? ci.amount - expected : null
-    const status = ci.status ?? 'pending'
     const paymentType = ci.payment_type ?? 'standard'
     const isFixed = paymentType === 'fixed_contract'
+    // No hourly expected-cost / variance for fixed contract payments — the
+    // amount is a flat agreed figure, so the comparison is meaningless.
+    const expected = !isFixed && c?.hourly_rate != null && j?.allowed_hours != null ? c.hourly_rate * j.allowed_hours : null
+    const variance = expected != null && ci.amount != null ? ci.amount - expected : null
+    const status = ci.status ?? 'pending'
     // Safe, unambiguous review flags only (no address parsing). Fixed
     // contract payments legitimately have no linked job, so don't flag them.
     let reviewReason: string | null = null

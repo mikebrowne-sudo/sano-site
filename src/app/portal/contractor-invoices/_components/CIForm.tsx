@@ -89,7 +89,7 @@ export function CIForm({ ci, contractors, jobs }: { ci?: CIData; contractors: Co
       <Section title="Details">
         <div className="mb-4">
           <Sel label="Payment type" value={paymentType} onChange={setPaymentType} options={[{ value: 'standard', label: 'Standard' }, { value: 'fixed_contract', label: 'Fixed contract payment' }]} />
-          {isFixed && <p className="text-xs text-sage-400 mt-1">A flat amount paid to the contractor (e.g. a monthly commercial cleaning contract). This is the contractor payment, not a client invoice. A linked job is optional.</p>}
+          {isFixed && <p className="text-xs text-sage-400 mt-1">Fixed contract payments use the amount entered below. A linked job is for reference and reporting only.</p>}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Sel label="Contractor" required value={contractorId} onChange={setContractorId} options={contractors.map((c) => ({ value: c.id, label: c.full_name }))} placeholder="Select contractor…" />
