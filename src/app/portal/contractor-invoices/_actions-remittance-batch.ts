@@ -37,6 +37,9 @@ interface CIRow {
   note: string | null
   contractor_id: string | null
   job_id: string | null
+  payment_type: string | null
+  site_label: string | null
+  period_label: string | null
   contractors: { full_name: string | null } | null
   jobs: { job_number: string | null; address: string | null } | null
 }
@@ -67,7 +70,7 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
   const { data: ciRaw, error: ciErr } = ciIds.length > 0
     ? await supabase
         .from('contractor_invoices')
-        .select('id, amount, notes:notes, contractor_id, job_id, contractors ( full_name ), jobs ( job_number, address )')
+        .select('id, amount, notes:notes, contractor_id, job_id, payment_type, site_label, period_label, contractors ( full_name ), jobs ( job_number, address )')
         .in('id', ciIds)
     : { data: [] as unknown[], error: null }
   if (ciErr) return { error: `Could not load invoices: ${ciErr.message}` }
@@ -121,20 +124,31 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
   // Snapshotted line items (invoices first, then adjustments).
   let sort = 0
   const items = [
-    ...cis.map((ci) => ({
-      remittance_id: header.id,
-      kind: 'invoice',
-      contractor_invoice_id: ci.id,
-      contractor_id: ci.contractor_id,
-      contractor_name: ci.contractors?.full_name ?? null,
-      job_number: ci.jobs?.job_number ?? null,
-      job_address: ci.jobs?.address ?? null,
-      note: ci.notes?.trim() || null,
-      label: null,
-      hours: snapshotHours(ci),
-      amount: ci.amount ?? 0,
-      sort: sort++,
-    })),
+    ...cis.map((ci) => {
+      // Fixed contract payments usually have no linked job. Show the
+      // site/client as the primary detail and the period as the sub-detail,
+      // and never imply hours. Because there is no job_address on these
+      // lines, the document renders the note directly (the service-keyword
+      // note filter only runs when there's an address), so the fixed
+      // description is not stripped.
+      const isFixed = ci.payment_type === 'fixed_contract'
+      const fixedPrimary = isFixed ? (ci.site_label?.trim() || null) : null
+      const fixedDetail = isFixed ? (ci.period_label?.trim() || null) : null
+      return {
+        remittance_id: header.id,
+        kind: 'invoice',
+        contractor_invoice_id: ci.id,
+        contractor_id: ci.contractor_id,
+        contractor_name: ci.contractors?.full_name ?? null,
+        job_number: fixedPrimary ?? (ci.jobs?.job_number ?? null),
+        job_address: fixedPrimary ? null : (ci.jobs?.address ?? null),
+        note: isFixed ? (fixedDetail ?? ci.notes?.trim() ?? null) : (ci.notes?.trim() || null),
+        label: null,
+        hours: isFixed ? null : snapshotHours(ci),
+        amount: ci.amount ?? 0,
+        sort: sort++,
+      }
+    }),
     ...adjustments.map((a) => ({
       remittance_id: header.id,
       kind: 'adjustment',

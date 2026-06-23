@@ -9,7 +9,7 @@ export default async function EditContractorInvoicePage({ params }: { params: { 
   const supabase = createClient()
 
   const [{ data: ci, error }, { data: contractors }, { data: jobs }, { data: linkRaw }] = await Promise.all([
-    supabase.from('contractor_invoices').select('id, invoice_number, contractor_id, job_id, amount, date_submitted, notes, status, date_paid').eq('id', params.id).single(),
+    supabase.from('contractor_invoices').select('id, invoice_number, contractor_id, job_id, amount, date_submitted, notes, status, date_paid, payment_type, site_label, period_label').eq('id', params.id).single(),
     supabase.from('contractors').select('id, full_name').eq('status', 'active').order('full_name'),
     // Job picker — no row cap. See sibling `new/page.tsx` for context.
     supabase.from('jobs').select('id, job_number, title').order('job_number', { ascending: false }),
@@ -47,7 +47,7 @@ export default async function EditContractorInvoicePage({ params }: { params: { 
       {back}
       <h1 className="text-2xl font-bold text-sage-800 mb-8">Edit Contractor Payable</h1>
       <CIForm
-        ci={{ id: ci.id, contractor_id: ci.contractor_id, job_id: ci.job_id, amount: ci.amount, date_submitted: ci.date_submitted, notes: ci.notes }}
+        ci={{ id: ci.id, contractor_id: ci.contractor_id, job_id: ci.job_id, amount: ci.amount, date_submitted: ci.date_submitted, notes: ci.notes, payment_type: ci.payment_type, site_label: ci.site_label, period_label: ci.period_label }}
         contractors={contractors ?? []}
         jobs={jobs ?? []}
       />

@@ -21,7 +21,7 @@ export default async function ContractorInvoiceDetailPage({ params }: { params: 
 
   const { data: ci, error } = await supabase
     .from('contractor_invoices')
-    .select('id, invoice_number, contractor_id, job_id, amount, date_submitted, date_paid, status, notes, created_at, contractors ( full_name, hourly_rate ), jobs ( job_number, title, job_price, allowed_hours )')
+    .select('id, invoice_number, contractor_id, job_id, amount, date_submitted, date_paid, status, notes, created_at, payment_type, site_label, period_label, approved_at, contractors ( full_name, hourly_rate ), jobs ( job_number, title, job_price, allowed_hours )')
     .eq('id', params.id)
     .single()
 
@@ -39,6 +39,7 @@ export default async function ContractorInvoiceDetailPage({ params }: { params: 
 
   const contractor = ci.contractors as unknown as { full_name: string; hourly_rate: number | null } | null
   const job = ci.jobs as unknown as { job_number: string; title: string | null; job_price: number | null; allowed_hours: number | null } | null
+  const isFixed = ((ci.payment_type as string | null) ?? 'standard') === 'fixed_contract'
 
   // Calculate expected labour cost if job is linked
   let expectedCost: number | null = null
@@ -75,7 +76,7 @@ export default async function ContractorInvoiceDetailPage({ params }: { params: 
         </div>
         <div className="flex items-center gap-3">
           <span className={clsx('inline-block px-3 py-1 rounded-full text-sm font-medium capitalize', STATUS_STYLES[ci.status])}>{ci.status}</span>
-          <CIStatusActions id={ci.id} status={ci.status} />
+          <CIStatusActions id={ci.id} status={ci.status} paymentType={ci.payment_type ?? 'standard'} />
           {guard.editable ? (
             <Link href={`/portal/contractor-invoices/${params.id}/edit`} className="inline-flex items-center gap-2 bg-sage-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"><Pencil size={14} /> Edit</Link>
           ) : (
@@ -112,9 +113,19 @@ export default async function ContractorInvoiceDetailPage({ params }: { params: 
         <Section title="Details">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div><span className="text-sage-500">Contractor</span><p className="text-sage-800 font-medium">{contractor?.full_name ?? '—'}</p></div>
+            <div><span className="text-sage-500">Payment type</span><p className="text-sage-800 font-medium">{isFixed ? 'Fixed contract payment' : 'Standard'}</p></div>
+            {isFixed && (
+              <>
+                <div><span className="text-sage-500">Site / client</span><p className="text-sage-800 font-medium">{(ci.site_label as string | null) || '—'}</p></div>
+                <div><span className="text-sage-500">Period</span><p className="text-sage-800 font-medium">{(ci.period_label as string | null) || '—'}</p></div>
+              </>
+            )}
             <div><span className="text-sage-500">Date submitted</span><p className="text-sage-800 font-medium">{fmtDate(ci.date_submitted)}</p></div>
             {job && (
               <div><span className="text-sage-500">Linked job</span><p className="text-sage-800 font-medium"><Link href={`/portal/jobs/${ci.job_id}`} className="hover:text-sage-500">{job.job_number}{job.title ? ` — ${job.title}` : ''}</Link></p></div>
+            )}
+            {ci.approved_at && (
+              <div><span className="text-sage-500">Authorised</span><p className="text-sage-800 font-medium">{fmtDate(ci.approved_at as string)}</p></div>
             )}
             <div><span className="text-sage-500">Date paid</span><p className="text-sage-800 font-medium">{fmtDate(ci.date_paid)}</p></div>
           </div>

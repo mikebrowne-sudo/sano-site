@@ -4,10 +4,11 @@ import { useState, useTransition } from 'react'
 import { approveContractorInvoice, markContractorInvoicePaid } from '../../_actions'
 import { CheckCircle, ThumbsUp } from 'lucide-react'
 
-export function CIStatusActions({ id, status: initialStatus }: { id: string; status: string }) {
+export function CIStatusActions({ id, status: initialStatus, paymentType }: { id: string; status: string; paymentType?: string }) {
   const [isPending, startTransition] = useTransition()
   const [currentStatus, setCurrentStatus] = useState(initialStatus)
   const [error, setError] = useState<string | null>(null)
+  const approveLabel = paymentType === 'fixed_contract' ? 'Authorise for payment' : 'Approve'
 
   function handleApprove() {
     setError(null)
@@ -31,7 +32,7 @@ export function CIStatusActions({ id, status: initialStatus }: { id: string; sta
     <>
       {currentStatus === 'pending' && (
         <button onClick={handleApprove} disabled={isPending} className="inline-flex items-center gap-2 bg-blue-600 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-blue-700 transition-colors disabled:opacity-50">
-          <ThumbsUp size={14} /> {isPending ? 'Approving…' : 'Approve'}
+          <ThumbsUp size={14} /> {isPending ? 'Approving…' : approveLabel}
         </button>
       )}
       {(currentStatus === 'pending' || currentStatus === 'approved') && (

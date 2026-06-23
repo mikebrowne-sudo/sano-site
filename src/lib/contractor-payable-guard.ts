@@ -32,6 +32,10 @@ export const EDITABLE_PAYABLE_FIELDS = [
   'amount',
   'date_submitted',
   'notes',
+  // Fixed contract payment fields — correctable via the audited edit path.
+  'payment_type',
+  'site_label',
+  'period_label',
 ] as const
 
 export interface LinkedRemittance {
