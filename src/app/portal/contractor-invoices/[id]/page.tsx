@@ -41,9 +41,12 @@ export default async function ContractorInvoiceDetailPage({ params }: { params: 
   const job = ci.jobs as unknown as { job_number: string; title: string | null; job_price: number | null; allowed_hours: number | null } | null
   const isFixed = ((ci.payment_type as string | null) ?? 'standard') === 'fixed_contract'
 
-  // Calculate expected labour cost if job is linked
+  // Calculate expected labour cost if job is linked — but NOT for fixed
+  // contract payments, where the amount is a flat agreed figure and an
+  // hourly comparison is meaningless/misleading (a linked job is reference
+  // only).
   let expectedCost: number | null = null
-  if (ci.job_id && job) {
+  if (ci.job_id && job && !isFixed) {
     const { data: workers } = await supabase
       .from('job_workers')
       .select('contractor_id, hours_allocated, contractors ( hourly_rate )')
@@ -108,6 +111,9 @@ export default async function ContractorInvoiceDetailPage({ params }: { params: 
               </div>
             )}
           </div>
+          {isFixed && (
+            <p className="text-xs text-sage-500 mt-3">Fixed contract payments use the entered amount. A linked job is for reference and reporting only.</p>
+          )}
         </Section>
 
         <Section title="Details">
