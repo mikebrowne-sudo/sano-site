@@ -15,6 +15,9 @@ interface CIData {
   amount: number
   date_submitted: string
   notes: string | null
+  payment_type?: string | null
+  site_label?: string | null
+  period_label?: string | null
 }
 
 export function CIForm({ ci, contractors, jobs }: { ci?: CIData; contractors: Contractor[]; jobs: JobOption[] }) {
@@ -25,17 +28,24 @@ export function CIForm({ ci, contractors, jobs }: { ci?: CIData; contractors: Co
   const [amount, setAmount] = useState(ci?.amount ? String(ci.amount) : '')
   const [dateSubmitted, setDateSubmitted] = useState(ci?.date_submitted ?? new Date().toISOString().slice(0, 10))
   const [notes, setNotes] = useState(ci?.notes ?? '')
+  const [paymentType, setPaymentType] = useState(ci?.payment_type ?? 'standard')
+  const [siteLabel, setSiteLabel] = useState(ci?.site_label ?? '')
+  const [periodLabel, setPeriodLabel] = useState(ci?.period_label ?? '')
   const [reason, setReason] = useState('')
 
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [duplicateMsg, setDuplicateMsg] = useState<string | null>(null)
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  const isFixed = paymentType === 'fixed_contract'
+
+  function submit(force: boolean) {
     setError(null)
+    setDuplicateMsg(null)
     if (!contractorId) { setError('Contractor is required.'); return }
     const amt = parseFloat(amount)
     if (!amt || amt <= 0) { setError('Amount must be greater than zero.'); return }
+    if (isFixed && !siteLabel.trim()) { setError('Site/client is required for a fixed contract payment.'); return }
     if (isEdit && !reason.trim()) { setError('A reason is required to edit a contractor payable.'); return }
 
     startTransition(async () => {
@@ -47,6 +57,9 @@ export function CIForm({ ci, contractors, jobs }: { ci?: CIData; contractors: Co
             amount: amt,
             date_submitted: dateSubmitted,
             notes: notes.trim() || null,
+            payment_type: paymentType,
+            site_label: siteLabel.trim() || null,
+            period_label: periodLabel.trim() || null,
             reason: reason.trim(),
           })
         : await createContractorInvoice({
@@ -55,19 +68,45 @@ export function CIForm({ ci, contractors, jobs }: { ci?: CIData; contractors: Co
             amount: amt,
             date_submitted: dateSubmitted,
             notes: notes.trim() || undefined,
+            payment_type: paymentType,
+            site_label: siteLabel.trim() || null,
+            period_label: periodLabel.trim() || null,
+            force,
           })
+      if (result && 'duplicate' in result && result.duplicate) { setDuplicateMsg(result.message ?? 'A similar fixed payment already exists.'); return }
       if (result && 'error' in result && result.error) { setError(result.error); return }
       if (isEdit) window.location.href = `/portal/contractor-invoices/${ci!.id}`
     })
   }
 
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    submit(false)
+  }
+
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-8">
       <Section title="Details">
+        <div className="mb-4">
+          <Sel label="Payment type" value={paymentType} onChange={setPaymentType} options={[{ value: 'standard', label: 'Standard' }, { value: 'fixed_contract', label: 'Fixed contract payment' }]} />
+          {isFixed && <p className="text-xs text-sage-400 mt-1">A flat amount paid to the contractor (e.g. a monthly commercial cleaning contract). This is the contractor payment, not a client invoice. A linked job is optional.</p>}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Sel label="Contractor" required value={contractorId} onChange={setContractorId} options={contractors.map((c) => ({ value: c.id, label: c.full_name }))} placeholder="Select contractor…" />
-          <Sel label="Linked job" value={jobId} onChange={setJobId} options={jobs.map((j) => ({ value: j.id, label: `${j.job_number}${j.title ? ` — ${j.title}` : ''}` }))} placeholder="None" />
+          <Sel label={isFixed ? 'Linked job (optional)' : 'Linked job'} value={jobId} onChange={setJobId} options={jobs.map((j) => ({ value: j.id, label: `${j.job_number}${j.title ? ` — ${j.title}` : ''}` }))} placeholder="None" />
         </div>
+        {isFixed && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+            <label className="block">
+              <span className="block text-sm font-semibold text-sage-800 mb-1.5">Site / client <span className="text-red-500">*</span></span>
+              <input value={siteLabel} onChange={(e) => setSiteLabel(e.target.value)} placeholder="e.g. Pukekohe Golf Club" className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
+            </label>
+            <label className="block">
+              <span className="block text-sm font-semibold text-sage-800 mb-1.5">Period</span>
+              <input value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} placeholder="e.g. June 2026" className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
+            </label>
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <label className="block">
             <span className="block text-sm font-semibold text-sage-800 mb-1.5">Amount ($) <span className="text-red-500">*</span></span>
@@ -90,6 +129,16 @@ export function CIForm({ ci, contractors, jobs }: { ci?: CIData; contractors: Co
           <input value={reason} onChange={(e) => setReason(e.target.value)} required placeholder="e.g. corrected agreed amount with contractor" className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
           <p className="text-xs text-sage-400 mt-1.5">Required. Saved to the audit log. Editing does not mark the payable paid/unpaid, and does not change any remittance.</p>
         </Section>
+      )}
+
+      {duplicateMsg && (
+        <div className="text-amber-800 text-sm bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+          <p>{duplicateMsg}</p>
+          <div className="flex items-center gap-3 mt-2">
+            <button type="button" onClick={() => submit(true)} disabled={isPending} className="bg-amber-600 text-white font-medium px-4 py-2 rounded-lg text-xs hover:bg-amber-700 disabled:opacity-50">Create anyway</button>
+            <button type="button" onClick={() => setDuplicateMsg(null)} className="text-xs text-sage-600 hover:text-sage-800">Cancel</button>
+          </div>
+        </div>
       )}
 
       {error && <p className="text-red-600 text-sm bg-red-50 rounded-lg px-4 py-3">{error}</p>}

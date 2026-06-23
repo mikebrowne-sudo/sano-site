@@ -39,6 +39,9 @@ interface RawCI {
   notes: string | null
   contractor_id: string | null
   job_id: string | null
+  payment_type: string | null
+  site_label: string | null
+  period_label: string | null
   contractors: { full_name: string | null; hourly_rate: number | null } | null
   jobs: { job_number: string | null; address: string | null; allowed_hours: number | null } | null
 }
@@ -51,6 +54,9 @@ interface Row {
   jobNumber: string | null
   jobAddress: string | null
   note: string | null
+  paymentType: string
+  siteLabel: string | null
+  periodLabel: string | null
   amount: number | null
   expected: number | null
   variance: number | null
@@ -74,7 +80,7 @@ export default async function ContractorInvoicesPage({ searchParams }: { searchP
   const [{ data: invoices, error }, { data: contractorOpts }] = await Promise.all([
     supabase
       .from('contractor_invoices')
-      .select('id, invoice_number, amount, date_submitted, date_paid, status, notes, contractor_id, job_id, contractors ( full_name, hourly_rate ), jobs ( job_number, address, allowed_hours )')
+      .select('id, invoice_number, amount, date_submitted, date_paid, status, notes, contractor_id, job_id, payment_type, site_label, period_label, contractors ( full_name, hourly_rate ), jobs ( job_number, address, allowed_hours )')
       .order('created_at', { ascending: false }),
     supabase.from('contractors').select('id, full_name').order('full_name'),
   ])
@@ -94,10 +100,13 @@ export default async function ContractorInvoicesPage({ searchParams }: { searchP
     const expected = c?.hourly_rate != null && j?.allowed_hours != null ? c.hourly_rate * j.allowed_hours : null
     const variance = expected != null && ci.amount != null ? ci.amount - expected : null
     const status = ci.status ?? 'pending'
-    // Safe, unambiguous review flags only (no address parsing).
+    const paymentType = ci.payment_type ?? 'standard'
+    const isFixed = paymentType === 'fixed_contract'
+    // Safe, unambiguous review flags only (no address parsing). Fixed
+    // contract payments legitimately have no linked job, so don't flag them.
     let reviewReason: string | null = null
     if (status === 'paid' && !ci.date_paid) reviewReason = 'Paid with no payment date'
-    else if (status === 'paid' && !ci.job_id) reviewReason = 'Paid with no linked job'
+    else if (status === 'paid' && !ci.job_id && !isFixed) reviewReason = 'Paid with no linked job'
     return {
       id: ci.id,
       number: ci.invoice_number ?? '—',
@@ -106,6 +115,9 @@ export default async function ContractorInvoicesPage({ searchParams }: { searchP
       jobNumber: j?.job_number ?? null,
       jobAddress: j?.address ?? null,
       note: ci.notes?.trim() || null,
+      paymentType,
+      siteLabel: ci.site_label?.trim() || null,
+      periodLabel: ci.period_label?.trim() || null,
       amount: ci.amount,
       expected,
       variance,
@@ -264,10 +276,18 @@ export default async function ContractorInvoicesPage({ searchParams }: { searchP
                     </td>
                     <td className="px-5 py-3 align-top text-sage-700">{r.contractor}</td>
                     <td className="px-5 py-3 align-top">
-                      <div className="font-medium text-sage-800">
-                        {r.jobNumber ?? <span className="text-amber-700">No job linked</span>}
-                        {r.jobAddress && <span className="text-sage-500 font-normal"> — {r.jobAddress}</span>}
-                      </div>
+                      {r.paymentType === 'fixed_contract' ? (
+                        <div className="font-medium text-sage-800">
+                          <span className="inline-block mr-1.5 align-middle text-[10px] font-semibold text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5">Fixed</span>
+                          {r.siteLabel ?? <span className="text-amber-700">No site</span>}
+                          {r.periodLabel && <span className="text-sage-500 font-normal"> — {r.periodLabel}</span>}
+                        </div>
+                      ) : (
+                        <div className="font-medium text-sage-800">
+                          {r.jobNumber ?? <span className="text-amber-700">No job linked</span>}
+                          {r.jobAddress && <span className="text-sage-500 font-normal"> — {r.jobAddress}</span>}
+                        </div>
+                      )}
                       {r.note && <div className="text-[11px] text-sage-400 italic mt-0.5">Note: {r.note}</div>}
                     </td>
                     <td className="px-5 py-3 align-top text-sage-600 whitespace-nowrap">{fmtDate(r.submitted)}</td>

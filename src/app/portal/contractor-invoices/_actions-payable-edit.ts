@@ -26,6 +26,9 @@ export interface UpdateContractorPayableInput {
   amount: number
   date_submitted: string
   notes: string | null
+  payment_type?: string | null
+  site_label?: string | null
+  period_label?: string | null
   reason?: string | null
 }
 
@@ -47,7 +50,7 @@ export async function updateContractorPayable(
 
   const { data: ci } = await supabase
     .from('contractor_invoices')
-    .select('id, invoice_number, contractor_id, job_id, amount, date_submitted, date_paid, status, notes')
+    .select('id, invoice_number, contractor_id, job_id, amount, date_submitted, date_paid, status, notes, payment_type, site_label, period_label')
     .eq('id', input.id)
     .maybeSingle()
   if (!ci) return { error: 'Contractor payable not found.' }
@@ -67,12 +70,16 @@ export async function updateContractorPayable(
   })
   if (!guard.editable) return { error: guard.message ?? 'This contractor payable can no longer be edited.' }
 
+  const paymentType = input.payment_type === 'fixed_contract' ? 'fixed_contract' : 'standard'
   const before = {
     contractor_id: (ci.contractor_id as string | null) ?? null,
     job_id: (ci.job_id as string | null) ?? null,
     amount: (ci.amount as number | null) ?? null,
     date_submitted: (ci.date_submitted as string | null) ?? null,
     notes: (ci.notes as string | null) ?? null,
+    payment_type: (ci.payment_type as string | null) ?? 'standard',
+    site_label: (ci.site_label as string | null) ?? null,
+    period_label: (ci.period_label as string | null) ?? null,
   }
   const after = {
     contractor_id: input.contractor_id,
@@ -80,6 +87,9 @@ export async function updateContractorPayable(
     amount,
     date_submitted: input.date_submitted,
     notes: input.notes?.trim() || null,
+    payment_type: paymentType,
+    site_label: paymentType === 'fixed_contract' ? (input.site_label?.trim() || null) : null,
+    period_label: paymentType === 'fixed_contract' ? (input.period_label?.trim() || null) : null,
   }
 
   const changes = summariseChanges(before, after, [...EDITABLE_PAYABLE_FIELDS])
