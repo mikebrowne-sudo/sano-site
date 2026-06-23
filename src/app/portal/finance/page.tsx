@@ -243,6 +243,16 @@ export default async function FinancePage({
 
       <PeriodFilter current={periodKey} customFrom={searchParams.from} customTo={searchParams.to} />
 
+      {/* Accountant exports — CSV for the selected period + expenses link. */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-8 flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-sage-500 font-medium mr-1">Exports:</span>
+        <a href={`/api/finance/invoices-csv?from=${from}&to=${to}`} className="inline-flex items-center gap-1.5 border border-sage-200 text-sage-700 px-3 py-1.5 rounded-lg hover:bg-sage-50 transition-colors">Invoice register</a>
+        <a href={`/api/finance/contractor-payments-csv?from=${from}&to=${to}`} className="inline-flex items-center gap-1.5 border border-sage-200 text-sage-700 px-3 py-1.5 rounded-lg hover:bg-sage-50 transition-colors">Contractor payments</a>
+        <a href={`/portal/expenses/csv?from=${from}&to=${to}`} className="inline-flex items-center gap-1.5 border border-sage-200 text-sage-700 px-3 py-1.5 rounded-lg hover:bg-sage-50 transition-colors">Expenses</a>
+        <a href={`/api/finance/cash-out-csv?from=${from}&to=${to}`} className="inline-flex items-center gap-1.5 border border-sage-200 text-sage-700 px-3 py-1.5 rounded-lg hover:bg-sage-50 transition-colors">Cash-out (combined)</a>
+        <Link href="/portal/expenses" className="ml-auto text-sage-500 hover:text-sage-700">Manage expenses →</Link>
+      </div>
+
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-10">
         <Card icon={Receipt} label="Invoiced" value={fmt(totalRevenue)} />

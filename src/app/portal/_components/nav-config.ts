@@ -61,7 +61,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     heading: 'Finance',
     items: [
-      { href: '#',                           label: 'Expenses',             icon: Wallet2,   placeholder: true },
+      { href: '/portal/expenses',            label: 'Expenses',             icon: Wallet2 },
       { href: '/portal/finance',             label: 'Profit / reports',     icon: DollarSign },
       { href: '/portal/contractor-invoices', label: 'Contractor invoices',  icon: FileInput },
       { href: '/portal/payroll',             label: 'Payroll',              icon: Wallet },
