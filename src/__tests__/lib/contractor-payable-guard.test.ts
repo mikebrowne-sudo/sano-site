@@ -48,6 +48,6 @@ describe('evaluatePayableEdit', () => {
     expect(fields).not.toContain('status')
     expect(fields).not.toContain('date_paid')
     expect(fields).not.toContain('invoice_number')
-    expect(fields).toEqual(['contractor_id', 'job_id', 'amount', 'date_submitted', 'notes'])
+    expect(fields).toEqual(['contractor_id', 'job_id', 'amount', 'date_submitted', 'notes', 'payment_type', 'site_label', 'period_label'])
   })
 })
