@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Briefcase, Building2, Home, KeyRound } from 'lucide-react'
+import { Building2, Home, KeyRound, Layers } from 'lucide-react'
 import { CtaBanner } from '@/components/CtaBanner'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { BookingStepsSection } from '../../services/_components/BookingStepsSection'
@@ -17,35 +17,36 @@ import {
 import { NearbySuburbsSection } from '../_components/NearbySuburbsSection'
 
 /**
- * Henderson service-area page — Stage 3, first West Auckland page.
- * Commercial-aware (per Sano's commercial growth direction): Henderson is a
- * major West Auckland centre with a large retail core, offices, and
- * light-industrial workplaces, so the hero names workplaces, the services
- * grouping leads with Property and workplace, and one of the four cards
- * covers offices / commercial spaces. Residential stays the majority
- * (three of four cards).
+ * New Lynn service-area page — West Auckland cluster. Residential-led with a
+ * medium-density / apartment-forward angle: New Lynn has grown around its
+ * transit-hub town centre, so apartments and townhouses near the centre sit
+ * alongside family homes and units on the surrounding streets. Commercial
+ * stays a light secondary thread (services group only); the hero is
+ * homes-and-rentals so the page stays distinct from the commercial-aware
+ * Henderson sibling.
  *
- * Traps held: no affordability / demographic / "growing area" /
- * "family-focused community" framing (West Auckland sensitivity, same as
- * South); no industrial-specialism claims; no "careful" lead; no
- * landmark-as-proof. Built on the shared system. NO nearby-suburb links —
- * first West Auckland page, no regional siblings yet.
+ * Traps held: no "growing area" / "up-and-coming" / affordability /
+ * demographic framing (West Auckland sensitivity — New Lynn attracts this in
+ * lazy SEO copy, explicitly avoided); no "careful" lead; no landmark-as-proof.
+ *
+ * Built on the shared system. Nearby-suburb links to the West cluster
+ * (Henderson, Te Atatu Peninsula, Titirangi).
  */
 
 export const metadata: Metadata = {
-  title: 'Henderson Cleaning Services | Sano',
+  title: 'New Lynn Cleaning Services | Sano',
   description:
-    'Cleaning for Henderson homes, rentals, and workplaces: regular upkeep, deep cleans, end of tenancy, office and commercial cleaning, and specialist surfaces.',
+    'Cleaning for New Lynn apartments, townhouses, units, and family homes: regular upkeep, deep cleans, move-in and move-out, and specialist surfaces.',
 }
 
-export default function HendersonServiceAreaPage() {
+export default function NewLynnServiceAreaPage() {
   return (
     <>
       <SubpageHero
-        eyebrow="Henderson cleaning services"
-        title="Professional cleaning for Henderson homes, rentals, and businesses."
-        subtitle="Sano cleans homes, rentals, and business premises across Henderson, from regular upkeep and end-of-tenancy resets to keeping offices and commercial spaces looking right."
-        imageSrc="/images/heroes/commercial-office-cleaning-hero.jpg"
+        eyebrow="New Lynn cleaning services"
+        title="Professional cleaning for New Lynn homes and rentals."
+        subtitle="Sano cleans across New Lynn's apartments, townhouses, units, and family homes, from regular upkeep to deeper resets and move-in and move-out cleans."
+        imageSrc="/images/heroes/regular-house-cleaning-hero.jpg"
         primaryCta={{ label: 'Get a Free Quote', href: '/contact' }}
         trustItems={DEFAULT_TRUST_ITEMS}
       />
@@ -55,22 +56,22 @@ export default function HendersonServiceAreaPage() {
           <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6 lg:gap-10 items-start">
             <div>
               <h2 className="mb-5 border-b border-sage-100 pb-4">
-                Cleaning across <span className="text-sage-500">Henderson</span>
+                Cleaning across <span className="text-sage-500">New Lynn</span>
               </h2>
               <div className="body-text space-y-4">
                 <p>
-                  Sano works across Henderson on both homes and workplaces, from offices, retail and customer-facing spaces to family homes, townhouses, units, and rentals. The work covers everything from regular upkeep and presentation to deep cleans and move-outs.
+                  Across New Lynn, Sano takes care of apartments, townhouses, units, and family homes, from regular weekly or fortnightly upkeep to deeper cleans and end-of-tenancy work.
                 </p>
                 <p>
-                  We lock in the details first, allow for opening hours and building access where needed, and leave each home or workplace presentable and ready to use.
+                  We get the details sorted first, work around lifts, stairs, and shared building access where needed, and leave the home clean and settled.
                 </p>
               </div>
             </div>
 
             <div className="relative aspect-[4/3] overflow-hidden rounded-2xl">
               <Image
-                src="/images/sano-commercial-clean-auckland.jpeg"
-                alt="Sano commercial and home cleaning across West Auckland"
+                src="/images/herne-bay-residential.jpg"
+                alt="A tidy West Auckland family home"
                 fill
                 className="object-cover"
                 sizes="(max-width: 1024px) 100vw, 45vw"
@@ -87,9 +88,9 @@ export default function HendersonServiceAreaPage() {
       />
 
       <SuburbServicesSection
-        suburb="Henderson"
-        lead="Whether it is a workplace that needs to stay presentable or a home that needs regular upkeep, the full range of Sano services is available across Henderson. Pick a service to read its full scope."
-        groups={[PROPERTY_WORKPLACE_GROUP, HOME_CLEANING_GROUP, SPECIALIST_GROUP]}
+        suburb="New Lynn"
+        lead="From regular home cleaning and deeper resets to move cleans and specialist surfaces, the full range of Sano services is available across New Lynn. Pick a service to read its full scope."
+        groups={[HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP]}
       />
 
       <WhatWeCoverSection
@@ -99,23 +100,23 @@ export default function HendersonServiceAreaPage() {
         subtitle="A short note on what we typically focus on for each kind of property."
         items={[
           {
+            title: 'Apartments and medium-density',
+            body: 'Apartments and units near the centre where lifts, shared entrances, and building schedules set the timing, so the clean is booked to suit the block.',
+            icon: Building2,
+          },
+          {
             title: 'Family homes',
-            body: 'Standalone family homes where regular upkeep across living areas, kitchens, and bathrooms keeps a busy household running without the cleaning piling up.',
+            body: 'Standalone homes on the surrounding streets where regular weekly or fortnightly upkeep keeps living areas, kitchens, and bathrooms on top of a busy week.',
             icon: Home,
           },
           {
             title: 'Townhouses and units',
-            body: 'Townhouses and units where stairs, compact layouts, and shared access shape the clean, so it is planned to suit how the property is built and used.',
-            icon: Building2,
-          },
-          {
-            title: 'Offices and commercial spaces',
-            body: 'Offices, retail units, and customer-facing spaces across Henderson’s retail and commercial core, cleaned to a presentation standard and scheduled around trading hours.',
-            icon: Briefcase,
+            body: 'Multi-level townhouses and compact units where stairs, tight layouts, and shared driveways mean the clean is planned to suit how the place is built.',
+            icon: Layers,
           },
           {
             title: 'Rentals and move cleans',
-            body: 'Handover and end-of-tenancy cleans across the area’s units, townhouses, and rentals, booked to the turnover and scoped around what a property manager signs off.',
+            body: 'Move and turnover cleans booked to the handover and scoped around what an owner or property manager checks before the next tenancy.',
             icon: KeyRound,
           },
         ]}
@@ -146,9 +147,9 @@ export default function HendersonServiceAreaPage() {
           __html: JSON.stringify({
             '@context': 'https://schema.org',
             '@type': 'Service',
-            name: 'Henderson Cleaning Services',
+            name: 'New Lynn Cleaning Services',
             description:
-              'Cleaning services across Henderson: regular, deep, end of tenancy, commercial and office, post-construction, carpet, and window.',
+              'Cleaning services across New Lynn: regular, deep, end of tenancy, carpet, window, commercial, and post-construction.',
             provider: { '@type': 'LocalBusiness', name: 'Sano Property Services' },
             areaServed: { '@type': 'City', name: 'Auckland' },
           }),
@@ -157,7 +158,7 @@ export default function HendersonServiceAreaPage() {
 
       <NearbySuburbsSection
         suburbs={[
-          { name: 'New Lynn', href: '/service-area/new-lynn' },
+          { name: 'Henderson', href: '/service-area/henderson' },
           { name: 'Te Atatū Peninsula', href: '/service-area/te-atatu-peninsula' },
           { name: 'Titirangi', href: '/service-area/titirangi' },
         ]}

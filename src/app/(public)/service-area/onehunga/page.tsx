@@ -75,10 +75,10 @@ export default function OnehungaServiceAreaPage() {
               </h2>
               <div className="body-text space-y-4">
                 <p>
-                  Onehunga has a working town centre, with offices, retail, and small workplaces sitting alongside older character and villa homes, renovated houses, townhouses, and newer apartments. So the cleaning covers both: presentation and upkeep for workplaces, and regular cleans, deeper resets, and move-related work for homes and rentals.
+                  Sano provides regular, deep, commercial, and move-related cleaning across Onehunga, covering offices, retail and workplaces alongside character homes, townhouses, apartments, and rentals. The work runs from ongoing upkeep to deeper cleans, handovers, and workplace presentation.
                 </p>
                 <p>
-                  Sano agrees the scope upfront, plans around access and trading hours where needed, and focuses on what each property actually needs, whether that is a regular routine, a thorough reset, or a clean timed to a handover or opening.
+                  We talk it through before the first clean, plan around access and trading hours where it matters, and leave each home or workplace clean, presentable, and properly looked after.
                 </p>
               </div>
             </div>

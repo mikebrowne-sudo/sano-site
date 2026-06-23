@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Briefcase, Building2, Home, KeyRound } from 'lucide-react'
+import { BadgeCheck, Home, KeyRound, Trees } from 'lucide-react'
 import { CtaBanner } from '@/components/CtaBanner'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { BookingStepsSection } from '../../services/_components/BookingStepsSection'
@@ -17,35 +17,36 @@ import {
 import { NearbySuburbsSection } from '../_components/NearbySuburbsSection'
 
 /**
- * Henderson service-area page — Stage 3, first West Auckland page.
- * Commercial-aware (per Sano's commercial growth direction): Henderson is a
- * major West Auckland centre with a large retail core, offices, and
- * light-industrial workplaces, so the hero names workplaces, the services
- * grouping leads with Property and workplace, and one of the four cards
- * covers offices / commercial spaces. Residential stays the majority
- * (three of four cards).
+ * Titirangi service-area page — West Auckland cluster. Residential, and the
+ * most physically distinct page in the set: bush-set homes in the Waitakere
+ * foothills, where timber, decks, glass, and steeper access genuinely change
+ * how a clean runs. Commercial stays a light secondary thread (small village
+ * only); the hero is homes-and-rentals.
  *
- * Traps held: no affordability / demographic / "growing area" /
- * "family-focused community" framing (West Auckland sensitivity, same as
- * South); no industrial-specialism claims; no "careful" lead; no
- * landmark-as-proof. Built on the shared system. NO nearby-suburb links —
- * first West Auckland page, no regional siblings yet.
+ * Traps held: no prestige / "architectural gems" / "sought-after" / lifestyle
+ * / bohemian / artistic framing (Titirangi attracts all of these in lazy
+ * copy); bush, timber, decks, and glass named only as plain property
+ * features; Waitakere Ranges named only as plain location, not as
+ * landmark-as-proof; no "careful" lead; no demographics.
+ *
+ * Built on the shared system. Nearby-suburb links to the West cluster
+ * (Henderson, New Lynn, Te Atatu Peninsula).
  */
 
 export const metadata: Metadata = {
-  title: 'Henderson Cleaning Services | Sano',
+  title: 'Titirangi Cleaning Services | Sano',
   description:
-    'Cleaning for Henderson homes, rentals, and workplaces: regular upkeep, deep cleans, end of tenancy, office and commercial cleaning, and specialist surfaces.',
+    'Cleaning for Titirangi bush-set homes, timber houses, and rentals: regular upkeep, deep cleans, move-in and move-out, glass, and specialist surfaces.',
 }
 
-export default function HendersonServiceAreaPage() {
+export default function TitirangiServiceAreaPage() {
   return (
     <>
       <SubpageHero
-        eyebrow="Henderson cleaning services"
-        title="Professional cleaning for Henderson homes, rentals, and businesses."
-        subtitle="Sano cleans homes, rentals, and business premises across Henderson, from regular upkeep and end-of-tenancy resets to keeping offices and commercial spaces looking right."
-        imageSrc="/images/heroes/commercial-office-cleaning-hero.jpg"
+        eyebrow="Titirangi cleaning services"
+        title="Professional cleaning for Titirangi homes and rentals."
+        subtitle="Sano cleans across Titirangi's bush-set homes, timber houses, and rentals, from regular upkeep to deeper resets and move-in and move-out cleans."
+        imageSrc="/images/heroes/regular-house-cleaning-hero.jpg"
         primaryCta={{ label: 'Get a Free Quote', href: '/contact' }}
         trustItems={DEFAULT_TRUST_ITEMS}
       />
@@ -55,22 +56,22 @@ export default function HendersonServiceAreaPage() {
           <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6 lg:gap-10 items-start">
             <div>
               <h2 className="mb-5 border-b border-sage-100 pb-4">
-                Cleaning across <span className="text-sage-500">Henderson</span>
+                Cleaning across <span className="text-sage-500">Titirangi</span>
               </h2>
               <div className="body-text space-y-4">
                 <p>
-                  Sano works across Henderson on both homes and workplaces, from offices, retail and customer-facing spaces to family homes, townhouses, units, and rentals. The work covers everything from regular upkeep and presentation to deep cleans and move-outs.
+                  Sano cleans family homes, standalone properties, larger homes, and rentals across Titirangi, from regular upkeep to deeper cleans and move-in or move-out work.
                 </p>
                 <p>
-                  We lock in the details first, allow for opening hours and building access where needed, and leave each home or workplace presentable and ready to use.
+                  We sort the details before the first visit, allow for access and timing where a property calls for it, and leave the home clean, presentable, and ready.
                 </p>
               </div>
             </div>
 
             <div className="relative aspect-[4/3] overflow-hidden rounded-2xl">
               <Image
-                src="/images/sano-commercial-clean-auckland.jpeg"
-                alt="Sano commercial and home cleaning across West Auckland"
+                src="/images/herne-bay-residential.jpg"
+                alt="A timber home set among trees in West Auckland"
                 fill
                 className="object-cover"
                 sizes="(max-width: 1024px) 100vw, 45vw"
@@ -87,9 +88,9 @@ export default function HendersonServiceAreaPage() {
       />
 
       <SuburbServicesSection
-        suburb="Henderson"
-        lead="Whether it is a workplace that needs to stay presentable or a home that needs regular upkeep, the full range of Sano services is available across Henderson. Pick a service to read its full scope."
-        groups={[PROPERTY_WORKPLACE_GROUP, HOME_CLEANING_GROUP, SPECIALIST_GROUP]}
+        suburb="Titirangi"
+        lead="From regular home cleaning and deeper resets to move cleans, glass, and specialist surfaces, the full range of Sano services is available across Titirangi. Pick a service to read its full scope."
+        groups={[HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP]}
       />
 
       <WhatWeCoverSection
@@ -99,23 +100,23 @@ export default function HendersonServiceAreaPage() {
         subtitle="A short note on what we typically focus on for each kind of property."
         items={[
           {
-            title: 'Family homes',
-            body: 'Standalone family homes where regular upkeep across living areas, kitchens, and bathrooms keeps a busy household running without the cleaning piling up.',
+            title: 'Bush-set homes',
+            body: 'Bush-set homes where decks, large windows, and the dust and leaf-fall that come with the setting mean glass and outdoor areas often need as much attention as the rooms inside.',
+            icon: Trees,
+          },
+          {
+            title: 'Timber and glass homes',
+            body: 'Houses with a lot of timber, glass, and open living, where the clean covers the extra surfaces and angles these homes bring, not just the standard rooms.',
             icon: Home,
           },
           {
-            title: 'Townhouses and units',
-            body: 'Townhouses and units where stairs, compact layouts, and shared access shape the clean, so it is planned to suit how the property is built and used.',
-            icon: Building2,
-          },
-          {
-            title: 'Offices and commercial spaces',
-            body: 'Offices, retail units, and customer-facing spaces across Henderson’s retail and commercial core, cleaned to a presentation standard and scheduled around trading hours.',
-            icon: Briefcase,
+            title: 'Renovated and extended homes',
+            body: 'Homes that have been updated or added to, where the clean works consistently across the new and original spaces so the whole house reads as finished.',
+            icon: BadgeCheck,
           },
           {
             title: 'Rentals and move cleans',
-            body: 'Handover and end-of-tenancy cleans across the area’s units, townhouses, and rentals, booked to the turnover and scoped around what a property manager signs off.',
+            body: 'Move-in and move-out cleans booked to the handover and scoped around the areas an owner or property manager checks before a new tenancy.',
             icon: KeyRound,
           },
         ]}
@@ -146,9 +147,9 @@ export default function HendersonServiceAreaPage() {
           __html: JSON.stringify({
             '@context': 'https://schema.org',
             '@type': 'Service',
-            name: 'Henderson Cleaning Services',
+            name: 'Titirangi Cleaning Services',
             description:
-              'Cleaning services across Henderson: regular, deep, end of tenancy, commercial and office, post-construction, carpet, and window.',
+              'Cleaning services across Titirangi: regular, deep, end of tenancy, window, carpet, commercial, and post-construction.',
             provider: { '@type': 'LocalBusiness', name: 'Sano Property Services' },
             areaServed: { '@type': 'City', name: 'Auckland' },
           }),
@@ -157,9 +158,9 @@ export default function HendersonServiceAreaPage() {
 
       <NearbySuburbsSection
         suburbs={[
+          { name: 'Henderson', href: '/service-area/henderson' },
           { name: 'New Lynn', href: '/service-area/new-lynn' },
           { name: 'Te Atatū Peninsula', href: '/service-area/te-atatu-peninsula' },
-          { name: 'Titirangi', href: '/service-area/titirangi' },
         ]}
       />
 

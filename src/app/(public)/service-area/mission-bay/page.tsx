@@ -57,10 +57,10 @@ export default function MissionBayServiceAreaPage() {
               </h2>
               <div className="body-text space-y-4">
                 <p>
-                  Mission Bay has a real mix of apartments and townhouses close to the waterfront, family homes set back from it, and rentals throughout, plus a small run of shops and eateries. The right cleaning scope can change a lot from one property to the next, depending on the access, the layout, and whether the job is regular upkeep, a deeper reset, or a move-related clean.
+                  For apartments, townhouses, family homes, and rentals across Mission Bay, Sano covers regular upkeep, deeper one-off cleans, and move-in or move-out work.
                 </p>
                 <p>
-                  Sano keeps it straightforward: agree the scope upfront, plan the clean around the building or the home, and leave the place clean and ready to use.
+                  We talk through what&apos;s needed before booking, plan around lifts, shared access, and timing for apartments, and leave the home clean and ready.
                 </p>
               </div>
             </div>

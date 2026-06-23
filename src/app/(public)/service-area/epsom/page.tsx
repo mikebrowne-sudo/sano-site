@@ -86,10 +86,10 @@ export default function EpsomServiceAreaPage() {
               <h2 className="mb-5 border-b border-sage-100 pb-4">Cleaning across <span className="text-sage-500">Epsom</span></h2>
               <div className="body-text space-y-4">
                 <p>
-                  Epsom cleaning often comes down to presentation, access, and detail. Some homes need regular upkeep around busy household routines, while townhouses, apartments, and rentals may need more structured deep cleans, move cleans, or clear scopes before handover.
+                  From regular upkeep to deep cleans and end-of-tenancy work, Sano cleans established homes, townhouses, apartments, and rentals across Epsom. Some are regular bookings, while others are one-off cleans before a move, handover, sale, or new tenancy.
                 </p>
                 <p>
-                  For Epsom, that means agreeing the right scope upfront, planning around access where needed, and focusing on the areas that make the home feel properly finished: kitchens, bathrooms, floors, touchpoints, skirting boards, and visible surfaces.
+                  From the first quote we keep it simple, work around access and timing where a property needs it, and leave the home clean, presentable, and ready.
                 </p>
               </div>
             </div>
