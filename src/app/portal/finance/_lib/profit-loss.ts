@@ -1,38 +1,35 @@
 // Cash-basis Profit & Loss builder.
 //
-// "Cash basis" = we count money when it actually moves, not when it is
-// invoiced/incurred:
-//   • Income      → invoices marked paid, by their date_paid
-//   • Cost of sales → contractor payments marked paid, by their date_paid
-//   • Operating   → expenses, by their expense_date
+// "Cash basis" = we count money when it actually moves. Both sides are driven
+// off the records that match the bank:
+//   • Income → invoices marked paid, by their date_paid
+//   • Cost out → the Expenses table, by expense_date
 //
-// Two deliberate exclusions from net profit, both surfaced separately so the
-// statement is transparent rather than silently trimmed:
+// The Expenses table is the single source of truth for money out, because its
+// entries reconcile to the ASB bank export (each carries the real bank
+// payment reference). That includes contractor payments, which are entered as
+// expenses under the `wages_payroll` category as they're paid — so the
+// contractor cost of sales is read straight from there, NOT from the separate
+// contractor-invoice approval system (which can lag actual payments).
 //
-//   1. DOUBLE-COUNT categories (wages_payroll) — these expense entries are the
-//      same money already captured as contractor cost of sales. Counting them
-//      again would double-count the cost. Confirmed with the owner that the
-//      wages/payroll entries are the contractors. Shown as an excluded note.
-//
-//   2. accountantConfirm categories (capital_expense, owner equity/drawings) —
-//      not ordinary operating expenses (an asset, or equity movement). Shown
-//      "below the line", never in net profit.
+// Expenses are bucketed three ways:
+//   1. CONTRACTOR_COST_CATEGORY (wages_payroll) → cost of sales (above gross profit)
+//   2. accountantConfirm categories (capital_expense, owner equity/loan/drawings)
+//      → "below the line": not operating expenses (an asset, or a financing /
+//      equity movement). Never in net profit.
+//   3. everything else → operating expenses
 //
 // No tax treatment is implied. Figures are as-entered (GST-inclusive where the
-// underlying records are GST-inclusive). This is a working management P&L, not
-// a filed financial statement.
+// underlying records are). This is a working management P&L, not a filed
+// financial statement.
 
 import { expenseCategoryLabel, isAccountantConfirmCategory } from '@/lib/expense-categories'
 
-/** Expense categories whose money is already counted elsewhere in the P&L. */
-export const DOUBLE_COUNT_EXPENSE_CATEGORIES: readonly string[] = ['wages_payroll']
+/** Expense category whose entries are contractor payments (cost of sales). */
+export const CONTRACTOR_COST_CATEGORY = 'wages_payroll'
 
 export interface PLIncomeRow {
   total: number
-  datePaid: string | null
-}
-export interface PLContractorRow {
-  amount: number
   datePaid: string | null
 }
 export interface PLExpenseRow {
@@ -57,8 +54,11 @@ export interface ProfitLoss {
   operatingExpenses: PLCategoryLine[]
   operatingExpensesTotal: number
   netProfit: number
-  excludedDoubleCount: PLCategoryLine[]
-  excludedDoubleCountTotal: number
+  // "Everything marked as paid" cash tally — mirrors the statement:
+  moneyIn: number
+  moneyOut: number
+  netCash: number
+  // Surfaced separately, never in net profit:
   belowLine: PLCategoryLine[]
   belowLineTotal: number
   grossMarginPct: number
@@ -81,7 +81,6 @@ function toLines(map: Map<string, { total: number; count: number }>): PLCategory
 
 export function buildProfitLoss(args: {
   income: PLIncomeRow[]
-  contractors: PLContractorRow[]
   expenses: PLExpenseRow[]
   from: string
   to: string
@@ -91,50 +90,50 @@ export function buildProfitLoss(args: {
   const income = args.income.filter((r) => inRange(r.datePaid, from, to))
   const incomeTotal = round2(income.reduce((s, r) => s + (r.total ?? 0), 0))
 
-  const contractors = args.contractors.filter((r) => inRange(r.datePaid, from, to))
-  const costOfSales = round2(contractors.reduce((s, r) => s + (r.amount ?? 0), 0))
-
-  const grossProfit = round2(incomeTotal - costOfSales)
-
-  // Bucket expenses by category into operating / excluded-double-count / below-line.
+  // Bucket in-range expenses: cost of sales / operating / below-line.
+  const cogs = new Map<string, { total: number; count: number }>()
   const operating = new Map<string, { total: number; count: number }>()
-  const excluded = new Map<string, { total: number; count: number }>()
   const below = new Map<string, { total: number; count: number }>()
 
   for (const e of args.expenses) {
     if (!inRange(e.expenseDate, from, to)) continue
     const cat = e.category ?? 'other'
     const amt = e.amount ?? 0
-    const bucket = isAccountantConfirmCategory(cat)
-      ? below
-      : DOUBLE_COUNT_EXPENSE_CATEGORIES.includes(cat)
-        ? excluded
+    const bucket = cat === CONTRACTOR_COST_CATEGORY
+      ? cogs
+      : isAccountantConfirmCategory(cat)
+        ? below
         : operating
     const prev = bucket.get(cat) ?? { total: 0, count: 0 }
     bucket.set(cat, { total: prev.total + amt, count: prev.count + 1 })
   }
 
+  const costOfSalesLines = toLines(cogs)
+  const costOfSales = round2(costOfSalesLines.reduce((s, l) => s + l.total, 0))
+  const costOfSalesCount = costOfSalesLines.reduce((s, l) => s + l.count, 0)
+  const grossProfit = round2(incomeTotal - costOfSales)
+
   const operatingExpenses = toLines(operating)
   const operatingExpensesTotal = round2(operatingExpenses.reduce((s, l) => s + l.total, 0))
   const netProfit = round2(grossProfit - operatingExpensesTotal)
 
-  const excludedDoubleCount = toLines(excluded)
-  const excludedDoubleCountTotal = round2(excludedDoubleCount.reduce((s, l) => s + l.total, 0))
-
   const belowLine = toLines(below)
   const belowLineTotal = round2(belowLine.reduce((s, l) => s + l.total, 0))
+
+  const moneyOut = round2(costOfSales + operatingExpensesTotal)
 
   return {
     income: incomeTotal,
     incomeCount: income.length,
     costOfSales,
-    costOfSalesCount: contractors.length,
+    costOfSalesCount,
     grossProfit,
     operatingExpenses,
     operatingExpensesTotal,
     netProfit,
-    excludedDoubleCount,
-    excludedDoubleCountTotal,
+    moneyIn: incomeTotal,
+    moneyOut,
+    netCash: round2(incomeTotal - moneyOut),
     belowLine,
     belowLineTotal,
     grossMarginPct: incomeTotal > 0 ? Math.round((grossProfit / incomeTotal) * 100) : 0,

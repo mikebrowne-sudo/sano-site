@@ -32,17 +32,13 @@ export default async function ProfitLossPage({
   const periodKey = searchParams.period ?? 'ytd'
   const { from, to } = resolvePeriod(periodKey, searchParams.from, searchParams.to)
 
-  // Cash basis: pull the paid records and filter by their payment date in the
-  // builder. Volumes are small (tens–hundreds of rows) so no server-side date
-  // window is needed; the builder owns the basis logic for testability.
-  const [{ data: invoices }, { data: payables }, { data: expenses }] = await Promise.all([
+  // Cash basis: income from paid invoices, all cost out from the Expenses
+  // table (which reconciles to the ASB bank export). The builder owns the
+  // basis + bucketing logic for testability. Volumes are small.
+  const [{ data: invoices }, { data: expenses }] = await Promise.all([
     supabase
       .from('invoices')
       .select('base_price, discount, date_paid, invoice_items ( price )')
-      .eq('status', 'paid'),
-    supabase
-      .from('contractor_invoices')
-      .select('amount, date_paid')
       .eq('status', 'paid'),
     supabase
       .from('expenses')
@@ -57,17 +53,13 @@ export default async function ProfitLossPage({
       datePaid: (i.date_paid as string | null) ?? null,
     }
   })
-  const contractors = (payables ?? []).map((p) => ({
-    amount: (p.amount as number | null) ?? 0,
-    datePaid: (p.date_paid as string | null) ?? null,
-  }))
   const expenseRows = (expenses ?? []).map((e) => ({
     amount: (e.amount as number | null) ?? 0,
     category: (e.category as string | null) ?? null,
     expenseDate: (e.expense_date as string | null) ?? null,
   }))
 
-  const pl = buildProfitLoss({ income, contractors, expenses: expenseRows, from, to })
+  const pl = buildProfitLoss({ income, expenses: expenseRows, from, to })
 
   return (
     <div className="tnum max-w-3xl">
@@ -80,10 +72,17 @@ export default async function ProfitLossPage({
 
       <PeriodFilter current={periodKey} customFrom={searchParams.from} customTo={searchParams.to} basePath="/portal/finance/profit-loss" />
 
+      {/* Money in / out / net — everything marked as paid, at a glance. */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <Tally label="Money in (received)" value={pl.moneyIn} tone="in" sub={`${pl.incomeCount} paid invoice${pl.incomeCount !== 1 ? 's' : ''}`} />
+        <Tally label="Money out (paid)" value={pl.moneyOut} tone="out" sub="contractors + expenses" />
+        <Tally label="Net" value={pl.netCash} tone="net" sub={`${pl.netMarginPct}% of income`} />
+      </div>
+
       {/* Statement */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <Row label="Income" sub={`${pl.incomeCount} paid invoice${pl.incomeCount !== 1 ? 's' : ''}`} value={pl.income} strong />
-        <Row label="Less cost of sales — contractor payments" sub={`${pl.costOfSalesCount} paid`} value={-pl.costOfSales} />
+        <Row label="Less cost of sales — contractor payments" sub={`${pl.costOfSalesCount} payment${pl.costOfSalesCount !== 1 ? 's' : ''}`} value={-pl.costOfSales} />
         <Row label="Gross profit" value={pl.grossProfit} strong divider sub={`${pl.grossMarginPct}% margin`} />
 
         {/* Operating expenses */}
@@ -100,27 +99,19 @@ export default async function ProfitLossPage({
         <Row label="Net profit / (loss)" value={pl.netProfit} strong xl divider sub={`${pl.netMarginPct}% of income`} />
       </div>
 
-      {/* Excluded — double-count */}
-      {pl.excludedDoubleCount.length > 0 && (
-        <Note tone="sage">
-          <strong>Excluded — already counted:</strong> {pl.excludedDoubleCount.map((l) => `${l.label} (${fmt(l.total)})`).join(', ')}.
-          These are contractor payments already included in cost of sales above, so they are not subtracted again. Consider removing
-          these duplicate entries from Expenses to keep the books clean.
-        </Note>
-      )}
-
-      {/* Below the line — capital / equity */}
+      {/* Below the line — capital / equity / financing */}
       {pl.belowLine.length > 0 && (
         <Note tone="amber">
           <strong>Below the line (not in net profit):</strong> {pl.belowLine.map((l) => `${l.label} (${fmt(l.total)})`).join(', ')}.
-          These are capital or owner equity / drawings movements, not operating expenses — confirm treatment with your accountant.
+          These are capital or owner equity / loan / drawings movements, not operating costs — confirm treatment with your accountant.
         </Note>
       )}
 
       <p className="text-xs text-sage-400 mt-6">
-        Cash basis: income = invoices marked paid (by payment date); cost of sales = contractor payments marked paid; operating
-        expenses = entered expenses (by expense date). Figures are as-entered and GST-inclusive where the source records are.
-        This is a working management view, not a filed financial statement — confirm final categories and treatment with your accountant.
+        Cash basis: income = invoices marked paid (by payment date); cost out = the Expenses table (by expense date), which
+        reconciles to the bank. Contractor payments are read from the Wages / payroll expense category. Figures are as-entered and
+        GST-inclusive where the source records are. This is a working management view, not a filed financial statement — confirm
+        final categories and treatment with your accountant.
       </p>
     </div>
   )
@@ -149,6 +140,25 @@ function Row({ label, sub, value, strong, xl, indent, divider }: {
       )}>
         {value < 0 ? `(${fmt(Math.abs(value))})` : fmt(value)}
       </span>
+    </div>
+  )
+}
+
+function Tally({ label, value, tone, sub }: { label: string; value: number; tone: 'in' | 'out' | 'net'; sub?: string }) {
+  const negative = value < 0
+  return (
+    <div className={clsx(
+      'rounded-xl border p-4',
+      tone === 'in' ? 'bg-emerald-50 border-emerald-100' : tone === 'out' ? 'bg-white border-gray-100 shadow-sm' : 'bg-sage-50 border-sage-100',
+    )}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-sage-500">{label}</p>
+      <p className={clsx(
+        'text-2xl font-bold mt-1 tabular-nums',
+        tone === 'in' ? 'text-emerald-700' : tone === 'net' ? (negative ? 'text-red-600' : 'text-sage-800') : 'text-sage-700',
+      )}>
+        {tone === 'out' ? fmt(value) : negative ? `(${fmt(Math.abs(value))})` : fmt(value)}
+      </p>
+      {sub && <p className="text-xs text-sage-400 mt-0.5">{sub}</p>}
     </div>
   )
 }
