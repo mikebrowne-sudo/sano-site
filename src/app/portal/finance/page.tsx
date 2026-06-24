@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import Link from 'next/link'
-import { DollarSign, TrendingUp, Receipt, Briefcase, AlertTriangle } from 'lucide-react'
+import { DollarSign, TrendingUp, Receipt, Briefcase, AlertTriangle, FileText } from 'lucide-react'
 import { PeriodFilter } from './_components/PeriodFilter'
 import { JobsNeedingAttention } from './_components/JobsNeedingAttention'
 import { resolvePeriod, getMonthsBetween } from './_lib/periods'
@@ -36,12 +36,17 @@ export default async function FinancePage({
   const periodKey = searchParams.period ?? 'this_month'
   const { from, to } = resolvePeriod(periodKey, searchParams.from, searchParams.to)
 
-  // Load invoices and jobs for the period
-  const [{ data: invoices }, { data: jobs }] = await Promise.all([
+  // Load invoices and jobs for the period.
+  // Exclude archived (soft-deleted) and test invoices — they must never count
+  // toward live financial totals. Without these filters the dashboard was
+  // counting binned drafts/sent invoices as if they were live money.
+  const [{ data: invoices }, { data: jobs }, { data: contractorPaidExpenses }] = await Promise.all([
     supabase
       .from('invoices')
       .select('id, invoice_number, status, base_price, discount, date_issued, due_date, date_paid, created_at, clients ( name ), invoice_items ( price )')
       .neq('status', 'cancelled')
+      .is('deleted_at', null)
+      .not('is_test', 'is', true)
       .gte('created_at', `${from}T00:00:00`)
       .lte('created_at', `${to}T23:59:59`)
       .order('created_at', { ascending: false }),
@@ -81,6 +86,16 @@ export default async function FinancePage({
       .gte('scheduled_date', from)
       .lte('scheduled_date', to)
       .order('scheduled_date', { ascending: false }),
+    // Actual contractor cost = the bank-matched contractor payments recorded
+    // as expenses under the wages/payroll category, by expense date. This is
+    // the real cash paid (ties to the bank / the P&L), not the per-job
+    // hours×rate estimate used in the per-job table further down.
+    supabase
+      .from('expenses')
+      .select('amount, expense_date')
+      .eq('category', 'wages_payroll')
+      .gte('expense_date', from)
+      .lte('expense_date', to),
   ])
 
   // Phase G.2 step 2 — fan out the supplemental queries reconcileJob
@@ -161,14 +176,26 @@ export default async function FinancePage({
     }
   })
 
-  const totalRevenue = invoiceRows.reduce((s, i) => s + i.total, 0)
-  const paidRevenue = invoiceRows.filter((i) => i.status === 'paid').reduce((s, i) => s + i.total, 0)
-  const unpaidRevenue = totalRevenue - paidRevenue
-  const paidCount = invoiceRows.filter((i) => i.status === 'paid').length
-  const unpaidCount = invoiceRows.filter((i) => i.status !== 'paid').length
+  // Revenue split by status. "Outstanding" = genuinely owed = issued-but-unpaid
+  // (sent). Drafts are NOT issued yet, so they are reported separately and
+  // never counted as outstanding. "Invoiced" = issued = sent + paid.
+  const paidRows = invoiceRows.filter((i) => i.status === 'paid')
+  const sentRows = invoiceRows.filter((i) => i.status === 'sent')
+  const draftRows = invoiceRows.filter((i) => i.status === 'draft')
+
+  const paidRevenue = paidRows.reduce((s, i) => s + i.total, 0)
+  const outstandingRevenue = sentRows.reduce((s, i) => s + i.total, 0)
+  const draftRevenue = draftRows.reduce((s, i) => s + i.total, 0)
+  const issuedRevenue = paidRevenue + outstandingRevenue
+  const paidCount = paidRows.length
+  const outstandingCount = sentRows.length
+  const draftCount = draftRows.length
 
   const today = new Date().toISOString().slice(0, 10)
   const overdueInvoices = invoiceRows.filter((i) => i.status === 'sent' && i.dueDate && i.dueDate < today)
+
+  // Actual contractor cost (bank-matched, from wages/payroll expenses).
+  const contractorActualCost = (contractorPaidExpenses ?? []).reduce((s, e) => s + ((e.amount as number | null) ?? 0), 0)
 
   // Contractor costs — Phase G.1.
   // Cost is the sum of (rate × payable hours) across all job_workers
@@ -213,24 +240,30 @@ export default async function FinancePage({
     })
     .filter((j) => j.contractorPrice > 0)
 
-  const totalCost = jobRows.reduce((s, j) => s + j.contractorPrice, 0)
-  const estimatedMargin = totalRevenue - totalCost
-  const marginPercent = totalRevenue > 0 ? Math.round((estimatedMargin / totalRevenue) * 100) : 0
+  // Per-job labour ESTIMATE (hours × rate) — kept for the per-job table only.
+  const estimatedJobLabour = jobRows.reduce((s, j) => s + j.contractorPrice, 0)
+  // Headline margin is cash-consistent: actual paid income less actual paid
+  // contractor cost (gross — excludes operating expenses; see the P&L for net).
+  const grossMargin = paidRevenue - contractorActualCost
+  const grossMarginPercent = paidRevenue > 0 ? Math.round((grossMargin / paidRevenue) * 100) : 0
 
-  // Monthly breakdown
+  // Monthly breakdown — issued revenue + paid by date_issued / status; cost is
+  // actual contractor paid (wages/payroll expenses) bucketed by expense date.
   const months = getMonthsBetween(from, to)
   const monthlyData = months.map((m) => {
-    const monthInvoices = invoiceRows.filter((i) => i.dateIssued && i.dateIssued >= m.from && i.dateIssued <= m.to)
+    const monthInvoices = invoiceRows.filter((i) => i.status !== 'draft' && i.dateIssued && i.dateIssued >= m.from && i.dateIssued <= m.to)
     const monthJobs = jobRows.filter((j) => j.scheduledDate && j.scheduledDate >= m.from && j.scheduledDate <= m.to)
     const rev = monthInvoices.reduce((s, i) => s + i.total, 0)
     const paid = monthInvoices.filter((i) => i.status === 'paid').reduce((s, i) => s + i.total, 0)
-    const cost = monthJobs.reduce((s, j) => s + j.contractorPrice, 0)
+    const cost = (contractorPaidExpenses ?? [])
+      .filter((e) => { const d = e.expense_date as string | null; return d != null && d >= m.from && d <= m.to })
+      .reduce((s, e) => s + ((e.amount as number | null) ?? 0), 0)
     return {
       label: m.label,
       revenue: rev,
       paid,
       cost,
-      margin: rev - cost,
+      margin: paid - cost,
       invoiceCount: monthInvoices.length,
       paidCount: monthInvoices.filter((i) => i.status === 'paid').length,
       jobCount: monthJobs.length,
@@ -253,13 +286,16 @@ export default async function FinancePage({
         <Link href="/portal/expenses" className="ml-auto text-sage-500 hover:text-sage-700">Manage expenses →</Link>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-10">
-        <Card icon={Receipt} label="Invoiced" value={fmt(totalRevenue)} />
+      {/* Summary cards. Archived + test invoices are excluded. "Invoiced" =
+          issued (sent + paid); "Outstanding" = sent only (genuinely owed);
+          drafts are reported separately as not-yet-issued. */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-10">
+        <Card icon={Receipt} label="Invoiced" value={fmt(issuedRevenue)} sub={`${paidCount + outstandingCount} issued`} />
         <Card icon={DollarSign} label="Paid" value={fmt(paidRevenue)} accent="emerald" sub={`${paidCount} invoice${paidCount !== 1 ? 's' : ''}`} />
-        <Card icon={AlertTriangle} label="Unpaid" value={fmt(unpaidRevenue)} accent={unpaidRevenue > 0 ? 'amber' : undefined} sub={`${unpaidCount} invoice${unpaidCount !== 1 ? 's' : ''}${overdueInvoices.length > 0 ? ` (${overdueInvoices.length} overdue)` : ''}`} />
-        <Card icon={Briefcase} label="Contractor cost" value={fmt(totalCost)} />
-        <Card icon={TrendingUp} label="Est. margin" value={fmt(estimatedMargin)} accent={estimatedMargin >= 0 ? 'emerald' : 'red'} sub={`${marginPercent}%`} />
+        <Card icon={AlertTriangle} label="Outstanding" value={fmt(outstandingRevenue)} accent={outstandingRevenue > 0 ? 'amber' : undefined} sub={`${outstandingCount} sent${overdueInvoices.length > 0 ? ` · ${overdueInvoices.length} overdue` : ''}`} />
+        <Card icon={FileText} label="Draft" value={fmt(draftRevenue)} sub={`${draftCount} not issued`} />
+        <Card icon={Briefcase} label="Contractor cost" value={fmt(contractorActualCost)} sub="actual paid" />
+        <Card icon={TrendingUp} label="Est. gross margin" value={fmt(grossMargin)} accent={grossMargin >= 0 ? 'emerald' : 'red'} sub={`${grossMarginPercent}% · excl. expenses`} />
       </div>
 
       {/* Monthly breakdown */}
@@ -359,7 +395,7 @@ export default async function FinancePage({
               <tfoot>
                 <tr className="border-t border-sage-200">
                   <td colSpan={6} className="px-4 py-2.5 font-semibold text-sage-800">Total</td>
-                  <td className="px-4 py-2.5 text-right font-bold text-sage-800">{fmt(totalRevenue)}</td>
+                  <td className="px-4 py-2.5 text-right font-bold text-sage-800">{fmt(issuedRevenue + draftRevenue)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -367,10 +403,11 @@ export default async function FinancePage({
         )}
       </Section>
 
-      {/* Contractor costs */}
-      <Section title={`Contractor Costs (${jobRows.length} jobs)`}>
+      {/* Per-job labour estimate — distinct from the actual-paid headline. */}
+      <Section title={`Per-job labour — estimated (${jobRows.length} jobs)`}>
+        <p className="text-xs text-sage-400 -mt-2 mb-4">Hours × rate estimate per job, for margin analysis. Not the actual paid figure — the headline Contractor cost ({fmt(contractorActualCost)}) is the bank-matched amount paid.</p>
         {jobRows.length === 0 ? (
-          <p className="text-sage-500 text-sm">No contractor costs in this period.</p>
+          <p className="text-sage-500 text-sm">No job-labour estimates in this period.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -398,8 +435,8 @@ export default async function FinancePage({
               </tbody>
               <tfoot>
                 <tr className="border-t border-sage-200">
-                  <td colSpan={5} className="px-4 py-2.5 font-semibold text-sage-800">Total contractor cost</td>
-                  <td className="px-4 py-2.5 text-right font-bold text-sage-800">{fmt(totalCost)}</td>
+                  <td colSpan={5} className="px-4 py-2.5 font-semibold text-sage-800">Total estimated labour</td>
+                  <td className="px-4 py-2.5 text-right font-bold text-sage-800">{fmt(estimatedJobLabour)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -407,25 +444,24 @@ export default async function FinancePage({
         )}
       </Section>
 
-      {/* Margin summary */}
+      {/* Gross margin summary — cash basis, actual figures. */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mt-6">
-        <h2 className="text-sm font-semibold text-sage-500 uppercase tracking-wide mb-4">Estimated Margin Summary</h2>
+        <h2 className="text-sm font-semibold text-sage-500 uppercase tracking-wide mb-4">Gross Margin Summary</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div>
-            <p className="text-sm text-sage-500">Total revenue</p>
-            <p className="text-xl font-bold text-sage-800">{fmt(totalRevenue)}</p>
+            <p className="text-sm text-sage-500">Income received (paid)</p>
+            <p className="text-xl font-bold text-sage-800">{fmt(paidRevenue)}</p>
           </div>
           <div>
-            <p className="text-sm text-sage-500">Total contractor cost</p>
-            <p className="text-xl font-bold text-sage-800">{fmt(totalCost)}</p>
+            <p className="text-sm text-sage-500">Contractor cost (actual paid)</p>
+            <p className="text-xl font-bold text-sage-800">{fmt(contractorActualCost)}</p>
           </div>
           <div>
-            <p className="text-sm text-sage-500">Estimated gross margin</p>
-            <p className={clsx('text-xl font-bold', estimatedMargin >= 0 ? 'text-emerald-700' : 'text-red-600')}>{fmt(estimatedMargin)} <span className="text-sm font-normal">({marginPercent}%)</span></p>
+            <p className="text-sm text-sage-500">Gross margin</p>
+            <p className={clsx('text-xl font-bold', grossMargin >= 0 ? 'text-emerald-700' : 'text-red-600')}>{fmt(grossMargin)} <span className="text-sm font-normal">({grossMarginPercent}%)</span></p>
           </div>
         </div>
-        <p className="text-xs text-sage-400 mt-4">Margin is estimated from invoice totals minus job contractor costs for the selected period. Some jobs may not have linked invoices.</p>
-        <p className="text-xs text-sage-400 mt-1">Estimated margin only includes jobs with captured contractor cost. Review jobs needing attention to improve accuracy.</p>
+        <p className="text-xs text-sage-400 mt-4">Cash basis: paid income less actual contractor payments for the selected period. This is gross — it excludes operating expenses (the P&amp;L statement shows net profit after all expenses).</p>
       </div>
     </div>
   )
