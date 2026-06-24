@@ -35,7 +35,10 @@ export interface ReconExpense {
   expenseDate: string | null
 }
 
-export type CreditStatus = 'reconciled' | 'unpaid_match' | 'amount_match' | 'financing' | 'unmatched'
+// reconcile() emits the first five. 'likely_bundle' / 'likely_match' are
+// display-only states the page derives for an unmatched credit when a
+// payer-scoped subset of invoices plausibly explains it.
+export type CreditStatus = 'reconciled' | 'unpaid_match' | 'amount_match' | 'financing' | 'unmatched' | 'likely_bundle' | 'likely_match'
 export type DebitStatus = 'recorded' | 'not_recorded'
 
 export interface CreditRow {
