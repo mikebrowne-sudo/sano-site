@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { ChevronDown, Trash2 } from 'lucide-react'
 import { createExpense, updateExpense, deleteExpense } from '../_actions'
 import { EXPENSE_CATEGORIES, isAccountantConfirmCategory } from '@/lib/expense-categories'
+import type { VendorSuggestion } from '../_data'
 
 export interface ExpenseData {
   id?: string
@@ -17,7 +18,7 @@ export interface ExpenseData {
   notes: string | null
 }
 
-export function ExpenseForm({ expense }: { expense?: ExpenseData }) {
+export function ExpenseForm({ expense, vendorSuggestions = [] }: { expense?: ExpenseData; vendorSuggestions?: VendorSuggestion[] }) {
   const isEdit = !!expense?.id
 
   const [expenseDate, setExpenseDate] = useState(expense?.expense_date ?? new Date().toISOString().slice(0, 10))
@@ -28,11 +29,23 @@ export function ExpenseForm({ expense }: { expense?: ExpenseData }) {
   const [paymentReference, setPaymentReference] = useState(expense?.payment_reference ?? '')
   const [gstInclusive, setGstInclusive] = useState(expense?.gst_inclusive ?? true)
   const [notes, setNotes] = useState(expense?.notes ?? '')
+  // Once the user picks a category by hand, stop auto-prefilling it from the
+  // vendor so we never clobber a deliberate choice.
+  const [categoryTouched, setCategoryTouched] = useState(false)
 
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
   const accountantConfirm = isAccountantConfirmCategory(category)
+
+  function handleVendorChange(v: string) {
+    setVendor(v)
+    const match = vendorSuggestions.find((s) => s.vendor.toLowerCase() === v.trim().toLowerCase())
+    if (match && !categoryTouched) {
+      setCategory(match.category)
+      setGstInclusive(match.gst_inclusive)
+    }
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -89,7 +102,7 @@ export function ExpenseForm({ expense }: { expense?: ExpenseData }) {
           <label className="block">
             <span className="block text-sm font-semibold text-sage-800 mb-1.5">Category <span className="text-red-500">*</span></span>
             <div className="relative">
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className={`${inputCls} appearance-none pr-10 bg-white`}>
+              <select value={category} onChange={(e) => { setCategory(e.target.value); setCategoryTouched(true) }} className={`${inputCls} appearance-none pr-10 bg-white`}>
                 {EXPENSE_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
               <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-sage-400 pointer-events-none" />
@@ -100,7 +113,13 @@ export function ExpenseForm({ expense }: { expense?: ExpenseData }) {
           </label>
           <label className="block">
             <span className="block text-sm font-semibold text-sage-800 mb-1.5">Vendor / supplier</span>
-            <input value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="e.g. NZI, Xero, Z Energy" className={inputCls} />
+            <input value={vendor} onChange={(e) => handleVendorChange(e.target.value)} list="expense-vendor-list" placeholder="e.g. NZI, Xero, Z Energy" className={inputCls} />
+            <datalist id="expense-vendor-list">
+              {vendorSuggestions.map((s) => <option key={s.vendor} value={s.vendor} />)}
+            </datalist>
+            {vendorSuggestions.length > 0 && !isEdit && (
+              <span className="block text-xs text-sage-500 mt-1">Pick a saved supplier to prefill its usual category &amp; GST.</span>
+            )}
           </label>
         </div>
 
