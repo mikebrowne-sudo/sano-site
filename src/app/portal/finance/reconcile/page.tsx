@@ -29,7 +29,7 @@ function buildMatch(
     .filter((i) => i.status === 'sent' || i.status === 'draft' || i.status === 'paid')
     .sort((a, b) => (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3) || b.total - a.total)
     .slice(0, 40)
-    .map((i) => ({ id: i.id, number: i.invoiceNumber, total: i.total, status: i.status, address: i.address ?? '' }))
+    .map((i) => ({ id: i.id, number: i.invoiceNumber, total: i.total, status: i.status, address: i.address ?? '', client: i.client ?? '' }))
   const suggestions = findSubsets(amount, candidates.map((c) => ({ id: c.id, amount: c.total })))
   return { candidates, suggestions }
 }
