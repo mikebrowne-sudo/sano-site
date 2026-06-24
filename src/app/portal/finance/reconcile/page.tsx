@@ -15,6 +15,12 @@ function fmt(n: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
 }
 
+function fmtDate(iso: string) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 const CREDIT_LABEL: Record<CreditStatus, string> = {
   reconciled: 'Reconciled', unpaid_match: 'Not marked paid', amount_match: 'Likely match', financing: 'Owner / transfer', unmatched: 'No match',
 }
@@ -35,7 +41,7 @@ export default async function ReconcilePage() {
   const hasData = transactions.length > 0
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-6xl">
       <Link href="/portal/finance" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"><ArrowLeft size={14} /> Finance</Link>
       <h1 className="text-3xl tracking-tight font-bold text-sage-800 mb-2">Bank reconciliation</h1>
       <p className="text-sm text-sage-500 mb-8">Import an ASB CSV export to match bank credits against your invoices and debits against your expenses. Re-importing is safe — duplicates are skipped.</p>
@@ -59,9 +65,9 @@ export default async function ReconcilePage() {
                 const m = meta.get(c.txn.uniqueId)
                 return (
                   <tr key={`${c.txn.uniqueId}-${i}`} className={clsx('border-b border-gray-50', m?.cleared && 'opacity-45')}>
-                    <Td>{c.txn.date}</Td>
-                    <Td className="max-w-[180px] truncate" title={c.txn.payee}>{c.txn.payee}</Td>
-                    <Td className="text-sage-500">{c.invoice?.invoiceNumber ?? c.txn.memo}</Td>
+                    <Td className="whitespace-nowrap">{fmtDate(c.txn.date)}</Td>
+                    <Td className="max-w-[260px] truncate" title={c.txn.payee}>{c.txn.payee}</Td>
+                    <Td className="max-w-[220px] truncate text-sage-500" title={c.invoice?.invoiceNumber ?? c.txn.memo}>{c.invoice?.invoiceNumber ?? c.txn.memo}</Td>
                     <Td><Badge tone={CREDIT_TONE[c.status]}>{CREDIT_LABEL[c.status]}</Badge></Td>
                     <Td className="text-right font-medium">{fmt(c.txn.amount)}</Td>
                     <Td className="text-right">
@@ -82,8 +88,8 @@ export default async function ReconcilePage() {
                 const m = meta.get(d.txn.uniqueId)
                 return (
                   <tr key={`${d.txn.uniqueId}-${i}`} className={clsx('border-b border-gray-50', m?.cleared && 'opacity-45')}>
-                    <Td>{d.txn.date}</Td>
-                    <Td className="max-w-[240px] truncate" title={d.txn.memo || d.txn.payee}>{d.txn.memo || d.txn.payee}</Td>
+                    <Td className="whitespace-nowrap">{fmtDate(d.txn.date)}</Td>
+                    <Td className="max-w-[420px] truncate" title={d.txn.memo || d.txn.payee}>{d.txn.memo || d.txn.payee}</Td>
                     <Td><Badge tone={DEBIT_TONE[d.status]}>{DEBIT_LABEL[d.status]}</Badge></Td>
                     <Td className="text-right font-medium">{fmt(Math.abs(d.txn.amount))}</Td>
                     <Td className="text-right">
