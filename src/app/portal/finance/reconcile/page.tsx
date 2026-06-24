@@ -14,24 +14,29 @@ import clsx from 'clsx'
 
 const STATUS_ORDER: Record<string, number> = { sent: 0, draft: 1, paid: 2 }
 
-/** Scope candidate invoices by payer and suggest subset-sum bundles. */
+/** Scope candidate invoices by payer and suggest subset-sum bundles.
+ *  `scoped` is true when the payee actually mapped to a client — only then are
+ *  suggestions trustworthy enough to badge as "Likely". When unscoped we fall
+ *  back to all open invoices for the manual picker, but any subset match there
+ *  is coincidental, so it must not drive the badge. */
 function buildMatch(
   payee: string,
   amount: number,
   invoices: ReconInvoice[],
   clientNames: string[],
-): { candidates: MatchInvoice[]; suggestions: string[][] } {
+): { candidates: MatchInvoice[]; suggestions: string[][]; scoped: boolean } {
   const scopedNames = matchClientsForPayee(payee, clientNames)
-  const scoped = scopedNames.length
+  const scoped = scopedNames.length > 0
+  const pool = scoped
     ? invoices.filter((i) => i.client && scopedNames.includes(i.client))
     : invoices.filter((i) => i.status === 'sent') // fallback: open invoices
-  const candidates: MatchInvoice[] = scoped
+  const candidates: MatchInvoice[] = pool
     .filter((i) => i.status === 'sent' || i.status === 'draft' || i.status === 'paid')
     .sort((a, b) => (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3) || b.total - a.total)
     .slice(0, 40)
     .map((i) => ({ id: i.id, number: i.invoiceNumber, total: i.total, status: i.status, address: i.address ?? '', client: i.client ?? '' }))
   const suggestions = findSubsets(amount, candidates.map((c) => ({ id: c.id, amount: c.total })))
-  return { candidates, suggestions }
+  return { candidates, suggestions, scoped }
 }
 
 export const dynamic = 'force-dynamic'
@@ -48,9 +53,11 @@ function fmtDate(iso: string) {
 
 const CREDIT_LABEL: Record<CreditStatus, string> = {
   reconciled: 'Reconciled', unpaid_match: 'Not marked paid', amount_match: 'Likely match', financing: 'Owner / transfer', unmatched: 'No match',
+  likely_bundle: 'Likely bundle', likely_match: 'Likely match',
 }
 const CREDIT_TONE: Record<CreditStatus, string> = {
   reconciled: 'bg-emerald-50 text-emerald-700', unpaid_match: 'bg-amber-50 text-amber-700', amount_match: 'bg-amber-50 text-amber-700', financing: 'bg-sage-100 text-sage-600', unmatched: 'bg-red-50 text-red-700',
+  likely_bundle: 'bg-amber-50 text-amber-700', likely_match: 'bg-amber-50 text-amber-700',
 }
 const DEBIT_LABEL: Record<DebitStatus, string> = { recorded: 'Recorded', not_recorded: 'Not recorded' }
 const DEBIT_TONE: Record<DebitStatus, string> = { recorded: 'bg-emerald-50 text-emerald-700', not_recorded: 'bg-amber-50 text-amber-700' }
@@ -67,7 +74,7 @@ export default async function ReconcilePage() {
 
   // Precompute match suggestions for the unmatched credits.
   const clientNames = Array.from(new Set(invoices.map((i) => i.client ?? '').filter(Boolean)))
-  const creditMatch = new Map<string, { candidates: MatchInvoice[]; suggestions: string[][] }>()
+  const creditMatch = new Map<string, { candidates: MatchInvoice[]; suggestions: string[][]; scoped: boolean }>()
   for (const c of result.credits) {
     if (c.status === 'unmatched') creditMatch.set(c.txn.uniqueId, buildMatch(c.txn.payee, c.txn.amount, invoices, clientNames))
   }
@@ -95,12 +102,19 @@ export default async function ReconcilePage() {
             <Table head={['Date', 'From', 'Reference', 'Status', 'Amount', 'Action', '']}>
               {result.credits.map((c, i) => {
                 const m = meta.get(c.txn.uniqueId)
+                const cm = creditMatch.get(c.txn.uniqueId)
+                // Re-badge an unmatched credit as "Likely" when a payer-scoped
+                // subset of invoices plausibly explains it.
+                const display: CreditStatus =
+                  c.status === 'unmatched' && cm?.scoped && cm.suggestions.length > 0
+                    ? (cm.suggestions[0].length >= 2 ? 'likely_bundle' : 'likely_match')
+                    : c.status
                 return (
                   <tr key={`${c.txn.uniqueId}-${i}`} className={clsx('border-b border-gray-50', m?.cleared && 'opacity-45')}>
                     <Td className="whitespace-nowrap">{fmtDate(c.txn.date)}</Td>
                     <Td className="max-w-[260px] truncate" title={c.txn.payee}>{c.txn.payee}</Td>
                     <Td className="max-w-[220px] truncate text-sage-500" title={c.invoice?.invoiceNumber ?? c.txn.memo}>{c.invoice?.invoiceNumber ?? c.txn.memo}</Td>
-                    <Td><Badge tone={CREDIT_TONE[c.status]}>{CREDIT_LABEL[c.status]}</Badge></Td>
+                    <Td><Badge tone={CREDIT_TONE[display]}>{CREDIT_LABEL[display]}</Badge></Td>
                     <Td className="text-right font-medium">{fmt(c.txn.amount)}</Td>
                     <Td className="text-right">
                       {(c.status === 'unpaid_match' || c.status === 'amount_match') && c.invoice && (
