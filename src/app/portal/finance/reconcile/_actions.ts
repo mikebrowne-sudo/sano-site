@@ -80,6 +80,48 @@ export async function importTransactions(csvText: string): Promise<ImportRespons
   }
 }
 
+/**
+ * Match a bank credit to one or more invoices: mark any not-yet-paid selected
+ * invoices as paid (with the bank line's date), then clear the bank line.
+ * Already-paid invoices in the selection are left untouched — selecting them
+ * just confirms the bundle. Admin-gated; the operator confirms the selection.
+ */
+export async function matchCreditToInvoices(
+  lineId: string,
+  invoiceIds: string[],
+  paidDate: string | null,
+): Promise<{ ok: boolean; error?: string; markedPaid?: number }> {
+  try {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!isAdminUser(user)) return { ok: false, error: 'Not authorised.' }
+    if (!invoiceIds.length) return { ok: false, error: 'Select at least one invoice.' }
+
+    const date = paidDate || new Date().toISOString().slice(0, 10)
+
+    // Mark the unpaid ones paid. (.neq skips any already-paid so we never
+    // overwrite an existing paid date.)
+    const { data: updated, error: invErr } = await supabase
+      .from('invoices')
+      .update({ status: 'paid', date_paid: date })
+      .in('id', invoiceIds)
+      .neq('status', 'paid')
+      .select('id')
+    if (invErr) return { ok: false, error: invErr.message }
+
+    const { error: clrErr } = await supabase
+      .from('bank_transactions')
+      .update({ cleared: true, cleared_at: new Date().toISOString(), cleared_by: user?.id ?? null })
+      .eq('id', lineId)
+    if (clrErr) return { ok: false, error: clrErr.message }
+
+    revalidatePath('/portal/finance/reconcile')
+    return { ok: true, markedPaid: updated?.length ?? 0 }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Unexpected error.' }
+  }
+}
+
 /** Toggle the user-controlled "cleared" flag on a stored bank line. */
 export async function setCleared(id: string, cleared: boolean): Promise<{ ok: boolean; error?: string }> {
   const supabase = createClient()

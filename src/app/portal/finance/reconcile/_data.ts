@@ -39,7 +39,7 @@ export async function getReconcileData(): Promise<ReconcileData> {
       .order('txn_date', { ascending: false }),
     supabase
       .from('invoices')
-      .select('id, invoice_number, status, base_price, discount, date_paid, invoice_items ( price )')
+      .select('id, invoice_number, status, base_price, discount, date_paid, service_address, clients ( name ), invoice_items ( price )')
       .neq('status', 'cancelled')
       .is('deleted_at', null)
       .not('is_test', 'is', true),
@@ -69,12 +69,15 @@ export async function getReconcileData(): Promise<ReconcileData> {
   const invoices: ReconInvoice[] = (invoiceData ?? []).map((i) => {
     const items = (i.invoice_items ?? []) as { price: number }[]
     const addons = items.reduce((s, it) => s + (it.price ?? 0), 0)
+    const client = (i.clients as unknown as { name: string } | null)?.name ?? ''
     return {
       id: i.id as string,
       invoiceNumber: (i.invoice_number as string | null) ?? '',
       status: (i.status as string | null) ?? 'draft',
       total: (i.base_price ?? 0) + addons - (i.discount ?? 0),
       datePaid: (i.date_paid as string | null) ?? null,
+      client,
+      address: (i.service_address as string | null) ?? '',
     }
   })
   const expenses: ReconExpense[] = (expenseData ?? []).map((e) => ({
