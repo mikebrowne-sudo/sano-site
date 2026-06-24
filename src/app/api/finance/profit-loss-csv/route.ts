@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   const { from, to } = resolvePeriod(sp.get('period') ?? 'ytd', sp.get('from') ?? undefined, sp.get('to') ?? undefined)
 
   const [{ data: invoices }, { data: expenses }] = await Promise.all([
-    supabase.from('invoices').select('base_price, discount, date_paid, invoice_items ( price )').eq('status', 'paid'),
+    supabase.from('invoices').select('base_price, discount, date_paid, invoice_items ( price )').eq('status', 'paid').is('deleted_at', null).not('is_test', 'is', true),
     supabase.from('expenses').select('amount, category, expense_date'),
   ])
 

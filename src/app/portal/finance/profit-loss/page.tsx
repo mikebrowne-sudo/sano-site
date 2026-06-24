@@ -39,7 +39,9 @@ export default async function ProfitLossPage({
     supabase
       .from('invoices')
       .select('base_price, discount, date_paid, invoice_items ( price )')
-      .eq('status', 'paid'),
+      .eq('status', 'paid')
+      .is('deleted_at', null)
+      .not('is_test', 'is', true),
     supabase
       .from('expenses')
       .select('amount, category, expense_date'),
