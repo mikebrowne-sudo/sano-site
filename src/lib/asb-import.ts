@@ -61,17 +61,30 @@ export function splitCsvLine(line: string): string[] {
   return out
 }
 
-/** ASB dates come as D/M/YYYY (e.g. "3/04/2026"). Return ISO yyyy-mm-dd. */
+/**
+ * Parse an ASB date into ISO yyyy-mm-dd. ASB exports use more than one format
+ * depending on settings:
+ *   - D/M/YYYY        e.g. "3/04/2026"   (day first)
+ *   - YYYY/MM/DD       e.g. "2026/04/03"  (year first, slashes or dashes)
+ *   - YYYYMMDD         e.g. "20260401"    (compact, used in the metadata header)
+ * Returns '' if none match.
+ */
 export function parseAsbDate(raw: string): string {
-  const m = raw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
-  if (!m) {
-    // The metadata "From date 20260401" form.
-    const compact = raw.trim().match(/(\d{4})(\d{2})(\d{2})/)
-    if (compact) return `${compact[1]}-${compact[2]}-${compact[3]}`
-    return ''
-  }
-  const [, d, mo, y] = m
-  return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`
+  const t = raw.trim()
+
+  // Year-first: 2026/04/03 or 2026-04-03
+  let m = t.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/)
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`
+
+  // Day-first: 3/04/2026 or 3-04-2026
+  m = t.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/)
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
+
+  // Compact: 20260401 (metadata "From date" / "To date")
+  m = t.match(/^(\d{4})(\d{2})(\d{2})$/)
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`
+
+  return ''
 }
 
 /** Pull normalised invoice numbers (INV-####) out of free text. */
