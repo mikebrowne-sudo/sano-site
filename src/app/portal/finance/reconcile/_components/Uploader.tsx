@@ -26,10 +26,14 @@ export function Uploader() {
     reader.onload = () => {
       const text = String(reader.result ?? '')
       startTransition(async () => {
-        const r = await importTransactions(text)
-        if (!r.ok) { setError(r.error ?? 'Could not import the file.'); return }
-        setResult(r)
-        router.refresh()
+        try {
+          const r = await importTransactions(text)
+          if (!r.ok) { setError(r.error ?? 'Could not import the file.'); return }
+          setResult(r)
+          router.refresh()
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Could not import the file.')
+        }
       })
     }
     reader.onerror = () => setError('Could not read the file.')

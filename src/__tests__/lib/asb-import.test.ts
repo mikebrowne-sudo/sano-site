@@ -23,12 +23,41 @@ describe('splitCsvLine', () => {
 })
 
 describe('parseAsbDate', () => {
-  it('parses D/M/YYYY to ISO', () => {
+  it('parses D/M/YYYY to ISO (day first)', () => {
     expect(parseAsbDate('3/04/2026')).toBe('2026-04-03')
     expect(parseAsbDate('20/04/2026')).toBe('2026-04-20')
   })
+  it('parses YYYY/MM/DD and YYYY-MM-DD to ISO (year first)', () => {
+    expect(parseAsbDate('2026/04/03')).toBe('2026-04-03')
+    expect(parseAsbDate('2026/04/20')).toBe('2026-04-20')
+    expect(parseAsbDate('2026-04-03')).toBe('2026-04-03')
+  })
   it('parses the compact YYYYMMDD metadata form', () => {
     expect(parseAsbDate('20260401')).toBe('2026-04-01')
+  })
+  it('returns empty for unrecognised input', () => {
+    expect(parseAsbDate('not a date')).toBe('')
+  })
+})
+
+describe('parseAsbCsv — year-first export variant (fully quoted, no metadata commas)', () => {
+  const NEW = `Created date / time : 24 June 2026 / 21:48:21
+Bank 12; Branch 3627; Account 0005597-00 (Business Account)
+From date 20260401
+To date 20260624
+Date,Unique Id,Tran Type,Cheque Number,Payee,Memo,Amount
+
+2026/04/20,2026042001,D/C,,"D/C FROM BIRCHALL,TOBI","INV-0018",475.00
+2026/06/24,2026062401,TFR IN,,"WENDELL PROPERTY MAN","Wendell PM 09-8492588 Remittance",180.00`
+
+  it('parses dates, amounts and refs from the year-first format', () => {
+    const parsed = parseAsbCsv(NEW)
+    expect(parsed.transactions).toHaveLength(2)
+    const credit = parsed.transactions.find((t) => t.uniqueId === '2026042001')!
+    expect(credit.date).toBe('2026-04-20')
+    expect(credit.amount).toBe(475)
+    expect(credit.invoiceRefs).toEqual(['INV-0018'])
+    expect(parsed.account).toMatch(/Business Account/)
   })
 })
 
