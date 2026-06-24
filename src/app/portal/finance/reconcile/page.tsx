@@ -3,11 +3,36 @@ import { ArrowLeft, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { notFound } from 'next/navigation'
-import { reconcile, type CreditStatus, type DebitStatus } from '@/lib/bank-reconcile'
+import { reconcile, type CreditStatus, type DebitStatus, type ReconInvoice } from '@/lib/bank-reconcile'
+import { matchClientsForPayee } from '@/lib/payee-match'
+import { findSubsets } from '@/lib/subset-sum'
 import { getReconcileData } from './_data'
 import { Uploader } from './_components/Uploader'
 import { ClearToggle } from './_components/ClearToggle'
+import { MatchPanel, type MatchInvoice } from './_components/MatchPanel'
 import clsx from 'clsx'
+
+const STATUS_ORDER: Record<string, number> = { sent: 0, draft: 1, paid: 2 }
+
+/** Scope candidate invoices by payer and suggest subset-sum bundles. */
+function buildMatch(
+  payee: string,
+  amount: number,
+  invoices: ReconInvoice[],
+  clientNames: string[],
+): { candidates: MatchInvoice[]; suggestions: string[][] } {
+  const scopedNames = matchClientsForPayee(payee, clientNames)
+  const scoped = scopedNames.length
+    ? invoices.filter((i) => i.client && scopedNames.includes(i.client))
+    : invoices.filter((i) => i.status === 'sent') // fallback: open invoices
+  const candidates: MatchInvoice[] = scoped
+    .filter((i) => i.status === 'sent' || i.status === 'draft' || i.status === 'paid')
+    .sort((a, b) => (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3) || b.total - a.total)
+    .slice(0, 40)
+    .map((i) => ({ id: i.id, number: i.invoiceNumber, total: i.total, status: i.status, address: i.address ?? '' }))
+  const suggestions = findSubsets(amount, candidates.map((c) => ({ id: c.id, amount: c.total })))
+  return { candidates, suggestions }
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -39,6 +64,13 @@ export default async function ReconcilePage() {
   const result = reconcile({ transactions, invoices, expenses })
   const s = result.summary
   const hasData = transactions.length > 0
+
+  // Precompute match suggestions for the unmatched credits.
+  const clientNames = Array.from(new Set(invoices.map((i) => i.client ?? '').filter(Boolean)))
+  const creditMatch = new Map<string, { candidates: MatchInvoice[]; suggestions: string[][] }>()
+  for (const c of result.credits) {
+    if (c.status === 'unmatched') creditMatch.set(c.txn.uniqueId, buildMatch(c.txn.payee, c.txn.amount, invoices, clientNames))
+  }
 
   return (
     <div className="max-w-6xl">
@@ -73,6 +105,16 @@ export default async function ReconcilePage() {
                     <Td className="text-right">
                       {(c.status === 'unpaid_match' || c.status === 'amount_match') && c.invoice && (
                         <Link href={`/portal/invoices/${c.invoice.id}`} className="text-sage-600 hover:text-sage-800 underline whitespace-nowrap">Mark paid →</Link>
+                      )}
+                      {c.status === 'unmatched' && m && creditMatch.has(c.txn.uniqueId) && (
+                        <MatchPanel
+                          lineId={m.id}
+                          amount={c.txn.amount}
+                          date={c.txn.date}
+                          payee={c.txn.payee}
+                          candidates={creditMatch.get(c.txn.uniqueId)!.candidates}
+                          suggestions={creditMatch.get(c.txn.uniqueId)!.suggestions}
+                        />
                       )}
                     </Td>
                     <Td className="text-right">{m && <ClearToggle id={m.id} cleared={m.cleared} />}</Td>

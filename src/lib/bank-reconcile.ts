@@ -27,6 +27,8 @@ export interface ReconInvoice {
   status: string
   total: number
   datePaid: string | null
+  client?: string
+  address?: string
 }
 export interface ReconExpense {
   amount: number
