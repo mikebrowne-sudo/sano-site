@@ -12,10 +12,25 @@ export interface MatchInvoice {
   total: number
   status: string
   address: string
+  client: string
 }
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
+}
+
+/** Trim a service address to the bit that identifies the property
+ * (street + suburb), dropping city / region / postcode / country. */
+function shortAddr(addr: string): string {
+  if (!addr) return ''
+  const parts = addr.split(',').map((s) => s.trim()).filter(Boolean)
+  const cleaned = parts.filter((p) => !/new zealand/i.test(p) && !/^\d{4}$/.test(p) && !/^auckland\b/i.test(p))
+  return (cleaned.length ? cleaned : parts).slice(0, 2).join(', ')
+}
+
+/** Best short label for an invoice: its property address, else the client. */
+function label(c: MatchInvoice): string {
+  return shortAddr(c.address) || c.client || ''
 }
 
 export function MatchPanel({
@@ -86,15 +101,27 @@ export function MatchPanel({
               {suggestions.length > 0 && (
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-sage-500 mb-2">Suggested {suggestions.length === 1 ? 'match' : 'matches'}</p>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     {suggestions.map((ids, i) => (
                       <button
                         key={i}
                         onClick={() => applySuggestion(ids)}
-                        className="w-full text-left text-sm bg-sage-50 hover:bg-sage-100 border border-sage-100 rounded-lg px-3 py-2 transition-colors"
+                        className="w-full text-left bg-sage-50 hover:bg-sage-100 border border-sage-100 rounded-lg px-3 py-2.5 transition-colors"
                       >
-                        {ids.map((id) => byId.get(id)?.number ?? id).join(' + ')}
-                        <span className="text-sage-400"> = {fmt(ids.reduce((s, id) => s + (byId.get(id)?.total ?? 0), 0))}</span>
+                        <div className="flex items-center justify-between text-xs font-semibold text-sage-600 mb-1">
+                          <span>{ids.length} invoice{ids.length !== 1 ? 's' : ''}</span>
+                          <span>{fmt(ids.reduce((s, id) => s + (byId.get(id)?.total ?? 0), 0))}</span>
+                        </div>
+                        {ids.map((id) => {
+                          const inv = byId.get(id)
+                          if (!inv) return null
+                          return (
+                            <div key={id} className="flex items-baseline justify-between gap-2 text-sm">
+                              <span className="min-w-0 truncate"><span className="font-medium text-sage-800">{inv.number}</span> <span className="text-sage-400">{label(inv)}</span></span>
+                              <span className="text-sage-500 tabular-nums shrink-0">{fmt(inv.total)}</span>
+                            </div>
+                          )
+                        })}
                       </button>
                     ))}
                   </div>
@@ -111,7 +138,7 @@ export function MatchPanel({
                         <span className="text-sm font-medium text-sage-800">{c.number}</span>
                         {c.status === 'paid' && <span className="ml-2 text-xs text-emerald-600">paid</span>}
                         {c.status === 'draft' && <span className="ml-2 text-xs text-gray-400">draft</span>}
-                        <span className="block text-xs text-sage-400 truncate">{c.address}</span>
+                        <span className="block text-xs text-sage-400 truncate">{label(c) || c.client}</span>
                       </span>
                       <span className="text-sm font-medium text-sage-700 tabular-nums">{fmt(c.total)}</span>
                     </label>
