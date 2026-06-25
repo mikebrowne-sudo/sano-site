@@ -16,6 +16,15 @@ function n(v: number) {
   return new Intl.NumberFormat('en-NZ').format(v)
 }
 
+// Friendlier display for the noisier GA dimension values, without losing meaning.
+function prettyLabel(raw: string): string {
+  const v = (raw || '').trim()
+  if (!v || v === '(not set)') return 'Unattributed'
+  if (v === '(direct) / (none)') return 'Direct'
+  if (v === '/') return 'Home page'
+  return v
+}
+
 export default async function AnalyticsPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -31,149 +40,223 @@ export default async function AnalyticsPage() {
     error = e instanceof Error ? e.message : 'Could not load analytics.'
   }
 
-  if (error || !stats) {
-    return (
-      <Shell>
-        <div className="rounded-xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-800">
-          <p className="font-semibold mb-1">Couldn’t load analytics.</p>
-          <p className="font-mono text-xs bg-white/60 border border-amber-100 rounded px-2 py-1.5 mt-1 break-words">{error ?? 'No data returned.'}</p>
-          <p className="mt-3 text-amber-700">
-            The credentials are connected — this is a problem with the analytics request itself, not your setup. If it
-            mentions access or permission, confirm the service account is a <strong>Viewer</strong> on the GA4 property;
-            otherwise it’s likely a request/library issue to fix in code.
-          </p>
-        </div>
-      </Shell>
-    )
-  }
+  if (error || !stats) return <Shell><ErrorCard message={error ?? 'No data returned.'} /></Shell>
 
   return (
     <Shell>
-      {/* Visitors */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Stat icon={Users} label="Visitors today" value={n(stats.visitorsToday)} accent />
-        <Stat icon={Users} label="Visitors · last 7 days" value={n(stats.visitors7d)} />
-        <Stat icon={Users} label="Visitors · last 30 days" value={n(stats.visitors30d)} />
-      </div>
+      {/* Visitor KPIs */}
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Kpi icon={Users} label="Visitors today" value={stats.visitorsToday} />
+        <Kpi icon={Users} label="Visitors" value={stats.visitors7d} note="Last 7 days" />
+        <Kpi icon={Users} label="Visitors" value={stats.visitors30d} note="Last 30 days" />
+      </section>
 
       {/* 30-day trend */}
-      <Section title="Visitors — last 30 days" icon={TrendingUp}>
-        <Trend points={stats.trend30d} />
-      </Section>
+      <Card>
+        <CardHead icon={TrendingUp} title="Visitor trend" note="Last 30 days" />
+        <TrendChart points={stats.trend30d} />
+      </Card>
 
-      {/* Conversions */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Stat icon={Target} label="Quote / contact leads" value={n(stats.leads)} sub="generate_lead · 30 days" accent />
-        <Stat icon={Phone} label="Phone clicks" value={n(stats.phoneClicks)} sub="30 days" />
-        <Stat icon={Mail} label="Email clicks" value={n(stats.emailClicks)} sub="30 days" />
-      </div>
+      {/* Engagement / conversions */}
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Kpi icon={Target} label="Quote & contact leads" value={stats.leads} note="Last 30 days" tone="accent" />
+        <Kpi icon={Phone} label="Phone clicks" value={stats.phoneClicks} note="Last 30 days" />
+        <Kpi icon={Mail} label="Email clicks" value={stats.emailClicks} note="Last 30 days" />
+      </section>
 
-      {/* Sources + landing pages */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Section title="Top traffic sources" icon={Globe}><BarList rows={stats.topSources} /></Section>
-        <Section title="Top landing pages" icon={FileText}><BarList rows={stats.topLandingPages} /></Section>
-      </div>
+      {/* Breakdowns */}
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ListCard icon={Globe} title="Top traffic sources" rows={stats.topSources} />
+        <ListCard icon={FileText} title="Top landing pages" rows={stats.topLandingPages} mono />
+      </section>
+      <ListCard icon={MapPin} title="Top suburb pages" rows={stats.topSuburbPages} mono empty="No suburb-page visits yet." />
 
-      <Section title="Top suburb pages" icon={MapPin}>
-        <BarList rows={stats.topSuburbPages} empty="No suburb-page visits yet." />
-      </Section>
-
-      <p className="text-xs text-sage-400">
-        Source: Google Analytics 4, fetched server-side and cached for about an hour. Sources, pages, leads and clicks
-        cover the last 30 days. Figures build up from when tracking went live, so they’ll look sparse at first.
+      <p className="text-xs text-sage-400 pt-1">
+        Visitors, leads and clicks for the last 30 days unless noted. Updated about hourly. Figures build up over time, so
+        recent numbers may look low to begin with.
       </p>
     </Shell>
   )
 }
 
+/* ── Layout ─────────────────────────────────────────────────────── */
+
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="max-w-5xl space-y-8">
-      <div>
-        <h1 className="text-3xl tracking-tight font-bold text-sage-800">Website analytics</h1>
-        <p className="text-sm text-sage-500 mt-1">sano.nz traffic from Google Analytics — no Google login needed.</p>
-      </div>
+    <div className="max-w-5xl space-y-5">
+      <header>
+        <h1 className="text-2xl md:text-3xl tracking-tight font-bold text-sage-900">Website analytics</h1>
+        <p className="text-sm text-sage-500 mt-1">Track website visitors, leads and engagement.</p>
+      </header>
       {children}
     </div>
   )
 }
 
-function SetupState() {
+function Card({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={clsx('rounded-2xl border border-sage-100 bg-white shadow-[0_1px_3px_rgba(52,76,61,0.05)] p-5', className)}>{children}</div>
+}
+
+function CardHead({ icon: Icon, title, note }: { icon: React.ElementType; title: string; note?: string }) {
   return (
-    <div className="rounded-xl border border-sage-100 bg-sage-50 p-6 text-sm text-sage-700">
-      <p className="font-semibold text-sage-800 mb-2">Analytics isn’t connected yet.</p>
-      <p className="mb-3">Add these two server-side environment variables in Netlify (Site configuration → Environment variables), then redeploy:</p>
-      <ul className="space-y-1 mb-3">
-        <li className="flex items-center gap-2"><code className="bg-white border border-sage-200 rounded px-1.5 py-0.5">GA4_PROPERTY_ID</code> — the numeric GA4 property id</li>
-        <li className="flex items-center gap-2"><code className="bg-white border border-sage-200 rounded px-1.5 py-0.5">GA4_SA_KEY_BASE64</code> — the base64-encoded service-account JSON key</li>
-      </ul>
-      <p className="text-sage-500">Full step-by-step setup is in the pull request that added this page.</p>
+    <div className="flex items-center justify-between mb-4">
+      <h2 className="flex items-center gap-2 text-[15px] font-semibold text-sage-800">
+        <Icon size={16} className="text-sage-400" />{title}
+      </h2>
+      {note && <span className="text-xs font-medium text-sage-400">{note}</span>}
     </div>
   )
 }
 
-function Stat({ icon: Icon, label, value, sub, accent }: { icon: React.ElementType; label: string; value: string; sub?: string; accent?: boolean }) {
+/* ── KPI card ───────────────────────────────────────────────────── */
+
+function Kpi({ icon: Icon, label, value, note, tone }: { icon: React.ElementType; label: string; value: number; note?: string; tone?: 'accent' }) {
   return (
-    <div className={clsx('rounded-xl border p-5', accent ? 'bg-sage-50 border-sage-100' : 'bg-white border-gray-100 shadow-sm')}>
-      <div className="flex items-center gap-2 mb-2">
-        <Icon size={16} className="text-sage-500" />
-        <span className="text-sm font-medium text-sage-600">{label}</span>
+    <div className={clsx(
+      'rounded-2xl border p-5 transition-shadow hover:shadow-[0_4px_16px_rgba(52,76,61,0.08)]',
+      tone === 'accent' ? 'border-sage-200 bg-sage-50/60' : 'border-sage-100 bg-white shadow-[0_1px_3px_rgba(52,76,61,0.05)]',
+    )}>
+      <div className="flex items-center justify-between mb-3">
+        <span className={clsx('inline-flex items-center justify-center w-9 h-9 rounded-xl', tone === 'accent' ? 'bg-sage-500/15 text-sage-700' : 'bg-sage-50 text-sage-500')}>
+          <Icon size={18} />
+        </span>
+        {note && <span className="text-[11px] font-medium uppercase tracking-wide text-sage-400">{note}</span>}
       </div>
-      <p className="text-2xl font-bold text-sage-800 tabular-nums">{value}</p>
-      {sub && <p className="text-xs text-sage-400 mt-0.5">{sub}</p>}
+      <p className="text-3xl font-bold text-sage-900 tabular-nums leading-none">{n(value)}</p>
+      <p className="text-sm text-sage-500 mt-2">{label}</p>
     </div>
   )
 }
 
-function Section({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-      <h2 className="flex items-center gap-2 text-lg font-semibold text-sage-800 mb-4"><Icon size={18} className="text-sage-400" />{title}</h2>
-      {children}
-    </div>
-  )
-}
+/* ── Trend chart (inline SVG line + area) ───────────────────────── */
 
-function BarList({ rows, empty }: { rows: NameValue[]; empty?: string }) {
-  if (!rows.length) return <p className="text-sm text-sage-400">{empty ?? 'No data yet.'}</p>
-  const max = Math.max(...rows.map((r) => r.value), 1)
-  return (
-    <div className="space-y-2">
-      {rows.map((r) => (
-        <div key={r.label} className="flex items-center gap-3 text-sm">
-          <span className="w-1/2 min-w-0 truncate text-sage-700" title={r.label}>{r.label}</span>
-          <div className="flex-1 h-2 bg-sage-50 rounded-full overflow-hidden">
-            <div className="h-full bg-sage-300 rounded-full" style={{ width: `${Math.max(4, Math.round((r.value / max) * 100))}%` }} />
-          </div>
-          <span className="w-10 text-right font-medium text-sage-700 tabular-nums">{n(r.value)}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
+function TrendChart({ points }: { points: TrendPoint[] }) {
+  if (points.length < 3) {
+    return (
+      <div className="flex flex-col items-center justify-center text-center h-32 rounded-xl bg-sage-50/50 border border-dashed border-sage-200">
+        <TrendingUp size={20} className="text-sage-300 mb-2" />
+        <p className="text-sm text-sage-500">Trend will become clearer as more data collects.</p>
+        {points.length > 0 && <p className="text-xs text-sage-400 mt-1">{n(points.reduce((s, p) => s + p.value, 0))} visitors so far</p>}
+      </div>
+    )
+  }
 
-function Trend({ points }: { points: TrendPoint[] }) {
-  if (!points.length) return <p className="text-sm text-sage-400">No data yet.</p>
-  const max = Math.max(...points.map((p) => p.value), 1)
-  const total = points.reduce((s, p) => s + p.value, 0)
+  const W = 600, H = 150, padX = 6, padTop = 12, padBottom = 6
+  const innerW = W - padX * 2
+  const innerH = H - padTop - padBottom
+  const vals = points.map((p) => p.value)
+  const max = Math.max(...vals, 1)
+  const total = vals.reduce((s, v) => s + v, 0)
+  const peak = Math.max(...vals)
+
+  const x = (i: number) => padX + (i / (points.length - 1)) * innerW
+  const y = (v: number) => padTop + innerH - (v / max) * innerH
+
+  const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ')
+  const area = `${line} L${x(points.length - 1).toFixed(1)},${padTop + innerH} L${x(0).toFixed(1)},${padTop + innerH} Z`
+
   const fmtDay = (iso: string) => new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short' })
+
   return (
     <div>
-      <div className="flex items-end gap-[3px] h-24">
-        {points.map((p) => (
-          <div
-            key={p.date}
-            className="flex-1 bg-sage-200 hover:bg-sage-400 rounded-t transition-colors"
-            style={{ height: `${Math.max(3, Math.round((p.value / max) * 100))}%` }}
-            title={`${fmtDay(p.date)}: ${n(p.value)}`}
-          />
-        ))}
+      <div className="flex items-baseline gap-4 mb-3">
+        <div>
+          <p className="text-2xl font-bold text-sage-900 tabular-nums leading-none">{n(total)}</p>
+          <p className="text-xs text-sage-500 mt-1">visitors over {points.length} days</p>
+        </div>
+        <div className="ml-auto text-right">
+          <p className="text-sm font-semibold text-sage-700 tabular-nums leading-none">{n(peak)}</p>
+          <p className="text-xs text-sage-400 mt-1">busiest day</p>
+        </div>
       </div>
-      <div className="flex justify-between text-xs text-sage-400 mt-2">
+
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full h-32 text-sage-500 overflow-visible" role="img" aria-label="Daily visitors, last 30 days">
+        <defs>
+          <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {/* subtle baseline + midline */}
+        {[0, 0.5, 1].map((f) => (
+          <line key={f} x1={padX} x2={W - padX} y1={padTop + innerH * f} y2={padTop + innerH * f} stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+        ))}
+        <path d={area} fill="url(#trendFill)" />
+        <path d={line} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      </svg>
+
+      <div className="flex justify-between text-[11px] text-sage-400 mt-2">
         <span>{fmtDay(points[0].date)}</span>
-        <span>{n(total)} visitors over {points.length} days</span>
         <span>{fmtDay(points[points.length - 1].date)}</span>
       </div>
     </div>
+  )
+}
+
+/* ── Top lists ──────────────────────────────────────────────────── */
+
+function ListCard({ icon: Icon, title, rows, mono, empty }: { icon: React.ElementType; title: string; rows: NameValue[]; mono?: boolean; empty?: string }) {
+  const max = Math.max(...rows.map((r) => r.value), 1)
+  return (
+    <Card>
+      <CardHead icon={Icon} title={title} />
+      {rows.length === 0 ? (
+        <p className="text-sm text-sage-400 py-2">{empty ?? 'No data yet.'}</p>
+      ) : (
+        <ul className="space-y-3">
+          {rows.map((r) => {
+            const label = prettyLabel(r.label)
+            const unattributed = label === 'Unattributed'
+            return (
+              <li key={r.label}>
+                <div className="flex items-center justify-between gap-3 mb-1">
+                  <span className={clsx('min-w-0 truncate text-sm', unattributed ? 'italic text-sage-400' : mono ? 'text-sage-700 font-mono text-[13px]' : 'text-sage-700')} title={label}>
+                    {label}
+                  </span>
+                  <span className="shrink-0 text-sm font-semibold text-sage-800 tabular-nums">{n(r.value)}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-sage-50 overflow-hidden">
+                  <div className="h-full rounded-full bg-sage-300" style={{ width: `${Math.max(3, Math.round((r.value / max) * 100))}%` }} />
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </Card>
+  )
+}
+
+/* ── Setup / error states ───────────────────────────────────────── */
+
+function SetupState() {
+  return (
+    <Card className="bg-sage-50/60 border-sage-100">
+      <div className="flex items-start gap-3">
+        <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-sage-200 text-sage-500 shrink-0">
+          <TrendingUp size={18} />
+        </span>
+        <div className="text-sm text-sage-700">
+          <p className="font-semibold text-sage-800 mb-1">Analytics isn’t connected yet.</p>
+          <p className="text-sage-500">
+            Once tracking is connected, this page will show website visitors, leads and engagement. Setup details are in the
+            project notes.
+          </p>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+function ErrorCard({ message }: { message: string }) {
+  return (
+    <Card className="border-amber-100 bg-amber-50/70">
+      <p className="font-semibold text-amber-800 mb-2">Couldn’t load analytics right now.</p>
+      <p className="font-mono text-xs bg-white/70 border border-amber-100 rounded-lg px-3 py-2 break-words text-amber-800">{message}</p>
+      <p className="mt-3 text-sm text-amber-700">
+        This is usually a temporary data or connection issue — try again shortly. If it persists, the message above will help
+        us pin it down.
+      </p>
+    </Card>
   )
 }
