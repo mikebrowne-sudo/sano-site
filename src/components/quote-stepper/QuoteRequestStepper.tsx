@@ -19,6 +19,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
+import { gaEvent } from '@/lib/gtag'
 
 type ServiceType = 'home' | 'commercial'
 type HomeCleanType = 'regular' | 'one_off' | 'deep' | 'move_out' | 'unsure'
@@ -606,6 +607,8 @@ export function QuoteRequestStepper() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'Submission failed')
       setStatus('success')
+      // GA4 conversion — the quote/contact form is the site's main lead path.
+      gaEvent('generate_lead', { form: 'quote', service_type: form.service_type })
       setStepIndex(TOTAL_STEPS - 1)
     } catch (err) {
       setStatus('error')
