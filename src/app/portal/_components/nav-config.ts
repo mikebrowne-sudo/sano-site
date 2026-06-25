@@ -11,7 +11,7 @@ import {
   LayoutDashboard, FileText, Receipt, Briefcase, RefreshCw, Users,
   HardHat, BookOpen, DollarSign, FileInput, Wallet, Bell, Settings,
   Calendar, UserCog, ArchiveRestore, LayoutTemplate,
-  Wallet2, UserPlus, Scale, Landmark,
+  Wallet2, UserPlus, Scale, Landmark, BarChart3,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -72,6 +72,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     heading: 'System',
     items: [
+      { href: '/portal/analytics',        label: 'Website analytics', icon: BarChart3 },
       { href: '/portal/settings',         label: 'Settings',        icon: Settings },
       { href: '#',                        label: 'Templates',       icon: LayoutTemplate, placeholder: true },
       { href: '/portal/settings/archive', label: 'Archived records', icon: ArchiveRestore },
