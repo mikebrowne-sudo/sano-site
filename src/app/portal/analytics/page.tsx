@@ -36,8 +36,12 @@ export default async function AnalyticsPage() {
       <Shell>
         <div className="rounded-xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-800">
           <p className="font-semibold mb-1">Couldn’t load analytics.</p>
-          <p>{error ?? 'No data returned.'}</p>
-          <p className="mt-2 text-amber-700">Check that the service account has Viewer access to the GA4 property and that <code>GA4_PROPERTY_ID</code> is the numeric id.</p>
+          <p className="font-mono text-xs bg-white/60 border border-amber-100 rounded px-2 py-1.5 mt-1 break-words">{error ?? 'No data returned.'}</p>
+          <p className="mt-3 text-amber-700">
+            The credentials are connected — this is a problem with the analytics request itself, not your setup. If it
+            mentions access or permission, confirm the service account is a <strong>Viewer</strong> on the GA4 property;
+            otherwise it’s likely a request/library issue to fix in code.
+          </p>
         </div>
       </Shell>
     )
