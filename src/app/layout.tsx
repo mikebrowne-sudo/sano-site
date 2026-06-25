@@ -1,11 +1,17 @@
 import type { Metadata, Viewport } from 'next'
+import { Suspense } from 'react'
 import { poppins, notoSerif } from '@/lib/fonts'
+import { Analytics } from '@/components/Analytics'
 import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Sano Cleaning — Professional Cleaning in Auckland',
   description: 'Professional cleaning services in Auckland. Regular, deep, end of tenancy, commercial, and more. Vetted cleaners. Free quotes.',
   manifest: '/manifest.json',
+  // Google Search Console verification — rendered only when the env var is set.
+  verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }
+    : undefined,
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -46,7 +52,12 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${poppins.variable} ${notoSerif.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Suspense fallback={null}>
+          <Analytics />
+        </Suspense>
+      </body>
     </html>
   )
 }
