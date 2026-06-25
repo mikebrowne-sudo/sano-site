@@ -6,8 +6,14 @@
 //   GA4_SA_KEY_BASE64 — the service-account JSON key, base64-encoded
 //
 // The whole JSON is base64-encoded so the private key's newlines survive the
-// trip through an env var intact. We use the REST fallback transport, which is
-// the reliable choice inside Netlify's serverless functions.
+// trip through an env var intact.
+//
+// Transport: gRPC (the default — pure-JS @grpc/grpc-js, fine on serverless).
+// We deliberately do NOT use the REST `fallback` transport: with fallback,
+// google-gax converts the response to proto3 JSON and throws
+// "toProto3JSON: don't know how to convert value 8" on newer enum values the
+// bundled descriptors don't know (value 8 = MetricType.TYPE_STANDARD, which
+// the API returns in metric headers). gRPC passes those through untouched.
 //
 // This module imports a Node-only client, so it can never be bundled into a
 // client component. Callers should additionally cache the result (the page
@@ -45,7 +51,7 @@ function makeClient(): BetaAnalyticsDataClient {
   const json = JSON.parse(Buffer.from(process.env.GA4_SA_KEY_BASE64 as string, 'base64').toString('utf8'))
   return new BetaAnalyticsDataClient({
     credentials: { client_email: json.client_email, private_key: json.private_key },
-    fallback: true, // HTTP/REST transport — reliable on serverless
+    // gRPC transport (default). Do NOT set fallback: true — see file header.
   })
 }
 
