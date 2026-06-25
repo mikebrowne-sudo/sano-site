@@ -206,6 +206,16 @@ const POLICIES: Policy[] = [
           </div>
         </div>
 
+        <div>
+          <p className="text-[13px] font-semibold text-sage-700 uppercase tracking-wide mb-2">
+            Website analytics
+          </p>
+          <p>
+            We use Google Analytics (with cookies and anonymised IP addresses) to understand website
+            traffic and improve the site. We don&apos;t use it to identify you personally.
+          </p>
+        </div>
+
         <p>
           We do not sell or share your information with third parties, except where required to
           deliver the service or by law.
