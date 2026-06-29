@@ -3,10 +3,11 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
-import { NAV_GROUPS, isNavActive } from './nav-config'
+import { navGroupsFor, isNavActive } from './nav-config'
 
-export function PortalSidebar() {
+export function PortalSidebar({ financeOnly = false }: { financeOnly?: boolean }) {
   const pathname = usePathname()
+  const groups = navGroupsFor(financeOnly)
 
   return (
     <aside className="hidden md:flex md:w-60 flex-col bg-sage-800 text-white min-h-screen border-r border-black/5 print:hidden">
@@ -16,7 +17,7 @@ export function PortalSidebar() {
       </div>
 
       <nav className="flex-1 px-3 py-5 overflow-y-auto">
-        {NAV_GROUPS.map((group, i) => (
+        {groups.map((group, i) => (
           <div key={group.heading} className={clsx(i > 0 && 'mt-7')}>
             <div className="px-3 pt-1 pb-2.5 text-[10px] uppercase tracking-[0.16em] font-semibold text-sage-400/80">
               {group.heading}

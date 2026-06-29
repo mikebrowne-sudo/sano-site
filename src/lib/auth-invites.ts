@@ -53,6 +53,10 @@ export async function inviteUser(input: {
   email: string
   fullName: string
   redirectAfter?: 'portal' | 'contractor' | 'client'
+  // Optional per-call email copy. Takes precedence over the workforce-settings
+  // overrides (used e.g. to tailor the accountant finance-access invite).
+  subjectOverride?: string
+  bodyTemplateOverride?: string
 }): Promise<InviteResult | AuthError> {
   const supabase = getServiceSupabase()
   const email = input.email.trim().toLowerCase()
@@ -105,8 +109,8 @@ export async function inviteUser(input: {
       to: email,
       name: input.fullName,
       link: actionLink,
-      subjectOverride: overrides.inviteSubject,
-      bodyTemplateOverride: overrides.inviteBody,
+      subjectOverride: input.subjectOverride || overrides.inviteSubject,
+      bodyTemplateOverride: input.bodyTemplateOverride || overrides.inviteBody,
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Email send failed.'

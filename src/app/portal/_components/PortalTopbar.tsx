@@ -6,12 +6,13 @@ import { LogOut, Menu } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
 import clsx from 'clsx'
-import { NAV_GROUPS, isNavActive } from './nav-config'
+import { navGroupsFor, isNavActive } from './nav-config'
 
-export function PortalTopbar({ email }: { email?: string }) {
+export function PortalTopbar({ email, financeOnly = false }: { email?: string; financeOnly?: boolean }) {
   const router = useRouter()
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const groups = navGroupsFor(financeOnly)
 
   async function handleLogout() {
     const supabase = createClient()
@@ -50,7 +51,7 @@ export function PortalTopbar({ email }: { email?: string }) {
       {/* Mobile nav drawer */}
       {mobileOpen && (
         <div className="md:hidden bg-sage-800 px-3 py-3 max-h-[70vh] overflow-y-auto">
-          {NAV_GROUPS.map((group, i) => (
+          {groups.map((group, i) => (
             <div key={group.heading} className={clsx(i > 0 && 'mt-4')}>
               <div className="px-3 pt-1 pb-2 text-[10px] uppercase tracking-[0.14em] font-semibold text-sage-400/80">
                 {group.heading}

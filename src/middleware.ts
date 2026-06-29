@@ -1,5 +1,16 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isAccountantEmail, isAdminEmail } from '@/lib/is-admin'
+
+// Portal route prefixes a read-only accountant (finance) login may access.
+// Everything else under /portal is redirected to the finance area for them.
+const FINANCE_PREFIXES = [
+  '/portal/finance',
+  '/portal/expenses',
+  '/portal/invoices',
+  '/portal/contractor-invoices',
+  '/portal/payroll',
+]
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } })
@@ -97,6 +108,20 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // ── Accountant (finance) login — read-only, finance area only ──
+  // A staff-side account whose email is on the accountant list (and is not an
+  // admin) may only reach the finance route prefixes; anything else under
+  // /portal bounces to the finance home. Auth/util routes stay open so they
+  // can log in and reset their password.
+  const isAccountant = !isContractorUser && !isClientUser
+    && isAccountantEmail(user.email) && !isAdminEmail(user.email)
+  if (isAccountant && isPortal && !isPortalLogin && !isPortalCallback && !isResetPassword && !isForgotPassword) {
+    const allowed = FINANCE_PREFIXES.some((p) => path === p || path.startsWith(p + '/'))
+    if (!allowed) {
+      return NextResponse.redirect(new URL('/portal/finance', request.url))
+    }
+  }
+
   // ── Login page redirects for already-authenticated users ──
   if (isPortalLogin && isContractorUser) {
     return NextResponse.redirect(new URL('/contractor/jobs', request.url))
@@ -105,7 +130,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/client/dashboard', request.url))
   }
   if (isPortalLogin && !isContractorUser && !isClientUser) {
-    return NextResponse.redirect(new URL('/portal', request.url))
+    return NextResponse.redirect(new URL(isAccountant ? '/portal/finance' : '/portal', request.url))
   }
   if (isContractorLogin && isContractorUser) {
     return NextResponse.redirect(new URL('/contractor/jobs', request.url))

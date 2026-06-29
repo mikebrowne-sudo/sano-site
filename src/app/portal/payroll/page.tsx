@@ -38,9 +38,11 @@ export default async function PayrollPage() {
               <Wallet size={16} /> Pay contractors
             </Link>
           )}
-          <Link href="/portal/payroll/new" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
-            <Plus size={16} /> New Pay Run
-          </Link>
+          {isAdmin && (
+            <Link href="/portal/payroll/new" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
+              <Plus size={16} /> New Pay Run
+            </Link>
+          )}
         </div>
       </div>
 
@@ -77,7 +79,7 @@ export default async function PayrollPage() {
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
           <DollarSign size={32} className="text-sage-200 mx-auto mb-3" />
           <p className="text-sage-600 text-sm mb-4">No pay runs yet.</p>
-          <Link href="/portal/payroll/new" className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"><Plus size={16} /> Create first</Link>
+          {isAdmin && <Link href="/portal/payroll/new" className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"><Plus size={16} /> Create first</Link>}
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">

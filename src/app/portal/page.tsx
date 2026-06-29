@@ -7,18 +7,24 @@
 // pills), and a labelled recent-activity section.
 
 import { createClient } from '@/lib/supabase-server'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import {
   FileText, Receipt, ArrowRight, DollarSign, Clock,
   AlertTriangle, Bell, CalendarDays,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { isAdminUser, isAccountantUser } from '@/lib/is-admin'
 import { StatusBadge } from './_components/StatusBadge'
 import { CreateMenu } from './_components/CreateMenu'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 
 export default async function PortalDashboard() {
   const supabase = createClient()
+
+  // Accountant (finance) logins land on the finance area, not the ops dashboard.
+  const { data: { user } } = await supabase.auth.getUser()
+  if (isAccountantUser(user) && !isAdminUser(user)) redirect('/portal/finance')
   const today = new Date().toISOString().slice(0, 10)
   const todayLabel = new Date().toLocaleDateString('en-NZ', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',

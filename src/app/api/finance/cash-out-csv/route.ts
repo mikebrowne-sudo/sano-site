@@ -4,7 +4,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
-import { isAdminEmail } from '@/lib/is-admin'
+import { isFinanceEmail } from '@/lib/is-admin'
 import { buildCsv, csvResponse, fmtCsvDate } from '@/lib/csv'
 import { expenseCategoryLabel } from '@/lib/expense-categories'
 
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!isAdminEmail(user.email)) return NextResponse.json({ error: 'Admin only' }, { status: 403 })
+  if (!isFinanceEmail(user.email)) return NextResponse.json({ error: 'Admin only' }, { status: 403 })
 
   const sp = new URL(request.url).searchParams
   const from = sp.get('from')
