@@ -8,7 +8,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
-import { isAdminUser } from '@/lib/is-admin'
+import { isAdminUser, isFinanceUser } from '@/lib/is-admin'
 import { Receipt, Plus, Search, AlertTriangle, FileText, FolderOpen, ClipboardCheck } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -75,7 +75,8 @@ type SP = {
 export default async function ContractorInvoicesPage({ searchParams }: { searchParams?: SP }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!isAdminUser(user)) notFound()
+  if (!isFinanceUser(user)) notFound()
+  const canEdit = isAdminUser(user) // accountants are read-only
 
   const [{ data: invoices, error }, { data: contractorOpts }] = await Promise.all([
     supabase
@@ -163,20 +164,22 @@ export default async function ContractorInvoicesPage({ searchParams }: { searchP
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl tracking-tight font-bold text-sage-800">Contractor Invoices</h1>
-        <div className="flex items-center gap-2">
-          <Link href="/portal/contractor-invoices/pending-approvals" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
-            <ClipboardCheck size={16} /> Pending approvals
-          </Link>
-          <Link href="/portal/contractor-invoices/remittances" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
-            <FolderOpen size={16} /> Saved remittances
-          </Link>
-          <Link href="/portal/contractor-invoices/remittances/new" className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors">
-            <FileText size={16} /> New remittance
-          </Link>
-          <Link href="/portal/contractor-invoices/new" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
-            <Plus size={16} /> New Invoice
-          </Link>
-        </div>
+        {canEdit && (
+          <div className="flex items-center gap-2">
+            <Link href="/portal/contractor-invoices/pending-approvals" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
+              <ClipboardCheck size={16} /> Pending approvals
+            </Link>
+            <Link href="/portal/contractor-invoices/remittances" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
+              <FolderOpen size={16} /> Saved remittances
+            </Link>
+            <Link href="/portal/contractor-invoices/remittances/new" className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors">
+              <FileText size={16} /> New remittance
+            </Link>
+            <Link href="/portal/contractor-invoices/new" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
+              <Plus size={16} /> New Invoice
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Summary */}
@@ -240,7 +243,7 @@ export default async function ContractorInvoicesPage({ searchParams }: { searchP
         <div className="flex items-center gap-2 mt-3">
           <button type="submit" className="bg-sage-500 text-white font-medium px-4 py-2 rounded-lg text-sm hover:bg-sage-700 transition-colors">Apply filters</button>
           <Link href="/portal/contractor-invoices" className="text-sm text-sage-500 hover:text-sage-700">Clear</Link>
-          <Link href="/portal/contractor-invoices/remittances" className="ml-auto text-[11px] text-sage-500 hover:text-sage-700">View saved remittances →</Link>
+          {canEdit && <Link href="/portal/contractor-invoices/remittances" className="ml-auto text-[11px] text-sage-500 hover:text-sage-700">View saved remittances →</Link>}
         </div>
       </form>
 

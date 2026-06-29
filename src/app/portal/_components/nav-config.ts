@@ -11,7 +11,7 @@ import {
   LayoutDashboard, FileText, Receipt, Briefcase, RefreshCw, Users,
   HardHat, BookOpen, DollarSign, FileInput, Wallet, Bell, Settings,
   Calendar, UserCog, ArchiveRestore, LayoutTemplate,
-  Wallet2, UserPlus, Scale, Landmark, BarChart3,
+  Wallet2, UserPlus, Scale, Landmark, BarChart3, KeyRound,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -20,6 +20,7 @@ export interface NavItem {
   icon: LucideIcon
   placeholder?: boolean
   exact?: boolean // pathname === href (used for /portal root)
+  finance?: boolean // visible to read-only accountant (finance) logins
 }
 
 export interface NavGroup {
@@ -42,7 +43,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/portal/clients',               label: 'Clients',         icon: Users },
       { href: '/portal/quotes',                label: 'Quotes',          icon: FileText },
-      { href: '/portal/invoices',              label: 'Invoices',        icon: Receipt },
+      { href: '/portal/invoices',              label: 'Invoices',        icon: Receipt, finance: true },
       // Phase 2 cleanup — legacy /portal/commercial-calculator hidden
       // from nav. Route still exists for any deep-linked bookmarks but
       // the residential + commercial quote flows have superseded it.
@@ -61,12 +62,12 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     heading: 'Finance',
     items: [
-      { href: '/portal/expenses',            label: 'Expenses',             icon: Wallet2 },
-      { href: '/portal/finance/profit-loss', label: 'P&L statement',        icon: Scale },
-      { href: '/portal/finance/reconcile',   label: 'Bank reconciliation',  icon: Landmark },
-      { href: '/portal/finance',             label: 'Profit / reports',     icon: DollarSign },
-      { href: '/portal/contractor-invoices', label: 'Contractor invoices',  icon: FileInput },
-      { href: '/portal/payroll',             label: 'Payroll',              icon: Wallet },
+      { href: '/portal/expenses',            label: 'Expenses',             icon: Wallet2, finance: true },
+      { href: '/portal/finance/profit-loss', label: 'P&L statement',        icon: Scale, finance: true },
+      { href: '/portal/finance/reconcile',   label: 'Bank reconciliation',  icon: Landmark, finance: true },
+      { href: '/portal/finance',             label: 'Profit / reports',     icon: DollarSign, finance: true },
+      { href: '/portal/contractor-invoices', label: 'Contractor invoices',  icon: FileInput, finance: true },
+      { href: '/portal/payroll',             label: 'Payroll',              icon: Wallet, finance: true },
     ],
   },
   {
@@ -74,6 +75,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/portal/analytics',        label: 'Website analytics', icon: BarChart3 },
       { href: '/portal/settings',         label: 'Settings',        icon: Settings },
+      { href: '/portal/settings/accountants', label: 'Accountant access', icon: KeyRound },
       { href: '#',                        label: 'Templates',       icon: LayoutTemplate, placeholder: true },
       { href: '/portal/settings/archive', label: 'Archived records', icon: ArchiveRestore },
       { href: '/portal/alerts',           label: 'Alerts',          icon: Bell },
@@ -96,7 +98,9 @@ export function isNavActive(pathname: string, item: NavItem): boolean {
   // Archive is nested inside Settings — avoid double-highlight.
   if (item.href === '/portal/settings') {
     return pathname === '/portal/settings' ||
-      (pathname.startsWith('/portal/settings/') && !pathname.startsWith('/portal/settings/archive'))
+      (pathname.startsWith('/portal/settings/')
+        && !pathname.startsWith('/portal/settings/archive')
+        && !pathname.startsWith('/portal/settings/accountants'))
   }
   // P&L statement and Bank reconciliation are nested under /portal/finance —
   // keep "Profit / reports" from also lighting up when on those pages.
@@ -107,4 +111,14 @@ export function isNavActive(pathname: string, item: NavItem): boolean {
         && !pathname.startsWith('/portal/finance/reconcile'))
   }
   return pathname.startsWith(item.href)
+}
+
+/** Nav groups to show for a given role. `financeOnly` (read-only accountant)
+ *  sees only items flagged `finance`; empty groups are dropped. Admins/staff
+ *  get the full set. */
+export function navGroupsFor(financeOnly: boolean): NavGroup[] {
+  if (!financeOnly) return NAV_GROUPS
+  return NAV_GROUPS
+    .map((g) => ({ ...g, items: g.items.filter((it) => it.finance && !it.placeholder) }))
+    .filter((g) => g.items.length > 0)
 }

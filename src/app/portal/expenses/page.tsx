@@ -7,7 +7,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
-import { isAdminUser } from '@/lib/is-admin'
+import { isAdminUser, isFinanceUser } from '@/lib/is-admin'
 import { getPeriods, resolvePeriod } from '../finance/_lib/periods'
 import { expenseCategoryLabel, isAccountantConfirmCategory } from '@/lib/expense-categories'
 import { Wallet2, Plus, Download } from 'lucide-react'
@@ -39,7 +39,8 @@ type SP = { period?: string; from?: string; to?: string }
 export default async function ExpensesPage({ searchParams }: { searchParams?: SP }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!isAdminUser(user)) notFound()
+  if (!isFinanceUser(user)) notFound()
+  const canEdit = isAdminUser(user) // accountants are read-only
 
   const f = searchParams ?? {}
   const periodKey = f.period ?? 'all'
@@ -95,9 +96,11 @@ export default async function ExpensesPage({ searchParams }: { searchParams?: SP
           <a href={`/portal/expenses/csv${csvQuery}`} className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
             <Download size={16} /> Export CSV
           </a>
-          <Link href="/portal/expenses/new" className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors">
-            <Plus size={16} /> Add expense
-          </Link>
+          {canEdit && (
+            <Link href="/portal/expenses/new" className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors">
+              <Plus size={16} /> Add expense
+            </Link>
+          )}
         </div>
       </div>
 

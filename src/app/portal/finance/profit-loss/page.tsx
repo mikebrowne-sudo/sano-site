@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import Link from 'next/link'
 import { ArrowLeft, Info } from 'lucide-react'
-import { isAdminUser } from '@/lib/is-admin'
+import { isFinanceUser } from '@/lib/is-admin'
 import { notFound } from 'next/navigation'
 import { PeriodFilter } from '../_components/PeriodFilter'
 import { resolvePeriod } from '../_lib/periods'
@@ -27,7 +27,7 @@ export default async function ProfitLossPage({
 }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!isAdminUser(user)) notFound()
+  if (!isFinanceUser(user)) notFound()
 
   const periodKey = searchParams.period ?? 'ytd'
   const { from, to } = resolvePeriod(periodKey, searchParams.from, searchParams.to)

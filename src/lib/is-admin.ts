@@ -27,3 +27,29 @@ export function isAdminEmail(email: string | null | undefined): boolean {
 export function isAdminUser(user: { email?: string | null } | null | undefined): boolean {
   return isAdminEmail(user?.email ?? null)
 }
+
+// Accountant accounts — read-only access to the finance area only. Keep this
+// set in sync with the DB `public.is_finance()` function (see
+// docs/db/2026-06-25-finance-readonly-role.sql), which gates SELECT on the
+// finance tables. These accounts are NOT admins: they can view + export
+// finance data but cannot write anything.
+export const ACCOUNTANT_EMAILS: readonly string[] = ['john@taxaction.co.nz', 'jason@taxaction.co.nz']
+
+export function isAccountantEmail(email: string | null | undefined): boolean {
+  if (!email) return false
+  const lower = email.toLowerCase()
+  return ACCOUNTANT_EMAILS.some((a) => a.toLowerCase() === lower)
+}
+
+export function isAccountantUser(user: { email?: string | null } | null | undefined): boolean {
+  return isAccountantEmail(user?.email ?? null)
+}
+
+/** Can view the finance area: admins OR accountants. */
+export function isFinanceEmail(email: string | null | undefined): boolean {
+  return isAdminEmail(email) || isAccountantEmail(email)
+}
+
+export function isFinanceUser(user: { email?: string | null } | null | undefined): boolean {
+  return isFinanceEmail(user?.email ?? null)
+}

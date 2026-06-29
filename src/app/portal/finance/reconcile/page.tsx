@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ArrowLeft, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
-import { isAdminUser } from '@/lib/is-admin'
+import { isAdminUser, isFinanceUser } from '@/lib/is-admin'
 import { notFound } from 'next/navigation'
 import { reconcile, type CreditStatus, type DebitStatus, type ReconInvoice } from '@/lib/bank-reconcile'
 import { matchClientsForPayee } from '@/lib/payee-match'
@@ -65,7 +65,8 @@ const DEBIT_TONE: Record<DebitStatus, string> = { recorded: 'bg-emerald-50 text-
 export default async function ReconcilePage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!isAdminUser(user)) notFound()
+  if (!isFinanceUser(user)) notFound()
+  const canEdit = isAdminUser(user) // accountants are read-only
 
   const { transactions, meta, invoices, expenses } = await getReconcileData()
   const result = reconcile({ transactions, invoices, expenses })
@@ -85,10 +86,10 @@ export default async function ReconcilePage() {
       <h1 className="text-3xl tracking-tight font-bold text-sage-800 mb-2">Bank reconciliation</h1>
       <p className="text-sm text-sage-500 mb-8">Import an ASB CSV export to match bank credits against your invoices and debits against your expenses. Re-importing is safe — duplicates are skipped.</p>
 
-      <Uploader />
+      {canEdit && <Uploader />}
 
       {!hasData ? (
-        <p className="text-sage-500 text-sm mt-8">No bank transactions imported yet. Upload an ASB export above to get started.</p>
+        <p className="text-sage-500 text-sm mt-8">{canEdit ? 'No bank transactions imported yet. Upload an ASB export above to get started.' : 'No bank transactions have been imported yet.'}</p>
       ) : (
         <div className="mt-8 space-y-8">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -117,10 +118,10 @@ export default async function ReconcilePage() {
                     <Td><Badge tone={CREDIT_TONE[display]}>{CREDIT_LABEL[display]}</Badge></Td>
                     <Td className="text-right font-medium">{fmt(c.txn.amount)}</Td>
                     <Td className="text-right">
-                      {(c.status === 'unpaid_match' || c.status === 'amount_match') && c.invoice && (
+                      {canEdit && (c.status === 'unpaid_match' || c.status === 'amount_match') && c.invoice && (
                         <Link href={`/portal/invoices/${c.invoice.id}`} className="text-sage-600 hover:text-sage-800 underline whitespace-nowrap">Mark paid →</Link>
                       )}
-                      {c.status === 'unmatched' && m && creditMatch.has(c.txn.uniqueId) && (
+                      {canEdit && c.status === 'unmatched' && m && creditMatch.has(c.txn.uniqueId) && (
                         <MatchPanel
                           lineId={m.id}
                           amount={c.txn.amount}
@@ -131,7 +132,7 @@ export default async function ReconcilePage() {
                         />
                       )}
                     </Td>
-                    <Td className="text-right">{m && <ClearToggle id={m.id} cleared={m.cleared} />}</Td>
+                    <Td className="text-right">{canEdit && m && <ClearToggle id={m.id} cleared={m.cleared} />}</Td>
                   </tr>
                 )
               })}
@@ -149,14 +150,14 @@ export default async function ReconcilePage() {
                     <Td><Badge tone={DEBIT_TONE[d.status]}>{DEBIT_LABEL[d.status]}</Badge></Td>
                     <Td className="text-right font-medium">{fmt(Math.abs(d.txn.amount))}</Td>
                     <Td className="text-right">
-                      {d.status === 'not_recorded' && (
+                      {canEdit && d.status === 'not_recorded' && (
                         <Link
                           href={`/portal/expenses/new?amount=${Math.abs(d.txn.amount)}&date=${d.txn.date}&ref=${encodeURIComponent(d.txn.memo || d.txn.payee)}`}
                           className="text-sage-600 hover:text-sage-800 underline whitespace-nowrap"
                         >Add expense →</Link>
                       )}
                     </Td>
-                    <Td className="text-right">{m && <ClearToggle id={m.id} cleared={m.cleared} />}</Td>
+                    <Td className="text-right">{canEdit && m && <ClearToggle id={m.id} cleared={m.cleared} />}</Td>
                   </tr>
                 )
               })}
