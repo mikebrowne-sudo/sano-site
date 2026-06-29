@@ -742,7 +742,7 @@ export const SANO_ISSUER: ProposalIssuer = {
   email: 'hello@sano.nz',
   website: 'sano.nz',
   address_line: 'Auckland, New Zealand',
-  gst_number: '141-577-062',
+  gst_number: '148-387-648',
   logo_src: '/brand/sano-logo-print.png',
 }
 

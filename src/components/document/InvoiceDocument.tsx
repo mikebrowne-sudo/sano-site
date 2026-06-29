@@ -161,7 +161,7 @@ export function InvoiceDocument({
     name: 'Sano Property Services Limited',
     phone: '0800 726 686',
     email: 'hello@sano.nz',
-    gst: '141-577-062',
+    gst: '148-387-648',
   }
 
   // Accounts email/contact takes precedence over the regular contact
@@ -248,8 +248,8 @@ export function InvoiceDocument({
   }
 
   const termsBody = isCashSale
-    ? 'Payment is required prior to the clean. All amounts are in New Zealand Dollars and include GST. Sano Property Services Limited is GST registered (GST No. 141-577-062) under the Goods and Services Tax Act 1985. Please use your invoice number as the payment reference.'
-    : 'Payment is due within 14 days of the invoice date. All amounts are in New Zealand Dollars and include GST. Sano Property Services Limited is GST registered (GST No. 141-577-062) under the Goods and Services Tax Act 1985. Please use your invoice number as the payment reference.'
+    ? 'Payment is required prior to the clean. All amounts are in New Zealand Dollars and include GST. Sano Property Services Limited is GST registered (GST No. 148-387-648) under the Goods and Services Tax Act 1985. Please use your invoice number as the payment reference.'
+    : 'Payment is due within 14 days of the invoice date. All amounts are in New Zealand Dollars and include GST. Sano Property Services Limited is GST registered (GST No. 148-387-648) under the Goods and Services Tax Act 1985. Please use your invoice number as the payment reference.'
 
   return (
     <DocumentLayout

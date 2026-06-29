@@ -135,7 +135,7 @@ export function QuoteDocument({
     name: 'Sano Property Services Limited',
     phone: '0800 726 686',
     email: 'hello@sano.nz',
-    gst: '141-577-062',
+    gst: '148-387-648',
   }
 
   // client_reference is intentionally NOT passed through `toParty.reference`
@@ -206,8 +206,8 @@ export function QuoteDocument({
   }
 
   const termsBody = isCashSale
-    ? 'This quote is valid for 30 days from the issue date. Prices are in New Zealand Dollars and include GST. Payment is required prior to the clean. Sano Property Services Limited is GST registered (GST No. 141-577-062). No lock-in contracts — you can pause or cancel any time.'
-    : 'This quote is valid for 30 days from the issue date. Prices are in New Zealand Dollars and include GST. Payment is due within 14 days of the invoice date. Sano Property Services Limited is GST registered (GST No. 141-577-062). No lock-in contracts — you can pause or cancel any time.'
+    ? 'This quote is valid for 30 days from the issue date. Prices are in New Zealand Dollars and include GST. Payment is required prior to the clean. Sano Property Services Limited is GST registered (GST No. 148-387-648). No lock-in contracts — you can pause or cancel any time.'
+    : 'This quote is valid for 30 days from the issue date. Prices are in New Zealand Dollars and include GST. Payment is due within 14 days of the invoice date. Sano Property Services Limited is GST registered (GST No. 148-387-648). No lock-in contracts — you can pause or cancel any time.'
 
   return (
     <DocumentLayout
