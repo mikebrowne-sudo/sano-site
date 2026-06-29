@@ -73,7 +73,7 @@ helper call) | **Type** | **Example** | **Notes**.
 | `sano.email` | constant | string | `"hello@sano.nz"` | |
 | `sano.website` | constant | string | `"sano.nz"` | |
 | `sano.address_line` | constant | string | `"Auckland, New Zealand"` | |
-| `sano.gst_number` | constant | string | `"141-577-062"` | Rendered as `GST {gst_number}`. |
+| `sano.gst_number` | constant | string | `"148-387-648"` | Rendered as `GST {gst_number}`. |
 | `sano.logo_src` | path to image | string | `"../assets/logos/sano-logo-print.png"` | Drop the file into `assets/logos/`. Renderer skips the `<img>` if empty. |
 
 > Recommendation: keep `sano.*` in a single shared constant in
