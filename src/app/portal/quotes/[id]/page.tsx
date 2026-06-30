@@ -13,6 +13,7 @@ import { NotLatestBanner, ArchivedBanner } from './_components/NotLatestBanner'
 import { VersionHistoryPanel } from './_components/VersionHistoryPanel'
 import { ArchiveQuoteButton } from './_components/ArchiveQuoteButton'
 import { LifecycleActions } from '../../_components/LifecycleActions'
+import { MakeLiveBanner } from '../../_components/MakeLiveBanner'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
 import { StatusBadge } from '../../_components/StatusBadge'
 import { displayQuoteNumber } from '@/lib/quote-versioning'
@@ -293,6 +294,15 @@ export default async function QuoteDetailPage({
           )}
         </div>
       </div>
+
+      {isAdmin && (
+        <MakeLiveBanner
+          entity="quote"
+          id={quote.id as string}
+          isTest={!!(quote as { is_test?: boolean }).is_test}
+          isArchived={isArchived}
+        />
+      )}
 
       {isAdmin && canCleanup && (
         <div className="mb-4">
