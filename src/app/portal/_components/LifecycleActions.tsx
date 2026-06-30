@@ -94,9 +94,23 @@ export function LifecycleActions({ entity, id, isArchived, isTest }: Props) {
       )}
 
       {isTest && !isArchived && (
-        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-2 py-0.5">
-          <FlaskConical size={10} /> Test
-        </span>
+        <>
+          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold text-amber-800 bg-amber-100 rounded-full px-2 py-0.5">
+            <FlaskConical size={10} /> Test
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('Make live? This clears the test flag and returns the record to the active list.')) {
+                call(() => restoreRecords(entity, id, { asLive: true }), 'restored')
+              }
+            }}
+            disabled={pending}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold bg-emerald-500 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50"
+          >
+            <ArchiveRestore size={12} /> Make live
+          </button>
+        </>
       )}
 
       {flash === 'test'     && <span className="text-xs text-amber-700">Marked as test.</span>}
