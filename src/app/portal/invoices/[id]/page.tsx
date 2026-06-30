@@ -12,6 +12,7 @@ import { InvoiceJobButton } from './_components/InvoiceJobButton'
 import { InvoiceLinkBanner } from './_components/InvoiceLinkBanner'
 import { InvoiceLinkedRecords } from './_components/InvoiceLinkedRecords'
 import { LifecycleActions } from '../../_components/LifecycleActions'
+import { MakeLiveBanner } from '../../_components/MakeLiveBanner'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
 import { isAdminUser } from '@/lib/is-admin'
 import { Panel } from '../../_components/Panel'
@@ -165,6 +166,15 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
       {isAdmin && invoiceUnlinked && (
         <InvoiceLinkBanner invoiceId={invoice.id as string} jobs={linkCandidates} />
+      )}
+
+      {isAdmin && (
+        <MakeLiveBanner
+          entity="invoice"
+          id={invoice.id as string}
+          isTest={!!(invoice as { is_test?: boolean }).is_test}
+          isArchived={!!invoice.deleted_at}
+        />
       )}
 
       {isAdmin && canCleanup && (
