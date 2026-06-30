@@ -130,16 +130,18 @@ export async function restoreQuote(input: RestoreQuoteInput) {
 
   const { data: current, error: curErr } = await supabase
     .from('quotes')
-    .select('id, deleted_at, status, version_number')
+    .select('id, deleted_at, status, version_number, is_test')
     .eq('id', input.quote_id)
     .single()
   if (curErr || !current) return { error: 'Quote not found.' }
 
-  if (current.deleted_at == null) return { ok: true } // idempotent
+  // Restore reactivates a quote hidden by EITHER flag — archived (deleted_at)
+  // or test (is_test). Clearing both returns it to the live list.
+  if (current.deleted_at == null && !current.is_test) return { ok: true } // idempotent
 
   const { error: restoreErr } = await supabase
     .from('quotes')
-    .update({ deleted_at: null, deleted_by: null })
+    .update({ deleted_at: null, deleted_by: null, is_test: false })
     .eq('id', input.quote_id)
   if (restoreErr) return { error: `Failed to restore: ${restoreErr.message}` }
 
@@ -149,8 +151,8 @@ export async function restoreQuote(input: RestoreQuoteInput) {
     action: 'quote.restored',
     entity_table: 'quotes',
     entity_id: input.quote_id,
-    before: { deleted_at: current.deleted_at, status: current.status },
-    after: { deleted_at: null, deleted_by: null },
+    before: { deleted_at: current.deleted_at, status: current.status, is_test: current.is_test },
+    after: { deleted_at: null, deleted_by: null, is_test: false },
   })
 
   revalidatePath('/portal/quotes')
@@ -264,16 +266,17 @@ export async function restoreInvoice(input: RestoreInvoiceInput) {
 
   const { data: current, error: curErr } = await supabase
     .from('invoices')
-    .select('id, deleted_at, status')
+    .select('id, deleted_at, status, is_test')
     .eq('id', input.invoice_id)
     .single()
   if (curErr || !current) return { error: 'Invoice not found.' }
 
-  if (current.deleted_at == null) return { ok: true }
+  // Reactivate an invoice hidden by EITHER flag — archived or test.
+  if (current.deleted_at == null && !current.is_test) return { ok: true }
 
   const { error: restoreErr } = await supabase
     .from('invoices')
-    .update({ deleted_at: null, deleted_by: null })
+    .update({ deleted_at: null, deleted_by: null, is_test: false })
     .eq('id', input.invoice_id)
   if (restoreErr) return { error: `Failed to restore: ${restoreErr.message}` }
 
@@ -283,8 +286,8 @@ export async function restoreInvoice(input: RestoreInvoiceInput) {
     action: 'invoice.restored',
     entity_table: 'invoices',
     entity_id: input.invoice_id,
-    before: { deleted_at: current.deleted_at, status: current.status },
-    after: { deleted_at: null, deleted_by: null },
+    before: { deleted_at: current.deleted_at, status: current.status, is_test: current.is_test },
+    after: { deleted_at: null, deleted_by: null, is_test: false },
   })
 
   revalidatePath('/portal/invoices')
