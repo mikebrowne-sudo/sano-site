@@ -20,6 +20,21 @@ function fmtDate(iso: string | null) {
   })
 }
 
+// Why a record is hidden from the live list — archived, test, or both.
+function ReasonPill({ archived, isTest }: { archived: boolean; isTest: boolean }) {
+  const pills: Array<{ text: string; cls: string }> = []
+  if (archived) pills.push({ text: 'Archived', cls: 'bg-sage-100 text-sage-700' })
+  if (isTest) pills.push({ text: 'Test', cls: 'bg-purple-50 text-purple-700' })
+  if (pills.length === 0) return null
+  return (
+    <span className="ml-2 inline-flex gap-1 align-middle">
+      {pills.map((p) => (
+        <span key={p.text} className={`text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded ${p.cls}`}>{p.text}</span>
+      ))}
+    </span>
+  )
+}
+
 export default async function ArchivedRecordsPage() {
   const supabase = createClient()
 
@@ -30,19 +45,19 @@ export default async function ArchivedRecordsPage() {
     supabase
       .from('quotes')
       .select(`
-        id, quote_number, status, version_number, deleted_at, deleted_by,
+        id, quote_number, status, version_number, deleted_at, deleted_by, is_test,
         clients ( name )
       `)
-      .not('deleted_at', 'is', null)
-      .order('deleted_at', { ascending: false }),
+      .or('deleted_at.not.is.null,is_test.eq.true')
+      .order('deleted_at', { ascending: false, nullsFirst: false }),
     supabase
       .from('invoices')
       .select(`
-        id, invoice_number, status, deleted_at, deleted_by,
+        id, invoice_number, status, deleted_at, deleted_by, is_test,
         clients ( name )
       `)
-      .not('deleted_at', 'is', null)
-      .order('deleted_at', { ascending: false }),
+      .or('deleted_at.not.is.null,is_test.eq.true')
+      .order('deleted_at', { ascending: false, nullsFirst: false }),
     // Phase D.2 — archived jobs.
     supabase
       .from('jobs')
@@ -80,7 +95,9 @@ export default async function ArchivedRecordsPage() {
     status: (q.status as string) ?? 'draft',
     versionNumber: (q.version_number as number) ?? 1,
     clientName: (q.clients as unknown as { name: string } | null)?.name ?? 'No client',
-    deletedAt: q.deleted_at as string,
+    deletedAt: (q.deleted_at as string | null) ?? null,
+    archived: q.deleted_at != null,
+    isTest: !!(q as { is_test?: boolean }).is_test,
     deletedBy: q.deleted_by ? userMap.get(q.deleted_by as string) ?? 'Unknown' : 'Unknown',
   }))
 
@@ -89,7 +106,9 @@ export default async function ArchivedRecordsPage() {
     invoiceNumber: i.invoice_number as string,
     status: (i.status as string) ?? 'draft',
     clientName: (i.clients as unknown as { name: string } | null)?.name ?? 'No client',
-    deletedAt: i.deleted_at as string,
+    deletedAt: (i.deleted_at as string | null) ?? null,
+    archived: i.deleted_at != null,
+    isTest: !!(i as { is_test?: boolean }).is_test,
     deletedBy: i.deleted_by ? userMap.get(i.deleted_by as string) ?? 'Unknown' : 'Unknown',
   }))
 
@@ -118,7 +137,8 @@ export default async function ArchivedRecordsPage() {
         <h1 className="text-3xl tracking-tight font-bold text-sage-800">Archived Records</h1>
       </div>
       <p className="text-sm text-sage-600 mb-8">
-        Quotes, invoices, and jobs that have been archived. Restore returns them to the active list.
+        Quotes, invoices and jobs hidden from the active lists — either <strong>archived</strong> or flagged as <strong>test</strong>.
+        Restore returns them to the live list (and clears the test flag).
       </p>
 
       <section className="mb-10">
@@ -127,7 +147,7 @@ export default async function ArchivedRecordsPage() {
         </h2>
         {quoteRows.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 text-sm text-sage-500 text-center">
-            No archived quotes.
+            No archived or test quotes.
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -147,6 +167,7 @@ export default async function ArchivedRecordsPage() {
                   <tr key={q.id} className="border-b border-gray-50 last:border-0">
                     <td className="px-5 py-3 font-medium text-sage-800">
                       <Link href={`/portal/quotes/${q.id}`} className="hover:underline">{q.displayNumber}</Link>
+                      <ReasonPill archived={q.archived} isTest={q.isTest} />
                     </td>
                     <td className="px-5 py-3 text-sage-700">{q.clientName}</td>
                     <td className="px-5 py-3"><StatusBadge kind="quote" status={q.status} /></td>
@@ -169,7 +190,7 @@ export default async function ArchivedRecordsPage() {
         </h2>
         {invoiceRows.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 text-sm text-sage-500 text-center">
-            No archived invoices.
+            No archived or test invoices.
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -189,6 +210,7 @@ export default async function ArchivedRecordsPage() {
                   <tr key={inv.id} className="border-b border-gray-50 last:border-0">
                     <td className="px-5 py-3 font-medium text-sage-800">
                       <Link href={`/portal/invoices/${inv.id}`} className="hover:underline">{inv.invoiceNumber}</Link>
+                      <ReasonPill archived={inv.archived} isTest={inv.isTest} />
                     </td>
                     <td className="px-5 py-3 text-sage-700">{inv.clientName}</td>
                     <td className="px-5 py-3"><StatusBadge kind="invoice" status={inv.status} /></td>
