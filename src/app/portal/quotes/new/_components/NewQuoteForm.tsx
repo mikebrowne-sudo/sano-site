@@ -762,7 +762,15 @@ export function NewQuoteForm({
             step="0.01"
             min="0"
             value={basePrice}
-            onChange={setBasePrice}
+            onChange={(v) => {
+              setBasePrice(v)
+              // Ineligible non-commercial services run in forced-override mode,
+              // where override_price drives the saved price. Keep it in sync so
+              // editing this field actually persists.
+              if (serviceSelected && !eligible && !isCommercial) {
+                setOverride((prev) => ({ ...prev, is_price_overridden: true, override_price: v }))
+              }
+            }}
             required
             error={validationErrors.basePrice}
           />
