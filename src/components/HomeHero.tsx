@@ -92,7 +92,7 @@ export function HomeHero() {
             {/* Eyebrow */}
             <motion.p
               variants={item}
-              className="mb-4 text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-white/55"
+              className="mb-4 text-[0.6875rem] font-bold uppercase tracking-[0.2em] text-white/90"
             >
               Residential and commercial cleaning across Auckland
             </motion.p>
