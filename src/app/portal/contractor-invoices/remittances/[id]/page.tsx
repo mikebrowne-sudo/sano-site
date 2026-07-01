@@ -3,7 +3,7 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ExternalLink, Printer, Download, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Printer, Download, CheckCircle2, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { getRemittanceBatchById } from '@/lib/contractor-remittance-data'
@@ -42,6 +42,10 @@ export default async function RemittanceBatchViewPage({ params }: { params: { id
               className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
               <ExternalLink size={15} /> Open share page
             </a>
+            <Link href={`/portal/contractor-invoices/remittances/${data.id}/edit`}
+              className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
+              <Pencil size={15} /> Edit
+            </Link>
             <PrintButton label="Print" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors" />
             <a href={`/api/contractor-invoices/remittances/${data.id}/pdf`} target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors">
