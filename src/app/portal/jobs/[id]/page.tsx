@@ -666,6 +666,7 @@ export default async function JobDetailPage({
                                     jobId={job.id}
                                     contractorId={ew.contractorId}
                                     contractorName={ew.fullName}
+                                    allowedHours={allowedHrs}
                                     extraHours={extraHrs}
                                     extraStatus={extraStatus}
                                     extraReason={(w?.extra_hours_reason as string | null) ?? null}

@@ -24,6 +24,10 @@ export interface ExtraHoursControlProps {
   jobId: string
   contractorId: string
   contractorName: string
+  /** Allowed hours for this worker. When known, staff enter the ACTUAL
+   *  hours worked and the stored adjustment (extra_hours) is derived as
+   *  actual − allowed. Null falls back to the legacy +/- delta entry. */
+  allowedHours: number | null
   extraHours: number
   extraStatus: string // none | pending | approved | rejected
   extraReason: string | null
@@ -31,13 +35,24 @@ export interface ExtraHoursControlProps {
   locked: boolean // worker is in a pay run / paid — no edits
 }
 
+function round2(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
 function fmtHours(n: number): string {
-  const r = Math.round(n * 100) / 100
-  return `${r}h`
+  return `${round2(n)}h`
 }
 
 export function ExtraHoursControl(props: ExtraHoursControlProps) {
   const router = useRouter()
+  const allowed = props.allowedHours
+  // When allowed hours are known, the input represents ACTUAL hours worked
+  // and the stored adjustment is derived (actual − allowed). Otherwise fall
+  // back to the legacy signed +/- delta entry.
+  const actualMode = allowed != null
+  // Current effective actual = allowed + current adjustment.
+  const currentActual = actualMode ? round2((allowed as number) + (props.extraHours ?? 0)) : null
+
   const [editing, setEditing] = useState(false)
   const [hours, setHours] = useState<string>(props.extraHours ? String(props.extraHours) : '')
   const [reason, setReason] = useState(props.extraReason ?? '')
@@ -57,11 +72,42 @@ export function ExtraHoursControl(props: ExtraHoursControlProps) {
     })
   }
 
+  /** Open the editor. In actual mode we prefill the actual-hours field; a
+   *  fresh adjustment defaults to the allowed hours so staff just type the
+   *  real figure. */
+  function open() {
+    if (actualMode) {
+      setHours(has ? String(currentActual) : String(allowed))
+    } else {
+      setHours(props.extraHours ? String(props.extraHours) : '')
+    }
+    setReason(has ? (props.extraReason ?? '') : '')
+    setError(null)
+    setEditing(true)
+  }
+
+  // Live adjustment implied by the current input (actual mode only).
+  const parsed = Number(hours)
+  const liveDelta =
+    actualMode && hours.trim() !== '' && Number.isFinite(parsed)
+      ? round2(parsed - (allowed as number))
+      : null
+
   function save() {
     const n = Number(hours)
-    if (!Number.isFinite(n)) { setError('Enter a number of hours (0 to clear).'); return }
-    if (n !== 0 && !reason.trim()) { setError('Add a short reason for the adjustment.'); return }
-    run(() => recordExtraHours(props.jobId, props.contractorId, n, reason))
+    if (hours.trim() === '' || !Number.isFinite(n)) {
+      setError(actualMode ? 'Enter the actual hours worked.' : 'Enter a number of hours (0 to clear).')
+      return
+    }
+    let delta: number
+    if (actualMode) {
+      if (n < 0) { setError('Hours can’t be negative.'); return }
+      delta = round2(n - (allowed as number))
+    } else {
+      delta = n
+    }
+    if (delta !== 0 && !reason.trim()) { setError('Add a short reason for the change.'); return }
+    run(() => recordExtraHours(props.jobId, props.contractorId, delta, reason))
   }
 
   // Signed display, e.g. "+2h" / "-1h".
@@ -70,12 +116,19 @@ export function ExtraHoursControl(props: ExtraHoursControlProps) {
   // ---- Editor ----------------------------------------------------------
   if (editing) {
     return (
-      <div className="text-left bg-white border border-sage-200 rounded-lg p-3 space-y-2 w-56 shadow-sm">
-        <div className="text-xs font-semibold text-sage-800">Hours adjustment — {props.contractorName}</div>
+      <div className="text-left bg-white border border-sage-200 rounded-lg p-3 space-y-2 w-60 shadow-sm">
+        <div className="text-xs font-semibold text-sage-800">
+          {actualMode ? 'Actual hours worked' : 'Hours adjustment'} — {props.contractorName}
+        </div>
+        {actualMode && (
+          <div className="text-[11px] text-sage-500">
+            Allowed <span className="font-semibold text-sage-700">{fmtHours(allowed as number)}</span>
+          </div>
+        )}
         <input
-          type="number" step="0.25" value={hours} autoFocus
+          type="number" step="0.25" min={actualMode ? 0 : undefined} value={hours} autoFocus
           onChange={(e) => setHours(e.target.value)}
-          placeholder="+ over / − early"
+          placeholder={actualMode ? 'e.g. 5' : '+ over / − early'}
           className="w-full rounded-md border border-sage-200 px-2.5 py-1.5 text-sm text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500"
         />
         <textarea
@@ -84,7 +137,15 @@ export function ExtraHoursControl(props: ExtraHoursControlProps) {
           placeholder="Reason (e.g. extra room, or finished early)"
           className="w-full rounded-md border border-sage-200 px-2.5 py-1.5 text-xs text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500"
         />
-        <p className="text-[10px] text-sage-400 leading-snug">+ adds hours, − reduces. Set to 0 to clear. Saved as pending until an admin signs off.</p>
+        {actualMode ? (
+          <p className="text-[10px] text-sage-400 leading-snug">
+            {liveDelta == null || liveDelta === 0
+              ? 'Enter the hours actually worked. Matching the allowed hours clears any adjustment.'
+              : `Adjustment ${signed(liveDelta)} vs allowed. Saved as pending until an admin signs off.`}
+          </p>
+        ) : (
+          <p className="text-[10px] text-sage-400 leading-snug">+ adds hours, − reduces. Set to 0 to clear. Saved as pending until an admin signs off.</p>
+        )}
         {error && <p className="text-[11px] text-red-600">{error}</p>}
         <div className="flex items-center gap-2 pt-0.5">
           <button type="button" onClick={save} disabled={isPending}
@@ -109,9 +170,9 @@ export function ExtraHoursControl(props: ExtraHoursControlProps) {
     // none / rejected with no live figure → offer to add (unless locked).
     if (props.locked) return <span className="text-sage-300">—</span>
     return (
-      <button type="button" onClick={() => { setHours(''); setReason(''); setEditing(true) }}
+      <button type="button" onClick={open}
         className="inline-flex items-center gap-1 text-[11px] text-sage-500 hover:text-sage-700 border border-dashed border-sage-200 rounded px-2 py-0.5 hover:border-sage-300">
-        <Plus size={11} />Adjust
+        <Plus size={11} />{actualMode ? 'Set hours' : 'Adjust'}
       </button>
     )
   }
@@ -128,7 +189,7 @@ export function ExtraHoursControl(props: ExtraHoursControlProps) {
 
       <span className="inline-flex items-center gap-2">
         {editable && (
-          <button type="button" onClick={() => { setHours(String(props.extraHours)); setReason(props.extraReason ?? ''); setEditing(true) }}
+          <button type="button" onClick={open}
             className="inline-flex items-center gap-0.5 text-[10px] text-sage-500 hover:text-sage-700">
             <Pencil size={10} />Edit
           </button>
