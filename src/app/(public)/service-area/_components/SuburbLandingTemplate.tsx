@@ -9,6 +9,7 @@ import { WhyChooseSection } from '../../services/_components/WhyChooseSection'
 import { SUBURB_WHY_SANO_ITEMS } from '@/lib/suburb-why-sano'
 import { SuburbServicesSection, type ServiceGroup } from './SuburbServicesSection'
 import { NearbySuburbsSection, type NearbySuburb } from './NearbySuburbsSection'
+import { SERVICE_AREAS, getAreasByRegion, hasSuburbPage } from '@/lib/service-areas'
 
 /**
  * Shared, data-driven suburb landing page. Renders the exact same section
@@ -60,6 +61,35 @@ function introHeading(suburb: string): ReactNode {
 }
 
 export function SuburbLandingTemplate({ data }: { data: SuburbData }) {
+  // Real, per-suburb facts pulled from the coverage data — no invented
+  // detail. Feeds a specific `areaServed` (postcode + region) in the
+  // schema and a unique "areas we cover" block, so each page carries
+  // genuinely distinct local signal instead of near-duplicate boilerplate.
+  const area = SERVICE_AREAS.find((a) => a.suburb === data.suburb)
+  const region = area?.region ?? null
+  const postcode = area?.postcodes?.[0] ?? null
+  const nearbyLocalities = region
+    ? getAreasByRegion(region).filter((a) => a.suburb !== data.suburb).slice(0, 8)
+    : []
+
+  const areaServedSchema = region
+    ? {
+        '@type': 'Place',
+        name: `${data.suburb}, Auckland`,
+        ...(postcode
+          ? {
+              address: {
+                '@type': 'PostalAddress',
+                addressLocality: data.suburb,
+                addressRegion: 'Auckland',
+                postalCode: postcode,
+                addressCountry: 'NZ',
+              },
+            }
+          : {}),
+      }
+    : { '@type': 'City', name: 'Auckland' }
+
   return (
     <>
       <SubpageHero
@@ -135,12 +165,47 @@ export function SuburbLandingTemplate({ data }: { data: SuburbData }) {
             name: `${data.suburb} Cleaning Services`,
             description: data.schemaDescription,
             provider: { '@type': 'LocalBusiness', name: 'Sano Property Services' },
-            areaServed: { '@type': 'City', name: 'Auckland' },
+            areaServed: areaServedSchema,
           }),
         }}
       />
 
       {data.nearby.length > 0 && <NearbySuburbsSection suburbs={[...data.nearby]} />}
+
+      {/* Areas we cover — real coverage facts (suburb + postcode + nearby
+          localities from the coverage data). Gives each page distinct,
+          truthful local content and extra internal links. */}
+      {region && nearbyLocalities.length > 0 && (
+        <section className="section-padding bg-white py-10 lg:py-12 border-t border-sage-100">
+          <div className="container-max">
+            <h2 className="text-lg font-semibold text-sage-800 mb-3">Areas we cover around {data.suburb}</h2>
+            <p className="body-text max-w-3xl">
+              Sano cleans {data.suburb}
+              {postcode ? ` (${postcode})` : ''} and nearby areas across {region}, including{' '}
+              {nearbyLocalities.map((a, i) => (
+                <span key={a.slug}>
+                  {i > 0 && ', '}
+                  {hasSuburbPage(a.slug) ? (
+                    <Link
+                      href={`/service-area/${a.slug}`}
+                      className="text-sage-600 underline-offset-2 hover:underline"
+                    >
+                      {a.suburb}
+                    </Link>
+                  ) : (
+                    a.suburb
+                  )}
+                </span>
+              ))}
+              . Not sure if we reach you?{' '}
+              <Link href="/service-area" className="text-sage-600 font-medium underline-offset-2 hover:underline">
+                Check your suburb
+              </Link>
+              .
+            </p>
+          </div>
+        </section>
+      )}
 
       <CtaBanner
         headline={data.ctaHeadline ?? 'Ready to book your clean?'}
