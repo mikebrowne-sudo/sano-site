@@ -156,15 +156,22 @@ export default function AboutPage() {
               </Stagger>
             </FadeIn>
             <FadeIn delay={0.15}>
-              <div className="rounded-2xl bg-white border border-sage-100 shadow-sm p-8 lg:p-9">
+              {/* Invisible spacer mirrors the left heading block (eyebrow +
+                  h2) so on desktop the panel top lines up with the top of the
+                  first expectation card. Hidden on mobile where columns stack. */}
+              <div aria-hidden="true" className="invisible hidden lg:block select-none">
+                <p className="eyebrow mb-3">Why Sano</p>
+                <h2 className="mb-8">What you can expect</h2>
+              </div>
+              <div className="rounded-2xl bg-sage-800 shadow-sm p-8 lg:p-9">
                 <span
-                  className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-sage-100 text-sage-700 mb-5"
+                  className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-sage-300/20 text-sage-300 mb-5"
                   aria-hidden="true"
                 >
                   <Building2 className="w-6 h-6" strokeWidth={1.75} />
                 </span>
-                <h2 className="mb-4">Who we work with</h2>
-                <p className="body-text">
+                <h2 className="mb-4 text-white">Who we work with</h2>
+                <p className="text-[0.9375rem] leading-[1.6] text-white/80">
                   Homes, offices, and commercial spaces across Auckland. From regular cleaning to
                   one-off jobs, we keep things simple and consistent.
                 </p>
@@ -172,7 +179,7 @@ export default function AboutPage() {
                   {worksWith.map((who) => (
                     <li
                       key={who}
-                      className="rounded-full bg-sage-50 border border-sage-100 px-3.5 py-1.5 text-sm font-medium text-sage-700"
+                      className="rounded-full border border-white/15 bg-white/[0.06] px-3.5 py-1.5 text-sm font-medium text-white/90"
                     >
                       {who}
                     </li>
