@@ -39,7 +39,7 @@ export default function PoliciesPage() {
 
         {/* Content */}
         <div className="relative z-10 section-padding container-max max-w-2xl py-20 md:py-28">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55 mb-5">
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/90 mb-5">
             How we work
           </p>
           <h1 className="text-white mb-5" style={{ textShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
