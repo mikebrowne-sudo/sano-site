@@ -2,12 +2,12 @@
 
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase-browser'
-import { LogOut, Menu } from 'lucide-react'
+import { LogOut, Menu, Search } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
 import clsx from 'clsx'
 import { navGroupsFor, isNavActive } from './nav-config'
-import { GlobalSearch } from './GlobalSearch'
+import { CommandPalette } from './CommandPalette'
 
 export function PortalTopbar({ email, financeOnly = false }: { email?: string; financeOnly?: boolean }) {
   const router = useRouter()
@@ -33,17 +33,26 @@ export function PortalTopbar({ email, financeOnly = false }: { email?: string; f
           <Menu size={20} />
         </button>
 
-        {/* Portal-wide search — hidden for finance-only users (their
-            middleware blocks non-finance routes like /portal/search). */}
+        {/* Portal command palette — hidden for finance-only users (their
+            middleware blocks non-finance routes + the search API). */}
         {financeOnly ? (
           <div className="hidden md:block" />
         ) : (
           <div className="hidden md:block w-full max-w-sm">
-            <GlobalSearch />
+            <CommandPalette />
           </div>
         )}
 
         <div className="flex items-center gap-4">
+          {!financeOnly && (
+            <Link
+              href="/portal/search"
+              aria-label="Search"
+              className="md:hidden p-2 text-sage-600 hover:text-sage-800"
+            >
+              <Search size={18} />
+            </Link>
+          )}
           {email && (
             <span className="text-sm text-sage-600 hidden sm:inline">{email}</span>
           )}
