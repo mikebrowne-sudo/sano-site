@@ -5,6 +5,9 @@ import { Analytics } from '@/components/Analytics'
 import './globals.css'
 
 export const metadata: Metadata = {
+  // Absolute base so canonical + OG/Twitter image URLs always resolve to
+  // the live domain (falls back to the production host in dev/build).
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://sano.nz'),
   title: 'Sano Cleaning — Professional Cleaning in Auckland',
   description: 'Professional cleaning services in Auckland. Regular, deep, end of tenancy, commercial, and more. Vetted cleaners. Free quotes.',
   manifest: '/manifest.json',
@@ -39,6 +42,12 @@ export const metadata: Metadata = {
         alt: 'Sano',
       },
     ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Sano Cleaning — Professional Cleaning in Auckland',
+    description: 'Professional cleaning services in Auckland.',
+    images: ['/brand/sano-logomark.png'],
   },
 }
 

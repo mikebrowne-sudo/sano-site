@@ -105,19 +105,32 @@ export default function HomePage() {
 
       <ProcessSteps />
 
-      {/* JSON-LD: LocalBusiness */}
+      {/* JSON-LD: LocalBusiness. Richer signals help Google's local
+          understanding + the knowledge panel. `sameAs` should list the
+          Google Business Profile + social URLs once available (set via
+          NEXT_PUBLIC_SAME_AS as a comma-separated list). */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             '@context': 'https://schema.org',
-            '@type': 'LocalBusiness',
+            '@type': 'CleaningService',
+            '@id': `${process.env.NEXT_PUBLIC_SITE_URL}/#business`,
             name: 'Sano Cleaning',
-            description: 'Professional cleaning services in Auckland, New Zealand.',
+            legalName: 'Sano Property Services',
+            description:
+              'Professional residential and commercial cleaning across Auckland, New Zealand. Regular, deep, end of tenancy, carpet, window, commercial and post-construction cleaning.',
             url: process.env.NEXT_PUBLIC_SITE_URL,
+            telephone: '0800 726 686',
+            email: 'hello@sano.nz',
+            image: `${process.env.NEXT_PUBLIC_SITE_URL}/brand/sano-logomark.png`,
+            logo: `${process.env.NEXT_PUBLIC_SITE_URL}/brand/sano-logomark.png`,
             areaServed: { '@type': 'City', name: 'Auckland' },
-            address: { '@type': 'PostalAddress', addressLocality: 'Auckland', addressCountry: 'NZ' },
+            address: { '@type': 'PostalAddress', addressLocality: 'Auckland', addressRegion: 'Auckland', addressCountry: 'NZ' },
             priceRange: '$$',
+            ...(process.env.NEXT_PUBLIC_SAME_AS
+              ? { sameAs: process.env.NEXT_PUBLIC_SAME_AS.split(',').map((s) => s.trim()).filter(Boolean) }
+              : {}),
           }),
         }}
       />
