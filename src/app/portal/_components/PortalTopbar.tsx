@@ -7,6 +7,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import clsx from 'clsx'
 import { navGroupsFor, isNavActive } from './nav-config'
+import { GlobalSearch } from './GlobalSearch'
 
 export function PortalTopbar({ email, financeOnly = false }: { email?: string; financeOnly?: boolean }) {
   const router = useRouter()
@@ -32,7 +33,15 @@ export function PortalTopbar({ email, financeOnly = false }: { email?: string; f
           <Menu size={20} />
         </button>
 
-        <div className="hidden md:block" />
+        {/* Portal-wide search — hidden for finance-only users (their
+            middleware blocks non-finance routes like /portal/search). */}
+        {financeOnly ? (
+          <div className="hidden md:block" />
+        ) : (
+          <div className="hidden md:block w-full max-w-sm">
+            <GlobalSearch />
+          </div>
+        )}
 
         <div className="flex items-center gap-4">
           {email && (
