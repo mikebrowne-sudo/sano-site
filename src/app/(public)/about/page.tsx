@@ -1,15 +1,7 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
-import {
-  BadgeCheck,
-  Building2,
-  CalendarClock,
-  Handshake,
-  Repeat,
-  ShieldCheck,
-  SlidersHorizontal,
-  Unlock,
-} from 'lucide-react'
+import { BadgeCheck, Handshake, SlidersHorizontal } from 'lucide-react'
+import { WhyChooseSection } from '@/app/(public)/services/_components/WhyChooseSection'
 import { CtaBanner } from '@/components/CtaBanner'
 import { FadeIn, Stagger, StaggerItem } from '@/components/FadeIn'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
@@ -19,30 +11,32 @@ export const metadata: Metadata = {
   description: 'Sano Property Services provides reliable residential and commercial cleaning across Auckland. Over 20 years of experience. Consistent, detail-focused, easy to deal with.',
 }
 
-const expectations = [
+const whyItems = [
   {
-    icon: ShieldCheck,
-    label: 'Fully insured and vetted',
-    desc: 'Background-checked cleaners and full insurance on every job.',
+    title: 'Fully insured and vetted',
+    body: 'Every cleaner is background-checked and we carry full insurance on every job.',
   },
   {
-    icon: Repeat,
-    label: 'Reliable, consistent service',
-    desc: 'The same careful standard every visit, from people you know.',
+    title: 'Reliable, consistent service',
+    body: 'The same careful standard every visit, from people you come to know.',
   },
   {
-    icon: Unlock,
-    label: 'No lock-in contracts',
-    desc: 'Stay because the work is good — never because you are tied in.',
+    title: 'No lock-in contracts',
+    body: 'Stay because the work is good — never because you are tied into a contract.',
   },
   {
-    icon: CalendarClock,
-    label: 'Flexible scheduling',
-    desc: 'Weekly, fortnightly, or one-off. We fit around you.',
+    title: 'Flexible scheduling',
+    body: 'Weekly, fortnightly, or one-off. We fit around your routine.',
+  },
+  {
+    title: 'Homes to commercial spaces',
+    body: 'We clean homes, offices, commercial spaces, and education environments across Auckland.',
+  },
+  {
+    title: '20+ years of experience',
+    body: 'Two decades of turning up when we say we will and doing the job properly.',
   },
 ]
-
-const worksWith = ['Homes', 'Offices', 'Commercial spaces', 'Education']
 
 const values = [
   {
@@ -127,69 +121,13 @@ export default function AboutPage() {
         <div className="absolute inset-0 bg-sage-800/20" aria-hidden="true" />
       </div>
 
-      {/* Trust points */}
-      <section className="section-padding section-y bg-[#faf9f6]">
-        <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-10 lg:gap-14 items-start">
-            <FadeIn>
-              <p className="eyebrow mb-3">Why Sano</p>
-              <h2 className="mb-8">What you can expect</h2>
-              <Stagger staggerDelay={0.08}>
-                <ul className="space-y-3">
-                  {expectations.map(({ icon: Icon, label, desc }) => (
-                    <StaggerItem key={label}>
-                      <li className="flex items-start gap-4 rounded-2xl bg-white/70 border border-sage-100/80 p-4 sm:p-5">
-                        <span
-                          className="flex-shrink-0 flex items-center justify-center w-11 h-11 rounded-xl bg-sage-100 text-sage-700"
-                          aria-hidden="true"
-                        >
-                          <Icon className="w-5 h-5" strokeWidth={1.75} />
-                        </span>
-                        <span>
-                          <span className="block body-text font-semibold text-sage-800">{label}</span>
-                          <span className="block text-sm text-sage-500 mt-0.5">{desc}</span>
-                        </span>
-                      </li>
-                    </StaggerItem>
-                  ))}
-                </ul>
-              </Stagger>
-            </FadeIn>
-            <FadeIn delay={0.15}>
-              {/* Invisible spacer mirrors the left heading block (eyebrow +
-                  h2) so on desktop the panel top lines up with the top of the
-                  first expectation card. Hidden on mobile where columns stack. */}
-              <div aria-hidden="true" className="invisible hidden lg:block select-none">
-                <p className="eyebrow mb-3">Why Sano</p>
-                <h2 className="mb-8">What you can expect</h2>
-              </div>
-              <div className="rounded-2xl bg-sage-800 shadow-sm p-8 lg:p-9">
-                <span
-                  className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-sage-300/20 text-sage-300 mb-5"
-                  aria-hidden="true"
-                >
-                  <Building2 className="w-6 h-6" strokeWidth={1.75} />
-                </span>
-                <h2 className="mb-4 text-white">Who we work with</h2>
-                <p className="text-[0.9375rem] leading-[1.6] text-white/80">
-                  Homes, offices, and commercial spaces across Auckland. From regular cleaning to
-                  one-off jobs, we keep things simple and consistent.
-                </p>
-                <ul className="flex flex-wrap gap-2 mt-6">
-                  {worksWith.map((who) => (
-                    <li
-                      key={who}
-                      className="rounded-full border border-white/15 bg-white/[0.06] px-3.5 py-1.5 text-sm font-medium text-white/90"
-                    >
-                      {who}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </FadeIn>
-          </div>
-        </div>
-      </section>
+      {/* Why Sano — branded dark band, same component as the service pages */}
+      <WhyChooseSection
+        heading="Why choose Sano"
+        headingHighlight="Sano"
+        subtitle="Reliable systems, careful people, and clear communication — across every kind of space in Auckland."
+        items={whyItems}
+      />
 
       {/* Values */}
       <section className="section-padding section-y bg-white">
