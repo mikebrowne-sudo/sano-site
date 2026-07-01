@@ -29,7 +29,7 @@ import {
  *     overlay (25 / 18 / 10%)
  *   - `clamp()` headline sizing + `-0.025em` letter-spacing +
  *     line-height 1.08, matching the homepage h1
- *   - `text-white/55` tiny uppercase tracked eyebrow, matching homepage
+ *   - `text-white/90` bold tiny uppercase tracked eyebrow, matching homepage
  *   - `text-white/85` subtitle at `max-w-[26rem]`, matching homepage
  *   - Optional sage-300 colour highlight on a substring of the title
  *   - Rounded-full white primary CTA + ghost-outline secondary CTA,
@@ -242,7 +242,7 @@ export function SubpageHero({
           >
             {eyebrow && (
               <p
-                className={`mb-4 text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-white/55 ${riseClass(
+                className={`mb-4 text-[0.6875rem] font-bold uppercase tracking-[0.2em] text-white/90 ${riseClass(
                   animate,
                 )}`}
                 style={riseStyle(animate, 0.2)}
@@ -309,7 +309,7 @@ export function SubpageHero({
             {showTrust && (
               <div
                 className={[
-                  'mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] font-medium text-white/85',
+                  'mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-semibold text-white/95',
                   isCentred ? 'justify-center' : '',
                   riseClass(animate),
                 ].join(' ')}
@@ -320,11 +320,11 @@ export function SubpageHero({
                     {i > 0 && (
                       <span
                         aria-hidden="true"
-                        className="hidden h-3 w-px bg-white/25 sm:inline-block"
+                        className="hidden h-3 w-px bg-white/40 sm:inline-block"
                       />
                     )}
                     <span className="inline-flex items-center gap-1.5">
-                      <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
+                      <Icon size={14} strokeWidth={2} aria-hidden="true" />
                       {label}
                     </span>
                   </span>

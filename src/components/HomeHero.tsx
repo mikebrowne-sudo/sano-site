@@ -134,18 +134,18 @@ export function HomeHero() {
                 visual weight than the boxed service chips below */}
             <motion.div
               variants={item}
-              className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] font-medium text-white/85"
+              className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-semibold text-white/95"
             >
               {TRUST_BADGES.map(({ label, Icon }, i) => (
                 <span key={label} className="inline-flex items-center gap-x-3">
                   {i > 0 && (
                     <span
                       aria-hidden="true"
-                      className="hidden h-3 w-px bg-white/25 sm:inline-block"
+                      className="hidden h-3 w-px bg-white/40 sm:inline-block"
                     />
                   )}
                   <span className="inline-flex items-center gap-1.5">
-                    <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
+                    <Icon size={14} strokeWidth={2} aria-hidden="true" />
                     {label}
                   </span>
                 </span>
