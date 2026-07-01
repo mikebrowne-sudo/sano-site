@@ -4,6 +4,7 @@ import { ServiceChecklist } from '@/components/ServiceChecklist'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { SANO_125_POINT_PROPERTY_RESET } from '@/lib/checklists'
 import { BookingStepsSection } from '../_components/BookingStepsSection'
+import { AreasWeServeSection } from '../_components/AreasWeServeSection'
 import { ServiceInformation } from '../_components/ServiceInformation'
 import { WhyChooseSection } from '../_components/WhyChooseSection'
 
@@ -127,6 +128,7 @@ export default function EndOfTenancyPage() {
         }}
       />
 
+      <AreasWeServeSection />
       <CtaBanner
         headline="Ready to hand back the keys?"
         subtext="Get in touch with the property details and your handover date. We'll come back with a clear, practical quote."

@@ -3,6 +3,7 @@ import { Building2, DoorOpen, Frame, Home, PanelTop, PlusCircle, Sparkles, Squar
 import { CtaBanner } from '@/components/CtaBanner'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { BookingStepsSection } from '../_components/BookingStepsSection'
+import { AreasWeServeSection } from '../_components/AreasWeServeSection'
 import { ServiceInformation } from '../_components/ServiceInformation'
 import { WhatWeCoverSection } from '../_components/WhatWeCoverSection'
 import { WhyChooseSection } from '../_components/WhyChooseSection'
@@ -163,6 +164,7 @@ export default function WindowCleaningPage() {
         }}
       />
 
+      <AreasWeServeSection />
       <CtaBanner
         headline="Ready for clearer, brighter windows?"
         subtext="Get in touch with property details and we'll come back with a clear, practical quote."

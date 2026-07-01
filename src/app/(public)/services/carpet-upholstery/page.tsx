@@ -3,6 +3,7 @@ import { Armchair, Brush, Droplet, Footprints, PlusCircle, Sofa, Sparkles, Squar
 import { CtaBanner } from '@/components/CtaBanner'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { BookingStepsSection } from '../_components/BookingStepsSection'
+import { AreasWeServeSection } from '../_components/AreasWeServeSection'
 import { ServiceInformation } from '../_components/ServiceInformation'
 import { WhatWeCoverSection } from '../_components/WhatWeCoverSection'
 import { WhyChooseSection } from '../_components/WhyChooseSection'
@@ -164,6 +165,7 @@ export default function CarpetUpholsteryPage() {
         }}
       />
 
+      <AreasWeServeSection />
       <CtaBanner
         headline="Ready to refresh your soft surfaces?"
         subtext="Get in touch with what needs cleaning and we'll come back with a clear, practical quote."
