@@ -155,6 +155,17 @@ export const SUBURB_LANDING_SLUGS: ReadonlySet<string> = new Set([
   'ellerslie',
   'papakura',
   'mount-albert',
+  // Third wave (2026-07-02)
+  'auckland-cbd',
+  'sandringham',
+  'birkenhead',
+  'browns-bay',
+  'botany-downs',
+  'flat-bush',
+  'mount-wellington',
+  'royal-oak',
+  'hobsonville',
+  'point-chevalier',
 ])
 
 /** Does this suburb slug have a dedicated landing page? */
