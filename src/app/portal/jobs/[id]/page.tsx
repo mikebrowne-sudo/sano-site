@@ -9,6 +9,7 @@ import { DuplicateJobButton } from './_components/DuplicateJobButton'
 import { CreateRecurringButton } from './_components/CreateRecurringButton'
 import { calculateVariance } from '@/lib/labour-calc'
 import { ExtraHoursControl } from './_components/ExtraHoursControl'
+import { RemoveWorkerButton, AddWorkerControl } from './_components/ManageWorkers'
 import { ArchiveJobButton } from './_components/ArchiveJobButton'
 import { JobWorkflowBar } from './_components/JobWorkflowBar'
 import { MarkJobReviewedButton } from './_components/MarkJobReviewedButton'
@@ -184,6 +185,14 @@ export default async function JobDetailPage({
   for (const ci of (contractorInvoiceRes.data ?? []) as Array<{ id: string; invoice_number: string | null; amount: number | null; status: string | null; contractor_id: string | null }>) {
     if (ci.contractor_id) ciByContractor.set(ci.contractor_id, { id: ci.id, invoice_number: ci.invoice_number, amount: ci.amount, status: ci.status })
   }
+
+  // Active contractors NOT yet assigned — feeds the inline "Add contractor"
+  // control on the Labour & Margin breakdown (admin only).
+  const assignedContractorIds = new Set((jobWorkers ?? []).map((w) => w.contractor_id as string))
+  const { data: activeContractors } = isAdmin
+    ? await supabase.from('contractors').select('id, full_name').eq('status', 'active').order('full_name')
+    : { data: null as { id: string; full_name: string }[] | null }
+  const unassignedContractors = (activeContractors ?? []).filter((c) => !assignedContractorIds.has(c.id))
 
   const quoteNumber  = linkedQuoteRes.data?.quote_number ?? null
   const quoteClientId = (linkedQuoteRes.data as { client_id?: string } | null)?.client_id ?? null
@@ -619,7 +628,8 @@ export default async function JobDetailPage({
                             <th className="py-2 pr-2 text-right">Adjustment</th>
                             <th className="py-2 pr-2 text-right">Rate</th>
                             <th className="py-2 pr-2 text-right">Pay</th>
-                            <th className="py-2 text-right">Status</th>
+                            <th className="py-2 pr-2 text-right">Status</th>
+                            {isAdmin && <th className="py-2 text-right"></th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -707,13 +717,41 @@ export default async function JobDetailPage({
                                     )
                                     : <span className="text-sage-300">—</span>}
                                 </td>
-                                <td className="py-2 text-right"><StatusBadge kind="pay" status={payBadgeStatus} /></td>
+                                <td className="py-2 pr-2 text-right"><StatusBadge kind="pay" status={payBadgeStatus} /></td>
+                                {isAdmin && (
+                                  <td className="py-2 text-right">
+                                    <RemoveWorkerButton
+                                      jobId={job.id}
+                                      contractorId={ew.contractorId}
+                                      contractorName={ew.fullName}
+                                      blockedReason={
+                                        locked
+                                          ? 'In a pay run / paid — can’t remove'
+                                          : ciForWorker
+                                            ? `Has a payable (${ciForWorker.invoice_number ?? 'contractor invoice'}) — can’t remove`
+                                            : null
+                                      }
+                                    />
+                                  </td>
+                                )}
                               </tr>
                             )
                           })}
                         </tbody>
                       </table>
                     </div>
+                    {isAdmin && <AddWorkerControl jobId={job.id} options={unassignedContractors} />}
+                  </div>
+                )}
+
+                {/* Empty state — no workers assigned yet, but admins can
+                    still add one (the breakdown table above is hidden when
+                    there are zero workers). */}
+                {isAdmin && v.estimated.workers.length === 0 && (
+                  <div className="border-t border-sage-100 pt-3">
+                    <span className="text-xs text-sage-500 font-semibold uppercase tracking-wide">Worker Breakdown</span>
+                    <p className="text-[11px] text-sage-400 mt-1">No contractors assigned yet.</p>
+                    <AddWorkerControl jobId={job.id} options={unassignedContractors} />
                   </div>
                 )}
 
