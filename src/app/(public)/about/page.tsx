@@ -80,24 +80,26 @@ export default function AboutPage() {
       {/* About content (was the original hero — now a secondary block) */}
       <section className="section-padding section-y bg-white">
         <div className="container-max">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
-            <FadeIn direction="left">
-              <div className="relative h-[22rem] lg:h-[32rem] rounded-2xl overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-10 lg:gap-14 items-stretch">
+            <FadeIn direction="left" className="h-full">
+              <div className="relative aspect-[4/3] lg:aspect-auto lg:h-full min-h-[18rem] rounded-2xl overflow-hidden ring-1 ring-sage-100 shadow-sm">
                 <Image
-                  src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&q=80"
-                  alt="Sano cleaner at work"
+                  src="/images/cleaning-standards.jpg"
+                  alt="Sano cleaning kit and residential checklist on a kitchen benchtop"
                   fill
                   className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  sizes="(max-width: 1024px) 100vw, 45vw"
                 />
               </div>
             </FadeIn>
             <FadeIn delay={0.15}>
               <p className="eyebrow mb-4">About Sano</p>
-              <h2 className="mb-6">Cleaning done properly, by people who care about the result.</h2>
-              <p className="text-[0.9375rem] font-medium text-sage-500 mb-8 italic">
-                Clean spaces — Healthy living
-              </p>
+              <h2
+                className="mb-6"
+                style={{ fontSize: 'clamp(1.6rem, 2.6vw, 2.15rem)', lineHeight: 1.18 }}
+              >
+                Cleaning done properly, by people who care about the result.
+              </h2>
               <div className="body-text space-y-4">
                 <p>Sano was built around a simple idea. Cleaning isn&apos;t just about getting through a checklist. It&apos;s about leaving a space feeling right.</p>
                 <p>With over 20 years of experience across homes, commercial spaces, and education environments, we&apos;ve learned that what matters most is consistency. Turning up when we say we will, paying attention to the details, and doing the job properly every time.</p>
@@ -108,18 +110,6 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
-
-      {/* Full-width image */}
-      <div className="relative h-72 lg:h-[28rem] overflow-hidden">
-        <Image
-          src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=1600&q=80"
-          alt="Clean, calm interior space"
-          fill
-          className="object-cover"
-          sizes="100vw"
-        />
-        <div className="absolute inset-0 bg-sage-800/20" aria-hidden="true" />
-      </div>
 
       {/* Why Sano — branded dark band, same component as the service pages */}
       <WhyChooseSection
