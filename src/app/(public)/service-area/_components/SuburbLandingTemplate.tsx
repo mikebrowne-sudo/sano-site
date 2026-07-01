@@ -90,6 +90,63 @@ export function SuburbLandingTemplate({ data }: { data: SuburbData }) {
       }
     : { '@type': 'City', name: 'Auckland' }
 
+  // Per-suburb FAQ. Questions are broad (service + logistics + trust), so
+  // no page implies Sano only does one thing — the first answer lists the
+  // full range on purpose. The coverage answer carries the real, unique
+  // localities for this suburb (and doubles as internal links in the
+  // visible copy). `a` is the plain-text answer used for FAQPage schema;
+  // `aNode` is the richer visible version. Both must match for valid
+  // rich results, so aNode is only a link-decorated form of the same text.
+  const localityText = nearbyLocalities.map((a) => a.suburb).join(', ')
+  const faqs: { q: string; a: string; aNode?: ReactNode }[] = [
+    {
+      q: `What cleaning services does Sano offer in ${data.suburb}?`,
+      a: `The full range: regular weekly or fortnightly cleaning, one-off and deep cleans, end-of-tenancy resets, commercial and office cleaning, plus carpet, upholstery, window, and post-construction cleaning. We scope each job to the property and the situation.`,
+    },
+    {
+      q: `How soon can you start in ${data.suburb}?`,
+      a: `Once we've confirmed the details and sent a quote, we book a time that suits you. Send through your property details and the service you need, and we'll come back quickly with availability.`,
+    },
+    {
+      q: `Do your cleaners bring their own equipment and products?`,
+      a: `Yes. Our cleaners arrive fully equipped with the products and gear for the job, unless you'd prefer we use something specific in your home or workplace.`,
+    },
+    {
+      q: `Are Sano cleaners insured and vetted?`,
+      a: `Yes. Every Sano cleaner is background-checked, trained, and fully insured, and we stand behind our work with a satisfaction guarantee.`,
+    },
+    ...(region && nearbyLocalities.length > 0
+      ? [
+          {
+            q: `Which areas around ${data.suburb} do you cover?`,
+            a: `As well as ${data.suburb}, Sano cleans nearby ${region} areas including ${localityText}. Not sure if we reach you? Check your suburb or get in touch for a free quote.`,
+            aNode: (
+              <>
+                As well as {data.suburb}, Sano cleans nearby {region} areas including{' '}
+                {nearbyLocalities.map((a, i) => (
+                  <span key={a.slug}>
+                    {i > 0 && ', '}
+                    {hasSuburbPage(a.slug) ? (
+                      <Link href={`/service-area/${a.slug}`} className="text-sage-600 underline-offset-2 hover:underline">
+                        {a.suburb}
+                      </Link>
+                    ) : (
+                      a.suburb
+                    )}
+                  </span>
+                ))}
+                . Not sure if we reach you?{' '}
+                <Link href="/service-area" className="text-sage-600 font-medium underline-offset-2 hover:underline">
+                  Check your suburb
+                </Link>{' '}
+                or get in touch for a free quote.
+              </>
+            ),
+          },
+        ]
+      : []),
+  ]
+
   return (
     <>
       <SubpageHero
@@ -172,40 +229,37 @@ export function SuburbLandingTemplate({ data }: { data: SuburbData }) {
 
       {data.nearby.length > 0 && <NearbySuburbsSection suburbs={[...data.nearby]} />}
 
-      {/* Areas we cover — real coverage facts (suburb + postcode + nearby
-          localities from the coverage data). Gives each page distinct,
-          truthful local content and extra internal links. */}
-      {region && nearbyLocalities.length > 0 && (
-        <section className="section-padding bg-white py-10 lg:py-12 border-t border-sage-100">
-          <div className="container-max">
-            <h2 className="text-lg font-semibold text-sage-800 mb-3">Areas we cover around {data.suburb}</h2>
-            <p className="body-text max-w-3xl">
-              Sano cleans {data.suburb}
-              {postcode ? ` (${postcode})` : ''} and nearby areas across {region}, including{' '}
-              {nearbyLocalities.map((a, i) => (
-                <span key={a.slug}>
-                  {i > 0 && ', '}
-                  {hasSuburbPage(a.slug) ? (
-                    <Link
-                      href={`/service-area/${a.slug}`}
-                      className="text-sage-600 underline-offset-2 hover:underline"
-                    >
-                      {a.suburb}
-                    </Link>
-                  ) : (
-                    a.suburb
-                  )}
-                </span>
-              ))}
-              . Not sure if we reach you?{' '}
-              <Link href="/service-area" className="text-sage-600 font-medium underline-offset-2 hover:underline">
-                Check your suburb
-              </Link>
-              .
-            </p>
+      {/* Suburb FAQ — broad service/logistics questions (never
+          market-narrowing) plus a unique local-coverage answer. Rendered
+          visibly AND mirrored in FAQPage schema for rich results. */}
+      <section className="section-padding bg-white py-10 lg:py-12 border-t border-sage-100">
+        <div className="container-max max-w-3xl">
+          <h2 className="mb-6">Common questions about cleaning in {data.suburb}</h2>
+          <div className="divide-y divide-sage-100">
+            {faqs.map((f) => (
+              <div key={f.q} className="py-4">
+                <h3 className="text-[1rem] font-semibold text-sage-800 mb-1.5">{f.q}</h3>
+                <p className="body-text">{f.aNode ?? f.a}</p>
+              </div>
+            ))}
           </div>
-        </section>
-      )}
+        </div>
+      </section>
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'FAQPage',
+            mainEntity: faqs.map((f) => ({
+              '@type': 'Question',
+              name: f.q,
+              acceptedAnswer: { '@type': 'Answer', text: f.a },
+            })),
+          }),
+        }}
+      />
 
       <CtaBanner
         headline={data.ctaHeadline ?? 'Ready to book your clean?'}
