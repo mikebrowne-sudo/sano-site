@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { searchAreas } from '@/lib/service-areas'
+import { searchAreas, hasSuburbPage } from '@/lib/service-areas'
 import type { ServiceArea } from '@/lib/service-areas'
 import { QuoteButton } from './QuoteButton'
 
@@ -148,8 +148,16 @@ export function SuburbChecker() {
               <p className="text-gray-500 text-sm mt-1">
                 Get in touch for a free quote tailored to your home or business.
               </p>
-              <div className="mt-3">
+              <div className="mt-3 flex flex-wrap items-center gap-3">
                 <QuoteButton label="Get a Free Quote" />
+                {hasSuburbPage(foundArea.slug) && (
+                  <Link
+                    href={`/service-area/${foundArea.slug}`}
+                    className="text-sm font-semibold text-sage-700 underline underline-offset-4 hover:text-sage-500 transition-colors"
+                  >
+                    View {foundArea.suburb} cleaning services →
+                  </Link>
+                )}
               </div>
             </div>
           </div>

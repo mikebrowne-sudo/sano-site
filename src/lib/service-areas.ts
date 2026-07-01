@@ -144,6 +144,17 @@ export const SUBURB_LANDING_SLUGS: ReadonlySet<string> = new Set([
   'takapuna',
   'te-atatu-peninsula',
   'titirangi',
+  // Second wave (2026-07-01)
+  'remuera',
+  'parnell',
+  'newmarket',
+  'albany',
+  'milford',
+  'howick',
+  'pakuranga',
+  'ellerslie',
+  'papakura',
+  'mount-albert',
 ])
 
 /** Does this suburb slug have a dedicated landing page? */
