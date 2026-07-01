@@ -3,6 +3,7 @@ import { Bath, BadgeCheck, ChefHat, Footprints, HardHat, PaintRoller, PanelTop, 
 import { CtaBanner } from '@/components/CtaBanner'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { BookingStepsSection } from '../_components/BookingStepsSection'
+import { AreasWeServeSection } from '../_components/AreasWeServeSection'
 import { ServiceInformation } from '../_components/ServiceInformation'
 import { WhatWeCoverSection } from '../_components/WhatWeCoverSection'
 import { WhyChooseSection } from '../_components/WhyChooseSection'
@@ -163,6 +164,7 @@ export default function PostConstructionPage() {
         }}
       />
 
+      <AreasWeServeSection />
       <CtaBanner
         headline="Ready to finish the space properly?"
         subtext="Get in touch with project details and handover date — we'll come back with a clear, practical quote."

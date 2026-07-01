@@ -4,6 +4,7 @@ import { ServiceChecklist } from '@/components/ServiceChecklist'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { SANO_100_POINT_HOME_CLEAN } from '@/lib/checklists'
 import { BookingStepsSection } from '../_components/BookingStepsSection'
+import { AreasWeServeSection } from '../_components/AreasWeServeSection'
 import { ServiceInformation } from '../_components/ServiceInformation'
 import { WhyChooseSection } from '../_components/WhyChooseSection'
 
@@ -128,6 +129,7 @@ export default function RegularCleaningPage() {
         }}
       />
 
+      <AreasWeServeSection />
       <CtaBanner
         headline="Ready to make things easier?"
         subtext="If you're after consistent, reliable house cleaning, we can help. Get in touch for a quick, no-pressure quote."

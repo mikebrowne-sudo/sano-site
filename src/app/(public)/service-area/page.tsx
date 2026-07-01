@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { SuburbChecker } from '@/components/SuburbChecker'
 import { CtaBanner } from '@/components/CtaBanner'
 import { QuoteButton } from '@/components/QuoteButton'
@@ -7,6 +8,7 @@ import {
   REGIONS,
   COVERAGE_BOUNDS,
   getAreasByRegion,
+  hasSuburbPage,
 } from '@/lib/service-areas'
 import type { ServiceArea } from '@/lib/service-areas'
 
@@ -100,13 +102,24 @@ const LOCAL_BENEFITS = [
 ]
 
 // ─── Suburb tag ───────────────────────────────────────────────────────────────
-// When suburb-specific pages are ready:
-//   1. Create src/app/service-area/[slug]/page.tsx
-//   2. Replace the <span> wrapper below with:
-//      <Link href={`/service-area/${area.slug}`} className="...">
+// Suburbs with a dedicated landing page render as links (spreading
+// internal link equity to those pages); the rest stay as plain tags so
+// we never link to a 404. Add a slug to SUBURB_LANDING_SLUGS when its
+// page ships.
+const SUBURB_TAG_CLASS =
+  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-sage-200 text-sage-800 text-[13px] shadow-[0_1px_3px_rgba(52,76,61,0.05)] hover:border-sage-300 hover:shadow-[0_2px_6px_rgba(52,76,61,0.08)] transition-all'
+
 function SuburbTag({ area }: { area: ServiceArea }) {
+  if (hasSuburbPage(area.slug)) {
+    return (
+      <Link href={`/service-area/${area.slug}`} className={SUBURB_TAG_CLASS}>
+        {area.suburb}
+        <span className="text-sage-400 text-[11px] font-medium">{area.postcodes[0]}</span>
+      </Link>
+    )
+  }
   return (
-    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-sage-200 text-sage-800 text-[13px] shadow-[0_1px_3px_rgba(52,76,61,0.05)] hover:border-sage-300 hover:shadow-[0_2px_6px_rgba(52,76,61,0.08)] transition-all cursor-default">
+    <span className={`${SUBURB_TAG_CLASS} cursor-default`}>
       {area.suburb}
       <span className="text-sage-400 text-[11px] font-medium">{area.postcodes[0]}</span>
     </span>

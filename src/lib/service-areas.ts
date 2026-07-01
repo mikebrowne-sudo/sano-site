@@ -123,6 +123,34 @@ export const SERVICE_AREAS: ServiceArea[] = [
   { region: 'West Auckland',    suburb: 'Whenuapai',       postcodes: ['0618'],         slug: 'whenuapai',       active: true },
 ]
 
+// ─── Suburb landing pages ─────────────────────────────────────────────────────
+// Slugs that have a dedicated /service-area/[slug] landing page. Single
+// source of truth so the hub can link ONLY suburbs that actually have a
+// page (others render as plain tags — a link would 404). When you add a
+// new suburb page under src/app/(public)/service-area/<slug>/, add its
+// slug here.
+export const SUBURB_LANDING_SLUGS: ReadonlySet<string> = new Set([
+  'devonport',
+  'epsom',
+  'grey-lynn',
+  'henderson',
+  'kingsland',
+  'manukau',
+  'mission-bay',
+  'mount-eden',
+  'new-lynn',
+  'onehunga',
+  'ponsonby',
+  'takapuna',
+  'te-atatu-peninsula',
+  'titirangi',
+])
+
+/** Does this suburb slug have a dedicated landing page? */
+export function hasSuburbPage(slug: string): boolean {
+  return SUBURB_LANDING_SLUGS.has(slug)
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** All active suburbs in a region, sorted alphabetically. */

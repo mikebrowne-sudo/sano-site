@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
+import { AreasWeServeSection } from '../_components/AreasWeServeSection'
 import {
   BadgeCheck,
   Bath,
@@ -281,6 +282,8 @@ export default function CommercialCleaningPage() {
           </div>
         </div>
       </section>
+
+      <AreasWeServeSection />
 
       <script
         type="application/ld+json"

@@ -4,6 +4,7 @@ import { ServiceChecklist } from '@/components/ServiceChecklist'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 import { SANO_DEEP_CLEAN_DETAIL } from '@/lib/checklists'
 import { BookingStepsSection } from '../_components/BookingStepsSection'
+import { AreasWeServeSection } from '../_components/AreasWeServeSection'
 import { ServiceInformation } from '../_components/ServiceInformation'
 import { WhyChooseSection } from '../_components/WhyChooseSection'
 
@@ -126,6 +127,7 @@ export default function DeepCleaningPage() {
         }}
       />
 
+      <AreasWeServeSection />
       <CtaBanner
         headline="Ready for a proper reset?"
         subtext="If your home needs more than a regular tidy, we can help. Get in touch for a quick, no-pressure quote."
