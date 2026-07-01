@@ -171,6 +171,11 @@ export default async function JobsPage({
     query = query.eq('status', 'completed')
   } else if (activeTab === 'needs_attention') {
     query = query.in('status', ['draft', 'assigned', 'in_progress', 'completed'])
+  } else if (activeTab === 'all') {
+    // Intentionally no status filter — surface every job regardless of
+    // status (incl. 'invoiced'), the only tab that shows the full
+    // history. Used for payment reconciliation. Still excludes
+    // archived / test rows unless show-archived is on (handled above).
   }
 
   if (contractorFilter) query = query.eq('contractor_id', contractorFilter)
@@ -395,6 +400,7 @@ export default async function JobsPage({
   else if (activeTab === 'scheduled')        emptyTitle = 'No jobs scheduled yet.'
   else if (activeTab === 'in_progress')      emptyTitle = 'No jobs in progress right now.'
   else if (activeTab === 'completed')        emptyTitle = 'No completed jobs.'
+  else if (activeTab === 'all')              emptyTitle = 'No jobs yet.'
   else                                       emptyTitle = 'No jobs yet.'
   let emptyDescription: string | undefined
   if (activeTab === 'needs_attention') emptyDescription = 'Unassigned, unscheduled, at-risk, and ready-to-invoice jobs surface here.'

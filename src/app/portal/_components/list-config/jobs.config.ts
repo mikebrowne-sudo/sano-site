@@ -13,6 +13,7 @@ export type JobTab =
   | 'scheduled'
   | 'in_progress'
   | 'completed'
+  | 'all'
 
 export const JOB_TABS: readonly ListPageTabConfig<JobTab>[] = [
   { value: 'needs_attention',  label: 'Needs attention' },
@@ -20,6 +21,10 @@ export const JOB_TABS: readonly ListPageTabConfig<JobTab>[] = [
   { value: 'scheduled',        label: 'Scheduled' },
   { value: 'in_progress',      label: 'In progress' },
   { value: 'completed',        label: 'Completed' },
+  // "All" — every job regardless of status, including invoiced / paid.
+  // The operational tabs each pin a status; only this tab surfaces the
+  // full history (used for payment reconciliation).
+  { value: 'all',              label: 'All' },
 ]
 
 export const JOBS_LIST_CONFIG: ListPageConfig<JobTab> = {
