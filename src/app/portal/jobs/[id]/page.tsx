@@ -13,6 +13,7 @@ import { RemoveWorkerButton, AddWorkerControl } from './_components/ManageWorker
 import { ArchiveJobButton } from './_components/ArchiveJobButton'
 import { JobWorkflowBar } from './_components/JobWorkflowBar'
 import { MarkJobReviewedButton } from './_components/MarkJobReviewedButton'
+import { RequestReviewButton } from './_components/RequestReviewButton'
 import { JobApprovePayButton } from './_components/JobApprovePayButton'
 import { classifyApprovalRow } from '@/lib/pending-approvals'
 import { JobReadyToInvoice } from './_components/JobReadyToInvoice'
@@ -386,6 +387,10 @@ export default async function JobDetailPage({
               is completed/invoiced and hasn't been reviewed yet. */}
           {(job.status === 'completed' || job.status === 'invoiced') && !job.reviewed_at && (
             <MarkJobReviewedButton jobId={job.id} />
+          )}
+          {/* Post-job Google review request — completed/invoiced jobs. */}
+          {(job.status === 'completed' || job.status === 'invoiced') && (
+            <RequestReviewButton jobId={job.id} />
           )}
           <JobInvoiceButton
             jobId={job.id}
