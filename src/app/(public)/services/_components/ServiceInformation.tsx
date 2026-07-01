@@ -2,9 +2,8 @@ import Image from 'next/image'
 
 /**
  * Standardised "Service Information" section used at the top of every
- * service-page body (under the SubpageHero). Mirrors the Enhanced
- * Cleaning vacate-cleaning reference: left column heading + body
- * paragraphs, right column two stacked 4:3 images.
+ * service-page body (under the SubpageHero): left column heading + body
+ * paragraphs, right column a single 4:3 image.
  *
  * Used by Regular Cleaning, Deep Cleaning, End of Tenancy, Carpet &
  * Upholstery, Window Cleaning, and Post-Construction. Commercial
@@ -22,17 +21,16 @@ export interface ServiceInformationProps {
   title?: string
   /** Body copy — one entry per paragraph. */
   body: ReadonlyArray<string>
-  /** Top image on the right stack. */
+  /** The image shown on the right. */
   primaryImage: ServiceImage
-  /** Bottom image on the right stack. */
-  secondaryImage: ServiceImage
+  /** Deprecated — no longer rendered (kept optional for back-compat). */
+  secondaryImage?: ServiceImage
 }
 
 export function ServiceInformation({
   title = 'Service Information',
   body,
   primaryImage,
-  secondaryImage,
 }: ServiceInformationProps) {
   return (
     <section className="section-padding bg-white py-10 lg:py-12">
@@ -48,10 +46,9 @@ export function ServiceInformation({
             </div>
           </div>
 
-          {/* Right — two stacked 4:3 images */}
+          {/* Right — single 4:3 image */}
           <div className="grid grid-cols-1 gap-4">
             <ServiceInfoImage image={primaryImage} />
-            <ServiceInfoImage image={secondaryImage} />
           </div>
         </div>
       </div>
