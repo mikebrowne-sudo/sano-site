@@ -166,6 +166,15 @@ export const SUBURB_LANDING_SLUGS: ReadonlySet<string> = new Set([
   'royal-oak',
   'hobsonville',
   'point-chevalier',
+  // Fourth wave (2026-07-04)
+  'glenfield',
+  'northcote',
+  'avondale',
+  'massey',
+  'westgate',
+  'papatoetoe',
+  'takanini',
+  'panmure',
 ])
 
 /** Does this suburb slug have a dedicated landing page? */
