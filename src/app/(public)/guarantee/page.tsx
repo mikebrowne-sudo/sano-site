@@ -43,7 +43,7 @@ export default function GuaranteePage() {
         </div>
         <div className="relative container-max max-w-2xl">
           <FadeIn>
-            <div className="rounded-2xl border border-sage-100 bg-white p-8 shadow-sm md:p-10">
+            <div className="rounded-2xl border border-sage-100 bg-white p-8 shadow-sm transition-all duration-300 hover:scale-[1.01] hover:shadow-md md:p-10">
               <div className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-sage-700">
                 <ShieldCheck size={22} strokeWidth={1.75} className="text-white" aria-hidden="true" />
               </div>
