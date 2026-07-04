@@ -2,33 +2,44 @@
 
 > Short, current. The deep history lives in [`docs/PORTAL.md`](../PORTAL.md). Update this after each Netlify-verified deploy.
 
-**Last verified:** 2026-05-19 (homepage hero hierarchy locked in — PR #155 + #156 merged and confirmed live on sano.nz by polling served HTML.)
+**Last verified:** 2026-07-04 (production on `def4ab7` = PR #312 merge; confirmed via Netlify API — latest deploy `ready` on that SHA — plus live HTML checks: suburb FAQPage schema serving on template-based pages, e.g. `/service-area/albany`.)
 
 ## Live in production today
-- Marketing site (homepage, services, about, contact, FAQ). Homepage hero now uses real Sano residential photography (Herne Bay) with a softened sage gradient (`0.88 / 0.72 / 0.38 / 0.06`), inline icon trust row (`Insured · Vetted teams · Auckland wide · Satisfaction guarantee`), and a soft white card-style service chip row (`Homes · Offices · Rentals · End of tenancy`).
-- Portal CRM (`/portal`) - quotes, invoices, jobs, clients, people, payroll, settings.
-- Contractor mobile views (`/contractor`).
-- Public share routes (`/share/quote/[token]`, `/share/invoice/[token]`).
-- Stripe-powered Pay-Now button on share-page invoices.
-- Twilio SMS notifications (Phase H).
-- Mapbox NZ-biased address autocomplete.
-- Mike's email signature preview routes on the Sano domain: `/email-signature` (Sano default), `/email-signature-michael` (Sano/Michael), `/email-signature-mammoth` (Mammoth Full — badges + live HTML Take-Back), `/email-signature-mammoth-a` (Mammoth slim, no Take-Back), `/email-signature-mammoth-b` (Mammoth slim + Take-Back). Mammoth banner assets hosted under `public/email/`. PRs #196 / #197 / #198.
 
-## Most recent shipped phase
-**Phase J - Quote & Invoice PDF** (per [`docs/PORTAL.md`](../PORTAL.md) "Phase J - Quote & Invoice PDF"). 5 server-rendered PDF routes share `src/lib/pdf/render-pdf.ts` (`puppeteer-core` + `@sparticuz/chromium`). Send Quote / Send Invoice emails auto-attach the share-page PDF with a fail-fast contract. Branch-shipped on `feat/quote-invoice-pdf`.
+### Public site
+- Marketing site (homepage, services, about, contact, FAQ, guarantee, policies, join-our-team).
+- Cleaning-standards system: 100-point home clean + 125-point property reset checklists, homepage signature-system block, differentiated service pages with subpage heroes and standardised bodies (PRs #150–#179).
+- **34 suburb pages** under `/service-area/*`. Two generations:
+  - 20 newer pages on `SuburbLandingTemplate` — carry per-suburb geo schema (PR #311) + visible FAQ mirrored in FAQPage rich-result schema (PR #312).
+  - 14 earlier hand-built pages (`devonport, epsom, grey-lynn, henderson, kingsland, manukau, mission-bay, mount-eden, new-lynn, onehunga, ponsonby, takapuna, te-atatu-peninsula, titirangi`) — **no FAQ/geo schema, pre-standard intro copy**. Parity sweep queued in [`NEXT.md`](./NEXT.md).
+- SEO technical wins (#306) + internal-linking pass (#307); GA4 site analytics (#281/#284).
+- About page rebuilt (#295–#299); banners/eyebrow trust rows (#294/#296); who-we-work-with (#297).
+- Email signature preview routes: `/email-signature`, `/email-signature-michael`, `/email-signature-mammoth{,-a,-b}` (PRs #196–#198).
 
-**Quote / Tax Invoice document redesign** - PR [#180](https://github.com/mikebrowne-sudo/sano-site/pull/180) merged 2026-05-25 (`66fb318`). Shared document family under `src/components/document/` (`QuoteInvoiceCss.ts`, `DocumentLayout.tsx`, `QuoteDocument.tsx`, `InvoiceDocument.tsx`) consumed by all 4 staff-print + share-page surfaces. Pinned to the bundled standalone HTML at `F:\Sano\30-Accounting\Templates\Examples\Sano Invoice _ Quote _standalone_.html` (BRAND.md §8): Poppins + Noto Serif, flat sage-800 header with 56px logo + 34px serif `Quote.` / `Invoice.`, `Service address` / `Service description` sub-blocks in the line item, `0800 726 686` footer, `Quote #` / `Invoice #` header label, render-side `due_date` fallback via `computeInvoiceDueDate`. Awaiting production smoke (open print + share + PDF on both kinds; verify A4 portrait, no clipping, due-date matches terms wording per `payment_type`).
+### Portal CRM (`/portal`)
+- Core: quotes, invoices, jobs, clients, people, payroll, settings. Unified document numbering (#232). Global search (#304) + command palette (#305). Accountant read access (#287). Carol admin (#207).
+- Finance suite (shipped 2026-06-23/24): expenses v1 (#269) + vendor prefill (#270), P&L (#271), ASB bank CSV import persisted to `bank_transactions` (#273/#274/#276), reconciliation with drag-drop + match assistant + likely-bundle status (#275/#278–#280), portal analytics dashboard (#283/#285).
+- Contractor pay pipeline: allowed-hours labour model (#208), approve pay (#241–#243), pay runs + remittance advice with server PDF + send email (#216, #223–#230), fixed contractor payments (#267), pay status in contractor portal (#252). Legacy pay screens retired (#251/#254).
+- Editing suite: sensitive-edit foundation + audit (#246), edit invoice details/line items (#245/#247), edit contractor payables (#248), remittance manual edit (#303), quote lock-on-sent (#206), quote contact picker/quick-add + greetings (#233–#235).
+- Client structure: branch vs duplicate cleanup (#236/#237), structured branch accounts (#238), account contacts on client page (#239).
+- Perf pass: loading skeletons, parallelised queries, keep-warm (#199–#204).
+
+### Contractor + share surfaces
+- Contractor mobile views (`/contractor`) incl. pay + photos (#211–#215), today/upcoming fix (#217).
+- Public share routes (`/share/quote/[token]`, `/share/invoice/[token]`) with action cards (#185); Stripe Pay-Now; Twilio SMS; Mapbox autocomplete.
+- Quote/Invoice document family under `src/components/document/` (PR #180) + Phase J PDF routes.
 
 ## Verification status
 - `npm test` baseline: 3 failing suites (`submit-application`, `services`, `Header`) - pre-existing, leave alone.
 - `npx next lint` should be clean (Errors fail Netlify builds).
 - `npx tsc --noEmit` should be clean.
-- Manual smoke per Phase J spec recommended before merge.
 
 ## Known caveats
 - Do **NOT** set `PUPPETEER_EXECUTABLE_PATH` in Netlify production env. Local `.env.local` only.
 - `docs/compliance/` and `docs/AI/New Text Document.txt` are untracked operational scratch - never `git add`.
-- **Production outage 2026-05-31 04:05–04:29 UTC** — every Next.js-handled route (including `/favicon.ico`) returned plain-text `Internal Server Error` while static files served fine. Rollback to a prior known-good SHA did NOT fix it; a fresh redeploy of the same source DID. Strong evidence: bad Netlify function bundle / artifact corruption, not a code regression. **Recovery rule: when symptoms match (dynamic routes 500, static files 200, no `X-Powered-By: Next.js`), Netlify dashboard → Deploys → Trigger deploy → "Clear cache and deploy site" BEFORE attempting a source rollback.** Prevention items queued in [`NEXT.md`](./NEXT.md).
+- 14 legacy suburb pages lack the template's FAQ/geo schema — do not cite "all suburb pages have rich-result schema" until the parity sweep ships.
+- `src/app/collateral/marketing-a4/page.tsx` is a finished A4 flyer print route kept **local-only / uncommitted** by choice (2026-07-04).
+- **Production outage 2026-05-31 04:05–04:29 UTC** — every Next.js-handled route (including `/favicon.ico`) returned plain-text `Internal Server Error` while static files served fine. Rollback to a prior known-good SHA did NOT fix it; a fresh redeploy of the same source DID. Strong evidence: bad Netlify function bundle / artifact corruption, not a code regression. **Recovery rule: when symptoms match (dynamic routes 500, static files 200, no `X-Powered-By: Next.js`), Netlify dashboard → Deploys → Trigger deploy → "Clear cache and deploy site" BEFORE attempting a source rollback.** Prevention items still queued in [`NEXT.md`](./NEXT.md) — none built as of 2026-07-04 (verified: no `/api/health` route exists).
 
 ## How to update this doc
 - Append-style entries are fine but keep the "Live in production today" list short and accurate.
