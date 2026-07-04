@@ -6,8 +6,8 @@
 - _(empty)_
 
 ## Next up (this week)
-- **Suburb parity sweep** — migrate the 14 hand-built suburb pages (`devonport, epsom, grey-lynn, henderson, kingsland, manukau, mission-bay, mount-eden, new-lynn, onehunga, ponsonby, takapuna, te-atatu-peninsula, titirangi`) onto `SuburbLandingTemplate` so they gain the PR #311 geo schema + PR #312 FAQ/FAQPage schema, and rewrite their intros to the service-led standard (no geography/research voice). Verified 2026-07-04: template pages serve FAQPage live (e.g. Albany); the 14 legacy pages do not.
-- **Decide PR #282** — `content(policies): website-analytics line in Privacy section`, open since 2026-06-25. Review, then merge or close; don't leave it hanging.
+- **Wave-2/3 suburb differentiation pass** — Papakura, Flat Bush, Hobsonville, Browns Bay, and Milford share verbatim intro-P2 and cover-card copy with each other (thin-content guard finding, 2026-07-04). Vary at sentence level before shipping more volume waves; also vary the estate-wide "Rentals and move cleans" card structure where cheap.
+- **Suburb wave 5** — ~37 registry suburbs still pageless. Strongest candidates: Beach Haven, Glen Eden, Mangere, Meadowbank, Orakei, Otahuhu, Green Bay, Te Atatu South. Same pipeline as wave 4: planner agent → Mike confirms property-stock claims → build on template → thin-content guard → PR.
 - **Site-wide commercial pass** — lean commercial where genuine (services, about, FAQ, CTAs); residential stays primary. Open review item from the commercial growth focus.
 
 ## Outage prevention plan (queued after 2026-05-31 incident — none built as of 2026-07-04)
@@ -24,7 +24,8 @@
 - _(empty)_
 
 ## Recently completed (housekept 2026-07-04)
-- PRs #146–#312 merged between 2026-05-19 and 2026-07-02 — service-page differentiation + cleaning standards, 34 suburb pages (3 waves + geo/FAQ schema), finance suite (expenses, P&L, ASB import + reconciliation), contractor pay pipeline + remittance, invoice/quote editing suite, global search + command palette, GA4 analytics (site + portal), accountant access, perf pass. Detail in [`STATE.md`](./STATE.md) and `git log --merges`.
+- **2026-07-04 session:** PR #313 (docs/repo hygiene), PR #282 (GA4 privacy disclosure, merged after 9 days open), PR #314 (suburb parity sweep — 14 legacy pages onto the template, copy verbatim, −2,089 lines), PR #315 (wave 4 — 8 new pages, estate to 42). All verified live on production (`55ce5c4`).
+- PRs #146–#312 merged between 2026-05-19 and 2026-07-02 — service-page differentiation + cleaning standards, suburb waves 1–3 + geo/FAQ schema, finance suite (expenses, P&L, ASB import + reconciliation), contractor pay pipeline + remittance, invoice/quote editing suite, global search + command palette, GA4 analytics (site + portal), accountant access, perf pass. Detail in [`STATE.md`](./STATE.md) and `git log --merges`.
 - Dropped from this queue 2026-07-04: PR #195 verification (PR was **closed unmerged** — the client-reference inherit work is dead unless re-raised) and the 2026-05-14 fix-marathon verification items (superseded by seven weeks of subsequent shipping).
 
 ## How to use this doc

@@ -2,16 +2,14 @@
 
 > Short, current. The deep history lives in [`docs/PORTAL.md`](../PORTAL.md). Update this after each Netlify-verified deploy.
 
-**Last verified:** 2026-07-04 (production on `def4ab7` = PR #312 merge; confirmed via Netlify API — latest deploy `ready` on that SHA — plus live HTML checks: suburb FAQPage schema serving on template-based pages, e.g. `/service-area/albany`.)
+**Last verified:** 2026-07-04 (production on `55ce5c4` = PR #315 merge; Netlify deploy `ready` + live checks: wave-4 pages returning 200 with FAQPage schema, e.g. `/service-area/takanini`, `/service-area/westgate`.)
 
 ## Live in production today
 
 ### Public site
 - Marketing site (homepage, services, about, contact, FAQ, guarantee, policies, join-our-team).
 - Cleaning-standards system: 100-point home clean + 125-point property reset checklists, homepage signature-system block, differentiated service pages with subpage heroes and standardised bodies (PRs #150–#179).
-- **34 suburb pages** under `/service-area/*`. Two generations:
-  - 20 newer pages on `SuburbLandingTemplate` — carry per-suburb geo schema (PR #311) + visible FAQ mirrored in FAQPage rich-result schema (PR #312).
-  - 14 earlier hand-built pages (`devonport, epsom, grey-lynn, henderson, kingsland, manukau, mission-bay, mount-eden, new-lynn, onehunga, ponsonby, takapuna, te-atatu-peninsula, titirangi`) — **no FAQ/geo schema, pre-standard intro copy**. Parity sweep queued in [`NEXT.md`](./NEXT.md).
+- **42 suburb pages** under `/service-area/*`, all on `SuburbLandingTemplate` with per-suburb geo Place schema (PR #311) + visible FAQ mirrored in FAQPage rich-result schema (PR #312). The 14 legacy hand-built pages were migrated (parity sweep, PR #314, copy preserved verbatim); wave 4 added Glenfield, Northcote, Avondale, Massey, Westgate, Papatoetoe, Takanini, Panmure (PR #315, planner-briefed, Mike-confirmed property-stock claims, thin-content-guarded).
 - SEO technical wins (#306) + internal-linking pass (#307); GA4 site analytics (#281/#284).
 - About page rebuilt (#295–#299); banners/eyebrow trust rows (#294/#296); who-we-work-with (#297).
 - Email signature preview routes: `/email-signature`, `/email-signature-michael`, `/email-signature-mammoth{,-a,-b}` (PRs #196–#198).
@@ -37,7 +35,7 @@
 ## Known caveats
 - Do **NOT** set `PUPPETEER_EXECUTABLE_PATH` in Netlify production env. Local `.env.local` only.
 - `docs/compliance/` and `docs/AI/New Text Document.txt` are untracked operational scratch - never `git add`.
-- 14 legacy suburb pages lack the template's FAQ/geo schema — do not cite "all suburb pages have rich-result schema" until the parity sweep ships.
+- Wave-2/3 near-duplicate cluster: Papakura, Flat Bush, Hobsonville, Browns Bay, and Milford share verbatim intro-P2 / card copy with each other (flagged by thin-content guard 2026-07-04). Differentiation pass queued in [`NEXT.md`](./NEXT.md) before further volume waves.
 - `src/app/collateral/marketing-a4/page.tsx` is a finished A4 flyer print route kept **local-only / uncommitted** by choice (2026-07-04).
 - **Production outage 2026-05-31 04:05–04:29 UTC** — every Next.js-handled route (including `/favicon.ico`) returned plain-text `Internal Server Error` while static files served fine. Rollback to a prior known-good SHA did NOT fix it; a fresh redeploy of the same source DID. Strong evidence: bad Netlify function bundle / artifact corruption, not a code regression. **Recovery rule: when symptoms match (dynamic routes 500, static files 200, no `X-Powered-By: Next.js`), Netlify dashboard → Deploys → Trigger deploy → "Clear cache and deploy site" BEFORE attempting a source rollback.** Prevention items still queued in [`NEXT.md`](./NEXT.md) — none built as of 2026-07-04 (verified: no `/api/health` route exists).
 
