@@ -1,0 +1,166 @@
+'use server'
+
+import { Resend } from 'resend'
+import { createClient } from '@/lib/supabase-server'
+import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
+import { renderCommercialIntro, listUnsubscribeHeader } from '@/lib/campaigns/template'
+
+function siteUrl(): string {
+  return process.env.NEXT_PUBLIC_SITE_URL || 'https://sano.nz'
+}
+
+export async function createCampaignAction(input: {
+  name: string
+  subject: string
+  description?: string
+  leadIds: string[]
+}) {
+  if (!input.name.trim()) return { error: 'Campaign needs a name.' }
+  if (input.leadIds.length === 0) return { error: 'Pick at least one lead.' }
+
+  const supabase = createClient()
+  const { data: campaign, error } = await supabase
+    .from('sales_campaigns')
+    .insert({
+      name: input.name.trim(),
+      subject: input.subject.trim() || 'Quick question about office cleaning',
+      description: input.description || null,
+    })
+    .select('id')
+    .single()
+
+  if (error || !campaign) {
+    return { error: `Failed to create campaign: ${error?.message}` }
+  }
+
+  const rows = input.leadIds.map((lead_id) => ({ campaign_id: campaign.id, lead_id }))
+  const { error: recErr } = await supabase.from('sales_campaign_recipients').insert(rows)
+  if (recErr) {
+    return { error: `Campaign created but recipients failed: ${recErr.message}` }
+  }
+
+  redirect(`/portal/campaigns/${campaign.id}`)
+}
+
+/**
+ * Send a campaign. Sequential sends via Resend (well inside rate limits at
+ * this volume). Fail-soft per recipient: a failed send marks that row
+ * `failed` and continues; leads that unsubscribed / lost their email since
+ * being added are marked `skipped`.
+ */
+export async function sendCampaignAction(campaignId: string) {
+  const supabase = createClient()
+
+  const { data: campaign, error: cErr } = await supabase
+    .from('sales_campaigns')
+    .select('id, name, subject, from_name, reply_to, status')
+    .eq('id', campaignId)
+    .single()
+  if (cErr || !campaign) return { error: 'Campaign not found.' }
+  if (campaign.status === 'sending') return { error: 'Campaign is already sending.' }
+
+  const { data: recipients, error: rErr } = await supabase
+    .from('sales_campaign_recipients')
+    .select('id, token, status, lead:sales_leads(id, company, contact_name, email, status, unsubscribed_at)')
+    .eq('campaign_id', campaignId)
+    .eq('status', 'pending')
+  if (rErr) return { error: `Failed to load recipients: ${rErr.message}` }
+  if (!recipients || recipients.length === 0) return { error: 'No pending recipients.' }
+
+  await supabase.from('sales_campaigns').update({ status: 'sending' }).eq('id', campaignId)
+
+  const resend = new Resend(process.env.RESEND_API_KEY)
+  let sent = 0
+  let failed = 0
+  let skipped = 0
+
+  for (const r of recipients) {
+    // Supabase join can type as array; normalise.
+    const lead = Array.isArray(r.lead) ? r.lead[0] : r.lead
+    if (!lead || !lead.email || lead.unsubscribed_at || lead.status === 'do_not_contact') {
+      await supabase
+        .from('sales_campaign_recipients')
+        .update({ status: 'skipped', error: 'No email or opted out' })
+        .eq('id', r.id)
+      skipped++
+      continue
+    }
+
+    const rendered = renderCommercialIntro({
+      lead: { company: lead.company, contact_name: lead.contact_name },
+      token: r.token,
+      siteUrl: siteUrl(),
+      subject: campaign.subject,
+    })
+
+    const { error: sendErr } = await resend.emails.send({
+      from: `${campaign.from_name} <noreply@sano.nz>`,
+      to: lead.email,
+      replyTo: campaign.reply_to,
+      subject: rendered.subject,
+      html: rendered.html,
+      text: rendered.text,
+      headers: listUnsubscribeHeader(campaign.reply_to),
+    })
+
+    if (sendErr) {
+      await supabase
+        .from('sales_campaign_recipients')
+        .update({ status: 'failed', error: sendErr.message })
+        .eq('id', r.id)
+      failed++
+    } else {
+      await supabase
+        .from('sales_campaign_recipients')
+        .update({ status: 'sent', sent_at: new Date().toISOString(), error: null })
+        .eq('id', r.id)
+      // First touch moves a fresh lead to `contacted`.
+      await supabase
+        .from('sales_leads')
+        .update({ status: 'contacted', updated_at: new Date().toISOString() })
+        .eq('id', lead.id)
+        .eq('status', 'new')
+      sent++
+    }
+  }
+
+  await supabase
+    .from('sales_campaigns')
+    .update({ status: 'sent', sent_at: new Date().toISOString() })
+    .eq('id', campaignId)
+
+  revalidatePath(`/portal/campaigns/${campaignId}`)
+  revalidatePath('/portal/campaigns')
+  revalidatePath('/portal/leads')
+  return { success: true, sent, failed, skipped }
+}
+
+/** Manual response marking (reply detection is manual by design for now). */
+export async function markRespondedAction(recipientId: string) {
+  const supabase = createClient()
+
+  const { data: rec, error } = await supabase
+    .from('sales_campaign_recipients')
+    .update({ responded_at: new Date().toISOString() })
+    .eq('id', recipientId)
+    .select('lead_id, campaign_id')
+    .single()
+  if (error || !rec) return { error: `Failed to mark responded: ${error?.message}` }
+
+  await supabase
+    .from('sales_leads')
+    .update({ status: 'responded', updated_at: new Date().toISOString() })
+    .eq('id', rec.lead_id)
+    .in('status', ['new', 'contacted'])
+
+  await supabase.from('sales_lead_activities').insert({
+    lead_id: rec.lead_id,
+    kind: 'email',
+    body: 'Replied to campaign email',
+  })
+
+  revalidatePath(`/portal/campaigns/${rec.campaign_id}`)
+  revalidatePath(`/portal/leads/${rec.lead_id}`)
+  return { success: true }
+}
