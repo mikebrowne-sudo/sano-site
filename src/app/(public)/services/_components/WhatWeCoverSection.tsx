@@ -132,8 +132,8 @@ export function WhatWeCoverSection({
                 key={item.title}
                 className={
                   dark
-                    ? 'w-full rounded-2xl border border-white/10 bg-sage-800 bg-[linear-gradient(rgba(255,255,255,0.05),rgba(255,255,255,0.05))] p-5 sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.834rem)]'
-                    : 'w-full rounded-2xl border border-sage-100 bg-white p-5 shadow-sm sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.834rem)]'
+                    ? 'w-full rounded-2xl border border-white/10 bg-sage-800 bg-[linear-gradient(rgba(255,255,255,0.05),rgba(255,255,255,0.05))] p-5 transition-all duration-200 hover:scale-[1.03] hover:border-white/25 sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.834rem)]'
+                    : 'w-full rounded-2xl border border-sage-100 bg-white p-5 shadow-sm transition-all duration-200 hover:scale-[1.03] hover:shadow-md hover:border-sage-300 sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.834rem)]'
                 }
               >
                 <span

@@ -83,7 +83,7 @@ export function WhyChooseSection({
           {items.map((item) => (
             <li
               key={item.title}
-              className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5"
+              className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 transition-all duration-200 hover:scale-[1.02] hover:border-white/20 hover:bg-white/[0.07]"
             >
               {/* Small sage-300 check — matches the medical-cleaning reference
                   inline check on dark feature items. */}

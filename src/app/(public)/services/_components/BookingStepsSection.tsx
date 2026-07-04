@@ -70,7 +70,7 @@ export function BookingStepsSection({
           {steps.map((step, i) => (
             <li
               key={step.title}
-              className="rounded-2xl border border-sage-100 bg-[#faf9f6] p-5 text-center"
+              className="rounded-2xl border border-sage-100 bg-[#faf9f6] p-5 text-center transition-all duration-200 hover:scale-[1.03] hover:shadow-md hover:border-sage-300"
             >
               <span
                 aria-hidden="true"

@@ -54,7 +54,7 @@ export function NearbySuburbsSection({ suburbs }: NearbySuburbsSectionProps) {
             <Link
               key={suburb.href}
               href={suburb.href}
-              className="inline-flex items-center gap-2 rounded-full border border-sage-100 bg-[#faf9f6] px-5 py-2.5 text-[0.9375rem] font-semibold text-sage-700 transition-colors hover:border-sage-300 hover:text-sage-800"
+              className="inline-flex items-center gap-2 rounded-full border border-sage-100 bg-[#faf9f6] px-5 py-2.5 text-[0.9375rem] font-semibold text-sage-700 transition-all duration-200 hover:scale-[1.05] hover:shadow-sm hover:border-sage-300 hover:text-sage-800"
             >
               <MapPin size={15} className="flex-shrink-0 text-sage-500" aria-hidden="true" />
               {suburb.name}
