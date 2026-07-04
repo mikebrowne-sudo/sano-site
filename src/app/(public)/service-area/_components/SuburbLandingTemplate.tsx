@@ -277,20 +277,23 @@ export function SuburbLandingTemplate({ data }: { data: SuburbData }) {
         }
       />
 
-      <section className="bg-[#faf9f6] py-6 text-center">
-        <p className="text-[0.875rem] text-sage-600">
-          <Link href="/service-area" className="font-semibold text-sage-500 underline-offset-4 hover:underline">
-            Check another suburb
-          </Link>
-          {' · '}
-          <Link href="/guarantee" className="font-semibold text-sage-500 underline-offset-4 hover:underline">
-            Our guarantee
-          </Link>
-          {' · '}
-          <Link href="/faq" className="font-semibold text-sage-500 underline-offset-4 hover:underline">
-            FAQ
-          </Link>
-        </p>
+      {/* Closing trust strip — thin card links, gentle scale on hover. */}
+      <section className="bg-[#faf9f6] py-6">
+        <div className="flex flex-wrap items-center justify-center gap-3 px-4">
+          {[
+            { label: 'Check another suburb', href: '/service-area' },
+            { label: 'Our guarantee', href: '/guarantee' },
+            { label: 'FAQ', href: '/faq' },
+          ].map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="inline-flex items-center rounded-lg border border-sage-100 bg-white px-4 py-2 text-[0.875rem] font-semibold text-sage-600 shadow-sm transition-all duration-200 hover:scale-[1.05] hover:shadow-md hover:text-sage-800"
+            >
+              {l.label}
+            </Link>
+          ))}
+        </div>
       </section>
     </>
   )
