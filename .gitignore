@@ -51,3 +51,12 @@ docs/compliance/
 
 # Local Netlify folder
 .netlify
+
+# Session scratch (PR bodies / commit notes written during agent sessions)
+.pr-body-*.md
+COMMIT_*.txt
+_shot.js
+
+# Codex agent config + local design previews (machine-local)
+.codex/
+.preview/
