@@ -9,6 +9,7 @@ import { WhyChooseSection } from '../../services/_components/WhyChooseSection'
 import { SUBURB_WHY_SANO_ITEMS } from '@/lib/suburb-why-sano'
 import { SuburbServicesSection, type ServiceGroup } from './SuburbServicesSection'
 import { NearbySuburbsSection, type NearbySuburb } from './NearbySuburbsSection'
+import { SuburbFaqAccordion } from './SuburbFaqAccordion'
 import { SERVICE_AREAS, getAreasByRegion, hasSuburbPage } from '@/lib/service-areas'
 
 /**
@@ -165,7 +166,7 @@ export function SuburbLandingTemplate({ data }: { data: SuburbData }) {
         trustItems={DEFAULT_TRUST_ITEMS}
       />
 
-      <section className="section-padding bg-white py-10 lg:py-12">
+      <section className="section-padding bg-white py-8 lg:py-10">
         <div className="container-max">
           <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6 lg:gap-10 items-start">
             <div>
@@ -238,18 +239,13 @@ export function SuburbLandingTemplate({ data }: { data: SuburbData }) {
 
       {/* Suburb FAQ — broad service/logistics questions (never
           market-narrowing) plus a unique local-coverage answer. Rendered
-          visibly AND mirrored in FAQPage schema for rich results. */}
-      <section className="section-padding bg-white py-10 lg:py-12 border-t border-sage-100">
+          visibly AND mirrored in FAQPage schema for rich results. The
+          accordion collapses answers via CSS grid-rows so the full text
+          stays in the DOM — schema and visible content keep matching. */}
+      <section className="section-padding bg-white py-8 lg:py-10 border-t border-sage-100">
         <div className="container-max max-w-3xl">
           <h2 className="mb-6">Common questions about cleaning in {data.suburb}</h2>
-          <div className="divide-y divide-sage-100">
-            {faqs.map((f) => (
-              <div key={f.q} className="py-4">
-                <h3 className="text-[1rem] font-semibold text-sage-800 mb-1.5">{f.q}</h3>
-                <p className="body-text">{f.aNode ?? f.a}</p>
-              </div>
-            ))}
-          </div>
+          <SuburbFaqAccordion items={faqs.map((f) => ({ q: f.q, body: f.aNode ?? f.a }))} />
         </div>
       </section>
 
