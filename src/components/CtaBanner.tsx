@@ -37,7 +37,7 @@ export function CtaBanner({
       ref={ref}
       onMouseEnter={() => setOverBand(true)}
       onMouseLeave={() => setOverBand(false)}
-      className="relative overflow-hidden bg-sage-800 section-padding py-8 md:py-10 border-t border-white/10"
+      className="relative overflow-hidden bg-sage-800 bg-[linear-gradient(rgba(255,255,255,0.04),rgba(255,255,255,0.04))] section-padding py-8 md:py-10 border-t border-white/10 border-b border-white/15"
     >
       {/* Corner glows: scroll progress drives the layer, hover states
           drive each disc. Palette tokens only. */}
