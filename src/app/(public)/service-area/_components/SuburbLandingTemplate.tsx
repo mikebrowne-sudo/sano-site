@@ -25,6 +25,12 @@ import { SERVICE_AREAS, getAreasByRegion, hasSuburbPage } from '@/lib/service-ar
 
 export interface SuburbData {
   suburb: string
+  /**
+   * Registry name for the SERVICE_AREAS lookup when the display name
+   * differs (e.g. macrons: display "Te Atatū Peninsula" vs registry
+   * "Te Atatu Peninsula"). Defaults to `suburb`.
+   */
+  areaName?: string
   /** Hero eyebrow. Default: "<Suburb> cleaning services". */
   heroEyebrow?: string
   heroTitle: string
@@ -65,11 +71,12 @@ export function SuburbLandingTemplate({ data }: { data: SuburbData }) {
   // detail. Feeds a specific `areaServed` (postcode + region) in the
   // schema and a unique "areas we cover" block, so each page carries
   // genuinely distinct local signal instead of near-duplicate boilerplate.
-  const area = SERVICE_AREAS.find((a) => a.suburb === data.suburb)
+  const areaName = data.areaName ?? data.suburb
+  const area = SERVICE_AREAS.find((a) => a.suburb === areaName)
   const region = area?.region ?? null
   const postcode = area?.postcodes?.[0] ?? null
   const nearbyLocalities = region
-    ? getAreasByRegion(region).filter((a) => a.suburb !== data.suburb).slice(0, 8)
+    ? getAreasByRegion(region).filter((a) => a.suburb !== areaName).slice(0, 8)
     : []
 
   const areaServedSchema = region
