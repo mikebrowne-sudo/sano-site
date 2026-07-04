@@ -203,12 +203,17 @@ export function SuburbLandingTemplate({ data }: { data: SuburbData }) {
         groups={[...data.serviceGroups]}
       />
 
+      {/* Dark variant + faint background texture: gives the page a colour
+          break between the long light sections. The image sits behind the
+          band only — card fills are opaque by design. */}
       <WhatWeCoverSection
         eyebrow="HOW WE APPROACH IT"
         heading="Cleaning needs vary by property type"
         headingHighlight="property type"
         subtitle="A short note on what we typically focus on for each kind of property."
         items={[...data.cover]}
+        variant="dark"
+        backgroundImage={data.heroImage}
       />
 
       <BookingStepsSection
