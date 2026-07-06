@@ -18,7 +18,7 @@
 
 import Image from 'next/image'
 import { formatCurrency, formatDate } from '@/lib/format'
-import { cleanRemittanceAddress, cleanRemittanceNote } from '@/lib/remittance-address'
+import { cleanRemittanceAddress } from '@/lib/remittance-address'
 import type { RemittanceBatch } from '@/lib/contractor-remittance-data'
 
 // Injected print CSS. @page sets A4 portrait + 14mm margins. The
@@ -135,9 +135,12 @@ export function ContractorRemittanceDocument({ data }: { data: RemittanceBatch }
                       </tr>
                     )
                   }
+                  // Remittance shows the address only — never the job
+                  // description/notes (a stray long note dumped the full
+                  // scope onto the advice). For fixed-contract lines with no
+                  // address, fall back to the (short) label note.
                   const address = cleanRemittanceAddress(l.jobAddress)
                   const detail = address ?? l.note ?? null
-                  const noteLine = address != null ? cleanRemittanceNote(l.note, address) : null
                   return (
                     <tr key={i} className="remit-row border-b border-sage-50">
                       <td className="py-2.5 pr-3 align-top">
@@ -145,7 +148,6 @@ export function ContractorRemittanceDocument({ data }: { data: RemittanceBatch }
                           {l.jobNumber ?? 'Job'}
                           {detail && <span className="text-sage-500 font-normal"> · {detail}</span>}
                         </div>
-                        {noteLine && <div className="text-[11px] text-sage-400 italic mt-0.5">{noteLine}</div>}
                       </td>
                       {multi && <td className="py-2.5 pr-3 align-top text-sage-600">{l.contractorName ?? '—'}</td>}
                       {showHours && <td className="py-2.5 pr-3 align-top text-right text-sage-600">{formatHours(l.hours)}</td>}
