@@ -9,7 +9,7 @@ const base: ContractorPayStatusInput = {
   jobCompletedAt: null,
   invoiceStatus: null,
   invoiceDatePaid: null,
-  inSentRemittance: false,
+  inPaidRemittance: false,
 }
 
 describe('getContractorPayStatus', () => {
@@ -31,10 +31,10 @@ describe('getContractorPayStatus', () => {
     expect(getContractorPayStatus({ ...base, jobStatus: 'completed', invoiceStatus: 'approved' })).toBe('approved_pending')
   })
 
-  it('paid payable → paid (via status, date_paid, or sent remittance)', () => {
+  it('paid payable → paid (via status, date_paid, or paid remittance)', () => {
     expect(getContractorPayStatus({ ...base, jobStatus: 'completed', invoiceStatus: 'paid' })).toBe('paid')
     expect(getContractorPayStatus({ ...base, jobStatus: 'completed', invoiceStatus: 'approved', invoiceDatePaid: '2026-06-12' })).toBe('paid')
-    expect(getContractorPayStatus({ ...base, jobStatus: 'completed', invoiceStatus: 'approved', inSentRemittance: true })).toBe('paid')
+    expect(getContractorPayStatus({ ...base, jobStatus: 'completed', invoiceStatus: 'approved', inPaidRemittance: true })).toBe('paid')
   })
 
   it('treats an invoiced job, or one with completed_at, as completed', () => {
@@ -43,7 +43,7 @@ describe('getContractorPayStatus', () => {
   })
 
   it('resolves two contractors on the same job independently', () => {
-    const completedJob = { jobStatus: 'completed', jobCompletedAt: '2026-06-10', invoiceDatePaid: null, inSentRemittance: false }
+    const completedJob = { jobStatus: 'completed', jobCompletedAt: '2026-06-10', invoiceDatePaid: null, inPaidRemittance: false }
     // Contractor A approved, contractor B still has no payable.
     expect(getContractorPayStatus({ ...completedJob, invoiceStatus: 'approved' })).toBe('approved_pending')
     expect(getContractorPayStatus({ ...completedJob, invoiceStatus: null })).toBe('awaiting_approval')

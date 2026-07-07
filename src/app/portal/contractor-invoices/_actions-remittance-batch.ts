@@ -4,9 +4,10 @@
 //
 // Snapshots the selected contractor_invoices (+ any manual adjustment
 // lines) onto the batch so the remittance always matches the actual
-// payment. Optionally (default on) marks the selected CIs paid with the
-// batch's payment date — this is how historical date corrections get
-// applied through an audited admin action rather than raw SQL.
+// payment. By DEFAULT the batch is created UNPAID (payables stay approved,
+// remittance.paid_at null) — staff flip it to paid via markRemittancePaid
+// once the money leaves the bank. Pass markPaid:true to mark it paid on
+// creation (e.g. recording a historical payment).
 //
 // Admin-only. Does NOT send anything — preview/PDF only.
 
@@ -29,7 +30,7 @@ export interface CreateRemittanceBatchInput {
   notes?: string | null
   ciIds: string[]
   adjustments?: RemittanceAdjustmentInput[]
-  markPaid?: boolean // default true
+  markPaid?: boolean // default false — create unpaid, mark paid later
 }
 
 interface CIRow {
@@ -116,6 +117,9 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
     return reconcileRemittanceHours(payable, w.pay_rate, ci.amount ?? 0)
   }
 
+  // Create unpaid by default; only stamp paid_at when explicitly marking paid.
+  const markPaid = input.markPaid === true
+
   // Header.
   const { data: header, error: hErr } = await supabase
     .from('contractor_remittances')
@@ -124,6 +128,7 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
       reference: input.reference?.trim() || null,
       payee_label: input.payeeLabel?.trim() || null,
       notes: input.notes?.trim() || null,
+      paid_at: markPaid ? new Date(input.paymentDate).toISOString() : null,
       created_by: user.id,
     })
     .select('id, token')
@@ -179,8 +184,7 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
     return { error: `Failed to add lines: ${iErr.message}` }
   }
 
-  // Mark the selected CIs paid on the payment date (default on).
-  const markPaid = input.markPaid !== false
+  // Mark the selected CIs paid on the payment date (only when requested).
   if (markPaid && ciIds.length > 0) {
     await supabase
       .from('contractor_invoices')

@@ -6,7 +6,7 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Plus, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, FileText, Plus, CheckCircle2, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { listRemittanceBatches } from '@/lib/contractor-remittance-data'
@@ -57,6 +57,7 @@ export default async function SavedRemittancesPage() {
                   <th className="py-3 px-4 font-semibold">Payment date</th>
                   <th className="py-3 px-4 font-semibold">Reference</th>
                   <th className="py-3 px-4 font-semibold text-right">Total</th>
+                  <th className="py-3 px-4 font-semibold">Paid</th>
                   <th className="py-3 px-4 font-semibold">Sent</th>
                   <th className="py-3 px-4 font-semibold">Created</th>
                   <th className="py-3 px-4 font-semibold text-right">Action</th>
@@ -72,6 +73,17 @@ export default async function SavedRemittancesPage() {
                       <td className="py-3 px-4 text-sage-600">{formatDate(b.paymentDate)}</td>
                       <td className="py-3 px-4 text-sage-500 max-w-[180px] truncate" title={b.reference ?? ''}>{b.reference || '—'}</td>
                       <td className="py-3 px-4 text-right font-semibold text-sage-800">{formatCurrency(b.total)}</td>
+                      <td className="py-3 px-4">
+                        {b.paidAt ? (
+                          <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">
+                            <CheckCircle2 size={12} /> Paid
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">
+                            <Clock size={12} /> Pending
+                          </span>
+                        )}
+                      </td>
                       <td className="py-3 px-4">
                         {b.sentAt ? (
                           <span className="inline-flex items-center gap-1.5 text-emerald-700">

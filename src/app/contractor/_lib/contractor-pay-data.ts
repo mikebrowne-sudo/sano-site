@@ -68,15 +68,17 @@ export async function loadContractorPayStatement(contractorId: string): Promise<
     }
   })
 
-  // Remittance links for the PAID CIs (group + document link only).
-  const paidCiIds = cis.filter((c) => c.status === 'paid' || !!c.date_paid).map((c) => c.id)
+  // Remittance links for ALL of this contractor's CIs (group + document
+  // link). Covers still-approved CIs too, so an approved payable on a
+  // not-yet-paid remittance can be grouped as "Pending payment".
+  const allCiIds = cis.map((c) => c.id)
   let remLinks: RawRemittanceLink[] = []
   let rems: RawRemittance[] = []
-  if (paidCiIds.length > 0) {
+  if (allCiIds.length > 0) {
     const { data: linkRaw } = await svc
       .from('contractor_remittance_items')
       .select('contractor_invoice_id, remittance_id')
-      .in('contractor_invoice_id', paidCiIds)
+      .in('contractor_invoice_id', allCiIds)
     remLinks = ((linkRaw ?? []) as Array<{ contractor_invoice_id: string | null; remittance_id: string | null }>)
       .filter((l): l is { contractor_invoice_id: string; remittance_id: string } => !!l.contractor_invoice_id && !!l.remittance_id)
       .map((l) => ({ ciId: l.contractor_invoice_id, remittanceId: l.remittance_id }))
@@ -85,10 +87,10 @@ export async function loadContractorPayStatement(contractorId: string): Promise<
     if (remIds.length > 0) {
       const { data: remRaw } = await svc
         .from('contractor_remittances')
-        .select('id, token, payment_date')
+        .select('id, token, payment_date, paid_at')
         .in('id', remIds)
-      rems = ((remRaw ?? []) as Array<{ id: string; token: string | null; payment_date: string | null }>)
-        .map((r) => ({ id: r.id, token: r.token, paymentDate: r.payment_date }))
+      rems = ((remRaw ?? []) as Array<{ id: string; token: string | null; payment_date: string | null; paid_at: string | null }>)
+        .map((r) => ({ id: r.id, token: r.token, paymentDate: r.payment_date, paidAt: r.paid_at }))
     }
   }
 

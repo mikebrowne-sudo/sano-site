@@ -23,8 +23,9 @@ export interface ContractorPayStatusInput {
   invoiceStatus: string | null
   /** contractor_invoice.date_paid (set when marked paid). */
   invoiceDatePaid: string | null
-  /** Whether this payable is snapshotted into a remittance batch that has been sent. */
-  inSentRemittance: boolean
+  /** Whether this payable is on a remittance batch that has been marked PAID
+   *  (paid_at set). A sent-but-unpaid remittance does NOT count as paid. */
+  inPaidRemittance: boolean
 }
 
 export function getContractorPayStatus(input: ContractorPayStatusInput): ContractorPayStatus {
@@ -38,7 +39,7 @@ export function getContractorPayStatus(input: ContractorPayStatusInput): Contrac
   const paid =
     input.invoiceStatus === 'paid' ||
     !!input.invoiceDatePaid ||
-    input.inSentRemittance
+    input.inPaidRemittance
   if (paid) return 'paid'
 
   // An approved payable exists but isn't paid yet.

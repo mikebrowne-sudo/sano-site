@@ -29,6 +29,8 @@ export interface RemittanceBatch {
   payeeLabel: string | null
   notes: string | null
   sentAt: string | null
+  /** When staff marked this remittance paid (null = not yet paid). */
+  paidAt: string | null
   lines: RemittanceBatchLine[]
   total: number
   contractorNames: string[]
@@ -43,6 +45,7 @@ interface Header {
   payee_label: string | null
   notes: string | null
   sent_at: string | null
+  paid_at: string | null
 }
 
 async function build(svc: SupabaseClient, h: Header): Promise<RemittanceBatch> {
@@ -74,13 +77,14 @@ async function build(svc: SupabaseClient, h: Header): Promise<RemittanceBatch> {
     payeeLabel: h.payee_label,
     notes: h.notes,
     sentAt: h.sent_at,
+    paidAt: h.paid_at,
     lines,
     total,
     contractorNames,
   }
 }
 
-const HEADER_COLS = 'id, token, remittance_number, payment_date, reference, payee_label, notes, sent_at'
+const HEADER_COLS = 'id, token, remittance_number, payment_date, reference, payee_label, notes, sent_at, paid_at'
 
 export interface RemittanceBatchSummary {
   id: string
@@ -90,6 +94,7 @@ export interface RemittanceBatchSummary {
   reference: string | null
   total: number
   sentAt: string | null
+  paidAt: string | null
   createdAt: string | null
   contractorNames: string[]
 }
@@ -100,7 +105,7 @@ export async function listRemittanceBatches(): Promise<RemittanceBatchSummary[]>
   const svc = getServiceSupabase()
   const { data: headers } = await svc
     .from('contractor_remittances')
-    .select('id, remittance_number, payment_date, reference, payee_label, sent_at, created_at')
+    .select('id, remittance_number, payment_date, reference, payee_label, sent_at, paid_at, created_at')
     .order('created_at', { ascending: false })
   if (!headers || headers.length === 0) return []
 
@@ -133,6 +138,7 @@ export async function listRemittanceBatches(): Promise<RemittanceBatchSummary[]>
       reference: (h.reference as string | null) ?? null,
       total: Math.round((totals.get(id) ?? 0) * 100) / 100,
       sentAt: (h.sent_at as string | null) ?? null,
+      paidAt: (h.paid_at as string | null) ?? null,
       createdAt: (h.created_at as string | null) ?? null,
       contractorNames: Array.from(names.get(id) ?? []),
     }

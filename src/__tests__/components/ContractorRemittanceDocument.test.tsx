@@ -35,6 +35,7 @@ function batch(lines: RemittanceBatchLine[]): RemittanceBatch {
     payeeLabel: null,
     notes: null,
     sentAt: null,
+    paidAt: null,
     lines,
     total: lines.reduce((s, l) => s + l.amount, 0),
     contractorNames: Array.from(new Set(lines.map((l) => l.contractorName).filter(Boolean) as string[])),

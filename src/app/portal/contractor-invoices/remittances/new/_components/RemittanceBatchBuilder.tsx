@@ -32,7 +32,7 @@ export function RemittanceBatchBuilder({ cis, contractors }: { cis: BuilderCI[];
   const [paymentDate, setPaymentDate] = useState('')
   const [reference, setReference] = useState('')
   const [payeeLabel, setPayeeLabel] = useState('')
-  const [markPaid, setMarkPaid] = useState(true)
+  const [markPaid, setMarkPaid] = useState(false)
   const [adjustments, setAdjustments] = useState<{ label: string; amount: string }[]>([])
   const [contractorFilter, setContractorFilter] = useState('')
   const [search, setSearch] = useState('')
@@ -105,9 +105,12 @@ export function RemittanceBatchBuilder({ cis, contractors }: { cis: BuilderCI[];
           <span className="text-[11px] font-medium text-sage-500">Payee label</span>
           <input value={payeeLabel} onChange={(e) => setPayeeLabel(e.target.value)} placeholder={suggestedPayee || 'Contractor name'} className={input} />
         </label>
-        <label className="flex items-center gap-2 mt-5 text-sm text-sage-700">
-          <input type="checkbox" checked={markPaid} onChange={(e) => setMarkPaid(e.target.checked)} className="rounded border-sage-300" />
-          Mark selected invoices paid on this date
+        <label className="flex items-start gap-2 mt-5 text-sm text-sage-700">
+          <input type="checkbox" checked={markPaid} onChange={(e) => setMarkPaid(e.target.checked)} className="mt-0.5 rounded border-sage-300" />
+          <span>
+            Mark paid now
+            <span className="block text-[11px] text-sage-400">Leave off to send first and mark paid once the money leaves the bank.</span>
+          </span>
         </label>
       </div>
 
