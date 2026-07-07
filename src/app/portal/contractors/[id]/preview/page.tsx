@@ -15,11 +15,14 @@ import clsx from 'clsx'
 import { createClient } from '@/lib/supabase-server'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { ContractorJobsView, type ContractorJobRow } from '@/app/contractor/_views/ContractorJobsView'
+import { ContractorJobHistoryView } from '@/app/contractor/_views/ContractorJobHistoryView'
+import { ContractorJobsTabs } from '@/app/contractor/_components/ContractorJobsTabs'
 import { ContractorJobDetailView } from '@/app/contractor/_views/ContractorJobDetailView'
 import { ContractorPayView } from '@/app/contractor/_views/ContractorPayView'
 import { ContractorTrainingView } from '@/app/contractor/_views/ContractorTrainingView'
 import { ContractorProfileView } from '@/app/contractor/_views/ContractorProfileView'
 import { loadContractorPayStatement } from '@/app/contractor/_lib/contractor-pay-data'
+import { loadContractorJobHistory } from '@/app/contractor/_lib/contractor-job-history'
 import { loadContractorTraining } from '@/app/contractor/_lib/contractor-training-data'
 import { loadContractorJobDetail } from '@/app/contractor/_lib/contractor-job-detail-data'
 
@@ -70,13 +73,25 @@ export default async function ContractorPreviewPage({
   // Render the active screen.
   let screen: React.ReactNode
   if (tab === 'jobs') {
-    screen = <ContractorJobsView jobs={jobs} jobHref={(jid) => `${base}?tab=job&job=${jid}`} />
+    // Mirror the live portal exactly: To do | Completed (by-month history).
+    const history = await loadContractorJobHistory(params.id)
+    const completedCount = history.reduce((n, m) => n + m.entries.length, 0)
+    const jobHref = (jid: string) => `${base}?tab=job&job=${jid}`
+    screen = (
+      <ContractorJobsTabs
+        completedCount={completedCount}
+        toDo={<ContractorJobsView jobs={jobs} jobHref={jobHref} showHeading={false} />}
+        completed={<ContractorJobHistoryView months={history} jobHref={jobHref} />}
+      />
+    )
   } else if (tab === 'job') {
-    const selectedId = searchParams?.job ?? jobs[0]?.id ?? null
+    // Only show a job when one is explicitly picked (don't default to an
+    // arbitrary/old job) — the "Job" tab previews a single job-detail screen.
+    const selectedId = searchParams?.job ?? null
     const detail = selectedId ? await loadContractorJobDetail(svc, params.id, selectedId, fallbackRate) : null
     screen = detail
       ? <ContractorJobDetailView job={detail} readOnly backHref={`${base}?tab=jobs`} />
-      : <EmptyScreen label="No job to show. Pick one from the Jobs tab." />
+      : <EmptyScreen label="Pick a job from the Jobs tab to preview its detail screen." />
   } else if (tab === 'pay') {
     const data = await loadContractorPayStatement(params.id)
     screen = <ContractorPayView data={data} />
