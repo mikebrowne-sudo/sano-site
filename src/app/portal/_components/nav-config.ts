@@ -58,6 +58,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/portal/applicants',  label: 'Applicants',             icon: UserPlus },
       { href: '/portal/contractors', label: 'Contractors',            icon: HardHat },
+      { href: '/portal/employees',   label: 'Employees',              icon: Users },
       { href: '/portal/staff',       label: 'Staff',                  icon: UserCog },
       { href: '/portal/training',    label: 'Training & compliance',  icon: BookOpen },
     ],
