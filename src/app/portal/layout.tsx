@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminUser, isAccountantUser } from '@/lib/is-admin'
 import { PortalSidebar } from './_components/PortalSidebar'
 import { PortalTopbar } from './_components/PortalTopbar'
+import { PortalScrollRestoration } from './_components/PortalScrollRestoration'
 
 export const metadata: Metadata = {
   title: 'Sano Portal',
@@ -23,6 +24,7 @@ export default async function PortalLayout({ children }: { children: React.React
 
   return (
     <div className="flex min-h-screen bg-[#FAFBFC] print:block print:min-h-0 print:bg-white">
+      <PortalScrollRestoration />
       <PortalSidebar financeOnly={financeOnly} />
       <div className="flex-1 flex flex-col min-w-0">
         <PortalTopbar email={user.email} financeOnly={financeOnly} />
