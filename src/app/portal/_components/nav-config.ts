@@ -12,7 +12,7 @@ import {
   HardHat, BookOpen, DollarSign, FileInput, Wallet, Bell, Settings,
   Calendar, UserCog, ArchiveRestore, LayoutTemplate,
   Wallet2, UserPlus, Scale, Landmark, BarChart3, KeyRound,
-  Target, Megaphone, Car,
+  Target, Megaphone, Car, Banknote,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -71,6 +71,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/portal/finance',             label: 'Profit / reports',     icon: DollarSign, finance: true },
       { href: '/portal/contractor-invoices', label: 'Contractor invoices',  icon: FileInput, finance: true },
       { href: '/portal/payroll',             label: 'Payroll',              icon: Wallet, finance: true },
+      { href: '/portal/payroll/employee',    label: 'Employee pay',         icon: Banknote, finance: true },
       { href: '/portal/mileage',             label: 'Mileage logbook',      icon: Car, finance: true },
     ],
   },
@@ -108,6 +109,12 @@ export function isNavActive(pathname: string, item: NavItem): boolean {
   }
   // P&L statement and Bank reconciliation are nested under /portal/finance —
   // keep "Profit / reports" from also lighting up when on those pages.
+  // Employee pay is nested under /portal/payroll — keep Payroll from also
+  // lighting up when on it.
+  if (item.href === '/portal/payroll') {
+    return pathname === '/portal/payroll' ||
+      (pathname.startsWith('/portal/payroll/') && !pathname.startsWith('/portal/payroll/employee'))
+  }
   if (item.href === '/portal/finance') {
     return pathname === '/portal/finance' ||
       (pathname.startsWith('/portal/finance/')
