@@ -7,6 +7,7 @@ import { createEmploymentAgreement } from '../_actions'
 
 export function CreateAgreementForm() {
   const router = useRouter()
+  const [agreementType, setAgreementType] = useState<'casual_employee' | 'contractor'>('casual_employee')
   const [personLabel, setPersonLabel] = useState('Carol')
   const [position, setPosition] = useState('Cleaner (Casual)')
   const [rate, setRate] = useState('')
@@ -14,10 +15,13 @@ export function CreateAgreementForm() {
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
+  const isContractor = agreementType === 'contractor'
+
   function create() {
     setError(null)
     startTransition(async () => {
       const res = await createEmploymentAgreement({
+        agreementType,
         personLabel,
         position,
         hourlyRate: rate ? Number(rate) : null,
@@ -33,14 +37,22 @@ export function CreateAgreementForm() {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
       <h2 className="text-sm font-semibold text-sage-800 mb-3">New agreement</h2>
+      <div className="inline-flex p-1 rounded-lg bg-sage-50 border border-sage-100 mb-4 text-sm">
+        <button type="button" onClick={() => setAgreementType('casual_employee')} className={agreementType === 'casual_employee' ? 'px-3 py-1.5 rounded-md bg-white shadow-sm font-medium text-sage-800' : 'px-3 py-1.5 text-sage-500'}>Casual employee</button>
+        <button type="button" onClick={() => setAgreementType('contractor')} className={agreementType === 'contractor' ? 'px-3 py-1.5 rounded-md bg-white shadow-sm font-medium text-sage-800' : 'px-3 py-1.5 text-sage-500'}>Contractor</button>
+      </div>
       <div className="grid grid-cols-2 gap-3">
-        <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Employee</span>
+        <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">{isContractor ? 'Contractor (label)' : 'Employee'}</span>
           <input value={personLabel} onChange={(e) => setPersonLabel(e.target.value)} className={input} /></label>
-        <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Position</span>
-          <input value={position} onChange={(e) => setPosition(e.target.value)} className={input} /></label>
-        <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Hourly rate $ (incl. 8% hol.)</span>
-          <input type="number" step="0.01" min="0" value={rate} onChange={(e) => setRate(e.target.value)} className={input} placeholder="e.g. 25.00" /></label>
-        <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Start date</span>
+        {!isContractor && (
+          <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Position</span>
+            <input value={position} onChange={(e) => setPosition(e.target.value)} className={input} /></label>
+        )}
+        {!isContractor && (
+          <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Hourly rate $ (incl. 8% hol.)</span>
+            <input type="number" step="0.01" min="0" value={rate} onChange={(e) => setRate(e.target.value)} className={input} placeholder="e.g. 25.00" /></label>
+        )}
+        <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">{isContractor ? 'Commencement date' : 'Start date'}</span>
           <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={input} /></label>
       </div>
       {error && <p className="text-sm text-red-600 mt-3">{error}</p>}

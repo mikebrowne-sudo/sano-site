@@ -27,9 +27,11 @@ export default async function PublicAgreementPage({ params }: { params: { token:
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
           <EmploymentAgreementDocument
             a={{
+              type: a.agreement_type === 'contractor' ? 'contractor' : 'casual_employee',
               position: a.position, hourlyRate: a.hourly_rate, startDate: a.start_date,
               employeeFullName: a.employee_full_name, employeeAddress: a.employee_address,
               employeeIrdNumber: a.employee_ird_number, taxCode: a.tax_code, kiwisaverChoice: a.kiwisaver_choice,
+              contractorTradingName: a.contractor_trading_name, contractorGstNumber: a.contractor_gst_number,
               signedName: a.signed_name, signedAt: a.signed_at,
             }}
           />
@@ -37,7 +39,7 @@ export default async function PublicAgreementPage({ params }: { params: { token:
 
         {!signed && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <SignAgreementForm token={params.token} />
+            <SignAgreementForm token={params.token} type={a.agreement_type === 'contractor' ? 'contractor' : 'casual_employee'} />
           </div>
         )}
       </div>

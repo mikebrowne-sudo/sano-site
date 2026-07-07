@@ -5,6 +5,7 @@ import { isAdminUser } from '@/lib/is-admin'
 import { revalidatePath } from 'next/cache'
 
 export async function createEmploymentAgreement(input: {
+  agreementType: 'casual_employee' | 'contractor'
   personLabel: string
   position: string
   hourlyRate: number | null
@@ -15,12 +16,14 @@ export async function createEmploymentAgreement(input: {
   if (!user) return { error: 'Not authenticated.' }
   if (!isAdminUser(user)) return { error: 'Admin only.' }
 
+  const isContractor = input.agreementType === 'contractor'
   const { data, error } = await supabase
     .from('employment_agreements')
     .insert({
-      person_label: input.personLabel?.trim() || 'Carol',
-      position: input.position?.trim() || 'Cleaner (Casual)',
-      hourly_rate: input.hourlyRate,
+      agreement_type: isContractor ? 'contractor' : 'casual_employee',
+      person_label: input.personLabel?.trim() || (isContractor ? 'Contractor' : 'Carol'),
+      position: isContractor ? 'Independent Contractor' : (input.position?.trim() || 'Cleaner (Casual)'),
+      hourly_rate: isContractor ? null : input.hourlyRate,
       start_date: input.startDate || null,
       status: 'draft',
       created_by: user.id,
