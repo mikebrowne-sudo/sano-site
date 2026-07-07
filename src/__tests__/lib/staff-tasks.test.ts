@@ -2,11 +2,9 @@ import { buildStaffTasks, allTasksDone, type StaffTaskCounts } from '@/lib/staff
 
 const zero: StaffTaskCounts = {
   payApprovals: 0,
-  remittancesToSend: 0,
-  remittancesToPay: 0,
-  invoicesToSend: 0,
-  invoicesOverdue: 0,
   unassignedJobs: 0,
+  invoicesOverdue: 0,
+  invoicesToSend: 0,
 }
 
 describe('buildStaffTasks', () => {
@@ -28,16 +26,16 @@ describe('buildStaffTasks', () => {
     }
   })
 
-  it('keeps the workflow order (pay → remittances → invoices → scheduling)', () => {
+  it('is ops-focused and excludes remittance tasks (Michael handles those)', () => {
     const keys = buildStaffTasks(zero).map((t) => t.key)
     expect(keys).toEqual([
       'payApprovals',
-      'remittancesToSend',
-      'remittancesToPay',
-      'invoicesToSend',
-      'invoicesOverdue',
       'unassignedJobs',
+      'invoicesOverdue',
+      'invoicesToSend',
     ])
+    expect(keys).not.toContain('remittancesToSend')
+    expect(keys).not.toContain('remittancesToPay')
   })
 
   it('allTasksDone is true only when nothing is outstanding', () => {

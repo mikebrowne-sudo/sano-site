@@ -6,13 +6,14 @@
 // strikes it through. Every task deep-links to the exact page to do it, and
 // carries a plain-English helper that a staff member can show/hide per task.
 
+// Ops-focused staff worklist. Remittance send/pay tasks are deliberately NOT
+// here — Michael handles those separately; this checklist is Carol's
+// operations view (pay approval, scheduling, invoice chasing/sending).
 export interface StaffTaskCounts {
   payApprovals: number
-  remittancesToSend: number
-  remittancesToPay: number
-  invoicesToSend: number
-  invoicesOverdue: number
   unassignedJobs: number
+  invoicesOverdue: number
+  invoicesToSend: number
 }
 
 export interface StaffTask {
@@ -34,35 +35,21 @@ interface TaskDef {
   helper: string
 }
 
-// Order = the natural contractor-pay → billing → scheduling workflow.
+// Order = ops priority: get pay approved, get jobs staffed, keep billing moving.
 const TASK_DEFS: TaskDef[] = [
   {
     key: 'payApprovals',
     title: 'Approve contractor pay',
     href: '/portal/contractor-invoices/pending-approvals',
     helper:
-      'Open Pending pay approvals. For each completed job, check the hours — or switch to “Set amount” for non-hourly work like rubbish removal or carpet cleaning — then tap Approve. Approving creates the payable that you later bundle into a remittance.',
+      'Open Pending pay approvals. For each completed job, check the hours — or switch to “Set amount” for non-hourly work like rubbish removal or carpet cleaning — then tap Approve.',
   },
   {
-    key: 'remittancesToSend',
-    title: 'Send remittance advices',
-    href: '/portal/contractor-invoices/remittances',
+    key: 'unassignedJobs',
+    title: 'Schedule unassigned jobs',
+    href: '/portal/jobs?tab=needs_scheduling',
     helper:
-      'Open a remittance marked “Not sent”, check the lines look right, then tap Send. It emails the advice to the contractor.',
-  },
-  {
-    key: 'remittancesToPay',
-    title: 'Mark remittances paid',
-    href: '/portal/contractor-invoices/remittances',
-    helper:
-      'Once you’ve actually paid the contractor from the bank, open their remittance and tap Mark paid so it shows as paid to them.',
-  },
-  {
-    key: 'invoicesToSend',
-    title: 'Send draft invoices',
-    href: '/portal/invoices',
-    helper:
-      'These invoices are still drafts. Open each one, check the details, and tap Send to email it to the client.',
+      'These jobs don’t have a cleaner yet. Open each one and assign a contractor and a date so it shows up in their app.',
   },
   {
     key: 'invoicesOverdue',
@@ -72,11 +59,11 @@ const TASK_DEFS: TaskDef[] = [
       'These invoices are past their due date and still unpaid. Follow the client up — or mark the invoice paid if the money has already landed.',
   },
   {
-    key: 'unassignedJobs',
-    title: 'Schedule unassigned jobs',
-    href: '/portal/jobs?tab=needs_scheduling',
+    key: 'invoicesToSend',
+    title: 'Send draft invoices',
+    href: '/portal/invoices',
     helper:
-      'These jobs don’t have a cleaner yet. Open each one and assign a contractor and a date so it shows up in their app.',
+      'These invoices are still drafts. Open each one, check the details, and tap Send to email it to the client.',
   },
 ]
 
