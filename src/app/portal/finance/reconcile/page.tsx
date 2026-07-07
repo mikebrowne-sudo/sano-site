@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowLeft, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
+import { ArrowLeft, ArrowDownLeft, ArrowUpRight, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser, isFinanceUser } from '@/lib/is-admin'
 import { notFound } from 'next/navigation'
@@ -80,6 +80,76 @@ export default async function ReconcilePage() {
     if (c.status === 'unmatched') creditMatch.set(c.txn.uniqueId, buildMatch(c.txn.payee, c.txn.amount, invoices, clientNames))
   }
 
+  // A line is "done" when it needs nothing from us: an auto-reconciled credit
+  // / recorded debit, OR one we've manually ticked Clear. Done lines drop out
+  // of the main worklist into a collapsible "Done" section — so the page shows
+  // only what still needs action. Totals above stay over every transaction.
+  const isCleared = (uid: string) => !!meta.get(uid)?.cleared
+  const isCreditDone = (c: (typeof result.credits)[number]) => c.status === 'reconciled' || isCleared(c.txn.uniqueId)
+  const isDebitDone = (d: (typeof result.debits)[number]) => d.status === 'recorded' || isCleared(d.txn.uniqueId)
+  const creditsOut = result.credits.filter((c) => !isCreditDone(c))
+  const creditsDone = result.credits.filter(isCreditDone)
+  const debitsOut = result.debits.filter((d) => !isDebitDone(d))
+  const debitsDone = result.debits.filter(isDebitDone)
+
+  const renderCreditRow = (c: (typeof result.credits)[number], i: number) => {
+    const m = meta.get(c.txn.uniqueId)
+    const cm = creditMatch.get(c.txn.uniqueId)
+    const display: CreditStatus =
+      c.status === 'unmatched' && cm?.scoped && cm.suggestions.length > 0
+        ? (cm.suggestions[0].length >= 2 ? 'likely_bundle' : 'likely_match')
+        : c.status
+    return (
+      <tr key={`${c.txn.uniqueId}-${i}`} className={clsx('border-b border-gray-50', m?.cleared && 'opacity-45')}>
+        <Td className="whitespace-nowrap">{fmtDate(c.txn.date)}</Td>
+        <Td className="max-w-[260px] truncate" title={c.txn.payee}>{c.txn.payee}</Td>
+        <Td className="max-w-[220px] truncate text-sage-500" title={c.invoice?.invoiceNumber ?? c.txn.memo}>{c.invoice?.invoiceNumber ?? c.txn.memo}</Td>
+        <Td><Badge tone={CREDIT_TONE[display]}>{CREDIT_LABEL[display]}</Badge></Td>
+        <Td className="text-right font-medium">{fmt(c.txn.amount)}</Td>
+        <Td className="text-right">
+          {canEdit && (c.status === 'unpaid_match' || c.status === 'amount_match') && c.invoice && (
+            <Link href={`/portal/invoices/${c.invoice.id}`} className="text-sage-600 hover:text-sage-800 underline whitespace-nowrap">Mark paid →</Link>
+          )}
+          {canEdit && c.status === 'unmatched' && m && creditMatch.has(c.txn.uniqueId) && (
+            <MatchPanel
+              lineId={m.id}
+              amount={c.txn.amount}
+              date={c.txn.date}
+              payee={c.txn.payee}
+              candidates={creditMatch.get(c.txn.uniqueId)!.candidates}
+              suggestions={creditMatch.get(c.txn.uniqueId)!.suggestions}
+            />
+          )}
+        </Td>
+        <Td className="text-right">{canEdit && m && <ClearToggle id={m.id} cleared={m.cleared} />}</Td>
+      </tr>
+    )
+  }
+
+  const renderDebitRow = (d: (typeof result.debits)[number], i: number) => {
+    const m = meta.get(d.txn.uniqueId)
+    return (
+      <tr key={`${d.txn.uniqueId}-${i}`} className={clsx('border-b border-gray-50', m?.cleared && 'opacity-45')}>
+        <Td className="whitespace-nowrap">{fmtDate(d.txn.date)}</Td>
+        <Td className="max-w-[420px] truncate" title={d.txn.memo || d.txn.payee}>{d.txn.memo || d.txn.payee}</Td>
+        <Td><Badge tone={DEBIT_TONE[d.status]}>{DEBIT_LABEL[d.status]}</Badge></Td>
+        <Td className="text-right font-medium">{fmt(Math.abs(d.txn.amount))}</Td>
+        <Td className="text-right">
+          {canEdit && d.status === 'not_recorded' && (
+            <Link
+              href={`/portal/expenses/new?amount=${Math.abs(d.txn.amount)}&date=${d.txn.date}&ref=${encodeURIComponent(d.txn.memo || d.txn.payee)}`}
+              className="text-sage-600 hover:text-sage-800 underline whitespace-nowrap"
+            >Add expense →</Link>
+          )}
+        </Td>
+        <Td className="text-right">{canEdit && m && <ClearToggle id={m.id} cleared={m.cleared} />}</Td>
+      </tr>
+    )
+  }
+
+  const CREDIT_HEAD = ['Date', 'From', 'Reference', 'Status', 'Amount', 'Action', '']
+  const DEBIT_HEAD = ['Date', 'Detail', 'Status', 'Amount', 'Action', '']
+
   return (
     <div className="max-w-6xl">
       <Link href="/portal/finance" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"><ArrowLeft size={14} /> Finance</Link>
@@ -99,75 +169,38 @@ export default async function ReconcilePage() {
             <Stat label="Debits to record" value={String(s.debitsToRecord)} tone={s.debitsToRecord ? 'warn' : 'ok'} />
           </div>
 
-          <Panel icon={ArrowDownLeft} title={`Money in — credits (${result.credits.length})`}>
-            <Table head={['Date', 'From', 'Reference', 'Status', 'Amount', 'Action', '']}>
-              {result.credits.map((c, i) => {
-                const m = meta.get(c.txn.uniqueId)
-                const cm = creditMatch.get(c.txn.uniqueId)
-                // Re-badge an unmatched credit as "Likely" when a payer-scoped
-                // subset of invoices plausibly explains it.
-                const display: CreditStatus =
-                  c.status === 'unmatched' && cm?.scoped && cm.suggestions.length > 0
-                    ? (cm.suggestions[0].length >= 2 ? 'likely_bundle' : 'likely_match')
-                    : c.status
-                return (
-                  <tr key={`${c.txn.uniqueId}-${i}`} className={clsx('border-b border-gray-50', m?.cleared && 'opacity-45')}>
-                    <Td className="whitespace-nowrap">{fmtDate(c.txn.date)}</Td>
-                    <Td className="max-w-[260px] truncate" title={c.txn.payee}>{c.txn.payee}</Td>
-                    <Td className="max-w-[220px] truncate text-sage-500" title={c.invoice?.invoiceNumber ?? c.txn.memo}>{c.invoice?.invoiceNumber ?? c.txn.memo}</Td>
-                    <Td><Badge tone={CREDIT_TONE[display]}>{CREDIT_LABEL[display]}</Badge></Td>
-                    <Td className="text-right font-medium">{fmt(c.txn.amount)}</Td>
-                    <Td className="text-right">
-                      {canEdit && (c.status === 'unpaid_match' || c.status === 'amount_match') && c.invoice && (
-                        <Link href={`/portal/invoices/${c.invoice.id}`} className="text-sage-600 hover:text-sage-800 underline whitespace-nowrap">Mark paid →</Link>
-                      )}
-                      {canEdit && c.status === 'unmatched' && m && creditMatch.has(c.txn.uniqueId) && (
-                        <MatchPanel
-                          lineId={m.id}
-                          amount={c.txn.amount}
-                          date={c.txn.date}
-                          payee={c.txn.payee}
-                          candidates={creditMatch.get(c.txn.uniqueId)!.candidates}
-                          suggestions={creditMatch.get(c.txn.uniqueId)!.suggestions}
-                        />
-                      )}
-                    </Td>
-                    <Td className="text-right">{canEdit && m && <ClearToggle id={m.id} cleared={m.cleared} />}</Td>
-                  </tr>
-                )
-              })}
-            </Table>
+          <Panel icon={ArrowDownLeft} title={`Money in — ${creditsOut.length} to reconcile`}>
+            {creditsOut.length === 0 ? (
+              <AllClear label="Every credit is reconciled. Nothing to action." />
+            ) : (
+              <Table head={CREDIT_HEAD}>{creditsOut.map(renderCreditRow)}</Table>
+            )}
+            {creditsDone.length > 0 && (
+              <DoneSection count={creditsDone.length}>
+                <Table head={CREDIT_HEAD}>{creditsDone.map(renderCreditRow)}</Table>
+              </DoneSection>
+            )}
           </Panel>
 
-          <Panel icon={ArrowUpRight} title={`Money out — debits (${result.debits.length})`}>
-            <Table head={['Date', 'Detail', 'Status', 'Amount', 'Action', '']}>
-              {result.debits.map((d, i) => {
-                const m = meta.get(d.txn.uniqueId)
-                return (
-                  <tr key={`${d.txn.uniqueId}-${i}`} className={clsx('border-b border-gray-50', m?.cleared && 'opacity-45')}>
-                    <Td className="whitespace-nowrap">{fmtDate(d.txn.date)}</Td>
-                    <Td className="max-w-[420px] truncate" title={d.txn.memo || d.txn.payee}>{d.txn.memo || d.txn.payee}</Td>
-                    <Td><Badge tone={DEBIT_TONE[d.status]}>{DEBIT_LABEL[d.status]}</Badge></Td>
-                    <Td className="text-right font-medium">{fmt(Math.abs(d.txn.amount))}</Td>
-                    <Td className="text-right">
-                      {canEdit && d.status === 'not_recorded' && (
-                        <Link
-                          href={`/portal/expenses/new?amount=${Math.abs(d.txn.amount)}&date=${d.txn.date}&ref=${encodeURIComponent(d.txn.memo || d.txn.payee)}`}
-                          className="text-sage-600 hover:text-sage-800 underline whitespace-nowrap"
-                        >Add expense →</Link>
-                      )}
-                    </Td>
-                    <Td className="text-right">{canEdit && m && <ClearToggle id={m.id} cleared={m.cleared} />}</Td>
-                  </tr>
-                )
-              })}
-            </Table>
+          <Panel icon={ArrowUpRight} title={`Money out — ${debitsOut.length} to reconcile`}>
+            {debitsOut.length === 0 ? (
+              <AllClear label="Every debit is recorded. Nothing to action." />
+            ) : (
+              <Table head={DEBIT_HEAD}>{debitsOut.map(renderDebitRow)}</Table>
+            )}
+            {debitsDone.length > 0 && (
+              <DoneSection count={debitsDone.length}>
+                <Table head={DEBIT_HEAD}>{debitsDone.map(renderDebitRow)}</Table>
+              </DoneSection>
+            )}
           </Panel>
 
           <p className="text-xs text-sage-400">
             Matches are recomputed live against your current invoices and expenses, so they stay correct as records change.
             Credits tie to invoices by the INV-number in the memo, or by a unique amount; debits tie to expenses by amount and
-            date. Always eyeball a suggested match before acting. Tick “Clear” once you’ve handled a line.
+            date. Reconciled credits and recorded debits file themselves into <span className="font-medium">Done</span>
+            {' '}automatically; tick <span className="font-medium">Clear</span> to file away anything else you&apos;ve handled
+            (an owner transfer, a matched-but-odd line). The totals above always cover every transaction.
           </p>
         </div>
       )}
@@ -213,4 +246,25 @@ function Td({ children, className, title }: { children: React.ReactNode; classNa
 
 function Badge({ tone, children }: { tone: string; children: React.ReactNode }) {
   return <span className={clsx('inline-block px-2 py-0.5 rounded-full text-xs font-medium', tone)}>{children}</span>
+}
+
+function AllClear({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-4 py-3">
+      <CheckCircle2 size={16} className="shrink-0" /> {label}
+    </div>
+  )
+}
+
+/** Collapsible "Done" bucket — reconciled/recorded/cleared lines, tucked away
+ *  by default (native <details>, no client JS). */
+function DoneSection({ count, children }: { count: number; children: React.ReactNode }) {
+  return (
+    <details className="mt-4 border-t border-gray-100 pt-3">
+      <summary className="cursor-pointer text-xs font-medium text-sage-500 hover:text-sage-700 select-none">
+        Done · {count} reconciled or cleared
+      </summary>
+      <div className="mt-3 overflow-x-auto">{children}</div>
+    </details>
+  )
 }
