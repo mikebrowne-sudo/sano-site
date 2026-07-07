@@ -39,6 +39,8 @@ interface CIRow {
   contractor_id: string | null
   job_id: string | null
   payment_type: string | null
+  pay_basis: string | null
+  pay_hours: number | null
   site_label: string | null
   period_label: string | null
   contractors: { full_name: string | null } | null
@@ -71,7 +73,7 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
   const { data: ciRaw, error: ciErr } = ciIds.length > 0
     ? await supabase
         .from('contractor_invoices')
-        .select('id, amount, notes:notes, contractor_id, job_id, payment_type, site_label, period_label, contractors ( full_name ), jobs ( job_number, address )')
+        .select('id, amount, notes:notes, contractor_id, job_id, payment_type, pay_basis, pay_hours, site_label, period_label, contractors ( full_name ), jobs ( job_number, address )')
         .in('id', ciIds)
     : { data: [] as unknown[], error: null }
   if (ciErr) return { error: `Could not load invoices: ${ciErr.message}` }
@@ -94,6 +96,12 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
   }
 
   function snapshotHours(ci: CIRow & { notes: string | null }): number | null {
+    // Prefer the basis recorded when the pay was approved (new approvals):
+    // fixed amounts never show hours; hourly pay shows the approved hours.
+    if (ci.pay_basis === 'fixed') return null
+    if (ci.pay_basis === 'hourly' && ci.pay_hours != null && ci.pay_hours > 0) return ci.pay_hours
+    // Legacy rows (no basis recorded) — reconstruct from the job's allowed
+    // hours × rate and show only when it reconciles to the paid amount.
     if (!ci.job_id || !ci.contractor_id) return null
     const w = workers.find((x) => x.job_id === ci.job_id && x.contractor_id === ci.contractor_id)
     if (!w || w.pay_rate == null) return null
