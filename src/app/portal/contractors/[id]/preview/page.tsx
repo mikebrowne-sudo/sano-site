@@ -10,7 +10,7 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Briefcase, FileText, Wallet, BookOpen, User } from 'lucide-react'
+import { ArrowLeft, Briefcase, Wallet, BookOpen, User } from 'lucide-react'
 import clsx from 'clsx'
 import { createClient } from '@/lib/supabase-server'
 import { getServiceSupabase } from '@/lib/supabase-service'
@@ -19,23 +19,25 @@ import { ContractorJobHistoryView } from '@/app/contractor/_views/ContractorJobH
 import { ContractorJobsTabs } from '@/app/contractor/_components/ContractorJobsTabs'
 import { ContractorJobDetailView } from '@/app/contractor/_views/ContractorJobDetailView'
 import { ContractorPayView } from '@/app/contractor/_views/ContractorPayView'
-import { ContractorTrainingView } from '@/app/contractor/_views/ContractorTrainingView'
+import ContractorOnboardingPage from '@/app/contractor/onboarding/page'
 import { ContractorProfileView } from '@/app/contractor/_views/ContractorProfileView'
 import { loadContractorPayStatement } from '@/app/contractor/_lib/contractor-pay-data'
 import { loadContractorJobHistory } from '@/app/contractor/_lib/contractor-job-history'
-import { loadContractorTraining } from '@/app/contractor/_lib/contractor-training-data'
 import { loadContractorJobDetail } from '@/app/contractor/_lib/contractor-job-detail-data'
 
 export const dynamic = 'force-dynamic'
 
-type Tab = 'jobs' | 'job' | 'pay' | 'training' | 'profile'
-const TABS: { key: Tab; label: string; Icon: typeof Briefcase }[] = [
+type Tab = 'jobs' | 'job' | 'pay' | 'onboarding' | 'profile'
+// Bottom tab bar — mirrors the real contractor bottom nav (Jobs / Pay /
+// Onboarding / Profile). 'job' is a single job-detail screen reached by
+// tapping a job in Jobs, so it's resolvable but NOT a standalone nav button.
+const NAV_TABS: { key: Tab; label: string; Icon: typeof Briefcase }[] = [
   { key: 'jobs', label: 'Jobs', Icon: Briefcase },
-  { key: 'job', label: 'Job', Icon: FileText },
   { key: 'pay', label: 'Pay', Icon: Wallet },
-  { key: 'training', label: 'Training', Icon: BookOpen },
+  { key: 'onboarding', label: 'Onboarding', Icon: BookOpen },
   { key: 'profile', label: 'Profile', Icon: User },
 ]
+const RESOLVABLE_TABS: Tab[] = ['jobs', 'job', 'pay', 'onboarding', 'profile']
 
 export default async function ContractorPreviewPage({
   params,
@@ -58,7 +60,8 @@ export default async function ContractorPreviewPage({
 
   const fallbackRate = (contractor.hourly_rate as number | null) ?? 0
   const base = `/portal/contractors/${params.id}/preview`
-  const tab = (TABS.find((t) => t.key === searchParams?.tab)?.key ?? 'jobs') as Tab
+  const requested = searchParams?.tab as Tab | undefined
+  const tab: Tab = requested && RESOLVABLE_TABS.includes(requested) ? requested : 'jobs'
 
   // Jobs list is always loaded — it backs the Jobs tab and the default
   // selection for the Job tab.
@@ -95,9 +98,8 @@ export default async function ContractorPreviewPage({
   } else if (tab === 'pay') {
     const data = await loadContractorPayStatement(params.id)
     screen = <ContractorPayView data={data} />
-  } else if (tab === 'training') {
-    const items = await loadContractorTraining(svc, params.id)
-    screen = <ContractorTrainingView items={items} />
+  } else if (tab === 'onboarding') {
+    screen = <ContractorOnboardingPage />
   } else {
     screen = (
       <ContractorProfileView
@@ -139,11 +141,10 @@ export default async function ContractorPreviewPage({
             </div>
             {/* bottom nav = tab bar */}
             <nav className="bg-white border-t border-sage-100 flex">
-              {TABS.map(({ key, label, Icon }) => {
-                const href = key === 'job' && searchParams?.job
-                  ? `${base}?tab=job&job=${searchParams.job}`
-                  : `${base}?tab=${key}`
-                const active = key === tab
+              {NAV_TABS.map(({ key, label, Icon }) => {
+                const href = `${base}?tab=${key}`
+                // Highlight Jobs while previewing a single job's detail.
+                const active = key === tab || (tab === 'job' && key === 'jobs')
                 return (
                   <Link
                     key={key}

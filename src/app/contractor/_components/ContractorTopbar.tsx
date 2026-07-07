@@ -21,7 +21,8 @@ export function ContractorTopbar({ name }: { name: string }) {
   const navItems = [
     { href: '/contractor/jobs', label: 'Jobs' },
     { href: '/contractor/payroll', label: 'Pay' },
-    { href: '/contractor/training', label: 'Training' },
+    { href: '/contractor/onboarding', label: 'Onboarding' },
+    { href: '/contractor/profile', label: 'Profile' },
   ]
 
   return (
