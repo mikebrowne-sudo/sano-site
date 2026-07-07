@@ -38,6 +38,10 @@ export function JobApprovePayButton(props: JobApprovePayButtonProps) {
   const [open, setOpen] = useState(false)
   const [hours, setHours] = useState(props.defaultApprovedHours != null ? String(props.defaultApprovedHours) : '')
   const [amount, setAmount] = useState('')
+  // Entry always defaults to hours, unless the worker is set up as fixed.
+  // The operator can flip to a set dollar amount for one-off work that
+  // isn't hourly (rubbish removal, carpet cleaning, etc.).
+  const [entry, setEntry] = useState<'hourly' | 'fixed'>(props.mode === 'fixed' ? 'fixed' : 'hourly')
   const [err, setErr] = useState<string | null>(null)
   const [done, setDone] = useState<ExistingPayable | null>(null)
   const [pending, startTransition] = useTransition()
@@ -68,7 +72,7 @@ export function JobApprovePayButton(props: JobApprovePayButtonProps) {
     setErr(null)
     startTransition(async () => {
       let payload: { approvedHours?: number; fixedAmount?: number }
-      if (props.mode === 'fixed') {
+      if (entry === 'fixed') {
         const a = num(amount)
         if (!(a > 0)) { setErr('Enter a fixed amount.'); return }
         payload = { fixedAmount: a }
@@ -88,8 +92,10 @@ export function JobApprovePayButton(props: JobApprovePayButtonProps) {
     })
   }
 
-  const live = props.mode === 'hourly' && props.rate != null && Number.isFinite(num(hours)) ? num(hours) * props.rate : props.computedAmount
+  const live = entry === 'hourly' && props.rate != null && Number.isFinite(num(hours)) ? num(hours) * props.rate : Number.isFinite(num(amount)) ? num(amount) : props.computedAmount
   const input = 'rounded-md border border-sage-200 px-2 py-1 text-sm text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500'
+  const toggle = (m: 'hourly' | 'fixed') =>
+    `flex-1 text-center text-xs font-medium py-1 rounded-md transition-colors ${entry === m ? 'bg-sage-500 text-white' : 'text-sage-600 hover:bg-sage-100'}`
 
   return (
     <div className="bg-white border border-sage-200 rounded-lg p-3 space-y-2 w-full max-w-sm shadow-sm">
@@ -98,7 +104,14 @@ export function JobApprovePayButton(props: JobApprovePayButtonProps) {
         <button type="button" onClick={() => setOpen(false)} className="text-sage-400 hover:text-sage-600"><X size={15} /></button>
       </div>
 
-      {props.mode === 'fixed' ? (
+      {/* Hours is the default; flip to a set amount for one-off, non-hourly
+          work (rubbish removal, carpet cleaning, etc.). */}
+      <div className="flex items-center gap-1 bg-sage-50 border border-sage-100 rounded-lg p-0.5">
+        <button type="button" onClick={() => { setEntry('hourly'); setErr(null) }} className={toggle('hourly')}>By hours</button>
+        <button type="button" onClick={() => { setEntry('fixed'); setErr(null) }} className={toggle('fixed')}>Set amount</button>
+      </div>
+
+      {entry === 'fixed' ? (
         <label className="flex items-center justify-between gap-2 text-xs">
           <span className="text-sage-600">Fixed amount</span>
           <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className={`${input} w-28 text-right`} aria-label="Fixed amount" />

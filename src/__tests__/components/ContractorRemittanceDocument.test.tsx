@@ -48,16 +48,25 @@ describe('ContractorRemittanceDocument', () => {
     expect(screen.queryByText(/Sano office/i)).not.toBeInTheDocument()
   })
 
-  it('hides a property-manager label as a second line', () => {
-    render(<ContractorRemittanceDocument data={batch([line({ note: 'Barfoot Royal Heights - 8/28 Buscomb Ave' })])} />)
-    expect(screen.queryByText(/Barfoot Royal Heights/)).not.toBeInTheDocument()
+  it('renders the stored line note verbatim as a second line', () => {
+    // Notes are cleaned at seed time and edited by the operator; the
+    // document prints whatever is stored, as-is.
+    render(<ContractorRemittanceDocument data={batch([line({ note: 'Carpet clean' })])} />)
+    expect(screen.getByText('Carpet clean')).toBeInTheDocument()
     // clean address still shown on the job line
     expect(screen.getByText(/26 Buscomb Avenue, Henderson/)).toBeInTheDocument()
   })
 
-  it('keeps a genuine service-type note as a second line', () => {
-    render(<ContractorRemittanceDocument data={batch([line({ note: 'Carpet clean' })])} />)
-    expect(screen.getByText('Carpet clean')).toBeInTheDocument()
+  it('shows no second line when the note is empty', () => {
+    render(<ContractorRemittanceDocument data={batch([line({ note: null })])} />)
+    expect(screen.getByText(/26 Buscomb Avenue, Henderson/)).toBeInTheDocument()
+  })
+
+  it('suppresses a dumped job description (over-long note)', () => {
+    const dump = 'Please clean ceiling fans in bedrooms and lounge, wipe vanity sink cupboards and extractor fan in bathroom, floor tiles around the toilet, empty fireplace, dust laundry shelves'
+    render(<ContractorRemittanceDocument data={batch([line({ note: dump })])} />)
+    expect(screen.queryByText(/ceiling fans/)).not.toBeInTheDocument()
+    expect(screen.getByText(/26 Buscomb Avenue, Henderson/)).toBeInTheDocument()
   })
 
   it('hides the Hours column when no line has reliable hours', () => {

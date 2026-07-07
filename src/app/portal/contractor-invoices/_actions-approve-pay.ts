@@ -157,6 +157,10 @@ export async function approveContractorPay(
       date_submitted: dateSubmitted,
       notes: note,
       status: 'approved',
+      // Record how the pay was approved so the remittance can show hours for
+      // hourly pay and a dollar amount only for a fixed (manually-set) amount.
+      pay_basis: calc.basis,
+      pay_hours: calc.hours,
     })
     .select('id, invoice_number, amount, status')
     .single()

@@ -18,7 +18,7 @@
 
 import Image from 'next/image'
 import { formatCurrency, formatDate } from '@/lib/format'
-import { cleanRemittanceAddress, cleanRemittanceNote } from '@/lib/remittance-address'
+import { cleanRemittanceAddress } from '@/lib/remittance-address'
 import type { RemittanceBatch } from '@/lib/contractor-remittance-data'
 
 // Injected print CSS. @page sets A4 portrait + 14mm margins. The
@@ -137,7 +137,13 @@ export function ContractorRemittanceDocument({ data }: { data: RemittanceBatch }
                   }
                   const address = cleanRemittanceAddress(l.jobAddress)
                   const detail = address ?? l.note ?? null
-                  const noteLine = address != null ? cleanRemittanceNote(l.note, address) : null
+                  // Second line = the line note, shown verbatim (operator-
+                  // controlled via the remittance edit page). Only when there
+                  // is an address (else the note is already the primary line),
+                  // and never a legacy dumped job description.
+                  const rawNote = l.note?.trim() ?? ''
+                  const noteLine =
+                    address != null && rawNote.length > 0 && rawNote.length <= 160 ? rawNote : null
                   return (
                     <tr key={i} className="remit-row border-b border-sage-50">
                       <td className="py-2.5 pr-3 align-top">

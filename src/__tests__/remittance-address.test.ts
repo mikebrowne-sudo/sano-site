@@ -1,4 +1,4 @@
-import { cleanRemittanceAddress, noteAddsValue, cleanRemittanceNote } from '@/lib/remittance-address'
+import { cleanRemittanceAddress, noteAddsValue, cleanRemittanceNote, seedRemittanceNote } from '@/lib/remittance-address'
 
 describe('cleanRemittanceAddress', () => {
   it('strips postcode and country to street + suburb', () => {
@@ -85,5 +85,25 @@ describe('cleanRemittanceNote', () => {
     expect(cleanRemittanceNote('Oven clean', null)).toBeNull()
     expect(cleanRemittanceNote('', ADDR)).toBeNull()
     expect(cleanRemittanceNote(null, ADDR)).toBeNull()
+  })
+})
+
+describe('seedRemittanceNote', () => {
+  const ADDR = '26 Buscomb Avenue, Henderson'
+
+  it('keeps a genuine short service note', () => {
+    expect(seedRemittanceNote('Carpet clean', ADDR)).toBe('Carpet clean')
+    expect(seedRemittanceNote('Stain removal', ADDR)).toBe('Stain removal')
+  })
+
+  it('drops a dumped job description (too long to be a note)', () => {
+    const dump = 'Please clean ceiling fans in bedrooms and lounge, wipe vanity sink cupboards and extractor fan in bathroom, floor tiles around the toilet, empty fireplace'
+    expect(seedRemittanceNote(dump, ADDR)).toBeNull()
+  })
+
+  it('drops property-manager labels and empty input', () => {
+    expect(seedRemittanceNote('Barfoot Royal Heights - 8/28 Buscomb Ave', ADDR)).toBeNull()
+    expect(seedRemittanceNote('', ADDR)).toBeNull()
+    expect(seedRemittanceNote(null, ADDR)).toBeNull()
   })
 })
