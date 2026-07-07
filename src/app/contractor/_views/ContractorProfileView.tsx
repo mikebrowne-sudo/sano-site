@@ -1,9 +1,8 @@
 // Presentational body of the contractor profile screen. Shared by the
 // live page and the staff preview. In `readOnly` (preview) mode the
-// sign-out button is omitted and the training link is inert.
+// sign-out button is omitted.
 
-import Link from 'next/link'
-import { User, Mail, Phone, ExternalLink } from 'lucide-react'
+import { User, Mail, Phone } from 'lucide-react'
 import { ContractorSignOutButton } from '../_components/ContractorSignOutButton'
 
 export interface ContractorProfile {
@@ -59,27 +58,6 @@ export function ContractorProfileView({
 
         <p className="mt-4 text-xs text-sage-500">To update your details, contact Sano.</p>
       </div>
-
-      {readOnly ? (
-        <div className="block bg-white rounded-2xl border border-sage-100 px-5 py-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sage-800 font-medium">Training</span>
-            <ExternalLink size={16} className="text-sage-400" />
-          </div>
-          <p className="text-xs text-sage-500 mt-0.5">View modules and your training progress.</p>
-        </div>
-      ) : (
-        <Link
-          href="/contractor/training"
-          className="block bg-white rounded-2xl border border-sage-100 px-5 py-4 hover:border-sage-300 active:bg-sage-50 transition-colors"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-sage-800 font-medium">Training</span>
-            <ExternalLink size={16} className="text-sage-400" />
-          </div>
-          <p className="text-xs text-sage-500 mt-0.5">View modules and your training progress.</p>
-        </Link>
-      )}
 
       {!readOnly && <ContractorSignOutButton />}
     </div>

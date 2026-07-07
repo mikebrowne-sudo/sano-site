@@ -4,8 +4,7 @@
 // training modules. No edits, no checklist mutation — admins still
 // drive the real onboarding lifecycle from /portal/contractors/[id].
 
-import Link from 'next/link'
-import { CheckCircle2, ShieldCheck, Sparkles, GraduationCap, ChevronRight } from 'lucide-react'
+import { CheckCircle2, ShieldCheck, Sparkles } from 'lucide-react'
 
 const HOW_WE_WORK = [
   'Confirm the job in the Jobs tab the day before — addresses, access notes, and timing.',
@@ -48,20 +47,6 @@ export default function ContractorOnboardingPage() {
       <Section title="Safety reminders" icon={<ShieldCheck size={16} className="text-amber-500" />}>
         <Bullets items={SAFETY} tone="warn" />
       </Section>
-
-      <Link
-        href="/contractor/training"
-        className="block bg-white rounded-2xl border border-sage-100 px-5 py-4 hover:border-sage-300 active:bg-sage-50 transition-colors"
-      >
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-2 text-sage-800 font-medium">
-            <GraduationCap size={18} className="text-sage-500" />
-            Training modules
-          </span>
-          <ChevronRight size={16} className="text-sage-400" />
-        </div>
-        <p className="text-xs text-sage-500 mt-1">View your assigned training and progress.</p>
-      </Link>
 
       <p className="text-xs text-sage-500 text-center">
         Questions? Get in touch with Sano any time.
