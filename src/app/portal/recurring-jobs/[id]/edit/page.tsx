@@ -10,7 +10,7 @@ export default async function EditRecurringJobPage({ params }: { params: { id: s
   const [{ data: rec, error }, { data: clients }, { data: contractors }] = await Promise.all([
     supabase
       .from('recurring_jobs')
-      .select('id, client_id, title, description, address, scheduled_time, duration_estimate, contractor_id, assigned_to, contractor_price, frequency, start_date, end_date, status')
+      .select('id, client_id, title, description, address, scheduled_time, duration_estimate, contractor_id, assigned_to, contractor_price, frequency, start_date, end_date, status, monthly_value, invoice_auto_send, invoice_send_day')
       .eq('id', params.id)
       .single(),
     supabase.from('clients').select('id, name, company_name').eq('is_archived', false).order('name'),

@@ -6,6 +6,7 @@ import { GenerateJobButton } from './_components/GenerateJobButton'
 import { GenerateUpcomingButton } from './_components/GenerateUpcomingButton'
 import { RemindersPanel, type ReminderRow } from './_components/RemindersPanel'
 import { ExtendContractButton } from './_components/ExtendContractButton'
+import { GenerateInvoiceButton } from './_components/GenerateInvoiceButton'
 import { isAdminEmail } from '@/lib/is-admin'
 import clsx from 'clsx'
 
@@ -145,6 +146,23 @@ export default async function RecurringJobDetailPage({ params }: { params: { id:
             )}
           </Section>
         )}
+
+        {/* Recurring invoicing. */}
+        <Section title="Invoicing">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+            <div><span className="text-sage-500">Monthly value</span><p className="text-sage-800 font-semibold">{fmtCurrency(rec.monthly_value)}</p></div>
+            <div><span className="text-sage-500">Invoice day</span><p className="text-sage-800 font-medium">{rec.invoice_send_day ? `Day ${rec.invoice_send_day}` : '—'}</p></div>
+            <div><span className="text-sage-500">Next invoice</span><p className="text-sage-800 font-medium">{fmtDate(rec.next_invoice_date)}</p></div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mt-3">
+            <div><span className="text-sage-500">Mode</span><p className="text-sage-800 font-medium">{rec.invoice_auto_send ? 'Auto-send to client' : 'Draft for review'}</p></div>
+          </div>
+          {rec.monthly_value ? (
+            <div className="mt-4"><GenerateInvoiceButton recurringId={rec.id} /></div>
+          ) : (
+            <p className="text-xs text-sage-400 mt-3">Set a monthly value + invoice day (Edit) to enable automatic monthly invoicing.</p>
+          )}
+        </Section>
 
         {/* Phase F — renewal reminders. */}
         <Section title="Renewal reminders">

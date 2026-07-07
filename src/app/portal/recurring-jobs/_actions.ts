@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { notifyContractorAssigned } from '@/lib/notify-contractor'
+import { computeNextInvoiceDate } from '@/lib/recurring-invoice'
 
 interface RecurringJobInput {
   client_id: string
@@ -19,6 +20,9 @@ interface RecurringJobInput {
   start_date: string
   end_date?: string
   status?: string
+  monthly_value?: number
+  invoice_auto_send?: boolean
+  invoice_send_day?: number
 }
 
 function calcNextDueDate(startDate: string, frequency: string, after?: string | null): string | null {
@@ -64,6 +68,12 @@ export async function createRecurringJob(input: RecurringJobInput) {
       end_date: input.end_date || null,
       status: input.status || 'active',
       next_due_date: nextDue,
+      monthly_value: input.monthly_value ?? null,
+      invoice_auto_send: input.invoice_auto_send ?? false,
+      invoice_send_day: input.invoice_send_day ?? null,
+      next_invoice_date: input.invoice_send_day
+        ? computeNextInvoiceDate(input.start_date, input.invoice_send_day)
+        : null,
     })
     .select('id')
     .single()
@@ -83,7 +93,7 @@ export async function updateRecurringJob(id: string, input: RecurringJobInput) {
   // Recalculate next_due_date if frequency or start changed
   const { data: current } = await supabase
     .from('recurring_jobs')
-    .select('last_generated_date, next_due_date')
+    .select('last_generated_date, next_due_date, next_invoice_date')
     .eq('id', id)
     .single()
 
@@ -110,6 +120,13 @@ export async function updateRecurringJob(id: string, input: RecurringJobInput) {
       end_date: input.end_date || null,
       status: input.status || 'active',
       next_due_date: nextDue,
+      monthly_value: input.monthly_value ?? null,
+      invoice_auto_send: input.invoice_auto_send ?? false,
+      invoice_send_day: input.invoice_send_day ?? null,
+      // Keep an existing schedule; only (re)seed when a day is set and none exists.
+      next_invoice_date: input.invoice_send_day
+        ? (current?.next_invoice_date ?? computeNextInvoiceDate(new Date().toISOString().slice(0, 10), input.invoice_send_day))
+        : (current?.next_invoice_date ?? null),
     })
     .eq('id', id)
 
