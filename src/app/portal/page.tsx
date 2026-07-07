@@ -18,6 +18,7 @@ import { isAdminUser, isAccountantUser } from '@/lib/is-admin'
 import { StatusBadge } from './_components/StatusBadge'
 import { CreateMenu } from './_components/CreateMenu'
 import { StaffTodoChecklist } from './_components/StaffTodoChecklist'
+import { KiwiSaverReminder } from './_components/KiwiSaverReminder'
 import { loadStaffTaskCounts } from './_lib/staff-tasks-data'
 import { buildStaffTasks } from '@/lib/staff-tasks'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
@@ -68,6 +69,12 @@ export default async function PortalDashboard() {
   ])
 
   const staffTasks = buildStaffTasks(taskCounts)
+
+  const { data: kiwisaver } = await supabase
+    .from('kiwisaver_optout')
+    .select('person_label, start_date, opt_out_filed')
+    .eq('person_label', 'Carol')
+    .maybeSingle()
 
   const outstandingCount = sentInvoices?.length ?? 0
   const overdueCount = (sentInvoices ?? []).filter((i) => i.due_date && i.due_date < today).length
@@ -122,6 +129,13 @@ export default async function PortalDashboard() {
           <CreateMenu />
         </div>
       </header>
+
+      {/* ── KiwiSaver opt-out reminder (new-employee onboarding) ── */}
+      <KiwiSaverReminder
+        personLabel="Carol"
+        startDate={(kiwisaver?.start_date as string | null) ?? null}
+        optOutFiled={!!kiwisaver?.opt_out_filed}
+      />
 
       {/* ── To-do checklist (staff action centre) ──────── */}
       <StaffTodoChecklist tasks={staffTasks} />
