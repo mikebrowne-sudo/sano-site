@@ -135,12 +135,15 @@ export function ContractorRemittanceDocument({ data }: { data: RemittanceBatch }
                       </tr>
                     )
                   }
-                  // Remittance shows the address only — never the job
-                  // description/notes (a stray long note dumped the full
-                  // scope onto the advice). For fixed-contract lines with no
-                  // address, fall back to the (short) label note.
                   const address = cleanRemittanceAddress(l.jobAddress)
                   const detail = address ?? l.note ?? null
+                  // Second line = the line note, shown verbatim (operator-
+                  // controlled via the remittance edit page). Only when there
+                  // is an address (else the note is already the primary line),
+                  // and never a legacy dumped job description.
+                  const rawNote = l.note?.trim() ?? ''
+                  const noteLine =
+                    address != null && rawNote.length > 0 && rawNote.length <= 160 ? rawNote : null
                   return (
                     <tr key={i} className="remit-row border-b border-sage-50">
                       <td className="py-2.5 pr-3 align-top">
@@ -148,6 +151,7 @@ export function ContractorRemittanceDocument({ data }: { data: RemittanceBatch }
                           {l.jobNumber ?? 'Job'}
                           {detail && <span className="text-sage-500 font-normal"> · {detail}</span>}
                         </div>
+                        {noteLine && <div className="text-[11px] text-sage-400 italic mt-0.5">{noteLine}</div>}
                       </td>
                       {multi && <td className="py-2.5 pr-3 align-top text-sage-600">{l.contractorName ?? '—'}</td>}
                       {showHours && <td className="py-2.5 pr-3 align-top text-right text-sage-600">{formatHours(l.hours)}</td>}

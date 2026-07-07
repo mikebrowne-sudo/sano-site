@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { getWorkerPayableHours } from '@/lib/job-cost'
 import { reconcileRemittanceHours } from '@/lib/remittance-hours'
+import { seedRemittanceNote } from '@/lib/remittance-address'
 import { revalidatePath } from 'next/cache'
 
 export interface RemittanceAdjustmentInput {
@@ -142,7 +143,7 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
         contractor_name: ci.contractors?.full_name ?? null,
         job_number: fixedPrimary ?? (ci.jobs?.job_number ?? null),
         job_address: fixedPrimary ? null : (ci.jobs?.address ?? null),
-        note: isFixed ? (fixedDetail ?? ci.notes?.trim() ?? null) : (ci.notes?.trim() || null),
+        note: isFixed ? (fixedDetail ?? ci.notes?.trim() ?? null) : seedRemittanceNote(ci.notes, ci.jobs?.address),
         label: null,
         hours: isFixed ? null : snapshotHours(ci),
         amount: ci.amount ?? 0,

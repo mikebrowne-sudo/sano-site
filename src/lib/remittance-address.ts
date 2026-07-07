@@ -164,3 +164,22 @@ export function cleanRemittanceNote(
   if (kept.length === 0) return null
   return kept.join(' - ')
 }
+
+/**
+ * The note to STORE on a remittance line when a batch is created. Cleaning
+ * happens ONCE here (not at render), so the document prints the stored note
+ * verbatim and the operator can edit it freely on the remittance edit page.
+ *
+ *   - A dumped job-scope paragraph is never auto-seeded (a note is short).
+ *   - A genuine short service note ("Carpet clean") is kept; property-manager
+ *     labels and address fragments are dropped (via cleanRemittanceNote).
+ */
+export function seedRemittanceNote(
+  note: string | null | undefined,
+  address: string | null | undefined,
+): string | null {
+  const trimmed = (note ?? '').trim()
+  if (!trimmed) return null
+  if (trimmed.length > 90) return null // a full job description, not a note
+  return cleanRemittanceNote(trimmed, address)
+}
