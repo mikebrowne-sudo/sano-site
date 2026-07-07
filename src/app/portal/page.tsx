@@ -17,6 +17,9 @@ import clsx from 'clsx'
 import { isAdminUser, isAccountantUser } from '@/lib/is-admin'
 import { StatusBadge } from './_components/StatusBadge'
 import { CreateMenu } from './_components/CreateMenu'
+import { StaffTodoChecklist } from './_components/StaffTodoChecklist'
+import { loadStaffTaskCounts } from './_lib/staff-tasks-data'
+import { buildStaffTasks } from '@/lib/staff-tasks'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 
 export default async function PortalDashboard() {
@@ -43,6 +46,7 @@ export default async function PortalDashboard() {
     { count: todayJobs },
     { count: inProgressJobs },
     { count: overdueTraining },
+    taskCounts,
   ] = await Promise.all([
     // Phase 5.5.13 — every dashboard query honours the live-record
     // rule: deleted_at IS NULL AND is_test = false. Test / archived
@@ -60,7 +64,10 @@ export default async function PortalDashboard() {
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('scheduled_date', today).neq('status', 'completed').neq('status', 'invoiced'),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('status', 'in_progress'),
     supabase.from('worker_training_assignments').select('*', { count: 'exact', head: true }).neq('status', 'completed').not('due_date', 'is', null).lt('due_date', today),
+    loadStaffTaskCounts(supabase),
   ])
+
+  const staffTasks = buildStaffTasks(taskCounts)
 
   const outstandingCount = sentInvoices?.length ?? 0
   const overdueCount = (sentInvoices ?? []).filter((i) => i.due_date && i.due_date < today).length
@@ -115,6 +122,9 @@ export default async function PortalDashboard() {
           <CreateMenu />
         </div>
       </header>
+
+      {/* ── To-do checklist (staff action centre) ──────── */}
+      <StaffTodoChecklist tasks={staffTasks} />
 
       {/* ── Attention strip ────────────────────────────── */}
       {alerts.length > 0 && (
