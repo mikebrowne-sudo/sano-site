@@ -34,6 +34,15 @@ export default async function AgreementDetailPage({ params }: { params: { id: st
         </div>
       )}
 
+      {signed && (a.contractor_id || a.employee_id) && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 mb-6 text-sm text-emerald-800">
+          Saved to the workforce area ·{' '}
+          <Link href={a.contractor_id ? `/portal/contractors/${a.contractor_id}` : `/portal/employees/${a.employee_id}`} className="font-semibold underline">
+            View {a.contractor_id ? 'contractor' : 'employee'} record
+          </Link>
+        </div>
+      )}
+
       <div className="rounded-2xl border border-gray-100 shadow-sm p-6">
         <EmploymentAgreementDocument
           a={{
