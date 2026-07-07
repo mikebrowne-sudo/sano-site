@@ -8,9 +8,7 @@ import type { StaffTaskCounts } from '@/lib/staff-tasks'
 export async function loadStaffTaskCounts(supabase: SupabaseClient): Promise<StaffTaskCounts> {
   const today = new Date().toISOString().slice(0, 10)
 
-  const [remSend, remPay, draftInv, sentInv, unassigned, jwRes, ciRes] = await Promise.all([
-    supabase.from('contractor_remittances').select('*', { count: 'exact', head: true }).is('sent_at', null),
-    supabase.from('contractor_remittances').select('*', { count: 'exact', head: true }).is('paid_at', null),
+  const [draftInv, sentInv, unassigned, jwRes, ciRes] = await Promise.all([
     supabase.from('invoices').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('status', 'draft'),
     supabase.from('invoices').select('id, due_date').is('deleted_at', null).eq('is_test', false).eq('status', 'sent'),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).is('contractor_id', null).neq('status', 'completed').neq('status', 'invoiced'),
@@ -42,10 +40,8 @@ export async function loadStaffTaskCounts(supabase: SupabaseClient): Promise<Sta
 
   return {
     payApprovals,
-    remittancesToSend: remSend.count ?? 0,
-    remittancesToPay: remPay.count ?? 0,
-    invoicesToSend: draftInv.count ?? 0,
-    invoicesOverdue,
     unassignedJobs: unassigned.count ?? 0,
+    invoicesOverdue,
+    invoicesToSend: draftInv.count ?? 0,
   }
 }
