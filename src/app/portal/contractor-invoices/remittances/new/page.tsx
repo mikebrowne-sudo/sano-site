@@ -33,6 +33,7 @@ export default async function NewRemittanceBatchPage() {
     supabase
       .from('contractor_invoices')
       .select('id, invoice_number, amount, status, date_paid, notes, contractor_id, contractors ( full_name ), jobs ( job_number, address )')
+      .neq('status', 'void')
       .order('created_at', { ascending: false }),
     supabase.from('contractors').select('id, full_name').order('full_name'),
   ])

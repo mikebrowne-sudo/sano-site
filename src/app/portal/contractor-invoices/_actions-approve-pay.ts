@@ -99,6 +99,7 @@ export async function approveContractorPay(
     .select('id')
     .eq('job_id', jobId)
     .eq('contractor_id', contractorId)
+    .neq('status', 'void')
     .limit(1)
     .maybeSingle()
   if (existing?.id) {

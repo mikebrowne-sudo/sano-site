@@ -24,6 +24,7 @@ function selectChain(value: unknown) {
   const chain: Record<string, unknown> = {}
   chain.select = () => chain
   chain.eq = () => chain
+  chain.neq = () => chain
   chain.limit = () => chain
   chain.maybeSingle = jest.fn().mockResolvedValue({ data: value })
   chain.single = jest.fn().mockResolvedValue({ data: value })
