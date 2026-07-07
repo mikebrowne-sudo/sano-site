@@ -20,6 +20,7 @@ export const EXPENSE_CATEGORIES: readonly ExpenseCategory[] = [
   { value: 'insurance', label: 'Insurance' },
   { value: 'cpax', label: 'CPAX' },
   { value: 'software_subscriptions', label: 'Software / subscriptions' },
+  { value: 'telecommunications', label: 'Telecommunications' },
   { value: 'bank_fees', label: 'Bank fees' },
   { value: 'fuel_travel', label: 'Fuel / travel' },
   { value: 'materials_supplies', label: 'Materials / supplies' },
