@@ -28,6 +28,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { sendNotification } from '@/lib/notifications/send'
+import { generateDueRecurringInvoices } from '@/app/portal/recurring-jobs/_lib/generate-recurring-invoice'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -285,6 +286,18 @@ async function runDaily(request: NextRequest) {
     }
   } catch (e) {
     summary.errors.push(`overdue: ${(e as Error).message}`)
+  }
+
+  // ════ Task C — Recurring invoices (draft generation) ════════════
+  // Raise the monthly client invoice for any recurring contract whose
+  // next_invoice_date is due. Drafts only — they surface in the "Send
+  // draft invoices" to-do for staff to review + send.
+  try {
+    const recurring = await generateDueRecurringInvoices(supabase, nzDateString(0))
+    ;(summary as typeof summary & { recurring_invoices?: unknown }).recurring_invoices = recurring
+    if (recurring.errors.length) summary.errors.push(...recurring.errors.map((e) => `recurring: ${e}`))
+  } catch (e) {
+    summary.errors.push(`recurring_invoices: ${(e as Error).message}`)
   }
 
   return NextResponse.json({ ok: summary.errors.length === 0, summary })

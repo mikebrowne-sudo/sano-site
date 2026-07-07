@@ -23,6 +23,9 @@ interface RecurringJobData {
   start_date: string
   end_date: string | null
   status: string
+  monthly_value?: number | null
+  invoice_auto_send?: boolean | null
+  invoice_send_day?: number | null
 }
 
 function toNum(v: string) {
@@ -54,6 +57,9 @@ export function RecurringJobForm({
   const [startDate, setStartDate] = useState(recurringJob?.start_date ?? '')
   const [endDate, setEndDate] = useState(recurringJob?.end_date ?? '')
   const [status, setStatus] = useState(recurringJob?.status ?? 'active')
+  const [monthlyValue, setMonthlyValue] = useState(recurringJob?.monthly_value != null ? String(recurringJob.monthly_value) : '')
+  const [invoiceSendDay, setInvoiceSendDay] = useState(recurringJob?.invoice_send_day != null ? String(recurringJob.invoice_send_day) : '')
+  const [invoiceAutoSend, setInvoiceAutoSend] = useState(recurringJob?.invoice_auto_send ?? false)
 
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -85,6 +91,9 @@ export function RecurringJobForm({
       start_date: startDate,
       end_date: endDate || undefined,
       status,
+      monthly_value: toNum(monthlyValue),
+      invoice_send_day: toNum(invoiceSendDay),
+      invoice_auto_send: invoiceAutoSend,
     }
 
     startTransition(async () => {
@@ -139,6 +148,24 @@ export function RecurringJobForm({
           <Select label="Contractor" value={contractorId} onChange={handleContractorSelect} options={contractors.map((c) => ({ value: c.id, label: c.full_name }))} placeholder="Unassigned" />
           <Field label="Contractor price ($)" type="number" step="0.01" min="0" value={contractorPrice} onChange={setContractorPrice} />
         </div>
+      </Section>
+
+      {/* Invoicing */}
+      <Section title="Invoicing">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Monthly value ($)" type="number" step="0.01" min="0" value={monthlyValue} onChange={setMonthlyValue} placeholder="e.g. 2740" />
+          <Field label="Invoice on day of month (1–28)" type="number" min="1" value={invoiceSendDay} onChange={setInvoiceSendDay} placeholder="e.g. 1" />
+        </div>
+        <label className="flex items-start gap-2 mt-4 text-sm text-sage-700">
+          <input type="checkbox" checked={invoiceAutoSend} onChange={(e) => setInvoiceAutoSend(e.target.checked)} className="mt-0.5 rounded border-sage-300" />
+          <span>
+            Auto-send the invoice to the client
+            <span className="block text-[11px] text-sage-400">Leave off to raise a <span className="font-medium">draft</span> each month (it lands in your To-do to review + send). Turn on to email it automatically on the invoice day.</span>
+          </span>
+        </label>
+        <p className="text-[11px] text-sage-400 mt-2">
+          With a monthly value + invoice day set, the monthly invoice is raised automatically — no per-month clicking.
+        </p>
       </Section>
 
       {error && <p className="text-red-600 text-sm bg-red-50 rounded-lg px-4 py-3">{error}</p>}
