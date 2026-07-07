@@ -173,7 +173,8 @@ export default async function JobDetailPage({
     supabase
       .from('contractor_invoices')
       .select('id, invoice_number, amount, status, job_id, contractor_id')
-      .eq('job_id', params.id),
+      .eq('job_id', params.id)
+      .neq('status', 'void'),
     supabase
       .from('pay_run_items')
       .select('job_id, contractor_id')

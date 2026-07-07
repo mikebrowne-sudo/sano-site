@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { CheckCircle, DollarSign, X, Loader2, ExternalLink } from 'lucide-react'
 import { formatCurrency } from '@/lib/format'
 import { approveContractorPay } from '../../../contractor-invoices/_actions-approve-pay'
+import { VoidControl } from '../../../contractor-invoices/_components/VoidControl'
 
 export interface ExistingPayable {
   id: string
@@ -48,14 +49,21 @@ export function JobApprovePayButton(props: JobApprovePayButtonProps) {
 
   const approved = done ?? props.existingCI
   if (approved) {
+    // Voiding is offered only before the payable is paid/remitted; once paid
+    // the payable is on a remittance and the void action tells the operator
+    // to void that batch first.
+    const canVoid = approved.status !== 'paid'
     return (
-      <Link href={`/portal/contractor-invoices/${approved.id}`}
-        className="inline-flex items-center gap-1.5 text-xs text-emerald-700 font-medium bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md hover:bg-emerald-100 transition-colors">
-        <CheckCircle size={12} /> Already approved for pay
-        {approved.invoice_number ? ` · ${approved.invoice_number}` : ''}
-        {approved.amount != null ? ` · ${formatCurrency(approved.amount)}` : ''}
-        <ExternalLink size={11} />
-      </Link>
+      <div className="flex flex-col items-start gap-1.5">
+        <Link href={`/portal/contractor-invoices/${approved.id}`}
+          className="inline-flex items-center gap-1.5 text-xs text-emerald-700 font-medium bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md hover:bg-emerald-100 transition-colors">
+          <CheckCircle size={12} /> Already approved for pay
+          {approved.invoice_number ? ` · ${approved.invoice_number}` : ''}
+          {approved.amount != null ? ` · ${formatCurrency(approved.amount)}` : ''}
+          <ExternalLink size={11} />
+        </Link>
+        {canVoid && <VoidControl kind="payable" id={approved.id} />}
+      </div>
     )
   }
 

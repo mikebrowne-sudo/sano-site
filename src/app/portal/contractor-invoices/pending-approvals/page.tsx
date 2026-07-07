@@ -62,7 +62,7 @@ export default async function PendingApprovalsPage() {
   // Existing payables for these jobs → flag/exclude already-approved rows.
   const jobIds = Array.from(new Set(live.map((r) => r.job_id)))
   const { data: ciRaw } = jobIds.length > 0
-    ? await supabase.from('contractor_invoices').select('id, invoice_number, status, job_id, contractor_id').in('job_id', jobIds)
+    ? await supabase.from('contractor_invoices').select('id, invoice_number, status, job_id, contractor_id').in('job_id', jobIds).neq('status', 'void')
     : { data: [] as unknown[] }
   const ciByKey = new Map<string, { id: string; invoice_number: string | null; status: string | null }>()
   for (const ci of (ciRaw ?? []) as Array<{ id: string; invoice_number: string | null; status: string | null; job_id: string; contractor_id: string }>) {
