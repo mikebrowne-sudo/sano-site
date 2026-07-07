@@ -75,16 +75,16 @@ export async function loadContractorJobDetail(
     .limit(1)
     .maybeSingle()
 
-  let inSentRemittance = false
+  let inPaidRemittance = false
   if (ci?.id) {
     const { data: links } = await svc
       .from('contractor_remittance_items')
-      .select('contractor_remittances ( sent_at )')
+      .select('contractor_remittances ( paid_at )')
       .eq('contractor_invoice_id', ci.id as string)
-    inSentRemittance = ((links ?? []) as Array<{ contractor_remittances: { sent_at: string | null } | { sent_at: string | null }[] | null }>)
+    inPaidRemittance = ((links ?? []) as Array<{ contractor_remittances: { paid_at: string | null } | { paid_at: string | null }[] | null }>)
       .some((r) => {
         const cr = Array.isArray(r.contractor_remittances) ? r.contractor_remittances[0] : r.contractor_remittances
-        return !!cr?.sent_at
+        return !!cr?.paid_at
       })
   }
 
@@ -93,7 +93,7 @@ export async function loadContractorJobDetail(
     jobCompletedAt: (job.completed_at as string | null) ?? null,
     invoiceStatus: (ci?.status as string | null) ?? null,
     invoiceDatePaid: (ci?.date_paid as string | null) ?? null,
-    inSentRemittance,
+    inPaidRemittance,
   })
 
   const costInput = {

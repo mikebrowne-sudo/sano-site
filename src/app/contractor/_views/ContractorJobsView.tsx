@@ -34,49 +34,60 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
-type Bucket = 'today' | 'upcoming' | 'hidden'
-// Contractors see only current, assigned work on My Jobs: no drafts,
-// no undated jobs, no past/overdue. Just Today and (dated) Upcoming.
+type Bucket = 'today' | 'upcoming' | 'outstanding' | 'hidden'
+// Contractors' action list: Outstanding (past-dated, not yet marked done —
+// so overdue work can still be completed), Today, and (dated) Upcoming.
+// Completed / invoiced jobs live in the Completed history tab, not here.
 function bucketFor(scheduledDate: string | null, status: string, todayIso: string): Bucket {
   if (status === 'draft') return 'hidden'
+  if (status === 'completed' || status === 'invoiced') return 'hidden'
   if (!scheduledDate) return 'hidden'
   if (scheduledDate === todayIso) return 'today'
   if (scheduledDate > todayIso) return 'upcoming'
-  return 'hidden' // past / overdue
+  return 'outstanding' // past-dated, not completed → overdue, still markable
 }
 
 export function ContractorJobsView({
   jobs,
   jobHref,
+  showHeading = true,
   todayIso = new Date().toISOString().slice(0, 10),
 }: {
   jobs: ContractorJobRow[]
   jobHref: (id: string) => string
+  showHeading?: boolean
   todayIso?: string
 }) {
   const today: ContractorJobRow[] = []
   const upcoming: ContractorJobRow[] = []
+  const outstanding: ContractorJobRow[] = []
   for (const j of jobs) {
     const b = bucketFor(j.scheduled_date, j.status, todayIso)
     if (b === 'today') today.push(j)
     else if (b === 'upcoming') upcoming.push(j)
+    else if (b === 'outstanding') outstanding.push(j)
   }
-  const hasVisible = today.length + upcoming.length > 0
+  const hasVisible = today.length + upcoming.length + outstanding.length > 0
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-sage-800 mb-6">My Jobs</h1>
+      {showHeading && <h1 className="text-xl font-bold text-sage-800 mb-6">My Jobs</h1>}
 
       {!hasVisible ? (
         <div className="bg-white rounded-2xl border border-sage-100 p-10 text-center">
           <div className="inline-flex w-12 h-12 items-center justify-center rounded-full bg-sage-50 mb-3">
             <Briefcase size={22} className="text-sage-400" />
           </div>
-          <p className="text-sage-800 font-medium mb-1">No jobs yet</p>
+          <p className="text-sage-800 font-medium mb-1">Nothing to do right now</p>
           <p className="text-sage-500 text-sm">When Sano assigns you a job, it&apos;ll show up here.</p>
         </div>
       ) : (
         <div className="space-y-6">
+          {outstanding.length > 0 && (
+            <Group label="Needs marking done" tone="warn">
+              {outstanding.map((j) => <JobCard key={j.id} job={j} href={jobHref(j.id)} highlight="overdue" />)}
+            </Group>
+          )}
           {today.length > 0 && (
             <Group label="Today" tone="urgent">
               {today.map((j) => <JobCard key={j.id} job={j} href={jobHref(j.id)} highlight="today" />)}

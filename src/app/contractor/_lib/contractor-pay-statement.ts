@@ -40,6 +40,8 @@ export interface RawRemittance {
   id: string
   token: string | null
   paymentDate: string | null
+  /** Set when staff marked the remittance paid; null = pending payment. */
+  paidAt: string | null
 }
 
 export interface RawLegacyPayItem {
@@ -74,7 +76,13 @@ export interface PaidBatch {
 }
 
 export interface ContractorPayData {
+  /** Approved, unpaid payables NOT yet on any remittance (loose lines). */
   pending: PendingLine[]
+  /** Approved payables that ARE on a remittance which isn't paid yet —
+   *  grouped per remittance so the contractor sees one "Pending payment"
+   *  row linking to the advice. */
+  pendingBatches: PaidBatch[]
+  /** pending lines + pendingBatches. */
   pendingTotal: number
   paidBatches: PaidBatch[]
   paidTotal: number
@@ -92,8 +100,18 @@ export function buildContractorPayData(input: {
   // Archived jobs drop out entirely.
   const cis = input.cis.filter((c) => !c.jobDeletedAt)
 
+  // Remittance lookups (for grouping + the doc link). Links cover BOTH paid
+  // and still-approved CIs so we can group an approved payable that's on a
+  // not-yet-paid remittance into a "Pending payment" row.
+  const remIdByCi = new Map<string, string>()
+  for (const l of input.remLinks) remIdByCi.set(l.ciId, l.remittanceId)
+  const remById = new Map<string, RawRemittance>()
+  for (const r of input.rems) remById.set(r.id, r)
+
   const pending: PendingLine[] = []
   const paidCis: RawContractorInvoice[] = []
+  // Approved payables sitting on an unpaid remittance, grouped by remittance.
+  const pendingBatchMap = new Map<string, PaidBatch>()
   for (const c of cis) {
     const isPaid = c.status === 'paid' || !!c.date_paid
     if (isPaid) {
@@ -101,6 +119,25 @@ export function buildContractorPayData(input: {
       continue
     }
     if (c.status === 'approved') {
+      const remId = remIdByCi.get(c.id)
+      const rem = remId ? remById.get(remId) : undefined
+      // On an unpaid remittance → a pending-payment batch (rem.paidAt is null
+      // by construction, since a paid remittance flips its CIs to paid).
+      if (rem && !rem.paidAt) {
+        const key = `rempend:${rem.id}`
+        const b = pendingBatchMap.get(key) ?? {
+          id: key,
+          payDate: rem.paymentDate ?? null,
+          total: 0,
+          jobCount: 0,
+          docHref: rem.token ? `/remittance-batch/${rem.token}` : null,
+        }
+        b.total = round2(b.total + (c.amount ?? 0))
+        b.jobCount += 1
+        pendingBatchMap.set(key, b)
+        continue
+      }
+      // Loose approved line (not on any remittance yet).
       pending.push({
         ciId: c.id,
         jobId: c.jobId,
@@ -113,13 +150,11 @@ export function buildContractorPayData(input: {
     // status 'pending' (not yet approved) carries no committed amount → omit.
   }
   pending.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
-  const pendingTotal = round2(pending.reduce((s, l) => s + l.amount, 0))
-
-  // Map each paid CI → its remittance batch (for grouping + the doc link).
-  const remIdByCi = new Map<string, string>()
-  for (const l of input.remLinks) remIdByCi.set(l.ciId, l.remittanceId)
-  const remById = new Map<string, RawRemittance>()
-  for (const r of input.rems) remById.set(r.id, r)
+  const pendingBatches = Array.from(pendingBatchMap.values())
+    .sort((a, b) => (b.payDate ?? '').localeCompare(a.payDate ?? ''))
+  const pendingTotal = round2(
+    pending.reduce((s, l) => s + l.amount, 0) + pendingBatches.reduce((s, b) => s + b.total, 0),
+  )
 
   const batches = new Map<string, PaidBatch>()
   for (const c of paidCis) {
@@ -166,5 +201,5 @@ export function buildContractorPayData(input: {
   const paidBatches = Array.from(batches.values()).sort((a, b) => (b.payDate ?? '').localeCompare(a.payDate ?? ''))
   const paidTotal = round2(paidBatches.reduce((s, b) => s + b.total, 0))
 
-  return { pending, pendingTotal, paidBatches, paidTotal }
+  return { pending, pendingBatches, pendingTotal, paidBatches, paidTotal }
 }

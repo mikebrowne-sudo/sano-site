@@ -7,12 +7,12 @@
 // the canonical payable model.
 
 import { formatCurrency, formatDate } from '@/lib/format'
-import { Wallet, ChevronRight } from 'lucide-react'
+import { Wallet, ChevronRight, Clock } from 'lucide-react'
 import { contractorJobTitle } from '../_lib/job-title'
 import type { ContractorPayData } from '../_lib/contractor-pay-data'
 
 export function ContractorPayView({ data }: { data: ContractorPayData }) {
-  const { pending, pendingTotal, paidBatches, paidTotal } = data
+  const { pending, pendingBatches, pendingTotal, paidBatches, paidTotal } = data
 
   return (
     <div className="tnum">
@@ -52,6 +52,45 @@ export function ContractorPayView({ data }: { data: ContractorPayData }) {
                   <div className="text-sm font-semibold text-sage-800 shrink-0">{formatCurrency(l.amount)}</div>
                 </li>
               ))}
+            </ul>
+          </div>
+        </section>
+      )}
+
+      {/* Pending payment — approved jobs on a remittance that isn't paid yet */}
+      {pendingBatches.length > 0 && (
+        <section className="mb-6">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 mb-2 px-1">Pending payment</h2>
+          <div className="rounded-2xl border border-amber-200 bg-white overflow-hidden">
+            <ul className="divide-y divide-amber-50">
+              {pendingBatches.map((b) => {
+                const inner = (
+                  <>
+                    <div>
+                      <div className="text-sm font-medium text-sage-800 flex items-center gap-1.5">
+                        <Clock size={13} className="text-amber-600" /> Awaiting payment
+                      </div>
+                      <div className="text-[11px] text-sage-500">
+                        {b.jobCount} job{b.jobCount === 1 ? '' : 's'}{b.payDate && ` · expected ${formatDate(b.payDate)}`}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-bold text-sage-800">{formatCurrency(b.total)}</span>
+                      {b.docHref && <ChevronRight size={16} className="text-sage-300" />}
+                    </div>
+                  </>
+                )
+                return b.docHref ? (
+                  <li key={b.id}>
+                    <a href={b.docHref} target="_blank" rel="noopener noreferrer"
+                      className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-amber-50/60 transition-colors">
+                      {inner}
+                    </a>
+                  </li>
+                ) : (
+                  <li key={b.id} className="px-4 py-3 flex items-center justify-between gap-3">{inner}</li>
+                )
+              })}
             </ul>
           </div>
         </section>

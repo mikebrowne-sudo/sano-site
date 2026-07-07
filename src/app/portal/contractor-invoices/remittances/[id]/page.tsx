@@ -11,6 +11,7 @@ import { ContractorRemittanceDocument } from '@/components/ContractorRemittanceD
 import { PrintButton } from '@/components/PrintButton'
 import { SendRemittanceButton } from '@/components/SendRemittanceButton'
 import { VoidControl } from '../../_components/VoidControl'
+import { RemittancePaidControl } from '../../_components/RemittancePaidControl'
 import { formatCurrency, formatDateTime } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
@@ -66,6 +67,11 @@ export default async function RemittanceBatchViewPage({ params }: { params: { id
           <CheckCircle2 size={14} /> Sent to the contractor on {formatDateTime(data.sentAt)}.
         </div>
       )}
+
+      {/* Paid state — created unpaid; mark paid once the money leaves the bank. */}
+      <div className="mb-5">
+        <RemittancePaidControl id={data.id} paidAt={data.paidAt} paymentDate={data.paymentDate} />
+      </div>
 
       {/* Reversal — void this batch (reverts its payables to approved so
           they can be corrected). Use only when no money has left the bank. */}

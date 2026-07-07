@@ -40,7 +40,7 @@ describe('buildContractorPayData', () => {
       ...empty,
       cis: [ci({ id: 'a', amount: 200, status: 'paid', date_paid: '2026-06-15' })],
       remLinks: [{ ciId: 'a', remittanceId: 'R1' }],
-      rems: [{ id: 'R1', token: 'tok123', paymentDate: '2026-06-15' }],
+      rems: [{ id: 'R1', token: 'tok123', paymentDate: '2026-06-15', paidAt: '2026-06-15' }],
     })
     expect(out.paidTotal).toBe(200)
     expect(out.paidBatches).toHaveLength(1)
@@ -57,7 +57,7 @@ describe('buildContractorPayData', () => {
         ci({ id: 'b', amount: 50, status: 'paid', date_paid: '2026-06-15' }),
       ],
       remLinks: [{ ciId: 'a', remittanceId: 'R1' }, { ciId: 'b', remittanceId: 'R1' }],
-      rems: [{ id: 'R1', token: 't', paymentDate: '2026-06-15' }],
+      rems: [{ id: 'R1', token: 't', paymentDate: '2026-06-15', paidAt: '2026-06-15' }],
     })
     expect(out.paidTotal).toBe(150)
     expect(out.paidBatches).toHaveLength(1)
@@ -68,7 +68,7 @@ describe('buildContractorPayData', () => {
     const out = buildContractorPayData({
       cis: [ci({ id: 'a', amount: 100, status: 'paid', date_paid: '2026-06-15' })],
       remLinks: [{ ciId: 'a', remittanceId: 'R1' }],
-      rems: [{ id: 'R1', token: 't', paymentDate: '2026-06-15' }],
+      rems: [{ id: 'R1', token: 't', paymentDate: '2026-06-15', paidAt: '2026-06-15' }],
       legacyItems: [{ payRunId: 'PR1', payDate: '2026-03-01', kind: 'contractor', amount: 60 }],
       legacyTokens: [{ payRunId: 'PR1', token: 'legacytok' }],
     })
@@ -82,6 +82,40 @@ describe('buildContractorPayData', () => {
     const out = buildContractorPayData({ ...empty, legacyItems: [{ payRunId: 'PR9', payDate: '2026-01-01', kind: 'staff', amount: 999 }] })
     expect(out.paidTotal).toBe(0)
     expect(out.paidBatches).toHaveLength(0)
+  })
+
+  it('approved CI on an UNPAID remittance → a pending-payment batch (not a loose line, not paid)', () => {
+    const out = buildContractorPayData({
+      ...empty,
+      cis: [
+        ci({ id: 'a', amount: 500, status: 'approved' }),
+        ci({ id: 'b', amount: 325, status: 'approved' }),
+      ],
+      remLinks: [{ ciId: 'a', remittanceId: 'R6' }, { ciId: 'b', remittanceId: 'R6' }],
+      rems: [{ id: 'R6', token: 'ra6tok', paymentDate: '2026-07-07', paidAt: null }],
+    })
+    expect(out.paidTotal).toBe(0)
+    expect(out.pending).toHaveLength(0) // grouped into a batch, not loose lines
+    expect(out.pendingBatches).toHaveLength(1)
+    expect(out.pendingBatches[0].total).toBe(825)
+    expect(out.pendingBatches[0].jobCount).toBe(2)
+    expect(out.pendingBatches[0].docHref).toBe('/remittance-batch/ra6tok')
+    expect(out.pendingTotal).toBe(825) // pending total includes pending batches
+  })
+
+  it('mixes loose pending lines and pending batches in the pending total', () => {
+    const out = buildContractorPayData({
+      ...empty,
+      cis: [
+        ci({ id: 'loose', amount: 100, status: 'approved' }),          // not on a remittance
+        ci({ id: 'onrem', amount: 200, status: 'approved' }),          // on an unpaid remittance
+      ],
+      remLinks: [{ ciId: 'onrem', remittanceId: 'R6' }],
+      rems: [{ id: 'R6', token: 't', paymentDate: '2026-07-07', paidAt: null }],
+    })
+    expect(out.pending).toHaveLength(1)
+    expect(out.pendingBatches).toHaveLength(1)
+    expect(out.pendingTotal).toBe(300)
   })
 
   it('a not-yet-approved (pending) CI is neither pending-pay nor paid', () => {
