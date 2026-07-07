@@ -18,7 +18,7 @@ export default async function AgreementsPage() {
 
   const { data: agreements } = await supabase
     .from('employment_agreements')
-    .select('id, person_label, position, status, signed_at, created_at')
+    .select('id, person_label, position, status, signed_at, created_at, agreement_type')
     .order('created_at', { ascending: false })
 
   return (
@@ -41,8 +41,11 @@ export default async function AgreementsPage() {
           {agreements.map((a) => (
             <Link key={a.id} href={`/portal/agreements/${a.id}`} className="flex items-center justify-between px-5 py-3.5 hover:bg-sage-50/60">
               <div>
-                <div className="text-sm font-medium text-sage-800">{a.person_label || 'Employee'}</div>
-                <div className="text-[11px] text-sage-500">{a.position} · created {formatDate(a.created_at)}</div>
+                <div className="text-sm font-medium text-sage-800">
+                  {a.person_label || 'Employee'}
+                  <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-sage-100 text-sage-600 font-medium">{a.agreement_type === 'contractor' ? 'Contractor' : 'Casual employee'}</span>
+                </div>
+                <div className="text-[11px] text-sage-500">created {formatDate(a.created_at)}</div>
               </div>
               {a.status === 'signed' ? (
                 <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">

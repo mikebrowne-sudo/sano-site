@@ -14,6 +14,9 @@ export interface SignAgreementInput {
   bankAccount: string
   taxCode: string
   kiwisaverChoice: string // 'opt_out' | 'stay_in'
+  // Contractor-only:
+  tradingName?: string
+  gstNumber?: string
   signedName: string
 }
 
@@ -43,6 +46,8 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
       employee_bank_account: input.bankAccount?.trim() || null,
       tax_code: input.taxCode?.trim() || 'M',
       kiwisaver_choice: input.kiwisaverChoice === 'stay_in' ? 'stay_in' : 'opt_out',
+      contractor_trading_name: input.tradingName?.trim() || null,
+      contractor_gst_number: input.gstNumber?.trim() || null,
       signed_name: input.signedName.trim(),
       signed_at: new Date().toISOString(),
       status: 'signed',

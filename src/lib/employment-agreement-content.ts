@@ -10,11 +10,22 @@
 export const EMPLOYER = {
   name: 'Sano Property Services Limited',
   gstNo: '148-387-648',
+  address: '35 Holbrook Street, Blockhouse Bay',
 }
+
+export type AgreementType = 'casual_employee' | 'contractor'
 
 export interface AgreementSection {
   title: string
   body: string[]
+}
+
+export function agreementTitle(type: AgreementType): string {
+  return type === 'contractor' ? 'Independent Contractor Agreement' : 'Casual Employment Agreement'
+}
+
+export function agreementSections(type: AgreementType): AgreementSection[] {
+  return type === 'contractor' ? CONTRACTOR_AGREEMENT_SECTIONS : CASUAL_AGREEMENT_SECTIONS
 }
 
 export const CASUAL_AGREEMENT_SECTIONS: AgreementSection[] = [
@@ -122,6 +133,114 @@ export const CASUAL_AGREEMENT_SECTIONS: AgreementSection[] = [
     body: [
       '13.1 This Agreement is governed by the laws of New Zealand, including the Employment Relations Act 2000 and the Holidays Act 2003. It constitutes the entire agreement between the parties regarding the Employee’s casual employment and supersedes any prior discussions.',
       '13.2 Any variation must be agreed in writing by both parties. If any provision is found unenforceable, the remaining provisions continue in full force. The Employee acknowledges they have had the opportunity to seek independent advice before signing and have been provided with a copy to retain.',
+    ],
+  },
+]
+
+export const CONTRACTOR_AGREEMENT_SECTIONS: AgreementSection[] = [
+  {
+    title: 'Background',
+    body: [
+      'The Company operates a property services business and wishes to engage the Contractor to provide services on the terms set out in this Agreement. The Contractor wishes to provide those services on those terms.',
+      'The parties agree that this Agreement does not create an employment relationship. The Contractor is engaged as an independent contractor only.',
+    ],
+  },
+  {
+    title: '1. Nature of Relationship',
+    body: [
+      '1.1 The Contractor is engaged as an independent contractor and not as an employee, agent, partner, or joint venturer of the Company.',
+      '1.2 Nothing in this Agreement shall be construed to create an employment relationship. The provisions of the Employment Relations Act 2000 do not apply, except as required by law.',
+      '1.3 The Contractor acknowledges they have had the opportunity to seek independent legal advice before entering into this Agreement.',
+      '1.4 The parties acknowledge that the real nature of their relationship is that of principal and independent contractor, and this Agreement reflects that relationship in substance and in form.',
+    ],
+  },
+  {
+    title: '2. Services',
+    body: [
+      '2.1 The Contractor agrees to provide cleaning services as reasonably directed by the Company from time to time (“Services”). The scope, location, and schedule of Services will be agreed between the parties for each engagement.',
+      '2.2 The Contractor may decline any particular job, and the Company is under no obligation to offer any minimum number of jobs.',
+      '2.3 The Contractor will perform the Services to a professional standard, in accordance with the Company’s quality guidelines. The Contractor is responsible for the manner and method by which the Services are performed, provided the required outcome and standard are met.',
+      '2.4 The Contractor must attend each accepted job at the agreed time, arrive prepared with all necessary equipment, and communicate clearly and respectfully with clients. If running late or unable to attend, the Contractor must notify the Company as soon as possible (immediately where less than 24 hours’ notice).',
+    ],
+  },
+  {
+    title: '3. Equipment and Supplies',
+    body: [
+      '3.1 The Contractor will supply, at their own cost, all equipment, tools, and cleaning products necessary to perform the Services. All equipment must be safe, fit for purpose, and maintained in good working order.',
+      '3.2 The Contractor is responsible for compliance with all health and safety requirements relating to the equipment and products they use, including under the Health and Safety at Work Act 2015.',
+    ],
+  },
+  {
+    title: '4. Fees and Payment',
+    body: [
+      '4.1 The Company will pay the Contractor the fee agreed for each job at the time of engagement, as set out in a job confirmation or schedule.',
+      '4.2 The Contractor must submit a valid tax invoice following completion of each job (or at agreed intervals). Payment will be made within 20 working days of receipt of a valid invoice.',
+      '4.3 If the Contractor is registered for GST, they must include GST on their invoices; the Company will pay the GST component in addition to the agreed fee.',
+      '4.4 The Contractor is solely responsible for their own income tax obligations. The Company will not make PAYE deductions. (Any schedular-payment withholding tax that applies by law will be handled in accordance with IRD requirements.)',
+      '4.5 The Contractor is solely responsible for any KiwiSaver contributions applicable to them as a self-employed person.',
+    ],
+  },
+  {
+    title: '5. Insurance',
+    body: [
+      '5.1 The Contractor must hold and maintain current public liability insurance of at least NZD $1,000,000 per occurrence for residential cleaning, and NZD $2,000,000 per occurrence for commercial cleaning.',
+      '5.2 The Contractor must provide evidence of current insurance on request and before commencing any Services. The Company may suspend or terminate this Agreement if the Contractor fails to maintain the required cover.',
+      '5.3 The Contractor acknowledges the Company’s insurance does not extend to the Contractor, their employees, subcontractors, or equipment.',
+    ],
+  },
+  {
+    title: '6. Health and Safety',
+    body: [
+      '6.1 The Contractor must comply with all applicable health and safety laws, including the Health and Safety at Work Act 2015, and any site-specific requirements notified by the Company or the client. The Company remains a PCBU with its own overlapping duties.',
+      '6.2 The Contractor must immediately report any workplace accident, incident, or near-miss, and must not work while unfit due to illness, injury, fatigue, or any impairment affecting safe performance.',
+    ],
+  },
+  {
+    title: '7. Subcontracting',
+    body: [
+      '7.1 The Contractor must not subcontract any Services without the Company’s prior written consent. Where approved, the Contractor remains fully responsible for the performance and conduct of any subcontractor and must ensure they are adequately insured and vetted.',
+    ],
+  },
+  {
+    title: '8. Confidentiality and Privacy',
+    body: [
+      '8.1 The Contractor must keep confidential all information relating to the Company’s business, clients, pricing, systems, and operations that is not publicly available, and must not use it for any purpose other than performing the Services. This obligation survives termination.',
+      '8.2 The Contractor must handle any personal information they access in the course of the Services in accordance with the Privacy Act 2020, and only for the purpose of performing the Services.',
+    ],
+  },
+  {
+    title: '9. Non-Solicitation',
+    body: [
+      '9.1 During the term and for 6 months after termination, the Contractor must not directly solicit or accept work from any client of the Company with whom the Contractor personally worked or had direct contact through the Company, without the Company’s prior written consent. This does not prevent the Contractor advertising their services to the general public.',
+    ],
+  },
+  {
+    title: '10. Conduct and Representation',
+    body: [
+      '10.1 The Contractor must conduct themselves professionally at all times when performing the Services, must not represent themselves as an employee or agent of the Company, and must not make commitments on behalf of the Company without authorisation.',
+      '10.2 The Contractor must not wear or display the branding, uniforms, or markings of a competing cleaning or property services business while on a job for the Company, and must conduct themselves in a way that reflects positively on the Company.',
+    ],
+  },
+  {
+    title: '11. Term and Termination',
+    body: [
+      '11.1 This Agreement commences on the date set out above and continues until terminated. Either party may terminate by giving 10 working days’ written notice.',
+      '11.2 The Company may terminate immediately by written notice if the Contractor breaches a material term and fails to remedy it within 5 working days, fails to maintain insurance, brings the Company’s reputation into disrepute, is convicted of a relevant offence, or becomes insolvent.',
+      '11.3 On termination, the Contractor must return any Company or client property, and the confidentiality and non-solicitation obligations continue.',
+    ],
+  },
+  {
+    title: '12. Liability',
+    body: [
+      '12.1 The Contractor is responsible for any loss or damage caused to the Company or a client by the Contractor’s negligence, wilful act, or breach of this Agreement.',
+      '12.2 The Contractor’s liability to the Company or a client for damage in connection with the Services is capped at $1,000 per incident; the Contractor must hold public liability insurance sufficient to cover claims exceeding this amount. The Company’s liability to the Contractor is limited to fees due for Services properly performed. Neither party is liable for indirect or consequential loss.',
+    ],
+  },
+  {
+    title: '13. Dispute Resolution and General',
+    body: [
+      '13.1 The parties must first attempt to resolve any dispute by good-faith negotiation; if unresolved within 10 working days of written notice, either party may refer it to mediation before a mutually agreed mediator. Nothing prevents a party seeking urgent interim relief from a court.',
+      '13.2 This Agreement is governed by the laws of New Zealand, constitutes the entire agreement, may only be amended in writing signed by both parties, and may not be assigned by the Contractor without the Company’s consent. If any provision is unenforceable, the remainder continues in full force.',
     ],
   },
 ]
