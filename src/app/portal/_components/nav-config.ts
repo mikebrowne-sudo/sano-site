@@ -12,7 +12,7 @@ import {
   HardHat, BookOpen, DollarSign, FileInput, Wallet, Bell, Settings,
   Calendar, UserCog, ArchiveRestore, LayoutTemplate,
   Wallet2, UserPlus, Scale, Landmark, BarChart3, KeyRound,
-  Target, Megaphone,
+  Target, Megaphone, Car,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -71,6 +71,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/portal/finance',             label: 'Profit / reports',     icon: DollarSign, finance: true },
       { href: '/portal/contractor-invoices', label: 'Contractor invoices',  icon: FileInput, finance: true },
       { href: '/portal/payroll',             label: 'Payroll',              icon: Wallet, finance: true },
+      { href: '/portal/mileage',             label: 'Mileage logbook',      icon: Car, finance: true },
     ],
   },
   {
