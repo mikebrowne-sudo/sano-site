@@ -6,6 +6,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { advanceOneMonth, isInvoiceDue } from '@/lib/recurring-invoice'
 import { computeInvoiceDueDate } from '@/lib/invoice-dates'
+import { sendRecurringInvoiceEmail } from './send-recurring-invoice'
 
 export interface RecurringRow {
   id: string
@@ -15,15 +16,17 @@ export interface RecurringRow {
   description: string | null
   address: string | null
   status: string | null
+  invoice_auto_send: boolean | null
   invoice_send_day: number | null
   next_invoice_date: string | null
 }
 
 export const REC_COLS =
-  'id, client_id, monthly_value, title, description, address, status, invoice_send_day, next_invoice_date'
+  'id, client_id, monthly_value, title, description, address, status, invoice_auto_send, invoice_send_day, next_invoice_date'
 
 export interface RecurringInvoiceResult {
   invoiceId?: string
+  sent?: boolean
   skipped?: string
   error?: string
 }
@@ -76,12 +79,21 @@ export async function generateFor(supabase: SupabaseClient, rec: RecurringRow): 
     invoiceId = invoice.id as string
   }
 
+  // Auto-send the client email when the contract opts in. Fail-safe: if the
+  // send fails (no client email, PDF error), the invoice stays a draft and
+  // shows up in the "Send draft invoices" to-do.
+  let sent = false
+  if (invoiceId && rec.invoice_auto_send) {
+    const res = await sendRecurringInvoiceEmail(supabase, invoiceId)
+    sent = !!res.sent
+  }
+
   await supabase
     .from('recurring_jobs')
     .update({ next_invoice_date: advanceOneMonth(billDate, sendDay) })
     .eq('id', rec.id)
 
-  return existing ? { skipped: 'already billed for this date' } : { invoiceId }
+  return existing ? { skipped: 'already billed for this date' } : { invoiceId, sent }
 }
 
 export async function generateDueRecurringInvoices(

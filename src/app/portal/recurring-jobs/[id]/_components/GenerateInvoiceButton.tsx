@@ -15,7 +15,10 @@ export function GenerateInvoiceButton({ recurringId }: { recurringId: string }) 
     startTransition(async () => {
       const res = await generateRecurringInvoice(recurringId)
       if (res.error) setMsg(res.error)
-      else if (res.invoiceId) { setMsg('Draft invoice created — find it under Invoices / your To-do.'); router.refresh() }
+      else if (res.invoiceId) {
+        setMsg(res.sent ? 'Invoice created and emailed to the client.' : 'Draft invoice created — find it under Invoices / your To-do.')
+        router.refresh()
+      }
       else setMsg(res.skipped ? `Nothing generated (${res.skipped}).` : 'Nothing to generate.')
     })
   }
