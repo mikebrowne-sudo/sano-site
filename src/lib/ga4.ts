@@ -37,6 +37,9 @@ export interface Ga4Stats {
   topSources: NameValue[]
   topLandingPages: NameValue[]
   topSuburbPages: NameValue[]
+  deviceSplit: NameValue[]
+  newVsReturning: NameValue[]
+  topLocations: NameValue[]
   leads: number
   phoneClicks: number
   emailClicks: number
@@ -117,17 +120,24 @@ export async function getGa4Stats(): Promise<Ga4Stats> {
     })
   }
 
-  const [visitorsToday, visitors7d, visitors30d, topSources, topLandingPages, topSuburbPages, events, trend30d] =
-    await Promise.all([
-      usersSince('today'),
-      usersSince('7daysAgo'),
-      usersSince('30daysAgo'),
-      topBy('sessionSourceMedium'),
-      topBy('landingPage'),
-      topBy('landingPage', '/service-area/'),
-      eventCounts(),
-      trend(),
-    ])
+  const [
+    visitorsToday, visitors7d, visitors30d,
+    topSources, topLandingPages, topSuburbPages,
+    deviceSplit, newVsReturning, topLocations,
+    events, trend30d,
+  ] = await Promise.all([
+    usersSince('today'),
+    usersSince('7daysAgo'),
+    usersSince('30daysAgo'),
+    topBy('sessionSourceMedium'),
+    topBy('landingPage'),
+    topBy('landingPage', '/service-area/'),
+    topBy('deviceCategory'),
+    topBy('newVsReturning'),
+    topBy('city'),
+    eventCounts(),
+    trend(),
+  ])
 
   return {
     visitorsToday,
@@ -136,6 +146,9 @@ export async function getGa4Stats(): Promise<Ga4Stats> {
     topSources,
     topLandingPages,
     topSuburbPages,
+    deviceSplit,
+    newVsReturning,
+    topLocations,
     leads: events.get('generate_lead') ?? 0,
     phoneClicks: events.get('phone_click') ?? 0,
     emailClicks: events.get('email_click') ?? 0,

@@ -2,8 +2,9 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { notFound } from 'next/navigation'
 import { unstable_cache } from 'next/cache'
-import { Users, TrendingUp, FileText, MapPin, Phone, Mail, Target, Globe } from 'lucide-react'
-import { getGa4Stats, isGa4Configured, type Ga4Stats, type NameValue, type TrendPoint } from '@/lib/ga4'
+import { Users, TrendingUp, FileText, MapPin, Phone, Mail, Target, Globe, Smartphone, UserPlus } from 'lucide-react'
+import { getGa4Stats, isGa4Configured, type Ga4Stats, type NameValue } from '@/lib/ga4'
+import { TrendChart } from './_components/TrendChart'
 import clsx from 'clsx'
 
 // Auth is per-request (cookies) so the page is dynamic; the GA4 fetch itself
@@ -71,6 +72,13 @@ export default async function AnalyticsPage() {
       </section>
       <ListCard icon={MapPin} title="Top suburb pages" rows={stats.topSuburbPages} mono empty="No suburb-page visits yet." />
 
+      {/* Audience */}
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ListCard icon={Smartphone} title="Devices" rows={stats.deviceSplit} />
+        <ListCard icon={UserPlus} title="New vs returning" rows={stats.newVsReturning} />
+      </section>
+      <ListCard icon={MapPin} title="Top locations" rows={stats.topLocations} empty="No location data yet." />
+
       <p className="text-xs text-sage-400 pt-1">
         Visitors, leads and clicks for the last 30 days unless noted. Updated about hourly. Figures build up over time, so
         recent numbers may look low to begin with.
@@ -124,71 +132,6 @@ function Kpi({ icon: Icon, label, value, note, tone }: { icon: React.ElementType
       </div>
       <p className="text-3xl font-bold text-sage-900 tabular-nums leading-none">{n(value)}</p>
       <p className="text-sm text-sage-500 mt-2">{label}</p>
-    </div>
-  )
-}
-
-/* ── Trend chart (inline SVG line + area) ───────────────────────── */
-
-function TrendChart({ points }: { points: TrendPoint[] }) {
-  if (points.length < 3) {
-    return (
-      <div className="flex flex-col items-center justify-center text-center h-32 rounded-xl bg-sage-50/50 border border-dashed border-sage-200">
-        <TrendingUp size={20} className="text-sage-300 mb-2" />
-        <p className="text-sm text-sage-500">Trend will become clearer as more data collects.</p>
-        {points.length > 0 && <p className="text-xs text-sage-400 mt-1">{n(points.reduce((s, p) => s + p.value, 0))} visitors so far</p>}
-      </div>
-    )
-  }
-
-  const W = 600, H = 150, padX = 6, padTop = 12, padBottom = 6
-  const innerW = W - padX * 2
-  const innerH = H - padTop - padBottom
-  const vals = points.map((p) => p.value)
-  const max = Math.max(...vals, 1)
-  const total = vals.reduce((s, v) => s + v, 0)
-  const peak = Math.max(...vals)
-
-  const x = (i: number) => padX + (i / (points.length - 1)) * innerW
-  const y = (v: number) => padTop + innerH - (v / max) * innerH
-
-  const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ')
-  const area = `${line} L${x(points.length - 1).toFixed(1)},${padTop + innerH} L${x(0).toFixed(1)},${padTop + innerH} Z`
-
-  const fmtDay = (iso: string) => new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short' })
-
-  return (
-    <div>
-      <div className="flex items-baseline gap-4 mb-3">
-        <div>
-          <p className="text-2xl font-bold text-sage-900 tabular-nums leading-none">{n(total)}</p>
-          <p className="text-xs text-sage-500 mt-1">visitors over {points.length} days</p>
-        </div>
-        <div className="ml-auto text-right">
-          <p className="text-sm font-semibold text-sage-700 tabular-nums leading-none">{n(peak)}</p>
-          <p className="text-xs text-sage-400 mt-1">busiest day</p>
-        </div>
-      </div>
-
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full h-32 text-sage-500 overflow-visible" role="img" aria-label="Daily visitors, last 30 days">
-        <defs>
-          <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="currentColor" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {/* subtle baseline + midline */}
-        {[0, 0.5, 1].map((f) => (
-          <line key={f} x1={padX} x2={W - padX} y1={padTop + innerH * f} y2={padTop + innerH * f} stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-        ))}
-        <path d={area} fill="url(#trendFill)" />
-        <path d={line} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-      </svg>
-
-      <div className="flex justify-between text-[11px] text-sage-400 mt-2">
-        <span>{fmtDay(points[0].date)}</span>
-        <span>{fmtDay(points[points.length - 1].date)}</span>
-      </div>
     </div>
   )
 }
