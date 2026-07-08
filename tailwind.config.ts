@@ -18,6 +18,7 @@ const config: Config = {
           600: '#5C6B64',
           700: '#344C3D',
           800: '#06231D',
+          900: '#04140F',
         },
       },
       fontFamily: {
