@@ -93,11 +93,13 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
         {/* tooltip */}
         {hp && (
           <div
-            className="pointer-events-none absolute -top-2 -translate-x-1/2 -translate-y-full z-10 rounded-lg bg-sage-900 text-white px-2.5 py-1.5 text-xs whitespace-nowrap shadow-lg"
+            className="pointer-events-none absolute -top-2 -translate-x-1/2 -translate-y-full z-10 rounded-lg bg-sage-900 px-2.5 py-1.5 text-center whitespace-nowrap shadow-lg"
             style={{ left: `${tipLeft}%` }}
           >
-            <span className="font-bold tabular-nums">{nf.format(hp.value)}</span> visitor{hp.value === 1 ? '' : 's'}
-            <span className="text-sage-300"> · {fmtFull(hp.date)}</span>
+            <div className="text-sm font-bold text-white tabular-nums leading-tight">
+              {nf.format(hp.value)} <span className="font-normal text-sage-300">visitor{hp.value === 1 ? '' : 's'}</span>
+            </div>
+            <div className="text-[11px] text-sage-300 leading-tight mt-0.5">{fmtFull(hp.date)}</div>
           </div>
         )}
       </div>
