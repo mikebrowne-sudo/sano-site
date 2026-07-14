@@ -33,15 +33,26 @@ export function payeeTokens(raw: string): string[] {
 }
 
 /**
- * Client names whose name contains any significant payee token. Returns the
- * matched names (a manager like "barfoot" will match all its branch clients,
- * which is what we want for cross-branch bundles).
+ * Client(s) that best match a bank payee. Each client name is scored by how
+ * many distinct payee tokens it contains, and only the best-scoring client(s)
+ * are returned.
+ *
+ * This narrows a branch payee to the specific branch: "B&T Remuera" expands to
+ * tokens [barfoot, remuera], so "Barfoot & Thompson - Remuera" (matches both,
+ * score 2) wins over "Barfoot & Thompson - Onehunga" (matches only barfoot,
+ * score 1). A bare manager payee ("barfoot", one token) still ties across every
+ * branch, so cross-branch bundle payments keep matching all branches.
  */
 export function matchClientsForPayee(payee: string, clientNames: string[]): string[] {
   const tokens = payeeTokens(payee)
   if (tokens.length === 0) return []
-  return clientNames.filter((name) => {
+  let best = 0
+  const scored = clientNames.map((name) => {
     const l = name.toLowerCase()
-    return tokens.some((t) => l.includes(t))
+    const score = tokens.reduce((n, t) => n + (l.includes(t) ? 1 : 0), 0)
+    if (score > best) best = score
+    return { name, score }
   })
+  if (best === 0) return []
+  return scored.filter((s) => s.score === best).map((s) => s.name)
 }
