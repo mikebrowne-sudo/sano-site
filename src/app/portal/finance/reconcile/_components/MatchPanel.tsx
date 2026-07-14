@@ -39,6 +39,8 @@ export function MatchPanel({
   date,
   payee,
   candidates,
+  allCandidates,
+  scoped = false,
   suggestions,
 }: {
   lineId: string
@@ -46,15 +48,26 @@ export function MatchPanel({
   date: string
   payee: string
   candidates: MatchInvoice[]
+  /** Full, all-clients candidate list — shown when the user opts out of the
+   *  identified-client scope. Falls back to `candidates` when not supplied. */
+  allCandidates?: MatchInvoice[]
+  /** True when `candidates` was narrowed to an identified client. */
+  scoped?: boolean
   suggestions: string[][]
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [showAll, setShowAll] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const byId = useMemo(() => new Map(candidates.map((c) => [c.id, c])), [candidates])
+  const full = allCandidates ?? candidates
+  // Show the toggle only when scoping actually hides something.
+  const canShowAll = scoped && full.length > candidates.length
+  const shown = showAll ? full : candidates
+  // Map over the superset so a selection survives toggling the view.
+  const byId = useMemo(() => new Map(full.map((c) => [c.id, c])), [full])
   const selectedTotal = useMemo(
     () => Array.from(selected).reduce((s, id) => s + (byId.get(id)?.total ?? 0), 0),
     [selected, byId],
@@ -129,9 +142,23 @@ export function MatchPanel({
               )}
 
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-sage-500 mb-2">{candidates.length ? 'Or pick invoices' : 'No candidate invoices found'}</p>
+                <div className="flex items-center justify-between mb-2 gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-sage-500">
+                    {shown.length ? 'Or pick invoices' : 'No candidate invoices found'}
+                    {scoped && !showAll && shown.length > 0 && <span className="ml-1 normal-case font-normal text-sage-400">(matched client only)</span>}
+                  </p>
+                  {canShowAll && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAll((v) => !v)}
+                      className="text-xs font-medium text-sage-600 hover:text-sage-800 underline underline-offset-2 shrink-0"
+                    >
+                      {showAll ? 'Show only matched client' : 'Show all clients'}
+                    </button>
+                  )}
+                </div>
                 <div className="divide-y divide-gray-50">
-                  {candidates.map((c) => (
+                  {shown.map((c) => (
                     <label key={c.id} className="flex items-center gap-3 py-2 cursor-pointer">
                       <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggle(c.id)} className="h-4 w-4 rounded border-sage-300 text-sage-500 focus:ring-sage-500" />
                       <span className="flex-1 min-w-0">

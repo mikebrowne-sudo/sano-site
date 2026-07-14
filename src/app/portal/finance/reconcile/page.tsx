@@ -24,19 +24,25 @@ function buildMatch(
   amount: number,
   invoices: ReconInvoice[],
   clientNames: string[],
-): { candidates: MatchInvoice[]; suggestions: string[][]; scoped: boolean } {
+): { candidates: MatchInvoice[]; allCandidates: MatchInvoice[]; suggestions: string[][]; scoped: boolean } {
+  const toCandidates = (pool: ReconInvoice[]): MatchInvoice[] =>
+    pool
+      .filter((i) => i.status === 'sent' || i.status === 'draft' || i.status === 'paid')
+      .sort((a, b) => (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3) || b.total - a.total)
+      .slice(0, 40)
+      .map((i) => ({ id: i.id, number: i.invoiceNumber, total: i.total, status: i.status, address: i.address ?? '', client: i.client ?? '' }))
+
   const scopedNames = matchClientsForPayee(payee, clientNames)
   const scoped = scopedNames.length > 0
-  const pool = scoped
+  const scopedPool = scoped
     ? invoices.filter((i) => i.client && scopedNames.includes(i.client))
     : invoices.filter((i) => i.status === 'sent') // fallback: open invoices
-  const candidates: MatchInvoice[] = pool
-    .filter((i) => i.status === 'sent' || i.status === 'draft' || i.status === 'paid')
-    .sort((a, b) => (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3) || b.total - a.total)
-    .slice(0, 40)
-    .map((i) => ({ id: i.id, number: i.invoiceNumber, total: i.total, status: i.status, address: i.address ?? '', client: i.client ?? '' }))
+  const candidates = toCandidates(scopedPool)
+  // Full, all-clients list for the "show all clients" safety valve — only
+  // differs from `candidates` when we scoped to an identified client.
+  const allCandidates = scoped ? toCandidates(invoices) : candidates
   const suggestions = findSubsets(amount, candidates.map((c) => ({ id: c.id, amount: c.total })))
-  return { candidates, suggestions, scoped }
+  return { candidates, allCandidates, suggestions, scoped }
 }
 
 export const dynamic = 'force-dynamic'
@@ -75,7 +81,7 @@ export default async function ReconcilePage() {
 
   // Precompute match suggestions for the unmatched credits.
   const clientNames = Array.from(new Set(invoices.map((i) => i.client ?? '').filter(Boolean)))
-  const creditMatch = new Map<string, { candidates: MatchInvoice[]; suggestions: string[][]; scoped: boolean }>()
+  const creditMatch = new Map<string, { candidates: MatchInvoice[]; allCandidates: MatchInvoice[]; suggestions: string[][]; scoped: boolean }>()
   for (const c of result.credits) {
     if (c.status === 'unmatched') creditMatch.set(c.txn.uniqueId, buildMatch(c.txn.payee, c.txn.amount, invoices, clientNames))
   }
@@ -117,6 +123,8 @@ export default async function ReconcilePage() {
               date={c.txn.date}
               payee={c.txn.payee}
               candidates={creditMatch.get(c.txn.uniqueId)!.candidates}
+              allCandidates={creditMatch.get(c.txn.uniqueId)!.allCandidates}
+              scoped={creditMatch.get(c.txn.uniqueId)!.scoped}
               suggestions={creditMatch.get(c.txn.uniqueId)!.suggestions}
             />
           )}
