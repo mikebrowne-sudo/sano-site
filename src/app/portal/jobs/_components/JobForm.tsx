@@ -198,9 +198,12 @@ export function JobForm({
       {/* Contractor */}
       <Section title="Pricing &amp; Assignment">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {/* Phase 5B — job price + allowed hours are material once invoiced. */}
-          <Field label="Job price — client ($)" type="number" step="0.01" min="0" value={jobPrice} onChange={setJobPrice} disabled={isLocked} />
-          <Field label="Allowed hours" type="number" step="0.25" min="0" value={allowedHours} onChange={setAllowedHours} placeholder="e.g. 3" disabled={isLocked} />
+          {/* Client price + contractor hours stay editable even after an
+              invoice is sent, so an operator can correct billing / pay
+              figures. The change is audit-logged and the job/invoice
+              mismatch banner surfaces any resulting divergence. */}
+          <Field label="Job price — client ($)" type="number" step="0.01" min="0" value={jobPrice} onChange={setJobPrice} />
+          <Field label="Allowed hours" type="number" step="0.25" min="0" value={allowedHours} onChange={setAllowedHours} placeholder="e.g. 3" />
           <Field label="Contractor price ($)" type="number" step="0.01" min="0" value={contractorPrice} onChange={setContractorPrice} />
         </div>
         <div className="mt-4">

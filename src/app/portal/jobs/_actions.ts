@@ -156,14 +156,24 @@ export async function updateJob(input: UpdateJobInput) {
     .eq('id', input.id)
     .single()
 
-  // Phase 5B — invoice-existence lock.
+  // Phase 5B — invoice-existence lock. Client price (job_price) and
+  // contractor hours (allowed_hours) are intentionally always editable so
+  // an operator can correct billing / pay figures even after an invoice
+  // has been sent — the change is audit-logged below and any divergence is
+  // surfaced by the job/invoice mismatch banner. Description + address stay
+  // locked to the sent document, so the guard only blocks when one of those
+  // actually changes (admin override still bypasses it).
   const { data: { user } } = await supabase.auth.getUser()
+  const lockedFieldChanged =
+       ((current?.description as string | null) ?? null) !== (input.description ?? null)
+    || ((current?.address as string | null) ?? null) !== (input.address ?? null)
   const guard = assertCanAmend({
     linkedInvoiceId: (current?.invoice_id as string | null) ?? null,
     user,
     force: input.force,
   })
-  if ('error' in guard) return guard
+  if ('error' in guard && lockedFieldChanged) return guard
+  const overridden = 'ok' in guard ? guard.overridden : false
 
   const contractorChanged = !!input.contractor_id
     && input.contractor_id !== (current?.contractor_id ?? '')
@@ -247,7 +257,7 @@ export async function updateJob(input: UpdateJobInput) {
       entity: 'job',
       entityId: input.id,
       actorId: user?.id ?? null,
-      overridden: guard.overridden,
+      overridden,
       before: {
         job_price:     current?.job_price ?? null,
         allowed_hours: current?.allowed_hours ?? null,
