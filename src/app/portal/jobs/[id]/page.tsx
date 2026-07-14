@@ -24,6 +24,7 @@ import { LifecycleActions } from '../../_components/LifecycleActions'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
 import { JobNextStepCard } from './_components/JobNextStepCard'
 import { ScopeSnapshotPanel } from './_components/ScopeSnapshotPanel'
+import { JobVersionHistoryPanel } from './_components/JobVersionHistoryPanel'
 import { isAdminUser } from '@/lib/is-admin'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
 import { Panel } from '../../_components/Panel'
@@ -195,6 +196,15 @@ export default async function JobDetailPage({
     ? await supabase.from('contractors').select('id, full_name').eq('status', 'active').order('full_name')
     : { data: null as { id: string; full_name: string }[] | null }
   const unassignedContractors = (activeContractors ?? []).filter((c) => !assignedContractorIds.has(c.id))
+
+  // Edit history (reversible amendment snapshots). Tolerates the table not
+  // existing yet (pre-migration) — the query errors, data is null, panel hides.
+  const { data: jobVersionsData } = await supabase
+    .from('job_versions')
+    .select('id, version_no, changed_fields, reason, is_restore, actor_email, created_at')
+    .eq('job_id', params.id)
+    .order('version_no', { ascending: false })
+  const jobVersions = jobVersionsData ?? []
 
   const quoteNumber  = linkedQuoteRes.data?.quote_number ?? null
   const quoteClientId = (linkedQuoteRes.data as { client_id?: string } | null)?.client_id ?? null
@@ -848,6 +858,9 @@ export default async function JobDetailPage({
           <span>Created {formatDateTime(job.created_at)}</span>
           <span>Updated {formatDateTime(job.updated_at)}</span>
         </div>
+
+        {/* Reversible edit history — snapshots of every amendment, admin restore. */}
+        <JobVersionHistoryPanel versions={jobVersions} jobId={job.id as string} isAdmin={isAdmin} />
 
         {/* Phase 5B — read-only audit timeline (includes amendment events). */}
         <AuditTimelinePanel

@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { notifyContractorAssigned } from '@/lib/notify-contractor'
 import { assertCanAmend, writeAmendmentAudit } from '@/lib/amendment-lock'
 import { resolveAllowedHours } from '@/lib/allowed-hours'
+import { snapshotJobVersion, computeChangedJobFields } from '@/lib/job-versions'
 
 // Returns an error message if the contractor's insurance is missing or expired; null otherwise.
 async function checkContractorInsurance(
@@ -150,13 +151,18 @@ export async function updateJob(input: UpdateJobInput) {
   // operator can reconstruct a job's schedule history.
   // Phase 5B: also reads `invoice_id` and the material fields so the
   // lock guard can fire and the audit row has a before/after diff.
+  // Full row — used for change detection, the amendment audit before/after,
+  // and the reversible pre-edit version snapshot written after the update.
   const { data: current } = await supabase
     .from('jobs')
-    .select('contractor_id, scheduled_date, scheduled_time, job_number, invoice_id, job_price, allowed_hours, description, address')
+    .select('*')
     .eq('id', input.id)
     .single()
 
-  // Phase 5B — invoice-existence lock.
+  // Phase 5B — invoice-existence lock. Once a job is linked to a sent
+  // invoice, edits are blocked for normal staff; an admin unlocks the whole
+  // form via the "Edit anyway" gate (which captures a reason) and saves with
+  // force. Every amendment is snapshotted below so it stays reversible.
   const { data: { user } } = await supabase.auth.getUser()
   const guard = assertCanAmend({
     linkedInvoiceId: (current?.invoice_id as string | null) ?? null,
@@ -185,31 +191,58 @@ export async function updateJob(input: UpdateJobInput) {
   // Allowed hours is blank, so contractors don't end up with 0 hours.
   const allowedHours = resolveAllowedHours(input.allowed_hours, input.duration_estimate)
 
-  const { error } = await supabase
-    .from('jobs')
-    .update({
-      client_id: input.client_id,
-      quote_id: input.quote_id || null,
-      invoice_id: input.invoice_id || null,
-      status: input.status || 'draft',
-      title: input.title || null,
-      description: input.description || null,
-      address: input.address || null,
-      scheduled_date: input.scheduled_date || null,
-      scheduled_time: input.scheduled_time || null,
-      duration_estimate: input.duration_estimate || null,
-      assigned_to: input.assigned_to || null,
-      contractor_id: input.contractor_id || null,
-      contractor_price: input.contractor_price ?? null,
-      job_price: input.job_price ?? null,
-      allowed_hours: allowedHours,
-      internal_notes: input.internal_notes || null,
-      contractor_notes: input.contractor_notes || null,
-    })
-    .eq('id', input.id)
+  const patch = {
+    client_id: input.client_id,
+    quote_id: input.quote_id || null,
+    invoice_id: input.invoice_id || null,
+    status: input.status || 'draft',
+    title: input.title || null,
+    description: input.description || null,
+    address: input.address || null,
+    scheduled_date: input.scheduled_date || null,
+    scheduled_time: input.scheduled_time || null,
+    duration_estimate: input.duration_estimate || null,
+    assigned_to: input.assigned_to || null,
+    contractor_id: input.contractor_id || null,
+    contractor_price: input.contractor_price ?? null,
+    job_price: input.job_price ?? null,
+    allowed_hours: allowedHours,
+    internal_notes: input.internal_notes || null,
+    contractor_notes: input.contractor_notes || null,
+  }
+
+  const { error } = await supabase.from('jobs').update(patch).eq('id', input.id)
 
   if (error) {
     return { error: `Failed to update job: ${error.message}` }
+  }
+
+  // Reversible-amendment snapshot — record the PRE-edit job row as a new
+  // version whenever a tracked field actually changed. Locked/invoiced edits
+  // carry the operator's override reason (captured at the "Edit anyway"
+  // gate). Best-effort: never blocks the save.
+  const changedFields = computeChangedJobFields(current, patch)
+  if (current && changedFields.length > 0) {
+    let reason: string | null = null
+    if (guard.overridden) {
+      const { data: ov } = await supabase
+        .from('audit_log')
+        .select('after')
+        .eq('entity_id', input.id)
+        .eq('action', 'job.override_initiated')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      reason = ((ov?.after as { reason?: string } | null)?.reason) ?? null
+    }
+    await snapshotJobVersion(supabase, {
+      jobId: input.id,
+      snapshot: current,
+      changedFields,
+      reason,
+      actorId: user?.id ?? null,
+      actorEmail: user?.email ?? null,
+    })
   }
 
   // Phase quote-flow-clarity: schedule-change audit trail. Only
