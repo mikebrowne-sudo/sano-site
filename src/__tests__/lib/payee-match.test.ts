@@ -27,10 +27,25 @@ describe('payeeTokens', () => {
 })
 
 describe('matchClientsForPayee', () => {
-  it('maps a B&T branch payee to all Barfoot clients (manager scope)', () => {
-    const m = matchClientsForPayee('B&T Onehunga', CLIENTS)
+  it('narrows a B&T branch payee to the specific branch', () => {
+    // "B&T Onehunga" → tokens [barfoot, onehunga]: the Onehunga branch
+    // matches both (score 2) and wins over branches that match only
+    // "barfoot" (score 1), so we scope to that one client, not all branches.
+    expect(matchClientsForPayee('B&T Onehunga', CLIENTS)).toEqual([
+      'Barfoot & Thompson - Onehunga',
+    ])
+    expect(matchClientsForPayee('B&T Remuera', CLIENTS)).toEqual([
+      'Barfoot & Thompson - Remuera',
+    ])
+  })
+
+  it('keeps manager-wide scope for a bare manager payee', () => {
+    // No branch token — every Barfoot branch ties on "barfoot", so a
+    // manager-level (cross-branch bundle) payment still matches them all.
+    const m = matchClientsForPayee('B&T', CLIENTS)
     expect(m).toContain('Barfoot & Thompson - Onehunga')
-    expect(m).toContain('Barfoot & Thompson - Remuera') // manager-level scope
+    expect(m).toContain('Barfoot & Thompson - Remuera')
+    expect(m).toContain('Barfoot & Thompson - Ellerslie')
   })
 
   it('maps a property manager payee to that client only', () => {
