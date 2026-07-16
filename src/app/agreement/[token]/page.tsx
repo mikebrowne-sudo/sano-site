@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation'
 import { CheckCircle2 } from 'lucide-react'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { EmploymentAgreementDocument, agreementViewFromRow } from '@/components/EmploymentAgreementDocument'
-import { SignAgreementForm } from './_components/SignAgreementForm'
+import { SignAgreementForm, type PrefillValues } from './_components/SignAgreementForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +31,41 @@ export default async function PublicAgreementPage({ params }: { params: { token:
 
   const view = agreementViewFromRow(a)
 
+  // Pre-fill from a linked worker record (or the agreement itself) so anything
+  // already captured isn't re-typed. Uses the rich contractors record when the
+  // agreement is linked; falls back to the details captured on the agreement.
+  let prefill: PrefillValues | undefined
+  if (!signed) {
+    const cid = a.contractor_id as string | null
+    if (cid) {
+      const { data: c } = await svc
+        .from('contractors')
+        .select('full_name, preferred_name, phone, email, address, date_of_birth, ird_number, bank_account_name, bank_account_number, company_name, legal_name, nzbn, company_number, gst_registered, gst_number, business_structure, insurance_provider, insurance_liability_cover, insurance_expiry, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship')
+        .eq('id', cid)
+        .maybeSingle()
+      if (c) {
+        const r = c as Record<string, unknown>
+        const s = (v: unknown) => (v == null ? undefined : String(v))
+        prefill = {
+          fullName: s(r.full_name), preferredName: s(r.preferred_name), phone: s(r.phone), email: s(r.email),
+          address: s(r.address), dateOfBirth: s(r.date_of_birth), ird: s(r.ird_number),
+          bankName: s(r.bank_account_name), bank: s(r.bank_account_number),
+          tradingName: s(r.company_name), legalName: s(r.legal_name), nzbn: s(r.nzbn), companyNumber: s(r.company_number),
+          gstNumber: s(r.gst_number), businessStructure: s(r.business_structure), gstRegistered: (r.gst_registered as boolean | null) ?? undefined,
+          insurerName: s(r.insurance_provider), insuranceCover: s(r.insurance_liability_cover), insuranceExpiry: s(r.insurance_expiry),
+          emName: s(r.emergency_contact_name), emPhone: s(r.emergency_contact_phone), emRel: s(r.emergency_contact_relationship),
+        }
+      }
+    } else {
+      prefill = {
+        fullName: (a.employee_full_name as string | null) ?? undefined,
+        email: (a.employee_email as string | null) ?? undefined,
+        phone: (a.employee_phone as string | null) ?? undefined,
+        address: (a.employee_address as string | null) ?? undefined,
+      }
+    }
+  }
+
   return (
     <div className="min-h-screen bg-sage-50/40 py-8 px-4">
       <div className="max-w-5xl mx-auto">
@@ -43,7 +78,7 @@ export default async function PublicAgreementPage({ params }: { params: { token:
           </>
         ) : (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-7">
-            <SignAgreementForm token={params.token} type={isContractor ? 'contractor' : 'casual_employee'} initialDocs={initialDocs} agreement={view} />
+            <SignAgreementForm token={params.token} type={isContractor ? 'contractor' : 'casual_employee'} initialDocs={initialDocs} agreement={view} prefill={prefill} />
           </div>
         )}
       </div>
