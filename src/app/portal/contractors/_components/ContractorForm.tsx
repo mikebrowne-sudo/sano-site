@@ -274,7 +274,7 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-2xl space-y-10">
+    <form onSubmit={handleSubmit} className="max-w-4xl space-y-10">
 
       {/* ── Profile (shared) ───────────────────────────── */}
       <Section title="Profile">

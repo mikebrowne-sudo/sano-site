@@ -57,8 +57,9 @@ export const NAV_GROUPS: NavGroup[] = [
     heading: 'Workforce',
     items: [
       { href: '/portal/applicants',  label: 'Applicants',             icon: UserPlus },
-      { href: '/portal/contractors', label: 'Contractors',            icon: HardHat },
-      { href: '/portal/employees',   label: 'Employees',              icon: Users },
+      { href: '/portal/contractors', label: 'Workforce',              icon: HardHat },
+      // Employees now live under Workforce (contractors, worker_type='employee').
+      // The legacy /portal/employees page redirects there.
       { href: '/portal/staff',       label: 'Staff',                  icon: UserCog },
       { href: '/portal/training',    label: 'Training & compliance',  icon: BookOpen },
     ],

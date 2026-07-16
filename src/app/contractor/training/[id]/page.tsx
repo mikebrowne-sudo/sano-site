@@ -19,6 +19,36 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+// Render module content with light structure: "- " lines become bullet lists,
+// lines ending in ":" become sub-headings, blank lines separate paragraphs.
+function renderModuleContent(content: string): JSX.Element[] {
+  const blocks: JSX.Element[] = []
+  let list: string[] = []
+  const flushList = () => {
+    if (list.length) {
+      blocks.push(
+        <ul key={`u${blocks.length}`} className="list-disc pl-5 space-y-1 marker:text-sage-400">
+          {list.map((li, i) => <li key={i}>{li}</li>)}
+        </ul>,
+      )
+      list = []
+    }
+  }
+  for (const raw of content.split('\n')) {
+    const line = raw.trim()
+    if (!line) { flushList(); continue }
+    if (line.startsWith('- ')) { list.push(line.slice(2)); continue }
+    flushList()
+    if (line.endsWith(':')) {
+      blocks.push(<p key={`h${blocks.length}`} className="font-semibold text-sage-800">{line}</p>)
+    } else {
+      blocks.push(<p key={`p${blocks.length}`}>{line}</p>)
+    }
+  }
+  flushList()
+  return blocks
+}
+
 export default async function ContractorTrainingDetailPage({ params }: { params: { id: string } }) {
   const { supabase, contractor } = await getContractor()
 
@@ -70,7 +100,7 @@ export default async function ContractorTrainingDetailPage({ params }: { params:
       {mod?.content && (
         <div className="bg-white rounded-2xl border border-sage-100 p-5 mt-4">
           <h2 className="text-xs text-sage-500 font-semibold uppercase tracking-wide mb-3">Content</h2>
-          <div className="text-sage-700 text-sm whitespace-pre-wrap leading-relaxed">{mod.content}</div>
+          <div className="text-sage-700 text-sm leading-relaxed space-y-2.5">{renderModuleContent(mod.content)}</div>
         </div>
       )}
 

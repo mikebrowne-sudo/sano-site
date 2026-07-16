@@ -21,8 +21,10 @@ export default async function AgreementsPage() {
       .from('employment_agreements')
       .select('id, person_label, position, status, signed_at, created_at, agreement_type, is_test')
       .order('created_at', { ascending: false }),
-    supabase.from('contractors').select('id, full_name, email').eq('status', 'active').order('full_name'),
-    supabase.from('employees').select('id, full_name, email').eq('status', 'active').order('full_name'),
+    supabase.from('contractors').select('id, full_name, email').eq('worker_type', 'contractor').eq('status', 'active').order('full_name'),
+    // Employees are contractors rows (worker_type='employee') — the legacy
+    // employees table is retired.
+    supabase.from('contractors').select('id, full_name, email').eq('worker_type', 'employee').eq('status', 'active').order('full_name'),
   ])
 
   return (

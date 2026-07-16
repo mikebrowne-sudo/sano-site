@@ -44,14 +44,17 @@ export async function createEmploymentAgreement(input: {
       prefill.employee_phone = c.phone ?? null
     }
   } else if (!isContractor && input.linkedEmployeeId) {
+    // Employees are contractors rows (worker_type='employee'); link via
+    // contractor_id so signing updates that same workforce record.
     const { data: e } = await supabase
-      .from('employees')
+      .from('contractors')
       .select('id, full_name, email, phone, address')
       .eq('id', input.linkedEmployeeId)
+      .eq('worker_type', 'employee')
       .maybeSingle()
     if (e) {
       linkedLabel = e.full_name as string
-      prefill.employee_id = e.id
+      prefill.contractor_id = e.id
       prefill.employee_full_name = e.full_name
       prefill.employee_email = e.email ?? null
       prefill.employee_phone = e.phone ?? null

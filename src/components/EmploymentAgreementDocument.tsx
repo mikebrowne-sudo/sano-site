@@ -30,6 +30,8 @@ export interface AgreementView {
   insuranceExpiry: string | null
   signedName: string | null
   signedAt: string | null
+  agreementVersion: string | null
+  issuedAt: string | null
 }
 
 /** Map an employment_agreements DB row to the document view. */
@@ -58,6 +60,8 @@ export function agreementViewFromRow(a: any): AgreementView {
     insuranceExpiry: a.insurance_expiry ?? null,
     signedName: a.signed_name ?? null,
     signedAt: a.signed_at ?? null,
+    agreementVersion: a.agreement_version ?? null,
+    issuedAt: a.created_at ?? null,
   }
 }
 
@@ -121,6 +125,23 @@ export function EmploymentAgreementDocument({
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: QUOTE_INVOICE_CSS }} />
+      {/* Print-only page numbers (agreement PDF). Reserves a small bottom
+          margin and renders "Page x of y" bottom-right. Screen view unaffected. */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @page {
+          margin: 0 0 12mm 0;
+          @bottom-right {
+            content: "Page " counter(page) " of " counter(pages);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 8pt;
+            color: #9AA39E;
+            padding: 5mm 14mm 0 0;
+          }
+        }
+      ` }} />
+      {wrapper === 'print-overlay' && (
+        <style dangerouslySetInnerHTML={{ __html: `@media print { .doc { box-shadow: none; } }` }} />
+      )}
       <div className={wrapper}>
         <article className="doc" aria-label="Agreement">
           {/* Branded header */}
@@ -136,6 +157,9 @@ export function EmploymentAgreementDocument({
                 <dl className="doc-meta-grid">
                   <dt>Status</dt>
                   <dd>{a.signedAt ? 'Signed' : 'Draft'}</dd>
+                  {a.agreementVersion && (<><dt>Version</dt><dd>{a.agreementVersion}</dd></>)}
+                  <dt>Issued</dt>
+                  <dd>{fmtDate(a.issuedAt)}</dd>
                   {a.signedAt && (<><dt>Signed</dt><dd>{fmtDate(a.signedAt)}</dd></>)}
                   <dt>Commences</dt>
                   <dd>{fmtDate(a.startDate)}</dd>
@@ -196,11 +220,7 @@ export function EmploymentAgreementDocument({
                 <p className="text-sm text-emerald-700 mt-1">{a.signedName} · {fmtDate(a.signedAt)}</p>
                 <p className="text-[11px] text-emerald-600 mt-1">Electronically signed — by typing their name the {signerLabel} confirmed they had read, understood, and agreed to this Agreement.</p>
               </div>
-            ) : (
-              <p className="mt-7 text-xs text-sage-400">
-                This document is a template and should be reviewed by a qualified New Zealand {isContractor ? 'employment and commercial' : 'employment'} lawyer before use.
-              </p>
-            )}
+            ) : null}
           </div>
 
           {/* Dark footer */}
