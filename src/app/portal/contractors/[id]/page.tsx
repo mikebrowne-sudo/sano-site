@@ -262,7 +262,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
               </div>
             )}
           </div>
-          {workerType === 'contractor' && (
+          {(workerType === 'contractor' || workerType === 'employee') && (
             <div className="bg-white rounded-xl border border-sage-100 shadow-sm p-6">
               <h2 className="text-lg font-semibold text-sage-800 mb-3">Competency sign-off</h2>
               <CompetencyPanel

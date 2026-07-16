@@ -30,6 +30,7 @@ export interface SignAgreementInput {
   bankAccountName?: string
   bankAccount: string
   kiwisaverChoice: string // 'opt_out' | 'stay_in'
+  kiwisaverRate?: string // employee KiwiSaver contribution rate (3/4/6/8/10)
   emergencyName?: string
   emergencyPhone?: string
   emergencyRelationship?: string
@@ -208,34 +209,90 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
       }
     }
   } else {
-    const empFields = {
+    // Phase 7 — employees converge onto the payroll-wired contractors table
+    // (worker_type='employee'). The employees table is no longer written to.
+    const enrolled = input.kiwisaverChoice === 'stay_in'
+    const empRate = input.kiwisaverRate ? Number(input.kiwisaverRate) : null
+    const core = {
       full_name: name,
-      preferred_name: input.preferredName?.trim() || null,
-      phone: input.phone?.trim() || null,
       email,
-      address: input.address?.trim() || null,
-      date_of_birth: input.dateOfBirth || null,
-      start_date: (agreement.start_date as string | null) || null,
+      phone: input.phone?.trim() || null,
+      worker_type: 'employee',
+      employment_type: 'casual',
       position: (agreement.position as string | null) || null,
-      hourly_rate: agreement.hourly_rate,
+      start_date: (agreement.start_date as string | null) || null,
+      base_hourly_rate: agreement.hourly_rate,
       ird_number: input.irdNumber?.trim() || null,
-      tax_code: input.taxCode?.trim() || 'M',
-      kiwisaver_opt_out: input.kiwisaverChoice !== 'stay_in',
+      // ND safety: until the IR330 is received AND payroll-verified, PAYE uses
+      // the no-notification rate. Staff set the real code once IR330 is verified.
+      tax_code: 'ND',
+      ir330_received: false,
+      kiwisaver_enrolled: enrolled,
+      kiwisaver_employee_rate: enrolled ? empRate : null,
+      kiwisaver_employer_rate: enrolled ? 3 : null,
       bank_account_name: input.bankAccountName?.trim() || null,
       bank_account_number: input.bankAccount?.trim() || null,
-      emergency_contact_name: input.emergencyName?.trim() || null,
-      emergency_contact_phone: input.emergencyPhone?.trim() || null,
-      emergency_contact_relationship: input.emergencyRelationship?.trim() || null,
-      agreement_id: agreement.id,
+      contract_signed_date: today,
+      status: 'onboarding',
+      onboarding_status: 'in_progress',
     }
-    let employeeId: string | null = (agreement.employee_id as string | null) ?? null
-    if (employeeId) {
-      await svc.from('employees').update(empFields).eq('id', employeeId)
+    // Prefer a pre-linked workforce record; else match an existing employee by
+    // email; else create. Never touches contractor-type rows.
+    let workerId = (agreement.contractor_id as string | null) ?? null
+    if (!workerId && email) {
+      workerId = ((await svc.from('contractors').select('id').ilike('email', email).eq('worker_type', 'employee').maybeSingle()).data?.id as string | null) ?? null
+    }
+    if (workerId) {
+      await svc.from('contractors').update(core).eq('id', workerId)
     } else {
-      const { data: emp } = await svc.from('employees').insert(empFields).select('id').single()
-      employeeId = (emp?.id as string | null) ?? null
+      const { data: created } = await svc.from('contractors').insert(core).select('id').single()
+      workerId = (created?.id as string | null) ?? null
     }
-    if (employeeId) await svc.from('employment_agreements').update({ employee_id: employeeId }).eq('id', agreement.id)
+    if (workerId) {
+      await svc.from('employment_agreements').update({ contractor_id: workerId }).eq('id', agreement.id)
+
+      // Extended fields (best-effort — depend on the migrations).
+      const { error: extErr } = await svc.from('contractors').update({
+        preferred_name: input.preferredName?.trim() || null,
+        address: input.address?.trim() || null,
+        date_of_birth: input.dateOfBirth || null,
+        emergency_contact_name: input.emergencyName?.trim() || null,
+        emergency_contact_phone: input.emergencyPhone?.trim() || null,
+        emergency_contact_relationship: input.emergencyRelationship?.trim() || null,
+        agreement_id: agreement.id,
+      }).eq('id', workerId)
+      if (extErr) console.error('[agreement] employee extended fields not saved:', extErr.message)
+
+      // Seed the employee checklist + auto-complete system + supplied items.
+      try {
+        const { data: rtwRow } = await svc.from('contractors').select('right_to_work_required').eq('id', workerId).maybeSingle()
+        await seedAndAutoCompleteOnboardingOnSign(svc, {
+          contractorId: workerId,
+          agreementId: agreement.id,
+          workerType: 'employee',
+          rightToWorkRequired: !!(rtwRow as { right_to_work_required?: boolean } | null)?.right_to_work_required,
+        })
+      } catch (e) {
+        console.error('[agreement] employee onboarding seed failed:', e instanceof Error ? e.message : e)
+      }
+
+      // Attach uploaded documents + complete the *_uploaded items.
+      try {
+        await svc.from('worker_documents').update({ contractor_id: workerId }).eq('agreement_id', agreement.id).is('contractor_id', null)
+        const { data: docs } = await svc.from('worker_documents').select('document_type').eq('agreement_id', agreement.id)
+        const docTypes = ((docs ?? []) as { document_type: string }[]).map((d) => d.document_type)
+        if (docTypes.length > 0) await completeUploadedItems(svc, { contractorId: workerId, docTypes })
+      } catch (e) {
+        console.error('[agreement] employee document attach failed:', e instanceof Error ? e.message : e)
+      }
+
+      // Auto-assign the employee induction modules.
+      try {
+        await autoAssignInductionModules(svc, workerId, 'employee')
+      } catch (e) {
+        console.error('[agreement] employee induction auto-assign failed:', e instanceof Error ? e.message : e)
+      }
+    }
   }
 
   // Confirmation email with the signed PDF attached. Fail-soft: the signature

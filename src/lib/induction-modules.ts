@@ -51,14 +51,17 @@ export function isInductionComplete(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = any
 
-/** The active, auto-assign modules that apply to contractors. */
-async function loadContractorInductionModules(client: AnyClient): Promise<InductionModuleReq[]> {
+/** The active, auto-assign induction modules that apply to a worker type. */
+async function loadInductionModules(
+  client: AnyClient,
+  workerType: 'contractor' | 'employee' = 'contractor',
+): Promise<InductionModuleReq[]> {
   const { data } = await client
     .from('training_modules')
     .select('id, requires_acknowledgement, requires_completion')
     .eq('auto_assign', true)
     .eq('status', 'active')
-    .in('applies_to', ['contractor', 'both'])
+    .in('applies_to', [workerType, 'both'])
   return (data ?? []) as InductionModuleReq[]
 }
 
@@ -70,8 +73,9 @@ async function loadContractorInductionModules(client: AnyClient): Promise<Induct
 export async function autoAssignInductionModules(
   client: AnyClient,
   contractorId: string,
+  workerType: 'contractor' | 'employee' = 'contractor',
 ): Promise<{ assigned: number }> {
-  const modules = await loadContractorInductionModules(client)
+  const modules = await loadInductionModules(client, workerType)
   if (modules.length === 0) return { assigned: 0 }
   const rows = modules.map((m) => ({
     contractor_id: contractorId,
@@ -93,8 +97,9 @@ export async function autoAssignInductionModules(
 export async function completeInductionIfDone(
   client: AnyClient,
   contractorId: string,
+  workerType: 'contractor' | 'employee' = 'contractor',
 ): Promise<{ completed: boolean }> {
-  const modules = await loadContractorInductionModules(client)
+  const modules = await loadInductionModules(client, workerType)
   if (modules.length === 0) return { completed: false }
 
   const { data: asg } = await client

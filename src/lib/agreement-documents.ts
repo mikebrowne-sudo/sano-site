@@ -35,10 +35,30 @@ export function agreementDocTypesForStructure(structure?: string | null): Agreem
   return base
 }
 
+// Employee document slots (Phase 7). ID + right-to-work complete the matching
+// *_uploaded items; IR330 + KiwiSaver forms are evidence for staff verification
+// and complete NO checklist item.
+export const EMPLOYEE_DOC_TYPES: readonly AgreementDocType[] = [
+  { value: 'id_verification', label: 'Photo ID',                    hint: 'Passport or driver licence' },
+  { value: 'right_to_work',   label: 'Right-to-work evidence',      hint: 'Only if you work on a visa' },
+  { value: 'ir330',           label: 'IR330 tax code declaration',  hint: 'Your completed IR330 form' },
+  { value: 'kiwisaver',       label: 'KiwiSaver form',              hint: 'KS2 / opt-out form, if applicable' },
+]
+
+/** Document slots for a worker type (employee) or contractor structure. */
+export function agreementDocTypesForWorker(
+  workerType: 'contractor' | 'employee',
+  structure?: string | null,
+): AgreementDocType[] {
+  return workerType === 'employee' ? EMPLOYEE_DOC_TYPES.slice() : agreementDocTypesForStructure(structure)
+}
+
 // All document types the upload action will accept (validation whitelist).
 export const AGREEMENT_DOC_TYPE_VALUES: string[] = [
   ...AGREEMENT_DOC_TYPES.map((d) => d.value),
   IR330C_DOC_TYPE.value,
+  'ir330',
+  'kiwisaver',
 ]
 
 export function agreementDocLabel(value: string): string {

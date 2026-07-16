@@ -8,7 +8,7 @@
 import { useState } from 'react'
 import { Loader2, Check, X, Upload } from 'lucide-react'
 import { uploadAgreementDocument, deleteAgreementDocument } from '../_actions'
-import { agreementDocTypesForStructure } from '@/lib/agreement-documents'
+import { agreementDocTypesForWorker } from '@/lib/agreement-documents'
 
 export interface UploadedDoc {
   id: string
@@ -21,15 +21,17 @@ export function AgreementDocumentsUpload({
   token,
   initialDocs,
   structure,
+  workerType = 'contractor',
 }: {
   token: string
   initialDocs: UploadedDoc[]
   structure?: string | null
+  workerType?: 'contractor' | 'employee'
 }) {
   const [docs, setDocs] = useState<UploadedDoc[]>(initialDocs)
   const [busyType, setBusyType] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const docTypes = agreementDocTypesForStructure(structure)
+  const docTypes = agreementDocTypesForWorker(workerType, structure)
 
   async function onPick(documentType: string, file: File) {
     setError(null)

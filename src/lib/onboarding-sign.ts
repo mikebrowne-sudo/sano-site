@@ -19,7 +19,7 @@
 // This helper is deliberately IO-thin and takes the Supabase client so it
 // can run on the service-role client from the token-keyed sign action.
 
-import { onboardingSeedRows, SIGN_AUTO_COMPLETE_KEYS, uploadedItemKeysForDocTypes } from './onboarding-checklist'
+import { onboardingSeedRows, SIGN_AUTO_COMPLETE_KEYS, SIGN_SUPPLIED_EMPLOYEE_KEYS, uploadedItemKeysForDocTypes } from './onboarding-checklist'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = any
@@ -27,28 +27,34 @@ type AnyClient = any
 export interface AutoCompleteOnSignArgs {
   contractorId: string
   agreementId: string | null
+  workerType?: 'contractor' | 'employee'
   rightToWorkRequired?: boolean
 }
 
 export async function seedAndAutoCompleteOnboardingOnSign(
   client: AnyClient,
-  { contractorId, agreementId, rightToWorkRequired }: AutoCompleteOnSignArgs,
+  { contractorId, agreementId, workerType = 'contractor', rightToWorkRequired }: AutoCompleteOnSignArgs,
 ): Promise<{ completedKeys: string[] }> {
   // 1. Idempotent seed — insert any missing template rows as pending.
-  const rows = onboardingSeedRows(contractorId, 'contractor', { rightToWorkRequired })
+  const rows = onboardingSeedRows(contractorId, workerType, { rightToWorkRequired })
   if (rows.length > 0) {
     await client
       .from('contractor_onboarding')
       .upsert(rows, { onConflict: 'contractor_id,item_key', ignoreDuplicates: true })
   }
 
-  // 2. Auto-complete only the system items that are still pending.
+  // 2. Auto-complete the system items (both types) + the employee-supplied
+  //    form items (employees only) that are still pending. Document-upload items
+  //    are never auto-completed here — they need a real document.
+  const autoKeys = workerType === 'employee'
+    ? [...SIGN_AUTO_COMPLETE_KEYS, ...SIGN_SUPPLIED_EMPLOYEE_KEYS]
+    : SIGN_AUTO_COMPLETE_KEYS
   const nowIso = new Date().toISOString()
   const { data: completed } = await client
     .from('contractor_onboarding')
     .update({ status: 'complete', completed_at: nowIso, completed_by: null })
     .eq('contractor_id', contractorId)
-    .in('item_key', SIGN_AUTO_COMPLETE_KEYS)
+    .in('item_key', autoKeys)
     .eq('status', 'pending')
     .select('item_key')
 
