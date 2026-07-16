@@ -62,8 +62,8 @@ describe('tax-review — tax_review is staff-only', () => {
     }
   })
 
-  it('tax_review is NOT a required item, so legacy active contractors are never blocked by it', () => {
-    expect(WORKFORCE_SETTINGS_DEFAULTS.contractor_required_items).not.toContain('tax_review')
+  it('tax_review now gates activation (Phase 6); legacy actives are protected by grandfathering instead', () => {
+    expect(WORKFORCE_SETTINGS_DEFAULTS.contractor_required_items).toContain('tax_review')
   })
 })
 

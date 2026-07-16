@@ -53,6 +53,7 @@ export async function OnboardingPanel({
   onboardingStatus,
   trialRequired,
   trialStatus,
+  grandfathered = false,
 }: {
   contractorId: string
   workerType: 'contractor' | 'employee'
@@ -60,6 +61,7 @@ export async function OnboardingPanel({
   onboardingStatus: string | null
   trialRequired: boolean
   trialStatus: string
+  grandfathered?: boolean
 }) {
   const supabase = createClient()
   const [{ data: rowsData }, settings] = await Promise.all([
@@ -117,6 +119,12 @@ export async function OnboardingPanel({
           </span>
         </div>
       </div>
+
+      {grandfathered && (
+        <div className="mb-4 rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-xs text-purple-800">
+          <span className="font-semibold">Legacy transition record.</span> Approved to operate under the previous requirements — historical items are shown below for later review and do not block this contractor.
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <div>
