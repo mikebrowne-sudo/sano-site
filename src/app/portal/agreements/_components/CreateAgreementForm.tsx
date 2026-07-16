@@ -91,10 +91,8 @@ export function CreateAgreementForm({
           <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Position</span>
             <input value={position} onChange={(e) => setPosition(e.target.value)} className={input} /></label>
         )}
-        {!isContractor && (
-          <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Hourly rate $ (incl. 8% hol.)</span>
-            <input type="number" step="0.01" min="0" value={rate} onChange={(e) => setRate(e.target.value)} className={input} placeholder="e.g. 25.00" /></label>
-        )}
+        <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">{isContractor ? 'Contractor rate $ (per hour, ex GST)' : 'Hourly rate $ (incl. 8% hol.)'}</span>
+          <input type="number" step="0.01" min="0" value={rate} onChange={(e) => setRate(e.target.value)} className={input} placeholder={isContractor ? 'e.g. 35.00' : 'e.g. 25.00'} /></label>
         <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">{isContractor ? 'Commencement date' : 'Start date'}</span>
           <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={input} /></label>
       </div>

@@ -98,6 +98,7 @@ export function EmploymentAgreementDocument({
     ? [
         ['Engagement', 'Independent Contractor'],
         ['Commencement date', fmtDate(a.startDate)],
+        ['Agreed rate', a.hourlyRate != null ? `$${Number(a.hourlyRate).toFixed(2)} per hour (exclusive of GST)` : '—'],
         ['Contractor GST No.', a.contractorGstNumber || '—'],
         ['Contractor IRD No.', a.employeeIrdNumber || '—'],
         ['Date of birth', fmtDate(a.dateOfBirth)],
@@ -147,7 +148,7 @@ export function EmploymentAgreementDocument({
             {/* Parties */}
             <section className="doc-parties">
               <div>
-                <div className="doc-party-eyebrow">Employer</div>
+                <div className="doc-party-eyebrow">{isContractor ? 'Principal' : 'Employer'}</div>
                 <div className="doc-party-name">{EMPLOYER.name}</div>
                 <div className="doc-party-detail">{employerLines.join('\n')}</div>
               </div>
