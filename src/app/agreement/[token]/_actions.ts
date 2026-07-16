@@ -15,6 +15,7 @@ import { seedAndAutoCompleteOnboardingOnSign, completeUploadedItems } from '@/li
 import { validateUploadFile } from '@/lib/upload-validation'
 import { AGREEMENT_DOC_TYPE_VALUES } from '@/lib/agreement-documents'
 import { deriveInitialTaxReview } from '@/lib/tax-review'
+import { autoAssignInductionModules } from '@/lib/induction-modules'
 
 export interface SignAgreementInput {
   token: string
@@ -197,6 +198,13 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
         }
       } catch (e) {
         console.error('[agreement] document attach/complete failed:', e instanceof Error ? e.message : e)
+      }
+
+      // Phase 5 — auto-assign the contractor induction modules.
+      try {
+        await autoAssignInductionModules(svc, contractorId)
+      } catch (e) {
+        console.error('[agreement] induction auto-assign failed:', e instanceof Error ? e.message : e)
       }
     }
   } else {
