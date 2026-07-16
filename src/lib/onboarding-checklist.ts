@@ -51,25 +51,38 @@ export const ONBOARDING_TEMPLATE: OnboardingItemTemplate[] = [
   { section: 'Payment Details',  item_key: 'bank_details',           label: 'Bank account details provided',       applies_to: 'both',       kind: 'system', sort_order: 20 },
 
   // Compliance
-  { section: 'Compliance',       item_key: 'id_uploaded',            label: 'Photo ID uploaded',                   applies_to: 'contractor', kind: 'worker', sort_order: 30 },
-  { section: 'Compliance',       item_key: 'id_verified',            label: 'ID verified',                         applies_to: 'both',       kind: 'staff',  sort_order: 31 },
-  { section: 'Compliance',       item_key: 'ird_provided',           label: 'IRD number provided',                 applies_to: 'employee',   kind: 'worker', sort_order: 32 },
-  { section: 'Compliance',       item_key: 'kiwisaver',              label: 'KiwiSaver opt-in / opt-out',          applies_to: 'employee',   kind: 'worker', sort_order: 33 },
-  { section: 'Compliance',       item_key: 'insurance_uploaded',     label: 'Public liability insurance uploaded', applies_to: 'contractor', kind: 'worker', sort_order: 34 },
-  { section: 'Compliance',       item_key: 'insurance_verified',     label: 'Insurance verified',                  applies_to: 'contractor', kind: 'staff',  sort_order: 35 },
-  { section: 'Compliance',       item_key: 'right_to_work_uploaded', label: 'Right-to-work evidence uploaded',     applies_to: 'contractor', kind: 'worker', conditional: 'right_to_work', sort_order: 36 },
-  { section: 'Compliance',       item_key: 'right_to_work_verified', label: 'Right-to-work verified',              applies_to: 'contractor', kind: 'staff',  conditional: 'right_to_work', sort_order: 37 },
-  { section: 'Compliance',       item_key: 'tax_review',             label: 'Tax treatment reviewed (IR330C)',     applies_to: 'contractor', kind: 'staff',  sort_order: 38 },
+  { section: 'Compliance',       item_key: 'id_uploaded',                  label: 'Photo ID uploaded',                   applies_to: 'both',       kind: 'worker', sort_order: 30 },
+  { section: 'Compliance',       item_key: 'id_verified',                  label: 'ID verified',                         applies_to: 'both',       kind: 'staff',  sort_order: 31 },
+  // Employee tax (IR330) — supplied by the worker, verified by payroll staff.
+  { section: 'Compliance',       item_key: 'ir330_supplied',               label: 'IR330 tax details provided',          applies_to: 'employee',   kind: 'worker', sort_order: 32 },
+  { section: 'Compliance',       item_key: 'payroll_tax_verified',         label: 'Payroll tax verified (IR330)',        applies_to: 'employee',   kind: 'staff',  sort_order: 33 },
+  // Employee KiwiSaver — supplied by the worker, verified by payroll staff.
+  { section: 'Compliance',       item_key: 'kiwisaver_information_supplied', label: 'KiwiSaver details provided',         applies_to: 'employee',   kind: 'worker', sort_order: 34 },
+  { section: 'Compliance',       item_key: 'kiwisaver_verified',           label: 'KiwiSaver verified',                  applies_to: 'employee',   kind: 'staff',  sort_order: 35 },
+  // Contractor insurance.
+  { section: 'Compliance',       item_key: 'insurance_uploaded',           label: 'Public liability insurance uploaded', applies_to: 'contractor', kind: 'worker', sort_order: 36 },
+  { section: 'Compliance',       item_key: 'insurance_verified',           label: 'Insurance verified',                  applies_to: 'contractor', kind: 'staff',  sort_order: 37 },
+  // Right to work (both worker types; only when required).
+  { section: 'Compliance',       item_key: 'right_to_work_uploaded',       label: 'Right-to-work evidence uploaded',     applies_to: 'both',       kind: 'worker', conditional: 'right_to_work', sort_order: 38 },
+  { section: 'Compliance',       item_key: 'right_to_work_verified',       label: 'Right-to-work verified',              applies_to: 'both',       kind: 'staff',  conditional: 'right_to_work', sort_order: 39 },
+  // Contractor trading-structure tax review (IR330C).
+  { section: 'Compliance',       item_key: 'tax_review',                   label: 'Tax treatment reviewed (IR330C)',     applies_to: 'contractor', kind: 'staff',  sort_order: 40 },
 
   // Documents
-  { section: 'Documents',        item_key: 'contract_signed',        label: 'Contract signed',                     applies_to: 'both',       kind: 'system', sort_order: 40 },
+  { section: 'Documents',        item_key: 'contract_signed',              label: 'Agreement signed',                    applies_to: 'both',       kind: 'system', sort_order: 45 },
 
   // Training
-  { section: 'Training',         item_key: 'induction_completed',    label: 'Induction & policy modules completed', applies_to: 'both',      kind: 'worker', sort_order: 50 },
+  { section: 'Training',         item_key: 'induction_completed',          label: 'Induction & policy modules completed', applies_to: 'both',      kind: 'worker', sort_order: 50 },
 
   // Competency
-  { section: 'Competency',       item_key: 'competency_confirmed',   label: 'Competency confirmed',                applies_to: 'contractor', kind: 'staff',  sort_order: 60 },
+  { section: 'Competency',       item_key: 'competency_confirmed',         label: 'Competency confirmed',                applies_to: 'both',       kind: 'staff',  sort_order: 60 },
 ]
+
+// The worker-supplied form items that are objectively satisfied once the
+// worker completes and signs (they provided the information on the form).
+// EMPLOYEE-only: contractors don't have these. id/right-to-work uploads are NOT
+// here — those complete only when a real document exists.
+export const SIGN_SUPPLIED_EMPLOYEE_KEYS = ['ir330_supplied', 'kiwisaver_information_supplied']
 
 export interface ChecklistOptions {
   /** Include the conditional right-to-work items. */

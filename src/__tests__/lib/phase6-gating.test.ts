@@ -20,14 +20,13 @@ describe('Phase 6 — required set (gating flip)', () => {
     }
   })
 
-  it('leaves employee required items unchanged (no contractor verification/competency)', () => {
+  it('employee required items use their own gated set (Phase 7), without contractor-only items', () => {
     const emp = WORKFORCE_SETTINGS_DEFAULTS.employee_required_items
-    expect(emp).toEqual([
-      'confirm_details', 'bank_details', 'id_verified',
-      'ird_provided', 'kiwisaver', 'contract_signed', 'induction_completed',
-    ])
-    for (const k of ['insurance_verified', 'id_uploaded', 'tax_review', 'competency_confirmed']) {
-      expect(emp).not.toContain(k)
+    for (const k of ['payroll_tax_verified', 'kiwisaver_verified', 'competency_confirmed', 'induction_completed']) {
+      expect(emp).toContain(k)
+    }
+    for (const contractorOnly of ['insurance_verified', 'tax_review']) {
+      expect(emp).not.toContain(contractorOnly)
     }
   })
 })

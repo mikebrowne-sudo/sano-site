@@ -19,7 +19,7 @@ export default async function PublicAgreementPage({ params }: { params: { token:
   // Documents the contractor has already uploaded on this agreement (Phase 3).
   // Degrades to [] if the agreement_id column isn't present yet.
   let initialDocs: { id: string; documentType: string; title: string; fileName: string }[] = []
-  if (isContractor && !signed) {
+  if (!signed) {
     const { data: docRows } = await svc
       .from('worker_documents')
       .select('id, document_type, title')

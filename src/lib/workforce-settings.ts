@@ -65,9 +65,15 @@ export const WORKFORCE_SETTINGS_DEFAULTS: WorkforceSettings = {
     'right_to_work_uploaded', 'right_to_work_verified',
     'tax_review', 'induction_completed', 'competency_confirmed',
   ],
+  // Phase 7 — employee gating set. RTW items only count where those rows exist
+  // (right_to_work_required). Existing ACTIVE employees are grandfathered.
   employee_required_items: [
-    'confirm_details', 'bank_details', 'id_verified',
-    'ird_provided', 'kiwisaver', 'contract_signed', 'induction_completed',
+    'confirm_details', 'bank_details', 'contract_signed',
+    'id_uploaded', 'id_verified',
+    'ir330_supplied', 'payroll_tax_verified',
+    'kiwisaver_information_supplied', 'kiwisaver_verified',
+    'right_to_work_uploaded', 'right_to_work_verified',
+    'induction_completed', 'competency_confirmed',
   ],
   enable_contractor_portal: true,
   enable_pwa_prompt: true,

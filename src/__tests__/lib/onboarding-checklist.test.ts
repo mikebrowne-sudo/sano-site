@@ -23,9 +23,10 @@ describe('onboarding checklist — signing auto-complete set', () => {
 })
 
 describe('onboarding checklist — staff verification items', () => {
-  it('are the five verification/sign-off keys', () => {
+  it('are the verification/sign-off keys (incl. employee payroll/kiwisaver)', () => {
     expect(STAFF_VERIFICATION_KEYS).toEqual([
-      'id_verified', 'insurance_verified', 'right_to_work_verified', 'tax_review', 'competency_confirmed',
+      'id_verified', 'payroll_tax_verified', 'kiwisaver_verified',
+      'insurance_verified', 'right_to_work_verified', 'tax_review', 'competency_confirmed',
     ])
   })
 
@@ -82,13 +83,12 @@ describe('onboarding checklist — worker-type filtering', () => {
     ])
   })
 
-  it('employee list is unchanged except the training→induction rename (no contractor upload/verify items)', () => {
+  it('employee list excludes contractor-only insurance/tax items (full list covered in phase7 tests)', () => {
     const k = keys(checklistForWorkerType('employee'))
-    expect(k).toEqual([
-      'confirm_details', 'bank_details', 'id_verified', 'ird_provided', 'kiwisaver',
-      'contract_signed', 'induction_completed',
-    ])
-    for (const contractorOnly of ['id_uploaded', 'insurance_uploaded', 'insurance_verified', 'tax_review', 'competency_confirmed', 'right_to_work_uploaded', 'right_to_work_verified']) {
+    expect(k).toContain('confirm_details')
+    expect(k).toContain('contract_signed')
+    expect(k).toContain('induction_completed')
+    for (const contractorOnly of ['insurance_uploaded', 'insurance_verified', 'tax_review']) {
       expect(k).not.toContain(contractorOnly)
     }
   })
