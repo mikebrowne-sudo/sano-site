@@ -92,20 +92,21 @@ export async function sendAgreementLinkEmail(params: {
   const first = params.personName.trim().split(/\s+/)[0] || 'there'
   const { error } = await resend.emails.send({
     from: 'Sano <noreply@sano.nz>',
-    replyTo: getCustomerReplyToEmail(),
+    replyTo: 'michael@sano.nz',
     to: params.to,
-    subject: `Your Sano ${typeLabel} agreement — review & sign`,
+    subject: `Your Sano ${typeLabel} agreement`,
     html: `
       <div style="font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1F2933;font-size:15px;line-height:1.6;max-width:560px;">
         <p>Hi ${escHtml(first)},</p>
-        <p>Your Sano ${typeLabel} agreement is ready to review and sign online — it only takes a few minutes.</p>
-        <p>Open the secure link below to read your agreement, confirm your details, upload a couple of documents, and sign electronically. You can save and come back to it anytime using the same link.</p>
+        <p>Thanks again for coming on board with Sano.</p>
+        <p>Your ${typeLabel} agreement is ready to review and complete online using the secure link below:</p>
         <p style="margin:26px 0;">
-          <a href="${escHtml(params.link)}" style="background:#076653;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:8px;display:inline-block;">Review &amp; sign your agreement →</a>
+          <a href="${escHtml(params.link)}" style="background:#076653;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:8px;display:inline-block;">Review and complete your agreement</a>
         </p>
-        <p style="font-size:13px;color:#6B7280;">Or paste this link into your browser:<br>${escHtml(params.link)}</p>
-        <p>Once you've signed, we'll email you a copy for your records. Any questions, just reply to this email or call us on 0800 726 686.</p>
-        <p style="margin-top:22px;">Kind regards,<br>The Sano team</p>
+        <p>You&rsquo;ll be able to check your details, upload the required documents and sign the agreement online. You can also return to it later using the same link if you don&rsquo;t finish it in one go.</p>
+        <p>Once it&rsquo;s completed, a signed copy will be emailed to you for your records.</p>
+        <p>If you have any questions or need any assistance completing it, please let me know.</p>
+        <p style="margin-top:22px;">Kind regards,<br>Michael<br><a href="mailto:michael@sano.nz" style="color:#076653;">michael@sano.nz</a><br>021 168 5553</p>
       </div>
     `,
   })
