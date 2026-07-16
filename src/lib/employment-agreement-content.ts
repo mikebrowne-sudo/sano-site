@@ -216,7 +216,7 @@ export const CONTRACTOR_AGREEMENT_SECTIONS: AgreementSection[] = [
   {
     title: '9. Insurance',
     body: [
-      '9.1 The Contractor must hold and maintain current public liability insurance appropriate to the Services — the Principal’s minimum requirement is $1,000,000.00 for residential work and $2,000,000.00 for commercial work — and must provide evidence of cover on request and before commencing Services. The Principal may suspend or terminate this Agreement if the Contractor fails to maintain adequate cover.',
+      '9.1 The Contractor must hold and maintain current public liability insurance appropriate to the Services — the Principal’s minimum requirement is $1,000,000 for residential work and $2,000,000 for commercial work — and must provide evidence of cover on request and before commencing Services. The Principal may suspend or terminate this Agreement if the Contractor fails to maintain adequate cover.',
       '9.2 The Contractor acknowledges the Principal’s insurance does not extend to the Contractor, their personnel, subcontractors or equipment.',
     ],
   },

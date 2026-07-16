@@ -471,7 +471,7 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
           <Field label="Expiry date" type="date" value={insuranceExpiry} onChange={setInsuranceExpiry} />
           <Field label="Public liability cover ($)" type="number" step="1000" min="0" value={insuranceLiabilityCover} onChange={setInsuranceLiabilityCover} placeholder="e.g. 2000000" />
         </div>
-        <p className="text-xs text-sage-500 mt-3">{!isEmployee && 'Sano minimum: $1,000,000.00 for residential work, $2,000,000.00 for commercial. '}Upload the insurance certificate under Documents (type: Insurance) after saving.</p>
+        <p className="text-xs text-sage-500 mt-3">{!isEmployee && 'Sano minimum: $1,000,000 for residential work, $2,000,000 for commercial. '}Upload the insurance certificate under Documents (type: Insurance) after saving.</p>
       </Section>
 
       {/* Compliance (shared) */}

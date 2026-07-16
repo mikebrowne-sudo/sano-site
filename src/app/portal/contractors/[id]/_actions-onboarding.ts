@@ -192,12 +192,13 @@ export async function seedContractorChecklist(input: {
 
   const { data: row } = await supabase
     .from('contractors')
-    .select('id, worker_type')
+    .select('id, worker_type, right_to_work_required')
     .eq('id', input.contractorId)
     .maybeSingle()
   if (!row) return { error: 'Contractor not found.' }
 
-  const wt = ((row as { worker_type?: string | null }).worker_type ?? 'contractor') as 'contractor' | 'employee'
+  const contractorRow = row as { worker_type?: string | null; right_to_work_required?: boolean | null }
+  const wt = (contractorRow.worker_type ?? 'contractor') as 'contractor' | 'employee'
 
   const { data: existing } = await supabase
     .from('contractor_onboarding')
@@ -205,7 +206,7 @@ export async function seedContractorChecklist(input: {
     .eq('contractor_id', input.contractorId)
   const existingKeys = new Set(((existing ?? []) as { item_key: string }[]).map((r) => r.item_key))
 
-  const rows = checklistForWorkerType(wt)
+  const rows = checklistForWorkerType(wt, { rightToWorkRequired: !!contractorRow.right_to_work_required })
     .filter((it) => !existingKeys.has(it.item_key))
     .map((it) => ({
       contractor_id: input.contractorId,

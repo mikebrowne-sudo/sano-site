@@ -11,6 +11,7 @@ import { renderPdfFromUrl } from '@/lib/pdf/render-pdf'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { sendAgreementSignedEmail } from '@/lib/resend'
 import { parseCoverAmount } from '@/lib/parse-cover-amount'
+import { seedAndAutoCompleteOnboardingOnSign } from '@/lib/onboarding-sign'
 
 export interface SignAgreementInput {
   token: string
@@ -139,6 +140,25 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
         agreement_id: agreement.id,
       }).eq('id', contractorId)
       if (extErr) console.error('[agreement] extended contractor fields not saved (run 2026-07-04 migration?):', extErr.message)
+
+      // Phase 2 — seed the onboarding checklist and auto-complete only the
+      // objectively-satisfied items (confirm_details, bank_details,
+      // contract_signed). Idempotent + best-effort: a checklist hiccup must
+      // never fail a signature that is already saved.
+      try {
+        const { data: rtwRow } = await svc
+          .from('contractors')
+          .select('right_to_work_required')
+          .eq('id', contractorId)
+          .maybeSingle()
+        await seedAndAutoCompleteOnboardingOnSign(svc, {
+          contractorId,
+          agreementId: agreement.id,
+          rightToWorkRequired: !!(rtwRow as { right_to_work_required?: boolean } | null)?.right_to_work_required,
+        })
+      } catch (e) {
+        console.error('[agreement] onboarding checklist auto-complete failed:', e instanceof Error ? e.message : e)
+      }
     }
   } else {
     const empFields = {
