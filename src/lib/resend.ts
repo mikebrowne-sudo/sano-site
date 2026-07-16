@@ -77,6 +77,41 @@ export async function sendReviewRequestEmail(params: ReviewRequestEmailParams) {
   if (error) throw new Error(error.message)
 }
 
+/**
+ * Send a worker the private link to review + sign their agreement. Staff-
+ * triggered from the agreement page (never automatic). Throws on send failure.
+ */
+export async function sendAgreementLinkEmail(params: {
+  to: string
+  personName: string
+  agreementType: 'contractor' | 'casual_employee'
+  link: string
+}) {
+  const resend = getResendClient()
+  const typeLabel = params.agreementType === 'contractor' ? 'contractor' : 'employment'
+  const first = params.personName.trim().split(/\s+/)[0] || 'there'
+  const { error } = await resend.emails.send({
+    from: 'Sano <noreply@sano.nz>',
+    replyTo: getCustomerReplyToEmail(),
+    to: params.to,
+    subject: `Your Sano ${typeLabel} agreement — review & sign`,
+    html: `
+      <div style="font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1F2933;font-size:15px;line-height:1.6;max-width:560px;">
+        <p>Hi ${escHtml(first)},</p>
+        <p>Your Sano ${typeLabel} agreement is ready to review and sign online — it only takes a few minutes.</p>
+        <p>Open the secure link below to read your agreement, confirm your details, upload a couple of documents, and sign electronically. You can save and come back to it anytime using the same link.</p>
+        <p style="margin:26px 0;">
+          <a href="${escHtml(params.link)}" style="background:#076653;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:8px;display:inline-block;">Review &amp; sign your agreement →</a>
+        </p>
+        <p style="font-size:13px;color:#6B7280;">Or paste this link into your browser:<br>${escHtml(params.link)}</p>
+        <p>Once you've signed, we'll email you a copy for your records. Any questions, just reply to this email or call us on 0800 726 686.</p>
+        <p style="margin-top:22px;">Ngā mihi,<br>The Sano team</p>
+      </div>
+    `,
+  })
+  if (error) throw new Error(error.message)
+}
+
 export interface AgreementSignedEmailParams {
   personName: string
   agreementType: 'contractor' | 'casual_employee'

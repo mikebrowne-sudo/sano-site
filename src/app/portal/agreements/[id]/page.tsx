@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { EmploymentAgreementDocument, agreementViewFromRow } from '@/components/EmploymentAgreementDocument'
 import { CopyLinkButton } from './_components/CopyLinkButton'
+import { SendLinkForm } from './_components/SendLinkForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,6 +49,7 @@ export default async function AgreementDetailPage({ params }: { params: { id: st
           <p className="flex items-center gap-2 text-sm font-semibold text-sage-800 mb-2"><Link2 size={15} className="text-sage-500" /> Send this link to {a.person_label || 'the employee'}</p>
           <CopyLinkButton url={link} />
           <p className="text-[11px] text-sage-400 mt-2">They open it, fill their details, and e-sign. You&apos;ll see the signed copy here.</p>
+          {!a.is_test && <SendLinkForm agreementId={a.id as string} defaultEmail={(a.employee_email as string | null) ?? ''} />}
         </div>
       )}
 

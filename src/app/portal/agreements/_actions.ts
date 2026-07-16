@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { revalidatePath } from 'next/cache'
+import { sendAgreementLinkEmail } from '@/lib/resend'
 
 export async function createEmploymentAgreement(input: {
   agreementType: 'casual_employee' | 'contractor'
@@ -82,6 +83,42 @@ export async function createEmploymentAgreement(input: {
 
   revalidatePath('/portal/agreements')
   return { ok: true, id: data.id as string }
+}
+
+export async function sendAgreementLink(input: { agreementId: string; email: string }): Promise<{ ok?: true; error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
+
+  const email = input.email.trim()
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: 'Enter a valid email address.' }
+
+  const { data: a } = await supabase
+    .from('employment_agreements')
+    .select('id, token, person_label, agreement_type, employee_full_name, status')
+    .eq('id', input.agreementId)
+    .maybeSingle()
+  if (!a) return { error: 'Agreement not found.' }
+  if (a.status === 'signed') return { error: 'This agreement is already signed.' }
+
+  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://sano.nz'
+  const link = `${origin}/agreement/${a.token}`
+  try {
+    await sendAgreementLinkEmail({
+      to: email,
+      personName: (a.employee_full_name as string | null) || (a.person_label as string | null) || 'there',
+      agreementType: a.agreement_type === 'contractor' ? 'contractor' : 'casual_employee',
+      link,
+    })
+  } catch (e) {
+    return { error: `Couldn’t send: ${e instanceof Error ? e.message : 'email failed'}` }
+  }
+
+  // Remember the address we sent to (fills employee_email if it was blank).
+  await supabase.from('employment_agreements').update({ employee_email: email }).eq('id', input.agreementId)
+  revalidatePath(`/portal/agreements/${input.agreementId}`)
+  return { ok: true }
 }
 
 export async function deleteEmploymentAgreement(id: string): Promise<{ ok?: true; error?: string }> {
