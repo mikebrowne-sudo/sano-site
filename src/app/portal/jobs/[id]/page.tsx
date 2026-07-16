@@ -401,7 +401,7 @@ export default async function JobDetailPage({
           )}
           {/* Post-job Google review request — completed/invoiced jobs. */}
           {(job.status === 'completed' || job.status === 'invoiced') && (
-            <RequestReviewButton jobId={job.id} />
+            <RequestReviewButton jobId={job.id} clientName={client?.name ?? null} />
           )}
           <JobInvoiceButton
             jobId={job.id}

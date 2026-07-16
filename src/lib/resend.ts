@@ -1,5 +1,6 @@
 import { Resend } from 'resend'
 import { getCustomerReplyToEmail } from '@/lib/email-reply-to'
+import { reviewEmailHtml, reviewEmailSubject, type ReviewVariant } from '@/lib/review-request'
 
 function escHtml(s: string): string {
   return s
@@ -48,31 +49,23 @@ export async function sendQuoteConfirmation(params: QuoteEmailParams) {
 }
 
 export interface ReviewRequestEmailParams {
-  name: string
   email: string
   reviewUrl: string
+  variant: ReviewVariant
+  /** The (possibly staff-edited) message body. */
+  message: string
 }
 
 /** Post-job "leave us a Google review" email. Kept intentionally short
  *  and warm — the whole point is one easy tap through to Google. */
 export async function sendReviewRequestEmail(params: ReviewRequestEmailParams) {
   const resend = getResendClient()
-  const first = params.name?.trim().split(/\s+/)[0] || 'there'
   const { error } = await resend.emails.send({
     from: 'Sano Cleaning <noreply@sano.nz>',
     replyTo: getCustomerReplyToEmail(),
     to: params.email,
-    subject: 'How did we do? — Sano Cleaning',
-    html: `
-      <p>Hi ${escHtml(first)},</p>
-      <p>Thanks for choosing Sano Cleaning. We hope you're happy with how your space turned out.</p>
-      <p>If you have a moment, a quick Google review would genuinely help us — and helps other Aucklanders find a cleaner they can trust.</p>
-      <p style="margin:24px 0;">
-        <a href="${escHtml(params.reviewUrl)}" style="background:#076653;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;display:inline-block;">Leave a Google review</a>
-      </p>
-      <p>If anything wasn't quite right, just reply to this email and we'll make it right.</p>
-      <p>Thanks again,<br>The Sano team</p>
-    `,
+    subject: reviewEmailSubject(params.variant),
+    html: reviewEmailHtml(params.message, params.reviewUrl),
   })
   if (error) throw new Error(error.message)
 }
