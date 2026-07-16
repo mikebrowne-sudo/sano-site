@@ -65,7 +65,7 @@ export async function createEmploymentAgreement(input: {
       agreement_type: isContractor ? 'contractor' : 'casual_employee',
       person_label: linkedLabel || input.personLabel?.trim() || (isContractor ? 'Contractor' : 'Carol'),
       position: isContractor ? 'Independent Contractor' : (input.position?.trim() || 'Cleaner (Casual)'),
-      hourly_rate: isContractor ? null : input.hourlyRate,
+      hourly_rate: input.hourlyRate,
       start_date: input.startDate || null,
       status: 'draft',
       is_test: !!input.isTest,

@@ -1,10 +1,17 @@
-// Casual Employment Agreement content (Sano Property Services Limited).
+// Agreement content (Sano Property Services Limited) — casual employment and
+// independent contractor.
 //
-// Reproduced faithfully from the reviewed template, WITH the three compliance
-// additions flagged in review: a Place of Work clause, a Rest & Meal Breaks
-// clause, and the 90-day personal-grievance reference in Dispute Resolution.
+// The contractor clauses were substantially revised (2026-07) against an NZ
+// legal review to strengthen the contracting position under the 2026 contractor
+// gateway test (clear right to determine availability, accept/decline work, and
+// work for others), fix the tax section (IR330C / schedular payments), resolve
+// the liability/insurance cap, narrow the non-solicitation restraint to a
+// non-dealing clause, add cancellation, rectification, security, site-risk and
+// mutual health-and-safety terms, and add e-signature/notices/general clauses.
 //
-// ⚠️ This is still a template — have an employment lawyer confirm before use.
+// ⚠️ Still a template. Have a New Zealand employment / commercial lawyer confirm
+// before use, and make sure the actual working arrangement matches the document
+// (control, integration and economic reality still determine the relationship).
 // The numbered clauses are static; the parties/details come from the record.
 
 export const EMPLOYER = {
@@ -141,106 +148,145 @@ export const CONTRACTOR_AGREEMENT_SECTIONS: AgreementSection[] = [
   {
     title: 'Background',
     body: [
-      'The Company operates a property services business and wishes to engage the Contractor to provide services on the terms set out in this Agreement. The Contractor wishes to provide those services on those terms.',
-      'The parties agree that this Agreement does not create an employment relationship. The Contractor is engaged as an independent contractor only.',
+      'The Company (the Principal) operates a property services business, including residential and commercial cleaning. The Principal wishes to engage the Contractor to provide services on the terms set out in this Agreement, and the Contractor wishes to provide those services on those terms.',
+      'This is a contract for services between a principal and an independent contractor. It is not a contract of employment and does not create an employment relationship.',
     ],
   },
   {
     title: '1. Nature of Relationship',
     body: [
-      '1.1 The Contractor is engaged as an independent contractor and not as an employee, agent, partner, or joint venturer of the Company.',
-      '1.2 Nothing in this Agreement shall be construed to create an employment relationship. The provisions of the Employment Relations Act 2000 do not apply, except as required by law.',
-      '1.3 The Contractor acknowledges they have had the opportunity to seek independent legal advice before entering into this Agreement.',
-      '1.4 The parties acknowledge that the real nature of their relationship is that of principal and independent contractor, and this Agreement reflects that relationship in substance and in form.',
+      '1.1 The Contractor is engaged as an independent contractor carrying on their own business, and not as an employee, agent, partner or joint venturer of the Principal. The provisions of the Employment Relations Act 2000 do not apply, except as required by law.',
+      '1.2 The Contractor confirms they have entered into this written agreement freely, have had a reasonable opportunity to seek independent legal and tax advice before signing, and have either taken that advice or chosen not to.',
+      '1.3 The Contractor is free to provide services to other businesses and clients, including other cleaning businesses, provided this does not interfere with a job the Contractor has accepted or breach the confidentiality, security or client-protection provisions of this Agreement.',
+      '1.4 The parties intend that this Agreement, and the way they operate under it, meet the requirements for a contracting relationship under New Zealand law, including any applicable statutory contractor test. The parties acknowledge that the substance of the relationship, not only its wording, determines its legal character.',
     ],
   },
   {
-    title: '2. Services',
+    title: '2. Availability, Accepting and Declining Work',
     body: [
-      '2.1 The Contractor agrees to provide cleaning services as reasonably directed by the Company from time to time (“Services”). The scope, location, and schedule of Services will be agreed between the parties for each engagement.',
-      '2.2 The Contractor may decline any particular job, and the Company is under no obligation to offer any minimum number of jobs.',
-      '2.3 The Contractor will perform the Services to a professional standard, in accordance with the Company’s quality guidelines. The Contractor is responsible for the manner and method by which the Services are performed, provided the required outcome and standard are met.',
-      '2.4 The Contractor must attend each accepted job at the agreed time, arrive prepared with all necessary equipment, and communicate clearly and respectfully with clients. If running late or unable to attend, the Contractor must notify the Company as soon as possible (immediately where less than 24 hours’ notice).',
+      '2.1 The Contractor determines their own availability and may accept or decline any job offered by the Principal. The Principal is under no obligation to offer any minimum amount of work, and there is no guaranteed or regular work.',
+      '2.2 The date and completion time for an accepted job will be mutually agreed. Declining a job, or making themselves unavailable, will not by itself result in termination of this Agreement or in any penalty.',
+      '2.3 Once the Contractor accepts a job, they are responsible for completing it to the agreed scope, standard and timeframe. If running late or unable to attend an accepted job, the Contractor must notify the Principal as soon as possible (and immediately where less than 24 hours remain before the job).',
     ],
   },
   {
-    title: '3. Equipment and Supplies',
+    title: '3. Services',
     body: [
-      '3.1 The Contractor will supply, at their own cost, all equipment, tools, and cleaning products necessary to perform the Services. All equipment must be safe, fit for purpose, and maintained in good working order.',
-      '3.2 The Contractor is responsible for compliance with all health and safety requirements relating to the equipment and products they use, including under the Health and Safety at Work Act 2015.',
+      '3.1 The Contractor will provide residential and/or commercial cleaning services as agreed for each accepted job (the “Services”). The Contractor is responsible for the manner and method by which the Services are performed, provided the agreed outcome and standard are met.',
+      '3.2 The Contractor will perform the Services to a professional standard and in accordance with the scope agreed for each job, and will communicate clearly and respectfully with clients.',
     ],
   },
   {
-    title: '4. Fees and Payment',
+    title: '4. Job Confirmations',
     body: [
-      '4.1 The Company will pay the Contractor the fee agreed for each job at the time of engagement, as set out in a job confirmation or schedule.',
-      '4.2 The Contractor must submit a valid tax invoice following completion of each job (or at agreed intervals). Payment will be made within 20 working days of receipt of a valid invoice.',
-      '4.3 If the Contractor is registered for GST, they must include GST on their invoices; the Company will pay the GST component in addition to the agreed fee.',
-      '4.4 The Contractor is solely responsible for their own income tax obligations. The Company will not make PAYE deductions. (Any schedular-payment withholding tax that applies by law will be handled in accordance with IRD requirements.)',
-      '4.5 The Contractor is solely responsible for any KiwiSaver contributions applicable to them as a self-employed person.',
+      '4.1 The Principal will confirm each job to the Contractor before it starts. A confirmation may be given by text message, email or through a job-management system, and any of these constitutes written confirmation for the purposes of this Agreement.',
+      '4.2 Each job confirmation will set out, so far as practicable: the property address; the agreed scope of work; the completion deadline or access window; the fee and whether GST is included; any travel or parking payment; supplies expected to be provided; the named client contact; any known hazards; whether rectification of a prior clean is required; and any cancellation terms.',
     ],
   },
   {
-    title: '5. Insurance',
+    title: '5. Fees and Payment',
     body: [
-      '5.1 The Contractor must hold and maintain current public liability insurance of at least NZD $1,000,000 per occurrence for residential cleaning, and NZD $2,000,000 per occurrence for commercial cleaning.',
-      '5.2 The Contractor must provide evidence of current insurance on request and before commencing any Services. The Company may suspend or terminate this Agreement if the Contractor fails to maintain the required cover.',
-      '5.3 The Contractor acknowledges the Company’s insurance does not extend to the Contractor, their employees, subcontractors, or equipment.',
+      '5.1 The Principal will pay the Contractor at the agreed rate set out in the details above, or the fee agreed in the relevant job confirmation. All fees are exclusive of GST. Where the Contractor is registered for GST, the Principal will pay the GST component in addition to the agreed fee against a valid tax invoice.',
+      '5.2 The Contractor must submit a valid tax invoice following completion of each job, or at agreed intervals. The Principal will pay a valid invoice within 20 working days of receipt.',
+      '5.3 The Contractor is responsible for their own income tax, GST, ACC levies, business registrations, vehicle costs and other business obligations. Where the payments are schedular payments under the Income Tax Act 2007, the Contractor must provide a completed IR330C (or a valid exemption or special tax rate certificate) before payment, and the Principal will deduct and account for withholding tax where required by law. Without a completed IR330C, the Principal may be required to deduct tax at the no-notification rate.',
+      '5.4 The Contractor is responsible for any KiwiSaver contributions applicable to them as a self-employed person, and for obtaining any licences, permits or work rights required to provide the Services.',
     ],
   },
   {
-    title: '6. Health and Safety',
+    title: '6. Equipment and Supplies',
     body: [
-      '6.1 The Contractor must comply with all applicable health and safety laws, including the Health and Safety at Work Act 2015, and any site-specific requirements notified by the Company or the client. The Company remains a PCBU with its own overlapping duties.',
-      '6.2 The Contractor must immediately report any workplace accident, incident, or near-miss, and must not work while unfit due to illness, injury, fatigue, or any impairment affecting safe performance.',
+      '6.1 Except for any supplies the Principal or client agrees to provide in a job confirmation, the Contractor will supply, at their own cost, the equipment, tools and cleaning products necessary to perform the Services. All equipment must be safe, fit for purpose and maintained in good working order.',
+      '6.2 The Contractor is responsible for compliance with all health and safety and product-handling requirements relating to the equipment and products they use.',
     ],
   },
   {
-    title: '7. Subcontracting',
+    title: '7. Cancellations and Access',
     body: [
-      '7.1 The Contractor must not subcontract any Services without the Company’s prior written consent. Where approved, the Contractor remains fully responsible for the performance and conduct of any subcontractor and must ensure they are adequately insured and vetted.',
+      '7.1 If an accepted job is cancelled with less than 24 hours’ notice, if access to the property is not made available, or if the property materially differs from the agreed scope (for example, it is materially worse than described or lacks working utilities), the Contractor may charge any cancellation, travel or additional fee agreed in the relevant job confirmation.',
+      '7.2 The Contractor is not required to carry out work that is materially outside the agreed scope, or that cannot be performed safely, without further agreement on fee and timing.',
     ],
   },
   {
-    title: '8. Confidentiality and Privacy',
+    title: '8. Rectification of Defective Work',
     body: [
-      '8.1 The Contractor must keep confidential all information relating to the Company’s business, clients, pricing, systems, and operations that is not publicly available, and must not use it for any purpose other than performing the Services. This obligation survives termination.',
-      '8.2 The Contractor must handle any personal information they access in the course of the Services in accordance with the Privacy Act 2020, and only for the purpose of performing the Services.',
+      '8.1 If the Principal reasonably considers that the Services have not been completed to the agreed scope or standard, it must notify the Contractor promptly and provide reasonable details. The Contractor must, where reasonably practicable, return and rectify the issue at their own cost.',
+      '8.2 Clause 8.1 does not apply where the issue resulted from an inaccurate or incomplete scope, a pre-existing condition, inadequate access, or circumstances outside the Contractor’s reasonable control.',
     ],
   },
   {
-    title: '9. Non-Solicitation',
+    title: '9. Insurance',
     body: [
-      '9.1 During the term and for 6 months after termination, the Contractor must not directly solicit or accept work from any client of the Company with whom the Contractor personally worked or had direct contact through the Company, without the Company’s prior written consent. This does not prevent the Contractor advertising their services to the general public.',
+      '9.1 The Contractor must hold and maintain current public liability insurance appropriate to the Services, and must provide evidence of cover on request and before commencing Services. The Principal may suspend or terminate this Agreement if the Contractor fails to maintain adequate cover.',
+      '9.2 The Contractor acknowledges the Principal’s insurance does not extend to the Contractor, their personnel, subcontractors or equipment.',
     ],
   },
   {
-    title: '10. Conduct and Representation',
+    title: '10. Health and Safety',
     body: [
-      '10.1 The Contractor must conduct themselves professionally at all times when performing the Services, must not represent themselves as an employee or agent of the Company, and must not make commitments on behalf of the Company without authorisation.',
-      '10.2 The Contractor must not wear or display the branding, uniforms, or markings of a competing cleaning or property services business while on a job for the Company, and must conduct themselves in a way that reflects positively on the Company.',
+      '10.1 Both the Principal and the Contractor are PCBUs with duties under the Health and Safety at Work Act 2015. Where their duties overlap, the parties will, so far as reasonably practicable, consult, cooperate with and coordinate activities with each other, and with the client, regarding hazards, controls, incidents and site-specific requirements.',
+      '10.2 The Principal will share known property and client hazards, relevant safety information and, where applicable, chemical safety data sheets, and will communicate arrangements for matters such as lone working, aggressive clients or animals, hazardous materials or waste, working at height, and first aid or emergencies, so far as it is reasonably able.',
+      '10.3 The Contractor must take reasonable care for their own and others’ health and safety, follow lawful site-specific requirements, report any accident, incident or near-miss promptly, and must not work while unfit due to illness, injury, fatigue or any impairment affecting safe performance.',
+      '10.4 The Contractor may stop or refuse work they reasonably believe presents an immediate or unmanaged health and safety risk, without penalty. The parties will then consult and agree how the risk can be managed before the work continues.',
     ],
   },
   {
-    title: '11. Term and Termination',
+    title: '11. Security and Client Property',
     body: [
-      '11.1 This Agreement commences on the date set out above and continues until terminated. Either party may terminate by giving 10 working days’ written notice.',
-      '11.2 The Company may terminate immediately by written notice if the Contractor breaches a material term and fails to remedy it within 5 working days, fails to maintain insurance, brings the Company’s reputation into disrepute, is convicted of a relevant offence, or becomes insolvent.',
-      '11.3 On termination, the Contractor must return any Company or client property, and the confidentiality and non-solicitation obligations continue.',
+      '11.1 Before commencing Services, the Contractor must provide proof of identity and evidence of their legal right to work in New Zealand, and must disclose any information reasonably relevant to their access to clients’ homes, keys, money and possessions. Any disclosure of convictions will be handled lawfully and fairly and only to the extent relevant to that access.',
+      '11.2 The Contractor must keep secure any keys, alarm codes or access cards, must not copy or share them, and must immediately report any lost key or compromised security information.',
+      '11.3 While providing the Services the Contractor must not: take photographs or video without authorisation; bring guests or unapproved people onsite; smoke or consume alcohol or drugs onsite; or remove, use or interfere with client property. The Contractor must promptly disclose any actual or suspected theft, loss or damage.',
     ],
   },
   {
-    title: '12. Liability',
+    title: '12. Subcontracting',
     body: [
-      '12.1 The Contractor is responsible for any loss or damage caused to the Company or a client by the Contractor’s negligence, wilful act, or breach of this Agreement.',
-      '12.2 The Contractor’s liability to the Company or a client for damage in connection with the Services is capped at $1,000 per incident; the Contractor must hold public liability insurance sufficient to cover claims exceeding this amount. The Company’s liability to the Contractor is limited to fees due for Services properly performed. Neither party is liable for indirect or consequential loss.',
+      '12.1 The Contractor may arrange for another suitably skilled, insured and vetted person to perform an accepted job, on prior written notice to the Principal, whose approval will not be unreasonably withheld. The Contractor remains fully responsible for the performance, conduct, insurance and health and safety of any such person, and for their compliance with this Agreement.',
     ],
   },
   {
-    title: '13. Dispute Resolution and General',
+    title: '13. Confidentiality and Privacy',
     body: [
-      '13.1 The parties must first attempt to resolve any dispute by good-faith negotiation; if unresolved within 10 working days of written notice, either party may refer it to mediation before a mutually agreed mediator. Nothing prevents a party seeking urgent interim relief from a court.',
-      '13.2 This Agreement is governed by the laws of New Zealand, constitutes the entire agreement, may only be amended in writing signed by both parties, and may not be assigned by the Contractor without the Company’s consent. If any provision is unenforceable, the remainder continues in full force.',
+      '13.1 The Contractor must keep confidential all information relating to the Principal’s business, clients, pricing, systems and operations that is not publicly available, and must not use it for any purpose other than performing the Services. This obligation survives termination.',
+      '13.2 The Contractor must handle any personal information they access in the course of the Services in accordance with the Privacy Act 2020, and only for the purpose of performing the Services.',
+    ],
+  },
+  {
+    title: '14. Non-Solicitation',
+    body: [
+      '14.1 During this Agreement and for 6 months after it ends, the Contractor must not actively solicit cleaning or property services work from a client for whom the Contractor personally performed Services through the Principal during the final 6 months of this Agreement, for the purpose of bypassing the Principal.',
+      '14.2 If such a client approaches the Contractor directly, the Contractor must promptly notify the Principal and must not knowingly arrange work intended to bypass an existing booking, quote or service relationship with the Principal. Nothing in this clause prevents the Contractor from advertising their services to the general public or working for other clients generally.',
+    ],
+  },
+  {
+    title: '15. Conduct and Representation',
+    body: [
+      '15.1 When performing the Services the Contractor must conduct themselves professionally, must not represent themselves as an employee or agent of the Principal, and must not make commitments on the Principal’s behalf without authorisation.',
+      '15.2 The Contractor must not display the branding or uniform of a competing cleaning or property services business while on a job for the Principal.',
+    ],
+  },
+  {
+    title: '16. Term and Termination',
+    body: [
+      '16.1 This Agreement commences on the date set out above and continues until terminated. Either party may terminate on 10 working days’ written notice.',
+      '16.2 The Principal may terminate immediately by written notice if the Contractor: materially breaches this Agreement and (where capable of remedy) fails to remedy it within 5 working days; fails to maintain adequate insurance; engages in theft, dishonesty, violence, a serious health and safety breach, deliberate property damage, a serious privacy breach or unauthorised entry; engages in conduct that has caused, or is reasonably likely to cause, material damage to the Principal’s reputation; is convicted of a relevant offence; or becomes insolvent.',
+      '16.3 On termination the Contractor must return any Principal or client property. Termination does not affect the Principal’s obligation to pay for Services properly completed before termination. The confidentiality, security and non-solicitation obligations continue.',
+    ],
+  },
+  {
+    title: '17. Liability',
+    body: [
+      '17.1 The Contractor is responsible for direct loss or damage caused by their negligent or wilful acts or omissions, including any applicable insurance excess.',
+      '17.2 Except in cases of fraud, wilful misconduct, theft, breach of confidentiality, or damage covered by the Contractor’s insurance, the Contractor’s aggregate liability to the Principal for any one event is limited to the greater of $5,000 or the amount recoverable under the Contractor’s insurance.',
+      '17.3 The Principal’s liability to the Contractor is limited to fees due for Services properly performed. Neither party is liable to the other for indirect or consequential loss. Nothing in this Agreement limits or determines any right a client may have, as the client is not a party to this Agreement.',
+    ],
+  },
+  {
+    title: '18. Dispute Resolution and General',
+    body: [
+      '18.1 The parties will first attempt to resolve any dispute by good-faith negotiation. If it is not resolved within 10 working days of written notice, either party may refer it to mediation before a mutually agreed mediator. Nothing prevents a party from seeking urgent interim relief from a court.',
+      '18.2 Notices under this Agreement may be given by email to the addresses the parties use for job confirmations, or to hello@sano.nz for the Principal.',
+      '18.3 This Agreement may be signed electronically and in counterparts, each of which is an original and which together form one agreement. By typing their name to sign, the Contractor confirms they have read, understood and agree to this Agreement.',
+      '18.4 This Agreement is governed by the laws of New Zealand, constitutes the entire agreement between the parties, may only be amended in writing agreed by both parties, and may not be assigned by the Contractor without the Principal’s consent. If any provision is unenforceable, the remainder continues in full force.',
     ],
   },
 ]
