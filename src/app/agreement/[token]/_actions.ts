@@ -14,6 +14,7 @@ import { parseCoverAmount } from '@/lib/parse-cover-amount'
 import { seedAndAutoCompleteOnboardingOnSign, completeUploadedItems } from '@/lib/onboarding-sign'
 import { validateUploadFile } from '@/lib/upload-validation'
 import { AGREEMENT_DOC_TYPE_VALUES } from '@/lib/agreement-documents'
+import { deriveInitialTaxReview } from '@/lib/tax-review'
 
 export interface SignAgreementInput {
   token: string
@@ -33,6 +34,11 @@ export interface SignAgreementInput {
   emergencyRelationship?: string
   // Contractor-only:
   tradingName?: string
+  businessStructure?: string
+  legalName?: string
+  nzbn?: string
+  companyNumber?: string
+  gstRegistered?: boolean
   gstNumber?: string
   insurerName?: string
   insuranceCover?: string
@@ -106,9 +112,11 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
       email,
       phone: input.phone?.trim() || null,
       company_name: input.tradingName?.trim() || null,
+      business_structure: input.businessStructure || null,
+      nzbn: input.nzbn?.trim() || null,
       ird_number: input.irdNumber?.trim() || null,
       gst_number: input.gstNumber?.trim() || null,
-      gst_registered: !!input.gstNumber?.trim(),
+      gst_registered: input.gstRegistered ?? !!input.gstNumber?.trim(),
       bank_account_name: input.bankAccountName?.trim() || null,
       bank_account_number: input.bankAccount?.trim() || null,
       insurance_provider: input.insurerName?.trim() || null,
@@ -130,8 +138,16 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
     }
     if (contractorId) {
       await svc.from('employment_agreements').update({ contractor_id: contractorId }).eq('id', agreement.id)
-      // Extended fields depend on the 2026-07-04 migration. Best-effort so a
-      // not-yet-applied migration can never block a signature.
+      // Derive the initial tax-review state ONLY when none is set yet, so a
+      // re-sign never overwrites an existing staff tax decision.
+      const { data: taxCur } = await svc.from('contractors').select('tax_review_status').eq('id', contractorId).maybeSingle()
+      const derivedTax = deriveInitialTaxReview(input.businessStructure)
+      const taxInit = ((taxCur as { tax_review_status?: string | null } | null)?.tax_review_status == null)
+        ? { tax_review_status: derivedTax.status, ir330c_requested: derivedTax.ir330cRequested }
+        : {}
+
+      // Extended fields depend on the 2026-07-04 / Phase-4 migrations. Best-effort
+      // so a not-yet-applied migration can never block a signature.
       const { error: extErr } = await svc.from('contractors').update({
         preferred_name: input.preferredName?.trim() || null,
         address: input.address?.trim() || null,
@@ -139,9 +155,12 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
         emergency_contact_name: input.emergencyName?.trim() || null,
         emergency_contact_phone: input.emergencyPhone?.trim() || null,
         emergency_contact_relationship: input.emergencyRelationship?.trim() || null,
+        legal_name: input.legalName?.trim() || null,
+        company_number: input.companyNumber?.trim() || null,
+        ...taxInit,
         agreement_id: agreement.id,
       }).eq('id', contractorId)
-      if (extErr) console.error('[agreement] extended contractor fields not saved (run 2026-07-04 migration?):', extErr.message)
+      if (extErr) console.error('[agreement] extended contractor fields not saved (run migration?):', extErr.message)
 
       // Phase 2 — seed the onboarding checklist and auto-complete only the
       // objectively-satisfied items (confirm_details, bank_details,

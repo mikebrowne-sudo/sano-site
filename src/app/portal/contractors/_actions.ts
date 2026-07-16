@@ -37,6 +37,8 @@ interface ContractorInput {
   company_name?: string
   business_structure?: string
   nzbn?: string
+  legal_name?: string
+  company_number?: string
   // GST (contractor)
   gst_registered?: boolean
   gst_number?: string
@@ -133,6 +135,8 @@ export async function createContractor(input: ContractorInput) {
       company_name: input.company_name?.trim() || null,
       business_structure: input.business_structure || null,
       nzbn: input.nzbn?.trim() || null,
+      legal_name: input.legal_name?.trim() || null,
+      company_number: input.company_number?.trim() || null,
       // GST (contractor)
       gst_registered: input.gst_registered ?? false,
       gst_number: input.gst_number?.trim() || null,
@@ -203,6 +207,8 @@ export async function updateContractor(id: string, input: ContractorInput) {
       company_name: input.company_name?.trim() || null,
       business_structure: input.business_structure || null,
       nzbn: input.nzbn?.trim() || null,
+      legal_name: input.legal_name?.trim() || null,
+      company_number: input.company_number?.trim() || null,
       // GST (contractor)
       gst_registered: input.gst_registered ?? false,
       gst_number: input.gst_number?.trim() || null,

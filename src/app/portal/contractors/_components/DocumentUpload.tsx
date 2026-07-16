@@ -8,6 +8,7 @@ const DOC_TYPES = [
   { value: 'contract', label: 'Contract' },
   { value: 'insurance', label: 'Insurance' },
   { value: 'right_to_work', label: 'Right to Work' },
+  { value: 'ir330c', label: 'IR330C' },
   { value: 'health_and_safety', label: 'Health & Safety' },
   { value: 'onboarding', label: 'Onboarding' },
   { value: 'policy', label: 'Policy' },

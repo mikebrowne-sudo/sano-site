@@ -4,6 +4,8 @@
 // onboarding-checklist.ts (insurance / id_verification / right_to_work).
 // 'company' has no checklist item — it is stored for staff reference.
 
+import { ir330cLikelyRequired } from './tax-review'
+
 export interface AgreementDocType {
   value: string
   label: string
@@ -17,8 +19,29 @@ export const AGREEMENT_DOC_TYPES: readonly AgreementDocType[] = [
   { value: 'company',         label: 'Company / NZBN evidence',                hint: 'If you invoice via a company' },
 ]
 
-export const AGREEMENT_DOC_TYPE_VALUES: string[] = AGREEMENT_DOC_TYPES.map((d) => d.value)
+// IR330C is offered only to individuals (sole trader / other). It carries NO
+// checklist item (see DOC_TYPE_TO_UPLOAD_ITEM) — uploading it never completes
+// tax_review; that stays a staff-only confirmation.
+export const IR330C_DOC_TYPE: AgreementDocType = {
+  value: 'ir330c',
+  label: 'IR330C tax form',
+  hint: 'If you invoice as a sole trader / individual',
+}
+
+/** The document slots to show a contractor for their trading structure. */
+export function agreementDocTypesForStructure(structure?: string | null): AgreementDocType[] {
+  const base = AGREEMENT_DOC_TYPES.slice()
+  if (ir330cLikelyRequired(structure)) base.push(IR330C_DOC_TYPE)
+  return base
+}
+
+// All document types the upload action will accept (validation whitelist).
+export const AGREEMENT_DOC_TYPE_VALUES: string[] = [
+  ...AGREEMENT_DOC_TYPES.map((d) => d.value),
+  IR330C_DOC_TYPE.value,
+]
 
 export function agreementDocLabel(value: string): string {
+  if (value === IR330C_DOC_TYPE.value) return IR330C_DOC_TYPE.label
   return AGREEMENT_DOC_TYPES.find((d) => d.value === value)?.label ?? value
 }
