@@ -4,8 +4,9 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, PenLine } from 'lucide-react'
 import { signEmploymentAgreement } from '../_actions'
+import { AgreementDocumentsUpload, type UploadedDoc } from './AgreementDocumentsUpload'
 
-export function SignAgreementForm({ token, type }: { token: string; type: 'casual_employee' | 'contractor' }) {
+export function SignAgreementForm({ token, type, initialDocs = [] }: { token: string; type: 'casual_employee' | 'contractor'; initialDocs?: UploadedDoc[] }) {
   const router = useRouter()
   const isContractor = type === 'contractor'
   const [f, setF] = useState({
@@ -91,6 +92,8 @@ export function SignAgreementForm({ token, type }: { token: string; type: 'casua
           </div>
         </div>
       )}
+
+      {isContractor && <AgreementDocumentsUpload token={token} initialDocs={initialDocs} />}
 
       <div>
         <h2 className="text-base font-semibold text-sage-800 mb-3">Emergency contact</h2>

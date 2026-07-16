@@ -3,6 +3,7 @@ import {
   onboardingSeedRows,
   isAllRequiredComplete,
   isStaffVerificationItem,
+  uploadedItemKeysForDocTypes,
   SIGN_AUTO_COMPLETE_KEYS,
   STAFF_VERIFICATION_KEYS,
 } from '@/lib/onboarding-checklist'
@@ -39,6 +40,25 @@ describe('onboarding checklist — staff verification items', () => {
     for (const k of ['id_uploaded', 'insurance_uploaded', 'right_to_work_uploaded', 'induction_completed', ...SIGN_AUTO_COMPLETE_KEYS]) {
       expect(isStaffVerificationItem(k)).toBe(false)
     }
+  })
+})
+
+describe('onboarding checklist — document type → uploaded item mapping', () => {
+  it('maps upload doc types only to *_uploaded (worker) items', () => {
+    expect(uploadedItemKeysForDocTypes(['insurance'])).toEqual(['insurance_uploaded'])
+    expect(uploadedItemKeysForDocTypes(['id_verification'])).toEqual(['id_uploaded'])
+    expect(uploadedItemKeysForDocTypes(['right_to_work'])).toEqual(['right_to_work_uploaded'])
+  })
+
+  it('ignores document types with no checklist item (e.g. company) and unknowns', () => {
+    expect(uploadedItemKeysForDocTypes(['company'])).toEqual([])
+    expect(uploadedItemKeysForDocTypes(['something_else'])).toEqual([])
+  })
+
+  it('de-duplicates and NEVER maps to a verification item', () => {
+    const keys = uploadedItemKeysForDocTypes(['insurance', 'insurance', 'id_verification', 'company'])
+    expect(keys.sort()).toEqual(['id_uploaded', 'insurance_uploaded'])
+    for (const k of keys) expect(STAFF_VERIFICATION_KEYS).not.toContain(k)
   })
 })
 

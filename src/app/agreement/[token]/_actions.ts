@@ -11,7 +11,9 @@ import { renderPdfFromUrl } from '@/lib/pdf/render-pdf'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { sendAgreementSignedEmail } from '@/lib/resend'
 import { parseCoverAmount } from '@/lib/parse-cover-amount'
-import { seedAndAutoCompleteOnboardingOnSign } from '@/lib/onboarding-sign'
+import { seedAndAutoCompleteOnboardingOnSign, completeUploadedItems } from '@/lib/onboarding-sign'
+import { validateUploadFile } from '@/lib/upload-validation'
+import { AGREEMENT_DOC_TYPE_VALUES } from '@/lib/agreement-documents'
 
 export interface SignAgreementInput {
   token: string
@@ -159,6 +161,24 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
       } catch (e) {
         console.error('[agreement] onboarding checklist auto-complete failed:', e instanceof Error ? e.message : e)
       }
+
+      // Phase 3 — attach documents uploaded during signing to the contractor
+      // and complete the matching *_uploaded checklist items (never *_verified).
+      try {
+        await svc.from('worker_documents')
+          .update({ contractor_id: contractorId })
+          .eq('agreement_id', agreement.id)
+          .is('contractor_id', null)
+        const { data: docs } = await svc.from('worker_documents')
+          .select('document_type')
+          .eq('agreement_id', agreement.id)
+        const docTypes = ((docs ?? []) as { document_type: string }[]).map((d) => d.document_type)
+        if (docTypes.length > 0) {
+          await completeUploadedItems(svc, { contractorId, docTypes })
+        }
+      } catch (e) {
+        console.error('[agreement] document attach/complete failed:', e instanceof Error ? e.message : e)
+      }
     }
   } else {
     const empFields = {
@@ -212,5 +232,95 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
   revalidatePath('/portal/agreements')
   revalidatePath('/portal/employees')
   revalidatePath('/portal/contractors')
+  return { ok: true }
+}
+
+// ── Phase 3 — contractor-facing document uploads on the sign flow ──────
+//
+// Token-keyed (service-role). A signer can upload before their contractor
+// record exists; the document carries agreement_id until signing backfills
+// contractor_id. Contractors never get a staff document surface — only the
+// upload/remove of their own pre-sign files.
+
+const AGREEMENT_DOC_BUCKET = 'worker-documents'
+
+export async function uploadAgreementDocument(formData: FormData): Promise<
+  { ok: true; id: string; documentType: string; title: string; fileName: string } | { error: string }
+> {
+  const token = String(formData.get('token') || '')
+  const documentType = String(formData.get('documentType') || '')
+  const file = formData.get('file') as File | null
+  if (!token || !file) return { error: 'Please choose a file.' }
+  if (!AGREEMENT_DOC_TYPE_VALUES.includes(documentType)) return { error: 'Unknown document type.' }
+
+  const valid = validateUploadFile({ name: file.name, type: file.type, size: file.size })
+  if (!valid.ok) return { error: valid.error }
+
+  const svc = getServiceSupabase()
+  const { data: agreement } = await svc
+    .from('employment_agreements')
+    .select('id, status, agreement_type, contractor_id')
+    .eq('token', token)
+    .maybeSingle()
+  if (!agreement) return { error: 'Invalid link.' }
+  if (agreement.agreement_type !== 'contractor') return { error: 'Document uploads are for contractor agreements.' }
+  if (agreement.status === 'signed') return { error: 'This agreement is already signed.' }
+
+  const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '')
+  const filePath = `agreements/${agreement.id}/${documentType}-${Date.now()}.${ext}`
+
+  const { error: upErr } = await svc.storage
+    .from(AGREEMENT_DOC_BUCKET)
+    .upload(filePath, file, { contentType: file.type || undefined, upsert: false })
+  if (upErr) return { error: `Upload failed: ${upErr.message}` }
+
+  const { data: inserted, error: dbErr } = await svc
+    .from('worker_documents')
+    .insert({
+      // Stay unattached until signing backfills contractor_id — keeps pre-sign
+      // remove working uniformly (incl. pre-linked agreements).
+      contractor_id: null,
+      agreement_id: agreement.id,
+      document_type: documentType,
+      title: file.name,
+      file_path: filePath,
+      file_size: file.size,
+    })
+    .select('id')
+    .single()
+  if (dbErr || !inserted) {
+    await svc.storage.from(AGREEMENT_DOC_BUCKET).remove([filePath]) // don't orphan the object
+    return { error: `Couldn’t save the document: ${dbErr?.message ?? 'unknown error'}` }
+  }
+
+  return { ok: true, id: inserted.id as string, documentType, title: file.name, fileName: file.name }
+}
+
+export async function deleteAgreementDocument(
+  input: { token: string; documentId: string },
+): Promise<{ ok: true } | { error: string }> {
+  const { token, documentId } = input
+  if (!token || !documentId) return { error: 'Missing details.' }
+
+  const svc = getServiceSupabase()
+  const { data: agreement } = await svc
+    .from('employment_agreements')
+    .select('id, status')
+    .eq('token', token)
+    .maybeSingle()
+  if (!agreement) return { error: 'Invalid link.' }
+  if (agreement.status === 'signed') return { error: 'This agreement is already signed.' }
+
+  const { data: doc } = await svc
+    .from('worker_documents')
+    .select('id, file_path, agreement_id, contractor_id')
+    .eq('id', documentId)
+    .maybeSingle()
+  if (!doc || doc.agreement_id !== agreement.id) return { error: 'Document not found.' }
+  // Only a pre-finalise upload (not yet attached to a contractor) is removable here.
+  if (doc.contractor_id) return { error: 'This document can no longer be removed here.' }
+
+  if (doc.file_path) await svc.storage.from(AGREEMENT_DOC_BUCKET).remove([doc.file_path as string])
+  await svc.from('worker_documents').delete().eq('id', documentId)
   return { ok: true }
 }
