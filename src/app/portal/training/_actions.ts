@@ -13,6 +13,9 @@ interface ModuleInput {
   requires_acknowledgement?: boolean
   requires_completion?: boolean
   sort_order?: number
+  version?: string
+  document_url?: string
+  document_label?: string
 }
 
 export async function createModule(input: ModuleInput) {
@@ -30,6 +33,9 @@ export async function createModule(input: ModuleInput) {
       requires_acknowledgement: input.requires_acknowledgement ?? false,
       requires_completion: input.requires_completion ?? true,
       sort_order: input.sort_order ?? 0,
+      version: input.version?.trim() || '1.0',
+      document_url: input.document_url?.trim() || null,
+      document_label: input.document_label?.trim() || null,
     })
     .select('id')
     .single()
@@ -53,6 +59,9 @@ export async function updateModule(id: string, input: ModuleInput) {
       requires_acknowledgement: input.requires_acknowledgement ?? false,
       requires_completion: input.requires_completion ?? true,
       sort_order: input.sort_order ?? 0,
+      version: input.version?.trim() || '1.0',
+      document_url: input.document_url?.trim() || null,
+      document_label: input.document_label?.trim() || null,
     })
     .eq('id', id)
 

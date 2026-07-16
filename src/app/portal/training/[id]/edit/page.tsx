@@ -9,7 +9,7 @@ export default async function EditModulePage({ params }: { params: { id: string 
 
   const { data: mod, error } = await supabase
     .from('training_modules')
-    .select('id, title, category, description, content, status, requires_acknowledgement, requires_completion, sort_order')
+    .select('id, title, category, description, content, status, requires_acknowledgement, requires_completion, sort_order, version, document_url, document_label')
     .eq('id', params.id)
     .single()
 

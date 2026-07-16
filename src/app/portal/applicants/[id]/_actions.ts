@@ -10,6 +10,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { checklistForWorkerType } from '@/lib/onboarding-checklist'
+import { autoAssignInductionModules } from '@/lib/induction-modules'
 
 const VALID_STATUSES = [
   'new', 'reviewing', 'phone_screen', 'approved', 'onboarding',
@@ -394,6 +395,15 @@ export async function startContractorOnboarding(input: {
     const { error: seedErr } = await supabase.from('contractor_onboarding').insert(checklist)
     if (seedErr) {
       console.error('[startContractorOnboarding] checklist seed failed', seedErr)
+    }
+  }
+
+  // Phase 5 — auto-assign the induction modules for contractors. Best-effort.
+  if (workerType === 'contractor') {
+    try {
+      await autoAssignInductionModules(supabase, contractor.id)
+    } catch (e) {
+      console.error('[startContractorOnboarding] induction auto-assign failed', e)
     }
   }
 

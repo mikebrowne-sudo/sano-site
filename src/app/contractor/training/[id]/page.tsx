@@ -24,7 +24,7 @@ export default async function ContractorTrainingDetailPage({ params }: { params:
 
   const { data: assignment, error } = await supabase
     .from('worker_training_assignments')
-    .select('id, status, due_date, completed_at, acknowledged_at, training_modules ( id, title, category, description, content, requires_acknowledgement, requires_completion )')
+    .select('id, status, due_date, completed_at, acknowledged_at, training_modules ( id, title, category, description, content, requires_acknowledgement, requires_completion, version, document_url, document_label )')
     .eq('id', params.id)
     .eq('contractor_id', contractor.id)
     .single()
@@ -34,6 +34,7 @@ export default async function ContractorTrainingDetailPage({ params }: { params:
   const mod = assignment.training_modules as unknown as {
     id: string; title: string; category: string; description: string | null
     content: string | null; requires_acknowledgement: boolean; requires_completion: boolean
+    version: string | null; document_url: string | null; document_label: string | null
   } | null
 
   return (
@@ -71,6 +72,21 @@ export default async function ContractorTrainingDetailPage({ params }: { params:
           <h2 className="text-xs text-sage-500 font-semibold uppercase tracking-wide mb-3">Content</h2>
           <div className="text-sage-700 text-sm whitespace-pre-wrap leading-relaxed">{mod.content}</div>
         </div>
+      )}
+
+      {mod?.document_url && (
+        <a
+          href={mod.document_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between gap-3 bg-white rounded-2xl border border-sage-200 p-5 mt-4 hover:border-sage-300 transition-colors"
+        >
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-sage-800">{mod.document_label || 'Full document'}</p>
+            <p className="text-xs text-sage-500">Open the full document (PDF){mod.version ? ` · v${mod.version}` : ''}</p>
+          </div>
+          <span className="shrink-0 text-sage-500 text-sm font-medium">Open →</span>
+        </a>
       )}
 
       {assignment.completed_at && (

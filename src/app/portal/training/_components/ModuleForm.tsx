@@ -24,6 +24,9 @@ interface ModuleData {
   requires_acknowledgement: boolean
   requires_completion: boolean
   sort_order: number
+  version?: string | null
+  document_url?: string | null
+  document_label?: string | null
 }
 
 export function ModuleForm({ module }: { module?: ModuleData }) {
@@ -37,6 +40,9 @@ export function ModuleForm({ module }: { module?: ModuleData }) {
   const [requiresAck, setRequiresAck] = useState(module?.requires_acknowledgement ?? false)
   const [requiresCompletion, setRequiresCompletion] = useState(module?.requires_completion ?? true)
   const [sortOrder, setSortOrder] = useState(String(module?.sort_order ?? 0))
+  const [version, setVersion] = useState(module?.version ?? '1.0')
+  const [documentLabel, setDocumentLabel] = useState(module?.document_label ?? '')
+  const [documentUrl, setDocumentUrl] = useState(module?.document_url ?? '')
 
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -55,6 +61,9 @@ export function ModuleForm({ module }: { module?: ModuleData }) {
       requires_acknowledgement: requiresAck,
       requires_completion: requiresCompletion,
       sort_order: parseInt(sortOrder) || 0,
+      version: version.trim() || undefined,
+      document_label: documentLabel.trim() || undefined,
+      document_url: documentUrl.trim() || undefined,
     }
 
     startTransition(async () => {
@@ -87,6 +96,17 @@ export function ModuleForm({ module }: { module?: ModuleData }) {
 
       <Section title="Content">
         <textarea rows={12} value={content} onChange={(e) => setContent(e.target.value)} placeholder="Full training content…" className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 text-sm resize-y font-mono" />
+      </Section>
+
+      <Section title="Linked document">
+        <p className="text-xs text-sage-500 mb-3">Optional — link the authoritative PDF (e.g. the finalised H&amp;S Plan). Contractors open it from the module.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Version" value={version} onChange={setVersion} />
+          <Field label="Document label" value={documentLabel} onChange={setDocumentLabel} />
+        </div>
+        <div className="mt-4">
+          <Field label="Document URL" value={documentUrl} onChange={setDocumentUrl} />
+        </div>
       </Section>
 
       <Section title="Settings">
