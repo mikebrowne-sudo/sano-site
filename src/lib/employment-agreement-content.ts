@@ -186,7 +186,7 @@ export const CONTRACTOR_AGREEMENT_SECTIONS: AgreementSection[] = [
   {
     title: '5. Fees and Payment',
     body: [
-      '5.1 The Principal will pay the Contractor at the agreed rate set out in the details above, or the fee agreed in the relevant job confirmation. All fees are exclusive of GST. Where the Contractor is registered for GST, the Principal will pay the GST component in addition to the agreed fee against a valid tax invoice.',
+      '5.1 The Principal will pay the Contractor at the agreed rate set out in the details above, or the fee agreed in the relevant job confirmation. The agreed rate is inclusive of GST. Where the Contractor is registered for GST, the agreed fee is treated as GST-inclusive and the Contractor will provide a valid tax invoice showing the GST component.',
       '5.2 The Contractor must submit a valid tax invoice following completion of each job, or at agreed intervals. The Principal will pay a valid invoice within 20 working days of receipt.',
       '5.3 The Contractor is responsible for their own income tax, GST, ACC levies, business registrations, vehicle costs and other business obligations. Where the payments are schedular payments under the Income Tax Act 2007, the Contractor must provide a completed IR330C (or a valid exemption or special tax rate certificate) before payment, and the Principal will deduct and account for withholding tax where required by law. Without a completed IR330C, the Principal may be required to deduct tax at the no-notification rate.',
       '5.4 The Contractor is responsible for any KiwiSaver contributions applicable to them as a self-employed person, and for obtaining any licences, permits or work rights required to provide the Services.',
