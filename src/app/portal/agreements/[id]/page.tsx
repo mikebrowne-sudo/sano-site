@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Link2 } from 'lucide-react'
+import { ArrowLeft, Link2, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { EmploymentAgreementDocument } from '@/components/EmploymentAgreementDocument'
@@ -22,9 +22,19 @@ export default async function AgreementDetailPage({ params }: { params: { id: st
 
   return (
     <div className="max-w-3xl">
-      <Link href="/portal/agreements" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 mb-4">
-        <ArrowLeft size={14} /> Employment agreements
-      </Link>
+      <div className="flex items-center justify-between mb-4">
+        <Link href="/portal/agreements" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800">
+          <ArrowLeft size={14} /> Employment agreements
+        </Link>
+        <a
+          href={`/api/agreements/${a.id}/pdf`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-3.5 py-2 rounded-lg text-sm hover:bg-sage-50"
+        >
+          <Download size={15} /> Download PDF
+        </a>
+      </div>
 
       {!signed && (
         <div className="rounded-xl border border-sage-200 bg-white p-5 mb-6">

@@ -77,6 +77,65 @@ export async function sendReviewRequestEmail(params: ReviewRequestEmailParams) {
   if (error) throw new Error(error.message)
 }
 
+export interface AgreementSignedEmailParams {
+  personName: string
+  agreementType: 'contractor' | 'casual_employee'
+  /** The signer's email, if captured — they also get their own copy. */
+  signerEmail: string | null
+  /** Link to the agreement in the portal (staff view). */
+  portalUrl: string
+  /** The signed agreement PDF to attach to every recipient. */
+  pdf: { filename: string; content: Buffer }
+}
+
+/**
+ * Confirmation that an agreement was signed. Sends an internal notification
+ * (Michael, Carol, and the admin inbox) plus the signer's own copy — each
+ * with the signed PDF attached. Throws on send failure so the caller can
+ * decide how to handle it (the sign flow treats email as fail-soft).
+ */
+export async function sendAgreementSignedEmail(params: AgreementSignedEmailParams) {
+  const resend = getResendClient()
+  const typeLabel = params.agreementType === 'contractor' ? 'contractor' : 'casual employee'
+  const attachments = [{ filename: params.pdf.filename, content: params.pdf.content }]
+
+  const internalTo = Array.from(
+    new Set(['michael@sano.nz', 'carol@sano.nz', process.env.SANO_NOTIFY_EMAIL].filter(Boolean) as string[]),
+  )
+
+  // Internal notification.
+  const internal = await resend.emails.send({
+    from: 'Sano Portal <noreply@sano.nz>',
+    to: internalTo,
+    subject: `Agreement signed — ${params.personName}`,
+    html: `
+      <p><strong>${escHtml(params.personName)}</strong> has completed and signed their ${typeLabel} agreement.</p>
+      <p>The signed copy is attached. <a href="${escHtml(params.portalUrl)}">View it in the portal</a>.</p>
+    `,
+    attachments,
+  })
+  if (internal.error) throw new Error(internal.error.message)
+
+  // Signer's own copy.
+  if (params.signerEmail) {
+    const first = params.personName.trim().split(/\s+/)[0] || 'there'
+    const signer = await resend.emails.send({
+      from: 'Sano <noreply@sano.nz>',
+      replyTo: getCustomerReplyToEmail(),
+      to: params.signerEmail,
+      subject: 'Your signed agreement — Sano',
+      html: `
+        <p>Hi ${escHtml(first)},</p>
+        <p>Thanks for completing and signing your ${typeLabel} agreement with Sano. A copy is attached for your records.</p>
+        <p>If anything doesn't look right, just reply to this email and we'll sort it out.</p>
+        <p>The Sano team</p>
+      `,
+      attachments,
+    })
+    if (signer.error) throw new Error(signer.error.message)
+  }
+}
+
 export async function sendQuoteNotification(params: QuoteEmailParams) {
   const notifyEmail = process.env.SANO_NOTIFY_EMAIL
   if (!notifyEmail) {
