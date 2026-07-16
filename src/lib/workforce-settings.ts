@@ -53,13 +53,17 @@ export const WORKFORCE_SETTINGS_DEFAULTS: WorkforceSettings = {
   block_assignment_until_ready: true,
   insurance_expiry_warning_days: 30,
   trial_required_default: true,
+  // Phase 2 — verification items (insurance_verified, id_verified upload/verify
+  // split, tax_review, competency_confirmed) are intentionally NOT required yet.
+  // They render as optional so no existing contractor is retroactively blocked;
+  // the gating flip is a deliberate follow-up once existing records are reviewed.
   contractor_required_items: [
     'confirm_details', 'bank_details', 'id_verified',
-    'insurance_uploaded', 'contract_signed', 'onboarding_training',
+    'insurance_uploaded', 'contract_signed', 'induction_completed',
   ],
   employee_required_items: [
     'confirm_details', 'bank_details', 'id_verified',
-    'ird_provided', 'kiwisaver', 'contract_signed', 'onboarding_training',
+    'ird_provided', 'kiwisaver', 'contract_signed', 'induction_completed',
   ],
   enable_contractor_portal: true,
   enable_pwa_prompt: true,
