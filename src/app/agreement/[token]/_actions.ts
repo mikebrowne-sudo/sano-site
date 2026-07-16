@@ -10,6 +10,7 @@ import { revalidatePath } from 'next/cache'
 import { renderPdfFromUrl } from '@/lib/pdf/render-pdf'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { sendAgreementSignedEmail } from '@/lib/resend'
+import { parseCoverAmount } from '@/lib/parse-cover-amount'
 
 export interface SignAgreementInput {
   token: string
@@ -108,6 +109,7 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
       bank_account_name: input.bankAccountName?.trim() || null,
       bank_account_number: input.bankAccount?.trim() || null,
       insurance_provider: input.insurerName?.trim() || null,
+      insurance_liability_cover: parseCoverAmount(input.insuranceCover),
       insurance_expiry: input.insuranceExpiry || null,
       worker_type: 'contractor',
       contract_signed_date: today,

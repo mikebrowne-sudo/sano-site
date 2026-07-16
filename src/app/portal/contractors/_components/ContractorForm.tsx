@@ -3,14 +3,8 @@
 import { useState, useTransition } from 'react'
 import { createContractor, updateContractor } from '../_actions'
 import { TAX_CODES, KS_EMPLOYEE_RATES, KS_DEFAULT_EMPLOYEE, KS_DEFAULT_EMPLOYER } from '@/lib/nz-paye'
+import { BUSINESS_STRUCTURES } from '@/lib/business-structure'
 import clsx from 'clsx'
-
-const BUSINESS_STRUCTURES = [
-  { value: 'sole_trader', label: 'Sole trader' },
-  { value: 'company', label: 'Company' },
-  { value: 'partnership', label: 'Partnership' },
-  { value: 'trust', label: 'Trust' },
-]
 
 const SERVICE_AREAS = [
   { value: 'auckland_central', label: 'Auckland Central' },
@@ -477,7 +471,7 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
           <Field label="Expiry date" type="date" value={insuranceExpiry} onChange={setInsuranceExpiry} />
           <Field label="Public liability cover ($)" type="number" step="1000" min="0" value={insuranceLiabilityCover} onChange={setInsuranceLiabilityCover} placeholder="e.g. 2000000" />
         </div>
-        <p className="text-xs text-sage-500 mt-3">Upload the insurance certificate under Documents (type: Insurance) after saving.</p>
+        <p className="text-xs text-sage-500 mt-3">{!isEmployee && 'Sano minimum: $1,000,000 for residential work, $2,000,000 for commercial. '}Upload the insurance certificate under Documents (type: Insurance) after saving.</p>
       </Section>
 
       {/* Compliance (shared) */}

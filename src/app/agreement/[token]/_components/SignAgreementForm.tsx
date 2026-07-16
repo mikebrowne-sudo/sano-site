@@ -83,7 +83,7 @@ export function SignAgreementForm({ token, type }: { token: string; type: 'casua
       {isContractor && (
         <div>
           <h2 className="text-base font-semibold text-sage-800 mb-1">Insurance</h2>
-          <p className="text-[11px] text-sage-400 mb-3">Minimum $1,000,000 public liability. A current certificate must be provided before starting.</p>
+          <p className="text-[11px] text-sage-400 mb-3">Minimum $1,000,000 public liability ($2,000,000 for commercial work). A current certificate must be provided before starting.</p>
           <div className="grid sm:grid-cols-3 gap-3">
             <Field label="Insurer" k="insurerName" />
             <Field label="Cover amount" k="insuranceCover" ph="$1,000,000" />
