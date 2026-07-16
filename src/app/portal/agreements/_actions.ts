@@ -10,6 +10,10 @@ export async function createEmploymentAgreement(input: {
   position: string
   hourlyRate: number | null
   startDate: string | null
+  /** Optionally link this agreement to an existing person so it's tied to
+   *  them (no duplicate on sign) and pre-filled with what we already hold. */
+  linkedContractorId?: string | null
+  linkedEmployeeId?: string | null
 }): Promise<{ ok?: true; id?: string; error?: string }> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -17,16 +21,52 @@ export async function createEmploymentAgreement(input: {
   if (!isAdminUser(user)) return { error: 'Admin only.' }
 
   const isContractor = input.agreementType === 'contractor'
+
+  // Pre-fill from a linked existing person. Only the fields that reliably
+  // exist today (name / email / phone, plus address for employees) — the
+  // remaining legal fields are completed at signing.
+  const prefill: Record<string, unknown> = {}
+  let linkedLabel: string | null = null
+  if (isContractor && input.linkedContractorId) {
+    const { data: c } = await supabase
+      .from('contractors')
+      .select('id, full_name, email, phone')
+      .eq('id', input.linkedContractorId)
+      .maybeSingle()
+    if (c) {
+      linkedLabel = c.full_name as string
+      prefill.contractor_id = c.id
+      prefill.employee_full_name = c.full_name
+      prefill.employee_email = c.email ?? null
+      prefill.employee_phone = c.phone ?? null
+    }
+  } else if (!isContractor && input.linkedEmployeeId) {
+    const { data: e } = await supabase
+      .from('employees')
+      .select('id, full_name, email, phone, address')
+      .eq('id', input.linkedEmployeeId)
+      .maybeSingle()
+    if (e) {
+      linkedLabel = e.full_name as string
+      prefill.employee_id = e.id
+      prefill.employee_full_name = e.full_name
+      prefill.employee_email = e.email ?? null
+      prefill.employee_phone = e.phone ?? null
+      prefill.employee_address = e.address ?? null
+    }
+  }
+
   const { data, error } = await supabase
     .from('employment_agreements')
     .insert({
       agreement_type: isContractor ? 'contractor' : 'casual_employee',
-      person_label: input.personLabel?.trim() || (isContractor ? 'Contractor' : 'Carol'),
+      person_label: linkedLabel || input.personLabel?.trim() || (isContractor ? 'Contractor' : 'Carol'),
       position: isContractor ? 'Independent Contractor' : (input.position?.trim() || 'Cleaner (Casual)'),
       hourly_rate: isContractor ? null : input.hourlyRate,
       start_date: input.startDate || null,
       status: 'draft',
       created_by: user.id,
+      ...prefill,
     })
     .select('id')
     .single()

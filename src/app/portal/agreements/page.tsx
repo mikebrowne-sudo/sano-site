@@ -16,10 +16,14 @@ export default async function AgreementsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!isAdminUser(user)) notFound()
 
-  const { data: agreements } = await supabase
-    .from('employment_agreements')
-    .select('id, person_label, position, status, signed_at, created_at, agreement_type')
-    .order('created_at', { ascending: false })
+  const [{ data: agreements }, { data: contractors }, { data: employees }] = await Promise.all([
+    supabase
+      .from('employment_agreements')
+      .select('id, person_label, position, status, signed_at, created_at, agreement_type')
+      .order('created_at', { ascending: false }),
+    supabase.from('contractors').select('id, full_name, email').eq('status', 'active').order('full_name'),
+    supabase.from('employees').select('id, full_name, email').eq('status', 'active').order('full_name'),
+  ])
 
   return (
     <div className="max-w-3xl">
@@ -29,7 +33,12 @@ export default async function AgreementsPage() {
       <h1 className="text-3xl font-bold text-sage-800 tracking-tight mb-1">Employment agreements</h1>
       <p className="text-sm text-sage-500 mb-6">Create a casual employment agreement, send the private link to the employee, and store their signed copy.</p>
 
-      <div className="mb-8"><CreateAgreementForm /></div>
+      <div className="mb-8">
+        <CreateAgreementForm
+          contractors={(contractors ?? []).map((c) => ({ id: c.id as string, fullName: (c.full_name as string) ?? '—', email: (c.email as string | null) ?? null }))}
+          employees={(employees ?? []).map((e) => ({ id: e.id as string, fullName: (e.full_name as string) ?? '—', email: (e.email as string | null) ?? null }))}
+        />
+      </div>
 
       <h2 className="text-[11px] font-semibold uppercase tracking-wider text-sage-500 mb-2 px-1">Agreements</h2>
       {(!agreements || agreements.length === 0) ? (
