@@ -17,6 +17,7 @@ import { AdminOverrideButton } from './_components/AdminOverrideButton'
 import { ContractorAccessPanel } from './_components/ContractorAccessPanel'
 import { AuditTimelinePanel } from '../../_components/AuditTimelinePanel'
 import { isAdminUser } from '@/lib/is-admin'
+import { businessStructureLabel } from '@/lib/business-structure'
 
 // Phase 5.3 — worker_type now collapses to {contractor, employee};
 // the prior sub-classifications (casual / part_time / full_time)
@@ -267,7 +268,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
           <Section title="Business identity">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
               <div><span className="text-sage-500">Trading / company name</span><p className="text-sage-800 font-medium">{contractor.company_name || '—'}</p></div>
-              <div><span className="text-sage-500">Structure</span><p className="text-sage-800 font-medium capitalize">{(contractor.business_structure as string | null)?.replace('_', ' ') || '—'}</p></div>
+              <div><span className="text-sage-500">Structure</span><p className="text-sage-800 font-medium">{businessStructureLabel(contractor.business_structure as string | null) || '—'}</p></div>
               <div><span className="text-sage-500">NZBN</span><p className="text-sage-800 font-medium">{contractor.nzbn || '—'}</p></div>
             </div>
           </Section>
