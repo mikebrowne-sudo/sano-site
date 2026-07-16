@@ -12,7 +12,7 @@ import {
   HardHat, BookOpen, DollarSign, FileInput, Wallet, Bell, Settings,
   Calendar, UserCog, ArchiveRestore, LayoutTemplate,
   Wallet2, UserPlus, Scale, Landmark, BarChart3, KeyRound,
-  Target, Megaphone, Car, Banknote, FileSignature,
+  Target, Megaphone, Car, Banknote, FileSignature, Star,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -45,6 +45,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/portal/leads',                 label: 'Leads',           icon: Target },
       { href: '/portal/campaigns',             label: 'Campaigns',       icon: Megaphone },
       { href: '/portal/clients',               label: 'Clients',         icon: Users },
+      { href: '/portal/reviews',               label: 'Reviews',         icon: Star },
       { href: '/portal/quotes',                label: 'Quotes',          icon: FileText },
       { href: '/portal/invoices',              label: 'Invoices',        icon: Receipt, finance: true },
       // Phase 2 cleanup — legacy /portal/commercial-calculator hidden
