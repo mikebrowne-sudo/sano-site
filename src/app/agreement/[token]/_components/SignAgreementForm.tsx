@@ -1,10 +1,11 @@
 'use client'
 
 // Step-based onboarding wizard for the public (token-keyed) agreement flow.
-// Replaces the old agreement-left / form-right split. One step at a time, a
-// full-width agreement view/modal, a progress indicator, Back/Continue, a final
-// review-and-sign step, and localStorage persistence so a refresh or return via
-// the same token keeps entered values. Shared by contractor + employee.
+// One step at a time, a full-width agreement view/modal, a progress indicator,
+// Back/Continue, a final review-and-sign step, and localStorage persistence so a
+// refresh or return via the same token keeps entered values. When the agreement
+// is pre-linked to an existing worker, their known details pre-fill.
+// Shared by contractor + employee.
 
 import { useState, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -23,9 +24,35 @@ const INITIAL = {
   emName: '', emPhone: '', emRel: '', signedName: '',
 }
 
+export type FormValues = typeof INITIAL
+
+export interface PrefillValues extends Partial<FormValues> {
+  businessStructure?: string | null
+  gstRegistered?: boolean | null
+}
+
 function fmtDate(iso: string | null) {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+const inputCls = 'w-full rounded-lg border border-sage-200 px-3 py-2.5 text-sm text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500'
+
+// Module-level, stable field component. Defining this inside the wizard would
+// recreate it on every keystroke and blow away input focus after one character.
+function Field({ label, value, onChange, type = 'text', ph }: {
+  label: string
+  value: string
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  type?: string
+  ph?: string
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[11px] font-medium text-sage-500">{label}</span>
+      <input type={type} value={value} onChange={onChange} placeholder={ph} className={inputCls} />
+    </label>
+  )
 }
 
 export function SignAgreementForm({
@@ -33,17 +60,19 @@ export function SignAgreementForm({
   type,
   initialDocs = [],
   agreement,
+  prefill,
 }: {
   token: string
   type: 'casual_employee' | 'contractor'
   initialDocs?: UploadedDoc[]
   agreement: AgreementView
+  prefill?: PrefillValues
 }) {
   const router = useRouter()
   const isContractor = type === 'contractor'
   const storageKey = `sano_onboarding_${token}`
 
-  const [f, setF] = useState(INITIAL)
+  const [f, setF] = useState<FormValues>(INITIAL)
   const [businessStructure, setBusinessStructure] = useState('')
   const [gstRegistered, setGstRegistered] = useState(false)
   const [agreed, setAgreed] = useState(false)
@@ -53,11 +82,13 @@ export function SignAgreementForm({
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+  const set = (k: keyof FormValues) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setF((p) => ({ ...p, [k]: e.target.value }))
 
-  // Restore any in-progress values (refresh / return via the same token).
+  // On mount: in-progress values (same token) win; otherwise pre-fill from the
+  // linked worker's known details so nothing already captured is re-typed.
   useEffect(() => {
+    let usedStorage = false
     try {
       const raw = localStorage.getItem(storageKey)
       if (raw) {
@@ -66,12 +97,19 @@ export function SignAgreementForm({
         if (typeof s.businessStructure === 'string') setBusinessStructure(s.businessStructure)
         if (typeof s.gstRegistered === 'boolean') setGstRegistered(s.gstRegistered)
         if (typeof s.step === 'number') setStep(Math.min(s.step, 5))
+        usedStorage = true
       }
     } catch { /* ignore */ }
+    if (!usedStorage && prefill) {
+      const { businessStructure: bs, gstRegistered: gr, ...rest } = prefill
+      setF((p) => ({ ...p, ...Object.fromEntries(Object.entries(rest).filter(([, v]) => v != null && v !== '')) as Partial<FormValues> }))
+      if (bs) setBusinessStructure(bs)
+      if (typeof gr === 'boolean') setGstRegistered(gr)
+    }
     setRestored(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey])
 
-  // Persist after the initial restore.
   useEffect(() => {
     if (!restored) return
     try {
@@ -97,23 +135,14 @@ export function SignAgreementForm({
     return null
   }
 
+  function scrollTop() { if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' }) }
   function next() {
     const err = validate(step)
     if (err) { setError(err); return }
-    setError(null)
-    setStep((s) => Math.min(s + 1, STEPS.length - 1))
-    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
+    setError(null); setStep((s) => Math.min(s + 1, STEPS.length - 1)); scrollTop()
   }
-  function back() {
-    setError(null)
-    setStep((s) => Math.max(s - 1, 0))
-    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-  function goTo(s: number) {
-    setError(null)
-    setStep(s)
-    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+  function back() { setError(null); setStep((s) => Math.max(s - 1, 0)); scrollTop() }
+  function goTo(s: number) { setError(null); setStep(s); scrollTop() }
 
   function submit() {
     const err = validate(5)
@@ -137,14 +166,6 @@ export function SignAgreementForm({
     })
   }
 
-  const input = 'w-full rounded-lg border border-sage-200 px-3 py-2.5 text-sm text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500'
-  const Field = ({ label, k, type: t = 'text', ph }: { label: string; k: keyof typeof f; type?: string; ph?: string }) => (
-    <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-medium text-sage-500">{label}</span>
-      <input type={t} value={f[k]} onChange={set(k)} className={input} placeholder={ph} />
-    </label>
-  )
-
   const showLegalName = ['company', 'partnership', 'trust', 'other'].includes(businessStructure)
   const legalNameLabel = businessStructure === 'company' ? 'Legal company name'
     : businessStructure === 'partnership' ? 'Partnership name'
@@ -158,16 +179,10 @@ export function SignAgreementForm({
           const state = i < step ? 'done' : i === step ? 'current' : 'todo'
           return (
             <li key={label} className="flex items-center gap-1 shrink-0">
-              <button
-                type="button"
-                onClick={() => i <= step && goTo(i)}
-                disabled={i > step}
+              <button type="button" onClick={() => i <= step && goTo(i)} disabled={i > step}
                 className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  state === 'current' ? 'bg-sage-500 text-white'
-                    : state === 'done' ? 'bg-sage-100 text-sage-700 hover:bg-sage-200'
-                      : 'bg-sage-50 text-sage-400'
-                }`}
-              >
+                  state === 'current' ? 'bg-sage-500 text-white' : state === 'done' ? 'bg-sage-100 text-sage-700 hover:bg-sage-200' : 'bg-sage-50 text-sage-400'
+                }`}>
                 <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] ${state === 'done' ? 'bg-sage-500 text-white' : state === 'current' ? 'bg-white/25' : 'bg-sage-100'}`}>
                   {state === 'done' ? <Check size={10} /> : i + 1}
                 </span>
@@ -180,7 +195,7 @@ export function SignAgreementForm({
       </ol>
 
       <div className="min-h-[16rem]">
-        {/* ── Step 0 — Review agreement ── */}
+        {/* Step 0 — Review agreement */}
         {step === 0 && (
           <div>
             <h2 className="text-lg font-semibold text-sage-800 mb-1">Review your agreement</h2>
@@ -196,31 +211,31 @@ export function SignAgreementForm({
           </div>
         )}
 
-        {/* ── Step 1 — Personal details ── */}
+        {/* Step 1 — Personal details */}
         {step === 1 && (
           <div>
             <h2 className="text-lg font-semibold text-sage-800 mb-4">Your details</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <Field label="Full legal name *" k="fullName" />
-              <Field label="Preferred name" k="preferredName" />
-              <Field label="Phone" k="phone" />
-              <Field label="Email *" k="email" type="email" />
+              <Field label="Full legal name *" value={f.fullName} onChange={set('fullName')} />
+              <Field label="Preferred name" value={f.preferredName} onChange={set('preferredName')} />
+              <Field label="Phone" value={f.phone} onChange={set('phone')} />
+              <Field label="Email *" type="email" value={f.email} onChange={set('email')} />
               <label className="flex flex-col gap-1 sm:col-span-2 lg:col-span-3"><span className="text-[11px] font-medium text-sage-500">{isContractor ? 'Business / home address' : 'Residential address'}</span>
-                <input value={f.address} onChange={set('address')} className={input} /></label>
-              {!isContractor && <Field label="Date of birth" k="dateOfBirth" type="date" />}
-              <Field label="IRD number" k="ird" ph="000-000-000" />
-              {isContractor && <Field label="Trading name (if any)" k="tradingName" />}
+                <input value={f.address} onChange={set('address')} className={inputCls} /></label>
+              {!isContractor && <Field label="Date of birth" type="date" value={f.dateOfBirth} onChange={set('dateOfBirth')} />}
+              <Field label="IRD number" ph="000-000-000" value={f.ird} onChange={set('ird')} />
+              {isContractor && <Field label="Trading name (if any)" value={f.tradingName} onChange={set('tradingName')} />}
             </div>
             <h3 className="text-sm font-semibold text-sage-800 mt-6 mb-3">Emergency contact</h3>
             <div className="grid sm:grid-cols-3 gap-3">
-              <Field label="Name" k="emName" />
-              <Field label="Phone" k="emPhone" />
-              <Field label="Relationship" k="emRel" />
+              <Field label="Name" value={f.emName} onChange={set('emName')} />
+              <Field label="Phone" value={f.emPhone} onChange={set('emPhone')} />
+              <Field label="Relationship" value={f.emRel} onChange={set('emRel')} />
             </div>
           </div>
         )}
 
-        {/* ── Step 2 — Business & tax (contractor) / Tax & KiwiSaver (employee) ── */}
+        {/* Step 2 — Business & tax (contractor) */}
         {step === 2 && isContractor && (
           <div>
             <h2 className="text-lg font-semibold text-sage-800 mb-1">Your business</h2>
@@ -237,10 +252,10 @@ export function SignAgreementForm({
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {showLegalName && (
                   <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">{legalNameLabel}</span>
-                    <input value={f.legalName} onChange={set('legalName')} className={input} /></label>
+                    <input value={f.legalName} onChange={set('legalName')} className={inputCls} /></label>
                 )}
-                <Field label="NZBN (if you have one)" k="nzbn" ph="9429000000000" />
-                {businessStructure === 'company' && <Field label="Company number (if you have one)" k="companyNumber" />}
+                <Field label="NZBN (if you have one)" ph="9429000000000" value={f.nzbn} onChange={set('nzbn')} />
+                {businessStructure === 'company' && <Field label="Company number (if you have one)" value={f.companyNumber} onChange={set('companyNumber')} />}
               </div>
             )}
             <div className="mt-5">
@@ -249,16 +264,17 @@ export function SignAgreementForm({
                 <label className="flex items-center gap-2"><input type="radio" name="gst" checked={!gstRegistered} onChange={() => setGstRegistered(false)} /> No</label>
                 <label className="flex items-center gap-2"><input type="radio" name="gst" checked={gstRegistered} onChange={() => setGstRegistered(true)} /> Yes</label>
               </div>
-              {gstRegistered && <div className="mt-2 max-w-xs"><Field label="GST number" k="gstNumber" ph="123-456-789" /></div>}
+              {gstRegistered && <div className="mt-2 max-w-xs"><Field label="GST number" ph="123-456-789" value={f.gstNumber} onChange={set('gstNumber')} /></div>}
             </div>
           </div>
         )}
+        {/* Step 2 — Tax & KiwiSaver (employee) */}
         {step === 2 && !isContractor && (
           <div>
-            <h2 className="text-lg font-semibold text-sage-800 mb-4">Tax & KiwiSaver</h2>
+            <h2 className="text-lg font-semibold text-sage-800 mb-4">Tax &amp; KiwiSaver</h2>
             <div className="grid sm:grid-cols-2 gap-3">
               <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Tax code</span>
-                <select value={f.taxCode} onChange={set('taxCode')} className={input}>
+                <select value={f.taxCode} onChange={set('taxCode')} className={inputCls}>
                   {TAX_CODES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select></label>
             </div>
@@ -271,7 +287,7 @@ export function SignAgreementForm({
               </div>
               {f.kiwisaver === 'stay_in' && (
                 <label className="flex flex-col gap-1 max-w-[10rem] mt-2"><span className="text-[11px] font-medium text-sage-500">Contribution rate</span>
-                  <select value={f.kiwisaverRate} onChange={set('kiwisaverRate')} className={input}>
+                  <select value={f.kiwisaverRate} onChange={set('kiwisaverRate')} className={inputCls}>
                     {KS_EMPLOYEE_RATES.map((r) => <option key={r} value={String(r)}>{r}%</option>)}
                   </select></label>
               )}
@@ -279,29 +295,29 @@ export function SignAgreementForm({
           </div>
         )}
 
-        {/* ── Step 3 — Payment & insurance (contractor) / Payment (employee) ── */}
+        {/* Step 3 — Payment & insurance / Payment */}
         {step === 3 && (
           <div>
             <h2 className="text-lg font-semibold text-sage-800 mb-4">Payment{isContractor ? ' & insurance' : ''}</h2>
             <div className="grid sm:grid-cols-2 gap-3">
-              <Field label="Bank account name" k="bankName" />
-              <Field label="Bank account number *" k="bank" ph="00-0000-0000000-00" />
+              <Field label="Bank account name" value={f.bankName} onChange={set('bankName')} />
+              <Field label="Bank account number *" ph="00-0000-0000000-00" value={f.bank} onChange={set('bank')} />
             </div>
             {isContractor && (
               <div className="mt-6">
                 <h3 className="text-sm font-semibold text-sage-800 mb-1">Insurance</h3>
                 <p className="text-[11px] text-sage-400 mb-3">Minimum $1,000,000 public liability ($2,000,000 for commercial work). A current certificate must be provided before starting (you can upload it next).</p>
                 <div className="grid sm:grid-cols-3 gap-3">
-                  <Field label="Insurer" k="insurerName" />
-                  <Field label="Cover amount" k="insuranceCover" ph="$1,000,000" />
-                  <Field label="Policy expiry" k="insuranceExpiry" type="date" />
+                  <Field label="Insurer" value={f.insurerName} onChange={set('insurerName')} />
+                  <Field label="Cover amount" ph="$1,000,000" value={f.insuranceCover} onChange={set('insuranceCover')} />
+                  <Field label="Policy expiry" type="date" value={f.insuranceExpiry} onChange={set('insuranceExpiry')} />
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* ── Step 4 — Documents ── */}
+        {/* Step 4 — Documents */}
         {step === 4 && (
           <div>
             <h2 className="text-lg font-semibold text-sage-800 mb-4">Documents</h2>
@@ -309,7 +325,7 @@ export function SignAgreementForm({
           </div>
         )}
 
-        {/* ── Step 5 — Review & sign ── */}
+        {/* Step 5 — Review & sign */}
         {step === 5 && (
           <div>
             <h2 className="text-lg font-semibold text-sage-800 mb-4">Review &amp; sign</h2>
@@ -349,7 +365,7 @@ export function SignAgreementForm({
                 <span>I confirm the above is accurate, and I have read, understood, and agree to this {isContractor ? 'Independent Contractor Agreement' : 'Casual Employment Agreement'}.</span>
               </label>
               <label className="flex flex-col gap-1 max-w-sm"><span className="text-[11px] font-medium text-sage-500">Type your full name to sign</span>
-                <input value={f.signedName} onChange={set('signedName')} className={input} placeholder={f.fullName || 'Your full legal name'} /></label>
+                <input value={f.signedName} onChange={set('signedName')} className={inputCls} placeholder={f.fullName || 'Your full legal name'} /></label>
             </div>
           </div>
         )}
@@ -357,8 +373,8 @@ export function SignAgreementForm({
 
       {error && <p className="text-sm text-red-600 mt-4">{error}</p>}
 
-      {/* Back / Continue (sticky on mobile) */}
-      <div className="sticky bottom-0 -mx-6 mt-6 flex items-center justify-between gap-3 border-t border-sage-100 bg-white/95 backdrop-blur px-6 py-3">
+      {/* Back / Continue (sticky) */}
+      <div className="sticky bottom-0 -mx-5 sm:-mx-7 mt-6 flex items-center justify-between gap-3 border-t border-sage-100 bg-white/95 backdrop-blur px-5 sm:px-7 py-3">
         <button type="button" onClick={back} disabled={step === 0}
           className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-medium text-sage-600 hover:text-sage-800 disabled:opacity-40">
           <ArrowLeft size={15} /> Back
