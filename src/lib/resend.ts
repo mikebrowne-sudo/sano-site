@@ -86,6 +86,9 @@ export interface AgreementSignedEmailParams {
   portalUrl: string
   /** The signed agreement PDF to attach to every recipient. */
   pdf: { filename: string; content: Buffer }
+  /** Test run — email only the tester (michael@), never Carol / the admin
+   *  inbox, and mark everything [TEST]. */
+  isTest?: boolean
 }
 
 /**
@@ -98,17 +101,20 @@ export async function sendAgreementSignedEmail(params: AgreementSignedEmailParam
   const resend = getResendClient()
   const typeLabel = params.agreementType === 'contractor' ? 'contractor' : 'casual employee'
   const attachments = [{ filename: params.pdf.filename, content: params.pdf.content }]
+  const tag = params.isTest ? '[TEST] ' : ''
 
-  const internalTo = Array.from(
-    new Set(['michael@sano.nz', 'carol@sano.nz', process.env.SANO_NOTIFY_EMAIL].filter(Boolean) as string[]),
-  )
+  // Internal notification. On a test run only the tester (michael@) is
+  // notified — never Carol or the admin inbox.
+  const internalTo = params.isTest
+    ? ['michael@sano.nz']
+    : Array.from(new Set(['michael@sano.nz', 'carol@sano.nz', process.env.SANO_NOTIFY_EMAIL].filter(Boolean) as string[]))
 
-  // Internal notification.
   const internal = await resend.emails.send({
     from: 'Sano Portal <noreply@sano.nz>',
     to: internalTo,
-    subject: `Agreement signed — ${params.personName}`,
+    subject: `${tag}Agreement signed — ${params.personName}`,
     html: `
+      ${params.isTest ? '<p style="color:#b45309"><strong>This is a TEST run</strong> — no contractor/employee account was created.</p>' : ''}
       <p><strong>${escHtml(params.personName)}</strong> has completed and signed their ${typeLabel} agreement.</p>
       <p>The signed copy is attached. <a href="${escHtml(params.portalUrl)}">View it in the portal</a>.</p>
     `,
@@ -123,7 +129,7 @@ export async function sendAgreementSignedEmail(params: AgreementSignedEmailParam
       from: 'Sano <noreply@sano.nz>',
       replyTo: getCustomerReplyToEmail(),
       to: params.signerEmail,
-      subject: 'Your signed agreement — Sano',
+      subject: `${tag}Your signed agreement — Sano`,
       html: `
         <p>Hi ${escHtml(first)},</p>
         <p>Thanks for completing and signing your ${typeLabel} agreement with Sano. A copy is attached for your records.</p>

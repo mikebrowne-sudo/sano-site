@@ -19,7 +19,7 @@ export default async function AgreementsPage() {
   const [{ data: agreements }, { data: contractors }, { data: employees }] = await Promise.all([
     supabase
       .from('employment_agreements')
-      .select('id, person_label, position, status, signed_at, created_at, agreement_type')
+      .select('id, person_label, position, status, signed_at, created_at, agreement_type, is_test')
       .order('created_at', { ascending: false }),
     supabase.from('contractors').select('id, full_name, email').eq('status', 'active').order('full_name'),
     supabase.from('employees').select('id, full_name, email').eq('status', 'active').order('full_name'),
@@ -53,6 +53,7 @@ export default async function AgreementsPage() {
                 <div className="text-sm font-medium text-sage-800">
                   {a.person_label || 'Employee'}
                   <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-sage-100 text-sage-600 font-medium">{a.agreement_type === 'contractor' ? 'Contractor' : 'Casual employee'}</span>
+                  {a.is_test && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold uppercase tracking-wide">Test</span>}
                 </div>
                 <div className="text-[11px] text-sage-500">created {formatDate(a.created_at)}</div>
               </div>
