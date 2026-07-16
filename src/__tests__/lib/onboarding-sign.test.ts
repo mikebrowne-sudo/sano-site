@@ -1,5 +1,5 @@
-import { seedAndAutoCompleteOnboardingOnSign } from '@/lib/onboarding-sign'
-import { SIGN_AUTO_COMPLETE_KEYS } from '@/lib/onboarding-checklist'
+import { seedAndAutoCompleteOnboardingOnSign, completeUploadedItems } from '@/lib/onboarding-sign'
+import { SIGN_AUTO_COMPLETE_KEYS, STAFF_VERIFICATION_KEYS } from '@/lib/onboarding-checklist'
 
 // Minimal chainable fake of the Supabase client, recording the calls the
 // wrapper makes so we can assert it is constructed to be idempotent and to
@@ -83,6 +83,34 @@ describe('seedAndAutoCompleteOnboardingOnSign', () => {
     expect(res.completedKeys).toEqual([])
     expect(calls.inserts).toHaveLength(0) // no duplicate audit
     expect(calls.upserts).toHaveLength(1) // re-seed is a no-op upsert (ignoreDuplicates)
+  })
+
+  it('completes uploaded items from document types — only *_uploaded, only pending', async () => {
+    const { client, calls } = makeFakeClient([{ item_key: 'insurance_uploaded' }, { item_key: 'id_uploaded' }])
+    const res = await completeUploadedItems(client, { contractorId: 'c-1', docTypes: ['insurance', 'id_verification', 'company'] })
+
+    expect(res.completedKeys).toEqual(['insurance_uploaded', 'id_uploaded'])
+    const upd = calls.updates[0]
+    expect(upd.updateObj.status).toBe('complete')
+    expect(upd.updateObj.completed_by).toBeNull()
+    // the item_key IN-filter must contain only *_uploaded keys, never verification
+    const inFilter = upd.filters.find((f) => f[0] === 'in' && f[1] === 'item_key')
+    expect(inFilter?.[2]).toEqual(['insurance_uploaded', 'id_uploaded'])
+    for (const k of inFilter?.[2] as string[]) expect(STAFF_VERIFICATION_KEYS).not.toContain(k)
+    expect(upd.filters).toContainEqual(['eq', 'status', 'pending'])
+  })
+
+  it('completeUploadedItems is a no-op when no document type maps to an item', async () => {
+    const { client, calls } = makeFakeClient([])
+    const res = await completeUploadedItems(client, { contractorId: 'c-1', docTypes: ['company'] })
+    expect(res.completedKeys).toEqual([])
+    expect(calls.updates).toHaveLength(0) // never issues an update
+  })
+
+  it('completeUploadedItems passes through the completing staff user id', async () => {
+    const { client, calls } = makeFakeClient([{ item_key: 'insurance_uploaded' }])
+    await completeUploadedItems(client, { contractorId: 'c-1', docTypes: ['insurance'], completedBy: 'user-9' })
+    expect(calls.updates[0].updateObj.completed_by).toBe('user-9')
   })
 
   it('seeds right-to-work items only when required', async () => {

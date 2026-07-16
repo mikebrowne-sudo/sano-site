@@ -128,6 +128,30 @@ export function isStaffVerificationItem(itemKey: string): boolean {
   return STAFF_VERIFICATION_KEYS.includes(itemKey)
 }
 
+// Maps an uploaded document type to the WORKER-kind *_uploaded checklist
+// item it satisfies. Deliberately NEVER maps to a *_verified (staff) item —
+// a document upload can complete an "uploaded" step but can never complete
+// a Sano verification.
+export const DOC_TYPE_TO_UPLOAD_ITEM: Record<string, string> = {
+  insurance: 'insurance_uploaded',
+  id_verification: 'id_uploaded',
+  right_to_work: 'right_to_work_uploaded',
+}
+
+/** The *_uploaded item keys satisfied by a set of uploaded document types. */
+export function uploadedItemKeysForDocTypes(docTypes: Iterable<string>): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  Array.from(docTypes).forEach((t) => {
+    const key = DOC_TYPE_TO_UPLOAD_ITEM[t]
+    if (key && !seen.has(key)) {
+      seen.add(key)
+      out.push(key)
+    }
+  })
+  return out
+}
+
 /**
  * True when every REQUIRED item that exists for a worker is complete.
  * Mirrors the gating used by recomputeOnboardingStatus + OnboardingPanel:

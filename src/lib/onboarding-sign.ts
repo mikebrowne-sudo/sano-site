@@ -19,7 +19,7 @@
 // This helper is deliberately IO-thin and takes the Supabase client so it
 // can run on the service-role client from the token-keyed sign action.
 
-import { onboardingSeedRows, SIGN_AUTO_COMPLETE_KEYS } from './onboarding-checklist'
+import { onboardingSeedRows, SIGN_AUTO_COMPLETE_KEYS, uploadedItemKeysForDocTypes } from './onboarding-checklist'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = any
@@ -69,4 +69,30 @@ export async function seedAndAutoCompleteOnboardingOnSign(
   }
 
   return { completedKeys }
+}
+
+/**
+ * Complete the WORKER-kind *_uploaded checklist items satisfied by a set of
+ * uploaded document types (insurance / id_verification / right_to_work).
+ * Only ever targets *_uploaded items — never *_verified — and only rows that
+ * are still pending, so it is idempotent and can never complete a Sano
+ * verification from a document's mere presence.
+ */
+export async function completeUploadedItems(
+  client: AnyClient,
+  { contractorId, docTypes, completedBy = null }: { contractorId: string; docTypes: Iterable<string>; completedBy?: string | null },
+): Promise<{ completedKeys: string[] }> {
+  const keys = uploadedItemKeysForDocTypes(docTypes)
+  if (keys.length === 0) return { completedKeys: [] }
+
+  const nowIso = new Date().toISOString()
+  const { data: completed } = await client
+    .from('contractor_onboarding')
+    .update({ status: 'complete', completed_at: nowIso, completed_by: completedBy })
+    .eq('contractor_id', contractorId)
+    .in('item_key', keys)
+    .eq('status', 'pending')
+    .select('item_key')
+
+  return { completedKeys: ((completed ?? []) as { item_key: string }[]).map((r) => r.item_key) }
 }
