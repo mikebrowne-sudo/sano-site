@@ -8,7 +8,7 @@
 import { useState } from 'react'
 import { Loader2, Check, X, Upload } from 'lucide-react'
 import { uploadAgreementDocument, deleteAgreementDocument } from '../_actions'
-import { AGREEMENT_DOC_TYPES } from '@/lib/agreement-documents'
+import { agreementDocTypesForStructure } from '@/lib/agreement-documents'
 
 export interface UploadedDoc {
   id: string
@@ -20,13 +20,16 @@ export interface UploadedDoc {
 export function AgreementDocumentsUpload({
   token,
   initialDocs,
+  structure,
 }: {
   token: string
   initialDocs: UploadedDoc[]
+  structure?: string | null
 }) {
   const [docs, setDocs] = useState<UploadedDoc[]>(initialDocs)
   const [busyType, setBusyType] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const docTypes = agreementDocTypesForStructure(structure)
 
   async function onPick(documentType: string, file: File) {
     setError(null)
@@ -59,7 +62,7 @@ export function AgreementDocumentsUpload({
       <h2 className="text-base font-semibold text-sage-800 mb-1">Documents</h2>
       <p className="text-[11px] text-sage-400 mb-3">PDF, JPG or PNG · up to 10 MB each. You can add these now or your onboarding contact can help later.</p>
       <div className="space-y-2.5">
-        {AGREEMENT_DOC_TYPES.map((dt) => {
+        {docTypes.map((dt) => {
           const existing = docs.find((d) => d.documentType === dt.value)
           const busy = busyType === dt.value
           return (

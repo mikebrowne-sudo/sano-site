@@ -61,6 +61,8 @@ export interface ContractorData {
   company_name?: string | null
   business_structure?: string | null
   nzbn?: string | null
+  legal_name?: string | null
+  company_number?: string | null
   // GST (contractor)
   gst_registered?: boolean | null
   gst_number?: string | null
@@ -142,6 +144,8 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
   const [companyName, setCompanyName] = useState(contractor?.company_name ?? '')
   const [businessStructure, setBusinessStructure] = useState(contractor?.business_structure ?? '')
   const [nzbn, setNzbn] = useState(contractor?.nzbn ?? '')
+  const [legalName, setLegalName] = useState(contractor?.legal_name ?? '')
+  const [companyNumber, setCompanyNumber] = useState(contractor?.company_number ?? '')
 
   // GST (contractor-only)
   const [gstRegistered, setGstRegistered] = useState(contractor?.gst_registered ?? false)
@@ -228,6 +232,8 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
         company_name: companyName.trim() || undefined,
         business_structure: businessStructure || undefined,
         nzbn: nzbn.trim() || undefined,
+        legal_name: legalName.trim() || undefined,
+        company_number: companyNumber.trim() || undefined,
         gst_registered: gstRegistered,
         gst_number: gstRegistered ? (gstNumber.trim() || undefined) : undefined,
         bank_account_name: bankAccountName.trim() || undefined,
@@ -309,6 +315,10 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Trading / company name" value={companyName} onChange={setCompanyName} placeholder="e.g. Smith Cleaning Services Ltd" />
             <Field label="NZBN" value={nzbn} onChange={setNzbn} placeholder="13-digit NZBN" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+            <Field label="Legal / entity name" value={legalName} onChange={setLegalName} placeholder="Registered company / trust name" />
+            <Field label="Company number" value={companyNumber} onChange={setCompanyNumber} placeholder="If applicable" />
           </div>
           <div className="mt-4">
             <span className="block text-sm font-semibold text-sage-800 mb-2">Business structure</span>

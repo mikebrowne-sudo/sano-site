@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2, PenLine } from 'lucide-react'
 import { signEmploymentAgreement } from '../_actions'
 import { AgreementDocumentsUpload, type UploadedDoc } from './AgreementDocumentsUpload'
+import { BUSINESS_STRUCTURES } from '@/lib/business-structure'
 
 export function SignAgreementForm({ token, type, initialDocs = [] }: { token: string; type: 'casual_employee' | 'contractor'; initialDocs?: UploadedDoc[] }) {
   const router = useRouter()
@@ -12,9 +13,11 @@ export function SignAgreementForm({ token, type, initialDocs = [] }: { token: st
   const [f, setF] = useState({
     fullName: '', preferredName: '', phone: '', email: '', address: '', dateOfBirth: '',
     ird: '', bankName: '', bank: '', taxCode: 'M', kiwisaver: 'opt_out',
-    tradingName: '', gstNumber: '', insurerName: '', insuranceCover: '', insuranceExpiry: '',
+    tradingName: '', legalName: '', nzbn: '', companyNumber: '', gstNumber: '', insurerName: '', insuranceCover: '', insuranceExpiry: '',
     emName: '', emPhone: '', emRel: '', signedName: '',
   })
+  const [businessStructure, setBusinessStructure] = useState('')
+  const [gstRegistered, setGstRegistered] = useState(false)
   const [agreed, setAgreed] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -31,6 +34,7 @@ export function SignAgreementForm({ token, type, initialDocs = [] }: { token: st
         bankAccountName: f.bankName, bankAccount: f.bank, taxCode: f.taxCode, kiwisaverChoice: f.kiwisaver,
         emergencyName: f.emName, emergencyPhone: f.emPhone, emergencyRelationship: f.emRel,
         tradingName: f.tradingName, gstNumber: f.gstNumber,
+        businessStructure, legalName: f.legalName, nzbn: f.nzbn, companyNumber: f.companyNumber, gstRegistered,
         insurerName: f.insurerName, insuranceCover: f.insuranceCover, insuranceExpiry: f.insuranceExpiry,
         signedName: f.signedName,
       })
@@ -44,6 +48,14 @@ export function SignAgreementForm({ token, type, initialDocs = [] }: { token: st
     <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">{label}</span>
       <input type={t} value={f[k]} onChange={set(k)} className={input} placeholder={ph} /></label>
   )
+
+  const showLegalName = ['company', 'partnership', 'trust', 'other'].includes(businessStructure)
+  const showCompanyNumber = businessStructure === 'company'
+  const legalNameLabel =
+    businessStructure === 'company' ? 'Legal company name'
+      : businessStructure === 'partnership' ? 'Partnership name'
+        : businessStructure === 'trust' ? 'Trust name'
+          : 'Entity name'
 
   return (
     <div className="space-y-5">
@@ -59,9 +71,47 @@ export function SignAgreementForm({ token, type, initialDocs = [] }: { token: st
           {!isContractor && <Field label="Date of birth" k="dateOfBirth" type="date" />}
           <Field label="IRD number" k="ird" ph="000-000-000" />
           {isContractor && <Field label="Trading name (if any)" k="tradingName" />}
-          {isContractor && <Field label="GST number (if registered)" k="gstNumber" />}
         </div>
       </div>
+
+      {isContractor && (
+        <div>
+          <h2 className="text-base font-semibold text-sage-800 mb-1">Your business</h2>
+          <p className="text-[11px] text-sage-400 mb-3">How do you operate? This helps us set you up correctly.</p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {BUSINESS_STRUCTURES.map((b) => (
+              <button
+                key={b.value}
+                type="button"
+                onClick={() => setBusinessStructure(b.value)}
+                className={businessStructure === b.value
+                  ? 'px-3 py-1.5 rounded-lg text-sm font-medium bg-sage-500 text-white'
+                  : 'px-3 py-1.5 rounded-lg text-sm bg-sage-50 text-sage-700 border border-sage-200 hover:bg-sage-100'}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
+          {businessStructure && (
+            <div className="grid sm:grid-cols-2 gap-3">
+              {showLegalName && (
+                <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">{legalNameLabel}</span>
+                  <input value={f.legalName} onChange={set('legalName')} className={input} /></label>
+              )}
+              {businessStructure && <Field label="NZBN (if you have one)" k="nzbn" ph="9429000000000" />}
+              {showCompanyNumber && <Field label="Company number (if you have one)" k="companyNumber" />}
+            </div>
+          )}
+          <div className="mt-3">
+            <span className="text-[11px] font-medium text-sage-500">Registered for GST?</span>
+            <div className="flex gap-4 mt-1 text-sm text-sage-700">
+              <label className="flex items-center gap-2"><input type="radio" name="gst" checked={!gstRegistered} onChange={() => setGstRegistered(false)} /> No</label>
+              <label className="flex items-center gap-2"><input type="radio" name="gst" checked={gstRegistered} onChange={() => setGstRegistered(true)} /> Yes</label>
+            </div>
+            {gstRegistered && <div className="mt-2 max-w-xs"><Field label="GST number" k="gstNumber" ph="123-456-789" /></div>}
+          </div>
+        </div>
+      )}
 
       <div>
         <h2 className="text-base font-semibold text-sage-800 mb-3">Bank account (for pay)</h2>
@@ -93,7 +143,7 @@ export function SignAgreementForm({ token, type, initialDocs = [] }: { token: st
         </div>
       )}
 
-      {isContractor && <AgreementDocumentsUpload token={token} initialDocs={initialDocs} />}
+      {isContractor && <AgreementDocumentsUpload token={token} initialDocs={initialDocs} structure={businessStructure} />}
 
       <div>
         <h2 className="text-base font-semibold text-sage-800 mb-3">Emergency contact</h2>

@@ -18,6 +18,7 @@ import { ContractorAccessPanel } from './_components/ContractorAccessPanel'
 import { AuditTimelinePanel } from '../../_components/AuditTimelinePanel'
 import { isAdminUser } from '@/lib/is-admin'
 import { businessStructureLabel } from '@/lib/business-structure'
+import { TaxReviewPanel } from './_components/TaxReviewPanel'
 
 // Phase 5.3 — worker_type now collapses to {contractor, employee};
 // the prior sub-classifications (casual / part_time / full_time)
@@ -62,11 +63,12 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
     { data: documents },
     { data: trainingAssignments },
     { data: incidents },
+    { data: taxItem },
   ] = await Promise.all([
     supabase.auth.getUser(),
     supabase
       .from('contractors')
-      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, employment_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate, insurance_provider, insurance_policy_number, insurance_expiry, insurance_liability_cover, company_name, business_structure, nzbn, gst_registered, gst_number, bank_account_name, bank_account_number, payment_terms_days, contract_signed_date, right_to_work_required, right_to_work_expiry, service_areas, approved_services, availability_notes, has_vehicle, provides_own_equipment, key_holding_approved, alarm_access_approved, pet_friendly, experience_level, can_lead_jobs, can_work_solo, can_supervise_others, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, portal_access_active, auth_user_id, onboarding_status, onboarding_started_at, onboarding_completed_at, trial_required, trial_status, trial_scheduled_for, trial_outcome_note, source_applicant_id')
+      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, employment_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate, insurance_provider, insurance_policy_number, insurance_expiry, insurance_liability_cover, company_name, business_structure, nzbn, gst_registered, gst_number, bank_account_name, bank_account_number, payment_terms_days, contract_signed_date, right_to_work_required, right_to_work_expiry, service_areas, approved_services, availability_notes, has_vehicle, provides_own_equipment, key_holding_approved, alarm_access_approved, pet_friendly, experience_level, can_lead_jobs, can_work_solo, can_supervise_others, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, portal_access_active, auth_user_id, onboarding_status, onboarding_started_at, onboarding_completed_at, trial_required, trial_status, trial_scheduled_for, trial_outcome_note, source_applicant_id, legal_name, company_number, tax_review_status, tax_review_notes, ir330c_requested')
       .eq('id', params.id)
       .single(),
     supabase
@@ -90,6 +92,12 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
       .select('id, incident_date, severity, description, resolved_at, notes, created_at')
       .eq('contractor_id', params.id)
       .order('incident_date', { ascending: false }),
+    supabase
+      .from('contractor_onboarding')
+      .select('status')
+      .eq('contractor_id', params.id)
+      .eq('item_key', 'tax_review')
+      .maybeSingle(),
   ])
   const isAdmin = isAdminUser(user)
 
@@ -120,6 +128,10 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
     || (!!onboardingStatus && onboardingStatus !== 'complete')
   const incidentList = incidents ?? []
   const openIncidentCount = incidentList.filter((i) => !i.resolved_at).length
+
+  // Phase 4 — tax review at-a-glance state.
+  const ir330cUploaded = docs.some((d) => d.document_type === 'ir330c')
+  const taxReviewComplete = (taxItem as { status?: string } | null)?.status === 'complete'
 
   // Phase 5.4 — insurance warning. Surface only for `contractor`
   // worker_type with insurance_expiry within the configured warning
@@ -285,6 +297,26 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
             ) : (
               <p className="text-sage-500 text-sm">Not GST registered</p>
             )}
+          </Section>
+        )}
+
+        {/* Tax review — contractor only */}
+        {workerType === 'contractor' && (
+          <Section title="Tax review">
+            <TaxReviewPanel
+              contractorId={contractor.id}
+              structure={(contractor.business_structure as string | null) ?? null}
+              legalName={(contractor as { legal_name?: string | null }).legal_name ?? null}
+              nzbn={(contractor.nzbn as string | null) ?? null}
+              companyNumber={(contractor as { company_number?: string | null }).company_number ?? null}
+              gstRegistered={!!contractor.gst_registered}
+              gstNumber={(contractor.gst_number as string | null) ?? null}
+              status={(contractor as { tax_review_status?: string | null }).tax_review_status ?? null}
+              notes={(contractor as { tax_review_notes?: string | null }).tax_review_notes ?? null}
+              ir330cRequested={!!(contractor as { ir330c_requested?: boolean | null }).ir330c_requested}
+              ir330cUploaded={ir330cUploaded}
+              taxReviewComplete={taxReviewComplete}
+            />
           </Section>
         )}
 
