@@ -29,28 +29,23 @@ export default async function PublicAgreementPage({ params }: { params: { token:
       .map((d) => ({ id: d.id, documentType: d.document_type, title: d.title, fileName: d.title }))
   }
 
+  const view = agreementViewFromRow(a)
+
   return (
     <div className="min-h-screen bg-sage-50/40 py-8 px-4">
-      {/* Responsive: single readable column on mobile/tablet; on desktop the
-          agreement sits beside the sign form so the width is used, not wasted. */}
-      <div className={signed ? 'max-w-3xl mx-auto' : 'max-w-6xl mx-auto'}>
-        {signed && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 mb-5 flex items-center gap-2 text-sm text-emerald-800">
-            <CheckCircle2 size={16} className="shrink-0" /> Thanks — your agreement is signed. Keep this page for your records.
+      <div className="max-w-5xl mx-auto">
+        {signed ? (
+          <>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 mb-5 flex items-center gap-2 text-sm text-emerald-800">
+              <CheckCircle2 size={16} className="shrink-0" /> Thanks — your agreement is signed. Keep this page for your records.
+            </div>
+            <EmploymentAgreementDocument a={view} wrapper="share-page" />
+          </>
+        ) : (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-7">
+            <SignAgreementForm token={params.token} type={isContractor ? 'contractor' : 'casual_employee'} initialDocs={initialDocs} agreement={view} />
           </div>
         )}
-
-        <div className={signed ? '' : 'grid grid-cols-1 lg:grid-cols-2 gap-6 items-start'}>
-          <div className="mb-6 lg:mb-0 min-w-0">
-            <EmploymentAgreementDocument a={agreementViewFromRow(a)} wrapper="share-page" />
-          </div>
-
-          {!signed && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 min-w-0">
-              <SignAgreementForm token={params.token} type={isContractor ? 'contractor' : 'casual_employee'} initialDocs={initialDocs} />
-            </div>
-          )}
-        </div>
       </div>
     </div>
   )

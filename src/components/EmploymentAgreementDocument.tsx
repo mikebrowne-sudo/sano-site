@@ -102,7 +102,7 @@ export function EmploymentAgreementDocument({
     ? [
         ['Engagement', 'Independent Contractor'],
         ['Commencement date', fmtDate(a.startDate)],
-        ['Agreed rate', a.hourlyRate != null ? `$${Number(a.hourlyRate).toFixed(2)} per hour (exclusive of GST)` : '—'],
+        ['Agreed rate', a.hourlyRate != null ? `$${Number(a.hourlyRate).toFixed(2)} per hour (inclusive of GST)` : '—'],
         ['Contractor GST No.', a.contractorGstNumber || '—'],
         ['Contractor IRD No.', a.employeeIrdNumber || '—'],
         ['Date of birth', fmtDate(a.dateOfBirth)],
