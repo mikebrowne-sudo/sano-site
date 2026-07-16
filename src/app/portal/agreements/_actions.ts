@@ -96,18 +96,30 @@ export async function sendAgreementLink(input: { agreementId: string; email: str
 
   const { data: a } = await supabase
     .from('employment_agreements')
-    .select('id, token, person_label, agreement_type, employee_full_name, status')
+    .select('id, token, person_label, agreement_type, employee_full_name, contractor_id, status')
     .eq('id', input.agreementId)
     .maybeSingle()
   if (!a) return { error: 'Agreement not found.' }
   if (a.status === 'signed') return { error: 'This agreement is already signed.' }
+
+  // Greet by the worker's real name — prefer the linked contractor record, then
+  // the agreement's captured name, then a non-generic label; never "Contractor".
+  let personName = (a.employee_full_name as string | null) || ''
+  if (a.contractor_id) {
+    const { data: c } = await supabase.from('contractors').select('full_name, preferred_name').eq('id', a.contractor_id as string).maybeSingle()
+    personName = (c?.preferred_name as string | null) || (c?.full_name as string | null) || personName
+  }
+  if (!personName) {
+    const label = ((a.person_label as string | null) || '').trim()
+    if (label && !['contractor', 'employee', 'carol'].includes(label.toLowerCase())) personName = label
+  }
 
   const origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://sano.nz'
   const link = `${origin}/agreement/${a.token}`
   try {
     await sendAgreementLinkEmail({
       to: email,
-      personName: (a.employee_full_name as string | null) || (a.person_label as string | null) || 'there',
+      personName: personName || 'there',
       agreementType: a.agreement_type === 'contractor' ? 'contractor' : 'casual_employee',
       link,
     })

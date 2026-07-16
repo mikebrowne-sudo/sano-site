@@ -105,7 +105,7 @@ export async function sendAgreementLinkEmail(params: {
         </p>
         <p style="font-size:13px;color:#6B7280;">Or paste this link into your browser:<br>${escHtml(params.link)}</p>
         <p>Once you've signed, we'll email you a copy for your records. Any questions, just reply to this email or call us on 0800 726 686.</p>
-        <p style="margin-top:22px;">Ngā mihi,<br>The Sano team</p>
+        <p style="margin-top:22px;">Kind regards,<br>The Sano team</p>
       </div>
     `,
   })
