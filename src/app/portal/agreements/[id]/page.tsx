@@ -36,6 +36,13 @@ export default async function AgreementDetailPage({ params }: { params: { id: st
         </a>
       </div>
 
+      {a.is_test && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 mb-6 text-sm text-amber-800">
+          <span className="font-semibold uppercase tracking-wide text-[11px] mr-2">Test run</span>
+          Signing this won&apos;t create a contractor/employee record, and only you are emailed — safe to dry-run.
+        </div>
+      )}
+
       {!signed && (
         <div className="rounded-xl border border-sage-200 bg-white p-5 mb-6">
           <p className="flex items-center gap-2 text-sm font-semibold text-sage-800 mb-2"><Link2 size={15} className="text-sage-500" /> Send this link to {a.person_label || 'the employee'}</p>

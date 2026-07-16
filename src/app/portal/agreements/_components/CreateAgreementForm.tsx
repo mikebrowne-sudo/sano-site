@@ -25,6 +25,7 @@ export function CreateAgreementForm({
   const [rate, setRate] = useState('')
   const [startDate, setStartDate] = useState('')
   const [linkedId, setLinkedId] = useState('')
+  const [isTest, setIsTest] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -53,6 +54,7 @@ export function CreateAgreementForm({
         startDate: startDate || null,
         linkedContractorId: isContractor ? (linkedId || null) : null,
         linkedEmployeeId: !isContractor ? (linkedId || null) : null,
+        isTest,
       })
       if (res.error) { setError(res.error); return }
       if (res.id) router.push(`/portal/agreements/${res.id}`)
@@ -96,6 +98,14 @@ export function CreateAgreementForm({
         <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">{isContractor ? 'Commencement date' : 'Start date'}</span>
           <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={input} /></label>
       </div>
+      <label className="flex items-start gap-2 mt-4 cursor-pointer">
+        <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} className="mt-0.5 rounded border-sage-300" />
+        <span className="text-sm text-sage-700">
+          Test run
+          <span className="block text-[11px] text-sage-400">Dry-run the flow: no contractor/employee account is created, and only you are emailed on signing (not Carol or the admin inbox).</span>
+        </span>
+      </label>
+
       {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
       <button type="button" onClick={create} disabled={isPending}
         className="mt-4 inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-5 py-2.5 rounded-lg text-sm hover:bg-sage-700 disabled:opacity-50">

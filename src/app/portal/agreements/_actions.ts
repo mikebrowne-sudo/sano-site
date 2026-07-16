@@ -14,6 +14,9 @@ export async function createEmploymentAgreement(input: {
    *  them (no duplicate on sign) and pre-filled with what we already hold. */
   linkedContractorId?: string | null
   linkedEmployeeId?: string | null
+  /** Test run — dry-runs the flow without creating a workforce record or
+   *  notifying the team (only the tester is emailed on sign). */
+  isTest?: boolean
 }): Promise<{ ok?: true; id?: string; error?: string }> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -65,6 +68,7 @@ export async function createEmploymentAgreement(input: {
       hourly_rate: isContractor ? null : input.hourlyRate,
       start_date: input.startDate || null,
       status: 'draft',
+      is_test: !!input.isTest,
       created_by: user.id,
       ...prefill,
     })

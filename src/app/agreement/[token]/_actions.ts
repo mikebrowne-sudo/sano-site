@@ -47,7 +47,7 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
   const svc = getServiceSupabase()
   const { data: agreement } = await svc
     .from('employment_agreements')
-    .select('id, status, agreement_type, position, hourly_rate, start_date, contractor_id, employee_id')
+    .select('id, status, agreement_type, position, hourly_rate, start_date, contractor_id, employee_id, is_test')
     .eq('token', input.token)
     .maybeSingle()
   if (!agreement) return { error: 'Agreement not found.' }
@@ -86,11 +86,16 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
     .eq('id', agreement.id)
   if (updErr) return { error: `Couldn’t save your signature: ${updErr.message}` }
 
+  const isTest = !!agreement.is_test
+
   // Push into the workforce area. If the agreement was pre-linked to an
   // existing person at creation, update THAT record (no duplicate); else
-  // match a contractor by email, else create.
+  // match a contractor by email, else create. Skipped entirely for a test
+  // run so a dry-run never creates or touches a real contractor/employee.
   const today = new Date().toISOString().slice(0, 10)
-  if (isContractor) {
+  if (isTest) {
+    // no-op — test runs don't touch the workforce area
+  } else if (isContractor) {
     // Core fields — columns that already exist on contractors; must succeed.
     const core = {
       full_name: name,
@@ -176,6 +181,7 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
       signerEmail: email,
       portalUrl: `${origin}/portal/agreements/${agreement.id}`,
       pdf: { filename: `${stem}.pdf`, content: pdfBuffer },
+      isTest,
     })
   } catch (e) {
     console.error('[agreement] confirmation email/PDF failed:', e instanceof Error ? e.message : e)
