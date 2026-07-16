@@ -12,6 +12,12 @@ export const dynamic = 'force-dynamic'
 
 const BUCKET = 'training-docs'
 
+// Module key → the exact object name in the private training-docs bucket.
+const FILES: Record<string, string> = {
+  hs_induction: 'Sano - Health & Safety Plan.pdf',
+  hazardous_substances: 'Sano - Hazardous Chemical Substance Register.pdf',
+}
+
 export async function GET(_req: Request, { params }: { params: { key: string } }) {
   // Require a logged-in portal session (staff or contractor).
   const supabase = createClient()
@@ -20,12 +26,11 @@ export async function GET(_req: Request, { params }: { params: { key: string } }
     return new NextResponse('Please sign in to the Sano portal to view this document.', { status: 401 })
   }
 
-  // Guard the key (no path traversal) and resolve the object.
-  const key = params.key
-  if (!/^[a-z0-9_]+$/.test(key)) return new NextResponse('Not found', { status: 404 })
+  const file = FILES[params.key]
+  if (!file) return new NextResponse('Not found', { status: 404 })
 
   const svc = getServiceSupabase()
-  const { data, error } = await svc.storage.from(BUCKET).createSignedUrl(`${key}.pdf`, 300)
+  const { data, error } = await svc.storage.from(BUCKET).createSignedUrl(file, 300)
   if (error || !data?.signedUrl) {
     return new NextResponse('This document isn’t available yet.', { status: 404 })
   }
