@@ -77,6 +77,42 @@ export async function sendReviewRequestEmail(params: ReviewRequestEmailParams) {
   if (error) throw new Error(error.message)
 }
 
+/**
+ * Send a worker the private link to review + sign their agreement. Staff-
+ * triggered from the agreement page (never automatic). Throws on send failure.
+ */
+export async function sendAgreementLinkEmail(params: {
+  to: string
+  personName: string
+  agreementType: 'contractor' | 'casual_employee'
+  link: string
+}) {
+  const resend = getResendClient()
+  const typeLabel = params.agreementType === 'contractor' ? 'contractor' : 'employment'
+  const first = params.personName.trim().split(/\s+/)[0] || 'there'
+  const { error } = await resend.emails.send({
+    from: 'Sano <noreply@sano.nz>',
+    replyTo: 'michael@sano.nz',
+    to: params.to,
+    subject: `Your Sano ${typeLabel} agreement`,
+    html: `
+      <div style="font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1F2933;font-size:15px;line-height:1.6;max-width:560px;">
+        <p>Hi ${escHtml(first)},</p>
+        <p>Thanks again for coming on board with Sano.</p>
+        <p>Your ${typeLabel} agreement is ready to review and complete online using the secure link below:</p>
+        <p style="margin:26px 0;">
+          <a href="${escHtml(params.link)}" style="background:#076653;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:8px;display:inline-block;">Review and complete your agreement</a>
+        </p>
+        <p>You&rsquo;ll be able to check your details, upload the required documents and sign the agreement online. You can also return to it later using the same link if you don&rsquo;t finish it in one go.</p>
+        <p>Once it&rsquo;s completed, a signed copy will be emailed to you for your records.</p>
+        <p>If you have any questions or need any assistance completing it, please let me know.</p>
+        <p style="margin-top:22px;">Kind regards,<br>Michael<br><a href="mailto:michael@sano.nz" style="color:#076653;">michael@sano.nz</a><br>021 168 5553</p>
+      </div>
+    `,
+  })
+  if (error) throw new Error(error.message)
+}
+
 export interface AgreementSignedEmailParams {
   personName: string
   agreementType: 'contractor' | 'casual_employee'
