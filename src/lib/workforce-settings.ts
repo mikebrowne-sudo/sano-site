@@ -53,13 +53,17 @@ export const WORKFORCE_SETTINGS_DEFAULTS: WorkforceSettings = {
   block_assignment_until_ready: true,
   insurance_expiry_warning_days: 30,
   trial_required_default: true,
-  // Phase 2 — verification items (insurance_verified, id_verified upload/verify
-  // split, tax_review, competency_confirmed) are intentionally NOT required yet.
-  // They render as optional so no existing contractor is retroactively blocked;
-  // the gating flip is a deliberate follow-up once existing records are reviewed.
+  // Phase 6 — verification items now gate activation for NEW contractors.
+  // right_to_work_* only count for contractors who actually have those rows
+  // (i.e. right_to_work_required) — conditional gating. Existing ACTIVE
+  // contractors are grandfathered (onboarding_grandfathered) so recompute never
+  // re-gates or downgrades them.
   contractor_required_items: [
-    'confirm_details', 'bank_details', 'id_verified',
-    'insurance_uploaded', 'contract_signed', 'induction_completed',
+    'confirm_details', 'bank_details', 'contract_signed',
+    'insurance_uploaded', 'insurance_verified',
+    'id_uploaded', 'id_verified',
+    'right_to_work_uploaded', 'right_to_work_verified',
+    'tax_review', 'induction_completed', 'competency_confirmed',
   ],
   employee_required_items: [
     'confirm_details', 'bank_details', 'id_verified',

@@ -19,6 +19,7 @@ import { AuditTimelinePanel } from '../../_components/AuditTimelinePanel'
 import { isAdminUser } from '@/lib/is-admin'
 import { businessStructureLabel } from '@/lib/business-structure'
 import { TaxReviewPanel } from './_components/TaxReviewPanel'
+import { CompetencyPanel } from './_components/CompetencyPanel'
 
 // Phase 5.3 — worker_type now collapses to {contractor, employee};
 // the prior sub-classifications (casual / part_time / full_time)
@@ -68,7 +69,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
     supabase.auth.getUser(),
     supabase
       .from('contractors')
-      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, employment_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate, insurance_provider, insurance_policy_number, insurance_expiry, insurance_liability_cover, company_name, business_structure, nzbn, gst_registered, gst_number, bank_account_name, bank_account_number, payment_terms_days, contract_signed_date, right_to_work_required, right_to_work_expiry, service_areas, approved_services, availability_notes, has_vehicle, provides_own_equipment, key_holding_approved, alarm_access_approved, pet_friendly, experience_level, can_lead_jobs, can_work_solo, can_supervise_others, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, portal_access_active, auth_user_id, onboarding_status, onboarding_started_at, onboarding_completed_at, trial_required, trial_status, trial_scheduled_for, trial_outcome_note, source_applicant_id, legal_name, company_number, tax_review_status, tax_review_notes, ir330c_requested')
+      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, employment_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate, insurance_provider, insurance_policy_number, insurance_expiry, insurance_liability_cover, company_name, business_structure, nzbn, gst_registered, gst_number, bank_account_name, bank_account_number, payment_terms_days, contract_signed_date, right_to_work_required, right_to_work_expiry, service_areas, approved_services, availability_notes, has_vehicle, provides_own_equipment, key_holding_approved, alarm_access_approved, pet_friendly, experience_level, can_lead_jobs, can_work_solo, can_supervise_others, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, portal_access_active, auth_user_id, onboarding_status, onboarding_started_at, onboarding_completed_at, trial_required, trial_status, trial_scheduled_for, trial_outcome_note, source_applicant_id, legal_name, company_number, tax_review_status, tax_review_notes, ir330c_requested, onboarding_grandfathered, competency_confirmed_at, competency_confirmed_by, competency_assessment_date, competency_limitations, competency_notes')
       .eq('id', params.id)
       .single(),
     supabase
@@ -133,6 +134,15 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
   const ir330cUploaded = docs.some((d) => d.document_type === 'ir330c')
   const taxReviewComplete = (taxItem as { status?: string } | null)?.status === 'complete'
 
+  // Phase 6 — legacy transition marker + competency fields.
+  const grandfathered = !!(contractor as { onboarding_grandfathered?: boolean | null }).onboarding_grandfathered
+  const cc = contractor as {
+    competency_confirmed_at?: string | null
+    competency_assessment_date?: string | null
+    competency_limitations?: string | null
+    competency_notes?: string | null
+  }
+
   // Phase 5.4 — insurance warning. Surface only for `contractor`
   // worker_type with insurance_expiry within the configured warning
   // window or already expired.
@@ -183,6 +193,9 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
               </span>
             )}
             <ComplianceBadge status={compliance.status} reasons={compliance.reasons} />
+            {(contractor as { onboarding_grandfathered?: boolean | null }).onboarding_grandfathered && (
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700" title="Approved transition record — pre-dates the current verification requirements">Legacy</span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -229,20 +242,47 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
         </div>
       )}
 
-      {/* Phase 5.3 + 5.4 — Onboarding panel + activation gate. */}
-      {(inOnboarding || contractorStatus === 'ready' || onboardingStatus === 'complete') && (
-        <div className="max-w-2xl">
-          <OnboardingPanel
-            contractorId={contractor.id}
-            workerType={workerType}
-            contractorStatus={contractorStatus}
-            onboardingStatus={onboardingStatus}
-            trialRequired={trialRequired}
-            trialStatus={trialStatus}
-          />
-          {isAdmin && contractorStatus !== 'active' && (
-            <div className="-mt-3 mb-6 px-1">
-              <AdminOverrideButton contractorId={contractor.id} />
+      {/* Phase 5.3 + 5.4 + 6 — Onboarding, competency & activation. Two columns
+          on desktop; single column on tablet/mobile. */}
+      {(inOnboarding || contractorStatus === 'ready' || onboardingStatus === 'complete' || workerType === 'contractor') && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 max-w-5xl items-start">
+          <div>
+            <OnboardingPanel
+              contractorId={contractor.id}
+              workerType={workerType}
+              contractorStatus={contractorStatus}
+              onboardingStatus={onboardingStatus}
+              trialRequired={trialRequired}
+              trialStatus={trialStatus}
+              grandfathered={grandfathered}
+            />
+            {isAdmin && contractorStatus !== 'active' && (
+              <div className="-mt-3 mb-6 px-1">
+                <AdminOverrideButton contractorId={contractor.id} />
+              </div>
+            )}
+          </div>
+          {workerType === 'contractor' && (
+            <div className="bg-white rounded-xl border border-sage-100 shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-sage-800 mb-3">Competency sign-off</h2>
+              <CompetencyPanel
+                contractorId={contractor.id}
+                initial={{
+                  confirmedAt: cc.competency_confirmed_at ?? null,
+                  confirmedByName: null,
+                  assessmentDate: cc.competency_assessment_date ?? null,
+                  experienceLevel: (contractor.experience_level as string | null) ?? null,
+                  approvedServices: (contractor.approved_services as string[] | null) ?? [],
+                  canWorkSolo: !!contractor.can_work_solo,
+                  canLeadJobs: !!contractor.can_lead_jobs,
+                  canSuperviseOthers: !!contractor.can_supervise_others,
+                  keyHoldingApproved: !!contractor.key_holding_approved,
+                  alarmAccessApproved: !!contractor.alarm_access_approved,
+                  trialStatus,
+                  limitations: cc.competency_limitations ?? null,
+                  notes: cc.competency_notes ?? null,
+                }}
+              />
             </div>
           )}
         </div>

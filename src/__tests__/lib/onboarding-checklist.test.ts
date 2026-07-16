@@ -106,23 +106,24 @@ describe('onboarding checklist — seed rows', () => {
 describe('onboarding checklist — required completion (activation gating)', () => {
   const required = WORKFORCE_SETTINGS_DEFAULTS.contractor_required_items
 
-  it('an existing active contractor stays complete after the migration (not blocked by new optional items)', () => {
-    // Base required items complete (onboarding_training already renamed to
-    // induction_completed); new verification items present but pending.
-    const items = [
+  it('verification items now gate completion (Phase 6) — a fully verified contractor is complete, a pending verification blocks', () => {
+    const base = [
       { item_key: 'confirm_details', status: 'complete' },
       { item_key: 'bank_details', status: 'complete' },
+      { item_key: 'id_uploaded', status: 'complete' },
       { item_key: 'id_verified', status: 'complete' },
       { item_key: 'insurance_uploaded', status: 'complete' },
+      { item_key: 'insurance_verified', status: 'complete' },
       { item_key: 'contract_signed', status: 'complete' },
+      { item_key: 'tax_review', status: 'complete' },
       { item_key: 'induction_completed', status: 'complete' },
-      // newly-added optional items — pending
-      { item_key: 'id_uploaded', status: 'pending' },
-      { item_key: 'insurance_verified', status: 'pending' },
-      { item_key: 'tax_review', status: 'pending' },
-      { item_key: 'competency_confirmed', status: 'pending' },
+      { item_key: 'competency_confirmed', status: 'complete' },
     ]
-    expect(isAllRequiredComplete(items, required)).toBe(true)
+    expect(isAllRequiredComplete(base, required)).toBe(true)
+    // Legacy actives are handled by grandfathering (recompute guard), not by
+    // these items being optional — a pending verification now blocks.
+    const pendingVerify = base.map((i) => (i.item_key === 'insurance_verified' ? { ...i, status: 'pending' } : i))
+    expect(isAllRequiredComplete(pendingVerify, required)).toBe(false)
   })
 
   it('is false when a required item is still pending', () => {

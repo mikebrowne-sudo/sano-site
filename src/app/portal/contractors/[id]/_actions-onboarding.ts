@@ -30,6 +30,7 @@ import {
   requiredItemsForWorkerType,
 } from '@/lib/workforce-settings'
 import { isAdminUser } from '@/lib/is-admin'
+import { requireOverrideReason } from '@/lib/activation'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SB = any
@@ -57,7 +58,7 @@ interface RecomputeOptions {
   actorId?: string
 }
 
-async function recomputeOnboardingStatus(
+export async function recomputeOnboardingStatus(
   supabase: SB,
   contractorId: string,
   opts: RecomputeOptions = {},
@@ -67,7 +68,7 @@ async function recomputeOnboardingStatus(
   const [{ data: c }, { data: itemsRaw }] = await Promise.all([
     supabase
       .from('contractors')
-      .select('id, worker_type, status, onboarding_status, trial_required, trial_status')
+      .select('id, worker_type, status, onboarding_status, trial_required, trial_status, onboarding_grandfathered')
       .eq('id', contractorId)
       .maybeSingle(),
     supabase
@@ -82,8 +83,16 @@ async function recomputeOnboardingStatus(
     onboarding_status: string | null
     trial_required: boolean | null
     trial_status: string | null
+    onboarding_grandfathered: boolean | null
   }
   const items = (itemsRaw ?? []) as { item_key: string; status: string }[]
+
+  // Legacy transition marker: a grandfathered (existing active) contractor is
+  // never re-gated or moved back into onboarding by recompute, regardless of
+  // the new verification requirements.
+  if (contractor.onboarding_grandfathered) {
+    return { allRequiredComplete: true, nowReady: false, nowActive: false }
+  }
 
   const required = new Set(requiredItemsForWorkerType(
     settings,
@@ -287,7 +296,8 @@ export async function adminOverrideActivate(input: {
   contractorId: string
   reason: string
 }): Promise<{ ok: true } | { error: string }> {
-  if (!input.reason.trim()) return { error: 'A reason is required for admin override.' }
+  const reasonCheck = requireOverrideReason(input.reason)
+  if (!reasonCheck.ok) return { error: reasonCheck.error }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
