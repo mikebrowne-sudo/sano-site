@@ -4,7 +4,7 @@
 import { notFound } from 'next/navigation'
 import { CheckCircle2 } from 'lucide-react'
 import { getServiceSupabase } from '@/lib/supabase-service'
-import { EmploymentAgreementDocument } from '@/components/EmploymentAgreementDocument'
+import { EmploymentAgreementDocument, agreementViewFromRow } from '@/components/EmploymentAgreementDocument'
 import { SignAgreementForm } from './_components/SignAgreementForm'
 
 export const dynamic = 'force-dynamic'
@@ -24,17 +24,8 @@ export default async function PublicAgreementPage({ params }: { params: { token:
           </div>
         )}
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
-          <EmploymentAgreementDocument
-            a={{
-              type: a.agreement_type === 'contractor' ? 'contractor' : 'casual_employee',
-              position: a.position, hourlyRate: a.hourly_rate, startDate: a.start_date,
-              employeeFullName: a.employee_full_name, employeeAddress: a.employee_address,
-              employeeIrdNumber: a.employee_ird_number, taxCode: a.tax_code, kiwisaverChoice: a.kiwisaver_choice,
-              contractorTradingName: a.contractor_trading_name, contractorGstNumber: a.contractor_gst_number,
-              signedName: a.signed_name, signedAt: a.signed_at,
-            }}
-          />
+        <div className="mb-6">
+          <EmploymentAgreementDocument a={agreementViewFromRow(a)} wrapper="share-page" />
         </div>
 
         {!signed && (

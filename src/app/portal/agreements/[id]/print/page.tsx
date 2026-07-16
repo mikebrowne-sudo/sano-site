@@ -5,7 +5,7 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
-import { EmploymentAgreementDocument } from '@/components/EmploymentAgreementDocument'
+import { EmploymentAgreementDocument, agreementViewFromRow } from '@/components/EmploymentAgreementDocument'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,18 +17,5 @@ export default async function AgreementPrintPage({ params }: { params: { id: str
   const { data: a } = await supabase.from('employment_agreements').select('*').eq('id', params.id).maybeSingle()
   if (!a) notFound()
 
-  return (
-    <div className="bg-white p-8 max-w-3xl mx-auto">
-      <EmploymentAgreementDocument
-        a={{
-          type: a.agreement_type === 'contractor' ? 'contractor' : 'casual_employee',
-          position: a.position, hourlyRate: a.hourly_rate, startDate: a.start_date,
-          employeeFullName: a.employee_full_name, employeeAddress: a.employee_address,
-          employeeIrdNumber: a.employee_ird_number, taxCode: a.tax_code, kiwisaverChoice: a.kiwisaver_choice,
-          contractorTradingName: a.contractor_trading_name, contractorGstNumber: a.contractor_gst_number,
-          signedName: a.signed_name, signedAt: a.signed_at,
-        }}
-      />
-    </div>
-  )
+  return <EmploymentAgreementDocument a={agreementViewFromRow(a)} wrapper="print-overlay" />
 }
