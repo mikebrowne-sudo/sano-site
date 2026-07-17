@@ -17,7 +17,8 @@ describe('review-request templates', () => {
   it('has distinct recent vs previous wording', () => {
     const recent = reviewDefaultMessage('recent', 'Marina')
     const previous = reviewDefaultMessage('previous', 'Marina')
-    expect(recent).toContain('today')
+    expect(recent).not.toContain('today') // time-neutral — clean may not be same-day
+    expect(recent).toContain('look after your place')
     expect(previous).toContain('a little while back')
     expect(recent).not.toEqual(previous)
   })

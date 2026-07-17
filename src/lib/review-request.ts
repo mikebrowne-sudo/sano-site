@@ -7,7 +7,8 @@
 // edited message works for both channels.
 //
 // Two variants:
-//   recent   — same-day / next-morning after a clean that went well.
+//   recent   — a recent clean that went well (time-neutral: could be today or
+//              a couple of weeks ago, since staff don't always send same-day).
 //   previous — a past client (clean a while ago), gentle re-engagement.
 
 export type ReviewVariant = 'recent' | 'previous'
@@ -27,7 +28,7 @@ export function reviewDefaultMessage(variant: ReviewVariant, name: string | null
   if (variant === 'previous') {
     return `Hi ${first}, it's the Sano team — we cleaned for you a little while back and hope everything's still looking great. If you were happy with how we did, a quick Google review would really help our small local team. Thank you!`
   }
-  return `Hi ${first}, thanks for having Sano in today — we hope your place feels great. If you were happy with the clean, a quick Google review would mean a lot to our small local team, and it helps other Aucklanders find us. Thank you!`
+  return `Hi ${first}, thanks for having the Sano team look after your place — we hope it's feeling great. If you were happy with the clean, a quick Google review would mean a lot to our small local team, and it helps other Aucklanders find us. Thank you!`
 }
 
 export function reviewEmailSubject(variant: ReviewVariant): string {

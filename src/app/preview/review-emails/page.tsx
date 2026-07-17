@@ -42,7 +42,7 @@ export default function ReviewEmailsPreview() {
       <div className="max-w-4xl mx-auto">
         <h1 className="text-2xl font-bold text-sage-800 mb-1">Review request — message preview</h1>
         <p className="text-sm text-sage-500 mb-8">Sample data (Marina). The Google link comes from <code>SANO_GOOGLE_REVIEW_URL</code>. Staff can edit the message and choose SMS and/or email each time.</p>
-        <Card variant="recent" label="Template A — recent clean" sub="Default: same-day / next morning after a clean that went well." />
+        <Card variant="recent" label="Template A — recent clean" sub="For a recent clean that went well — wording is time-neutral (today or a few weeks ago)." />
         <Card variant="previous" label="Template B — previous client" sub="Gentle re-engagement for a client whose clean was a while ago." />
       </div>
     </div>
