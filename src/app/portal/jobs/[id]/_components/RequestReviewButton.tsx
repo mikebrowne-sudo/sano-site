@@ -19,7 +19,7 @@ export function RequestReviewButton({
   defaultVariant?: ReviewVariant
 }) {
   const [open, setOpen] = useState(false)
-  const [sms, setSms] = useState(true)
+  const [sms, setSms] = useState(false)
   const [email, setEmail] = useState(true)
   const [variant, setVariant] = useState<ReviewVariant>(defaultVariant)
   const [message, setMessage] = useState(() => reviewDefaultMessage(defaultVariant, clientName))
