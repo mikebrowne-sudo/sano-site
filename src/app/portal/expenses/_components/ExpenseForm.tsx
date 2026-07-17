@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { ChevronDown, Trash2 } from 'lucide-react'
+import { useEffect, useState, useTransition } from 'react'
+import { ChevronDown, Trash2, UploadCloud, FileText, X } from 'lucide-react'
 import { createExpense, updateExpense, deleteExpense } from '../_actions'
+import { uploadExpenseReceipt, removeExpenseReceipt } from '../_actions-receipt'
 import { EXPENSE_CATEGORIES, isAccountantConfirmCategory } from '@/lib/expense-categories'
+import { RECEIPT_ACCEPT, RECEIPT_MAX_BYTES, isAllowedReceiptType, receiptIsPdf } from '@/lib/expense-receipts'
 import type { VendorSuggestion } from '../_data'
 
 export interface ExpenseData {
@@ -16,9 +18,18 @@ export interface ExpenseData {
   payment_reference: string | null
   gst_inclusive: boolean
   notes: string | null
+  receipt_path?: string | null
 }
 
-export function ExpenseForm({ expense, vendorSuggestions = [] }: { expense?: ExpenseData; vendorSuggestions?: VendorSuggestion[] }) {
+export function ExpenseForm({
+  expense,
+  vendorSuggestions = [],
+  receiptUrl = null,
+}: {
+  expense?: ExpenseData
+  vendorSuggestions?: VendorSuggestion[]
+  receiptUrl?: string | null
+}) {
   const isEdit = !!expense?.id
 
   const [expenseDate, setExpenseDate] = useState(expense?.expense_date ?? new Date().toISOString().slice(0, 10))
@@ -29,14 +40,38 @@ export function ExpenseForm({ expense, vendorSuggestions = [] }: { expense?: Exp
   const [paymentReference, setPaymentReference] = useState(expense?.payment_reference ?? '')
   const [gstInclusive, setGstInclusive] = useState(expense?.gst_inclusive ?? true)
   const [notes, setNotes] = useState(expense?.notes ?? '')
-  // Once the user picks a category by hand, stop auto-prefilling it from the
-  // vendor so we never clobber a deliberate choice.
   const [categoryTouched, setCategoryTouched] = useState(false)
+
+  // Receipt state: a newly-staged file, or a flag to drop the existing one.
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [removeExisting, setRemoveExisting] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const [receiptError, setReceiptError] = useState<string | null>(null)
 
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
   const accountantConfirm = isAccountantConfirmCategory(category)
+  const hasExistingReceipt = isEdit && !!expense?.receipt_path && !!receiptUrl && !removeExisting && !receiptFile
+
+  // Object URL for image previews of a staged file; revoked on change/unmount.
+  useEffect(() => {
+    if (receiptFile && receiptFile.type.startsWith('image/')) {
+      const url = URL.createObjectURL(receiptFile)
+      setPreviewUrl(url)
+      return () => URL.revokeObjectURL(url)
+    }
+    setPreviewUrl(null)
+  }, [receiptFile])
+
+  function stageFile(f: File) {
+    if (!isAllowedReceiptType(f.type)) { setReceiptError('Receipts must be an image or a PDF.'); return }
+    if (f.size > RECEIPT_MAX_BYTES) { setReceiptError('The receipt must be under 10 MB.'); return }
+    setReceiptError(null)
+    setReceiptFile(f)
+    setRemoveExisting(false)
+  }
 
   function handleVendorChange(v: string) {
     setVendor(v)
@@ -66,11 +101,29 @@ export function ExpenseForm({ expense, vendorSuggestions = [] }: { expense?: Exp
     }
 
     startTransition(async () => {
-      const result = isEdit
-        ? await updateExpense(expense!.id!, payload)
-        : await createExpense(payload)
-      if (result && 'error' in result && result.error) { setError(result.error); return }
-      if (isEdit) window.location.href = '/portal/expenses'
+      let expenseId = expense?.id
+      if (isEdit) {
+        const result = await updateExpense(expense!.id!, payload)
+        if (result && 'error' in result && result.error) { setError(result.error); return }
+      } else {
+        const result = await createExpense(payload)
+        if (result && 'error' in result && result.error) { setError(result.error); return }
+        expenseId = result && 'id' in result ? result.id : undefined
+      }
+
+      // Attach / replace / remove the receipt once the expense exists.
+      if (expenseId) {
+        if (receiptFile) {
+          const fd = new FormData()
+          fd.append('receipt', receiptFile)
+          const up = await uploadExpenseReceipt(expenseId, fd)
+          if (up && 'error' in up && up.error) { setError(`Expense saved, but the receipt didn't upload: ${up.error}`); return }
+        } else if (isEdit && removeExisting && expense?.receipt_path) {
+          await removeExpenseReceipt(expenseId)
+        }
+      }
+
+      window.location.href = '/portal/expenses'
     })
   }
 
@@ -138,6 +191,58 @@ export function ExpenseForm({ expense, vendorSuggestions = [] }: { expense?: Exp
           <span className="block text-sm font-semibold text-sage-800 mb-1.5">Description</span>
           <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What was it for?" className={inputCls} />
         </label>
+      </Section>
+
+      <Section title="Receipt / invoice">
+        {hasExistingReceipt ? (
+          <div className="flex items-center gap-4 rounded-xl border border-sage-200 p-3">
+            {receiptIsPdf(expense?.receipt_path) ? (
+              <a href={receiptUrl!} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sage-700 hover:text-sage-900">
+                <FileText size={28} className="text-sage-400" /> <span className="text-sm font-medium underline">View receipt (PDF)</span>
+              </a>
+            ) : (
+              <a href={receiptUrl!} target="_blank" rel="noopener noreferrer">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={receiptUrl!} alt="Receipt" className="h-20 w-20 rounded-lg object-cover border border-sage-100" />
+              </a>
+            )}
+            <button type="button" onClick={() => setRemoveExisting(true)} className="ml-auto inline-flex items-center gap-1.5 text-sm text-red-600 hover:text-red-700">
+              <X size={14} /> Remove
+            </button>
+          </div>
+        ) : receiptFile ? (
+          <div className="flex items-center gap-4 rounded-xl border border-sage-200 p-3">
+            {previewUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={previewUrl} alt="Receipt preview" className="h-20 w-20 rounded-lg object-cover border border-sage-100" />
+            ) : (
+              <FileText size={28} className="text-sage-400" />
+            )}
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-sage-800 truncate">{receiptFile.name}</div>
+              <div className="text-xs text-sage-500">{(receiptFile.size / 1024 / 1024).toFixed(1)} MB · ready to upload on save</div>
+            </div>
+            <button type="button" onClick={() => { setReceiptFile(null); setReceiptError(null) }} className="ml-auto inline-flex items-center gap-1.5 text-sm text-red-600 hover:text-red-700">
+              <X size={14} /> Remove
+            </button>
+          </div>
+        ) : (
+          <label
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) stageFile(f) }}
+            className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 text-center cursor-pointer transition-colors ${dragOver ? 'border-sage-500 bg-sage-50' : 'border-sage-200 hover:border-sage-300 hover:bg-sage-50/50'}`}
+          >
+            <UploadCloud size={28} className="text-sage-400" />
+            <span className="text-sm text-sage-700"><span className="font-semibold text-sage-800">Drag &amp; drop</span> a receipt here, or <span className="text-sage-700 underline">browse</span></span>
+            <span className="text-xs text-sage-400">Image or PDF, up to 10 MB</span>
+            <input type="file" accept={RECEIPT_ACCEPT} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) stageFile(f) }} />
+          </label>
+        )}
+        {removeExisting && !receiptFile && (
+          <p className="text-xs text-amber-700 mt-2">Existing receipt will be removed when you save. <button type="button" onClick={() => setRemoveExisting(false)} className="underline">Undo</button></p>
+        )}
+        {receiptError && <p className="text-red-600 text-sm mt-2">{receiptError}</p>}
       </Section>
 
       <Section title="Notes">

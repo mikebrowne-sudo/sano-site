@@ -4,6 +4,19 @@
 // prefill those fields. Read-only; admin pages already gate access.
 
 import { createClient } from '@/lib/supabase-server'
+import { getServiceSupabase } from '@/lib/supabase-service'
+import { EXPENSE_RECEIPTS_BUCKET } from '@/lib/expense-receipts'
+
+const RECEIPT_SIGNED_TTL = 60 * 60 // 1 hour — a page session.
+
+/** Short-lived signed URL for a stored receipt path (private bucket, service-role). */
+export async function getExpenseReceiptUrl(path: string | null | undefined): Promise<string | null> {
+  if (!path) return null
+  const { data } = await getServiceSupabase().storage
+    .from(EXPENSE_RECEIPTS_BUCKET)
+    .createSignedUrl(path, RECEIPT_SIGNED_TTL)
+  return data?.signedUrl ?? null
+}
 
 export interface VendorSuggestion {
   vendor: string

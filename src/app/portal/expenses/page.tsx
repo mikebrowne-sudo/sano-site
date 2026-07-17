@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminUser, isFinanceUser } from '@/lib/is-admin'
 import { getPeriods, resolvePeriod } from '../finance/_lib/periods'
 import { expenseCategoryLabel, isAccountantConfirmCategory } from '@/lib/expense-categories'
-import { Wallet2, Plus, Download } from 'lucide-react'
+import { Wallet2, Plus, Download, Paperclip } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +32,7 @@ interface ExpenseRow {
   description: string | null
   payment_reference: string | null
   gst_inclusive: boolean | null
+  receipt_path: string | null
 }
 
 type SP = { period?: string; from?: string; to?: string }
@@ -48,7 +49,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams?: SP
 
   let query = supabase
     .from('expenses')
-    .select('id, expense_date, amount, category, vendor, description, payment_reference, gst_inclusive')
+    .select('id, expense_date, amount, category, vendor, description, payment_reference, gst_inclusive, receipt_path')
     .order('expense_date', { ascending: false })
   if (range) query = query.gte('expense_date', range.from).lte('expense_date', range.to)
 
@@ -179,7 +180,12 @@ export default async function ExpensesPage({ searchParams }: { searchParams?: SP
                       {e.gst_inclusive === false && <span className="ml-1.5 text-[10px] text-sage-400">(GST excl)</span>}
                     </td>
                     <td className="px-5 py-3 align-top text-sage-700">{e.vendor ?? '—'}</td>
-                    <td className="px-5 py-3 align-top text-sage-600">{e.description ?? '—'}</td>
+                    <td className="px-5 py-3 align-top text-sage-600">
+                      <span className="inline-flex items-center gap-1.5">
+                        {e.receipt_path && <Paperclip size={13} className="text-sage-400 shrink-0" aria-label="Receipt attached" />}
+                        {e.description ?? '—'}
+                      </span>
+                    </td>
                     <td className="px-5 py-3 align-top text-sage-400">{e.payment_reference ?? '—'}</td>
                     <td className="px-5 py-3 align-top text-right font-medium text-sage-800">{fmt(e.amount)}</td>
                   </tr>

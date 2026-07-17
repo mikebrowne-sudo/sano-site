@@ -12,6 +12,8 @@ import { isAdminUser } from '@/lib/is-admin'
 import { normaliseExpenseCategory } from '@/lib/expense-categories'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+// Note: createExpense returns the new id (rather than redirecting) so the
+// caller can attach a receipt to it before navigating away.
 
 export interface ExpenseInput {
   expense_date: string
@@ -61,7 +63,8 @@ export async function createExpense(input: ExpenseInput) {
     .select('id')
     .single()
   if (error || !data) return { error: `Failed to create: ${error?.message}` }
-  redirect('/portal/expenses')
+  revalidatePath('/portal/expenses')
+  return { ok: true as const, id: data.id as string }
 }
 
 export async function updateExpense(id: string, input: ExpenseInput) {
