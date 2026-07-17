@@ -3,18 +3,17 @@ import { unstable_cache } from 'next/cache'
 
 // Google reviews display (2026-07, Phase 2). Reads the Sano listing's overall
 // rating, total review count and a handful of recent reviews from the Google
-// Places API (Place Details). No OAuth / owner approval needed — just a Google
-// Maps Platform API key with the Places API enabled.
+// Places API (New) — https://places.googleapis.com/v1. No OAuth / owner approval
+// needed — just a Google Maps Platform key with "Places API (New)" enabled.
 //
-//   GOOGLE_PLACES_API_KEY  — Maps Platform key (Places API enabled)
-//   SANO_GOOGLE_PLACE_ID   — the Sano Business Profile's Place ID
+//   GOOGLE_PLACES_API_KEY  — Maps Platform key (Places API New enabled)
+//   SANO_GOOGLE_PLACE_ID   — the Sano listing's Place ID
 //
 // Place Details returns at most ~5 reviews (Google picks them) and can't reply
 // to reviews — that's what the heavier Business Profile API is for, deferred.
 // Results are cached 6h so we don't pay per page load or hit rate limits.
 
-const PLACES_ENDPOINT = 'https://maps.googleapis.com/maps/api/place/details/json'
-const TEXTSEARCH_ENDPOINT = 'https://maps.googleapis.com/maps/api/place/textsearch/json'
+const PLACES_V1 = 'https://places.googleapis.com/v1/places'
 const CACHE_SECONDS = 6 * 60 * 60
 
 export interface GoogleReview {
@@ -22,13 +21,13 @@ export interface GoogleReview {
   rating: number
   text: string
   relativeTime: string
-  /** Unix seconds — for stable sort/keys. */
-  time: number
+  /** RFC3339 publish time — used for stable React keys. */
+  time: string
   profilePhoto: string | null
 }
 
 export interface PlaceReviews {
-  /** Overall listing rating, e.g. 4.9. */
+  /** Overall listing rating, e.g. 4.9. Null when the listing has no reviews. */
   rating: number | null
   /** Total number of reviews on the listing. */
   total: number | null
@@ -49,16 +48,20 @@ export interface PlaceCandidate {
   total: number | null
 }
 
-/** Normalise a raw Places review object into our shape. Exported for tests. */
+/** Normalise a Places API (New) review object into our shape. Exported for tests. */
 export function mapGoogleReview(raw: unknown): GoogleReview {
   const r = (raw ?? {}) as Record<string, unknown>
+  const author = (r.authorAttribution ?? {}) as Record<string, unknown>
+  const textObj = (r.text ?? r.originalText ?? {}) as Record<string, unknown>
+  const displayName = typeof author.displayName === 'string' ? author.displayName.trim() : ''
+  const text = typeof textObj.text === 'string' ? textObj.text.trim() : ''
   return {
-    author: typeof r.author_name === 'string' && r.author_name.trim() ? r.author_name.trim() : 'Google user',
+    author: displayName || 'Google user',
     rating: typeof r.rating === 'number' ? r.rating : 0,
-    text: typeof r.text === 'string' ? r.text.trim() : '',
-    relativeTime: typeof r.relative_time_description === 'string' ? r.relative_time_description : '',
-    time: typeof r.time === 'number' ? r.time : 0,
-    profilePhoto: typeof r.profile_photo_url === 'string' && r.profile_photo_url ? r.profile_photo_url : null,
+    text,
+    relativeTime: typeof r.relativePublishTimeDescription === 'string' ? r.relativePublishTimeDescription : '',
+    time: typeof r.publishTime === 'string' ? r.publishTime : '',
+    profilePhoto: typeof author.photoUri === 'string' && author.photoUri ? author.photoUri : null,
   }
 }
 
@@ -85,32 +88,29 @@ async function fetchPlaceDetails(): Promise<PlaceReviews> {
   if (!key) return { rating: null, total: null, reviews: [], configured: false, needsPlaceId: false }
   if (!placeId) return { rating: null, total: null, reviews: [], configured: false, needsPlaceId: true }
 
-  const url = new URL(PLACES_ENDPOINT)
-  url.searchParams.set('place_id', placeId)
-  url.searchParams.set('fields', 'rating,user_ratings_total,reviews')
-  url.searchParams.set('reviews_sort', 'newest')
-  url.searchParams.set('reviews_no_translations', 'true')
-  url.searchParams.set('language', 'en')
-  url.searchParams.set('key', key)
-
   try {
-    const res = await fetch(url.toString())
+    const res = await fetch(`${PLACES_V1}/${encodeURIComponent(placeId)}?languageCode=en`, {
+      headers: {
+        'X-Goog-Api-Key': key,
+        'X-Goog-FieldMask': 'rating,userRatingCount,reviews',
+      },
+    })
     const data = (await res.json()) as {
-      status?: string
-      error_message?: string
-      result?: { rating?: number; user_ratings_total?: number; reviews?: unknown[] }
+      error?: { message?: string; status?: string }
+      rating?: number
+      userRatingCount?: number
+      reviews?: unknown[]
     }
-    if (data.status !== 'OK') {
+    if (!res.ok || data.error) {
       return {
         rating: null, total: null, reviews: [], configured: true, needsPlaceId: false,
-        error: data.error_message || data.status || 'Places API error',
+        error: data.error?.message || `Places API ${res.status}`,
       }
     }
-    const r = data.result ?? {}
     return {
-      rating: typeof r.rating === 'number' ? r.rating : null,
-      total: typeof r.user_ratings_total === 'number' ? r.user_ratings_total : null,
-      reviews: (r.reviews ?? []).map(mapGoogleReview).filter((rv) => rv.text.length > 0),
+      rating: typeof data.rating === 'number' ? data.rating : null,
+      total: typeof data.userRatingCount === 'number' ? data.userRatingCount : null,
+      reviews: (data.reviews ?? []).map(mapGoogleReview).filter((rv) => rv.text.length > 0),
       configured: true,
       needsPlaceId: false,
     }
@@ -129,28 +129,37 @@ export const getPlaceReviews = unstable_cache(fetchPlaceDetails, ['sano-google-p
 
 /**
  * Resolve Place ID candidates from a text query — used only for setup, when the
- * key is set but SANO_GOOGLE_PLACE_ID isn't yet, so Mike can copy the right ID.
+ * key is set but SANO_GOOGLE_PLACE_ID isn't yet, so staff can copy the right ID.
  */
 export async function findPlaceCandidates(query: string): Promise<PlaceCandidate[]> {
   const key = process.env.GOOGLE_PLACES_API_KEY?.trim()
   if (!key || !query.trim()) return []
-  const url = new URL(TEXTSEARCH_ENDPOINT)
-  url.searchParams.set('query', query.trim())
-  url.searchParams.set('region', 'nz')
-  url.searchParams.set('key', key)
   try {
-    const res = await fetch(url.toString())
+    const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': key,
+        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount',
+      },
+      body: JSON.stringify({ textQuery: query.trim(), regionCode: 'NZ' }),
+    })
     const data = (await res.json()) as {
-      status?: string
-      results?: Array<{ place_id?: string; name?: string; formatted_address?: string; rating?: number; user_ratings_total?: number }>
+      places?: Array<{
+        id?: string
+        displayName?: { text?: string }
+        formattedAddress?: string
+        rating?: number
+        userRatingCount?: number
+      }>
     }
-    if (data.status !== 'OK' || !Array.isArray(data.results)) return []
-    return data.results.slice(0, 5).map((r) => ({
-      placeId: r.place_id ?? '',
-      name: r.name ?? '(unnamed)',
-      address: r.formatted_address ?? '',
-      rating: typeof r.rating === 'number' ? r.rating : null,
-      total: typeof r.user_ratings_total === 'number' ? r.user_ratings_total : null,
+    if (!Array.isArray(data.places)) return []
+    return data.places.slice(0, 5).map((p) => ({
+      placeId: p.id ?? '',
+      name: p.displayName?.text ?? '(unnamed)',
+      address: p.formattedAddress ?? '',
+      rating: typeof p.rating === 'number' ? p.rating : null,
+      total: typeof p.userRatingCount === 'number' ? p.userRatingCount : null,
     })).filter((c) => c.placeId)
   } catch {
     return []

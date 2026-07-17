@@ -1,21 +1,23 @@
 import { mapGoogleReview, formatReviewCount, starBuckets } from '@/lib/google-places'
 
 describe('google-places helpers', () => {
-  it('maps a raw Places review into our shape', () => {
+  it('maps a Places API (New) review into our shape', () => {
     const r = mapGoogleReview({
-      author_name: '  Marina R  ',
       rating: 5,
-      text: '  Fantastic clean, spotless.  ',
-      relative_time_description: '2 weeks ago',
-      time: 1710000000,
-      profile_photo_url: 'https://example.com/p.jpg',
+      text: { text: '  Fantastic clean, spotless.  ', languageCode: 'en' },
+      relativePublishTimeDescription: '2 weeks ago',
+      publishTime: '2026-07-01T09:00:00Z',
+      authorAttribution: {
+        displayName: '  Marina R  ',
+        photoUri: 'https://example.com/p.jpg',
+      },
     })
     expect(r).toEqual({
       author: 'Marina R',
       rating: 5,
       text: 'Fantastic clean, spotless.',
       relativeTime: '2 weeks ago',
-      time: 1710000000,
+      time: '2026-07-01T09:00:00Z',
       profilePhoto: 'https://example.com/p.jpg',
     })
   })

@@ -100,6 +100,19 @@ export async function GoogleReviewsPanel() {
     )
   }
 
+  // Configured, connected, but no reviews on the listing yet — ties into Phase 1.
+  if ((data.total ?? 0) === 0 && data.reviews.length === 0) {
+    return (
+      <div className="mb-6 rounded-2xl border border-sage-100 bg-white p-5 flex items-start gap-3">
+        <Star size={20} className="text-amber-400 shrink-0 mt-0.5" />
+        <div className="text-sm text-sage-600">
+          <p className="font-medium text-sage-800">No Google reviews yet</p>
+          <p>Your listing is connected. The review requests you send below will start bringing them in — they&rsquo;ll appear here automatically.</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="mb-6 rounded-2xl border border-sage-100 bg-white p-5">
       <div className="flex items-center gap-4 flex-wrap">
