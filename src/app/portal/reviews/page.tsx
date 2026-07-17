@@ -3,11 +3,13 @@
 // message, SMS/email, recent/previous). Shows who's already been asked (per
 // customer) so we don't double-up.
 
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { notFound } from 'next/navigation'
 import { Star, Phone, Mail, Check } from 'lucide-react'
 import { RequestReviewButton } from '../jobs/[id]/_components/RequestReviewButton'
+import { GoogleReviewsPanel } from './_components/GoogleReviewsPanel'
 import { REVIEW_REASK_MONTHS } from '@/lib/review-request'
 
 export const dynamic = 'force-dynamic'
@@ -68,6 +70,10 @@ export default async function ReviewsPage() {
         Recently completed cleans — ask your happy clients for a Google review while it&rsquo;s fresh
         (best same-day or next morning). Only ask the ones you know went well; already-asked customers are flagged.
       </p>
+
+      <Suspense fallback={<div className="mb-6 h-20 rounded-2xl border border-sage-100 bg-sage-50/50 animate-pulse" />}>
+        <GoogleReviewsPanel />
+      </Suspense>
 
       {rows.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-sage-200 bg-sage-50/50 p-10 text-center text-sm text-sage-500">
