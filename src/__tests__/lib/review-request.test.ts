@@ -14,13 +14,12 @@ describe('review-request templates', () => {
     expect(reviewDefaultMessage('recent', 'Marina Rabangaki')).toContain('Hi Marina,')
   })
 
-  it('has distinct recent vs previous wording', () => {
+  it('uses one consistent, time-neutral message for recent + previous', () => {
     const recent = reviewDefaultMessage('recent', 'Marina')
     const previous = reviewDefaultMessage('previous', 'Marina')
     expect(recent).not.toContain('today') // time-neutral — clean may not be same-day
     expect(recent).toContain('thanks again for choosing Sano')
-    expect(previous).toContain('a little while back')
-    expect(recent).not.toEqual(previous)
+    expect(recent).toEqual(previous) // unified body; only the email subject varies
   })
 
   it('SMS appends the review link to the (editable) message', () => {
