@@ -11,6 +11,7 @@ import { Star, Phone, Mail, Check } from 'lucide-react'
 import { RequestReviewButton } from '../jobs/[id]/_components/RequestReviewButton'
 import { GoogleReviewsPanel } from './_components/GoogleReviewsPanel'
 import { REVIEW_REASK_MONTHS } from '@/lib/review-request'
+import { preferContact, type ContactRow } from '@/lib/review-recipient'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +26,7 @@ interface JobRow {
   title: string | null
   scheduled_date: string | null
   client_id: string | null
+  contact_id: string | null
   clients: { name: string | null; phone: string | null; email: string | null } | null
 }
 
@@ -36,13 +38,39 @@ export default async function ReviewsPage() {
   const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10)
   const { data } = await supabase
     .from('jobs')
-    .select('id, job_number, title, scheduled_date, client_id, clients ( name, phone, email )')
+    .select('id, job_number, title, scheduled_date, client_id, contact_id, clients ( name, phone, email )')
     .in('status', ['completed', 'invoiced'])
     .gte('scheduled_date', since)
     .order('scheduled_date', { ascending: false })
     .limit(60)
 
   const rows = (data ?? []) as unknown as JobRow[]
+
+  // Resolve each job's greeting name: the job's main contact, else the client's
+  // primary contact, else the client (business) name. Batched to two queries.
+  const contactIds = Array.from(new Set(rows.map((r) => r.contact_id).filter(Boolean))) as string[]
+  const contactById = new Map<string, ContactRow>()
+  if (contactIds.length) {
+    const { data: cs } = await supabase
+      .from('contacts')
+      .select('id, full_name, email, phone')
+      .in('id', contactIds)
+    for (const c of (cs ?? []) as (ContactRow & { id: string })[]) contactById.set(c.id, c)
+  }
+  const clientsNeedingPrimary = Array.from(
+    new Set(rows.filter((r) => !r.contact_id && r.client_id).map((r) => r.client_id)),
+  ) as string[]
+  const primaryByClient = new Map<string, ContactRow>()
+  if (clientsNeedingPrimary.length) {
+    const { data: cs } = await supabase
+      .from('contacts')
+      .select('client_id, full_name, email, phone')
+      .in('client_id', clientsNeedingPrimary)
+      .eq('contact_type', 'primary')
+    for (const c of (cs ?? []) as (ContactRow & { client_id: string })[]) {
+      if (!primaryByClient.has(c.client_id)) primaryByClient.set(c.client_id, c)
+    }
+  }
 
   // Last review request per customer (for the "already asked" dedupe display).
   const clientIds = Array.from(new Set(rows.map((r) => r.client_id).filter(Boolean))) as string[]
@@ -83,6 +111,12 @@ export default async function ReviewsPage() {
         <div className="space-y-2">
           {rows.map((j) => {
             const c = j.clients
+            const contact = j.contact_id
+              ? contactById.get(j.contact_id)
+              : j.client_id
+                ? primaryByClient.get(j.client_id)
+                : undefined
+            const greetName = preferContact(contact ?? null, c).name
             const last = j.client_id ? lastAsked.get(j.client_id) : undefined
             const recentlyAsked = last ? new Date(last) > cutoff : false
             return (
@@ -94,12 +128,15 @@ export default async function ReviewsPage() {
                   </div>
                   <div className="text-[11px] text-sage-500 flex items-center flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                     <span>{fmtDate(j.scheduled_date)}</span>
+                    {greetName && greetName !== c?.name && (
+                      <span className="text-sage-600">to {greetName}</span>
+                    )}
                     {c?.phone && <span className="inline-flex items-center gap-1"><Phone size={11} /> {c.phone}</span>}
                     {c?.email && <span className="inline-flex items-center gap-1"><Mail size={11} /> on file</span>}
                     {recentlyAsked && <span className="inline-flex items-center gap-1 text-emerald-600 font-medium"><Check size={11} /> asked {fmtDate(last!)}</span>}
                   </div>
                 </div>
-                <RequestReviewButton jobId={j.id} clientName={c?.name ?? null} />
+                <RequestReviewButton jobId={j.id} clientName={greetName} />
               </div>
             )
           })}
