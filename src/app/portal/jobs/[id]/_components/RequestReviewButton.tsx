@@ -1,41 +1,32 @@
 'use client'
 
 // Staff control to send a customer a Google-review request (SMS and/or email),
-// with an editable message and recent/previous templates. Shown on the job page
-// and in the Reviews tab. Manual by design — staff choose who, when and how.
+// with an editable message. Shown on the job page and in the Reviews tab.
+// Manual by design — staff choose who, when and how.
 
 import { useState, useTransition } from 'react'
 import { Star, Check, X, MinusCircle } from 'lucide-react'
 import { requestReview, type RequestReviewResult } from '../_actions-review'
-import { reviewDefaultMessage, type ReviewVariant } from '@/lib/review-request'
+import { reviewDefaultMessage } from '@/lib/review-request'
 
 export function RequestReviewButton({
   jobId,
   clientName = null,
-  defaultVariant = 'recent',
 }: {
   jobId: string
   clientName?: string | null
-  defaultVariant?: ReviewVariant
 }) {
   const [open, setOpen] = useState(false)
   const [sms, setSms] = useState(false)
   const [email, setEmail] = useState(true)
-  const [variant, setVariant] = useState<ReviewVariant>(defaultVariant)
-  const [message, setMessage] = useState(() => reviewDefaultMessage(defaultVariant, clientName))
-  const [edited, setEdited] = useState(false)
+  const [message, setMessage] = useState(() => reviewDefaultMessage('recent', clientName))
   const [result, setResult] = useState<RequestReviewResult | null>(null)
   const [isPending, startTransition] = useTransition()
-
-  function pickVariant(v: ReviewVariant) {
-    setVariant(v)
-    if (!edited) setMessage(reviewDefaultMessage(v, clientName))
-  }
 
   function send(force = false) {
     setResult(null)
     startTransition(async () => {
-      setResult(await requestReview({ jobId, sms, email, variant, message, force }))
+      setResult(await requestReview({ jobId, sms, email, variant: 'recent', message, force }))
     })
   }
 
@@ -64,16 +55,11 @@ export function RequestReviewButton({
         <Star size={15} className="text-amber-500" /> Request a Google review
       </div>
 
-      <div className="inline-flex p-0.5 rounded-lg bg-sage-50 border border-sage-100 mb-3 text-xs">
-        <button type="button" onClick={() => pickVariant('recent')} className={variant === 'recent' ? 'px-2.5 py-1 rounded-md bg-white shadow-sm font-medium text-sage-800' : 'px-2.5 py-1 text-sage-500'}>Recent clean</button>
-        <button type="button" onClick={() => pickVariant('previous')} className={variant === 'previous' ? 'px-2.5 py-1 rounded-md bg-white shadow-sm font-medium text-sage-800' : 'px-2.5 py-1 text-sage-500'}>Previous client</button>
-      </div>
-
       <label className="block mb-1">
         <span className="text-[11px] font-medium text-sage-500">Message (edit if you like)</span>
         <textarea
           value={message}
-          onChange={(e) => { setMessage(e.target.value); setEdited(true) }}
+          onChange={(e) => setMessage(e.target.value)}
           rows={5}
           className="w-full mt-1 rounded-lg border border-sage-200 px-3 py-2 text-[13px] text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500 resize-y"
         />
