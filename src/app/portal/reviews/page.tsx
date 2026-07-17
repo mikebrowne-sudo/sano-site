@@ -7,7 +7,7 @@ import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { notFound } from 'next/navigation'
-import { Star, Phone, Mail, Check } from 'lucide-react'
+import { Star, Phone, Mail, Check, User } from 'lucide-react'
 import { RequestReviewButton } from '../jobs/[id]/_components/RequestReviewButton'
 import { GoogleReviewsPanel } from './_components/GoogleReviewsPanel'
 import { REVIEW_REASK_MONTHS } from '@/lib/review-request'
@@ -23,7 +23,7 @@ function fmtDate(iso: string | null) {
 interface JobRow {
   id: string
   job_number: string | null
-  title: string | null
+  address: string | null
   scheduled_date: string | null
   client_id: string | null
   contact_id: string | null
@@ -38,7 +38,7 @@ export default async function ReviewsPage() {
   const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10)
   const { data } = await supabase
     .from('jobs')
-    .select('id, job_number, title, scheduled_date, client_id, contact_id, clients ( name, phone, email )')
+    .select('id, job_number, address, scheduled_date, client_id, contact_id, clients ( name, phone, email )')
     .in('status', ['completed', 'invoiced'])
     .gte('scheduled_date', since)
     .order('scheduled_date', { ascending: false })
@@ -116,27 +116,33 @@ export default async function ReviewsPage() {
               : j.client_id
                 ? primaryByClient.get(j.client_id)
                 : undefined
-            const greetName = preferContact(contact ?? null, c).name
+            // Who the request greets + goes to (main contact → primary → client).
+            const recipient = preferContact(contact ?? null, c)
             const last = j.client_id ? lastAsked.get(j.client_id) : undefined
             const recentlyAsked = last ? new Date(last) > cutoff : false
+            const contactIsDistinct = recipient.name && recipient.name !== c?.name
             return (
               <div key={j.id} className="bg-white rounded-xl border border-sage-100 p-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
+                  {/* Customer · JOB-#### · Address */}
                   <div className="text-sm font-medium text-sage-800">
                     {c?.name ?? 'Client'}
-                    <span className="text-sage-400 text-xs font-normal"> · {j.title || j.job_number || 'Clean'}</span>
+                    {j.job_number && <span className="text-sage-500 font-normal"> · {j.job_number}</span>}
+                    {j.address && <span className="text-sage-400 text-xs font-normal"> · {j.address}</span>}
                   </div>
                   <div className="text-[11px] text-sage-500 flex items-center flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                     <span>{fmtDate(j.scheduled_date)}</span>
-                    {greetName && greetName !== c?.name && (
-                      <span className="text-sage-600">to {greetName}</span>
+                    {contactIsDistinct && (
+                      <span className="inline-flex items-center gap-1 text-sage-600"><User size={11} /> {recipient.name}</span>
                     )}
-                    {c?.phone && <span className="inline-flex items-center gap-1"><Phone size={11} /> {c.phone}</span>}
-                    {c?.email && <span className="inline-flex items-center gap-1"><Mail size={11} /> on file</span>}
+                    {recipient.email
+                      ? <span className="inline-flex items-center gap-1"><Mail size={11} /> {recipient.email}</span>
+                      : <span className="inline-flex items-center gap-1 text-amber-600"><Mail size={11} /> no email on file</span>}
+                    {recipient.phone && <span className="inline-flex items-center gap-1"><Phone size={11} /> {recipient.phone}</span>}
                     {recentlyAsked && <span className="inline-flex items-center gap-1 text-emerald-600 font-medium"><Check size={11} /> asked {fmtDate(last!)}</span>}
                   </div>
                 </div>
-                <RequestReviewButton jobId={j.id} clientName={greetName} />
+                <RequestReviewButton jobId={j.id} clientName={recipient.name} />
               </div>
             )
           })}
