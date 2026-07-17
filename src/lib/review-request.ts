@@ -22,12 +22,13 @@ export function reviewFirstName(name: string | null | undefined): string {
   return name?.trim().split(/\s+/)[0] || 'there'
 }
 
-/** The default, editable message body (no link). Staff may edit before sending. */
+/**
+ * The default, editable message body (no link). Staff may edit before sending.
+ * One consistent, time-neutral message for both recent + previous clients
+ * (2026-07). The variant still selects the email subject (reviewEmailSubject).
+ */
 export function reviewDefaultMessage(variant: ReviewVariant, name: string | null): string {
   const first = reviewFirstName(name)
-  if (variant === 'previous') {
-    return `Hi ${first}, it's the Sano team — we cleaned for you a little while back and hope everything's still looking great. If you were happy with how we did, a quick Google review would really help our small local team. Thank you!`
-  }
   return `Hi ${first}, thanks again for choosing Sano. We hope you were happy with the clean and the service from our team. If you have a moment, we'd love you to leave us a Google review — your feedback genuinely helps others feel confident choosing Sano, and we really appreciate your support.`
 }
 
