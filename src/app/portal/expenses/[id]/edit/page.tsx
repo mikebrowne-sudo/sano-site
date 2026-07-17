@@ -4,7 +4,7 @@ import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { ExpenseForm, type ExpenseData } from '../../_components/ExpenseForm'
-import { getVendorSuggestions } from '../../_data'
+import { getVendorSuggestions, getExpenseReceiptUrl } from '../../_data'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,13 +15,16 @@ export default async function EditExpensePage({ params }: { params: { id: string
 
   const { data: e, error } = await supabase
     .from('expenses')
-    .select('id, expense_date, amount, category, vendor, description, payment_reference, gst_inclusive, notes')
+    .select('id, expense_date, amount, category, vendor, description, payment_reference, gst_inclusive, notes, receipt_path')
     .eq('id', params.id)
     .single()
 
   if (error || !e) notFound()
 
-  const vendorSuggestions = await getVendorSuggestions()
+  const [vendorSuggestions, receiptUrl] = await Promise.all([
+    getVendorSuggestions(),
+    getExpenseReceiptUrl((e.receipt_path as string | null) ?? null),
+  ])
 
   const expense: ExpenseData = {
     id: e.id as string,
@@ -33,13 +36,14 @@ export default async function EditExpensePage({ params }: { params: { id: string
     payment_reference: (e.payment_reference as string | null) ?? null,
     gst_inclusive: (e.gst_inclusive as boolean | null) ?? true,
     notes: (e.notes as string | null) ?? null,
+    receipt_path: (e.receipt_path as string | null) ?? null,
   }
 
   return (
     <div>
       <Link href="/portal/expenses" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"><ArrowLeft size={14} /> Back</Link>
       <h1 className="text-2xl font-bold text-sage-800 mb-8">Edit expense</h1>
-      <ExpenseForm expense={expense} vendorSuggestions={vendorSuggestions} />
+      <ExpenseForm expense={expense} vendorSuggestions={vendorSuggestions} receiptUrl={receiptUrl} />
     </div>
   )
 }
