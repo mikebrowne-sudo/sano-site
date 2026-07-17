@@ -24,6 +24,7 @@ export const EXPENSE_CATEGORIES: readonly ExpenseCategory[] = [
   { value: 'bank_fees', label: 'Bank fees' },
   { value: 'fuel_travel', label: 'Fuel / travel' },
   { value: 'materials_supplies', label: 'Materials / supplies' },
+  { value: 'rubbish_removal', label: 'Rubbish removal / disposal' },
   { value: 'equipment', label: 'Equipment' },
   { value: 'marketing', label: 'Marketing' },
   { value: 'accounting_legal', label: 'Accounting / legal' },
