@@ -28,7 +28,7 @@ export function reviewDefaultMessage(variant: ReviewVariant, name: string | null
   if (variant === 'previous') {
     return `Hi ${first}, it's the Sano team — we cleaned for you a little while back and hope everything's still looking great. If you were happy with how we did, a quick Google review would really help our small local team. Thank you!`
   }
-  return `Hi ${first}, thanks for having the Sano team look after your place — we hope it's feeling great. If you were happy with the clean, a quick Google review would mean a lot to our small local team, and it helps other Aucklanders find us. Thank you!`
+  return `Hi ${first}, thanks again for choosing Sano. We hope you were happy with the clean and the service from our team. If you have a moment, we'd love you to leave us a Google review — your feedback genuinely helps others feel confident choosing Sano, and we really appreciate your support.`
 }
 
 export function reviewEmailSubject(variant: ReviewVariant): string {
