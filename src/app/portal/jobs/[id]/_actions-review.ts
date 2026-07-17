@@ -12,6 +12,7 @@ import { revalidatePath } from 'next/cache'
 import { sendTwilioSms, isTwilioConfigured } from '@/lib/notifications/twilio'
 import { sendReviewRequestEmail } from '@/lib/resend'
 import { reviewSmsText, REVIEW_REASK_MONTHS, type ReviewVariant } from '@/lib/review-request'
+import { resolveReviewRecipient } from '@/lib/review-recipient'
 
 export interface RequestReviewInput {
   jobId: string
@@ -47,16 +48,23 @@ export async function requestReview(input: RequestReviewInput): Promise<RequestR
 
   const { data: job, error: jErr } = await supabase
     .from('jobs')
-    .select('id, job_number, client_id, clients ( name, phone, email )')
+    .select('id, job_number, client_id, contact_id, clients ( name, phone, email )')
     .eq('id', input.jobId)
     .single()
   if (jErr || !job) return { error: 'Job not found.' }
 
   const clientId = (job.client_id as string | null) ?? null
   const client = job.clients as unknown as { name: string | null; phone: string | null; email: string | null } | null
-  const name = client?.name ?? null
-  const phone = client?.phone?.trim() || null
-  const email = client?.email?.trim() || null
+
+  // Send to the job's main contact (a person), not the client's accounts record.
+  const recipient = await resolveReviewRecipient(supabase, {
+    contactId: (job.contact_id as string | null) ?? null,
+    clientId,
+    client,
+  })
+  const name = recipient.name
+  const phone = recipient.phone
+  const email = recipient.email
 
   // Per-customer dedupe: don't re-ask inside the window unless forced.
   if (clientId && !input.force) {

@@ -14,6 +14,7 @@ import { ArchiveJobButton } from './_components/ArchiveJobButton'
 import { JobWorkflowBar } from './_components/JobWorkflowBar'
 import { MarkJobReviewedButton } from './_components/MarkJobReviewedButton'
 import { RequestReviewButton } from './_components/RequestReviewButton'
+import { resolveReviewRecipient } from '@/lib/review-recipient'
 import { JobApprovePayButton } from './_components/JobApprovePayButton'
 import { classifyApprovalRow } from '@/lib/pending-approvals'
 import { JobReadyToInvoice } from './_components/JobReadyToInvoice'
@@ -90,7 +91,7 @@ export default async function JobDetailPage({
     supabase
       .from('jobs')
       .select(`
-        id, job_number, client_id, quote_id, invoice_id, recurring_job_id, status, assigned_to,
+        id, job_number, client_id, contact_id, quote_id, invoice_id, recurring_job_id, status, assigned_to,
         title, description, address,
         scheduled_date, scheduled_time, duration_estimate,
         contractor_id, contractor_price, job_price, allowed_hours,
@@ -119,6 +120,19 @@ export default async function JobDetailPage({
   if (error || !job) notFound()
 
   const client = job.clients as unknown as { name: string; company_name: string | null } | null
+
+  // Greet the job's main contact (a person) in the review request, not the
+  // business/accounts name. Only needed once the job is review-eligible.
+  const reviewRecipientName =
+    job.status === 'completed' || job.status === 'invoiced'
+      ? (
+          await resolveReviewRecipient(supabase, {
+            contactId: (job.contact_id as string | null) ?? null,
+            clientId: (job.client_id as string | null) ?? null,
+            client,
+          })
+        ).name
+      : null
 
   // Phase D.2 — archive (soft-delete) is admin-only. No status/linked
   // guards since the row can always be restored from
@@ -401,7 +415,7 @@ export default async function JobDetailPage({
           )}
           {/* Post-job Google review request — completed/invoiced jobs. */}
           {(job.status === 'completed' || job.status === 'invoiced') && (
-            <RequestReviewButton jobId={job.id} clientName={client?.name ?? null} />
+            <RequestReviewButton jobId={job.id} clientName={reviewRecipientName} />
           )}
           <JobInvoiceButton
             jobId={job.id}
