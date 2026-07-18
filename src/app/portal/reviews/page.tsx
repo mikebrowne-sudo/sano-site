@@ -10,6 +10,7 @@ import { notFound } from 'next/navigation'
 import { Star, Phone, Mail, Check, User } from 'lucide-react'
 import { RequestReviewButton } from '../jobs/[id]/_components/RequestReviewButton'
 import { GoogleReviewsPanel } from './_components/GoogleReviewsPanel'
+import { CustomReviewRequest } from './_components/CustomReviewRequest'
 import { REVIEW_REASK_MONTHS } from '@/lib/review-request'
 import { preferContact, type ContactRow } from '@/lib/review-recipient'
 
@@ -102,6 +103,10 @@ export default async function ReviewsPage() {
       <Suspense fallback={<div className="mb-6 h-20 rounded-2xl border border-sage-100 bg-sage-50/50 animate-pulse" />}>
         <GoogleReviewsPanel />
       </Suspense>
+
+      <CustomReviewRequest />
+
+      <h2 className="text-sm font-semibold text-sage-700 mb-3">Recently completed cleans</h2>
 
       {rows.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-sage-200 bg-sage-50/50 p-10 text-center text-sm text-sage-500">
