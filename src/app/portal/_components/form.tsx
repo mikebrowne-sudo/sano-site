@@ -49,7 +49,7 @@ export function FieldShell({ label, required, hint, error, children }: Labelled 
 
 export function Input({
   label, required, hint, error, value, onChange, type = 'text', placeholder,
-  name, disabled, autoComplete, inputMode,
+  name, disabled, autoComplete, inputMode, step, min, max,
 }: Labelled & {
   value: string
   onChange: (v: string) => void
@@ -59,6 +59,9 @@ export function Input({
   disabled?: boolean
   autoComplete?: string
   inputMode?: 'text' | 'tel' | 'email' | 'numeric' | 'decimal' | 'search' | 'url'
+  step?: string
+  min?: string
+  max?: string
 }) {
   return (
     <FieldShell label={label} required={required} hint={hint} error={error}>
@@ -72,6 +75,9 @@ export function Input({
         disabled={disabled}
         autoComplete={autoComplete}
         inputMode={inputMode}
+        step={step}
+        min={min}
+        max={max}
         className={clsx(controlBase, error ? borderErr : borderOk)}
       />
     </FieldShell>
