@@ -1,4 +1,4 @@
-import { Settings, SlidersHorizontal, ArchiveRestore, LayoutGrid, FileText, Briefcase, MessageCircle, KeyRound, AlertTriangle, ShieldAlert } from 'lucide-react'
+import { SlidersHorizontal, ArchiveRestore, LayoutGrid, FileText, Briefcase, MessageCircle, KeyRound, AlertTriangle, ShieldAlert } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
@@ -160,11 +160,6 @@ export default async function SettingsPage() {
           </Link>
         </>
       )}
-
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
-        <Settings size={32} className="text-sage-200 mx-auto mb-3" />
-        <p className="text-sage-600 text-sm">More account and portal settings coming soon.</p>
-      </div>
     </div>
   )
 }

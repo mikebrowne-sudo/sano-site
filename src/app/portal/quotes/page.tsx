@@ -519,11 +519,6 @@ export default async function QuotesPage({
           ),
         }}
       />
-      {quotesList.groupBy !== 'none' && (
-        <p className="text-[11px] text-sage-400 mt-3 italic">
-          Group-by ({quotesList.groupBy}) will be wired in the next phase. Setting persists.
-        </p>
-      )}
     </BulkSelectProvider>
   )
 }

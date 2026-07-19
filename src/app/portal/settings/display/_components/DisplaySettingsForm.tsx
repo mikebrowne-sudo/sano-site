@@ -7,7 +7,7 @@
 
 import { useState, useTransition } from 'react'
 import {
-  JOB_FIELDS, QUOTE_FIELDS, INVOICE_FIELDS, fieldsForContext, sortableKeys, groupableKeys,
+  JOB_FIELDS, QUOTE_FIELDS, INVOICE_FIELDS, fieldsForContext, sortableKeys,
   type DisplaySettings, type EntityDisplay, type FieldDef,
 } from '@/lib/portal-display-settings'
 import { saveDisplaySettings, resetDisplaySettings } from '../_actions'
@@ -140,7 +140,6 @@ function EntitySection({
   const listFields = fieldsForContext(defs, 'list')
   const detailFields = fieldsForContext(defs, 'detail')
   const sortable = sortableKeys(defs)
-  const groupable = groupableKeys(defs)
 
   function setListVisible(keys: string[]) {
     const next = { ...value, list: { ...value.list, visibleFields: keys } }
@@ -204,18 +203,6 @@ function EntitySection({
             onChange={(v) => onChange({ ...value, list: { ...value.list, sortDirection: v as 'asc' | 'desc' } })}
           />
         </div>
-
-        <SelectInput
-          label="Group by"
-          help="UI for grouping is wired but row rendering for groups will land in the next phase. Setting persists."
-          value={value.list.groupBy}
-          options={[
-            { value: 'none', label: 'No grouping' },
-            ...defs.filter((f) => groupable.has(f.key)).map((f) => ({ value: f.key, label: f.label })),
-          ]}
-          onChange={(v) => onChange({ ...value, list: { ...value.list, groupBy: v } })}
-          className="max-w-xs"
-        />
       </div>
 
       {/* Detail view subsection */}
