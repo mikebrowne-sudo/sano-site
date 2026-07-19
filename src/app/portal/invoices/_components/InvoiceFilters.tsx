@@ -27,7 +27,7 @@ export function InvoiceFilters() {
 
   return (
     <ListToolbar
-      search={<SearchInput basePath={BASE} placeholder="Search invoices…" />}
+      search={<SearchInput basePath={BASE} placeholder="Search invoice #, client, address…" />}
       sort={<ToolbarSelect basePath={BASE} paramKey="sort" value={currentSort} options={SORT_OPTIONS} />}
       extras={
         <ClearFiltersLink
