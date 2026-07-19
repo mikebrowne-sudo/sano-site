@@ -28,9 +28,9 @@ interface Labelled {
 }
 
 /** Label + optional hint/error wrapper. Associates the control via the label. */
-export function FieldShell({ label, required, hint, error, children }: Labelled & { children: ReactNode }) {
+export function FieldShell({ label, required, hint, error, className, children }: Labelled & { className?: string; children: ReactNode }) {
   return (
-    <label className="block">
+    <label className={clsx('block', className)}>
       {label && (
         <span className="block text-sm font-semibold text-sage-800 mb-1.5">
           {label}
@@ -48,9 +48,10 @@ export function FieldShell({ label, required, hint, error, children }: Labelled 
 }
 
 export function Input({
-  label, required, hint, error, value, onChange, type = 'text', placeholder,
+  label, required, hint, error, className, value, onChange, type = 'text', placeholder,
   name, disabled, autoComplete, inputMode, step, min, max,
 }: Labelled & {
+  className?: string
   value: string
   onChange: (v: string) => void
   type?: string
@@ -64,7 +65,7 @@ export function Input({
   max?: string
 }) {
   return (
-    <FieldShell label={label} required={required} hint={hint} error={error}>
+    <FieldShell label={label} required={required} hint={hint} error={error} className={className}>
       <input
         type={type}
         value={value}
@@ -85,8 +86,9 @@ export function Input({
 }
 
 export function Textarea({
-  label, required, hint, error, value, onChange, rows = 4, placeholder, name, disabled,
+  label, required, hint, error, className, value, onChange, rows = 4, placeholder, name, disabled,
 }: Labelled & {
+  className?: string
   value: string
   onChange: (v: string) => void
   rows?: number
@@ -95,7 +97,7 @@ export function Textarea({
   disabled?: boolean
 }) {
   return (
-    <FieldShell label={label} required={required} hint={hint} error={error}>
+    <FieldShell label={label} required={required} hint={hint} error={error} className={className}>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -111,16 +113,19 @@ export function Textarea({
 }
 
 export function Select({
-  label, required, hint, error, value, onChange, options, name, disabled,
+  label, required, hint, error, className, value, onChange, options, name, disabled, placeholder,
 }: Labelled & {
+  className?: string
   value: string
   onChange: (v: string) => void
   options: { value: string; label: string }[]
   name?: string
   disabled?: boolean
+  /** When set, prepends an empty "— placeholder —" option. */
+  placeholder?: string
 }) {
   return (
-    <FieldShell label={label} required={required} hint={hint} error={error}>
+    <FieldShell label={label} required={required} hint={hint} error={error} className={className}>
       <div className="relative">
         <select
           value={value}
@@ -129,6 +134,7 @@ export function Select({
           disabled={disabled}
           className={clsx(controlBase, 'appearance-none pr-10', error ? borderErr : borderOk)}
         >
+          {placeholder !== undefined && <option value="">{placeholder}</option>}
           {options.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
