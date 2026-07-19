@@ -10,8 +10,8 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import {
-  FileText, Receipt, ArrowRight, DollarSign, Clock,
-  AlertTriangle, Bell, CalendarDays,
+  FileText, ArrowRight, DollarSign,
+  AlertTriangle, Bell, CalendarDays, MapPin, UserRound, Wallet,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { isAdminUser, isAccountantUser } from '@/lib/is-admin'
@@ -23,6 +23,10 @@ import { loadStaffTaskCounts } from './_lib/staff-tasks-data'
 import { buildStaffTasks } from '@/lib/staff-tasks'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 
+// Whole-dollar currency for headline KPIs (cents are noise at a glance).
+const money0 = (n: number) =>
+  new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD', maximumFractionDigits: 0 }).format(n)
+
 export default async function PortalDashboard() {
   const supabase = createClient()
 
@@ -30,6 +34,7 @@ export default async function PortalDashboard() {
   const { data: { user } } = await supabase.auth.getUser()
   if (isAccountantUser(user) && !isAdminUser(user)) redirect('/portal/finance')
   const today = new Date().toISOString().slice(0, 10)
+  const monthStart = today.slice(0, 8) + '01' // first of the current month
   const todayLabel = new Date().toLocaleDateString('en-NZ', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
@@ -39,14 +44,14 @@ export default async function PortalDashboard() {
     { data: recentInvoices },
     { data: recentJobs },
     { count: totalQuotes },
-    { count: totalInvoices },
-    { count: paidInvoices },
     { data: sentInvoices },
     { count: totalJobs },
     { count: unassignedJobs },
     { count: todayJobs },
     { count: inProgressJobs },
     { count: overdueTraining },
+    { data: paidThisMonth },
+    { data: todaySchedule },
     taskCounts,
   ] = await Promise.all([
     // Phase 5.5.13 — every dashboard query honours the live-record
@@ -55,16 +60,16 @@ export default async function PortalDashboard() {
     // explicit show-archived/test toggle.
     supabase.from('quotes').select('id, quote_number, status, created_at, clients ( name )').is('deleted_at', null).eq('is_test', false).eq('is_latest_version', true).order('created_at', { ascending: false }).limit(5),
     supabase.from('invoices').select('id, invoice_number, status, due_date, created_at, clients ( name )').is('deleted_at', null).eq('is_test', false).order('created_at', { ascending: false }).limit(5),
-    supabase.from('jobs').select('id, job_number, title, status, scheduled_date, assigned_to').is('deleted_at', null).eq('is_test', false).order('created_at', { ascending: false }).limit(5),
+    supabase.from('jobs').select('id, job_number, title, status, scheduled_date, contractors ( full_name )').is('deleted_at', null).eq('is_test', false).order('created_at', { ascending: false }).limit(5),
     supabase.from('quotes').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('is_latest_version', true),
-    supabase.from('invoices').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false),
-    supabase.from('invoices').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('status', 'paid'),
-    supabase.from('invoices').select('id, due_date').is('deleted_at', null).eq('is_test', false).eq('status', 'sent'),
+    supabase.from('invoices').select('id, due_date, base_price, discount, invoice_items ( price )').is('deleted_at', null).eq('is_test', false).eq('status', 'sent'),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).is('contractor_id', null).neq('status', 'completed').neq('status', 'invoiced'),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('scheduled_date', today).neq('status', 'completed').neq('status', 'invoiced'),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('status', 'in_progress'),
     supabase.from('worker_training_assignments').select('*', { count: 'exact', head: true }).neq('status', 'completed').not('due_date', 'is', null).lt('due_date', today),
+    supabase.from('invoices').select('id, base_price, discount, invoice_items ( price )').is('deleted_at', null).eq('is_test', false).eq('status', 'paid').gte('date_paid', monthStart),
+    supabase.from('jobs').select('id, job_number, title, address, scheduled_time, status, clients ( name ), contractors ( full_name )').is('deleted_at', null).eq('is_test', false).eq('scheduled_date', today).neq('status', 'completed').neq('status', 'invoiced').order('scheduled_time', { ascending: true }).limit(12),
     loadStaffTaskCounts(supabase),
   ])
 
@@ -78,6 +83,24 @@ export default async function PortalDashboard() {
 
   const outstandingCount = sentInvoices?.length ?? 0
   const overdueCount = (sentInvoices ?? []).filter((i) => i.due_date && i.due_date < today).length
+
+  // Money at a glance — total = base_price + addon items − discount (the app's
+  // canonical invoice formula). Outstanding = sent (owed); overdue = sent past
+  // due; received = paid this calendar month.
+  type MoneyInv = { due_date?: string | null; base_price: number | null; discount: number | null; invoice_items: { price: number | null }[] }
+  const invTotal = (inv: MoneyInv) =>
+    (inv.base_price ?? 0) + (inv.invoice_items ?? []).reduce((s, i) => s + (i.price ?? 0), 0) - (inv.discount ?? 0)
+  const sentRows = (sentInvoices ?? []) as unknown as MoneyInv[]
+  const paidRows = (paidThisMonth ?? []) as unknown as MoneyInv[]
+  const outstandingRevenue = sentRows.reduce((s, i) => s + invTotal(i), 0)
+  const overdueRevenue = sentRows.filter((i) => i.due_date && i.due_date < today).reduce((s, i) => s + invTotal(i), 0)
+  const receivedThisMonth = paidRows.reduce((s, i) => s + invTotal(i), 0)
+
+  const schedule = (todaySchedule ?? []) as unknown as Array<{
+    id: string; job_number: string | null; title: string | null; address: string | null
+    scheduled_time: string | null; status: string | null
+    clients: { name: string } | null; contractors: { full_name: string } | null
+  }>
 
   const alerts: { label: string; href: string; tone: 'amber' | 'red' }[] = []
   if ((unassignedJobs ?? 0) > 0) {
@@ -178,35 +201,89 @@ export default async function PortalDashboard() {
       <section>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
-            icon={FileText}
-            label="Active quotes"
-            value={totalQuotes ?? 0}
-            hint="latest versions"
-            href="/portal/quotes"
-          />
-          <KpiCard
-            icon={Receipt}
-            label="Active invoices"
-            value={totalInvoices ?? 0}
-            hint="all-time"
+            icon={Wallet}
+            label="Outstanding"
+            value={money0(outstandingRevenue)}
+            hint={`${outstandingCount} sent`}
+            accent={outstandingRevenue > 0 ? 'amber' : undefined}
             href="/portal/invoices"
           />
           <KpiCard
+            icon={AlertTriangle}
+            label="Overdue"
+            value={money0(overdueRevenue)}
+            hint={overdueCount > 0 ? `${overdueCount} invoice${overdueCount !== 1 ? 's' : ''}` : 'all clear'}
+            accent={overdueRevenue > 0 ? 'red' : undefined}
+            href="/portal/alerts"
+          />
+          <KpiCard
             icon={DollarSign}
-            label="Paid"
-            value={paidInvoices ?? 0}
-            hint="invoices closed"
+            label="Received (mo.)"
+            value={money0(receivedThisMonth)}
+            hint="this month"
             accent="emerald"
             href="/portal/finance"
           />
           <KpiCard
-            icon={Clock}
-            label="Outstanding"
-            value={outstandingCount}
-            hint={outstandingCount > 0 ? 'awaiting payment' : 'all clear'}
-            accent={outstandingCount > 0 ? 'amber' : undefined}
-            href="/portal/invoices"
+            icon={FileText}
+            label="Active quotes"
+            value={totalQuotes ?? 0}
+            hint="in pipeline"
+            href="/portal/quotes"
           />
+        </div>
+      </section>
+
+      {/* ── Today's schedule ───────────────────────────── */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500">
+            Today&rsquo;s schedule
+          </h2>
+          <Link href="/portal/jobs/calendar" className="inline-flex items-center gap-1 text-xs text-sage-500 hover:text-sage-700 font-medium transition-colors">
+            Calendar <ArrowRight size={11} />
+          </Link>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          {schedule.length === 0 ? (
+            <div className="px-5 py-8 text-center">
+              <CalendarDays size={22} className="text-sage-200 mx-auto mb-2" />
+              <p className="text-sm text-sage-500">No jobs scheduled for today.</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-50">
+              {schedule.map((j) => {
+                const c = j.clients
+                const w = j.contractors
+                return (
+                  <li key={j.id}>
+                    <Link
+                      href={`/portal/jobs/${j.id}`}
+                      className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50/70 transition-colors duration-150"
+                    >
+                      <span className="w-12 shrink-0 text-sm font-semibold text-sage-700 tabular-nums">
+                        {j.scheduled_time ? j.scheduled_time.slice(0, 5) : '—'}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium text-sage-800 truncate">
+                          {c?.name ?? j.title ?? j.job_number}
+                        </span>
+                        {j.address && (
+                          <span className="mt-0.5 flex items-center gap-1 text-xs text-sage-500 truncate">
+                            <MapPin size={11} className="shrink-0" /> {j.address}
+                          </span>
+                        )}
+                      </span>
+                      <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-sage-500 shrink-0">
+                        <UserRound size={12} /> {w?.full_name ?? 'Unassigned'}
+                      </span>
+                      <StatusBadge kind="job" status={j.status ?? 'draft'} />
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
         </div>
       </section>
 
@@ -284,7 +361,7 @@ export default async function PortalDashboard() {
               >
                 <div className="min-w-0">
                   <div className="text-sm font-medium text-sage-800 truncate">{j.job_number}</div>
-                  <div className="text-xs text-sage-500 truncate">{j.assigned_to || 'Unassigned'}</div>
+                  <div className="text-xs text-sage-500 truncate">{(j.contractors as unknown as { full_name: string } | null)?.full_name ?? 'Unassigned'}</div>
                 </div>
                 <StatusBadge kind="job" status={j.status ?? 'draft'} />
               </Link>
@@ -303,19 +380,21 @@ function KpiCard({
 }: {
   icon: React.ElementType
   label: string
-  value: number
+  value: string | number
   hint?: string
-  accent?: 'emerald' | 'amber' | 'blue'
+  accent?: 'emerald' | 'amber' | 'blue' | 'red'
   href?: string
 }) {
   const valueColor =
     accent === 'emerald' ? 'text-emerald-700' :
     accent === 'amber'   ? 'text-amber-700'   :
+    accent === 'red'     ? 'text-red-700'     :
     accent === 'blue'    ? 'text-blue-700'    :
     'text-sage-800'
   const iconColor =
     accent === 'emerald' ? 'text-emerald-600' :
     accent === 'amber'   ? 'text-amber-600'   :
+    accent === 'red'     ? 'text-red-600'     :
     accent === 'blue'    ? 'text-blue-600'    :
     'text-sage-500'
   // Phase 1.7 — small tinted "tile" behind each KPI icon. Unifies the
@@ -324,6 +403,7 @@ function KpiCard({
   const iconTileBg =
     accent === 'emerald' ? 'bg-emerald-50' :
     accent === 'amber'   ? 'bg-amber-50'   :
+    accent === 'red'     ? 'bg-red-50'     :
     accent === 'blue'    ? 'bg-blue-50'    :
     'bg-sage-50'
 
@@ -342,12 +422,12 @@ function KpiCard({
           <Icon size={15} className={iconColor} />
         </span>
       </div>
-      <div className="flex items-baseline gap-2">
-        <p className={clsx('text-3xl font-bold tabular-nums tracking-tight leading-none', valueColor)}>
+      <div className="flex items-baseline gap-2 min-w-0">
+        <p className={clsx('text-2xl sm:text-3xl font-bold tabular-nums tracking-tight leading-none truncate', valueColor)}>
           {value}
         </p>
         {hint && (
-          <span className="text-[11px] text-sage-500 leading-none">{hint}</span>
+          <span className="text-[11px] text-sage-500 leading-none shrink-0">{hint}</span>
         )}
       </div>
     </div>
