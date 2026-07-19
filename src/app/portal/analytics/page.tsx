@@ -151,7 +151,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="max-w-5xl space-y-5">
       <header>
-        <h1 className="text-2xl md:text-3xl tracking-tight font-bold text-sage-900">Website analytics</h1>
+        <h1 className="text-2xl md:text-3xl tracking-tight font-bold text-sage-800">Website analytics</h1>
         <p className="text-sm text-sage-500 mt-1">Track website visitors, leads and engagement.</p>
       </header>
       {children}

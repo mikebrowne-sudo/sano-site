@@ -550,11 +550,6 @@ export default async function JobsPage({
         ),
       }}
       />
-      {jobsList.groupBy !== 'none' && (
-        <p className="text-[11px] text-sage-400 mt-2 italic">
-          Group-by ({jobsList.groupBy}) will be wired in the next phase. Setting persists.
-        </p>
-      )}
     </BulkSelectProvider>
   )
 }
