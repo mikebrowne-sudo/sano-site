@@ -9,8 +9,7 @@
 import { useState, useTransition } from 'react'
 import { createJob, updateJob } from '../_actions'
 import { AddressField } from '../../_components/AddressField'
-import { ChevronDown } from 'lucide-react'
-import clsx from 'clsx'
+import { Input, Select, Textarea } from '../../_components/form'
 
 interface Client { id: string; name: string; company_name: string | null }
 interface ContractorOption { id: string; full_name: string }
@@ -184,14 +183,14 @@ export function JobForm({
 
       {/* Job Details */}
       <Section title="Job Details">
-        <Field label="Title" value={title} onChange={setTitle} placeholder="e.g. Weekly clean — Smith residence" />
+        <Input label="Title" value={title} onChange={setTitle} placeholder="e.g. Weekly clean — Smith residence" />
         {/* Phase 5B — description + address are material once invoiced. */}
-        <TextArea label="Description" value={description} onChange={setDescription} className="mt-4" disabled={isLocked} />
+        <Textarea rows={3} label="Description" value={description} onChange={setDescription} className="mt-4" disabled={isLocked} />
         <AddressField label="Address" value={address} onChange={setAddress} className="mt-4" disabled={isLocked} />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-          <Field label="Scheduled date" type="date" value={scheduledDate} onChange={setScheduledDate} />
-          <Field label="Scheduled time" value={scheduledTime} onChange={setScheduledTime} placeholder="e.g. 9:00am" />
-          <Field label="Duration estimate" value={durationEstimate} onChange={setDurationEstimate} placeholder="e.g. 3 hours" />
+          <Input label="Scheduled date" type="date" value={scheduledDate} onChange={setScheduledDate} />
+          <Input label="Scheduled time" value={scheduledTime} onChange={setScheduledTime} placeholder="e.g. 9:00am" />
+          <Input label="Duration estimate" value={durationEstimate} onChange={setDurationEstimate} placeholder="e.g. 3 hours" />
         </div>
       </Section>
 
@@ -199,9 +198,9 @@ export function JobForm({
       <Section title="Pricing &amp; Assignment">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Phase 5B — job price + allowed hours are material once invoiced. */}
-          <Field label="Job price — client ($)" type="number" step="0.01" min="0" value={jobPrice} onChange={setJobPrice} disabled={isLocked} />
-          <Field label="Allowed hours" type="number" step="0.25" min="0" value={allowedHours} onChange={setAllowedHours} placeholder="e.g. 3" disabled={isLocked} />
-          <Field label="Contractor price ($)" type="number" step="0.01" min="0" value={contractorPrice} onChange={setContractorPrice} />
+          <Input label="Job price — client ($)" type="number" step="0.01" min="0" value={jobPrice} onChange={setJobPrice} disabled={isLocked} />
+          <Input label="Allowed hours" type="number" step="0.25" min="0" value={allowedHours} onChange={setAllowedHours} placeholder="e.g. 3" disabled={isLocked} />
+          <Input label="Contractor price ($)" type="number" step="0.01" min="0" value={contractorPrice} onChange={setContractorPrice} />
         </div>
         <div className="mt-4">
           <Select
@@ -236,9 +235,9 @@ export function JobForm({
 
       {/* Notes */}
       <Section title="Notes">
-        <TextArea label="Internal notes" value={internalNotes} onChange={setInternalNotes} placeholder="Staff-only notes…" />
+        <Textarea rows={3} label="Internal notes" value={internalNotes} onChange={setInternalNotes} placeholder="Staff-only notes…" />
         {isEdit && (
-          <TextArea label="Contractor notes" value={contractorNotes} onChange={setContractorNotes} placeholder="Notes for or from contractor…" className="mt-4" />
+          <Textarea rows={3} label="Contractor notes" value={contractorNotes} onChange={setContractorNotes} placeholder="Notes for or from contractor…" className="mt-4" />
         )}
       </Section>
 
@@ -274,83 +273,3 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function Field({
-  label, required, className, value, onChange, disabled, ...rest
-}: {
-  label: string; required?: boolean; className?: string
-  value: string; onChange: (v: string) => void
-  disabled?: boolean
-  type?: string; step?: string; min?: string; placeholder?: string
-}) {
-  return (
-    <label className={clsx('block', className)}>
-      <span className="block text-sm font-semibold text-sage-800 mb-1.5">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
-      </span>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required={required}
-        disabled={disabled}
-        className={clsx(
-          'w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm',
-          disabled && 'bg-sage-50 text-sage-500 cursor-not-allowed',
-        )}
-        {...rest}
-      />
-    </label>
-  )
-}
-
-function TextArea({
-  label, value, onChange, className, placeholder, disabled,
-}: {
-  label: string; value: string; onChange: (v: string) => void; className?: string; placeholder?: string
-  disabled?: boolean
-}) {
-  return (
-    <label className={clsx('block', className)}>
-      <span className="block text-sm font-semibold text-sage-800 mb-1.5">{label}</span>
-      <textarea
-        rows={3}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        disabled={disabled}
-        className={clsx(
-          'w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm resize-y',
-          disabled && 'bg-sage-50 text-sage-500 cursor-not-allowed',
-        )}
-      />
-    </label>
-  )
-}
-
-function Select({
-  label, value, onChange, options, placeholder = 'Select…', required, className,
-}: {
-  label: string; value: string; onChange: (v: string) => void
-  options: { value: string; label: string }[]
-  placeholder?: string; required?: boolean; className?: string
-}) {
-  return (
-    <label className={clsx('block', className)}>
-      <span className="block text-sm font-semibold text-sage-800 mb-1.5">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
-      </span>
-      <div className="relative">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full appearance-none rounded-lg border border-sage-200 px-4 py-3 pr-10 text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm bg-white"
-        >
-          <option value="">{placeholder}</option>
-          {options.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-        <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-sage-400 pointer-events-none" />
-      </div>
-    </label>
-  )
-}
