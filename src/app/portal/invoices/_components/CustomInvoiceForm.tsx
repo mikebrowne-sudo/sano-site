@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { createCustomInvoice } from '../_actions-custom'
 import type { CustomInvoiceFormInput } from '@/lib/custom-invoice-validation'
+import { Input, Textarea, Select, Checkbox, ToggleGroup, FormFeedback, FormActions } from '../../_components/form'
 
 interface ClientOption {
   id: string
@@ -71,71 +73,35 @@ export function CustomInvoiceForm({ clients }: { clients: ClientOption[] }) {
     })
   }
 
-  const inputCls = 'w-full border border-sage-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-sage-500'
-  const labelCls = 'block text-sm font-medium text-sage-800 mb-1'
-  const errCls = 'text-xs text-red-700 mt-1'
-
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-800">
-          {error}
-        </div>
-      )}
+      {error && <FormFeedback variant="error">{error}</FormFeedback>}
 
-      <div>
-        <label className={labelCls} htmlFor="invoice_number">Invoice number</label>
-        <input
-          id="invoice_number"
-          className={inputCls}
-          placeholder="INV-26001"
-          value={invoiceNumber}
-          onChange={(e) => setInvoiceNumber(e.target.value)}
-          autoComplete="off"
-        />
-        <p className="text-xs text-sage-600 mt-1">Format: INV-XXXX (4–6 digits). Must not already exist.</p>
-        {fieldErrors.invoice_number && <p className={errCls}>{fieldErrors.invoice_number}</p>}
-      </div>
+      <Input
+        label="Invoice number"
+        placeholder="INV-26001"
+        value={invoiceNumber}
+        onChange={setInvoiceNumber}
+        autoComplete="off"
+        hint="Format: INV-XXXX (4–6 digits). Must not already exist."
+        error={fieldErrors.invoice_number}
+      />
 
-      <div>
-        <label className={labelCls} htmlFor="client_id">Client</label>
-        <select
-          id="client_id"
-          className={inputCls}
-          value={clientId}
-          onChange={(e) => setClientId(e.target.value)}
-        >
-          <option value="">— Select client —</option>
-          {clients.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.company_name ? `${c.company_name} (${c.name})` : c.name}
-            </option>
-          ))}
-        </select>
-        {fieldErrors.client_id && <p className={errCls}>{fieldErrors.client_id}</p>}
-      </div>
+      <Select
+        label="Client"
+        value={clientId}
+        onChange={setClientId}
+        error={fieldErrors.client_id}
+        options={[
+          { value: '', label: '— Select client —' },
+          ...clients.map((c) => ({ value: c.id, label: c.company_name ? `${c.company_name} (${c.name})` : c.name })),
+        ]}
+      />
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Input label="Date issued" type="date" value={dateIssued} onChange={setDateIssued} error={fieldErrors.date_issued} />
         <div>
-          <label className={labelCls} htmlFor="date_issued">Date issued</label>
-          <input
-            id="date_issued"
-            type="date"
-            className={inputCls}
-            value={dateIssued}
-            onChange={(e) => setDateIssued(e.target.value)}
-          />
-          {fieldErrors.date_issued && <p className={errCls}>{fieldErrors.date_issued}</p>}
-        </div>
-        <div>
-          <label className={labelCls} htmlFor="due_date">Due date</label>
-          <input
-            id="due_date"
-            type="date"
-            className={inputCls}
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-          />
+          <Input label="Due date" type="date" value={dueDate} onChange={setDueDate} error={fieldErrors.due_date} />
           <button
             type="button"
             onClick={() => setDueDate(plus14ISO(dateIssued))}
@@ -143,126 +109,75 @@ export function CustomInvoiceForm({ clients }: { clients: ClientOption[] }) {
           >
             Use 14-day terms
           </button>
-          {fieldErrors.due_date && <p className={errCls}>{fieldErrors.due_date}</p>}
         </div>
       </div>
 
-      <div>
-        <label className={labelCls} htmlFor="service_address">Service address (optional)</label>
-        <input
-          id="service_address"
-          className={inputCls}
-          value={serviceAddress}
-          onChange={(e) => setServiceAddress(e.target.value)}
-        />
-      </div>
+      <Input label="Service address (optional)" value={serviceAddress} onChange={setServiceAddress} />
 
       <div>
-        <label className={labelCls} htmlFor="client_reference">Client reference / PO number (optional)</label>
-        <input
-          id="client_reference"
-          className={inputCls}
+        <Input
+          label="Client reference / PO number (optional)"
           placeholder="e.g. PO-12345"
           value={clientReference}
-          onChange={(e) => setClientReference(e.target.value)}
+          onChange={setClientReference}
           autoComplete="off"
         />
-        <label className="inline-flex items-center text-sm text-sage-800 mt-2">
-          <input
-            type="checkbox"
-            className="mr-2"
-            checked={requiresPo}
-            onChange={(e) => setRequiresPo(e.target.checked)}
-          />
-          Client requires a PO before invoicing
-        </label>
+        <div className="mt-2">
+          <Checkbox checked={requiresPo} onChange={setRequiresPo} label="Client requires a PO before invoicing" />
+        </div>
+      </div>
+
+      <Textarea
+        label="Service description"
+        rows={6}
+        placeholder="e.g. Two-bedroom end-of-tenancy clean including oven and fridge interior."
+        value={serviceDescription}
+        onChange={setServiceDescription}
+        hint="Customer-facing wording — appears on the printed invoice and the share link as the main description."
+        error={fieldErrors.service_description}
+      />
+
+      <Textarea
+        label="Additional notes (optional)"
+        rows={4}
+        placeholder="Internal notes or supporting wording. Renders in the Notes section if filled."
+        value={notes}
+        onChange={setNotes}
+        error={fieldErrors.notes}
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Input label="Base price (NZD)" type="number" step="0.01" min="0" value={basePrice} onChange={setBasePrice} error={fieldErrors.base_price} />
+        <div className="flex items-end pb-3">
+          <Checkbox checked={gstIncluded} onChange={setGstIncluded} label="GST included in price" />
+        </div>
       </div>
 
       <div>
-        <label className={labelCls} htmlFor="service_description">Service description</label>
-        <textarea
-          id="service_description"
-          className={inputCls + ' min-h-[140px]'}
-          placeholder="e.g. Two-bedroom end-of-tenancy clean including oven and fridge interior."
-          value={serviceDescription}
-          onChange={(e) => setServiceDescription(e.target.value)}
+        <span className="block text-sm font-semibold text-sage-800 mb-1.5">Payment type</span>
+        <ToggleGroup
+          ariaLabel="Payment type"
+          value={paymentType}
+          onChange={(v) => setPaymentType(v as 'cash_sale' | 'on_account')}
+          options={[
+            { value: 'on_account', label: 'On account' },
+            { value: 'cash_sale', label: 'Cash sale' },
+          ]}
         />
-        <p className="text-xs text-sage-600 mt-1">Customer-facing wording — appears on the printed invoice and the share link as the main description.</p>
-        {fieldErrors.service_description && <p className={errCls}>{fieldErrors.service_description}</p>}
+        {fieldErrors.payment_type && <p className="mt-1 text-xs text-red-600">{fieldErrors.payment_type}</p>}
       </div>
 
-      <div>
-        <label className={labelCls} htmlFor="notes">Additional notes (optional)</label>
-        <textarea
-          id="notes"
-          className={inputCls + ' min-h-[100px]'}
-          placeholder="Internal notes or supporting wording. Renders in the Notes section if filled."
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-        {fieldErrors.notes && <p className={errCls}>{fieldErrors.notes}</p>}
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className={labelCls} htmlFor="base_price">Base price (NZD)</label>
-          <input
-            id="base_price"
-            type="number"
-            step="0.01"
-            min="0"
-            className={inputCls}
-            value={basePrice}
-            onChange={(e) => setBasePrice(e.target.value)}
-          />
-          {fieldErrors.base_price && <p className={errCls}>{fieldErrors.base_price}</p>}
-        </div>
-        <div className="flex items-center pt-7">
-          <label className="inline-flex items-center text-sm text-sage-800">
-            <input
-              type="checkbox"
-              className="mr-2"
-              checked={gstIncluded}
-              onChange={(e) => setGstIncluded(e.target.checked)}
-            />
-            GST included in price
-          </label>
-        </div>
-      </div>
-
-      <div>
-        <label className={labelCls}>Payment type</label>
-        <div className="flex gap-4">
-          <label className="inline-flex items-center text-sm">
-            <input
-              type="radio"
-              className="mr-2"
-              checked={paymentType === 'on_account'}
-              onChange={() => setPaymentType('on_account')}
-            />
-            On account
-          </label>
-          <label className="inline-flex items-center text-sm">
-            <input
-              type="radio"
-              className="mr-2"
-              checked={paymentType === 'cash_sale'}
-              onChange={() => setPaymentType('cash_sale')}
-            />
-            Cash sale
-          </label>
-        </div>
-        {fieldErrors.payment_type && <p className={errCls}>{fieldErrors.payment_type}</p>}
-      </div>
-
-      <div className="pt-4 border-t border-sage-100 flex gap-3">
-        <button
-          type="submit"
-          disabled={isPending}
-          className="bg-sage-500 text-white font-semibold px-5 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors disabled:opacity-60"
-        >
-          {isPending ? 'Creating…' : 'Create custom invoice'}
-        </button>
+      <div className="pt-4 border-t border-sage-100">
+        <FormActions>
+          <button
+            type="submit"
+            disabled={isPending}
+            className="bg-sage-500 text-white font-semibold px-5 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors disabled:opacity-60"
+          >
+            {isPending ? 'Creating…' : 'Create custom invoice'}
+          </button>
+          <Link href="/portal/invoices" className="text-sm text-sage-600 hover:text-sage-800">Cancel</Link>
+        </FormActions>
       </div>
     </form>
   )
