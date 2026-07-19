@@ -50,7 +50,7 @@ export function JobFilters({
 
   return (
     <ListToolbar
-      search={<SearchInput basePath={BASE} placeholder="Search jobs…" />}
+      search={<SearchInput basePath={BASE} placeholder="Search job #, client, address, cleaner…" />}
       filters={
         <>
           <ToolbarSelect basePath={BASE} paramKey="view"       value={currentView}       options={DATE_OPTIONS} />

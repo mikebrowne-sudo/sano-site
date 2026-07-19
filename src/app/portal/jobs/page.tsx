@@ -181,26 +181,26 @@ export default async function JobsPage({
   if (contractorFilter) query = query.eq('contractor_id', contractorFilter)
 
   if (search) {
-    // Phase quote-flow-clarity: extend search to include the source
-    // quote's quote_number. PostgREST's `or` clause can't filter on
-    // an embedded relation, so we do a side-query for matching quote
-    // IDs first, then fold them into the main OR. Empty result → no
-    // ids appended (the existing job-field matches still apply).
-    const { data: quoteMatches } = await supabase
-      .from('quotes')
-      .select('id')
-      .ilike('quote_number', `%${search}%`)
-      .limit(50)
+    // PostgREST's `or` can't filter embedded relations, so we side-query the
+    // related tables (client, contractor, source quote) for matching IDs and
+    // fold them into the main OR. This lets staff find a job by customer name
+    // or by the assigned cleaner — not just job number / title / address.
+    const [{ data: quoteMatches }, { data: clientMatches }, { data: contractorMatches }] = await Promise.all([
+      supabase.from('quotes').select('id').ilike('quote_number', `%${search}%`).limit(50),
+      supabase.from('clients').select('id').or(`name.ilike.%${search}%,company_name.ilike.%${search}%`).limit(50),
+      supabase.from('contractors').select('id').ilike('full_name', `%${search}%`).limit(50),
+    ])
     const quoteIds = (quoteMatches ?? []).map((q) => q.id as string)
+    const clientIds = (clientMatches ?? []).map((c) => c.id as string)
+    const contractorIds = (contractorMatches ?? []).map((c) => c.id as string)
     const orClauses = [
       `job_number.ilike.%${search}%`,
       `title.ilike.%${search}%`,
       `address.ilike.%${search}%`,
-      `assigned_to.ilike.%${search}%`,
     ]
-    if (quoteIds.length > 0) {
-      orClauses.push(`quote_id.in.(${quoteIds.join(',')})`)
-    }
+    if (quoteIds.length > 0) orClauses.push(`quote_id.in.(${quoteIds.join(',')})`)
+    if (clientIds.length > 0) orClauses.push(`client_id.in.(${clientIds.join(',')})`)
+    if (contractorIds.length > 0) orClauses.push(`contractor_id.in.(${contractorIds.join(',')})`)
     query = query.or(orClauses.join(','))
   }
 

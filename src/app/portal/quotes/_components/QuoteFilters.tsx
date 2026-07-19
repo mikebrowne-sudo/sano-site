@@ -31,7 +31,7 @@ export function QuoteFilters() {
 
   return (
     <ListToolbar
-      search={<SearchInput basePath={BASE} placeholder="Search quotes…" />}
+      search={<SearchInput basePath={BASE} placeholder="Search quote #, client, address…" />}
       sort={<ToolbarSelect basePath={BASE} paramKey="sort" value={currentSort || 'created_desc'} options={SORT_OPTIONS} />}
       extras={
         <ClearFiltersLink

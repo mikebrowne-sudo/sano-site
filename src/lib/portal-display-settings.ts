@@ -150,8 +150,8 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
       // Aligns with the new desktop column order; 'title' is no
       // longer in the default visible set.
       secondaryField: 'client',
-      sortBy: 'scheduled_date',
-      sortDirection: 'asc',
+      sortBy: 'job_number',
+      sortDirection: 'desc',
       groupBy: 'none',
     },
     detail: {
