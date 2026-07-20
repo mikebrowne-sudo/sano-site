@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { createContractor, updateContractor } from '../_actions'
 import { TAX_CODES, KS_EMPLOYEE_RATES, KS_DEFAULT_EMPLOYEE, KS_DEFAULT_EMPLOYER } from '@/lib/nz-paye'
+import { CONTRACTOR_TAX_TREATMENTS } from '@/lib/payroll/gst'
 import { BUSINESS_STRUCTURES } from '@/lib/business-structure'
 import clsx from 'clsx'
 
@@ -67,6 +68,7 @@ export interface ContractorData {
   gst_registered?: boolean | null
   gst_number?: string | null
   gst_effective_date?: string | null
+  tax_treatment?: string | null
   // Payment (contractor)
   bank_account_name?: string | null
   bank_account_number?: string | null
@@ -152,6 +154,7 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
   const [gstRegistered, setGstRegistered] = useState(contractor?.gst_registered ?? false)
   const [gstNumber, setGstNumber] = useState(contractor?.gst_number ?? '')
   const [gstEffectiveDate, setGstEffectiveDate] = useState(contractor?.gst_effective_date ?? '')
+  const [taxTreatment, setTaxTreatment] = useState(contractor?.tax_treatment ?? 'pending_review')
 
   // Payment (contractor-only)
   const [bankAccountName, setBankAccountName] = useState(contractor?.bank_account_name ?? '')
@@ -239,6 +242,7 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
         gst_registered: gstRegistered,
         gst_number: gstRegistered ? (gstNumber.trim() || undefined) : undefined,
         gst_effective_date: gstRegistered ? (gstEffectiveDate || undefined) : undefined,
+        tax_treatment: taxTreatment || 'pending_review',
         bank_account_name: bankAccountName.trim() || undefined,
         bank_account_number: bankAccountNumber.trim() || undefined,
         payment_terms_days: toInt(paymentTermsDays),
@@ -338,7 +342,18 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
       )}
 
       {!isEmployee && (
-        <Section title="GST" badge="Contractor only">
+        <Section title="GST &amp; tax treatment" badge="Contractor only">
+          <div className="mb-4">
+            <span className="block text-sm font-semibold text-sage-800 mb-1.5">Tax treatment</span>
+            <select value={taxTreatment} onChange={(e) => setTaxTreatment(e.target.value)} className="w-full appearance-none rounded-lg border border-sage-200 px-4 py-3 text-sm bg-white text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500">
+              {CONTRACTOR_TAX_TREATMENTS.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            {taxTreatment === 'schedular_payment' && (
+              <p className="text-xs text-amber-600 mt-2">Schedular withholding isn&apos;t automated yet — confirm the labour-hire rules with the accountant before relying on this.</p>
+            )}
+          </div>
           <label className="flex items-center gap-3 cursor-pointer mb-3">
             <Toggle checked={gstRegistered} onChange={setGstRegistered} />
             <span className="text-sm text-sage-800">GST registered</span>

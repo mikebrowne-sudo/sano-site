@@ -11,6 +11,23 @@
 export const GST_RATE = 0.15
 export const GST_INCLUSIVE_FRACTION = 3 / 23
 
+/**
+ * How a contractor is treated for tax when Sano pays them. Drives whether any
+ * withholding applies. 'ordinary_trade_creditor' = a normal supplier invoice, no
+ * withholding (the current assumption for all Sano contractors). The schedular /
+ * exemption options exist so labour-hire arrangements can be flagged once the
+ * accountant confirms whether the withholding rules apply — withholding itself
+ * is not yet implemented.
+ */
+export const CONTRACTOR_TAX_TREATMENTS = [
+  { value: 'ordinary_trade_creditor', label: 'Ordinary trade creditor (invoices; no withholding)' },
+  { value: 'schedular_payment', label: 'Schedular payment (withholding applies)' },
+  { value: 'certificate_of_exemption', label: 'Certificate of exemption' },
+  { value: 'pending_review', label: 'Pending review' },
+] as const
+
+export type ContractorTaxTreatment = (typeof CONTRACTOR_TAX_TREATMENTS)[number]['value']
+
 const round2 = (n: number) => Math.round(n * 100) / 100
 
 export interface GstSplit {
