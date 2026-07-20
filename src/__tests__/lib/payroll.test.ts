@@ -1,7 +1,7 @@
-import { annualIncomeTax, computePaye } from '@/lib/payroll/paye'
+import { annualIncomeTax, annualAccLevy, computePaye } from '@/lib/payroll/paye'
 import { computePayslip } from '@/lib/payroll/payslip'
 
-describe('PAYE engine (verify-gated placeholder rates)', () => {
+describe('PAYE engine (2026/27 accountant-confirmed rates)', () => {
   it('applies marginal income-tax brackets', () => {
     // $15,600 taxed entirely at 10.5%
     expect(annualIncomeTax(15600)).toBeCloseTo(1638, 2)
@@ -11,10 +11,17 @@ describe('PAYE engine (verify-gated placeholder rates)', () => {
 
   it('computes weekly PAYE = income tax + ACC earner levy', () => {
     const r = computePaye(500, 'weekly')
-    // annual 26000 → income tax 3458 /52 = 66.5; ACC 26000*1.6% /52 = 8
+    // annual 26000 → income tax 3458 /52 = 66.5; ACC 26000*1.75% /52 = 8.75
     expect(r.incomeTax).toBeCloseTo(66.5, 2)
-    expect(r.accLevy).toBeCloseTo(8, 2)
-    expect(r.paye).toBeCloseTo(74.5, 2)
+    expect(r.accLevy).toBeCloseTo(8.75, 2)
+    expect(r.paye).toBeCloseTo(75.25, 2)
+  })
+
+  it('caps the ACC earner levy at the annual maximum', () => {
+    // Well above the $156,641 cap → levy pinned at $2,741.22/yr
+    expect(annualAccLevy(200000)).toBeCloseTo(2741.22, 2)
+    // Below the cap scales linearly at 1.75%
+    expect(annualAccLevy(50000)).toBeCloseTo(875, 2)
   })
 
   it('annualises correctly per pay period', () => {
