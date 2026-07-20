@@ -66,6 +66,7 @@ export interface ContractorData {
   // GST (contractor)
   gst_registered?: boolean | null
   gst_number?: string | null
+  gst_effective_date?: string | null
   // Payment (contractor)
   bank_account_name?: string | null
   bank_account_number?: string | null
@@ -150,6 +151,7 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
   // GST (contractor-only)
   const [gstRegistered, setGstRegistered] = useState(contractor?.gst_registered ?? false)
   const [gstNumber, setGstNumber] = useState(contractor?.gst_number ?? '')
+  const [gstEffectiveDate, setGstEffectiveDate] = useState(contractor?.gst_effective_date ?? '')
 
   // Payment (contractor-only)
   const [bankAccountName, setBankAccountName] = useState(contractor?.bank_account_name ?? '')
@@ -236,6 +238,7 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
         company_number: companyNumber.trim() || undefined,
         gst_registered: gstRegistered,
         gst_number: gstRegistered ? (gstNumber.trim() || undefined) : undefined,
+        gst_effective_date: gstRegistered ? (gstEffectiveDate || undefined) : undefined,
         bank_account_name: bankAccountName.trim() || undefined,
         bank_account_number: bankAccountNumber.trim() || undefined,
         payment_terms_days: toInt(paymentTermsDays),
@@ -342,10 +345,14 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
           </label>
           {gstRegistered && (
             <>
-              <Field label="GST number" value={gstNumber} onChange={setGstNumber} placeholder="e.g. 123-456-789" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="GST number" value={gstNumber} onChange={setGstNumber} placeholder="e.g. 123-456-789" />
+                <Field label="GST effective from" type="date" value={gstEffectiveDate} onChange={setGstEffectiveDate} />
+              </div>
               {!gstNumber.trim() && (
                 <p className="text-xs text-amber-600 mt-2">GST number required when GST-registered.</p>
               )}
+              <p className="text-xs text-sage-500 mt-2">GST (3/23) is split out of payments for work on or after this date. Rates are treated as GST-inclusive.</p>
             </>
           )}
         </Section>
