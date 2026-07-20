@@ -19,16 +19,26 @@ describe('ESCT rate bands (2026/27)', () => {
     expect(esct).toBeCloseTo(175, 2)
     expect(netContribution).toBeCloseTo(825, 2)
   })
+
+  it('rounds ESCT to whole dollars by default (IRD method)', () => {
+    // 17.5% of $17.50 = $3.0625 → $3 whole-dollar; net = 17.50 − 3 = 14.50
+    const r = computeEsct(17.5, 26910)
+    expect(r.esct).toBe(3)
+    expect(r.netContribution).toBeCloseTo(14.5, 2)
+    // exact-cents mode available when needed
+    expect(computeEsct(17.5, 26910, undefined, false).esct).toBeCloseTo(3.06, 2)
+  })
 })
 
 describe('payslip employer KiwiSaver + ESCT', () => {
   it('applies 3.5% employer contribution and withholds ESCT (annualised threshold)', () => {
     const p = computePayslip({ hours: 20, rate: 25, period: 'weekly', employerKiwiSaverRate: 0.035 })
     // gross 500 → employer KS 17.50; threshold ≈ (500+17.50)*52 = 26,910 → 17.5% band
+    // ESCT = 17.5% × 17.50 = 3.0625 → $3 whole-dollar; net = 14.50
     expect(p.employerKiwiSaver).toBeCloseTo(17.5, 2)
     expect(p.esctRate).toBe(0.175)
-    expect(p.esct).toBeCloseTo(3.06, 2)
-    expect(p.employerKiwiSaverNet).toBeCloseTo(14.44, 2)
+    expect(p.esct).toBe(3)
+    expect(p.employerKiwiSaverNet).toBeCloseTo(14.5, 2)
     // ESCT does not touch the employee's take-home
     expect(p.net).toBeCloseTo(p.gross - p.paye - p.kiwiSaver, 2)
   })

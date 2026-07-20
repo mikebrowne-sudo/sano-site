@@ -25,8 +25,12 @@ export interface PayslipInput {
   /** Employer KiwiSaver contribution rate, e.g. 0.035. 0 when not a member. */
   employerKiwiSaverRate?: number
   /**
-   * ESCT rate threshold amount (prior-year gross + employer super). Optional —
-   * defaults to annualising this run. Pass a known figure to override.
+   * ESCT rate threshold amount (employee's prior-year gross salary/wages + gross
+   * employer super). Resolution priority, applied by the caller:
+   *   1. explicit per-employee override, else
+   *   2. actual prior-tax-year total when a complete year exists, else
+   *   3. annualise this run (default here, for new employees / no history).
+   * When omitted, this function falls back to (3).
    */
   esctThresholdAmount?: number
   rates?: PayeRates
