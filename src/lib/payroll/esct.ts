@@ -59,17 +59,18 @@ export interface EsctBreakdown {
 /**
  * Split a gross employer KiwiSaver contribution into ESCT + net contribution.
  *
- * ESCT is calculated to whole dollars (IRD's method — deductions are rounded to
- * the nearest dollar) by default; pass wholeDollar=false for exact cents.
+ * IRD method: ESCT is calculated on the WHOLE-DOLLAR portion of the employer
+ * contribution — the cents are disregarded in the ESCT base only. The full
+ * dollars-and-cents contribution is retained for the net-contribution figure.
+ * e.g. a $17.50 contribution → ESCT is calculated on $17, and net = 17.50 − ESCT.
  */
 export function computeEsct(
   employerContribution: number,
   thresholdAmount: number,
   rates: EsctRates = ESCT_RATES,
-  wholeDollar = true,
 ): EsctBreakdown {
   const rate = esctRate(thresholdAmount, rates)
-  const raw = employerContribution * rate
-  const esct = wholeDollar ? Math.round(raw) : round2(raw)
+  const esctableBase = Math.floor(employerContribution) // whole-dollar portion
+  const esct = round2(esctableBase * rate)
   return { rate, esct, netContribution: round2(employerContribution - esct) }
 }
