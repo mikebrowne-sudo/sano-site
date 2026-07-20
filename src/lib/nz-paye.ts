@@ -9,6 +9,7 @@
  */
 
 import { annualIncomeTax, annualAccLevy, periodsPerYear, type PayPeriod } from '@/lib/payroll/paye'
+import { computeEsct } from '@/lib/payroll/esct'
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
@@ -40,6 +41,12 @@ export interface PayPreview {
   employeeKiwisaver: number
   netPay: number
   employerKiwisaver: number
+  /** Flat ESCT rate applied to the employer contribution. */
+  esctRate: number
+  /** ESCT withheld from the employer contribution (to IRD). */
+  employerEsct: number
+  /** Employer contribution reaching the employee's KiwiSaver (after ESCT). */
+  employerKiwisaverNet: number
   totalEmployerCost: number
   holidayPay: number
   effectiveGross: number
@@ -124,6 +131,11 @@ export function calculatePayPreview(params: {
     ? Math.round(effectiveGross * (params.kiwisaverEmployerRate / 100) * 100) / 100
     : 0
 
+  // ESCT — tax on the employer contribution, withheld from it (not added on
+  // top). Threshold amount estimated by annualising this run.
+  const annualThreshold = (effectiveGross + employerKS) * n
+  const esctSplit = computeEsct(employerKS, annualThreshold)
+
   const netPay = Math.round((effectiveGross - paye - studentLoan - employeeKS) * 100) / 100
   const totalEmployerCost = Math.round((effectiveGross + employerKS) * 100) / 100
 
@@ -134,6 +146,9 @@ export function calculatePayPreview(params: {
     employeeKiwisaver: employeeKS,
     netPay,
     employerKiwisaver: employerKS,
+    esctRate: esctSplit.rate,
+    employerEsct: esctSplit.esct,
+    employerKiwisaverNet: esctSplit.netContribution,
     totalEmployerCost,
     holidayPay,
     effectiveGross,
