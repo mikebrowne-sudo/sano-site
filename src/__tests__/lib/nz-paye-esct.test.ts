@@ -16,12 +16,29 @@ describe('calculatePayPreview — ESCT on employer KiwiSaver', () => {
       holidayPayMethod: null,
     })
     // gross 583.20; employer KS 3.5% = 20.41; threshold ≈ 31,388 → 17.5% band
+    // ESCT on whole-dollar base $20: 20 × 17.5% = 3.50; net = 20.41 − 3.50 = 16.91
     expect(p.employerKiwisaver).toBeCloseTo(20.41, 2)
     expect(p.esctRate).toBe(0.175)
-    expect(p.employerEsct).toBe(4) // 17.5% × 20.41 = 3.57 → $4 whole-dollar
-    expect(p.employerKiwisaverNet).toBeCloseTo(16.41, 2)
+    expect(p.employerEsct).toBeCloseTo(3.5, 2)
+    expect(p.employerKiwisaverNet).toBeCloseTo(16.91, 2)
     // ESCT doesn't touch the employee's net
     expect(p.netPay).toBeCloseTo(p.effectiveGross - p.paye - p.studentLoan - p.employeeKiwisaver, 2)
+  })
+
+  it('deducts student loan at 12% above the fortnightly threshold ($928) for SH SL', () => {
+    const p = calculatePayPreview({
+      hoursWorked: 60,
+      hourlyRate: 35,
+      payFrequency: 'fortnightly',
+      taxCode: 'SH SL',
+      kiwisaverEnrolled: false,
+      kiwisaverEmployeeRate: 0,
+      kiwisaverEmployerRate: 3.5,
+      holidayPayMethod: null,
+    })
+    // gross 2100 → SL = (2100 − 928) × 12% = 140.64
+    expect(p.effectiveGross).toBeCloseTo(2100, 2)
+    expect(p.studentLoan).toBeCloseTo(140.64, 2)
   })
 
   it('is zero when the employee is not a KiwiSaver member', () => {

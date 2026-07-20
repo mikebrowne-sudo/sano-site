@@ -22,9 +22,13 @@ const SECONDARY_RATES: Record<string, number> = {
   SA: 0.39,
 }
 
-// Student loan repayment: 12% on income over threshold
+// Student loan repayment: 12% of earnings above the pay-period threshold.
+// Annual threshold $24,128 (unchanged for 2026/27) → per-period thresholds below.
 const SL_RATE = 0.12
-const SL_ANNUAL_THRESHOLD = 24128
+const SL_PERIOD_THRESHOLD: Record<'weekly' | 'fortnightly', number> = {
+  weekly: 464, // 24,128 / 52
+  fortnightly: 928, // 24,128 / 26
+}
 
 // Codes that include student loan
 const SL_CODES = new Set(['M SL', 'ME SL', 'SB SL', 'S SL', 'SH SL', 'ST SL', 'SA SL'])
@@ -115,11 +119,11 @@ export function calculatePayPreview(params: {
     paye = round2(incomeTaxPeriod + accLevyPeriod)
   }
 
-  // Student loan
+  // Student loan — 12% of earnings above the IRD pay-period threshold.
   let studentLoan = 0
   if (hasSL) {
-    const annualSL = Math.max(0, annualIncome - SL_ANNUAL_THRESHOLD) * SL_RATE
-    studentLoan = round2(annualSL / n)
+    const slThreshold = SL_PERIOD_THRESHOLD[period]
+    studentLoan = round2(Math.max(0, effectiveGross - slThreshold) * SL_RATE)
   }
 
   // KiwiSaver
