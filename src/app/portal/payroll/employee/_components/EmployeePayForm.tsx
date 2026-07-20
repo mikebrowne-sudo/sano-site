@@ -25,15 +25,27 @@ export function EmployeePayForm({ personLabel }: { personLabel: string }) {
   const [hours, setHours] = useState('')
   const [rate, setRate] = useState('')
   const [optedOut, setOptedOut] = useState(true)
+  const [esctThreshold, setEsctThreshold] = useState('')
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saving, startSave] = useTransition()
 
   const h = Number(hours) || 0
   const r = Number(rate) || 0
+  // Employer contributes the KiwiSaver minimum (3.5% from 1 Apr 2026) when the
+  // employee is a member; ESCT is withheld from it. Both are 0 when opted out.
+  const employerRate = optedOut ? 0 : 0.035
+  const esctThresholdAmount = Number(esctThreshold) > 0 ? Number(esctThreshold) : undefined
   const slip = useMemo(
-    () => computePayslip({ hours: h, rate: r, period: payPeriod, kiwiSaverEmployeeRate: optedOut ? 0 : 0.03 }),
-    [h, r, payPeriod, optedOut],
+    () => computePayslip({
+      hours: h,
+      rate: r,
+      period: payPeriod,
+      kiwiSaverEmployeeRate: optedOut ? 0 : 0.03,
+      employerKiwiSaverRate: employerRate,
+      esctThresholdAmount,
+    }),
+    [h, r, payPeriod, optedOut, employerRate, esctThresholdAmount],
   )
   const canSave = payDate && h > 0 && r > 0 && !saving
 
@@ -50,6 +62,8 @@ export function EmployeePayForm({ personLabel }: { personLabel: string }) {
         hours: h,
         rate: r,
         kiwiSaverEmployeeRate: optedOut ? 0 : 0.03,
+        employerKiwiSaverRate: employerRate,
+        esctThresholdAmount: esctThresholdAmount ?? null,
         notes,
       })
       if (res.error) { setError(res.error); return }
@@ -93,6 +107,11 @@ export function EmployeePayForm({ personLabel }: { personLabel: string }) {
           <input type="checkbox" checked={optedOut} onChange={(e) => setOptedOut(e.target.checked)} className="rounded border-sage-300" />
           Employee has opted out of KiwiSaver
         </label>
+        {!optedOut && (
+          <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Est. annual earnings for ESCT rate (optional)</span>
+            <input type="number" step="1" min="0" value={esctThreshold} onChange={(e) => setEsctThreshold(e.target.value)} className={input} placeholder="defaults to annualising this run" />
+          </label>
+        )}
         <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Notes</span>
           <input value={notes} onChange={(e) => setNotes(e.target.value)} className={input} placeholder="Optional" />
         </label>
@@ -116,10 +135,23 @@ export function EmployeePayForm({ personLabel }: { personLabel: string }) {
           <Row label="KiwiSaver" value={`− ${nzd(slip.kiwiSaver)}`} />
           <Row label="Net pay to employee" value={nzd(slip.net)} strong emphasis />
         </dl>
+        {slip.employerKiwiSaver > 0 && (
+          <dl className="text-sm divide-y divide-sage-50 mt-3 pt-1 border-t border-sage-100">
+            <Row label="Employer KiwiSaver (3.5%)" value={nzd(slip.employerKiwiSaver)} strong />
+            <Row label={`— ESCT (${(slip.esctRate * 100).toFixed(1)}%) to IRD`} value={`− ${nzd(slip.esct)}`} muted />
+            <Row label="— net to employee's KiwiSaver" value={nzd(slip.employerKiwiSaverNet)} muted />
+          </dl>
+        )}
         <div className="mt-4 rounded-lg bg-sage-50 border border-sage-100 px-3 py-2 text-xs text-sage-600">
           <div className="font-semibold text-sage-700 mb-1">File with IRD (payday filing)</div>
           <div className="flex justify-between"><span>Gross earnings</span><span>{nzd(slip.gross)}</span></div>
           <div className="flex justify-between"><span>PAYE</span><span>{nzd(slip.paye)}</span></div>
+          {slip.employerKiwiSaver > 0 && (
+            <>
+              <div className="flex justify-between"><span>Employer KiwiSaver (gross)</span><span>{nzd(slip.employerKiwiSaver)}</span></div>
+              <div className="flex justify-between"><span>ESCT</span><span>{nzd(slip.esct)}</span></div>
+            </>
+          )}
         </div>
       </div>
     </div>
