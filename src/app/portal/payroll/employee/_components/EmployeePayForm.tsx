@@ -25,7 +25,10 @@ export function EmployeePayForm({ personLabel }: { personLabel: string }) {
   const [hours, setHours] = useState('')
   const [rate, setRate] = useState('')
   const [optedOut, setOptedOut] = useState(true)
-  const [holidayMode, setHolidayMode] = useState<HolidayPayMode>('inclusive')
+  // Default: ordinary rate + 8% on top (Holidays-Act pay-as-you-go). Inclusive
+  // is only for reviewed existing agreements where the ordinary rate + 8%
+  // component are clearly identifiable.
+  const [holidayMode, setHolidayMode] = useState<HolidayPayMode>('exclusive_on_top')
   const [paygEligible, setPaygEligible] = useState(true)
   const [esctThreshold, setEsctThreshold] = useState('')
   const [notes, setNotes] = useState('')
@@ -109,11 +112,16 @@ export function EmployeePayForm({ personLabel }: { personLabel: string }) {
           </label>
           <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Holiday pay</span>
             <select value={holidayMode} onChange={(e) => setHolidayMode(e.target.value as HolidayPayMode)} className={input}>
-              <option value="inclusive">Rate includes 8% (identified within)</option>
-              <option value="exclusive_on_top">Add 8% on top of the rate</option>
+              <option value="exclusive_on_top">Add 8% on top of the rate (default)</option>
+              <option value="inclusive">Rate includes 8% — reviewed agreements only</option>
             </select>
           </label>
         </div>
+        {holidayMode === 'inclusive' && (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+            Inclusive rate — only use where the signed agreement clearly identifies the ordinary rate and the 8% holiday-pay component. Otherwise use the default (8% on top).
+          </div>
+        )}
         <label className="flex items-center gap-2 text-sm text-sage-700">
           <input type="checkbox" checked={paygEligible} onChange={(e) => setPaygEligible(e.target.checked)} className="rounded border-sage-300" />
           Genuine casual — eligible for pay-as-you-go 8% holiday pay
