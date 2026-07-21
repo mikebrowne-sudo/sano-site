@@ -46,6 +46,12 @@ export interface WorkforceSettings {
   // explicitly opts in. Server-side actions ALSO check this — see
   // src/lib/cleanup-mode.ts.
   enable_cleanup_mode: boolean
+  // Stage 1 PR C — master switch for AUTOMATED contractor-statement reminder
+  // emails (issued+2d / issued+4d, via the daily cron). Default OFF: the cron
+  // task is built but sends nothing until an admin deliberately enables it,
+  // after the manual issue → confirm flow has been tested with a known
+  // contractor. Disabled state is explicit, not "no statements exist".
+  enable_contractor_statement_reminders: boolean
 }
 
 export const WORKFORCE_SETTINGS_DEFAULTS: WorkforceSettings = {
@@ -87,6 +93,7 @@ export const WORKFORCE_SETTINGS_DEFAULTS: WorkforceSettings = {
   enable_client_delete: true,
   enable_cleanup_dashboard: true,
   enable_cleanup_mode: false,
+  enable_contractor_statement_reminders: false,
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

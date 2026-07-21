@@ -9,7 +9,19 @@ import {
   type StatementPeriod,
 } from '@/lib/contractor-statement-period'
 import { listStatementsForPeriod } from '@/lib/contractor-statement-data'
+import { statementDisplayStatus, STATEMENT_STATUS_LABEL } from '@/lib/contractor-statement-status'
 import { GeneratePanel } from './_components/GeneratePanel'
+
+const STATUS_CHIP: Record<string, string> = {
+  draft: 'bg-gray-100 text-gray-600',
+  not_viewed: 'bg-blue-50 text-blue-700',
+  viewed: 'bg-violet-50 text-violet-700',
+  overdue: 'bg-red-50 text-red-700',
+  confirmed_contractor: 'bg-emerald-100 text-emerald-800',
+  confirmed_sano: 'bg-emerald-50 text-emerald-700',
+  superseded: 'bg-amber-50 text-amber-700',
+  paid: 'bg-sage-100 text-sage-700',
+}
 
 function fmtCurrency(n: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
@@ -41,6 +53,7 @@ export default async function ContractorStatementsPage({
 
   const cards = await listStatementsForPeriod(supabase, selected)
   const totalPayable = cards.reduce((s, c) => s + c.total_payable, 0)
+  const nowIso = new Date().toISOString()
 
   return (
     <div>
@@ -77,9 +90,15 @@ export default async function ContractorStatementsPage({
                       <FileText size={15} className="text-sage-400" />
                       <span className="font-semibold text-sage-800">{c.contractor_name ?? 'Unknown contractor'}</span>
                     </div>
-                    <span className="text-xs text-sage-400">{c.statement_number} · {c.status}</span>
+                    <span className="text-xs text-sage-400">{c.statement_number}</span>
                   </div>
-                  <ArrowRight size={16} className="text-sage-300 mt-1" />
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const ds = statementDisplayStatus(c, nowIso)
+                      return <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_CHIP[ds]}`}>{STATEMENT_STATUS_LABEL[ds]}</span>
+                    })()}
+                    <ArrowRight size={16} className="text-sage-300" />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3 mt-4 text-sm">

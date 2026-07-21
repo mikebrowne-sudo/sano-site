@@ -20,6 +20,9 @@ export interface StatementCardRow {
   period_start: string
   period_end: string
   status: string
+  viewed_at: string | null
+  review_due_at: string | null
+  confirmed_source: string | null
   subtotal: number
   gst_total: number
   total_payable: number
@@ -90,7 +93,7 @@ export async function listStatementsForPeriod(
 ): Promise<StatementCardRow[]> {
   const { data: statements } = await supabase
     .from('contractor_statements')
-    .select('id, statement_number, contractor_id, period_start, period_end, status, subtotal, gst_total, total_payable, contractors(full_name)')
+    .select('id, statement_number, contractor_id, period_start, period_end, status, viewed_at, review_due_at, confirmed_source, subtotal, gst_total, total_payable, contractors(full_name)')
     .eq('period_start', period.period_start)
     .eq('period_end', period.period_end)
     .order('statement_number')
@@ -119,6 +122,9 @@ export async function listStatementsForPeriod(
       period_start: s.period_start,
       period_end: s.period_end,
       status: s.status,
+      viewed_at: s.viewed_at,
+      review_due_at: s.review_due_at,
+      confirmed_source: s.confirmed_source,
       subtotal: Number(s.subtotal),
       gst_total: Number(s.gst_total),
       total_payable: Number(s.total_payable),
