@@ -7,6 +7,20 @@ import { notifyContractorAssigned } from '@/lib/notify-contractor'
 import { assertCanAmend, writeAmendmentAudit } from '@/lib/amendment-lock'
 import { resolveAllowedHours } from '@/lib/allowed-hours'
 import { snapshotJobVersion, computeChangedJobFields } from '@/lib/job-versions'
+import { pickSnapshotRate } from '@/lib/contractor-rate-snapshot'
+
+/** Map of contractor_id → current profile hourly_rate, for rate snapshotting. */
+async function loadContractorRates(
+  supabase: ReturnType<typeof createClient>,
+  contractorIds: string[],
+): Promise<Record<string, number | null>> {
+  const ids = Array.from(new Set(contractorIds.filter(Boolean)))
+  if (ids.length === 0) return {}
+  const { data } = await supabase.from('contractors').select('id, hourly_rate').in('id', ids)
+  const map: Record<string, number | null> = {}
+  for (const c of data ?? []) map[c.id as string] = (c.hourly_rate as number | null) ?? null
+  return map
+}
 
 // Returns an error message if the contractor's insurance is missing or expired; null otherwise.
 async function checkContractorInsurance(
@@ -98,10 +112,15 @@ export async function createJob(input: JobInput) {
   // job's allowed hours so the per-worker pay basis is populated up front
   // (previously left null here, which stranded hours on multi-worker jobs).
   if (input.worker_ids?.length) {
-    const rows = input.worker_ids.filter(Boolean).map((cid) => ({
+    const cids = input.worker_ids.filter(Boolean)
+    const rateMap = await loadContractorRates(supabase, cids)
+    const rows = cids.map((cid) => ({
       job_id: data.id,
       contractor_id: cid,
       hours_allocated: allowedHours,
+      // New job → no existing snapshot to preserve; snapshot the current rate.
+      pay_rate: pickSnapshotRate(null, rateMap[cid]),
+      pay_type: 'hourly',
     }))
     if (rows.length > 0) {
       await supabase.from('job_workers').upsert(rows, { onConflict: 'job_id,contractor_id' })
@@ -299,11 +318,26 @@ export async function updateJob(input: UpdateJobInput) {
   // Replace worker assignments. Seed each worker's hours_allocated from
   // the job's allowed hours so the per-worker pay basis is populated.
   if (input.worker_ids !== undefined) {
+    const cids = (input.worker_ids ?? []).filter(Boolean)
+    // Preserve existing pay_rate snapshots across the re-seed so a job edit
+    // never silently re-prices historical work at the live contractor rate.
+    // (Full non-destructive worker handling — hours, extra-hours, IDs — is
+    // PR B; this PR guarantees rate correctness only.)
+    const { data: existingWorkers } = await supabase
+      .from('job_workers')
+      .select('contractor_id, pay_rate')
+      .eq('job_id', input.id)
+    const existingRateMap: Record<string, number | null> = {}
+    for (const w of existingWorkers ?? []) existingRateMap[w.contractor_id as string] = (w.pay_rate as number | null) ?? null
+    const rateMap = await loadContractorRates(supabase, cids)
+
     await supabase.from('job_workers').delete().eq('job_id', input.id)
-    const rows = (input.worker_ids ?? []).filter(Boolean).map((cid) => ({
+    const rows = cids.map((cid) => ({
       job_id: input.id,
       contractor_id: cid,
       hours_allocated: allowedHours,
+      pay_rate: pickSnapshotRate(existingRateMap[cid], rateMap[cid]),
+      pay_type: 'hourly',
     }))
     if (rows.length > 0) {
       await supabase.from('job_workers').insert(rows)
