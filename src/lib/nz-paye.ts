@@ -79,9 +79,18 @@ export const TAX_CODES = [
   { value: 'ND', label: 'ND — No declaration (45%)', group: 'Non-notified' },
 ]
 
-export const KS_EMPLOYEE_RATES = [3, 4, 6, 8, 10]
-export const KS_DEFAULT_EMPLOYEE = 3
-export const KS_DEFAULT_EMPLOYER = 3
+// 3% is the reduced rate (temporary reduction only); 3.5% is the standard
+// minimum from 1 Apr 2026.
+export const KS_EMPLOYEE_RATES = [3, 3.5, 4, 6, 8, 10]
+export const KS_DEFAULT_EMPLOYEE = 3.5
+export const KS_DEFAULT_EMPLOYER = 3.5
+
+// Why an employee's KiwiSaver rate is what it is.
+export const KS_RATE_SOURCES = [
+  { value: 'standard', label: 'Standard minimum (3.5%)' },
+  { value: 'temporary_reduction', label: 'Temporary rate reduction (3%)' },
+  { value: 'employee_election', label: 'Employee-elected higher rate' },
+] as const
 
 export function calculatePayPreview(params: {
   hoursWorked: number

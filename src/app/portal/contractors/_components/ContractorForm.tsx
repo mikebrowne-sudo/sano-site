@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { createContractor, updateContractor } from '../_actions'
-import { TAX_CODES, KS_EMPLOYEE_RATES, KS_DEFAULT_EMPLOYEE, KS_DEFAULT_EMPLOYER } from '@/lib/nz-paye'
+import { TAX_CODES, KS_EMPLOYEE_RATES, KS_DEFAULT_EMPLOYEE, KS_DEFAULT_EMPLOYER, KS_RATE_SOURCES } from '@/lib/nz-paye'
 import { CONTRACTOR_TAX_TREATMENTS } from '@/lib/payroll/gst'
 import { BUSINESS_STRUCTURES } from '@/lib/business-structure'
 import clsx from 'clsx'
@@ -53,6 +53,9 @@ export interface ContractorData {
   kiwisaver_enrolled?: boolean | null
   kiwisaver_employee_rate?: number | null
   kiwisaver_employer_rate?: number | null
+  kiwisaver_rate_source?: string | null
+  kiwisaver_rate_effective_date?: string | null
+  kiwisaver_temp_reduction_expiry?: string | null
   // Insurance
   insurance_provider?: string | null
   insurance_policy_number?: string | null
@@ -142,6 +145,9 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
   const [ksEnrolled, setKsEnrolled] = useState(contractor?.kiwisaver_enrolled ?? false)
   const [ksEmployeeRate, setKsEmployeeRate] = useState(contractor?.kiwisaver_employee_rate != null ? String(contractor.kiwisaver_employee_rate) : String(KS_DEFAULT_EMPLOYEE))
   const [ksEmployerRate, setKsEmployerRate] = useState(contractor?.kiwisaver_employer_rate != null ? String(contractor.kiwisaver_employer_rate) : String(KS_DEFAULT_EMPLOYER))
+  const [ksRateSource, setKsRateSource] = useState(contractor?.kiwisaver_rate_source ?? 'standard')
+  const [ksRateEffectiveDate, setKsRateEffectiveDate] = useState(contractor?.kiwisaver_rate_effective_date ?? '')
+  const [ksTempReductionExpiry, setKsTempReductionExpiry] = useState(contractor?.kiwisaver_temp_reduction_expiry ?? '')
 
   // Business identity (contractor-only)
   const [companyName, setCompanyName] = useState(contractor?.company_name ?? '')
@@ -231,6 +237,9 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
         kiwisaver_enrolled: ksEnrolled,
         kiwisaver_employee_rate: toNum(ksEmployeeRate),
         kiwisaver_employer_rate: toNum(ksEmployerRate),
+        kiwisaver_rate_source: ksRateSource || undefined,
+        kiwisaver_rate_effective_date: ksRateEffectiveDate || undefined,
+        kiwisaver_temp_reduction_expiry: ksTempReductionExpiry || undefined,
       } : {}),
       // Contractor-only business / GST / payment
       ...(!isEmployee ? {
@@ -477,17 +486,42 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
             <input type="checkbox" checked={ksEnrolled} onChange={(e) => setKsEnrolled(e.target.checked)} className="rounded border-sage-300 text-sage-500 focus:ring-sage-500" />
             <span className="text-sm text-sage-800">KiwiSaver enrolled</span>
           </label>
-          {ksEnrolled && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <span className="block text-sm font-semibold text-sage-800 mb-1.5">Employee rate (%)</span>
-                <select value={ksEmployeeRate} onChange={(e) => setKsEmployeeRate(e.target.value)} className="w-full appearance-none rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sage-500">
-                  {KS_EMPLOYEE_RATES.map((r) => <option key={r} value={String(r)}>{r}%</option>)}
-                </select>
+          {ksEnrolled && (() => {
+            const rateIs3 = Number(ksEmployeeRate) === 3
+            const validReduction = ksRateSource === 'temporary_reduction' && !!ksTempReductionExpiry
+            const warn3 = rateIs3 && !validReduction
+            return (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <span className="block text-sm font-semibold text-sage-800 mb-1.5">Employee rate (%)</span>
+                    <select value={ksEmployeeRate} onChange={(e) => setKsEmployeeRate(e.target.value)} className="w-full appearance-none rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sage-500">
+                      {KS_EMPLOYEE_RATES.map((r) => <option key={r} value={String(r)}>{r}%</option>)}
+                    </select>
+                  </div>
+                  <Field label="Employer rate (% — min 3.5)" type="number" step="0.5" min="3.5" max="10" value={ksEmployerRate} onChange={setKsEmployerRate} />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <span className="block text-sm font-semibold text-sage-800 mb-1.5">Rate source</span>
+                    <select value={ksRateSource} onChange={(e) => setKsRateSource(e.target.value)} className="w-full appearance-none rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sage-500">
+                      {KS_RATE_SOURCES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    </select>
+                  </div>
+                  <Field label="Rate effective from" type="date" value={ksRateEffectiveDate} onChange={setKsRateEffectiveDate} />
+                </div>
+                {(rateIs3 || ksRateSource === 'temporary_reduction') && (
+                  <Field label="Temporary reduction expiry" type="date" value={ksTempReductionExpiry} onChange={setKsTempReductionExpiry} />
+                )}
+                {warn3 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                    <p className="text-amber-800 text-sm font-medium">3% employee rate without valid temporary-reduction details</p>
+                    <p className="text-amber-700 text-xs mt-1">From 1 April 2026 the standard minimum is 3.5%. To keep an employee on 3%, set the rate source to &ldquo;Temporary rate reduction&rdquo; and record the expiry date, or move them to 3.5%.</p>
+                  </div>
+                )}
               </div>
-              <Field label="Employer rate (%)" type="number" step="0.5" min="0" max="10" value={ksEmployerRate} onChange={setKsEmployerRate} />
-            </div>
-          )}
+            )
+          })()}
         </Section>
       )}
 
