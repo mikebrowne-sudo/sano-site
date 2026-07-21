@@ -144,7 +144,26 @@ export async function sendContractorRemittance(
   }
 
   const now = new Date().toISOString()
+  const resent = !!batch.sentAt
   await svc.from('contractor_remittances').update({ sent_at: now, sent_by: user.id }).eq('id', id)
+
+  // Audit the send — and especially a force-resend, which otherwise left no
+  // record of who resent an already-sent remittance, or how many times.
+  await svc.from('audit_log').insert({
+    actor_id: user.id,
+    actor_role: 'admin',
+    action: resent ? 'contractor_remittance.resent' : 'contractor_remittance.sent',
+    entity_table: 'contractor_remittances',
+    entity_id: id,
+    before: resent ? { sent_at: batch.sentAt } : null,
+    after: {
+      remittance_number: batch.remittanceNumber,
+      sent_to: recipient,
+      total: batch.total,
+      resent,
+      previous_sent_at: batch.sentAt ?? null,
+    },
+  })
 
   revalidatePath(`/portal/contractor-invoices/remittances/${id}`)
   revalidatePath('/portal/contractor-invoices/remittances')
