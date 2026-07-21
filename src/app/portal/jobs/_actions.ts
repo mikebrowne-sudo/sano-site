@@ -9,6 +9,7 @@ import { resolveAllowedHours } from '@/lib/allowed-hours'
 import { snapshotJobVersion, computeChangedJobFields } from '@/lib/job-versions'
 import { pickSnapshotRate } from '@/lib/contractor-rate-snapshot'
 import { planWorkerDiff, localRemovalBlock, reconcilePrimaryContractor, type WorkerRow } from '@/lib/job-worker-diff'
+import { isAdminUser } from '@/lib/is-admin'
 
 type ExistingWorkerRow = WorkerRow & { contractors: { full_name: string } | null }
 
@@ -162,6 +163,9 @@ interface UpdateJobInput extends JobInput {
   // bypass the invoice-existence lock for this amendment. Every override
   // produces a `job.amended_after_invoice` audit row.
   force?: boolean
+  // PR D — required reason when an admin overrides the job-identity lock
+  // (changing address/client on a job with contractor payment history).
+  identity_override_reason?: string
 }
 
 export async function updateJob(input: UpdateJobInput) {
@@ -287,6 +291,54 @@ export async function updateJob(input: UpdateJobInput) {
   if (contractorChanged) {
     const insuranceError = await checkContractorInsurance(supabase, newPrimary!)
     if (insuranceError) return { error: insuranceError }
+  }
+
+  // PR D — job-identity protection. Once a job carries contractor financial
+  // history (an approved/paid contractor invoice — which also covers any
+  // remittance), its IDENTITY fields — the property (address) and the customer
+  // (client_id) — can no longer be changed. Changing them would repurpose a
+  // paid job into different work (the JOB-0065/JOB-0066 incident). Every other
+  // field stays editable for genuine corrections. A material identity change
+  // must be a NEW job. An admin may override, but it is explicitly audited.
+  // (job_number + recurring_job_id are not editable via this action at all, so
+  // they are immutable here already.)
+  const addressChanged = input.address !== undefined
+    && (input.address || null) !== ((current?.address as string | null) ?? null)
+  const clientChanged = input.client_id !== ((current?.client_id as string | null) ?? null)
+  if (addressChanged || clientChanged) {
+    const { data: fins } = await supabase
+      .from('contractor_invoices')
+      .select('invoice_number')
+      .eq('job_id', input.id)
+      .neq('status', 'void')
+    const affectedInvoices = (fins ?? [])
+      .map((f) => f.invoice_number as string | null)
+      .filter((n): n is string => !!n)
+    if (affectedInvoices.length > 0) {
+      const overrideReason = input.identity_override_reason?.trim()
+      // Block unless an ADMIN explicitly overrides WITH a reason. The message
+      // names the payments so staff see exactly why it's frozen.
+      if (!input.force || !isAdminUser(user) || !overrideReason) {
+        return {
+          error: `This job has contractor payment history attached (${affectedInvoices.join(', ')}), so its property or customer can’t be changed. Create a new job (or duplicate this one) for the different work.`,
+        }
+      }
+      await supabase.from('audit_log').insert({
+        actor_id: user?.id ?? null, // person performing the override
+        actor_role: 'admin',
+        action: 'job.identity_changed_override',
+        entity_table: 'jobs',
+        entity_id: input.id,
+        before: { address: (current?.address as string | null) ?? null, client_id: (current?.client_id as string | null) ?? null },
+        after: {
+          address: input.address ?? null,
+          client_id: input.client_id,
+          reason: overrideReason,
+          affected_invoice_numbers: affectedInvoices,
+          forced_by_admin: true,
+        },
+      })
+    }
   }
 
   // Pay basis: fall back to a plain-number Duration estimate when
