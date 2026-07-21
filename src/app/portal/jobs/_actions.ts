@@ -325,10 +325,14 @@ export async function updateJob(input: UpdateJobInput) {
     // PR B; this PR guarantees rate correctness only.)
     const { data: existingWorkers } = await supabase
       .from('job_workers')
-      .select('contractor_id, pay_rate')
+      .select('contractor_id, pay_rate, pay_type')
       .eq('job_id', input.id)
     const existingRateMap: Record<string, number | null> = {}
-    for (const w of existingWorkers ?? []) existingRateMap[w.contractor_id as string] = (w.pay_rate as number | null) ?? null
+    const existingTypeMap: Record<string, string | null> = {}
+    for (const w of existingWorkers ?? []) {
+      existingRateMap[w.contractor_id as string] = (w.pay_rate as number | null) ?? null
+      existingTypeMap[w.contractor_id as string] = (w.pay_type as string | null) ?? null
+    }
     const rateMap = await loadContractorRates(supabase, cids)
 
     await supabase.from('job_workers').delete().eq('job_id', input.id)
@@ -337,7 +341,8 @@ export async function updateJob(input: UpdateJobInput) {
       contractor_id: cid,
       hours_allocated: allowedHours,
       pay_rate: pickSnapshotRate(existingRateMap[cid], rateMap[cid]),
-      pay_type: 'hourly',
+      // Preserve an existing pay_type; only default 'hourly' for genuinely new workers.
+      pay_type: existingTypeMap[cid] ?? 'hourly',
     }))
     if (rows.length > 0) {
       await supabase.from('job_workers').insert(rows)

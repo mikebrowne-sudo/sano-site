@@ -70,7 +70,8 @@ describe('setJobWorkerPayRate — explicit audited override', () => {
 
     const res = await setJobWorkerPayRate('j-1', 'c-1', 60, 'agreed uplift')
     expect(res).toEqual({ ok: true })
-    expect(spies.jwUpdate).toHaveBeenCalledWith(expect.objectContaining({ pay_rate: 60, pay_type: 'hourly' }))
+    // Rate-only update — must NOT force pay_type (don't flip a non-hourly arrangement)
+    expect(spies.jwUpdate).toHaveBeenCalledWith({ pay_rate: 60 })
     expect(spies.auditInsert).toHaveBeenCalledWith(expect.objectContaining({
       action: 'job_worker.rate_changed',
       before: { pay_rate: 40 },

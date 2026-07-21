@@ -132,9 +132,11 @@ export async function setJobWorkerPayRate(
 
   const before = worker.pay_rate != null ? Number(worker.pay_rate) : null
 
+  // Only the rate changes — never flip an existing pay_type (a fixed / non-hourly
+  // arrangement must not become 'hourly' as a side effect of a rate correction).
   const { error: upErr } = await supabase
     .from('job_workers')
-    .update({ pay_rate: rate, pay_type: 'hourly' })
+    .update({ pay_rate: rate })
     .eq('job_id', jobId)
     .eq('contractor_id', contractorId)
   if (upErr) return { error: `Failed to update rate: ${upErr.message}` }

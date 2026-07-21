@@ -67,10 +67,15 @@ export function EditWorkerRateButton({
 
   return (
     <span className="inline-flex flex-col items-end gap-1 mt-1">
+      <span className="text-[10px] text-sage-500 leading-snug text-right max-w-[11rem]">
+        Changes the pay rate <span className="font-semibold">for this job only</span>. Current:{' '}
+        <span className="font-semibold text-sage-700">{currentRate != null ? `$${currentRate.toFixed(2)}` : '—'}</span>
+      </span>
       <input
         type="number" step="0.01" min="0" value={rate} onChange={(e) => setRate(e.target.value)}
-        className="w-20 rounded border border-sage-200 px-2 py-1 text-xs text-right focus:outline-none focus:ring-2 focus:ring-sage-500"
-        placeholder="Rate"
+        className="w-24 rounded border border-sage-200 px-2 py-1 text-xs text-right focus:outline-none focus:ring-2 focus:ring-sage-500"
+        placeholder="New rate"
+        aria-label="New pay rate for this job"
       />
       <input
         value={reason} onChange={(e) => setReason(e.target.value)}
