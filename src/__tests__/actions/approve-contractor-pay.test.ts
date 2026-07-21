@@ -18,6 +18,7 @@ interface Cfg {
   created?: Record<string, unknown> | null
   insertErr?: { message: string } | null
   quote?: Record<string, unknown> | null
+  contractor?: Record<string, unknown> | null
 }
 
 function selectChain(value: unknown) {
@@ -44,7 +45,7 @@ function makeSupabase(cfg: Cfg) {
   const from = jest.fn((table: string) => {
     if (table === 'jobs') return selectChain(cfg.job ?? null)
     if (table === 'job_workers') return selectChain(cfg.jw ?? null)
-    if (table === 'contractors') return selectChain(cfg.rate != null ? { hourly_rate: cfg.rate } : null)
+    if (table === 'contractors') return selectChain(cfg.contractor ?? (cfg.rate != null ? { hourly_rate: cfg.rate } : null))
     if (table === 'quotes') return selectChain(cfg.quote ?? null)
     if (table === 'audit_log') return audit
     if (table === 'contractor_invoices') {
@@ -276,5 +277,64 @@ describe('approveContractorPay — fixed-contract basis is not payable per occur
     const res = await approveContractorPay('j1', 'c-hourly', {})
     expect(res).toMatchObject({ ok: true })
     expect(ciInsert).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('approveContractorPay — GST snapshot at the supply date', () => {
+  const hourlyJw = { pay_rate: 35, pay_type: 'hourly', hours_allocated: 4, extra_hours: 0, extra_hours_status: 'none' }
+
+  it('GST-registered contractor → splits 3/23; amount stays GST-inclusive', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB, jw: hourlyJw, dup: null,
+      contractor: { hourly_rate: 35, gst_registered: true, gst_number: '123-456-789', gst_effective_date: '2026-04-01', tax_treatment: 'ordinary_trade_creditor' },
+      created: { id: 'ci1', invoice_number: 'CI-0099', amount: 140, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+    await approveContractorPay('j1', 'c1', {}) // completed_at 2026-05-08 ≥ effective
+    const p = ciInsert.mock.calls[0][0]
+    expect(p.amount).toBe(140) // full GST-inclusive payable preserved
+    expect(p.gst_applied).toBe(true)
+    expect(p.gst_amount).toBeCloseTo(140 * 3 / 23, 2)
+    expect(p.gst_status).toBe('applied')
+  })
+
+  it('non-GST contractor → no GST snapshotted', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB, jw: hourlyJw, dup: null,
+      contractor: { hourly_rate: 35, gst_registered: false },
+      created: { id: 'ci1', invoice_number: 'CI-0099', amount: 140, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+    await approveContractorPay('j1', 'c1', {})
+    const p = ciInsert.mock.calls[0][0]
+    expect(p.gst_applied).toBe(false)
+    expect(p.gst_amount).toBe(0)
+    expect(p.gst_status).toBe('not_registered')
+  })
+
+  it('pending tax treatment → flagged, GST not applied', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB, jw: hourlyJw, dup: null,
+      contractor: { hourly_rate: 35, gst_registered: true, gst_number: '123', gst_effective_date: '2026-04-01', tax_treatment: 'pending_review' },
+      created: { id: 'ci1', invoice_number: 'CI-0099', amount: 140, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+    await approveContractorPay('j1', 'c1', {})
+    const p = ciInsert.mock.calls[0][0]
+    expect(p.gst_applied).toBe(false)
+    expect(p.gst_status).toBe('pending_review')
+  })
+
+  it('supply date (completed_at) BEFORE the effective date → no GST', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: { ...COMPLETED_JOB, completed_at: '2026-03-01T00:00:00Z' }, jw: hourlyJw, dup: null,
+      contractor: { hourly_rate: 35, gst_registered: true, gst_number: '123', gst_effective_date: '2026-04-01', tax_treatment: 'ordinary_trade_creditor' },
+      created: { id: 'ci1', invoice_number: 'CI-0099', amount: 140, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+    await approveContractorPay('j1', 'c1', {})
+    const p = ciInsert.mock.calls[0][0]
+    expect(p.gst_applied).toBe(false)
+    expect(p.gst_status).toBe('before_effective_date')
   })
 })

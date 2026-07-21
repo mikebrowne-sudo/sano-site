@@ -4,12 +4,17 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import { resolveContractorGstSnapshot } from '@/lib/contractor-gst-snapshot'
 
 interface CIInput {
   contractor_id: string
   job_id?: string
   amount: number
   date_submitted: string
+  // Explicit GST supply date, shown + confirmed by staff on the form. For a
+  // fixed-contract period this should be the service-period end date. Never
+  // silently assumed — falls back to date_submitted only as the form default.
+  gst_supply_date?: string
   notes?: string
   status?: string
   // Fixed monthly contractor payments (commercial contracts). Defaults to
@@ -61,23 +66,49 @@ export async function createContractorInvoice(input: CIInput) {
     }
   }
 
+  const dateSubmitted = input.date_submitted || new Date().toISOString().slice(0, 10)
+  // Supply date for GST: the explicit staff-confirmed value; fall back to the
+  // submitted date (the form shows this) rather than inventing a date.
+  const supplyDate = input.gst_supply_date || dateSubmitted
+  const { fields: gstFields, resolved: gst } = await resolveContractorGstSnapshot(supabase, input.contractor_id, input.amount, supplyDate)
+
   const { data, error } = await supabase
     .from('contractor_invoices')
     .insert({
       contractor_id: input.contractor_id,
       job_id: input.job_id || null,
       amount: input.amount,
-      date_submitted: input.date_submitted || new Date().toISOString().slice(0, 10),
+      date_submitted: dateSubmitted,
       notes: input.notes?.trim() || null,
       status: input.status || 'pending',
       payment_type: paymentType,
       site_label: paymentType === 'fixed_contract' ? siteLabel : null,
       period_label: paymentType === 'fixed_contract' ? periodLabel : null,
+      ...gstFields,
     })
-    .select('id')
+    .select('id, invoice_number')
     .single()
 
   if (error || !data) return { error: `Failed to create: ${error?.message}` }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  await supabase.from('audit_log').insert({
+    actor_id: user?.id ?? null,
+    actor_role: 'admin',
+    action: 'contractor_invoice.created',
+    entity_table: 'contractor_invoices',
+    entity_id: data.id,
+    before: null,
+    after: {
+      invoice_number: data.invoice_number ?? null,
+      contractor_id: input.contractor_id,
+      job_id: input.job_id || null,
+      amount: input.amount,
+      payment_type: paymentType,
+      gst: { status: gst.status, applied: gst.applied, amount: gst.gstAmount, supply_date: supplyDate },
+    },
+  })
+
   redirect(`/portal/contractor-invoices/${data.id}`)
 }
 
@@ -107,15 +138,41 @@ export async function approveContractorInvoice(id: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!isAdminUser(user)) return { error: 'Admin only.' }
 
+  // Re-resolve the GST snapshot at approval — if the contractor's GST data was
+  // completed since the payable was created, this locks in the correct
+  // treatment at the (unchanged) supply date. Amount is untouched.
+  const { data: ci } = await supabase
+    .from('contractor_invoices')
+    .select('contractor_id, amount, gst_supply_date, date_submitted, invoice_number')
+    .eq('id', id)
+    .maybeSingle()
+  if (!ci) return { error: 'Payable not found.' }
+  const supplyDate = (ci.gst_supply_date as string | null) ?? (ci.date_submitted as string | null) ?? null
+  const { fields: gstFields, resolved: gst } = await resolveContractorGstSnapshot(supabase, ci.contractor_id as string, Number(ci.amount), supplyDate)
+
   // Authorise for payment: stamp who/when so a fixed contract payment (or any
   // payable) carries an audit-friendly authorised-by/at. Mirrors the
   // sent_by / created_by pattern on contractor_remittances.
   const { error } = await supabase
     .from('contractor_invoices')
-    .update({ status: 'approved', approved_at: new Date().toISOString(), approved_by: user?.id ?? null })
+    .update({ status: 'approved', approved_at: new Date().toISOString(), approved_by: user?.id ?? null, ...gstFields })
     .eq('id', id)
 
   if (error) return { error: error.message }
+
+  await supabase.from('audit_log').insert({
+    actor_id: user?.id ?? null,
+    actor_role: 'admin',
+    action: 'contractor_invoice.approved',
+    entity_table: 'contractor_invoices',
+    entity_id: id,
+    before: null,
+    after: {
+      invoice_number: (ci.invoice_number as string | null) ?? null,
+      gst: { status: gst.status, applied: gst.applied, amount: gst.gstAmount, supply_date: supplyDate },
+    },
+  })
+
   revalidatePath(`/portal/contractor-invoices/${id}`)
   revalidatePath('/portal/contractor-invoices')
   return { success: true }
