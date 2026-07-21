@@ -198,13 +198,20 @@ export async function updateJob(input: UpdateJobInput) {
   // so a blocked removal must abort here with nothing changed.
   const workerIdsProvided = input.worker_ids !== undefined
   const desiredCids = (input.worker_ids ?? []).filter(Boolean)
+
+  // Existing workers (loaded in every case — needed both for the diff and to
+  // validate the primary pointer). job_workers is authoritative for pay;
+  // jobs.contractor_id is only a primary pointer whose invariant is: null OR a
+  // member of this job's job_workers.
+  const { data: existingRaw } = await supabase
+    .from('job_workers')
+    .select('contractor_id, pay_status, extra_hours, extra_hours_status, contractors ( full_name )')
+    .eq('job_id', input.id)
+  const existingRows = (existingRaw ?? []) as unknown as ExistingWorkerRow[]
+  const existingCids = existingRows.map((r) => r.contractor_id)
+
   let workerDiff: ReturnType<typeof planWorkerDiff<ExistingWorkerRow>> | null = null
   if (workerIdsProvided) {
-    const { data: existing } = await supabase
-      .from('job_workers')
-      .select('contractor_id, pay_status, extra_hours, extra_hours_status, contractors ( full_name )')
-      .eq('job_id', input.id)
-    const existingRows = (existing ?? []) as unknown as ExistingWorkerRow[]
     workerDiff = planWorkerDiff(existingRows, desiredCids)
 
     for (const w of workerDiff.toRemove) {
@@ -235,13 +242,39 @@ export async function updateJob(input: UpdateJobInput) {
     }
   }
 
-  // Primary contractor (jobs.contractor_id) must be a member of the final
-  // worker set (or null). Reconcile so the two stores can't desync.
-  const effectivePrimary = workerIdsProvided
-    ? reconcilePrimaryContractor(input.contractor_id, desiredCids)
-    : (input.contractor_id ?? null)
-  const contractorChanged = !!effectivePrimary
-    && effectivePrimary !== (current?.contractor_id ?? '')
+  // The final worker set after this update.
+  const finalCids = workerIdsProvided ? desiredCids : existingCids
+
+  // Resolve the primary pointer under the invariant:
+  //  - a SUBMITTED primary must already be in the worker set (never silently
+  //    creates a worker row) — otherwise reject;
+  //  - if NOT submitted, the primary is left untouched, unless the current
+  //    primary was just removed from the set, in which case it is re-pointed to
+  //    a remaining worker (or null). Ordinary edits never move the primary.
+  const currentPrimary = (current?.contractor_id as string | null) ?? null
+  const primarySubmitted = input.contractor_id !== undefined
+  let effectivePrimary: string | null | undefined // undefined = leave unchanged
+  if (primarySubmitted) {
+    const requested = input.contractor_id || null
+    if (requested === null) {
+      effectivePrimary = null // explicit clear
+    } else if (finalCids.includes(requested)) {
+      effectivePrimary = requested
+    } else {
+      const nm = existingRows.find((r) => r.contractor_id === requested)?.contractors?.full_name
+      return {
+        error: `${nm ?? 'That contractor'} isn’t assigned to this job — add them as a worker (or use Assign) before making them the primary contractor.`,
+      }
+    }
+  } else if (currentPrimary && !finalCids.includes(currentPrimary)) {
+    effectivePrimary = reconcilePrimaryContractor(null, finalCids) // forced re-point
+  } else {
+    effectivePrimary = undefined
+  }
+
+  // The value we will store (unchanged when the primary wasn't submitted/forced).
+  const newPrimary = effectivePrimary === undefined ? currentPrimary : effectivePrimary
+  const contractorChanged = !!newPrimary && newPrimary !== (currentPrimary ?? '')
 
   const previousScheduledDate = (current?.scheduled_date as string | null) ?? null
   const previousScheduledTime = (current?.scheduled_time as string | null) ?? null
@@ -252,7 +285,7 @@ export async function updateJob(input: UpdateJobInput) {
     || previousScheduledTime !== nextScheduledTime
 
   if (contractorChanged) {
-    const insuranceError = await checkContractorInsurance(supabase, effectivePrimary!)
+    const insuranceError = await checkContractorInsurance(supabase, newPrimary!)
     if (insuranceError) return { error: insuranceError }
   }
 
@@ -272,7 +305,7 @@ export async function updateJob(input: UpdateJobInput) {
     scheduled_time: input.scheduled_time || null,
     duration_estimate: input.duration_estimate || null,
     assigned_to: input.assigned_to || null,
-    contractor_id: effectivePrimary,
+    contractor_id: newPrimary,
     contractor_price: input.contractor_price ?? null,
     job_price: input.job_price ?? null,
     allowed_hours: allowedHours,
@@ -410,7 +443,7 @@ export async function updateJob(input: UpdateJobInput) {
   // Notify new primary contractor if the primary assignment changed
   if (contractorChanged) {
     const [{ data: contractor }, { data: job }] = await Promise.all([
-      supabase.from('contractors').select('full_name, email').eq('id', effectivePrimary!).single(),
+      supabase.from('contractors').select('full_name, email').eq('id', newPrimary!).single(),
       supabase.from('jobs').select('id, job_number').eq('id', input.id).single(),
     ])
 
