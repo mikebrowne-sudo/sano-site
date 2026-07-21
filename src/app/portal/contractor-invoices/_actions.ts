@@ -15,6 +15,10 @@ interface CIInput {
   // fixed-contract period this should be the service-period end date. Never
   // silently assumed — falls back to date_submitted only as the form default.
   gst_supply_date?: string
+  // Operational service date for a JOBLESS payable (statement-period basis).
+  // Distinct from gst_supply_date (GST tax point); job-derived CIs use the
+  // job's completed_at instead. Explicit only — never derived from created_at.
+  service_date?: string
   notes?: string
   status?: string
   // Fixed monthly contractor payments (commercial contracts). Defaults to
@@ -84,6 +88,10 @@ export async function createContractorInvoice(input: CIInput) {
       payment_type: paymentType,
       site_label: paymentType === 'fixed_contract' ? siteLabel : null,
       period_label: paymentType === 'fixed_contract' ? periodLabel : null,
+      // Seed the operational service date for jobless payables from the explicit
+      // staff date (service_date or the confirmed GST supply date). Job-derived
+      // CIs leave it null and resolve from job.completed_at at statement time.
+      service_date: input.job_id ? null : (input.service_date || input.gst_supply_date || null),
       ...gstFields,
     })
     .select('id, invoice_number')
