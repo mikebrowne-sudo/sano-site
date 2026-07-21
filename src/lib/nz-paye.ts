@@ -12,6 +12,10 @@ import { annualIncomeTax, annualAccLevy, periodsPerYear, type PayPeriod } from '
 import { computeEsct } from '@/lib/payroll/esct'
 
 const round2 = (n: number) => Math.round(n * 100) / 100
+// IRD payroll truncates (not rounds): whole-dollar gross for the PAYE/SL calc,
+// and truncate deduction results to the cent.
+const trunc2 = (n: number) => Math.floor(n * 100) / 100
+const floorDollar = (n: number) => Math.floor(n)
 
 // Secondary tax flat rates
 const SECONDARY_RATES: Record<string, number> = {
@@ -105,18 +109,21 @@ export function calculatePayPreview(params: {
   const hasSL = SL_CODES.has(code)
   const base = baseCode(code)
 
-  // PAYE = income tax + ACC earner levy. Income-tax brackets + the levy come
-  // from the single canonical engine; this only picks the income-tax basis per
-  // code. ND is the flat 45% non-declaration rate (no separate levy line).
+  // PAYE = income tax + ACC earner levy, calculated on the WHOLE-DOLLAR gross
+  // (IRD truncates the gross first) and truncated to the cent. Income-tax
+  // brackets + the levy come from the single canonical engine; this picks the
+  // income-tax basis per code. ND is the flat 45% non-declaration rate.
+  const grossDollar = floorDollar(effectiveGross)
+  const annualDollar = grossDollar * n
   let paye: number
   if (code === 'ND') {
-    paye = round2(effectiveGross * 0.45)
+    paye = trunc2(grossDollar * 0.45)
   } else {
     const incomeTaxPeriod = SECONDARY_RATES[base] !== undefined
-      ? effectiveGross * SECONDARY_RATES[base]              // secondary flat rate
-      : annualIncomeTax(annualIncome) / n                  // primary (M, ME)
-    const accLevyPeriod = annualAccLevy(annualIncome) / n
-    paye = round2(incomeTaxPeriod + accLevyPeriod)
+      ? grossDollar * SECONDARY_RATES[base]                 // secondary flat rate
+      : annualIncomeTax(annualDollar) / n                  // primary (M, ME)
+    const accLevyPeriod = annualAccLevy(annualDollar) / n
+    paye = trunc2(incomeTaxPeriod + accLevyPeriod)
   }
 
   // Student loan — 12% of earnings above the IRD pay-period threshold.
