@@ -26,7 +26,7 @@ function makeClient({ hasPay, email = 'admin@sano.nz' }: { hasPay: boolean; emai
   const from = jest.fn((table: string) => {
     if (table === 'jobs') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), single: jest.fn().mockResolvedValue({ data: CURRENT, error: null }), update: jobsUpdate }
     if (table === 'job_workers') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockResolvedValue({ data: [{ contractor_id: 'A' }], error: null }) }
-    if (table === 'contractor_invoices') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), neq: jest.fn().mockReturnThis(), limit: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: hasPay ? { invoice_number: 'CI-0020' } : null, error: null }) }
+    if (table === 'contractor_invoices') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), neq: jest.fn().mockResolvedValue({ data: hasPay ? [{ invoice_number: 'CI-0020' }, { invoice_number: 'CI-0041' }] : [], error: null }) }
     if (table === 'contractors') return { select: jest.fn().mockReturnThis(), in: jest.fn().mockResolvedValue({ data: [], error: null }) }
     if (table === 'audit_log') return { insert: auditInsert }
     return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), single: jest.fn().mockResolvedValue({ data: null }), maybeSingle: jest.fn().mockResolvedValue({ data: null }), insert: jest.fn().mockResolvedValue({ error: null }) }
@@ -68,20 +68,41 @@ it('ALLOWS a non-identity edit (description) even with contractor payments', asy
   expect(spies.jobsUpdate).toHaveBeenCalled()
 })
 
-it('allows an ADMIN force override of an identity change, and audits it', async () => {
+it('allows an ADMIN force override WITH a reason, and audits reason + affected invoices + person', async () => {
   const { client, spies } = makeClient({ hasPay: true, email: 'admin@sano.nz' })
   mockedCreate.mockReturnValue(client)
-  await updateJob({ ...base, address: '78 Luckens Rd, West Harbour', force: true })
+  await updateJob({ ...base, address: '78 Luckens Rd, West Harbour', force: true, identity_override_reason: 'genuine correction — same job, address fixed' })
   expect(spies.jobsUpdate).toHaveBeenCalled()
   const override = spies.auditInsert.mock.calls.find((c) => c[0]?.action === 'job.identity_changed_override')
   expect(override).toBeDefined()
-  expect(override![0].after).toMatchObject({ forced_by_admin: true })
+  expect(override![0].actor_id).toBe('u-1') // person performing the override
+  expect(override![0].before).toMatchObject({ address: '14/18 Arthur Street', client_id: 'cl-1' })
+  expect(override![0].after).toMatchObject({
+    reason: 'genuine correction — same job, address fixed',
+    affected_invoice_numbers: ['CI-0020', 'CI-0041'],
+    forced_by_admin: true,
+  })
 })
 
-it('does NOT let a non-admin bypass with force', async () => {
-  const { client, spies } = makeClient({ hasPay: true, email: 'staff@sano.nz' })
+it('blocks an ADMIN force WITHOUT a reason', async () => {
+  const { client, spies } = makeClient({ hasPay: true, email: 'admin@sano.nz' })
   mockedCreate.mockReturnValue(client)
-  const res = await updateJob({ ...base, address: '78 Luckens Rd, West Harbour', force: true })
+  const res = await updateJob({ ...base, address: '78 Luckens Rd, West Harbour', force: true }) // no reason
   expect(res).toMatchObject({ error: expect.stringContaining('property or customer') })
   expect(spies.jobsUpdate).not.toHaveBeenCalled()
+})
+
+it('does NOT let a non-admin bypass with force + reason', async () => {
+  const { client, spies } = makeClient({ hasPay: true, email: 'staff@sano.nz' })
+  mockedCreate.mockReturnValue(client)
+  const res = await updateJob({ ...base, address: '78 Luckens Rd, West Harbour', force: true, identity_override_reason: 'nope' })
+  expect(res).toMatchObject({ error: expect.stringContaining('property or customer') })
+  expect(spies.jobsUpdate).not.toHaveBeenCalled()
+})
+
+it('the block message names the affected contractor invoices (a clear warning)', async () => {
+  const { client } = makeClient({ hasPay: true })
+  mockedCreate.mockReturnValue(client)
+  const res = await updateJob({ ...base, address: '78 Luckens Rd, West Harbour' })
+  expect(res.error).toContain('CI-0020')
 })

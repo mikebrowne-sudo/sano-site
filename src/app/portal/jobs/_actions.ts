@@ -163,6 +163,9 @@ interface UpdateJobInput extends JobInput {
   // bypass the invoice-existence lock for this amendment. Every override
   // produces a `job.amended_after_invoice` audit row.
   force?: boolean
+  // PR D — required reason when an admin overrides the job-identity lock
+  // (changing address/client on a job with contractor payment history).
+  identity_override_reason?: string
 }
 
 export async function updateJob(input: UpdateJobInput) {
@@ -303,25 +306,37 @@ export async function updateJob(input: UpdateJobInput) {
     && (input.address || null) !== ((current?.address as string | null) ?? null)
   const clientChanged = input.client_id !== ((current?.client_id as string | null) ?? null)
   if (addressChanged || clientChanged) {
-    const { data: fin } = await supabase
+    const { data: fins } = await supabase
       .from('contractor_invoices')
       .select('invoice_number')
       .eq('job_id', input.id)
       .neq('status', 'void')
-      .limit(1)
-      .maybeSingle()
-    if (fin) {
-      if (!input.force || !isAdminUser(user)) {
-        return { error: 'This job has contractor payments attached, so its property or customer can’t be changed. Create a new job (or duplicate this one) for the different work.' }
+    const affectedInvoices = (fins ?? [])
+      .map((f) => f.invoice_number as string | null)
+      .filter((n): n is string => !!n)
+    if (affectedInvoices.length > 0) {
+      const overrideReason = input.identity_override_reason?.trim()
+      // Block unless an ADMIN explicitly overrides WITH a reason. The message
+      // names the payments so staff see exactly why it's frozen.
+      if (!input.force || !isAdminUser(user) || !overrideReason) {
+        return {
+          error: `This job has contractor payment history attached (${affectedInvoices.join(', ')}), so its property or customer can’t be changed. Create a new job (or duplicate this one) for the different work.`,
+        }
       }
       await supabase.from('audit_log').insert({
-        actor_id: user?.id ?? null,
+        actor_id: user?.id ?? null, // person performing the override
         actor_role: 'admin',
         action: 'job.identity_changed_override',
         entity_table: 'jobs',
         entity_id: input.id,
         before: { address: (current?.address as string | null) ?? null, client_id: (current?.client_id as string | null) ?? null },
-        after: { address: input.address ?? null, client_id: input.client_id, forced_by_admin: true },
+        after: {
+          address: input.address ?? null,
+          client_id: input.client_id,
+          reason: overrideReason,
+          affected_invoice_numbers: affectedInvoices,
+          forced_by_admin: true,
+        },
       })
     }
   }
