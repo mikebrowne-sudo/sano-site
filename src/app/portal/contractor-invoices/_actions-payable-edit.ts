@@ -17,6 +17,7 @@ import { isAdminUser } from '@/lib/is-admin'
 import { evaluatePayableEdit, EDITABLE_PAYABLE_FIELDS, flattenRef, type RemittanceRef } from '@/lib/contractor-payable-guard'
 import { summariseChanges } from '@/lib/sensitive-edit'
 import { logSensitiveEdit } from '@/app/portal/_actions-sensitive-edit'
+import { statementEditBlock } from '@/lib/contractor-statement-lock'
 import { revalidatePath } from 'next/cache'
 
 export interface UpdateContractorPayableInput {
@@ -50,10 +51,21 @@ export async function updateContractorPayable(
 
   const { data: ci } = await supabase
     .from('contractor_invoices')
-    .select('id, invoice_number, contractor_id, job_id, amount, date_submitted, date_paid, status, notes, payment_type, site_label, period_label')
+    .select('id, invoice_number, contractor_id, job_id, amount, date_submitted, date_paid, status, notes, payment_type, site_label, period_label, statement_id')
     .eq('id', input.id)
     .maybeSingle()
   if (!ci) return { error: 'Contractor payable not found.' }
+
+  // Locked once on a non-draft statement — corrections require supersede.
+  if (ci.statement_id) {
+    const { data: st } = await supabase
+      .from('contractor_statements')
+      .select('status, statement_number')
+      .eq('id', ci.statement_id)
+      .maybeSingle()
+    const block = statementEditBlock(st?.status as string | null, st?.statement_number as string | null)
+    if (block) return { error: block }
+  }
 
   // Remittance batches this payable was snapshotted into (drives the guard).
   const { data: linkRaw } = await supabase

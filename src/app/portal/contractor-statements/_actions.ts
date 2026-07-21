@@ -199,6 +199,16 @@ export async function generateDraftStatements(input: GeneratePeriodInput): Promi
 
     if (isNew) {
       created += 1
+      // If this period had a superseded statement awaiting its replacement,
+      // point it at this fresh draft.
+      await supabase
+        .from('contractor_statements')
+        .update({ replacement_statement_id: statementId })
+        .eq('contractor_id', group.contractor_id)
+        .eq('period_start', period.period_start)
+        .eq('period_end', period.period_end)
+        .eq('status', 'superseded')
+        .is('replacement_statement_id', null)
       await supabase.from('audit_log').insert({
         actor_id: user.id,
         actor_role: 'admin',

@@ -18,6 +18,7 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
+import { statementEditBlock } from '@/lib/contractor-statement-lock'
 import { revalidatePath } from 'next/cache'
 
 export async function voidContractorPayable(payableId: string, reason: string) {
@@ -29,11 +30,22 @@ export async function voidContractorPayable(payableId: string, reason: string) {
 
   const { data: ci } = await supabase
     .from('contractor_invoices')
-    .select('id, invoice_number, status, amount, job_id, contractor_id, date_paid')
+    .select('id, invoice_number, status, amount, job_id, contractor_id, date_paid, statement_id')
     .eq('id', payableId)
     .maybeSingle()
   if (!ci) return { error: 'Contractor payable not found.' }
   if (ci.status === 'void') return { error: 'This payable is already voided.' }
+
+  // Locked once on a non-draft statement — corrections require supersede.
+  if (ci.statement_id) {
+    const { data: st } = await supabase
+      .from('contractor_statements')
+      .select('status, statement_number')
+      .eq('id', ci.statement_id)
+      .maybeSingle()
+    const block = statementEditBlock(st?.status as string | null, st?.statement_number as string | null)
+    if (block) return { error: block }
+  }
 
   // Blocked while snapshotted onto a remittance — the advice would silently
   // disagree. Void the remittance batch first.
