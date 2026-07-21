@@ -18,6 +18,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { isAdminEmail } from '@/lib/is-admin'
+import { pickSnapshotRate, toPositiveRate } from '@/lib/contractor-rate-snapshot'
 
 function revalidate(jobId: string) {
   revalidatePath(`/portal/jobs/${jobId}`)
@@ -43,7 +44,7 @@ export async function addJobWorker(jobId: string, contractorId: string) {
 
   const { data: contractor } = await supabase
     .from('contractors')
-    .select('id, full_name')
+    .select('id, full_name, hourly_rate')
     .eq('id', contractorId)
     .single()
   if (!contractor) return { error: 'Contractor not found.' }
@@ -56,10 +57,18 @@ export async function addJobWorker(jobId: string, contractorId: string) {
     .maybeSingle()
   if (existing) return { error: `${contractor.full_name} is already assigned to this job.` }
 
+  // Snapshot the contractor's current rate at add time (no existing row here,
+  // so there is nothing to preserve). Null is allowed for a rate-less
+  // contractor — job-cost falls back to the live rate + shows an "est." badge.
+  const hoursAllocated = (job.allowed_hours as number | null) ?? null
+  const payRate = pickSnapshotRate(null, contractor.hourly_rate as number | null)
+
   const { error: insErr } = await supabase.from('job_workers').insert({
     job_id: jobId,
     contractor_id: contractorId,
-    hours_allocated: (job.allowed_hours as number | null) ?? null,
+    hours_allocated: hoursAllocated,
+    pay_rate: payRate,
+    pay_type: 'hourly',
   })
   if (insErr) return { error: `Failed to add contractor: ${insErr.message}` }
 
@@ -70,7 +79,76 @@ export async function addJobWorker(jobId: string, contractorId: string) {
     entity_table: 'job_workers',
     entity_id: `${jobId}:${contractorId}`,
     before: null,
-    after: { contractor_id: contractorId, hours_allocated: (job.allowed_hours as number | null) ?? null },
+    after: { contractor_id: contractorId, hours_allocated: hoursAllocated, pay_rate: payRate },
+  })
+
+  revalidate(jobId)
+  return { ok: true }
+}
+
+/** Admin explicitly changes a worker's snapshotted pay rate. This is the ONLY
+ *  sanctioned way to alter an existing pay_rate snapshot — every other path
+ *  preserves it. Requires a reason and is fully audited (before → after).
+ *  Blocked once the amount is frozen downstream (pay run / paid / has a
+ *  payable), where the rate no longer drives what will be paid. */
+export async function setJobWorkerPayRate(
+  jobId: string,
+  contractorId: string,
+  newRate: number,
+  reason: string,
+) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  if (!isAdminEmail(user.email)) return { error: 'Admin only.' }
+  if (!jobId || !contractorId) return { error: 'Job and contractor are required.' }
+  const rate = toPositiveRate(newRate)
+  if (rate == null) return { error: 'Enter a pay rate greater than zero.' }
+  if (!reason?.trim()) return { error: 'A reason is required to change a pay rate.' }
+
+  const { data: worker, error: wErr } = await supabase
+    .from('job_workers')
+    .select('pay_rate, pay_status, contractors ( full_name )')
+    .eq('job_id', jobId)
+    .eq('contractor_id', contractorId)
+    .single()
+  if (wErr || !worker) return { error: 'Worker is not assigned to this job.' }
+
+  const name = (worker.contractors as unknown as { full_name: string } | null)?.full_name ?? 'This contractor'
+
+  if (worker.pay_status === 'included_in_pay_run' || worker.pay_status === 'paid') {
+    return { error: `${name}'s pay is already in a pay run / paid — the rate is locked.` }
+  }
+  const { data: ci } = await supabase
+    .from('contractor_invoices')
+    .select('invoice_number')
+    .eq('job_id', jobId)
+    .eq('contractor_id', contractorId)
+    .neq('status', 'void')
+    .maybeSingle()
+  if (ci) {
+    return { error: `${name} has a payable (${ci.invoice_number ?? 'contractor invoice'}); the rate is frozen on it. Void that first to change the rate.` }
+  }
+
+  const before = worker.pay_rate != null ? Number(worker.pay_rate) : null
+
+  // Only the rate changes — never flip an existing pay_type (a fixed / non-hourly
+  // arrangement must not become 'hourly' as a side effect of a rate correction).
+  const { error: upErr } = await supabase
+    .from('job_workers')
+    .update({ pay_rate: rate })
+    .eq('job_id', jobId)
+    .eq('contractor_id', contractorId)
+  if (upErr) return { error: `Failed to update rate: ${upErr.message}` }
+
+  await supabase.from('audit_log').insert({
+    actor_id: user.id,
+    actor_role: 'admin',
+    action: 'job_worker.rate_changed',
+    entity_table: 'job_workers',
+    entity_id: `${jobId}:${contractorId}`,
+    before: { pay_rate: before },
+    after: { pay_rate: rate, reason: reason.trim() },
   })
 
   revalidate(jobId)

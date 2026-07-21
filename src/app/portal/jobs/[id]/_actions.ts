@@ -7,6 +7,7 @@ import { notifyContractorAssigned } from '@/lib/notify-contractor'
 import { sendNotification } from '@/lib/notifications/send'
 import { isLockedByInvoice, writeAmendmentAudit } from '@/lib/amendment-lock'
 import { isAdminUser } from '@/lib/is-admin'
+import { pickSnapshotRate } from '@/lib/contractor-rate-snapshot'
 
 // Phase D — mark a completed job as reviewed. Captures reviewed_at
 // + reviewed_by (FK to auth.users) and audit-logs the transition.
@@ -441,11 +442,8 @@ export async function assignJob(input: AssignJobInput) {
     .eq('contractor_id', contractorId)
     .maybeSingle()
 
-  const existingPayRate =
-    existingJw?.pay_rate != null && Number(existingJw.pay_rate) > 0
-      ? Number(existingJw.pay_rate)
-      : null
-  const payRateToSet = existingPayRate ?? Number(contractorRate)
+  // Preserve any existing positive snapshot; else snapshot the current rate.
+  const payRateToSet = pickSnapshotRate(existingJw?.pay_rate as number | null, contractorRate)
 
   await supabase
     .from('job_workers')

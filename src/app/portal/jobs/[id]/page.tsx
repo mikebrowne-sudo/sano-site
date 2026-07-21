@@ -9,7 +9,7 @@ import { DuplicateJobButton } from './_components/DuplicateJobButton'
 import { CreateRecurringButton } from './_components/CreateRecurringButton'
 import { calculateVariance } from '@/lib/labour-calc'
 import { ExtraHoursControl } from './_components/ExtraHoursControl'
-import { RemoveWorkerButton, AddWorkerControl } from './_components/ManageWorkers'
+import { RemoveWorkerButton, AddWorkerControl, EditWorkerRateButton } from './_components/ManageWorkers'
 import { ArchiveJobButton } from './_components/ArchiveJobButton'
 import { JobWorkflowBar } from './_components/JobWorkflowBar'
 import { MarkJobReviewedButton } from './_components/MarkJobReviewedButton'
@@ -717,6 +717,20 @@ export default async function JobDetailPage({
                                 <td className="py-2 pr-2 text-right text-sage-700">
                                   <span className="inline-flex items-center gap-1 justify-end">
                                     <span>{formatCurrency(payRate)}</span>
+                                    {isAdmin && (
+                                      <EditWorkerRateButton
+                                        jobId={job.id}
+                                        contractorId={ew.contractorId}
+                                        currentRate={rateSource === 'snapshot' ? payRate : null}
+                                        blockedReason={
+                                          locked
+                                            ? 'In a pay run / paid — rate locked'
+                                            : ciForWorker
+                                              ? `Frozen on ${ciForWorker.invoice_number ?? 'the payable'} — void it to change`
+                                              : null
+                                        }
+                                      />
+                                    )}
                                     {rateSource === 'estimate' && (
                                       <span
                                         className="text-[9px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded"
