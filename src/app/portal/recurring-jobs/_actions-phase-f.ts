@@ -14,6 +14,7 @@ import { isAdminEmail } from '@/lib/is-admin'
 import { loadJobSettings } from '@/lib/job-settings'
 import { resolveAllowedHours } from '@/lib/allowed-hours'
 import { buildRecurringWorkerRow, type RecurringPayType } from '@/lib/recurring-worker'
+import { rollbackOrphanOccurrence } from '@/lib/recurring-rollback'
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
@@ -257,6 +258,7 @@ export async function generateUpcomingRecurringJobs(input: {
 
   const newDates = candidates.filter((d) => !existingSet.has(d))
   let lastGenerated = rec.next_due_date as string | null
+  let created = 0 // occurrences fully created (job + worker), not rolled back
 
   for (const date of newDates) {
     const { data: newJob, error: jErr } = await supabase
@@ -308,19 +310,20 @@ export async function generateUpcomingRecurringJobs(input: {
       })
       const { error: wErr } = await supabase.from('job_workers').insert(workerRow)
       if (wErr) {
-        await supabase.from('jobs').delete().eq('id', newJob.id as string)
-        await supabase.from('audit_log').insert({
-          actor_id: user.id,
-          actor_role: 'staff',
-          action: 'recurring_job.generation_error',
-          entity_table: 'recurring_jobs',
-          entity_id: recurringJobId,
-          before: null,
-          after: { date, error: `job_worker seed failed — occurrence rolled back: ${wErr.message}` },
+        // Compensating rollback with double-failure escalation. Never leave a
+        // payable occurrence without its worker row; never advance for it.
+        await rollbackOrphanOccurrence(supabase, {
+          jobId: newJob.id as string,
+          contractorId: rec.contractor_id as string,
+          seedError: wErr.message,
+          actorId: user.id,
+          recurringJobId,
+          date,
         })
-        continue // don't count or advance for this date
+        continue // not created — don't count or advance for this date
       }
     }
+    created += 1
     lastGenerated = date
   }
 
@@ -345,14 +348,16 @@ export async function generateUpcomingRecurringJobs(input: {
     after: {
       window_weeks: weeks,
       candidates: candidates.length,
-      created: newDates.length,
+      created, // fully created (job + worker), excludes rolled-back occurrences
+      attempted: newDates.length,
       skipped_existing: candidates.length - newDates.length,
+      rolled_back: newDates.length - created,
     },
   })
 
   revalidatePath('/portal/recurring-jobs')
   revalidatePath(`/portal/recurring-jobs/${recurringJobId}`)
-  return { ok: true as const, createdCount: newDates.length, skippedCount: candidates.length - newDates.length }
+  return { ok: true as const, createdCount: created, skippedCount: candidates.length - newDates.length }
 }
 
 // ─── Mark reminder complete / dismissed ─────────────────────────

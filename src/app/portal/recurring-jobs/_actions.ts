@@ -7,6 +7,7 @@ import { notifyContractorAssigned } from '@/lib/notify-contractor'
 import { computeNextInvoiceDate } from '@/lib/recurring-invoice'
 import { resolveAllowedHours } from '@/lib/allowed-hours'
 import { buildRecurringWorkerRow, type RecurringPayType } from '@/lib/recurring-worker'
+import { rollbackOrphanOccurrence } from '@/lib/recurring-rollback'
 
 interface RecurringJobInput {
   client_id: string
@@ -146,6 +147,7 @@ export async function updateRecurringJob(id: string, input: RecurringJobInput) {
 
 export async function generateNextJob(recurringId: string) {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const { data: rec, error: loadErr } = await supabase
     .from('recurring_jobs')
@@ -226,8 +228,21 @@ export async function generateNextJob(recurringId: string) {
     })
     const { error: wErr } = await supabase.from('job_workers').insert(workerRow)
     if (wErr) {
-      await supabase.from('jobs').delete().eq('id', newJob.id as string)
-      return { error: `Could not seed the contractor's pay record, so the job was not generated: ${wErr.message}` }
+      const rb = await rollbackOrphanOccurrence(supabase, {
+        jobId: newJob.id as string,
+        contractorId: rec.contractor_id as string,
+        seedError: wErr.message,
+        actorId: user?.id ?? null,
+        recurringJobId: recurringId,
+        date: rec.next_due_date as string,
+      })
+      if (rb.rolledBack) {
+        return { error: `Could not seed the contractor's pay record, so the job was not generated: ${wErr.message}` }
+      }
+      if (rb.neutralized) {
+        return { error: `The contractor pay record failed and the job couldn't be deleted — it was neutralised to an unassigned draft (job ${newJob.id}). It is not payable. Original error: ${wErr.message}` }
+      }
+      return { error: `CRITICAL: the contractor pay record failed and the job could not be cleaned up (job ${newJob.id}, contractor ${rec.contractor_id}). It has been flagged in the audit log — do not pay it. Original error: ${wErr.message}` }
     }
   }
 
