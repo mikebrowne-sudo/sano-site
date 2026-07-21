@@ -42,6 +42,8 @@ interface ContractorInput {
   // GST (contractor)
   gst_registered?: boolean
   gst_number?: string
+  gst_effective_date?: string
+  tax_treatment?: string
   // Payment (contractor)
   bank_account_name?: string
   bank_account_number?: string
@@ -140,6 +142,8 @@ export async function createContractor(input: ContractorInput) {
       // GST (contractor)
       gst_registered: input.gst_registered ?? false,
       gst_number: input.gst_number?.trim() || null,
+      gst_effective_date: input.gst_registered ? (input.gst_effective_date || null) : null,
+      tax_treatment: input.tax_treatment || 'pending_review',
       // Payment (contractor)
       bank_account_name: input.bank_account_name?.trim() || null,
       bank_account_number: input.bank_account_number?.trim() || null,
@@ -212,6 +216,8 @@ export async function updateContractor(id: string, input: ContractorInput) {
       // GST (contractor)
       gst_registered: input.gst_registered ?? false,
       gst_number: input.gst_number?.trim() || null,
+      gst_effective_date: input.gst_registered ? (input.gst_effective_date || null) : null,
+      tax_treatment: input.tax_treatment || 'pending_review',
       // Payment (contractor)
       bank_account_name: input.bank_account_name?.trim() || null,
       bank_account_number: input.bank_account_number?.trim() || null,
