@@ -27,6 +27,13 @@ describe('ESCT rate bands (2026/27)', () => {
     expect(r.esct).toBeCloseTo(3.5, 2)
     expect(r.netContribution).toBeCloseTo(17.49, 2)
   })
+
+  it('truncates the ESCT result to the cent (Radhika: $61.23 → ESCT $10.67, net $50.56)', () => {
+    // ESCT on $61: 61 × 17.5% = 10.675 → truncate → 10.67; net = 61.23 − 10.67 = 50.56
+    const r = computeEsct(61.23, 40000)
+    expect(r.esct).toBeCloseTo(10.67, 2)
+    expect(r.netContribution).toBeCloseTo(50.56, 2)
+  })
 })
 
 describe('payslip employer KiwiSaver + ESCT', () => {
