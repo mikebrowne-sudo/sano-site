@@ -27,7 +27,7 @@ export default async function StatementDetailPage({ params }: { params: { id: st
 
   const { data: stmt } = await supabase
     .from('contractor_statements')
-    .select('id, status, issued_snapshot')
+    .select('id, status, issued_snapshot, review_due_at, confirmed_source')
     .eq('id', params.id)
     .maybeSingle()
   if (!stmt) notFound()
@@ -60,7 +60,15 @@ export default async function StatementDetailPage({ params }: { params: { id: st
         <ArrowLeft size={14} /> Back to statements
       </Link>
 
-      <IssuePanel statementId={params.id} status={status} lineCount={lineCount} gstReviewCount={gstReviewCount} emailSent={emailSent} />
+      <IssuePanel
+        statementId={params.id}
+        status={status}
+        lineCount={lineCount}
+        gstReviewCount={gstReviewCount}
+        emailSent={emailSent}
+        reviewDueAt={(stmt.review_due_at as string | null) ?? null}
+        confirmedSource={(stmt.confirmed_source as string | null) ?? null}
+      />
 
       {snapshot ? (
         <ContractorStatementSnapshot snapshot={snapshot} superseded={status === 'superseded'} />

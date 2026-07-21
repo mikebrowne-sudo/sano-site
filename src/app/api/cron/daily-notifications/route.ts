@@ -29,6 +29,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { sendNotification } from '@/lib/notifications/send'
 import { generateDueRecurringInvoices } from '@/app/portal/recurring-jobs/_lib/generate-recurring-invoice'
+import { loadWorkforceSettings } from '@/lib/workforce-settings'
+import { toNzCalendarDate } from '@/lib/contractor-statement-period'
+import { calendarDaysBetween, dueReminderNo } from '@/lib/contractor-statement-reminders'
+import { sendStatementReminder } from '@/lib/contractor-statement-reminder-email'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -286,6 +290,64 @@ async function runDaily(request: NextRequest) {
     }
   } catch (e) {
     summary.errors.push(`overdue: ${(e as Error).message}`)
+  }
+
+  // ════ Task D — Contractor statement reminders (email) ══════════
+  // Anchored to issued_at: reminder 1 at +2 days, reminder 2 at +4 days (NZ).
+  // Gated behind an explicit workforce setting (default OFF) so no automated
+  // contractor email goes out until it's deliberately enabled. Idempotent —
+  // dedup by (statement_id, reminder_no) via notification_logs. Never changes
+  // statement status; never confirms.
+  const reminders = { enabled: false, scanned: 0, sent: 0, skipped: 0, failed: 0 }
+  try {
+    const settings = await loadWorkforceSettings(supabase)
+    reminders.enabled = settings.enable_contractor_statement_reminders
+    if (reminders.enabled) {
+      const todayNz = nzDateString(0)
+      const { data: issued, error: issErr } = await supabase
+        .from('contractor_statements')
+        .select('id, statement_number, contractor_id, issued_at, review_due_at, contractors ( full_name, email )')
+        .eq('status', 'issued')
+      if (issErr) {
+        summary.errors.push(`statement_reminders query: ${issErr.message}`)
+      } else {
+        reminders.scanned = (issued ?? []).length
+        for (const st of issued ?? []) {
+          const issuedNz = toNzCalendarDate(st.issued_at as string | null)
+          if (!issuedNz) { reminders.skipped++; continue }
+          const days = calendarDaysBetween(issuedNz, todayNz)
+
+          const { data: sentLogs } = await supabase
+            .from('notification_logs')
+            .select('payload')
+            .eq('type', 'contractor_statement_reminder')
+            .eq('status', 'sent')
+            .filter('payload->>statement_id', 'eq', st.id)
+          const sent = {
+            r1_sent: (sentLogs ?? []).some((l) => Number((l.payload as { reminder_no?: number } | null)?.reminder_no) === 1),
+            r2_sent: (sentLogs ?? []).some((l) => Number((l.payload as { reminder_no?: number } | null)?.reminder_no) === 2),
+          }
+          const no = dueReminderNo(days, sent)
+          if (!no) { reminders.skipped++; continue }
+
+          const c = st.contractors as unknown as { full_name: string | null; email: string | null } | null
+          const r = await sendStatementReminder(supabase, {
+            statementId: st.id as string,
+            statementNumber: st.statement_number as string,
+            contractorId: st.contractor_id as string,
+            contactName: c?.full_name ?? null,
+            email: c?.email ?? null,
+            reviewDueAt: (st.review_due_at as string | null) ?? null,
+            reminderNo: no,
+          })
+          if (r.ok) reminders.sent++
+          else reminders.failed++
+        }
+      }
+    }
+    ;(summary as typeof summary & { statement_reminders?: unknown }).statement_reminders = reminders
+  } catch (e) {
+    summary.errors.push(`statement_reminders: ${(e as Error).message}`)
   }
 
   // ════ Task C — Recurring invoices (draft generation) ════════════
