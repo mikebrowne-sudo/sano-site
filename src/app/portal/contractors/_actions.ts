@@ -28,6 +28,9 @@ interface ContractorInput {
   kiwisaver_enrolled?: boolean
   kiwisaver_employee_rate?: number
   kiwisaver_employer_rate?: number
+  kiwisaver_rate_source?: string
+  kiwisaver_rate_effective_date?: string
+  kiwisaver_temp_reduction_expiry?: string
   // Insurance
   insurance_provider?: string
   insurance_policy_number?: string
@@ -95,8 +98,11 @@ function payrollFields(input: ContractorInput) {
     tax_code: input.tax_code || 'M',
     ir330_received: input.ir330_received ?? false,
     kiwisaver_enrolled: input.kiwisaver_enrolled ?? false,
-    kiwisaver_employee_rate: input.kiwisaver_employee_rate ?? 3,
-    kiwisaver_employer_rate: input.kiwisaver_employer_rate ?? 3,
+    kiwisaver_employee_rate: input.kiwisaver_employee_rate ?? 3.5,
+    kiwisaver_employer_rate: Math.max(input.kiwisaver_employer_rate ?? 3.5, 3.5),
+    kiwisaver_rate_source: input.kiwisaver_rate_source || 'standard',
+    kiwisaver_rate_effective_date: input.kiwisaver_rate_effective_date || null,
+    kiwisaver_temp_reduction_expiry: input.kiwisaver_temp_reduction_expiry || null,
   }
 }
 
