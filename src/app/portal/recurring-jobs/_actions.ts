@@ -5,6 +5,9 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { notifyContractorAssigned } from '@/lib/notify-contractor'
 import { computeNextInvoiceDate } from '@/lib/recurring-invoice'
+import { resolveAllowedHours } from '@/lib/allowed-hours'
+import { buildRecurringWorkerRow, type RecurringPayType } from '@/lib/recurring-worker'
+import { rollbackOrphanOccurrence } from '@/lib/recurring-rollback'
 
 interface RecurringJobInput {
   client_id: string
@@ -14,6 +17,7 @@ interface RecurringJobInput {
   scheduled_time?: string
   duration_estimate?: string
   contractor_id?: string
+  contractor_pay_type?: string
   assigned_to?: string
   contractor_price?: number
   frequency: string
@@ -61,6 +65,7 @@ export async function createRecurringJob(input: RecurringJobInput) {
       scheduled_time: input.scheduled_time || null,
       duration_estimate: input.duration_estimate || null,
       contractor_id: input.contractor_id || null,
+      contractor_pay_type: input.contractor_pay_type === 'fixed' ? 'fixed' : 'hourly',
       assigned_to: input.assigned_to || null,
       contractor_price: input.contractor_price ?? null,
       frequency: input.frequency,
@@ -113,6 +118,7 @@ export async function updateRecurringJob(id: string, input: RecurringJobInput) {
       scheduled_time: input.scheduled_time || null,
       duration_estimate: input.duration_estimate || null,
       contractor_id: input.contractor_id || null,
+      contractor_pay_type: input.contractor_pay_type === 'fixed' ? 'fixed' : 'hourly',
       assigned_to: input.assigned_to || null,
       contractor_price: input.contractor_price ?? null,
       frequency: input.frequency,
@@ -141,6 +147,7 @@ export async function updateRecurringJob(id: string, input: RecurringJobInput) {
 
 export async function generateNextJob(recurringId: string) {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const { data: rec, error: loadErr } = await supabase
     .from('recurring_jobs')
@@ -201,6 +208,42 @@ export async function generateNextJob(recurringId: string) {
 
   if (createErr || !newJob) {
     return { error: `Failed to generate job: ${createErr?.message}` }
+  }
+
+  // PR C — seed the contractor's job_workers row (snapshotted rate + basis). If
+  // it fails, roll the occurrence back so we never leave a payable job with
+  // contractor_id but no authoritative job_workers row.
+  if (rec.contractor_id) {
+    const { data: c } = await supabase
+      .from('contractors')
+      .select('hourly_rate')
+      .eq('id', rec.contractor_id)
+      .single()
+    const workerRow = buildRecurringWorkerRow({
+      jobId: newJob.id as string,
+      contractorId: rec.contractor_id as string,
+      contractorRate: (c?.hourly_rate as number | null) ?? null,
+      allowedHours: resolveAllowedHours(null, rec.duration_estimate as string | null),
+      payType: (rec.contractor_pay_type as RecurringPayType) === 'fixed' ? 'fixed' : 'hourly',
+    })
+    const { error: wErr } = await supabase.from('job_workers').insert(workerRow)
+    if (wErr) {
+      const rb = await rollbackOrphanOccurrence(supabase, {
+        jobId: newJob.id as string,
+        contractorId: rec.contractor_id as string,
+        seedError: wErr.message,
+        actorId: user?.id ?? null,
+        recurringJobId: recurringId,
+        date: rec.next_due_date as string,
+      })
+      if (rb.rolledBack) {
+        return { error: `Could not seed the contractor's pay record, so the job was not generated: ${wErr.message}` }
+      }
+      if (rb.neutralized) {
+        return { error: `The contractor pay record failed and the job couldn't be deleted — it was neutralised to an unassigned draft (job ${newJob.id}). It is not payable. Original error: ${wErr.message}` }
+      }
+      return { error: `CRITICAL: the contractor pay record failed and the job could not be cleaned up (job ${newJob.id}, contractor ${rec.contractor_id}). It has been flagged in the audit log — do not pay it. Original error: ${wErr.message}` }
+    }
   }
 
   // Advance the recurring schedule

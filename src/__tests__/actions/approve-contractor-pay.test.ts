@@ -84,10 +84,11 @@ describe('approveContractorPay', () => {
     })
   })
 
-  it('fixed: creates an approved CI without forcing hours', async () => {
+  it('manual fixed AMOUNT on an hourly-basis worker: creates an approved CI', async () => {
+    // fixedAmount is a manual amount override; the worker's BASIS is still hourly.
     const { client, ciInsert } = makeSupabase({
       job: COMPLETED_JOB,
-      jw: { pay_rate: null, pay_type: 'fixed', hours_allocated: null, extra_hours: null, extra_hours_status: null },
+      jw: { pay_rate: null, pay_type: 'hourly', hours_allocated: null, extra_hours: null, extra_hours_status: null },
       dup: null,
       created: { id: 'ci2', invoice_number: 'CI-0100', amount: 280, status: 'approved' },
     })
@@ -220,5 +221,60 @@ describe('approveContractorPay', () => {
 
     expect(res.error).toMatch(/not assigned/i)
     expect(ciInsert).not.toHaveBeenCalled()
+  })
+})
+
+describe('approveContractorPay — fixed-contract basis is not payable per occurrence', () => {
+  it('1. an hourly recurring worker CAN be approved normally', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB,
+      jw: { pay_rate: 35, pay_type: 'hourly', hours_allocated: 4, extra_hours: 0, extra_hours_status: 'none' },
+      dup: null,
+      created: { id: 'ci1', invoice_number: 'CI-0099', amount: 140, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+    const res = await approveContractorPay('j1', 'c1', {})
+    expect(res).toMatchObject({ ok: true })
+    expect(ciInsert).toHaveBeenCalledTimes(1)
+  })
+
+  it('2. a fixed-basis worker CANNOT create a per-job contractor invoice', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB,
+      jw: { pay_rate: 40, pay_type: 'fixed', hours_allocated: null, extra_hours: null, extra_hours_status: null },
+      dup: null,
+    })
+    mockedCreate.mockReturnValue(client)
+    const res = await approveContractorPay('j1', 'c1', { fixedAmount: 200 }) // even with a fixed amount
+    expect(res.error).toMatch(/fixed-contract basis/i)
+    expect(ciInsert).not.toHaveBeenCalled()
+  })
+
+  it('4. repeated approval attempts on a fixed-basis worker stay blocked (no bypass)', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB,
+      jw: { pay_rate: 40, pay_type: 'fixed', hours_allocated: null, extra_hours: null, extra_hours_status: null },
+      dup: null,
+    })
+    mockedCreate.mockReturnValue(client)
+    const a = await approveContractorPay('j1', 'c1', {})
+    const b = await approveContractorPay('j1', 'c1', { fixedAmount: 200 })
+    expect(a.error).toMatch(/fixed-contract basis/i)
+    expect(b.error).toMatch(/fixed-contract basis/i)
+    expect(ciInsert).not.toHaveBeenCalled()
+  })
+
+  it('5. a manually-added HOURLY worker on a fixed-template job is approved on its own basis', async () => {
+    // The job's primary may be fixed, but THIS worker row is hourly → payable.
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB,
+      jw: { pay_rate: 30, pay_type: 'hourly', hours_allocated: 2, extra_hours: 0, extra_hours_status: 'none' },
+      dup: null,
+      created: { id: 'ci9', invoice_number: 'CI-0110', amount: 60, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+    const res = await approveContractorPay('j1', 'c-hourly', {})
+    expect(res).toMatchObject({ ok: true })
+    expect(ciInsert).toHaveBeenCalledTimes(1)
   })
 })

@@ -92,6 +92,16 @@ export async function approveContractorPay(
   const jw = jwRaw as WorkerRow | null
   if (!jw) return { error: 'This contractor is not assigned to the job.' }
 
+  // 2b. Fixed-contract basis is NOT payable per occurrence. Enforced here (not
+  //     just the UI) so every entry point using this shared action is covered.
+  //     The check is per worker row, so a manually-added hourly worker on a job
+  //     generated from a fixed recurring template is still payable normally.
+  //     Fixed-contract pay flows through the separate fixed-contract
+  //     contractor-invoice process.
+  if (jw.pay_type === 'fixed') {
+    return { error: 'This worker is on a fixed-contract basis for this job — not payable per occurrence. Pay them through the fixed-contract contractor-invoice process instead.' }
+  }
+
   // 3. Duplicate protection — one payable per job + contractor. (Admin
   //    override is a later stage.)
   const { data: existing } = await supabase

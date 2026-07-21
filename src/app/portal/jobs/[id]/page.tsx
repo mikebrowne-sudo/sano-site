@@ -694,7 +694,9 @@ export default async function JobDetailPage({
                             const extraHrs = (w?.extra_hours as number | null) ?? 0
                             const approvedExtra = extraStatus === 'approved' ? extraHrs : 0
                             const payableHrs = allowedHrs != null ? allowedHrs + approvedExtra : null
-                            const pay = payableHrs != null ? payableHrs * payRate : null
+                            const isFixed = ((w?.pay_type as string | null) ?? null) === 'fixed'
+                            // Fixed-contract workers are not payable per occurrence.
+                            const pay = !isFixed && payableHrs != null ? payableHrs * payRate : null
                             const locked = payStatus === 'included_in_pay_run' || payStatus === 'paid'
                             return (
                               <tr key={ew.contractorId} className="border-b border-gray-50">
@@ -750,7 +752,13 @@ export default async function JobDetailPage({
                                   </span>
                                 </td>
                                 <td className="py-2 pr-2 text-right">
-                                  {pay != null
+                                  {isFixed
+                                    ? (
+                                      <span className="text-[10px] font-semibold uppercase tracking-wide text-sage-500 bg-sage-50 px-1.5 py-0.5 rounded" title="Fixed-contract worker — paid via the fixed-contract contractor-invoice process, not payable per occurrence.">
+                                        Fixed contract
+                                      </span>
+                                    )
+                                    : pay != null
                                     ? (
                                       <span className="inline-flex flex-col items-end">
                                         <span className="font-bold text-sage-800">{formatCurrency(pay)}</span>

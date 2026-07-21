@@ -12,6 +12,9 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { isAdminEmail } from '@/lib/is-admin'
 import { loadJobSettings } from '@/lib/job-settings'
+import { resolveAllowedHours } from '@/lib/allowed-hours'
+import { buildRecurringWorkerRow, type RecurringPayType } from '@/lib/recurring-worker'
+import { rollbackOrphanOccurrence } from '@/lib/recurring-rollback'
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
@@ -197,13 +200,28 @@ export async function generateUpcomingRecurringJobs(input: {
 
   const { data: rec, error: readErr } = await supabase
     .from('recurring_jobs')
-    .select('id, client_id, title, description, address, scheduled_time, duration_estimate, contractor_id, assigned_to, frequency, start_date, end_date, next_due_date, status, scope_snapshot')
+    .select('id, client_id, title, description, address, scheduled_time, duration_estimate, contractor_id, contractor_pay_type, assigned_to, frequency, start_date, end_date, next_due_date, status, scope_snapshot')
     .eq('id', recurringJobId)
     .single()
   if (readErr || !rec) return { error: 'Recurring contract not found.' }
   if (rec.status !== 'active') return { error: `Cannot generate jobs while contract is ${rec.status}.` }
 
   const settings = await loadJobSettings(supabase)
+
+  // PR C — seed a proper job_workers row for each generated occurrence so the
+  // contractor has a snapshotted rate + pay basis (never jobs.contractor_id
+  // alone). Rate is snapshotted now, at generation, from the profile rate.
+  const allowedHours = resolveAllowedHours(null, rec.duration_estimate as string | null)
+  const payType: RecurringPayType = (rec.contractor_pay_type as RecurringPayType) === 'fixed' ? 'fixed' : 'hourly'
+  let contractorRate: number | null = null
+  if (rec.contractor_id) {
+    const { data: c } = await supabase
+      .from('contractors')
+      .select('hourly_rate')
+      .eq('id', rec.contractor_id)
+      .single()
+    contractorRate = (c?.hourly_rate as number | null) ?? null
+  }
   const horizon = addDaysIso(todayIso(), weeks * 7)
   const stopAt = rec.end_date && rec.end_date < horizon ? rec.end_date : horizon
 
@@ -240,9 +258,10 @@ export async function generateUpcomingRecurringJobs(input: {
 
   const newDates = candidates.filter((d) => !existingSet.has(d))
   let lastGenerated = rec.next_due_date as string | null
+  let created = 0 // occurrences fully created (job + worker), not rolled back
 
   for (const date of newDates) {
-    const { error: jErr } = await supabase
+    const { data: newJob, error: jErr } = await supabase
       .from('jobs')
       .insert({
         client_id: rec.client_id,
@@ -253,13 +272,16 @@ export async function generateUpcomingRecurringJobs(input: {
         scheduled_date: date,
         scheduled_time: rec.scheduled_time || null,
         duration_estimate: rec.duration_estimate || null,
+        allowed_hours: allowedHours,
         contractor_id: rec.contractor_id || null,
         assigned_to: rec.assigned_to || null,
         status: rec.contractor_id ? 'assigned' : 'draft',
         payment_status: settings.default_payment_status,
         scope_snapshot: rec.scope_snapshot ?? null,
       })
-    if (jErr) {
+      .select('id')
+      .single()
+    if (jErr || !newJob) {
       // Don't fail the whole batch on a single insert error — log
       // it via audit and keep going.
       await supabase.from('audit_log').insert({
@@ -269,10 +291,39 @@ export async function generateUpcomingRecurringJobs(input: {
         entity_table: 'recurring_jobs',
         entity_id: recurringJobId,
         before: null,
-        after: { date, error: jErr.message },
+        after: { date, error: jErr?.message ?? 'no row returned' },
       })
       continue
     }
+
+    // PR C — seed the contractor's job_workers row (snapshotted rate + basis).
+    // If it fails, ROLL THE OCCURRENCE BACK (delete the just-created job) so we
+    // never leave a payable job with contractor_id but no authoritative
+    // job_workers row — the exact inconsistency this PR eliminates.
+    if (rec.contractor_id) {
+      const workerRow = buildRecurringWorkerRow({
+        jobId: newJob.id as string,
+        contractorId: rec.contractor_id as string,
+        contractorRate,
+        allowedHours,
+        payType,
+      })
+      const { error: wErr } = await supabase.from('job_workers').insert(workerRow)
+      if (wErr) {
+        // Compensating rollback with double-failure escalation. Never leave a
+        // payable occurrence without its worker row; never advance for it.
+        await rollbackOrphanOccurrence(supabase, {
+          jobId: newJob.id as string,
+          contractorId: rec.contractor_id as string,
+          seedError: wErr.message,
+          actorId: user.id,
+          recurringJobId,
+          date,
+        })
+        continue // not created — don't count or advance for this date
+      }
+    }
+    created += 1
     lastGenerated = date
   }
 
@@ -297,14 +348,16 @@ export async function generateUpcomingRecurringJobs(input: {
     after: {
       window_weeks: weeks,
       candidates: candidates.length,
-      created: newDates.length,
+      created, // fully created (job + worker), excludes rolled-back occurrences
+      attempted: newDates.length,
       skipped_existing: candidates.length - newDates.length,
+      rolled_back: newDates.length - created,
     },
   })
 
   revalidatePath('/portal/recurring-jobs')
   revalidatePath(`/portal/recurring-jobs/${recurringJobId}`)
-  return { ok: true as const, createdCount: newDates.length, skippedCount: candidates.length - newDates.length }
+  return { ok: true as const, createdCount: created, skippedCount: candidates.length - newDates.length }
 }
 
 // ─── Mark reminder complete / dismissed ─────────────────────────

@@ -17,6 +17,7 @@ interface RecurringJobData {
   scheduled_time: string | null
   duration_estimate: string | null
   contractor_id: string | null
+  contractor_pay_type?: string | null
   assigned_to: string | null
   contractor_price: number | null
   frequency: string
@@ -51,6 +52,7 @@ export function RecurringJobForm({
   const [scheduledTime, setScheduledTime] = useState(recurringJob?.scheduled_time ?? '')
   const [durationEstimate, setDurationEstimate] = useState(recurringJob?.duration_estimate ?? '')
   const [contractorId, setContractorId] = useState(recurringJob?.contractor_id ?? '')
+  const [contractorPayType, setContractorPayType] = useState(recurringJob?.contractor_pay_type ?? 'hourly')
   const [assignedTo, setAssignedTo] = useState(recurringJob?.assigned_to ?? '')
   const [contractorPrice, setContractorPrice] = useState(recurringJob?.contractor_price != null ? String(recurringJob.contractor_price) : '')
   const [frequency, setFrequency] = useState(recurringJob?.frequency ?? 'weekly')
@@ -85,6 +87,7 @@ export function RecurringJobForm({
       scheduled_time: scheduledTime.trim() || undefined,
       duration_estimate: durationEstimate.trim() || undefined,
       contractor_id: contractorId || undefined,
+      contractor_pay_type: contractorPayType || 'hourly',
       assigned_to: assignedTo.trim() || undefined,
       contractor_price: toNum(contractorPrice),
       frequency,
@@ -148,6 +151,11 @@ export function RecurringJobForm({
           <Select label="Contractor" value={contractorId} onChange={handleContractorSelect} options={contractors.map((c) => ({ value: c.id, label: c.full_name }))} placeholder="Unassigned" />
           <Field label="Contractor price ($)" type="number" step="0.01" min="0" value={contractorPrice} onChange={setContractorPrice} />
         </div>
+        {contractorId && (
+          <div className="mt-4 max-w-xs">
+            <Select label="Contractor pay basis" value={contractorPayType} onChange={setContractorPayType} options={[{ value: 'hourly', label: 'Hourly / allocated hours' }, { value: 'fixed', label: 'Fixed per occurrence' }]} />
+          </div>
+        )}
       </Section>
 
       {/* Invoicing */}
