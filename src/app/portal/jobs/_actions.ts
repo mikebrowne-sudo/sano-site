@@ -9,6 +9,7 @@ import { resolveAllowedHours } from '@/lib/allowed-hours'
 import { snapshotJobVersion, computeChangedJobFields } from '@/lib/job-versions'
 import { pickSnapshotRate } from '@/lib/contractor-rate-snapshot'
 import { planWorkerDiff, localRemovalBlock, reconcilePrimaryContractor, type WorkerRow } from '@/lib/job-worker-diff'
+import { isAdminUser } from '@/lib/is-admin'
 
 type ExistingWorkerRow = WorkerRow & { contractors: { full_name: string } | null }
 
@@ -287,6 +288,42 @@ export async function updateJob(input: UpdateJobInput) {
   if (contractorChanged) {
     const insuranceError = await checkContractorInsurance(supabase, newPrimary!)
     if (insuranceError) return { error: insuranceError }
+  }
+
+  // PR D — job-identity protection. Once a job carries contractor financial
+  // history (an approved/paid contractor invoice — which also covers any
+  // remittance), its IDENTITY fields — the property (address) and the customer
+  // (client_id) — can no longer be changed. Changing them would repurpose a
+  // paid job into different work (the JOB-0065/JOB-0066 incident). Every other
+  // field stays editable for genuine corrections. A material identity change
+  // must be a NEW job. An admin may override, but it is explicitly audited.
+  // (job_number + recurring_job_id are not editable via this action at all, so
+  // they are immutable here already.)
+  const addressChanged = input.address !== undefined
+    && (input.address || null) !== ((current?.address as string | null) ?? null)
+  const clientChanged = input.client_id !== ((current?.client_id as string | null) ?? null)
+  if (addressChanged || clientChanged) {
+    const { data: fin } = await supabase
+      .from('contractor_invoices')
+      .select('invoice_number')
+      .eq('job_id', input.id)
+      .neq('status', 'void')
+      .limit(1)
+      .maybeSingle()
+    if (fin) {
+      if (!input.force || !isAdminUser(user)) {
+        return { error: 'This job has contractor payments attached, so its property or customer can’t be changed. Create a new job (or duplicate this one) for the different work.' }
+      }
+      await supabase.from('audit_log').insert({
+        actor_id: user?.id ?? null,
+        actor_role: 'admin',
+        action: 'job.identity_changed_override',
+        entity_table: 'jobs',
+        entity_id: input.id,
+        before: { address: (current?.address as string | null) ?? null, client_id: (current?.client_id as string | null) ?? null },
+        after: { address: input.address ?? null, client_id: input.client_id, forced_by_admin: true },
+      })
+    }
   }
 
   // Pay basis: fall back to a plain-number Duration estimate when

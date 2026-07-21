@@ -23,7 +23,7 @@ import { createClient } from '@/lib/supabase-server'
 const mockedCreate = createClient as unknown as jest.Mock
 
 const CURRENT = {
-  id: 'j-1', contractor_id: 'A', job_number: 'J-1', invoice_id: null,
+  id: 'j-1', contractor_id: 'A', client_id: 'cl-1', job_number: 'J-1', invoice_id: null,
   scheduled_date: null, scheduled_time: null, allowed_hours: 4,
   job_price: null, description: 'desc', address: 'addr',
 }
@@ -51,7 +51,7 @@ function makeClient({ existing, ci = null }: Opts) {
       }
     }
     if (table === 'contractor_invoices') {
-      return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), neq: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: ci, error: null }) }
+      return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), neq: jest.fn().mockReturnThis(), limit: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: ci, error: null }) }
     }
     if (table === 'pay_run_items') {
       return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }) }
