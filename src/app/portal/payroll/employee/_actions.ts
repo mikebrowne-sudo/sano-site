@@ -20,6 +20,8 @@ export interface SavePayRunInput {
   hours: number
   rate: number
   kiwiSaverEmployeeRate?: number
+  employerKiwiSaverRate?: number
+  esctThresholdAmount?: number | null
   notes?: string | null
   recordExpense?: boolean
 }
@@ -37,6 +39,8 @@ export async function saveEmployeePayRun(input: SavePayRunInput): Promise<{ ok?:
     rate: input.rate,
     period: input.payPeriod,
     kiwiSaverEmployeeRate: input.kiwiSaverEmployeeRate ?? 0,
+    employerKiwiSaverRate: input.employerKiwiSaverRate ?? 0,
+    esctThresholdAmount: input.esctThresholdAmount ?? undefined,
   })
 
   let expenseId: string | null = null
@@ -73,6 +77,10 @@ export async function saveEmployeePayRun(input: SavePayRunInput): Promise<{ ok?:
     paye: slip.paye,
     kiwisaver: slip.kiwiSaver,
     net: slip.net,
+    employer_kiwisaver: slip.employerKiwiSaver,
+    esct_rate: slip.esctRate,
+    esct: slip.esct,
+    employer_kiwisaver_net: slip.employerKiwiSaverNet,
     notes: input.notes?.trim() || null,
     expense_id: expenseId,
     created_by: user.id,
