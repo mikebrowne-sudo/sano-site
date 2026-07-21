@@ -122,12 +122,38 @@ export async function markContractorInvoicePaid(id: string) {
   if (gate) return { error: gate }
   const today = new Date().toISOString().slice(0, 10)
 
+  // Capture the before-state so this money-status change is auditable (who
+  // marked which payable paid, and what it was before).
+  const { data: before } = await supabase
+    .from('contractor_invoices')
+    .select('id, invoice_number, status, date_paid, amount')
+    .eq('id', id)
+    .maybeSingle()
+  if (!before) return { error: 'Contractor invoice not found.' }
+
   const { error } = await supabase
     .from('contractor_invoices')
     .update({ status: 'paid', date_paid: today })
     .eq('id', id)
 
   if (error) return { error: error.message }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  await supabase.from('audit_log').insert({
+    actor_id: user?.id ?? null,
+    actor_role: 'admin',
+    action: 'contractor_invoice.marked_paid',
+    entity_table: 'contractor_invoices',
+    entity_id: id,
+    before: { status: (before.status as string | null) ?? null, date_paid: (before.date_paid as string | null) ?? null },
+    after: {
+      invoice_number: (before.invoice_number as string | null) ?? null,
+      amount: (before.amount as number | null) ?? null,
+      status: 'paid',
+      date_paid: today,
+    },
+  })
+
   revalidatePath(`/portal/contractor-invoices/${id}`)
   revalidatePath('/portal/contractor-invoices')
   return { success: true }

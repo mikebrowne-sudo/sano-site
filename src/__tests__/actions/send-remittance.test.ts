@@ -57,13 +57,15 @@ function thenable(data: unknown) {
 function makeSvc(items: unknown[], contractors: unknown[]) {
   const updateEq = jest.fn().mockResolvedValue({ error: null })
   const update = jest.fn().mockReturnValue({ eq: updateEq })
+  const auditInsert = jest.fn().mockResolvedValue({ error: null })
   const from = jest.fn((table: string) => {
     if (table === 'contractor_remittance_items') return thenable(items)
     if (table === 'contractors') return thenable(contractors)
     if (table === 'contractor_remittances') return { update }
+    if (table === 'audit_log') return { insert: auditInsert }
     return thenable([])
   })
-  return { svc: { from }, update, updateEq }
+  return { svc: { from }, update, updateEq, auditInsert }
 }
 
 beforeEach(() => {
@@ -99,6 +101,41 @@ describe('sendContractorRemittance — recipient resolution', () => {
       { filename: 'Sano Remittance - RA-0001.pdf', content: Buffer.from('PDF-CONTENT') },
     ])
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ sent_by: 'u1' }))
+  })
+
+  it('audits a first send (not a resend)', async () => {
+    mockedBatch.mockResolvedValue(baseBatch())
+    const { svc, auditInsert } = makeSvc(
+      [{ contractor_id: 'c1' }],
+      [{ id: 'c1', email: 'kritika@example.com', full_name: 'Kritika Kumar' }],
+    )
+    mockedSvc.mockReturnValue(svc)
+
+    await sendContractorRemittance('r1')
+
+    const audit = auditInsert.mock.calls[0][0]
+    expect(audit.action).toBe('contractor_remittance.sent')
+    expect(audit.entity_id).toBe('r1')
+    expect(audit.before).toBeNull()
+    expect(audit.after).toMatchObject({ remittance_number: 'RA-0001', sent_to: 'kritika@example.com', total: 1220, resent: false })
+  })
+
+  it('audits a force-resend distinctly, with the previous sent time', async () => {
+    mockedBatch.mockResolvedValue(baseBatch({ sentAt: '2026-05-08T03:00:00.000Z' }))
+    const { svc, auditInsert, update } = makeSvc(
+      [{ contractor_id: 'c1' }],
+      [{ id: 'c1', email: 'kritika@example.com', full_name: 'Kritika Kumar' }],
+    )
+    mockedSvc.mockReturnValue(svc)
+
+    const res = await sendContractorRemittance('r1', { force: true })
+
+    expect(res).toMatchObject({ ok: true })
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ sent_by: 'u1' }))
+    const audit = auditInsert.mock.calls[0][0]
+    expect(audit.action).toBe('contractor_remittance.resent')
+    expect(audit.before).toMatchObject({ sent_at: '2026-05-08T03:00:00.000Z' })
+    expect(audit.after).toMatchObject({ resent: true, previous_sent_at: '2026-05-08T03:00:00.000Z' })
   })
 
   it('sends one email to the shared address for a combined household remittance', async () => {
