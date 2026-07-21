@@ -1,4 +1,49 @@
-import { splitGstInclusive, contractorGstOnPayment, GST_INCLUSIVE_FRACTION } from '@/lib/payroll/gst'
+import { splitGstInclusive, contractorGstOnPayment, resolveContractorPaymentGst, GST_INCLUSIVE_FRACTION } from '@/lib/payroll/gst'
+
+describe('resolveContractorPaymentGst — supply-date GST snapshot (flags, never guesses)', () => {
+  const reg = { gstRegistered: true, gstNumber: '123-456-789', gstEffectiveDate: '2026-04-01', taxTreatment: 'ordinary_trade_creditor' }
+
+  it('GST-registered on the supply date → 3/23 split, full amount preserved', () => {
+    const r = resolveContractorPaymentGst(reg, 230, '2026-05-10')
+    expect(r).toMatchObject({ status: 'applied', applied: true, gstAmount: 30, exclusive: 200 })
+  })
+
+  it('non-GST contractor → no GST, whole amount exclusive', () => {
+    const r = resolveContractorPaymentGst({ gstRegistered: false }, 230, '2026-05-10')
+    expect(r).toMatchObject({ status: 'not_registered', applied: false, gstAmount: 0, exclusive: 230 })
+  })
+
+  it('registration starting mid-month: before effective date → no GST; on/after → GST', () => {
+    expect(resolveContractorPaymentGst(reg, 230, '2026-03-31')).toMatchObject({ status: 'before_effective_date', applied: false, gstAmount: 0 })
+    expect(resolveContractorPaymentGst(reg, 230, '2026-04-01')).toMatchObject({ status: 'applied', applied: true, gstAmount: 30 })
+  })
+
+  it('deregistered (registered flag off) later → no GST (note: no deregistration DATE is tracked)', () => {
+    expect(resolveContractorPaymentGst({ gstRegistered: false, gstNumber: '123', gstEffectiveDate: '2026-04-01' }, 230, '2026-09-01'))
+      .toMatchObject({ status: 'not_registered', applied: false })
+  })
+
+  it('GST-inclusive NEGATIVE adjustment → GST split stays proportional', () => {
+    const r = resolveContractorPaymentGst(reg, -230, '2026-05-10')
+    expect(r).toMatchObject({ status: 'applied', applied: true, gstAmount: -30, exclusive: -200 })
+  })
+
+  it('fixed-contract style payable (registered) resolves the same way at its supply date', () => {
+    const r = resolveContractorPaymentGst(reg, 1500, '2026-06-30')
+    expect(r.status).toBe('applied')
+    expect(r.gstAmount).toBeCloseTo(1500 * 3 / 23, 2)
+  })
+
+  it('legacy contractor with incomplete GST data → FLAGGED (no guessing)', () => {
+    // registered but missing GST number / effective date
+    expect(resolveContractorPaymentGst({ gstRegistered: true, gstNumber: null, gstEffectiveDate: '2026-04-01' }, 230, '2026-05-10')).toMatchObject({ status: 'incomplete', applied: false })
+    expect(resolveContractorPaymentGst({ gstRegistered: true, gstNumber: '123', gstEffectiveDate: null }, 230, '2026-05-10')).toMatchObject({ status: 'incomplete', applied: false })
+  })
+
+  it('tax treatment pending_review → FLAGGED, GST not applied', () => {
+    expect(resolveContractorPaymentGst({ ...reg, taxTreatment: 'pending_review' }, 230, '2026-05-10')).toMatchObject({ status: 'pending_review', applied: false, gstAmount: 0 })
+  })
+})
 
 describe('GST split (3/23 of a GST-inclusive amount)', () => {
   it('splits a GST-inclusive amount', () => {

@@ -71,3 +71,64 @@ export function contractorGstOnPayment(
   }
   return { applied: true, ...splitGstInclusive(inclusiveAmount) }
 }
+
+/**
+ * GST status recorded on a snapshotted contractor payment.
+ * - 'applied'               registered on the supply date → 3/23 split
+ * - 'not_registered'        contractor isn't GST-registered → no GST
+ * - 'before_effective_date' registered, but the supply date precedes registration
+ * - 'pending_review'        tax treatment unresolved → FLAGGED, never guessed
+ * - 'incomplete'            registered but missing GST number / effective date → FLAGGED
+ */
+export type ContractorGstStatus =
+  | 'applied'
+  | 'not_registered'
+  | 'before_effective_date'
+  | 'pending_review'
+  | 'incomplete'
+
+export interface ContractorPaymentGstInput {
+  gstRegistered: boolean | null
+  gstEffectiveDate?: string | null
+  gstNumber?: string | null
+  /** contractors.tax_treatment — 'pending_review' means don't guess. */
+  taxTreatment?: string | null
+}
+
+export interface ResolvedContractorGst {
+  status: ContractorGstStatus
+  applied: boolean
+  /** GST portion (3/23) — 0 unless status is 'applied'. Never added on top. */
+  gstAmount: number
+  /** GST-exclusive portion. Equals the full amount when GST is not applied. */
+  exclusive: number
+}
+
+/**
+ * Resolve GST for a contractor payment at its supply date. Rates are always
+ * GST-inclusive; GST is split OUT with 3/23, never added on top. When the
+ * contractor's GST status is unresolved (pending review, or registered but
+ * missing its number / effective date), the payment is FLAGGED rather than
+ * guessed — GST is not applied and staff can complete the data.
+ */
+export function resolveContractorPaymentGst(
+  c: ContractorPaymentGstInput,
+  inclusiveAmount: number,
+  supplyDateIso: string | null,
+): ResolvedContractorGst {
+  const amount = round2(inclusiveAmount)
+  if ((c.taxTreatment ?? '') === 'pending_review') {
+    return { status: 'pending_review', applied: false, gstAmount: 0, exclusive: amount }
+  }
+  if (!c.gstRegistered) {
+    return { status: 'not_registered', applied: false, gstAmount: 0, exclusive: amount }
+  }
+  if (!c.gstNumber?.trim() || !c.gstEffectiveDate) {
+    return { status: 'incomplete', applied: false, gstAmount: 0, exclusive: amount }
+  }
+  if (supplyDateIso && supplyDateIso < c.gstEffectiveDate) {
+    return { status: 'before_effective_date', applied: false, gstAmount: 0, exclusive: amount }
+  }
+  const split = splitGstInclusive(amount)
+  return { status: 'applied', applied: true, gstAmount: split.gst, exclusive: split.exclusive }
+}
