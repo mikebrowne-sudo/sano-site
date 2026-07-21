@@ -11,9 +11,9 @@
 import { annualIncomeTax, annualAccLevy, periodsPerYear, type PayPeriod } from '@/lib/payroll/paye'
 import { computeEsct } from '@/lib/payroll/esct'
 
-const round2 = (n: number) => Math.round(n * 100) / 100
 // IRD payroll truncates (not rounds): whole-dollar gross for the PAYE/SL calc,
-// and truncate deduction results to the cent.
+// and truncate deduction results to the cent. Net pay is the residual, rounded.
+const round2 = (n: number) => Math.round(n * 100) / 100
 const trunc2 = (n: number) => Math.floor(n * 100) / 100
 const floorDollar = (n: number) => Math.floor(n)
 
@@ -26,8 +26,9 @@ const SECONDARY_RATES: Record<string, number> = {
   SA: 0.39,
 }
 
-// Student loan repayment: 12% of earnings above the pay-period threshold.
-// Annual threshold $24,128 (unchanged for 2026/27) → per-period thresholds below.
+// Student loan repayment: 12% of the whole-dollar gross. PRIMARY SL codes get
+// the pay-period threshold below (annual $24,128, unchanged for 2026/27);
+// SECONDARY SL codes have no threshold (12% of the whole gross).
 const SL_RATE = 0.12
 const SL_PERIOD_THRESHOLD: Record<'weekly' | 'fortnightly', number> = {
   weekly: 464, // 24,128 / 52
@@ -102,8 +103,6 @@ export function calculatePayPreview(params: {
   const effectiveGross = grossPay + holidayPay
   const period: PayPeriod = params.payFrequency
   const n = periodsPerYear(period)
-  const annualIncome = effectiveGross * n
-
   // Determine tax code
   const code = (params.taxCode || 'M').toUpperCase()
   const hasSL = SL_CODES.has(code)
@@ -126,20 +125,22 @@ export function calculatePayPreview(params: {
     paye = trunc2(incomeTaxPeriod + accLevyPeriod)
   }
 
-  // Student loan — 12% of earnings above the IRD pay-period threshold.
+  // Student loan — 12% of the whole-dollar gross, truncated. SECONDARY SL codes
+  // (S SL, SH SL, ...) have NO repayment threshold — the full gross is charged.
+  // Only PRIMARY SL codes (M SL, ME SL) get the pay-period threshold.
   let studentLoan = 0
   if (hasSL) {
-    const slThreshold = SL_PERIOD_THRESHOLD[period]
-    studentLoan = round2(Math.max(0, effectiveGross - slThreshold) * SL_RATE)
+    const slThreshold = SECONDARY_RATES[base] !== undefined ? 0 : SL_PERIOD_THRESHOLD[period]
+    studentLoan = trunc2(Math.max(0, grossDollar - slThreshold) * SL_RATE)
   }
 
-  // KiwiSaver
+  // KiwiSaver — rate on the full gross, truncated to the cent (IRD).
   const employeeKS = params.kiwisaverEnrolled
-    ? Math.round(effectiveGross * (params.kiwisaverEmployeeRate / 100) * 100) / 100
+    ? trunc2(effectiveGross * (params.kiwisaverEmployeeRate / 100))
     : 0
 
   const employerKS = params.kiwisaverEnrolled
-    ? Math.round(effectiveGross * (params.kiwisaverEmployerRate / 100) * 100) / 100
+    ? trunc2(effectiveGross * (params.kiwisaverEmployerRate / 100))
     : 0
 
   // ESCT — tax on the employer contribution, withheld from it (not added on
@@ -147,8 +148,8 @@ export function calculatePayPreview(params: {
   const annualThreshold = (effectiveGross + employerKS) * n
   const esctSplit = computeEsct(employerKS, annualThreshold)
 
-  const netPay = Math.round((effectiveGross - paye - studentLoan - employeeKS) * 100) / 100
-  const totalEmployerCost = Math.round((effectiveGross + employerKS) * 100) / 100
+  const netPay = round2(effectiveGross - paye - studentLoan - employeeKS)
+  const totalEmployerCost = round2(effectiveGross + employerKS)
 
   return {
     grossPay,
