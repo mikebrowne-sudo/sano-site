@@ -17,10 +17,20 @@ import { computeEsct, type EsctRates, ESCT_RATES } from './esct'
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
+/**
+ * How 8% holiday pay is handled:
+ * - 'inclusive'     — the hourly rate already includes 8% (gross = hours × rate;
+ *                     the 8% is identified within, 8/108). Legacy default.
+ * - 'exclusive_on_top' — the rate is the BASE; 8% is added on top as a separate
+ *                     line (gross = base + 8%). Holidays-Act pay-as-you-go.
+ */
+export type HolidayPayMode = 'inclusive' | 'exclusive_on_top'
+
 export interface PayslipInput {
   hours: number
-  rate: number // inclusive of 8% holiday pay
+  rate: number // base, or inclusive of 8% holiday pay — see holidayPayMode
   period: PayPeriod
+  holidayPayMode?: HolidayPayMode // default 'inclusive'
   kiwiSaverEmployeeRate?: number // 0 when opted out
   /** Employer KiwiSaver contribution rate, e.g. 0.035. 0 when not a member. */
   employerKiwiSaverRate?: number
@@ -40,8 +50,14 @@ export interface PayslipInput {
 export interface Payslip {
   hours: number
   rate: number
+  holidayPayMode: HolidayPayMode
+  /** Base earnings before holiday pay (gross − holiday pay). */
+  baseEarnings: number
   gross: number
-  /** The 8% holiday-pay portion identified within gross (8/108). */
+  /**
+   * The 8% holiday-pay amount. In 'inclusive' mode it's the portion within
+   * gross (8/108); in 'exclusive_on_top' mode it's the 8% added on top.
+   */
   holidayPayComponent: number
   incomeTax: number
   accLevy: number
@@ -61,8 +77,23 @@ export interface Payslip {
 export function computePayslip(input: PayslipInput): Payslip {
   const rates = input.rates ?? PAYE_RATES
   const esctRates = input.esctRates ?? ESCT_RATES
-  const gross = round2((input.hours || 0) * (input.rate || 0))
-  const holidayPayComponent = round2((gross * 8) / 108)
+  const mode: HolidayPayMode = input.holidayPayMode ?? 'inclusive'
+
+  // Holiday pay: either identified within the rate (inclusive, 8/108) or added
+  // on top of a base rate (exclusive, 8%). PAYE is always on the full gross.
+  const raw = round2((input.hours || 0) * (input.rate || 0))
+  let baseEarnings: number
+  let holidayPayComponent: number
+  let gross: number
+  if (mode === 'exclusive_on_top') {
+    baseEarnings = raw
+    holidayPayComponent = round2(raw * 0.08)
+    gross = round2(raw + holidayPayComponent)
+  } else {
+    gross = raw
+    holidayPayComponent = round2((raw * 8) / 108)
+    baseEarnings = round2(raw - holidayPayComponent)
+  }
   const { incomeTax, accLevy, paye } = computePaye(gross, input.period, rates)
   const kiwiSaver = round2(gross * (input.kiwiSaverEmployeeRate ?? 0))
   const net = round2(gross - paye - kiwiSaver)
@@ -76,6 +107,8 @@ export function computePayslip(input: PayslipInput): Payslip {
   return {
     hours: input.hours,
     rate: input.rate,
+    holidayPayMode: mode,
+    baseEarnings,
     gross,
     holidayPayComponent,
     incomeTax,

@@ -7,7 +7,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { revalidatePath } from 'next/cache'
-import { computePayslip } from '@/lib/payroll/payslip'
+import { computePayslip, type HolidayPayMode } from '@/lib/payroll/payslip'
 import type { PayPeriod } from '@/lib/payroll/paye'
 
 export interface SavePayRunInput {
@@ -19,6 +19,8 @@ export interface SavePayRunInput {
   payDate: string
   hours: number
   rate: number
+  holidayPayMode?: HolidayPayMode
+  paygHolidayEligible?: boolean
   kiwiSaverEmployeeRate?: number
   employerKiwiSaverRate?: number
   esctThresholdAmount?: number | null
@@ -38,6 +40,7 @@ export async function saveEmployeePayRun(input: SavePayRunInput): Promise<{ ok?:
     hours: input.hours,
     rate: input.rate,
     period: input.payPeriod,
+    holidayPayMode: input.holidayPayMode ?? 'inclusive',
     kiwiSaverEmployeeRate: input.kiwiSaverEmployeeRate ?? 0,
     employerKiwiSaverRate: input.employerKiwiSaverRate ?? 0,
     esctThresholdAmount: input.esctThresholdAmount ?? undefined,
@@ -71,7 +74,10 @@ export async function saveEmployeePayRun(input: SavePayRunInput): Promise<{ ok?:
     hours: input.hours,
     rate: input.rate,
     gross: slip.gross,
+    base_earnings: slip.baseEarnings,
+    holiday_pay_mode: slip.holidayPayMode,
     holiday_pay_component: slip.holidayPayComponent,
+    payg_holiday_eligible: input.paygHolidayEligible ?? true,
     income_tax: slip.incomeTax,
     acc_levy: slip.accLevy,
     paye: slip.paye,
