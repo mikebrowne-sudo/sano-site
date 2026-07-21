@@ -295,6 +295,9 @@ export async function generateUpcomingRecurringJobs(input: {
     }
 
     // PR C — seed the contractor's job_workers row (snapshotted rate + basis).
+    // If it fails, ROLL THE OCCURRENCE BACK (delete the just-created job) so we
+    // never leave a payable job with contractor_id but no authoritative
+    // job_workers row — the exact inconsistency this PR eliminates.
     if (rec.contractor_id) {
       const workerRow = buildRecurringWorkerRow({
         jobId: newJob.id as string,
@@ -305,15 +308,17 @@ export async function generateUpcomingRecurringJobs(input: {
       })
       const { error: wErr } = await supabase.from('job_workers').insert(workerRow)
       if (wErr) {
+        await supabase.from('jobs').delete().eq('id', newJob.id as string)
         await supabase.from('audit_log').insert({
           actor_id: user.id,
           actor_role: 'staff',
           action: 'recurring_job.generation_error',
-          entity_table: 'jobs',
-          entity_id: newJob.id as string,
+          entity_table: 'recurring_jobs',
+          entity_id: recurringJobId,
           before: null,
-          after: { date, error: `job_worker seed failed: ${wErr.message}` },
+          after: { date, error: `job_worker seed failed — occurrence rolled back: ${wErr.message}` },
         })
+        continue // don't count or advance for this date
       }
     }
     lastGenerated = date

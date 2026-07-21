@@ -208,8 +208,9 @@ export async function generateNextJob(recurringId: string) {
     return { error: `Failed to generate job: ${createErr?.message}` }
   }
 
-  // PR C — seed the contractor's job_workers row so the generated occurrence has
-  // a snapshotted rate + pay basis (never jobs.contractor_id alone).
+  // PR C — seed the contractor's job_workers row (snapshotted rate + basis). If
+  // it fails, roll the occurrence back so we never leave a payable job with
+  // contractor_id but no authoritative job_workers row.
   if (rec.contractor_id) {
     const { data: c } = await supabase
       .from('contractors')
@@ -223,7 +224,11 @@ export async function generateNextJob(recurringId: string) {
       allowedHours: resolveAllowedHours(null, rec.duration_estimate as string | null),
       payType: (rec.contractor_pay_type as RecurringPayType) === 'fixed' ? 'fixed' : 'hourly',
     })
-    await supabase.from('job_workers').insert(workerRow)
+    const { error: wErr } = await supabase.from('job_workers').insert(workerRow)
+    if (wErr) {
+      await supabase.from('jobs').delete().eq('id', newJob.id as string)
+      return { error: `Could not seed the contractor's pay record, so the job was not generated: ${wErr.message}` }
+    }
   }
 
   // Advance the recurring schedule

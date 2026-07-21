@@ -22,11 +22,15 @@ export interface RecurringWorkerInput {
 }
 
 export function buildRecurringWorkerRow(input: RecurringWorkerInput) {
+  const isFixed = input.payType === 'fixed'
   return {
     job_id: input.jobId,
     contractor_id: input.contractorId,
-    hours_allocated: input.allowedHours,
+    // Fixed-contract workers are NOT payable per occurrence, so we don't seed
+    // allocated hours — that avoids the pay UI showing a misleading
+    // hours × rate amount. The rate is still snapshotted for reference.
+    hours_allocated: isFixed ? null : input.allowedHours,
     pay_rate: pickSnapshotRate(null, input.contractorRate),
-    pay_type: input.payType === 'fixed' ? 'fixed' : 'hourly',
+    pay_type: isFixed ? 'fixed' : 'hourly',
   }
 }
