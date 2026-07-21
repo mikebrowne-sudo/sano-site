@@ -27,6 +27,7 @@ export function CIForm({ ci, contractors, jobs }: { ci?: CIData; contractors: Co
   const [jobId, setJobId] = useState(ci?.job_id ?? '')
   const [amount, setAmount] = useState(ci?.amount ? String(ci.amount) : '')
   const [dateSubmitted, setDateSubmitted] = useState(ci?.date_submitted ?? new Date().toISOString().slice(0, 10))
+  const [gstSupplyDate, setGstSupplyDate] = useState(ci?.date_submitted ?? new Date().toISOString().slice(0, 10))
   const [notes, setNotes] = useState(ci?.notes ?? '')
   const [paymentType, setPaymentType] = useState(ci?.payment_type ?? 'standard')
   const [siteLabel, setSiteLabel] = useState(ci?.site_label ?? '')
@@ -67,6 +68,7 @@ export function CIForm({ ci, contractors, jobs }: { ci?: CIData; contractors: Co
             job_id: jobId || undefined,
             amount: amt,
             date_submitted: dateSubmitted,
+            gst_supply_date: gstSupplyDate,
             notes: notes.trim() || undefined,
             payment_type: paymentType,
             site_label: siteLabel.trim() || null,
@@ -117,6 +119,13 @@ export function CIForm({ ci, contractors, jobs }: { ci?: CIData; contractors: Co
             <span className="block text-sm font-semibold text-sage-800 mb-1.5">Date submitted</span>
             <input type="date" value={dateSubmitted} onChange={(e) => setDateSubmitted(e.target.value)} className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
           </label>
+          {!isEdit && (
+            <label className="block">
+              <span className="block text-sm font-semibold text-sage-800 mb-1.5">GST supply date</span>
+              <input type="date" value={gstSupplyDate} onChange={(e) => setGstSupplyDate(e.target.value)} className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
+              <span className="block text-xs text-sage-400 mt-1">{isFixed ? 'Use the service-period end date for a fixed-contract period.' : 'Date the work was supplied — used to determine GST. Defaults to the date submitted; confirm or change it.'}</span>
+            </label>
+          )}
         </div>
       </Section>
 

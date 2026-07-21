@@ -71,6 +71,7 @@ export interface ContractorData {
   gst_registered?: boolean | null
   gst_number?: string | null
   gst_effective_date?: string | null
+  gst_end_date?: string | null
   tax_treatment?: string | null
   // Payment (contractor)
   bank_account_name?: string | null
@@ -160,6 +161,7 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
   const [gstRegistered, setGstRegistered] = useState(contractor?.gst_registered ?? false)
   const [gstNumber, setGstNumber] = useState(contractor?.gst_number ?? '')
   const [gstEffectiveDate, setGstEffectiveDate] = useState(contractor?.gst_effective_date ?? '')
+  const [gstEndDate, setGstEndDate] = useState(contractor?.gst_end_date ?? '')
   const [taxTreatment, setTaxTreatment] = useState(contractor?.tax_treatment ?? 'pending_review')
 
   // Payment (contractor-only)
@@ -251,6 +253,7 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
         gst_registered: gstRegistered,
         gst_number: gstRegistered ? (gstNumber.trim() || undefined) : undefined,
         gst_effective_date: gstRegistered ? (gstEffectiveDate || undefined) : undefined,
+        gst_end_date: gstEndDate || undefined,
         tax_treatment: taxTreatment || 'pending_review',
         bank_account_name: bankAccountName.trim() || undefined,
         bank_account_number: bankAccountNumber.trim() || undefined,
@@ -372,6 +375,7 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="GST number" value={gstNumber} onChange={setGstNumber} placeholder="e.g. 123-456-789" />
                 <Field label="GST effective from" type="date" value={gstEffectiveDate} onChange={setGstEffectiveDate} />
+                <Field label="GST end / deregistered (if any)" type="date" value={gstEndDate} onChange={setGstEndDate} />
               </div>
               {!gstNumber.trim() && (
                 <p className="text-xs text-amber-600 mt-2">GST number required when GST-registered.</p>

@@ -74,22 +74,29 @@ export function contractorGstOnPayment(
 
 /**
  * GST status recorded on a snapshotted contractor payment.
- * - 'applied'               registered on the supply date → 3/23 split
- * - 'not_registered'        contractor isn't GST-registered → no GST
- * - 'before_effective_date' registered, but the supply date precedes registration
- * - 'pending_review'        tax treatment unresolved → FLAGGED, never guessed
- * - 'incomplete'            registered but missing GST number / effective date → FLAGGED
+ * - 'applied'               supply date within a confirmed registration window → 3/23 split
+ * - 'before_effective_date' supply date precedes the registration start
+ * - 'not_registered'        after the end date, or plainly never registered → no GST
+ * - 'pending_review'        tax treatment pending, OR not-registered flag conflicts
+ *                           with historical dates → FLAGGED (never auto no-GST)
+ * - 'incomplete'            registration claimed but not confirmable (no effective
+ *                           date / no GST number) → FLAGGED
+ * - 'not_assessed'          historical row, never assessed (migration backfill only)
  */
 export type ContractorGstStatus =
   | 'applied'
-  | 'not_registered'
   | 'before_effective_date'
+  | 'not_registered'
   | 'pending_review'
   | 'incomplete'
+  | 'not_assessed'
 
 export interface ContractorPaymentGstInput {
   gstRegistered: boolean | null
+  /** ISO date registration took effect (window start). */
   gstEffectiveDate?: string | null
+  /** ISO date registration ended / deregistered (window end). Null = open. */
+  gstEndDate?: string | null
   gstNumber?: string | null
   /** contractors.tax_treatment — 'pending_review' means don't guess. */
   taxTreatment?: string | null
@@ -105,11 +112,11 @@ export interface ResolvedContractorGst {
 }
 
 /**
- * Resolve GST for a contractor payment at its supply date. Rates are always
- * GST-inclusive; GST is split OUT with 3/23, never added on top. When the
- * contractor's GST status is unresolved (pending review, or registered but
- * missing its number / effective date), the payment is FLAGGED rather than
- * guessed — GST is not applied and staff can complete the data.
+ * Resolve GST for a contractor payment at its supply date, using the
+ * registration WINDOW [effective, end] rather than the current flag alone.
+ * Rates are GST-inclusive; GST is split OUT (3/23), never added on top.
+ * Ambiguity (pending treatment, incomplete dates, or a not-registered flag that
+ * conflicts with historical dates) is FLAGGED, never guessed as no-GST.
  */
 export function resolveContractorPaymentGst(
   c: ContractorPaymentGstInput,
@@ -117,18 +124,33 @@ export function resolveContractorPaymentGst(
   supplyDateIso: string | null,
 ): ResolvedContractorGst {
   const amount = round2(inclusiveAmount)
-  if ((c.taxTreatment ?? '') === 'pending_review') {
-    return { status: 'pending_review', applied: false, gstAmount: 0, exclusive: amount }
+  const flag = (status: ContractorGstStatus): ResolvedContractorGst => ({ status, applied: false, gstAmount: 0, exclusive: amount })
+  const eff = c.gstEffectiveDate || null
+  const end = c.gstEndDate || null
+  const supply = supplyDateIso || null
+
+  // Unresolved tax treatment → flag.
+  if ((c.taxTreatment ?? '') === 'pending_review') return flag('pending_review')
+
+  // Supply before the window started → not registered yet (distinct status).
+  if (eff && supply && supply < eff) return flag('before_effective_date')
+  // Supply after an explicit end date → deregistered by then.
+  if (end && supply && supply > end) return flag('not_registered')
+
+  // Within a CONFIRMED window → applied. Confirmed = effective date set + supply
+  // on/after it AND (an explicit end covers it, OR still registered with no end).
+  if (eff && supply && supply >= eff && (end ? supply <= end : !!c.gstRegistered)) {
+    if (!c.gstNumber?.trim()) return flag('incomplete') // in-window but no number
+    const split = splitGstInclusive(amount)
+    return { status: 'applied', applied: true, gstAmount: split.gst, exclusive: split.exclusive }
   }
-  if (!c.gstRegistered) {
-    return { status: 'not_registered', applied: false, gstAmount: 0, exclusive: amount }
-  }
-  if (!c.gstNumber?.trim() || !c.gstEffectiveDate) {
-    return { status: 'incomplete', applied: false, gstAmount: 0, exclusive: amount }
-  }
-  if (supplyDateIso && supplyDateIso < c.gstEffectiveDate) {
-    return { status: 'before_effective_date', applied: false, gstAmount: 0, exclusive: amount }
-  }
-  const split = splitGstInclusive(amount)
-  return { status: 'applied', applied: true, gstAmount: split.gst, exclusive: split.exclusive }
+
+  // Registration claimed but not confirmable (no effective date) → flag.
+  if (c.gstRegistered && !eff) return flag('incomplete')
+  // Not currently registered but there IS historical registration data we can't
+  // place cleanly (e.g. effective date but no end, flag off) → don't auto no-GST.
+  if (!c.gstRegistered && eff) return flag('pending_review')
+
+  // No registration information at all → not registered.
+  return flag('not_registered')
 }

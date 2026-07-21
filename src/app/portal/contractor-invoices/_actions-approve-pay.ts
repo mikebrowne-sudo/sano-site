@@ -13,7 +13,7 @@ import { isAdminUser } from '@/lib/is-admin'
 import { getWorkerPayableHours } from '@/lib/job-cost'
 import { computeApprovedAmount } from '@/lib/contractor-pay'
 import { conciseWorkType } from '@/lib/remittance-work-type'
-import { resolveContractorPaymentGst } from '@/lib/payroll/gst'
+import { resolveContractorGstSnapshot } from '@/lib/contractor-gst-snapshot'
 import { revalidatePath } from 'next/cache'
 
 export interface ApproveContractorPayInput {
@@ -150,21 +150,8 @@ export async function approveContractorPay(
   //     was GST-registered on the supply date. The full inclusive amount stays
   //     the payable total. Unresolved status (pending review / incomplete data)
   //     is FLAGGED, not guessed. Historical paid invoices are never recomputed.
-  const { data: gstC } = await supabase
-    .from('contractors')
-    .select('gst_registered, gst_number, gst_effective_date, tax_treatment')
-    .eq('id', contractorId)
-    .maybeSingle()
-  const gst = resolveContractorPaymentGst(
-    {
-      gstRegistered: (gstC?.gst_registered as boolean | null) ?? false,
-      gstNumber: (gstC?.gst_number as string | null) ?? null,
-      gstEffectiveDate: (gstC?.gst_effective_date as string | null) ?? null,
-      taxTreatment: (gstC?.tax_treatment as string | null) ?? null,
-    },
-    calc.amount,
-    dateSubmitted,
-  )
+  const gstSupplyDate = dateSubmitted // job's completed_at
+  const { fields: gstFields, resolved: gst } = await resolveContractorGstSnapshot(supabase, contractorId, calc.amount, gstSupplyDate)
 
   // Note = a concise work type for the remittance advice, NOT the full job
   // description (which made the advice cluttered). Operator-supplied note
@@ -196,9 +183,7 @@ export async function approveContractorPay(
       pay_basis: calc.basis,
       pay_hours: calc.hours,
       // GST snapshot (amount stays GST-inclusive; gst_amount is the 3/23 portion).
-      gst_applied: gst.applied,
-      gst_amount: gst.gstAmount,
-      gst_status: gst.status,
+      ...gstFields,
     })
     .select('id, invoice_number, amount, status')
     .single()
