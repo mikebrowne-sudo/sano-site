@@ -8,6 +8,9 @@ import { assertCanAmend, writeAmendmentAudit } from '@/lib/amendment-lock'
 import { resolveAllowedHours } from '@/lib/allowed-hours'
 import { snapshotJobVersion, computeChangedJobFields } from '@/lib/job-versions'
 import { pickSnapshotRate } from '@/lib/contractor-rate-snapshot'
+import { planWorkerDiff, localRemovalBlock, reconcilePrimaryContractor, type WorkerRow } from '@/lib/job-worker-diff'
+
+type ExistingWorkerRow = WorkerRow & { contractors: { full_name: string } | null }
 
 /** Map of contractor_id → current profile hourly_rate, for rate snapshotting. */
 async function loadContractorRates(
@@ -190,8 +193,88 @@ export async function updateJob(input: UpdateJobInput) {
   })
   if ('error' in guard) return guard
 
-  const contractorChanged = !!input.contractor_id
-    && input.contractor_id !== (current?.contractor_id ?? '')
+  // PR B — plan the non-destructive worker diff and validate any removals UP
+  // FRONT, before any write. updateJob ends in redirect() and can't roll back,
+  // so a blocked removal must abort here with nothing changed.
+  const workerIdsProvided = input.worker_ids !== undefined
+  const desiredCids = (input.worker_ids ?? []).filter(Boolean)
+
+  // Existing workers (loaded in every case — needed both for the diff and to
+  // validate the primary pointer). job_workers is authoritative for pay;
+  // jobs.contractor_id is only a primary pointer whose invariant is: null OR a
+  // member of this job's job_workers.
+  const { data: existingRaw } = await supabase
+    .from('job_workers')
+    .select('contractor_id, pay_status, extra_hours, extra_hours_status, contractors ( full_name )')
+    .eq('job_id', input.id)
+  const existingRows = (existingRaw ?? []) as unknown as ExistingWorkerRow[]
+  const existingCids = existingRows.map((r) => r.contractor_id)
+
+  let workerDiff: ReturnType<typeof planWorkerDiff<ExistingWorkerRow>> | null = null
+  if (workerIdsProvided) {
+    workerDiff = planWorkerDiff(existingRows, desiredCids)
+
+    for (const w of workerDiff.toRemove) {
+      const nm = (w.contractors as { full_name?: string } | null)?.full_name ?? 'A contractor'
+      const local = localRemovalBlock(w)
+      if (local) {
+        return { error: `Can’t remove ${nm} — ${local}. Handle it through a correction (void the payable / adjust) first, not by editing the job.` }
+      }
+      const { data: ci } = await supabase
+        .from('contractor_invoices')
+        .select('invoice_number')
+        .eq('job_id', input.id)
+        .eq('contractor_id', w.contractor_id)
+        .neq('status', 'void')
+        .maybeSingle()
+      if (ci) {
+        return { error: `Can’t remove ${nm} — has a payable (${ci.invoice_number ?? 'contractor invoice'}). Void it first.` }
+      }
+      const { data: pri } = await supabase
+        .from('pay_run_items')
+        .select('job_id')
+        .eq('job_id', input.id)
+        .eq('contractor_id', w.contractor_id)
+        .maybeSingle()
+      if (pri) {
+        return { error: `Can’t remove ${nm} — part of a pay run. Void that first.` }
+      }
+    }
+  }
+
+  // The final worker set after this update.
+  const finalCids = workerIdsProvided ? desiredCids : existingCids
+
+  // Resolve the primary pointer under the invariant:
+  //  - a SUBMITTED primary must already be in the worker set (never silently
+  //    creates a worker row) — otherwise reject;
+  //  - if NOT submitted, the primary is left untouched, unless the current
+  //    primary was just removed from the set, in which case it is re-pointed to
+  //    a remaining worker (or null). Ordinary edits never move the primary.
+  const currentPrimary = (current?.contractor_id as string | null) ?? null
+  const primarySubmitted = input.contractor_id !== undefined
+  let effectivePrimary: string | null | undefined // undefined = leave unchanged
+  if (primarySubmitted) {
+    const requested = input.contractor_id || null
+    if (requested === null) {
+      effectivePrimary = null // explicit clear
+    } else if (finalCids.includes(requested)) {
+      effectivePrimary = requested
+    } else {
+      const nm = existingRows.find((r) => r.contractor_id === requested)?.contractors?.full_name
+      return {
+        error: `${nm ?? 'That contractor'} isn’t assigned to this job — add them as a worker (or use Assign) before making them the primary contractor.`,
+      }
+    }
+  } else if (currentPrimary && !finalCids.includes(currentPrimary)) {
+    effectivePrimary = reconcilePrimaryContractor(null, finalCids) // forced re-point
+  } else {
+    effectivePrimary = undefined
+  }
+
+  // The value we will store (unchanged when the primary wasn't submitted/forced).
+  const newPrimary = effectivePrimary === undefined ? currentPrimary : effectivePrimary
+  const contractorChanged = !!newPrimary && newPrimary !== (currentPrimary ?? '')
 
   const previousScheduledDate = (current?.scheduled_date as string | null) ?? null
   const previousScheduledTime = (current?.scheduled_time as string | null) ?? null
@@ -202,7 +285,7 @@ export async function updateJob(input: UpdateJobInput) {
     || previousScheduledTime !== nextScheduledTime
 
   if (contractorChanged) {
-    const insuranceError = await checkContractorInsurance(supabase, input.contractor_id!)
+    const insuranceError = await checkContractorInsurance(supabase, newPrimary!)
     if (insuranceError) return { error: insuranceError }
   }
 
@@ -222,7 +305,7 @@ export async function updateJob(input: UpdateJobInput) {
     scheduled_time: input.scheduled_time || null,
     duration_estimate: input.duration_estimate || null,
     assigned_to: input.assigned_to || null,
-    contractor_id: input.contractor_id || null,
+    contractor_id: newPrimary,
     contractor_price: input.contractor_price ?? null,
     job_price: input.job_price ?? null,
     allowed_hours: allowedHours,
@@ -315,44 +398,52 @@ export async function updateJob(input: UpdateJobInput) {
     })
   }
 
-  // Replace worker assignments. Seed each worker's hours_allocated from
-  // the job's allowed hours so the per-worker pay basis is populated.
-  if (input.worker_ids !== undefined) {
-    const cids = (input.worker_ids ?? []).filter(Boolean)
-    // Preserve existing pay_rate snapshots across the re-seed so a job edit
-    // never silently re-prices historical work at the live contractor rate.
-    // (Full non-destructive worker handling — hours, extra-hours, IDs — is
-    // PR B; this PR guarantees rate correctness only.)
-    const { data: existingWorkers } = await supabase
-      .from('job_workers')
-      .select('contractor_id, pay_rate, pay_type')
-      .eq('job_id', input.id)
-    const existingRateMap: Record<string, number | null> = {}
-    const existingTypeMap: Record<string, string | null> = {}
-    for (const w of existingWorkers ?? []) {
-      existingRateMap[w.contractor_id as string] = (w.pay_rate as number | null) ?? null
-      existingTypeMap[w.contractor_id as string] = (w.pay_type as string | null) ?? null
+  // PR B — apply the non-destructive worker diff. Unchanged workers keep their
+  // existing rows (id, pay_rate snapshot, allocated hours, extra-hours, pay
+  // linkage) COMPLETELY untouched. Only genuinely-new workers are inserted and
+  // only validated (unpaid) removals are deleted. A snapshot rate is never
+  // altered as a side effect of a job/worker-list edit.
+  if (workerDiff) {
+    for (const w of workerDiff.toRemove) {
+      await supabase.from('job_workers').delete().eq('job_id', input.id).eq('contractor_id', w.contractor_id)
+      await supabase.from('audit_log').insert({
+        actor_id: user?.id ?? null,
+        actor_role: 'staff',
+        action: 'job_worker.removed',
+        entity_table: 'job_workers',
+        entity_id: `${input.id}:${w.contractor_id}`,
+        before: { contractor_id: w.contractor_id, pay_status: w.pay_status ?? null },
+        after: null,
+      })
     }
-    const rateMap = await loadContractorRates(supabase, cids)
-
-    await supabase.from('job_workers').delete().eq('job_id', input.id)
-    const rows = cids.map((cid) => ({
-      job_id: input.id,
-      contractor_id: cid,
-      hours_allocated: allowedHours,
-      pay_rate: pickSnapshotRate(existingRateMap[cid], rateMap[cid]),
-      // Preserve an existing pay_type; only default 'hourly' for genuinely new workers.
-      pay_type: existingTypeMap[cid] ?? 'hourly',
-    }))
-    if (rows.length > 0) {
-      await supabase.from('job_workers').insert(rows)
+    if (workerDiff.toAdd.length > 0) {
+      const rateMap = await loadContractorRates(supabase, workerDiff.toAdd)
+      const addRows = workerDiff.toAdd.map((cid) => ({
+        job_id: input.id,
+        contractor_id: cid,
+        hours_allocated: allowedHours, // seed the pay basis for NEW workers only
+        pay_rate: pickSnapshotRate(null, rateMap[cid]),
+        pay_type: 'hourly',
+      }))
+      await supabase.from('job_workers').insert(addRows)
+      for (const cid of workerDiff.toAdd) {
+        await supabase.from('audit_log').insert({
+          actor_id: user?.id ?? null,
+          actor_role: 'staff',
+          action: 'job_worker.added',
+          entity_table: 'job_workers',
+          entity_id: `${input.id}:${cid}`,
+          before: null,
+          after: { contractor_id: cid, hours_allocated: allowedHours, pay_rate: pickSnapshotRate(null, rateMap[cid]) },
+        })
+      }
     }
   }
 
-  // Notify new contractor if assignment changed
+  // Notify new primary contractor if the primary assignment changed
   if (contractorChanged) {
     const [{ data: contractor }, { data: job }] = await Promise.all([
-      supabase.from('contractors').select('full_name, email').eq('id', input.contractor_id!).single(),
+      supabase.from('contractors').select('full_name, email').eq('id', newPrimary!).single(),
       supabase.from('jobs').select('id, job_number').eq('id', input.id).single(),
     ])
 
