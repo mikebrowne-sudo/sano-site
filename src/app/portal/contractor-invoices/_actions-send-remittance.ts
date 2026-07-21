@@ -111,11 +111,22 @@ export async function sendContractorRemittance(
   const paymentDateLabel = formatDate(batch.paymentDate)
   const totalLabel = formatCurrency(batch.total)
 
+  // Light reference to the linked statement (if any). NOT a tax invoice / BCTSI.
+  const { data: linkedStmt } = await svc
+    .from('contractor_statements')
+    .select('statement_number, period_start, period_end')
+    .eq('remittance_id', id)
+    .maybeSingle()
+  const stmtRef = linkedStmt
+    ? `Covers statement ${linkedStmt.statement_number} · period ${formatDate(linkedStmt.period_start as string)}–${formatDate(linkedStmt.period_end as string)}`
+    : null
+
   const bodyLines = [
     combined ? 'Hi,' : `Hi ${firstName},`,
     '',
     `Please find attached ${combined ? 'the' : 'your'} remittance advice for the payment made on ${paymentDateLabel}.`,
     '',
+    ...(stmtRef ? [stmtRef] : []),
     ...(batch.reference ? [`Reference: ${batch.reference}`] : []),
     `Total paid: ${totalLabel}`,
     '',
