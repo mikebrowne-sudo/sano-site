@@ -18,6 +18,7 @@ import { ContractorAccessPanel } from './_components/ContractorAccessPanel'
 import { AuditTimelinePanel } from '../../_components/AuditTimelinePanel'
 import { isAdminUser } from '@/lib/is-admin'
 import { businessStructureLabel } from '@/lib/business-structure'
+import { findSharedGstProfiles, sharedGstWarning, type GstProfile } from '@/lib/shared-gst-number'
 import { TaxReviewPanel } from './_components/TaxReviewPanel'
 import { CompetencyPanel } from './_components/CompetencyPanel'
 
@@ -65,6 +66,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
     { data: trainingAssignments },
     { data: incidents },
     { data: taxItem },
+    { data: gstPeers },
   ] = await Promise.all([
     supabase.auth.getUser(),
     supabase
@@ -99,6 +101,13 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
       .eq('contractor_id', params.id)
       .eq('item_key', 'tax_review')
       .maybeSingle(),
+    // Active contractors with a GST number on file — used to flag a number
+    // shared across profiles (non-blocking; verified by staff, never voided).
+    supabase
+      .from('contractors')
+      .select('id, full_name, gst_number')
+      .eq('status', 'active')
+      .not('gst_number', 'is', null),
   ])
   const isAdmin = isAdminUser(user)
 
@@ -161,6 +170,15 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
       }
     }
   }
+
+  // Shared GST number — non-blocking staff warning. Never auto-voids the number
+  // or blocks saving; the same number can be one entity/GST group across
+  // profiles, or a copy error. Staff verify.
+  const gstNumber = (contractor.gst_number as string | null) ?? null
+  const sharedGstOthers = workerType === 'contractor' && contractor.gst_registered
+    ? findSharedGstProfiles(gstNumber, contractor.id as string, (gstPeers as GstProfile[] | null) ?? [])
+    : []
+  const sharedGstMsg = sharedGstWarning(gstNumber, sharedGstOthers)
 
   return (
     <div>
@@ -336,6 +354,19 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
               </div>
             ) : (
               <p className="text-sage-500 text-sm">Not GST registered</p>
+            )}
+            {sharedGstMsg && (
+              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <p className="font-semibold mb-0.5">GST number shared with another profile</p>
+                <p>{sharedGstMsg}</p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {sharedGstOthers.map((o) => (
+                    <Link key={o.id} href={`/portal/contractors/${o.id}`} className="inline-block px-2 py-0.5 rounded-full bg-white border border-amber-300 text-amber-800 text-xs hover:bg-amber-100">
+                      {o.full_name?.trim() || 'Unnamed contractor'}
+                    </Link>
+                  ))}
+                </div>
+              </div>
             )}
           </Section>
         )}

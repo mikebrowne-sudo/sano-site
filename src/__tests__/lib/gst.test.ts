@@ -50,6 +50,28 @@ describe('resolveContractorPaymentGst — registration-window GST snapshot (flag
   it('GST-inclusive NEGATIVE adjustment (in window) → GST split stays proportional', () => {
     expect(resolveContractorPaymentGst(reg, -230, '2026-05-10')).toMatchObject({ status: 'applied', gstAmount: -30, exclusive: -200 })
   })
+
+  // Rates are GST-inclusive. When GST can't be CONFIRMED (pending/incomplete/
+  // before-effective/not-registered) we must NEVER present a confirmed split and
+  // NEVER reduce what's payable — the contractor is still owed the full agreed,
+  // GST-inclusive amount. gstAmount is 0 and the full amount survives as exclusive.
+  describe('unconfirmed GST never changes the payable', () => {
+    const AMT = 149 // odd, GST-inclusive agreed amount
+    const cases: Array<[string, Parameters<typeof resolveContractorPaymentGst>[0], string]> = [
+      ['pending_review (tax treatment)', { ...reg, taxTreatment: 'pending_review' }, '2026-05-10'],
+      ['pending_review (flag off, historical effective date)', { gstRegistered: false, gstNumber: '123', gstEffectiveDate: '2026-04-01', gstEndDate: null }, '2026-05-10'],
+      ['incomplete (registered, no effective date)', { gstRegistered: true, gstNumber: '123', gstEffectiveDate: null, gstEndDate: null }, '2026-05-10'],
+      ['incomplete (in window, no number)', { gstRegistered: true, gstNumber: null, gstEffectiveDate: '2026-04-01', gstEndDate: null }, '2026-05-10'],
+      ['before_effective_date', reg, '2026-03-31'],
+      ['not_registered', { gstRegistered: false }, '2026-05-10'],
+    ]
+    it.each(cases)('%s → not applied, gstAmount 0, full amount preserved', (_label, profile, supply) => {
+      const r = resolveContractorPaymentGst(profile, AMT, supply)
+      expect(r.applied).toBe(false)
+      expect(r.gstAmount).toBe(0)
+      expect(r.exclusive).toBe(AMT) // payable unchanged; no confirmed split presented
+    })
+  })
 })
 
 describe('GST split (3/23 of a GST-inclusive amount)', () => {
