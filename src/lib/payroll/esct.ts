@@ -38,6 +38,7 @@ export const ESCT_RATES: EsctRates = {
 export const EMPLOYER_KIWISAVER_MIN_RATE = 0.035
 
 const round2 = (n: number) => Math.round(n * 100) / 100
+const trunc2 = (n: number) => Math.floor(n * 100) / 100 // IRD truncates deductions
 
 /** Flat ESCT rate for the band the threshold amount falls into. */
 export function esctRate(thresholdAmount: number, rates: EsctRates = ESCT_RATES): number {
@@ -71,6 +72,6 @@ export function computeEsct(
 ): EsctBreakdown {
   const rate = esctRate(thresholdAmount, rates)
   const esctableBase = Math.floor(employerContribution) // whole-dollar portion
-  const esct = round2(esctableBase * rate)
+  const esct = trunc2(esctableBase * rate) // truncate to the cent (IRD)
   return { rate, esct, netContribution: round2(employerContribution - esct) }
 }
