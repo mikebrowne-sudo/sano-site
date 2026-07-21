@@ -46,7 +46,8 @@ export async function createPayRun(input: { pay_period_start: string; pay_period
         taxCode: emp.tax_code || 'M',
         kiwisaverEnrolled: emp.kiwisaver_enrolled,
         kiwisaverEmployeeRate: emp.kiwisaver_employee_rate ?? 3,
-        kiwisaverEmployerRate: emp.kiwisaver_employer_rate ?? 3,
+        // Employer KiwiSaver minimum is 3.5% from 1 Apr 2026 — floor it.
+        kiwisaverEmployerRate: Math.max(emp.kiwisaver_employer_rate ?? 3.5, 3.5),
         holidayPayMethod: isPaygo ? null : emp.holiday_pay_method,
       })
 
@@ -61,6 +62,8 @@ export async function createPayRun(input: { pay_period_start: string; pay_period
         student_loan: preview.studentLoan,
         kiwisaver_employee: preview.employeeKiwisaver,
         kiwisaver_employer: preview.employerKiwisaver,
+        esct: preview.employerEsct,
+        kiwisaver_employer_net: preview.employerKiwisaverNet,
         net_pay: preview.netPay,
         tax_code: emp.tax_code || 'M',
       }
