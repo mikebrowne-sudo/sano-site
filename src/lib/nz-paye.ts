@@ -1,17 +1,20 @@
 /**
- * NZ PAYE calculator for 2025-2026 tax year.
- * Uses standard NZ tax brackets applied to annualised income.
- * Supports primary, secondary, student loan, and non-notified codes.
+ * Pay-preview adapter for secondary / student-loan / non-notified tax codes,
+ * plus KiwiSaver + holiday-pay display.
+ *
+ * The income-tax brackets + ACC earner levy are NOT duplicated here — they come
+ * from the single canonical engine in `payroll/paye.ts`. This module only adds
+ * the code-specific handling that engine doesn't model directly (secondary flat
+ * rates, student loan, ND) and the KiwiSaver/holiday-pay preview shape.
  */
 
-// Annual tax brackets for primary income (M, ME)
-const PRIMARY_BRACKETS = [
-  { threshold: 14000, rate: 0.105 },
-  { threshold: 48000, rate: 0.175 },
-  { threshold: 70000, rate: 0.30 },
-  { threshold: 180000, rate: 0.33 },
-  { threshold: Infinity, rate: 0.39 },
-]
+import { annualIncomeTax, annualAccLevy, periodsPerYear, type PayPeriod } from '@/lib/payroll/paye'
+
+const round2 = (n: number) => Math.round(n * 100) / 100
+// IRD payroll truncates (not rounds): whole-dollar gross for the PAYE/SL calc,
+// and truncate deduction results to the cent.
+const trunc2 = (n: number) => Math.floor(n * 100) / 100
+const floorDollar = (n: number) => Math.floor(n)
 
 // Secondary tax flat rates
 const SECONDARY_RATES: Record<string, number> = {
@@ -32,18 +35,6 @@ const SL_CODES = new Set(['M SL', 'ME SL', 'SB SL', 'S SL', 'SH SL', 'ST SL', 'S
 // Extract base tax code from SL variant
 function baseCode(code: string): string {
   return code.replace(' SL', '').trim()
-}
-
-function calcAnnualPrimaryTax(annualIncome: number): number {
-  let tax = 0
-  let prev = 0
-  for (const bracket of PRIMARY_BRACKETS) {
-    if (annualIncome <= prev) break
-    const taxable = Math.min(annualIncome, bracket.threshold) - prev
-    if (taxable > 0) tax += taxable * bracket.rate
-    prev = bracket.threshold
-  }
-  return tax
 }
 
 export interface PayPreview {
@@ -98,35 +89,37 @@ export function calculatePayPreview(params: {
     : 0
 
   const effectiveGross = grossPay + holidayPay
-  const periodsPerYear = params.payFrequency === 'weekly' ? 52 : 26
+  const period: PayPeriod = params.payFrequency
+  const n = periodsPerYear(period)
+  const annualIncome = effectiveGross * n
 
   // Determine tax code
   const code = (params.taxCode || 'M').toUpperCase()
   const hasSL = SL_CODES.has(code)
   const base = baseCode(code)
 
-  // Calculate PAYE
+  // PAYE = income tax + ACC earner levy, calculated on the WHOLE-DOLLAR gross
+  // (IRD truncates the gross first) and truncated to the cent. Income-tax
+  // brackets + the levy come from the single canonical engine; this picks the
+  // income-tax basis per code. ND is the flat 45% non-declaration rate.
+  const grossDollar = floorDollar(effectiveGross)
+  const annualDollar = grossDollar * n
   let paye: number
-
   if (code === 'ND') {
-    paye = effectiveGross * 0.45
-  } else if (SECONDARY_RATES[base] !== undefined) {
-    paye = effectiveGross * SECONDARY_RATES[base]
+    paye = trunc2(grossDollar * 0.45)
   } else {
-    // Primary (M, ME) — annualise, calc tax, de-annualise
-    const annualIncome = effectiveGross * periodsPerYear
-    const annualTax = calcAnnualPrimaryTax(annualIncome)
-    paye = annualTax / periodsPerYear
+    const incomeTaxPeriod = SECONDARY_RATES[base] !== undefined
+      ? grossDollar * SECONDARY_RATES[base]                 // secondary flat rate
+      : annualIncomeTax(annualDollar) / n                  // primary (M, ME)
+    const accLevyPeriod = annualAccLevy(annualDollar) / n
+    paye = trunc2(incomeTaxPeriod + accLevyPeriod)
   }
-
-  paye = Math.round(paye * 100) / 100
 
   // Student loan
   let studentLoan = 0
   if (hasSL) {
-    const annualIncome = effectiveGross * periodsPerYear
     const annualSL = Math.max(0, annualIncome - SL_ANNUAL_THRESHOLD) * SL_RATE
-    studentLoan = Math.round((annualSL / periodsPerYear) * 100) / 100
+    studentLoan = round2(annualSL / n)
   }
 
   // KiwiSaver

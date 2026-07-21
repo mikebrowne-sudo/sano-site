@@ -1,31 +1,36 @@
-// PAYE engine — pure + testable.
+// PAYE engine — pure + testable. THE single source of PAYE truth for the
+// portal: income-tax brackets + ACC earner levy live here only. Other
+// callers (e.g. the pay-preview adapter in nz-paye.ts) delegate to this.
 //
-// ⚠️ VERIFY-GATED. The tax brackets and ACC earner levy below are a best-known
-// snapshot, NOT authoritative. NZ income-tax thresholds and the ACC earner
-// levy change (thresholds changed 31 July 2024; the levy rate rises most
-// years). CONFIRM these against IRD / your accountant before running real pay,
-// and update PAYE_RATES when they change. The UI shows a prominent banner.
+// Constants below are accountant-confirmed for the 2026/27 NZ tax year.
+// They still change (thresholds + the ACC levy rate/cap move most years) —
+// when they do, bump `taxYear`, update the values, and refresh the tests.
 //
 // Method (approximation of IRD's PAYE): annualise the period's gross, apply the
 // marginal income-tax brackets + the ACC earner levy (capped), then divide back
-// to the pay period. Tax code M (main job, no student loan) — the only code we
-// support for now.
+// to the pay period. Tax code M (main job, no student loan) — the primary path
+// this module models directly; secondary/SL/ND handling lives in the adapter.
 
 export interface PayeRates {
+  /** Tax year these constants apply to, e.g. '2026/27'. */
+  taxYear: string
   /** Human note shown in the verify banner. */
   effectiveNote: string
   /** Annual marginal brackets; `upTo: null` is the top band. */
   brackets: ReadonlyArray<{ upTo: number | null; rate: number }>
-  /** ACC earner levy rate (e.g. 0.016 = 1.60%). */
+  /** ACC earner levy rate (e.g. 0.0175 = 1.75%). */
   accEarnerLevyRate: number
   /** Max earnings the earner levy applies to. */
   accMaxEarnings: number
+  /** Max annual earner levy (= accMaxEarnings × accEarnerLevyRate). */
+  accMaxLevy: number
 }
 
-// PLACEHOLDER VALUES — verify before real pay.
+// Accountant-confirmed, 2026/27 NZ tax year.
 export const PAYE_RATES: PayeRates = {
+  taxYear: '2026/27',
   effectiveNote:
-    'Income-tax thresholds as at the 31 July 2024 changes; ACC earner levy placeholder. VERIFY current rates with your accountant / IRD before running real pay.',
+    'Accountant-confirmed rates for the 2026/27 NZ tax year (PAYE brackets + ACC earner levy 1.75%, cap $156,641 / max $2,741.22).',
   brackets: [
     { upTo: 15600, rate: 0.105 },
     { upTo: 53500, rate: 0.175 },
@@ -33,8 +38,9 @@ export const PAYE_RATES: PayeRates = {
     { upTo: 180000, rate: 0.33 },
     { upTo: null, rate: 0.39 },
   ],
-  accEarnerLevyRate: 0.016,
-  accMaxEarnings: 142283,
+  accEarnerLevyRate: 0.0175,
+  accMaxEarnings: 156641,
+  accMaxLevy: 2741.22,
 }
 
 export type PayPeriod = 'weekly' | 'fortnightly' | 'monthly'
@@ -60,6 +66,11 @@ export function annualIncomeTax(annualGross: number, brackets: PayeRates['bracke
   return tax
 }
 
+/** Annual ACC earner levy on `annualGross` (capped at the max earnings). */
+export function annualAccLevy(annualGross: number, rates: PayeRates = PAYE_RATES): number {
+  return Math.min(annualGross, rates.accMaxEarnings) * rates.accEarnerLevyRate
+}
+
 export interface PayeBreakdown {
   incomeTax: number
   accLevy: number
@@ -71,6 +82,6 @@ export function computePaye(periodGross: number, period: PayPeriod, rates: PayeR
   const n = periodsPerYear(period)
   const annual = periodGross * n
   const incomeTax = round2(annualIncomeTax(annual, rates.brackets) / n)
-  const accLevy = round2((Math.min(annual, rates.accMaxEarnings) * rates.accEarnerLevyRate) / n)
+  const accLevy = round2(annualAccLevy(annual, rates) / n)
   return { incomeTax, accLevy, paye: round2(incomeTax + accLevy) }
 }
