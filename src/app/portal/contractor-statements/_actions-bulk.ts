@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { revalidatePath } from 'next/cache'
 import { isGstReviewRequired, isCarriedForward } from '@/lib/contractor-statement-build'
+import { buildRemittanceReference } from '@/lib/remittance-reference'
 import { issueContractorStatement } from './_actions-issue'
 import { sendContractorRemittance } from '../contractor-invoices/_actions-send-remittance'
 
@@ -129,8 +130,9 @@ export async function processReadyPayments(period: Period, paymentDate: string):
   const items: BulkItem[] = []
   let processed = 0, attention = 0
   for (const s of candidates) {
+    const reference = buildRemittanceReference(flatName(s.contractors), paymentDate)
     const { data, error } = await supabase.rpc('create_remittance_from_statement', {
-      p_statement_id: s.id, p_payment_date: paymentDate, p_reference: null,
+      p_statement_id: s.id, p_payment_date: paymentDate, p_reference: reference,
     })
     if (error) { attention++; items.push({ id: s.id as string, label: s.statement_number as string, ok: false, reason: error.message }) }
     else { processed++; items.push({ id: s.id as string, label: (data as { remittance_number?: string })?.remittance_number ?? (s.statement_number as string), ok: true }) }
