@@ -14,11 +14,11 @@ function fmtDate(iso: string | null) {
   return d.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Pacific/Auckland' })
 }
 
-/** Contractor-facing GST wording. Never "$0 GST"; never a claimed split for flagged rows. */
+/** Contractor-facing GST cell. Shows the GST component only where it's applied;
+ *  any non-applied line shows nothing (no "awaiting verification" wording). */
 function gstCell(status: string | null, amount: number | null): string {
   if (status === 'applied') return amount != null ? `GST ${fmtCurrency(amount)}` : 'GST applied'
-  if (status === 'not_registered' || status === 'before_effective_date') return 'No GST component applied'
-  return 'GST treatment awaiting verification'
+  return ''
 }
 
 export function ContractorStatementSnapshot({ snapshot, superseded }: { snapshot: IssuedSnapshot; superseded?: boolean }) {

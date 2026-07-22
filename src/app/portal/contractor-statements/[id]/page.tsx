@@ -17,9 +17,9 @@ function fmtDate(iso: string | null) {
   return new Date(`${iso}T00:00:00`).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-const GST_LABEL: Record<string, string> = {
-  applied: 'GST applied', before_effective_date: 'Before GST registration', not_registered: 'Not GST registered',
-  pending_review: 'GST — awaiting verification', incomplete: 'GST — details incomplete', not_assessed: 'GST — not assessed',
+// Show the GST component only where it's applied; non-applied lines show nothing.
+function gstLabel(status: string | null): string {
+  return status === 'applied' ? 'GST applied' : ''
 }
 
 export default async function StatementDetailPage({ params }: { params: { id: string } }) {
@@ -106,7 +106,7 @@ export default async function StatementDetailPage({ params }: { params: { id: st
                       <td className="px-4 py-3 text-sage-700">{l.service_description ?? '—'}</td>
                       <td className="px-4 py-3 text-sage-600">{l.site ?? '—'}</td>
                       <td className="px-4 py-3 text-sage-600 text-right whitespace-nowrap">{l.pay_hours != null ? `${l.pay_hours}${l.pay_basis ? ` (${l.pay_basis})` : ''}` : '—'}</td>
-                      <td className="px-4 py-3 text-sage-600 whitespace-nowrap">{l.gst_status ? (GST_LABEL[l.gst_status] ?? l.gst_status) : '—'}</td>
+                      <td className="px-4 py-3 text-sage-600 whitespace-nowrap">{gstLabel(l.gst_status)}</td>
                       <td className="px-4 py-3 text-sage-800 font-medium text-right whitespace-nowrap">{fmtCurrency(l.amount)}</td>
                     </tr>
                   ))}
