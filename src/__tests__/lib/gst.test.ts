@@ -43,8 +43,11 @@ describe('resolveContractorPaymentGst — registration-window GST snapshot (flag
     expect(resolveContractorPaymentGst({ gstRegistered: true, gstNumber: null, gstEffectiveDate: '2026-04-01', gstEndDate: null }, 230, '2026-05-10')).toMatchObject({ status: 'incomplete', applied: false })
   })
 
-  it('tax treatment pending_review → flagged regardless of dates', () => {
-    expect(resolveContractorPaymentGst({ ...reg, taxTreatment: 'pending_review' }, 230, '2026-05-10')).toMatchObject({ status: 'pending_review', applied: false })
+  it('tax_treatment does NOT affect GST — a registered contractor with a number still applies', () => {
+    // GST is independent of tax_treatment (which governs withholding). Even the
+    // default 'pending_review' treatment must not suppress GST for a registered
+    // contractor with a GST number.
+    expect(resolveContractorPaymentGst({ ...reg, taxTreatment: 'pending_review' }, 230, '2026-05-10')).toMatchObject({ status: 'applied', applied: true, gstAmount: 30 })
   })
 
   it('GST-inclusive NEGATIVE adjustment (in window) → GST split stays proportional', () => {
@@ -68,7 +71,6 @@ describe('resolveContractorPaymentGst — registration-window GST snapshot (flag
   describe('unconfirmed GST never changes the payable', () => {
     const AMT = 149 // odd, GST-inclusive agreed amount
     const cases: Array<[string, Parameters<typeof resolveContractorPaymentGst>[0], string]> = [
-      ['pending_review (tax treatment)', { ...reg, taxTreatment: 'pending_review' }, '2026-05-10'],
       ['pending_review (flag off, historical effective date)', { gstRegistered: false, gstNumber: '123', gstEffectiveDate: '2026-04-01', gstEndDate: null }, '2026-05-10'],
       ['incomplete (registered, no GST number)', { gstRegistered: true, gstNumber: null, gstEffectiveDate: '2026-04-01', gstEndDate: null }, '2026-05-10'],
       ['before_effective_date', reg, '2026-03-31'],

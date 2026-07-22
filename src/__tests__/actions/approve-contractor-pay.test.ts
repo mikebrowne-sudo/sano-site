@@ -312,7 +312,8 @@ describe('approveContractorPay — GST snapshot at the supply date', () => {
     expect(p.gst_status).toBe('not_registered')
   })
 
-  it('pending tax treatment → flagged, GST not applied', async () => {
+  it('applies GST for a registered contractor regardless of tax_treatment (default pending_review)', async () => {
+    // tax_treatment governs withholding, not GST — the default must not suppress it.
     const { client, ciInsert } = makeSupabase({
       job: COMPLETED_JOB, jw: hourlyJw, dup: null,
       contractor: { hourly_rate: 35, gst_registered: true, gst_number: '123', gst_effective_date: '2026-04-01', tax_treatment: 'pending_review' },
@@ -321,8 +322,8 @@ describe('approveContractorPay — GST snapshot at the supply date', () => {
     mockedCreate.mockReturnValue(client)
     await approveContractorPay('j1', 'c1', {})
     const p = ciInsert.mock.calls[0][0]
-    expect(p.gst_applied).toBe(false)
-    expect(p.gst_status).toBe('pending_review')
+    expect(p.gst_applied).toBe(true)
+    expect(p.gst_status).toBe('applied')
   })
 
   it('supply date (completed_at) BEFORE the effective date → no GST', async () => {

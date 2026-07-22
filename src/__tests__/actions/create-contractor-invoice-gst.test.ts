@@ -41,11 +41,13 @@ it('snapshots GST (registered) at the explicit supply date + audits the treatmen
   expect(audit![0].after.gst).toMatchObject({ status: 'applied', supply_date: '2026-05-10' })
 })
 
-it('flags (does not guess) when tax treatment is pending', async () => {
+it('applies GST for a registered contractor even with the default pending_review treatment', async () => {
+  // GST is independent of tax_treatment (withholding). The default treatment must
+  // not suppress GST for a registered contractor with a number.
   const { client, spies } = makeClient({ gst_registered: true, gst_number: '123', gst_effective_date: '2026-04-01', gst_end_date: null, tax_treatment: 'pending_review' })
   mockedCreate.mockReturnValue(client)
   await createContractorInvoice({ contractor_id: 'c1', amount: 230, date_submitted: '2026-07-01', gst_supply_date: '2026-05-10' })
   const row = spies.ciInsert.mock.calls[0][0]
-  expect(row.gst_applied).toBe(false)
-  expect(row.gst_status).toBe('pending_review')
+  expect(row.gst_applied).toBe(true)
+  expect(row.gst_status).toBe('applied')
 })

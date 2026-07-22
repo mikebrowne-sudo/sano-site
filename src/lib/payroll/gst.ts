@@ -77,8 +77,9 @@ export function contractorGstOnPayment(
  * - 'applied'               supply date within a confirmed registration window → 3/23 split
  * - 'before_effective_date' supply date precedes the registration start
  * - 'not_registered'        after the end date, or plainly never registered → no GST
- * - 'pending_review'        tax treatment pending, OR not-registered flag conflicts
- *                           with historical dates → FLAGGED (never auto no-GST)
+ * - 'pending_review'        not-registered flag conflicts with historical dates
+ *                           (registered=false but an effective date on file) →
+ *                           FLAGGED (never auto no-GST). NOT driven by tax_treatment.
  * - 'incomplete'            registered but no GST number on file → FLAGGED
  *                           (dates are optional; a missing number is not)
  * - 'not_assessed'          historical row, never assessed (migration backfill only)
@@ -98,7 +99,8 @@ export interface ContractorPaymentGstInput {
   /** ISO date registration ended / deregistered (window end). Null = open. */
   gstEndDate?: string | null
   gstNumber?: string | null
-  /** contractors.tax_treatment — 'pending_review' means don't guess. */
+  /** contractors.tax_treatment — retained for future withholding logic; does
+   *  NOT affect GST resolution. */
   taxTreatment?: string | null
 }
 
@@ -116,9 +118,9 @@ export interface ResolvedContractorGst {
  * contractor with a GST number gets the 3/23 split; effective/end dates are
  * OPTIONAL but, when recorded, bound the window (supply before the start or
  * after the end → no GST). Rates are GST-inclusive; GST is split OUT (3/23),
- * never added on top. Ambiguity (pending treatment, missing GST number, or a
- * not-registered flag that conflicts with historical dates) is FLAGGED, never
- * guessed as no-GST.
+ * never added on top. Ambiguity (missing GST number, or a not-registered flag
+ * that conflicts with historical dates) is FLAGGED, never guessed as no-GST.
+ * GST is independent of tax_treatment (that governs withholding, not GST).
  */
 export function resolveContractorPaymentGst(
   c: ContractorPaymentGstInput,
@@ -131,9 +133,10 @@ export function resolveContractorPaymentGst(
   const end = c.gstEndDate || null
   const supply = supplyDateIso || null
 
-  // Unresolved tax treatment → flag. (Staff must confirm the treatment; the
-  // default is 'pending_review' so this stays a deliberate gate.)
-  if ((c.taxTreatment ?? '') === 'pending_review') return flag('pending_review')
+  // NOTE: GST does NOT depend on tax_treatment. Tax treatment governs schedular
+  // WITHHOLDING (a separate, not-yet-implemented concern); a GST-registered
+  // contractor charges GST regardless. So a registered contractor with a GST
+  // number gets the split even while tax_treatment is the default 'pending_review'.
 
   // Start/expiry dates are OPTIONAL, but any that ARE recorded are enforced:
   // supply before an explicit effective date, or after an explicit end date,
