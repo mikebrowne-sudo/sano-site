@@ -19,3 +19,9 @@
 # goes away. Schedule mirrors netlify/functions/keep-warm.mts.
 [functions."keep-warm"]
   schedule = "*/5 * * * *"
+
+# Weekly payroll auto-draft — drafts the week's employee pay run Monday morning
+# (NZ) for review. Draft only; never approves or pays. Schedule mirrors
+# netlify/functions/weekly-payroll.mts.
+[functions."weekly-payroll"]
+  schedule = "0 21 * * 0"
