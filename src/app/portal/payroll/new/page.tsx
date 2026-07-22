@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
 export default function NewPayRunPage() {
+  const [frequency, setFrequency] = useState<'weekly' | 'fortnightly'>('weekly')
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
   const [payDate, setPayDate] = useState('')
@@ -17,7 +18,7 @@ export default function NewPayRunPage() {
     e.preventDefault()
     setError(null)
     startTransition(async () => {
-      const result = await createPayRun({ pay_period_start: start, pay_period_end: end, pay_date: payDate, notes: notes.trim() || undefined })
+      const result = await createPayRun({ pay_period_start: start, pay_period_end: end, pay_date: payDate, pay_frequency: frequency, notes: notes.trim() || undefined })
       if (result?.error) setError(result.error)
     })
   }
@@ -27,6 +28,14 @@ export default function NewPayRunPage() {
       <Link href="/portal/payroll" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"><ArrowLeft size={14} /> Back</Link>
       <h1 className="text-2xl font-bold text-sage-800 mb-8">New Pay Run</h1>
       <form onSubmit={handleSubmit} className="max-w-lg space-y-6">
+        <label className="block">
+          <span className="block text-sm font-semibold text-sage-800 mb-1.5">Pay cycle</span>
+          <select value={frequency} onChange={(e) => setFrequency(e.target.value as 'weekly' | 'fortnightly')} className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500">
+            <option value="weekly">Weekly (e.g. Carol)</option>
+            <option value="fortnightly">Fortnightly (e.g. Radhika)</option>
+          </select>
+          <span className="block text-xs text-sage-400 mt-1.5">Only employees on this cycle are added to the run.</span>
+        </label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="block">
             <span className="block text-sm font-semibold text-sage-800 mb-1.5">Period start</span>

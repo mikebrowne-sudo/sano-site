@@ -6,11 +6,14 @@ import { Resend } from 'resend'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 
-export async function createPayRun(input: { pay_period_start: string; pay_period_end: string; pay_date: string; notes?: string }) {
+export async function createPayRun(input: { pay_period_start: string; pay_period_end: string; pay_date: string; pay_frequency: 'weekly' | 'fortnightly'; notes?: string }) {
   const supabase = createClient()
 
   if (!input.pay_period_start || !input.pay_period_end || !input.pay_date) {
     return { error: 'All dates are required.' }
+  }
+  if (input.pay_frequency !== 'weekly' && input.pay_frequency !== 'fortnightly') {
+    return { error: 'Choose a pay cycle (weekly or fortnightly).' }
   }
 
   const { data, error } = await supabase
@@ -19,19 +22,30 @@ export async function createPayRun(input: { pay_period_start: string; pay_period
       pay_period_start: input.pay_period_start,
       pay_period_end: input.pay_period_end,
       pay_date: input.pay_date,
+      pay_frequency: input.pay_frequency,
+      kind: 'employee',
       notes: input.notes?.trim() || null,
     })
     .select('id')
     .single()
 
-  if (error || !data) return { error: `Failed to create: ${error?.message}` }
+  if (error || !data) {
+    // 23505 = unique violation → a run for this cycle + period already exists.
+    // This is the double-pay guard: one employee run per cycle per period.
+    if (error?.code === '23505') {
+      return { error: `A ${input.pay_frequency} pay run already exists for this period.` }
+    }
+    return { error: `Failed to create: ${error?.message}` }
+  }
 
-  // Auto-populate lines for all active employees (not contractors)
+  // Auto-populate lines for active employees on THIS pay cycle only — so a
+  // weekly run doesn't sweep in fortnightly staff, and vice versa.
   const { data: employees } = await supabase
     .from('contractors')
     .select('id, hourly_rate, standard_hours, tax_code, pay_frequency, holiday_pay_method, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate, base_hourly_rate, loaded_hourly_rate')
     .eq('status', 'active')
     .neq('worker_type', 'contractor')
+    .eq('pay_frequency', input.pay_frequency)
 
   if (employees?.length) {
     const lines = employees.map((emp) => {
