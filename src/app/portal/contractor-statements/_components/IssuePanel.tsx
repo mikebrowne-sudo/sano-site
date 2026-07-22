@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, RefreshCw, AlertTriangle, Mail, CalendarClock, UserCheck, CheckCircle2 } from 'lucide-react'
+import { Send, RefreshCw, Mail, CalendarClock, UserCheck, CheckCircle2 } from 'lucide-react'
 import { issueContractorStatement, resendStatementIssueEmail } from '../_actions-issue'
 import { supersedeContractorStatement } from '../_actions-supersede'
 import { confirmStatementOnBehalf, extendReviewDeadline } from '../_actions-confirm'
@@ -21,7 +21,6 @@ export function IssuePanel({
   statementId,
   status,
   lineCount,
-  gstReviewCount,
   emailSent,
   reviewDueAt,
   confirmedSource,
@@ -29,7 +28,6 @@ export function IssuePanel({
   statementId: string
   status: string
   lineCount: number
-  gstReviewCount: number
   emailSent: boolean | null
   reviewDueAt: string | null
   confirmedSource: string | null
@@ -80,12 +78,6 @@ export function IssuePanel({
           ) : (
             <div className="rounded-lg border border-sage-200 bg-sage-50 p-4">
               <p className="text-sm text-sage-700">Issue this statement with a review deadline of <strong>{reviewDue}</strong>? This locks its contents and emails the contractor.</p>
-              {gstReviewCount > 0 && (
-                <p className="mt-2 flex items-start gap-2 text-sm text-amber-800">
-                  <AlertTriangle size={15} className="mt-0.5 shrink-0" />
-                  <span><strong>{gstReviewCount}</strong> line(s) have no confirmed GST amount (the contractor sees no GST on those lines). Issue anyway?</span>
-                </p>
-              )}
               <div className="flex items-center gap-3 mt-3">
                 <button onClick={() => run(() => issueContractorStatement({ id: statementId, review_due_at: reviewDue }), (r) => { setConfirming(false); setMsg(r.emailSent ? 'Issued and emailed.' : `Issued — email not sent${r.emailError ? ` (${r.emailError})` : ''}. Use Resend.`) })} disabled={isPending} className="bg-sage-600 text-white font-medium px-4 py-2 rounded-lg text-sm hover:bg-sage-700 disabled:opacity-50">{isPending ? 'Issuing…' : 'Confirm issue'}</button>
                 <button onClick={() => setConfirming(false)} className="text-sm text-sage-600 hover:text-sage-800">Cancel</button>

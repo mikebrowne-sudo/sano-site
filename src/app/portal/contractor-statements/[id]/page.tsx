@@ -3,7 +3,6 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, CornerDownRight } from 'lucide-react'
 import { getStatementDetail } from '@/lib/contractor-statement-data'
-import { isGstReviewRequired } from '@/lib/contractor-statement-build'
 import { periodLabel } from '@/lib/contractor-statement-period'
 import type { IssuedSnapshot } from '@/lib/contractor-statement-snapshot'
 import { ContractorStatementSnapshot } from '@/components/ContractorStatementSnapshot'
@@ -51,7 +50,6 @@ export default async function StatementDetailPage({ params }: { params: { id: st
 
   // Draft → live detail; issued+ → render from the immutable snapshot.
   const detail = status === 'draft' ? await getStatementDetail(supabase, params.id) : null
-  const gstReviewCount = detail ? detail.lines.filter((l) => isGstReviewRequired(l.gst_status)).length : (snapshot?.gst_review_count ?? 0)
   const lineCount = detail ? detail.lines.length : (snapshot?.lines.length ?? 0)
 
   return (
@@ -64,7 +62,6 @@ export default async function StatementDetailPage({ params }: { params: { id: st
         statementId={params.id}
         status={status}
         lineCount={lineCount}
-        gstReviewCount={gstReviewCount}
         emailSent={emailSent}
         reviewDueAt={(stmt.review_due_at as string | null) ?? null}
         confirmedSource={(stmt.confirmed_source as string | null) ?? null}
