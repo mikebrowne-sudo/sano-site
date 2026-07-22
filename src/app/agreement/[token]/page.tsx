@@ -14,7 +14,6 @@ export default async function PublicAgreementPage({ params }: { params: { token:
   const { data: a } = await svc.from('employment_agreements').select('*').eq('token', params.token).maybeSingle()
   if (!a) notFound()
   const signed = a.status === 'signed'
-  const isContractor = a.agreement_type === 'contractor'
 
   // Documents the contractor has already uploaded on this agreement (Phase 3).
   // Degrades to [] if the agreement_id column isn't present yet.
@@ -78,7 +77,7 @@ export default async function PublicAgreementPage({ params }: { params: { token:
           </>
         ) : (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-7">
-            <SignAgreementForm token={params.token} type={isContractor ? 'contractor' : 'casual_employee'} initialDocs={initialDocs} agreement={view} prefill={prefill} />
+            <SignAgreementForm token={params.token} type={a.agreement_type === 'contractor' ? 'contractor' : a.agreement_type === 'permanent_employee' ? 'permanent_employee' : 'casual_employee'} initialDocs={initialDocs} agreement={view} prefill={prefill} />
           </div>
         )}
       </div>

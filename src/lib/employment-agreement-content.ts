@@ -20,7 +20,7 @@ export const EMPLOYER = {
   address: '35 Holbrook Street, Blockhouse Bay',
 }
 
-export type AgreementType = 'casual_employee' | 'contractor'
+export type AgreementType = 'casual_employee' | 'permanent_employee' | 'contractor'
 
 export interface AgreementSection {
   title: string
@@ -28,11 +28,15 @@ export interface AgreementSection {
 }
 
 export function agreementTitle(type: AgreementType): string {
-  return type === 'contractor' ? 'Independent Contractor Agreement' : 'Casual Employment Agreement'
+  if (type === 'contractor') return 'Independent Contractor Agreement'
+  if (type === 'permanent_employee') return 'Individual Employment Agreement'
+  return 'Casual Employment Agreement'
 }
 
 export function agreementSections(type: AgreementType): AgreementSection[] {
-  return type === 'contractor' ? CONTRACTOR_AGREEMENT_SECTIONS : CASUAL_AGREEMENT_SECTIONS
+  if (type === 'contractor') return CONTRACTOR_AGREEMENT_SECTIONS
+  if (type === 'permanent_employee') return PERMANENT_AGREEMENT_SECTIONS
+  return CASUAL_AGREEMENT_SECTIONS
 }
 
 export const CASUAL_AGREEMENT_SECTIONS: AgreementSection[] = [
@@ -140,6 +144,127 @@ export const CASUAL_AGREEMENT_SECTIONS: AgreementSection[] = [
     body: [
       '13.1 This Agreement is governed by the laws of New Zealand, including the Employment Relations Act 2000 and the Holidays Act 2003. It constitutes the entire agreement between the parties regarding the Employee’s casual employment and supersedes any prior discussions.',
       '13.2 Any variation must be agreed in writing by both parties. If any provision is found unenforceable, the remaining provisions continue in full force. The Employee acknowledges they have had the opportunity to seek independent advice before signing and have been provided with a copy to retain.',
+    ],
+  },
+]
+
+// ⚠️ DRAFT permanent-employee template (Permanent Employee 2026). Assembled from
+// the Employment NZ minimum required terms and the reviewed casual template, but
+// NOT yet independently reviewed. Have an NZ employment lawyer / the Employment
+// NZ agreement builder (employment.govt.nz) confirm before anyone signs. The
+// variable terms (position, hours, place of work, rate, pay cycle, notice
+// period) come from the details table on the record — the clauses reference
+// "as set out in the details above".
+export const PERMANENT_AGREEMENT_SECTIONS: AgreementSection[] = [
+  {
+    title: 'Background',
+    body: [
+      'The Employer operates a property services business, including cleaning and related services. The Employer employs the Employee on a permanent basis in the position, and on the terms, set out in this Agreement and in the details above.',
+      'This is an individual employment agreement under the Employment Relations Act 2000. The employment is ongoing (permanent) and continues until ended in accordance with this Agreement.',
+    ],
+  },
+  {
+    title: '1. Nature of Employment',
+    body: [
+      '1.1 The Employee is employed on a permanent basis in the position set out in the details above. Employment begins on the commencement date stated above and continues until ended in accordance with this Agreement.',
+      '1.2 The Employee’s agreed hours and days of work are set out in the details above. These are regular, agreed hours; any ongoing change to them will be agreed between the parties in writing.',
+      '1.3 There is no trial or probationary period under this Agreement.',
+    ],
+  },
+  {
+    title: '2. Role and Duties',
+    body: [
+      '2.1 The Employee is employed in the position set out in the details above and will perform the duties of that role, together with any other reasonable duties within their skills and experience as directed by the Employer.',
+      '2.2 The Employee must perform their duties to a professional standard and in accordance with any reasonable instructions, policies and procedures communicated by the Employer.',
+      '2.3 The Employer may vary the Employee’s duties from time to time, provided the variation is reasonable and within the general scope of the Employee’s role.',
+    ],
+  },
+  {
+    title: '3. Place of Work',
+    body: [
+      '3.1 The Employee’s place of work is as set out in the details above. The Employee may also be required to attend client premises or the Employer’s base from time to time as reasonably required for the role.',
+    ],
+  },
+  {
+    title: '4. Hours of Work',
+    body: [
+      '4.1 The Employee’s ordinary hours and days of work are set out in the details above.',
+      '4.2 The Employee may be asked to work reasonable additional hours from time to time; any such hours will be agreed and paid at the Employee’s ordinary hourly rate unless otherwise agreed.',
+    ],
+  },
+  {
+    title: '5. Rest and Meal Breaks',
+    body: [
+      '5.1 The Employee is entitled to paid rest breaks and unpaid meal breaks in accordance with the Employment Relations Act 2000, based on the hours worked.',
+      '5.2 The timing of breaks will be agreed between the parties or, failing agreement, will be as reasonably directed by the Employer having regard to the nature of the work.',
+    ],
+  },
+  {
+    title: '6. Remuneration',
+    body: [
+      '6.1 The Employee will be paid the hourly rate set out in the details above, for the hours worked, paid on the pay cycle set out in the details above by direct credit to the Employee’s nominated bank account.',
+      '6.2 The hourly rate must be no less than the applicable adult minimum wage under the Minimum Wage Act 1983 (as amended). The Employer will review the rate whenever the minimum wage is updated.',
+      '6.3 The Employer will deduct PAYE, the ACC earner levy, and any KiwiSaver contributions and other deductions required or lawfully agreed, and will provide the Employee with a payslip for each pay.',
+      '6.4 The Employer will not make any deduction from the Employee’s wages without the Employee’s written consent or lawful authority, and will consult before making any deduction under a general deductions clause.',
+    ],
+  },
+  {
+    title: '7. KiwiSaver',
+    body: [
+      '7.1 KiwiSaver applies in accordance with the KiwiSaver Act 2006. Where the Employee is eligible and a member, the Employer will make compulsory employer contributions as required by law and deduct the Employee’s contributions at their chosen rate.',
+      '7.2 A new employee who is automatically enrolled may opt out by filing an opt-out request (KS10) between day 14 and day 56 of starting. The Employee’s current KiwiSaver election is recorded in the details above.',
+    ],
+  },
+  {
+    title: '8. Annual Holidays and Leave',
+    body: [
+      '8.1 Annual holidays: after 12 months’ continuous employment the Employee is entitled to four weeks’ paid annual holidays under the Holidays Act 2003, accruing from the commencement date. Annual holidays are paid at the greater of the Employee’s ordinary weekly pay or average weekly earnings, as required by that Act.',
+      '8.2 Sick leave: after six months’ continuous employment the Employee is entitled to 10 days’ paid sick leave per 12-month period, which may accumulate up to a maximum of 20 days, in accordance with the Holidays Act 2003.',
+      '8.3 Public holidays: the Employee is entitled to a paid day off on a public holiday that falls on a day they would otherwise have worked; if they work on a public holiday they are paid at least time and a half and, where the day would otherwise be a working day, receive an alternative holiday.',
+      '8.4 Bereavement leave and family violence leave apply in accordance with the Holidays Act 2003 and the Domestic Violence — Victims’ Protection Act 2018.',
+    ],
+  },
+  {
+    title: '9. Health and Safety',
+    body: [
+      '9.1 The Employer will take all reasonably practicable steps to ensure the Employee’s health and safety at work, in accordance with the Health and Safety at Work Act 2015.',
+      '9.2 The Employee must take reasonable care for their own health and safety and that of others, follow all lawful health and safety instructions, and report any hazard, incident or injury to the Employer promptly.',
+      '9.3 The Employee must not attend work while unfit due to illness, injury, fatigue or any other condition that may affect their ability to work safely.',
+    ],
+  },
+  {
+    title: '10. Confidentiality',
+    body: [
+      '10.1 The Employee must keep confidential all information about the Employer’s business, clients, pricing, systems and operations that is not publicly available, and must not use it for any purpose other than performing their duties. This obligation survives termination.',
+    ],
+  },
+  {
+    title: '11. Notice and Termination',
+    body: [
+      '11.1 Either party may end this employment by giving the notice period set out in the details above, in writing. The Employer may pay the Employee in lieu of notice.',
+      '11.2 The Employer may terminate this Agreement immediately in cases of serious misconduct, following a fair process consistent with the Employment Relations Act 2000 and the duty of good faith.',
+      '11.3 On termination the Employee must return all Employer property, and any accrued but unpaid holiday pay will be paid in the final pay.',
+    ],
+  },
+  {
+    title: '12. Employee Protection Provision',
+    body: [
+      '12.1 If the Employer is restructuring, or contracting out or selling all or part of its business, and this affects the Employee’s work, the Employer will: negotiate with the new employer for the Employee to transfer on terms no less favourable where reasonably practicable; and, if the Employee does not transfer, follow a fair process and address any entitlements in accordance with the law. This provision is included in accordance with sections 69OI–69OJ of the Employment Relations Act 2000.',
+    ],
+  },
+  {
+    title: '13. Good Faith and Resolving Employment Problems',
+    body: [
+      '13.1 Both parties are bound by the duty of good faith under the Employment Relations Act 2000 — to be responsive and communicative, and not to act in a misleading or deceptive way.',
+      '13.2 If an employment relationship problem arises, the parties will raise it promptly and try to resolve it in good faith by discussion. If it cannot be resolved directly, either party may seek mediation through the Ministry of Business, Innovation and Employment (MBIE).',
+      '13.3 If the Employee wishes to raise a personal grievance, they must do so within 90 days of the action complained of (or of it coming to their attention), in accordance with section 114 of the Employment Relations Act 2000. The Employee may seek assistance from a union representative, support person or advocate at any stage.',
+    ],
+  },
+  {
+    title: '14. General',
+    body: [
+      '14.1 This Agreement is governed by the laws of New Zealand, including the Employment Relations Act 2000 and the Holidays Act 2003. It constitutes the entire agreement between the parties regarding the Employee’s employment and supersedes any prior discussions.',
+      '14.2 Any variation must be agreed in writing by both parties. If any provision is found unenforceable, the remaining provisions continue in full force. The Employee acknowledges they have had the opportunity to seek independent advice before signing and have been provided with a copy to retain. By typing their name to sign, the Employee confirms they have read, understood and agree to this Agreement.',
     ],
   },
 ]

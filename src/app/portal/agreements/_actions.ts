@@ -6,11 +6,17 @@ import { revalidatePath } from 'next/cache'
 import { sendAgreementLinkEmail } from '@/lib/resend'
 
 export async function createEmploymentAgreement(input: {
-  agreementType: 'casual_employee' | 'contractor'
+  agreementType: 'casual_employee' | 'permanent_employee' | 'contractor'
   personLabel: string
   position: string
   hourlyRate: number | null
   startDate: string | null
+  /** Permanent-employee terms (ignored for casual/contractor). */
+  agreedHoursPerWeek?: number | null
+  agreedDays?: string | null
+  placeOfWork?: string | null
+  payFrequency?: string | null
+  noticePeriod?: string | null
   /** Optionally link this agreement to an existing person so it's tied to
    *  them (no duplicate on sign) and pre-filled with what we already hold. */
   linkedContractorId?: string | null
@@ -25,10 +31,11 @@ export async function createEmploymentAgreement(input: {
   if (!isAdminUser(user)) return { error: 'Admin only.' }
 
   const isContractor = input.agreementType === 'contractor'
+  const isPermanent = input.agreementType === 'permanent_employee'
 
   // Pre-fill from a linked existing person. Only the fields that reliably
-  // exist today (name / email / phone, plus address for employees) — the
-  // remaining legal fields are completed at signing.
+  // exist today (name / email / phone, plus address + tax code for employees) —
+  // the remaining legal fields are completed at signing.
   const prefill: Record<string, unknown> = {}
   let linkedLabel: string | null = null
   if (isContractor && input.linkedContractorId) {
@@ -49,7 +56,7 @@ export async function createEmploymentAgreement(input: {
     // contractor_id so signing updates that same workforce record.
     const { data: e } = await supabase
       .from('contractors')
-      .select('id, full_name, email, phone, address')
+      .select('id, full_name, email, phone, address, tax_code')
       .eq('id', input.linkedEmployeeId)
       .eq('worker_type', 'employee')
       .maybeSingle()
@@ -60,18 +67,30 @@ export async function createEmploymentAgreement(input: {
       prefill.employee_email = e.email ?? null
       prefill.employee_phone = e.phone ?? null
       prefill.employee_address = e.address ?? null
+      if (isPermanent && e.tax_code) prefill.tax_code = e.tax_code
     }
   }
+
+  const version = isContractor ? 'Contractor 2026' : isPermanent ? 'Permanent Employee 2026' : 'Casual Employee 2026'
+  const position = isContractor
+    ? 'Independent Contractor'
+    : (input.position?.trim() || (isPermanent ? 'Cleaner' : 'Cleaner (Casual)'))
 
   const { data, error } = await supabase
     .from('employment_agreements')
     .insert({
-      agreement_type: isContractor ? 'contractor' : 'casual_employee',
-      agreement_version: isContractor ? 'Contractor 2026' : 'Casual Employee 2026',
-      person_label: linkedLabel || input.personLabel?.trim() || (isContractor ? 'Contractor' : 'Carol'),
-      position: isContractor ? 'Independent Contractor' : (input.position?.trim() || 'Cleaner (Casual)'),
+      agreement_type: input.agreementType,
+      agreement_version: version,
+      person_label: linkedLabel || input.personLabel?.trim() || (isContractor ? 'Contractor' : 'Employee'),
+      position,
       hourly_rate: input.hourlyRate,
       start_date: input.startDate || null,
+      // Permanent-only terms — null for other types.
+      agreed_hours_per_week: isPermanent ? (input.agreedHoursPerWeek ?? null) : null,
+      agreed_days: isPermanent ? (input.agreedDays?.trim() || null) : null,
+      place_of_work: isPermanent ? (input.placeOfWork?.trim() || null) : null,
+      pay_frequency: isPermanent ? (input.payFrequency ?? null) : null,
+      notice_period: isPermanent ? (input.noticePeriod?.trim() || null) : null,
       status: 'draft',
       is_test: !!input.isTest,
       created_by: user.id,
