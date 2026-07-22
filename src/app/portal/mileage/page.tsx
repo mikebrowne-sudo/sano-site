@@ -7,12 +7,20 @@ import Link from 'next/link'
 import { ArrowLeft, MapPin, Route } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isFinanceUser, isAdminUser } from '@/lib/is-admin'
-import { summariseMileage, HOME_BASE, MILEAGE_RATE_PER_KM, type MileageStop } from '@/lib/mileage'
+import { roundKm, HOME_BASE, type MileageStop } from '@/lib/mileage'
+import { getMileageRateConfigs } from '@/lib/mileage-rate-data'
 import { MileageLogForm } from './_components/MileageLogForm'
 import { DeleteMileageButton } from './_components/DeleteMileageButton'
+import { ApproveMileageButton } from './_components/ApproveMileageButton'
 import { formatCurrency, formatDate } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
+
+const STATUS_STYLE: Record<string, string> = {
+  draft: 'bg-sage-100 text-sage-600',
+  approved: 'bg-emerald-100 text-emerald-700',
+  reimbursed: 'bg-blue-100 text-blue-700',
+}
 
 export default async function MileagePage() {
   const supabase = createClient()
@@ -20,10 +28,21 @@ export default async function MileagePage() {
   if (!isFinanceUser(user)) notFound()
   const canEdit = isAdminUser(user)
 
-  const { data: rows } = await supabase
-    .from('mileage_logs')
-    .select('id, log_date, person_label, stops, distance_km, notes')
-    .order('log_date', { ascending: false })
+  const [{ data: rows }, { data: employeeRows }, rateConfigs] = await Promise.all([
+    supabase
+      .from('mileage_logs')
+      .select('id, log_date, person_label, stops, distance_km, notes, business_purpose, vehicle_type, tier, rate_per_km, reimbursement_amount, status')
+      .order('log_date', { ascending: false }),
+    supabase
+      .from('contractors')
+      .select('id, full_name')
+      .eq('worker_type', 'employee')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false }),
+    getMileageRateConfigs(supabase),
+  ])
+
+  const employees = (employeeRows ?? []).map((e) => ({ id: e.id as string, fullName: (e.full_name as string) ?? 'Employee' }))
 
   const logs = (rows ?? []).map((r) => ({
     id: r.id as string,
@@ -32,8 +51,12 @@ export default async function MileagePage() {
     stops: (r.stops as MileageStop[] | null) ?? [],
     distanceKm: Number(r.distance_km) || 0,
     notes: (r.notes as string | null) ?? null,
+    businessPurpose: (r.business_purpose as string | null) ?? null,
+    reimbursement: r.reimbursement_amount != null ? Number(r.reimbursement_amount) : null,
+    status: (r.status as string | null) ?? 'draft',
   }))
-  const totals = summariseMileage(logs)
+  const totalKm = roundKm(logs.reduce((s, l) => s + l.distanceKm, 0))
+  const totalReimbursement = Math.round(logs.reduce((s, l) => s + (l.reimbursement ?? 0), 0) * 100) / 100
 
   return (
     <div className="max-w-4xl">
@@ -47,18 +70,18 @@ export default async function MileagePage() {
 
       {/* Totals */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8 tnum">
-        <Stat label="Total km logged" value={`${totals.totalKm} km`} />
-        <Stat label="Days logged" value={String(totals.logCount)} />
+        <Stat label="Total km logged" value={`${totalKm} km`} />
+        <Stat label="Days logged" value={String(logs.length)} />
         <Stat
-          label="Est. reimbursement"
-          value={`≈ ${formatCurrency(totals.estimatedReimbursement)}`}
-          hint={`at $${MILEAGE_RATE_PER_KM}/km — confirm IRD rate`}
+          label="Reimbursement total"
+          value={formatCurrency(totalReimbursement)}
+          hint="at the IRD rate for each entry"
         />
       </div>
 
       {canEdit && (
         <div className="mb-8">
-          <MileageLogForm />
+          <MileageLogForm employees={employees} rateConfigs={rateConfigs} />
         </div>
       )}
 
@@ -75,19 +98,25 @@ export default async function MileagePage() {
           {logs.map((l) => (
             <div key={l.id} className="px-5 py-3.5 flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-semibold text-sage-800">{formatDate(l.logDate)}</span>
                   {l.personLabel && <span className="text-[11px] text-sage-400">· {l.personLabel}</span>}
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full capitalize ${STATUS_STYLE[l.status] ?? STATUS_STYLE.draft}`}>{l.status}</span>
                 </div>
+                {l.businessPurpose && <p className="text-xs text-sage-600 mt-1">{l.businessPurpose}</p>}
                 <div className="text-xs text-sage-500 mt-1 flex items-start gap-1.5">
                   <MapPin size={12} className="mt-0.5 shrink-0 text-sage-400" />
                   <span className="leading-snug">{l.stops.map((s) => s.address).join(' → ') || '—'}</span>
                 </div>
                 {l.notes && <p className="text-[11px] text-sage-400 mt-1 italic">{l.notes}</p>}
               </div>
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
                 <span className="text-sm font-bold text-sage-800 tabular-nums">{l.distanceKm} km</span>
-                {canEdit && <DeleteMileageButton id={l.id} />}
+                {l.reimbursement != null && <span className="text-xs font-semibold text-sage-600 tabular-nums">{formatCurrency(l.reimbursement)}</span>}
+                <div className="flex items-center gap-2">
+                  {canEdit && l.status === 'draft' && <ApproveMileageButton id={l.id} />}
+                  {canEdit && <DeleteMileageButton id={l.id} />}
+                </div>
               </div>
             </div>
           ))}
@@ -95,7 +124,7 @@ export default async function MileagePage() {
       )}
 
       <p className="text-[11px] text-sage-400 mt-6 max-w-2xl">
-        The dollar figure is an estimate only — actual reimbursement is applied at payroll using the IRD kilometre rate your accountant confirms. Distances are the driving route between the addresses (via Mapbox).
+        Reimbursement uses the IRD kilometre rate stored for each entry&rsquo;s vehicle type + tier. Distances are the driving route between the addresses (via Mapbox). Approved entries are paid as a non-taxable line on the employee&rsquo;s next pay run.
       </p>
     </div>
   )
