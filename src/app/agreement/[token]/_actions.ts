@@ -66,6 +66,7 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
   if (agreement.status === 'signed') return { error: 'This agreement has already been signed.' }
 
   const isContractor = agreement.agreement_type === 'contractor'
+  const isPermanent = agreement.agreement_type === 'permanent_employee'
   const name = input.fullName.trim()
   const email = input.email?.trim() || null
 
@@ -213,26 +214,35 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
     // (worker_type='employee'). The employees table is no longer written to.
     const enrolled = input.kiwisaverChoice === 'stay_in'
     const empRate = input.kiwisaverRate ? Number(input.kiwisaverRate) : null
-    const core = {
+
+    // Fields the employee supplies/confirms at signing — always safe to write.
+    const signingCore = {
       full_name: name,
       email,
       phone: input.phone?.trim() || null,
+      ird_number: input.irdNumber?.trim() || null,
+      bank_account_name: input.bankAccountName?.trim() || null,
+      bank_account_number: input.bankAccount?.trim() || null,
+      contract_signed_date: today,
+    }
+    // Defaults applied ONLY when creating a brand-new worker record. An existing
+    // record (e.g. a permanent employee already set up by staff — Carol) keeps
+    // its payroll config: signing must never downgrade tax_code / employment_type
+    // / holiday method / status. Staff set the real tax code once the IR330 is
+    // verified; ND is the no-notification safety default for a fresh hire.
+    const newHireDefaults = {
       worker_type: 'employee',
-      employment_type: 'casual',
+      employment_type: isPermanent ? 'part_time' : 'casual',
       position: (agreement.position as string | null) || null,
       start_date: (agreement.start_date as string | null) || null,
       base_hourly_rate: agreement.hourly_rate,
-      ird_number: input.irdNumber?.trim() || null,
-      // ND safety: until the IR330 is received AND payroll-verified, PAYE uses
-      // the no-notification rate. Staff set the real code once IR330 is verified.
+      hourly_rate: agreement.hourly_rate,
       tax_code: 'ND',
       ir330_received: false,
       kiwisaver_enrolled: enrolled,
       kiwisaver_employee_rate: enrolled ? empRate : null,
       kiwisaver_employer_rate: enrolled ? 3 : null,
-      bank_account_name: input.bankAccountName?.trim() || null,
-      bank_account_number: input.bankAccount?.trim() || null,
-      contract_signed_date: today,
+      holiday_pay_method: isPermanent ? 'accrue_leave' : 'pay_as_you_go_8_percent',
       status: 'onboarding',
       onboarding_status: 'in_progress',
     }
@@ -243,9 +253,10 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
       workerId = ((await svc.from('contractors').select('id').ilike('email', email).eq('worker_type', 'employee').maybeSingle()).data?.id as string | null) ?? null
     }
     if (workerId) {
-      await svc.from('contractors').update(core).eq('id', workerId)
+      // Existing record — update only the signing fields; preserve payroll config.
+      await svc.from('contractors').update(signingCore).eq('id', workerId)
     } else {
-      const { data: created } = await svc.from('contractors').insert(core).select('id').single()
+      const { data: created } = await svc.from('contractors').insert({ ...signingCore, ...newHireDefaults }).select('id').single()
       workerId = (created?.id as string | null) ?? null
     }
     if (workerId) {

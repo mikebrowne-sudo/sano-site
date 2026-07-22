@@ -63,13 +63,18 @@ export function SignAgreementForm({
   prefill,
 }: {
   token: string
-  type: 'casual_employee' | 'contractor'
+  type: 'casual_employee' | 'permanent_employee' | 'contractor'
   initialDocs?: UploadedDoc[]
   agreement: AgreementView
   prefill?: PrefillValues
 }) {
   const router = useRouter()
   const isContractor = type === 'contractor'
+  const agreementName = type === 'contractor'
+    ? 'Independent Contractor Agreement'
+    : type === 'permanent_employee'
+      ? 'Individual Employment Agreement'
+      : 'Casual Employment Agreement'
   const storageKey = `sano_onboarding_${token}`
 
   const [f, setF] = useState<FormValues>(INITIAL)
@@ -362,7 +367,7 @@ export function SignAgreementForm({
             <div className="border-t border-sage-100 mt-6 pt-5 space-y-3">
               <label className="flex items-start gap-2 text-sm text-sage-700">
                 <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 rounded border-sage-300" />
-                <span>I confirm the above is accurate, and I have read, understood, and agree to this {isContractor ? 'Independent Contractor Agreement' : 'Casual Employment Agreement'}.</span>
+                <span>I confirm the above is accurate, and I have read, understood, and agree to this {agreementName}.</span>
               </label>
               <label className="flex flex-col gap-1 max-w-sm"><span className="text-[11px] font-medium text-sage-500">Type your full name to sign</span>
                 <input value={f.signedName} onChange={set('signedName')} className={inputCls} placeholder={f.fullName || 'Your full legal name'} /></label>

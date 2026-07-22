@@ -12,6 +12,10 @@ export interface AgreementView {
   position: string | null
   hourlyRate: number | null
   startDate: string | null
+  agreedHours: string | null
+  placeOfWork: string | null
+  payFrequency: string | null
+  noticePeriod: string | null
   employeeFullName: string | null
   employeeAddress: string | null
   employeeEmail: string | null
@@ -37,11 +41,23 @@ export interface AgreementView {
 /** Map an employment_agreements DB row to the document view. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function agreementViewFromRow(a: any): AgreementView {
+  const hrs = a.agreed_hours_per_week != null ? Number(a.agreed_hours_per_week) : null
+  const agreedHours = hrs != null
+    ? `${hrs} hours per week${a.agreed_days ? ` (${a.agreed_days})` : ''}`
+    : (a.agreed_days ?? null)
   return {
-    type: a.agreement_type === 'contractor' ? 'contractor' : 'casual_employee',
+    type: a.agreement_type === 'contractor'
+      ? 'contractor'
+      : a.agreement_type === 'permanent_employee'
+        ? 'permanent_employee'
+        : 'casual_employee',
     position: a.position ?? null,
     hourlyRate: a.hourly_rate ?? null,
     startDate: a.start_date ?? null,
+    agreedHours,
+    placeOfWork: a.place_of_work ?? null,
+    payFrequency: a.pay_frequency ?? null,
+    noticePeriod: a.notice_period ?? null,
     employeeFullName: a.employee_full_name ?? null,
     employeeAddress: a.employee_address ?? null,
     employeeEmail: a.employee_email ?? null,
@@ -86,7 +102,9 @@ export function EmploymentAgreementDocument({
   wrapper?: 'share-page' | 'print-overlay'
 }) {
   const isContractor = a.type === 'contractor'
+  const isPermanent = a.type === 'permanent_employee'
   const signerLabel = isContractor ? 'Contractor' : 'Employee'
+  const cap = (s: string | null) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '—')
 
   // Party detail lines (name is separate).
   const employerLines = [EMPLOYER.address, `GST No. ${EMPLOYER.gstNo}`]
@@ -110,6 +128,24 @@ export function EmploymentAgreementDocument({
         ...(a.insurerName ? [['Insurer', a.insurerName] as [string, string]] : []),
         ...(a.insuranceCover ? [['Insurance cover', a.insuranceCover] as [string, string]] : []),
         ...(a.insuranceExpiry ? [['Insurance expiry', fmtDate(a.insuranceExpiry)] as [string, string]] : []),
+      ]
+    : isPermanent
+    ? [
+        ['Position', a.position || 'Employee'],
+        ['Employment type', 'Permanent part-time'],
+        ['Commencement date', fmtDate(a.startDate)],
+        ['Hours of work', a.agreedHours || '—'],
+        ['Place of work', a.placeOfWork || '—'],
+        ['Hourly rate', a.hourlyRate != null ? `$${Number(a.hourlyRate).toFixed(2)} per hour` : '—'],
+        ['Pay cycle', cap(a.payFrequency)],
+        ['Notice period', a.noticePeriod || '—'],
+        ['Annual leave', '4 weeks paid annual holidays (accrued)'],
+        ['Sick leave', '10 days per year (after 6 months)'],
+        ['Employee IRD No.', a.employeeIrdNumber || '—'],
+        ['Tax code', a.taxCode || '—'],
+        ['KiwiSaver', a.kiwisaverChoice === 'opt_out' ? 'Opting out' : a.kiwisaverChoice === 'stay_in' ? 'Staying in' : '—'],
+        ['Date of birth', fmtDate(a.dateOfBirth)],
+        ...(emergency ? [['Emergency contact', emergency] as [string, string]] : []),
       ]
     : [
         ['Position', a.position || 'Cleaner (Casual)'],

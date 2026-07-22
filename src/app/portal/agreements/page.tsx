@@ -33,7 +33,7 @@ export default async function AgreementsPage() {
         <ArrowLeft size={14} /> Settings
       </Link>
       <h1 className="text-3xl font-bold text-sage-800 tracking-tight mb-1">Employment agreements</h1>
-      <p className="text-sm text-sage-500 mb-6">Create a casual employment agreement, send the private link to the employee, and store their signed copy.</p>
+      <p className="text-sm text-sage-500 mb-6">Create a permanent, casual, or contractor agreement, send the private link to complete + e-sign, and store their signed copy.</p>
 
       <div className="mb-8">
         <CreateAgreementForm
@@ -54,7 +54,7 @@ export default async function AgreementsPage() {
               <div>
                 <div className="text-sm font-medium text-sage-800">
                   {a.person_label || 'Employee'}
-                  <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-sage-100 text-sage-600 font-medium">{a.agreement_type === 'contractor' ? 'Contractor' : 'Casual employee'}</span>
+                  <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-sage-100 text-sage-600 font-medium">{a.agreement_type === 'contractor' ? 'Contractor' : a.agreement_type === 'permanent_employee' ? 'Permanent employee' : 'Casual employee'}</span>
                   {a.is_test && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold uppercase tracking-wide">Test</span>}
                 </div>
                 <div className="text-[11px] text-sage-500">created {formatDate(a.created_at)}</div>
