@@ -75,7 +75,8 @@ export function ContractorRemittanceDocument({ data }: { data: RemittanceBatch }
   // Show the Hours column only if at least one line actually has hours,
   // so fixed-price-only remittances aren't padded with an empty column.
   const showHours = data.lines.some((l) => l.hours != null)
-  const colCount = 2 + (multi ? 1 : 0) + (showHours ? 1 : 0)
+  const showDate = data.lines.some((l) => l.kind === 'invoice' && !!l.date)
+  const colCount = 2 + (multi ? 1 : 0) + (showHours ? 1 : 0) + (showDate ? 1 : 0)
 
   return (
     <div className="remit-print-root min-h-screen bg-sage-50 py-10 px-4 print:bg-white print:py-0">
@@ -115,6 +116,7 @@ export function ContractorRemittanceDocument({ data }: { data: RemittanceBatch }
             <thead>
               <tr className="text-left text-sage-500 border-b border-sage-200">
                 <th className="py-2 pr-3 font-semibold">Job / Details</th>
+                {showDate && <th className="py-2 pr-3 font-semibold w-28">Date</th>}
                 {multi && <th className="py-2 pr-3 font-semibold">Contractor</th>}
                 {showHours && <th className="py-2 pr-3 font-semibold text-right w-16">Hours</th>}
                 <th className="py-2 font-semibold text-right w-28">Amount</th>
@@ -129,6 +131,7 @@ export function ContractorRemittanceDocument({ data }: { data: RemittanceBatch }
                     return (
                       <tr key={i} className="remit-row border-b border-sage-50">
                         <td className="py-2.5 pr-3 align-top font-medium text-sage-800">{l.label || 'Adjustment'}</td>
+                        {showDate && <td className="py-2.5 pr-3" />}
                         {multi && <td className="py-2.5 pr-3" />}
                         {showHours && <td className="py-2.5 pr-3" />}
                         <td className="py-2.5 align-top text-right font-medium text-sage-800">{formatCurrency(l.amount)}</td>
@@ -153,6 +156,7 @@ export function ContractorRemittanceDocument({ data }: { data: RemittanceBatch }
                         </div>
                         {noteLine && <div className="text-[11px] text-sage-400 italic mt-0.5">{noteLine}</div>}
                       </td>
+                      {showDate && <td className="py-2.5 pr-3 align-top text-sage-600 whitespace-nowrap">{l.date ? formatDate(l.date) : ''}</td>}
                       {multi && <td className="py-2.5 pr-3 align-top text-sage-600">{l.contractorName ?? '—'}</td>}
                       {showHours && <td className="py-2.5 pr-3 align-top text-right text-sage-600">{formatHours(l.hours)}</td>}
                       <td className="py-2.5 align-top text-right font-medium text-sage-800">{formatCurrency(l.amount)}</td>

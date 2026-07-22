@@ -5,12 +5,16 @@
 
 import { getServiceSupabase } from './supabase-service'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { resolveContractorServiceDate } from './contractor-service-date'
+import { toNzCalendarDate } from './contractor-statement-period'
 
 export interface RemittanceBatchLine {
   kind: 'invoice' | 'adjustment'
   contractorName: string | null
   jobNumber: string | null
   jobAddress: string | null
+  /** The clean's service date (job completion, or the payable's service date). */
+  date: string | null
   note: string | null
   label: string | null
   // Snapshotted display-only hours. Non-null only when the line was
@@ -51,20 +55,36 @@ interface Header {
 async function build(svc: SupabaseClient, h: Header): Promise<RemittanceBatch> {
   const { data: itemsRaw } = await svc
     .from('contractor_remittance_items')
-    .select('kind, contractor_name, job_number, job_address, note, label, hours, amount, sort')
+    .select('kind, contractor_name, job_number, job_address, note, label, hours, amount, sort, contractor_invoices ( job_id, service_date, gst_supply_date, jobs ( completed_at ) )')
     .eq('remittance_id', h.id)
     .order('sort', { ascending: true })
 
-  const lines: RemittanceBatchLine[] = (itemsRaw ?? []).map((it) => ({
-    kind: (it.kind as 'invoice' | 'adjustment') ?? 'invoice',
-    contractorName: (it.contractor_name as string | null) ?? null,
-    jobNumber: (it.job_number as string | null) ?? null,
-    jobAddress: (it.job_address as string | null) ?? null,
-    note: (it.note as string | null) ?? null,
-    label: (it.label as string | null) ?? null,
-    hours: (it.hours as number | null) ?? null,
-    amount: (it.amount as number) ?? 0,
-  }))
+  const flat = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null))
+
+  const lines: RemittanceBatchLine[] = (itemsRaw ?? []).map((it) => {
+    const ci = flat((it as { contractor_invoices?: unknown }).contractor_invoices) as
+      { job_id: string | null; service_date: string | null; gst_supply_date: string | null; jobs: unknown } | null
+    const job = flat(ci?.jobs) as { completed_at: string | null } | null
+    const date = ci
+      ? resolveContractorServiceDate({
+          job_id: ci.job_id,
+          job_completed_at_nz: toNzCalendarDate(job?.completed_at ?? null),
+          service_date: ci.service_date,
+          gst_supply_date: ci.gst_supply_date,
+        }).date
+      : null
+    return {
+      kind: (it.kind as 'invoice' | 'adjustment') ?? 'invoice',
+      contractorName: (it.contractor_name as string | null) ?? null,
+      jobNumber: (it.job_number as string | null) ?? null,
+      jobAddress: (it.job_address as string | null) ?? null,
+      date,
+      note: (it.note as string | null) ?? null,
+      label: (it.label as string | null) ?? null,
+      hours: (it.hours as number | null) ?? null,
+      amount: (it.amount as number) ?? 0,
+    }
+  })
   const total = Math.round(lines.reduce((s, l) => s + l.amount, 0) * 100) / 100
   const contractorNames = Array.from(new Set(lines.map((l) => l.contractorName).filter((n): n is string => !!n)))
 

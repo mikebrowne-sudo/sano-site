@@ -17,6 +17,7 @@ function line(overrides: Partial<RemittanceBatchLine> = {}): RemittanceBatchLine
     contractorName: 'Kritika Kumar',
     jobNumber: 'JOB-0024',
     jobAddress: '26 Buscomb Avenue, Henderson, Auckland 0610, New Zealand',
+    date: null,
     note: null,
     label: null,
     hours: null,
@@ -56,6 +57,17 @@ describe('ContractorRemittanceDocument', () => {
     expect(screen.getByText('Carpet clean')).toBeInTheDocument()
     // clean address still shown on the job line
     expect(screen.getByText(/26 Buscomb Avenue, Henderson/)).toBeInTheDocument()
+  })
+
+  it('shows a Date column with the clean date when lines have one', () => {
+    render(<ContractorRemittanceDocument data={batch([line({ date: '2026-04-30' })])} />)
+    expect(screen.getByText('Date')).toBeInTheDocument()
+    expect(screen.getByText(/30 Apr 2026/)).toBeInTheDocument()
+  })
+
+  it('hides the Date column when no line has a date', () => {
+    render(<ContractorRemittanceDocument data={batch([line({ date: null })])} />)
+    expect(screen.queryByText('Date')).not.toBeInTheDocument()
   })
 
   it('shows no second line when the note is empty', () => {
