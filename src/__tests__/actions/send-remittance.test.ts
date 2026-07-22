@@ -62,6 +62,7 @@ function makeSvc(items: unknown[], contractors: unknown[]) {
     if (table === 'contractor_remittance_items') return thenable(items)
     if (table === 'contractors') return thenable(contractors)
     if (table === 'contractor_remittances') return { update }
+    if (table === 'contractor_statements') return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) }
     if (table === 'audit_log') return { insert: auditInsert }
     return thenable([])
   })

@@ -1,0 +1,48 @@
+-- 2026-07-22 — Contractor statement → remittance (Stage 1 PR D). FUNCTIONS ONLY
+-- — no table changes (remittance_id exists from PR B). Applied via MCP.
+--
+-- Bulk-first period payments over the existing canonical remittance flow:
+-- 1 confirmed/deadline-elapsed statement -> 1 unpaid remittance, atomically,
+-- reconciled exactly to the immutable issued snapshot. The existing manual
+-- combined-household / adjustment builder is untouched.
+--
+--   • has_unresolved_query(uuid)            — shared Stage 2 query extension point
+--     (statement_confirmation_block re-routed through it; payment uses it too).
+--   • statement_payment_block(uuid)         — shared payment eligibility + EXACT
+--     reconciliation to issued_snapshot (used by the dry-run preview AND create).
+--   • create_remittance_from_statement(uuid,date,text) — FOR UPDATE lock, eligibility,
+--     insert remittance + items (from snapshot) + link statement + audit, atomically.
+--     Records readiness_basis = review_deadline_elapsed | contractor_confirmed | sano_confirmed.
+--   • mark_contractor_remittance_paid(uuid,date)   — remittance + non-void CIs + linked
+--     statement -> paid, atomically; no-ops the statement part for manual remittances.
+--   • mark_contractor_remittance_unpaid(uuid)      — atomic reversal (retains link).
+--   • void_contractor_remittance(uuid,text)        — revert CIs, revert linked statement
+--     out of paid, delete batch (FK nulls statement.remittance_id), audit — atomically.
+--
+-- REVERSAL RULE (migration `remittance_reversal_by_confirmed_source`): mark-unpaid
+-- and void restore statement status STRICTLY by confirmed_source —
+--   confirmed_source in ('contractor','sano') -> 'confirmed';  null -> 'issued'.
+-- A deadline-elapsed (unconfirmed) statement returns to 'issued', never 'confirmed'.
+-- confirmed_source / confirmed_at / confirmed_by and the immutable snapshot are
+-- preserved untouched; no confirmation is ever manufactured. mark-unpaid retains
+-- remittance_id; void clears it (via ON DELETE SET NULL).
+--
+-- Historical remittances/invoices are OUT OF SCOPE: no cleanup, no unique index.
+-- The reconciliation blocks a CI already attached to any active remittance item.
+
+-- (Full function bodies applied via MCP migration `contractor_statement_remittance_rpcs`.)
+-- See the migration for exact definitions; summary of guarantees:
+--   * one statement -> one unpaid remittance
+--   * exact-to-the-cent reconciliation (ci-id set, per-line amount, gst_status,
+--     gst_amount, total, contractor) — mismatch BLOCKS; staff supersede+reissue,
+--     never override, never silent rebuild
+--   * concurrency-safe via SELECT ... FOR UPDATE on the statement row
+--   * every RPC is staff-only (not is_contractor()) and audited
+--
+-- Verified 2026-07-22 (rolled-back): create (basis review_deadline_elapsed, 1 item,
+-- linked) -> double-create blocked -> mark-paid (stmt+ci+items paid). Eligibility
+-- blocks: issued-before-deadline, superseded, reconciliation mismatch.
+-- Reversal (all rolled-back): deadline paid->unpaid -> ISSUED (confirmed fields null);
+-- contractor/sano paid->unpaid -> CONFIRMED (fields preserved); void-unpaid deadline
+-- -> issued + link cleared + CI approved; void-unpaid confirmed -> confirmed + link
+-- cleared; repeated mark-unpaid/void blocked, no status drift. Production untouched.
