@@ -27,6 +27,7 @@ interface RecurringJobInput {
   monthly_value?: number
   invoice_auto_send?: boolean
   invoice_send_day?: number
+  contractor_monthly_pay?: number
 }
 
 function calcNextDueDate(startDate: string, frequency: string, after?: string | null): string | null {
@@ -74,6 +75,7 @@ export async function createRecurringJob(input: RecurringJobInput) {
       status: input.status || 'active',
       next_due_date: nextDue,
       monthly_value: input.monthly_value ?? null,
+      contractor_monthly_pay: input.contractor_monthly_pay ?? null,
       invoice_auto_send: input.invoice_auto_send ?? false,
       invoice_send_day: input.invoice_send_day ?? null,
       next_invoice_date: input.invoice_send_day
@@ -127,6 +129,7 @@ export async function updateRecurringJob(id: string, input: RecurringJobInput) {
       status: input.status || 'active',
       next_due_date: nextDue,
       monthly_value: input.monthly_value ?? null,
+      contractor_monthly_pay: input.contractor_monthly_pay ?? null,
       invoice_auto_send: input.invoice_auto_send ?? false,
       invoice_send_day: input.invoice_send_day ?? null,
       // Keep an existing schedule; only (re)seed when a day is set and none exists.

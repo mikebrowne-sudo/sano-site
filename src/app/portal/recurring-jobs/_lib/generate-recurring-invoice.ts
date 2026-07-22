@@ -6,6 +6,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { advanceOneMonth, isInvoiceDue } from '@/lib/recurring-invoice'
 import { computeInvoiceDueDate } from '@/lib/invoice-dates'
+import { resolveContractorGstSnapshot } from '@/lib/contractor-gst-snapshot'
 import { sendRecurringInvoiceEmail } from './send-recurring-invoice'
 
 export interface RecurringRow {
@@ -19,10 +20,77 @@ export interface RecurringRow {
   invoice_auto_send: boolean | null
   invoice_send_day: number | null
   next_invoice_date: string | null
+  contractor_id: string | null
+  contractor_monthly_pay: number | null
 }
 
 export const REC_COLS =
-  'id, client_id, monthly_value, title, description, address, status, invoice_auto_send, invoice_send_day, next_invoice_date'
+  'id, client_id, monthly_value, title, description, address, status, invoice_auto_send, invoice_send_day, next_invoice_date, contractor_id, contractor_monthly_pay'
+
+/** Month label for a billing date, e.g. "2026-07-31" → "July 2026". */
+export function billingPeriodLabel(billDate: string): string {
+  return new Date(billDate + 'T00:00:00Z').toLocaleDateString('en-NZ', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+}
+
+/**
+ * Create the contract's fixed monthly contractor payable (e.g. Myrtle's $1500),
+ * idempotent per (contractor, contract title, period) so a cron re-run or an
+ * already-created month never doubles it. Auto-approved so it lands ready to pay
+ * in the "Pay contractors" list.
+ */
+export async function ensureContractorPayable(
+  supabase: SupabaseClient,
+  rec: RecurringRow,
+  billDate: string,
+): Promise<{ created?: boolean; skipped?: string; error?: string }> {
+  if (!rec.contractor_id || !(Number(rec.contractor_monthly_pay) > 0)) return { skipped: 'no contractor pay' }
+  const siteLabel = rec.title?.trim() || 'Recurring contract'
+  const periodLabel = billingPeriodLabel(billDate)
+
+  const { data: existing } = await supabase
+    .from('contractor_invoices')
+    .select('id')
+    .eq('contractor_id', rec.contractor_id)
+    .eq('payment_type', 'fixed_contract')
+    .eq('site_label', siteLabel)
+    .eq('period_label', periodLabel)
+    .neq('status', 'void')
+    .limit(1)
+    .maybeSingle()
+  if (existing) return { skipped: 'payable already exists for this period' }
+
+  const amount = Number(rec.contractor_monthly_pay)
+  const { fields: gstFields } = await resolveContractorGstSnapshot(supabase, rec.contractor_id, amount, billDate)
+
+  const { data: ci, error } = await supabase
+    .from('contractor_invoices')
+    .insert({
+      contractor_id: rec.contractor_id,
+      amount,
+      date_submitted: billDate,
+      status: 'approved',
+      approved_at: new Date().toISOString(),
+      payment_type: 'fixed_contract',
+      site_label: siteLabel,
+      period_label: periodLabel,
+      service_date: billDate,
+      ...gstFields,
+    })
+    .select('id, invoice_number')
+    .single()
+  if (error || !ci) return { error: `contractor payable: ${error?.message ?? 'no row'}` }
+
+  await supabase.from('audit_log').insert({
+    actor_id: null,
+    actor_role: 'admin',
+    action: 'contractor_invoice.created',
+    entity_table: 'contractor_invoices',
+    entity_id: ci.id,
+    before: null,
+    after: { invoice_number: ci.invoice_number ?? null, contractor_id: rec.contractor_id, amount, payment_type: 'fixed_contract', source: 'recurring_contract', recurring_job_id: rec.id, period_label: periodLabel },
+  })
+  return { created: true }
+}
 
 export interface RecurringInvoiceResult {
   invoiceId?: string
@@ -57,7 +125,7 @@ export async function generateFor(supabase: SupabaseClient, rec: RecurringRow): 
     const dueDate = computeInvoiceDueDate({
       payment_type: paymentType,
       payment_terms: (client?.payment_terms as string | null) ?? null,
-      date_issued: null,
+      date_issued: billDate, // issued on the billing date → deterministic 20th-of-next-month etc.
       service_date: billDate,
     })
 
@@ -88,11 +156,17 @@ export async function generateFor(supabase: SupabaseClient, rec: RecurringRow): 
     sent = !!res.sent
   }
 
+  // Fixed monthly contractor payable (e.g. Myrtle's $1500). Independent of the
+  // invoice's existence + idempotent per period, so it's created once even if the
+  // invoice was already there.
+  const payable = await ensureContractorPayable(supabase, rec, billDate)
+
   await supabase
     .from('recurring_jobs')
     .update({ next_invoice_date: advanceOneMonth(billDate, sendDay) })
     .eq('id', rec.id)
 
+  if (payable.error) return { error: payable.error }
   return existing ? { skipped: 'already billed for this date' } : { invoiceId, sent }
 }
 
