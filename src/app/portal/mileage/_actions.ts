@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { revalidatePath } from 'next/cache'
 import { tripAddresses, roundKm, HOME_BASE, type MileageStop } from '@/lib/mileage'
+import { getMileageRateConfigs } from '@/lib/mileage-rate-data'
+import { resolveMileageRate, computeMileageReimbursement, type VehicleType, type MileageTier } from '@/lib/payroll/mileage-rates'
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
@@ -61,20 +63,45 @@ export async function saveMileageLog(input: {
   stops: MileageStop[]
   distanceKm: number
   notes?: string | null
-  personLabel?: string | null
+  contractorId: string
+  businessPurpose: string
+  vehicleType: VehicleType
+  tier: MileageTier
 }): Promise<{ ok?: true; error?: string }> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
   if (!isAdminUser(user)) return { error: 'Admin only.' }
   if (!input.logDate) return { error: 'Pick a date.' }
+  if (!input.contractorId) return { error: 'Choose the employee.' }
+  if (!input.businessPurpose?.trim()) return { error: 'Enter the business purpose.' }
+  if (input.tier !== 1 && input.tier !== 2) return { error: 'Choose the rate tier.' }
   const stops = (input.stops ?? []).filter((s) => s.address?.trim())
   if (stops.length === 0) return { error: 'Add at least one stop.' }
   if (!(input.distanceKm > 0)) return { error: 'Calculate the distance before saving.' }
 
+  // Resolve the reimbursement rate SERVER-SIDE (authoritative) from the dated
+  // config, by vehicle type + the manually-chosen tier, effective on the trip
+  // date. The tier is the operator's choice (Tier 1 tracks the vehicle's total
+  // annual km incl. private, which we can't know) — never inferred here.
+  const configs = await getMileageRateConfigs(supabase)
+  const rate = resolveMileageRate(configs, { vehicleType: input.vehicleType, tier: input.tier, onDate: input.logDate })
+  if (!rate) return { error: `No ${input.vehicleType} Tier ${input.tier} rate is configured for ${input.logDate}.` }
+  const reimbursement = computeMileageReimbursement(input.distanceKm, rate.ratePerKm)
+
+  // Keep person_label in sync for display continuity with legacy rows.
+  const { data: emp } = await supabase.from('contractors').select('full_name').eq('id', input.contractorId).maybeSingle()
+
   const { error } = await supabase.from('mileage_logs').insert({
     log_date: input.logDate,
-    person_label: input.personLabel?.trim() || 'Carol',
+    contractor_id: input.contractorId,
+    person_label: (emp?.full_name as string | null)?.trim() || null,
+    business_purpose: input.businessPurpose.trim(),
+    vehicle_type: input.vehicleType,
+    tier: input.tier,
+    rate_per_km: rate.ratePerKm,
+    reimbursement_amount: reimbursement,
+    status: 'draft',
     home_base: HOME_BASE,
     stops,
     distance_km: input.distanceKm,
@@ -82,6 +109,26 @@ export async function saveMileageLog(input: {
     created_by: user.id,
   })
   if (error) return { error: `Couldn’t save the log: ${error.message}` }
+
+  revalidatePath('/portal/mileage')
+  return { ok: true }
+}
+
+// Approve a draft mileage log for reimbursement. Records the approver + time
+// (the audit trail). Only approved, unreimbursed logs are pulled into a pay
+// run (PR2c). Amount is NOT recomputed here — it's locked at save.
+export async function approveMileageLog(id: string): Promise<{ ok?: true; error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
+
+  const { error } = await supabase
+    .from('mileage_logs')
+    .update({ status: 'approved', approved_by: user.id, approved_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('status', 'draft') // only a draft can be approved (idempotent-safe)
+  if (error) return { error: `Couldn’t approve: ${error.message}` }
 
   revalidatePath('/portal/mileage')
   return { ok: true }
