@@ -27,6 +27,7 @@ interface RecurringJobData {
   monthly_value?: number | null
   invoice_auto_send?: boolean | null
   invoice_send_day?: number | null
+  contractor_monthly_pay?: number | null
 }
 
 function toNum(v: string) {
@@ -62,6 +63,7 @@ export function RecurringJobForm({
   const [monthlyValue, setMonthlyValue] = useState(recurringJob?.monthly_value != null ? String(recurringJob.monthly_value) : '')
   const [invoiceSendDay, setInvoiceSendDay] = useState(recurringJob?.invoice_send_day != null ? String(recurringJob.invoice_send_day) : '')
   const [invoiceAutoSend, setInvoiceAutoSend] = useState(recurringJob?.invoice_auto_send ?? false)
+  const [contractorMonthlyPay, setContractorMonthlyPay] = useState(recurringJob?.contractor_monthly_pay != null ? String(recurringJob.contractor_monthly_pay) : '')
 
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -95,6 +97,7 @@ export function RecurringJobForm({
       end_date: endDate || undefined,
       status,
       monthly_value: toNum(monthlyValue),
+      contractor_monthly_pay: toNum(contractorMonthlyPay),
       invoice_send_day: toNum(invoiceSendDay),
       invoice_auto_send: invoiceAutoSend,
     }
@@ -162,7 +165,8 @@ export function RecurringJobForm({
       <Section title="Invoicing">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Monthly value ($)" type="number" step="0.01" min="0" value={monthlyValue} onChange={setMonthlyValue} placeholder="e.g. 2740" />
-          <Field label="Invoice on day of month (1–28)" type="number" min="1" value={invoiceSendDay} onChange={setInvoiceSendDay} placeholder="e.g. 1" />
+          <Field label="Invoice on day of month (1–31; 31 = end of month)" type="number" min="1" value={invoiceSendDay} onChange={setInvoiceSendDay} placeholder="e.g. 31" />
+          <Field label="Contractor monthly pay ($)" type="number" step="0.01" min="0" value={contractorMonthlyPay} onChange={setContractorMonthlyPay} placeholder="e.g. 1500" />
         </div>
         <label className="flex items-start gap-2 mt-4 text-sm text-sage-700">
           <input type="checkbox" checked={invoiceAutoSend} onChange={(e) => setInvoiceAutoSend(e.target.checked)} className="mt-0.5 rounded border-sage-300" />
