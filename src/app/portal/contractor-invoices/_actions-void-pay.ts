@@ -19,6 +19,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { statementEditBlock } from '@/lib/contractor-statement-lock'
+import { recomputeStatementTotals } from '@/lib/contractor-statement-recompute'
 import { revalidatePath } from 'next/cache'
 
 export async function voidContractorPayable(payableId: string, reason: string) {
@@ -67,14 +68,24 @@ export async function voidContractorPayable(payableId: string, reason: string) {
     .eq('id', payableId)
   if (uErr) return { error: `Could not void the payable: ${uErr.message}` }
 
+  // If it was on a DRAFT statement (a non-draft statement is blocked above),
+  // remove it from that statement and recompute — a voided payable must never
+  // linger on a draft with a stale total.
+  if (ci.statement_id) {
+    await supabase.from('contractor_invoices').update({ statement_id: null }).eq('id', payableId)
+    await recomputeStatementTotals(supabase, ci.statement_id as string)
+    revalidatePath('/portal/contractor-statements')
+    revalidatePath(`/portal/contractor-statements/${ci.statement_id}`)
+  }
+
   await supabase.from('audit_log').insert({
     actor_id: user.id,
     actor_role: 'admin',
     action: 'contractor_pay.voided',
     entity_table: 'contractor_invoices',
     entity_id: payableId,
-    before: { status: ci.status, amount: ci.amount, date_paid: ci.date_paid },
-    after: { status: 'void', reason: reason.trim() },
+    before: { status: ci.status, amount: ci.amount, date_paid: ci.date_paid, statement_id: ci.statement_id },
+    after: { status: 'void', reason: reason.trim(), removed_from_draft_statement: !!ci.statement_id },
   })
 
   if (ci.job_id) revalidatePath(`/portal/jobs/${ci.job_id}`)
