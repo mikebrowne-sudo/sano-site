@@ -15,9 +15,17 @@
 --     Records readiness_basis = review_deadline_elapsed | contractor_confirmed | sano_confirmed.
 --   • mark_contractor_remittance_paid(uuid,date)   — remittance + non-void CIs + linked
 --     statement -> paid, atomically; no-ops the statement part for manual remittances.
---   • mark_contractor_remittance_unpaid(uuid)      — atomic reversal.
+--   • mark_contractor_remittance_unpaid(uuid)      — atomic reversal (retains link).
 --   • void_contractor_remittance(uuid,text)        — revert CIs, revert linked statement
 --     out of paid, delete batch (FK nulls statement.remittance_id), audit — atomically.
+--
+-- REVERSAL RULE (migration `remittance_reversal_by_confirmed_source`): mark-unpaid
+-- and void restore statement status STRICTLY by confirmed_source —
+--   confirmed_source in ('contractor','sano') -> 'confirmed';  null -> 'issued'.
+-- A deadline-elapsed (unconfirmed) statement returns to 'issued', never 'confirmed'.
+-- confirmed_source / confirmed_at / confirmed_by and the immutable snapshot are
+-- preserved untouched; no confirmation is ever manufactured. mark-unpaid retains
+-- remittance_id; void clears it (via ON DELETE SET NULL).
 --
 -- Historical remittances/invoices are OUT OF SCOPE: no cleanup, no unique index.
 -- The reconciliation blocks a CI already attached to any active remittance item.
@@ -32,6 +40,9 @@
 --   * every RPC is staff-only (not is_contractor()) and audited
 --
 -- Verified 2026-07-22 (rolled-back): create (basis review_deadline_elapsed, 1 item,
--- linked) -> double-create blocked -> mark-paid (stmt+ci+items paid) -> mark-unpaid
--- (stmt=confirmed, ci=approved) -> void (unlinked, deleted). Eligibility blocks:
--- issued-before-deadline, superseded, reconciliation mismatch. Production untouched.
+-- linked) -> double-create blocked -> mark-paid (stmt+ci+items paid). Eligibility
+-- blocks: issued-before-deadline, superseded, reconciliation mismatch.
+-- Reversal (all rolled-back): deadline paid->unpaid -> ISSUED (confirmed fields null);
+-- contractor/sano paid->unpaid -> CONFIRMED (fields preserved); void-unpaid deadline
+-- -> issued + link cleared + CI approved; void-unpaid confirmed -> confirmed + link
+-- cleared; repeated mark-unpaid/void blocked, no status drift. Production untouched.
