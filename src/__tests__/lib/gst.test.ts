@@ -22,8 +22,8 @@ describe('resolveContractorPaymentGst — registration-window GST snapshot (flag
     expect(resolveContractorPaymentGst(dereg, 230, '2026-07-15')).toMatchObject({ status: 'not_registered', applied: false })
   })
 
-  it('registered but MISSING effective date → incomplete (can’t confirm the window)', () => {
-    expect(resolveContractorPaymentGst({ gstRegistered: true, gstNumber: '123', gstEffectiveDate: null, gstEndDate: null }, 230, '2026-05-10')).toMatchObject({ status: 'incomplete', applied: false })
+  it('registered with a GST number but NO effective date → applied (dates optional)', () => {
+    expect(resolveContractorPaymentGst({ gstRegistered: true, gstNumber: '123', gstEffectiveDate: null, gstEndDate: null }, 230, '2026-05-10')).toMatchObject({ status: 'applied', applied: true, gstAmount: 30 })
   })
 
   it('registered, effective set, MISSING end date, still registered → applied (open window)', () => {
@@ -51,6 +51,16 @@ describe('resolveContractorPaymentGst — registration-window GST snapshot (flag
     expect(resolveContractorPaymentGst(reg, -230, '2026-05-10')).toMatchObject({ status: 'applied', gstAmount: -30, exclusive: -200 })
   })
 
+  it('registered with a number and NO dates at all → applied (start & expiry optional)', () => {
+    expect(resolveContractorPaymentGst({ gstRegistered: true, gstNumber: '999', gstEffectiveDate: null, gstEndDate: null, taxTreatment: 'ordinary_trade_creditor' }, 230, null))
+      .toMatchObject({ status: 'applied', applied: true, gstAmount: 30 })
+  })
+
+  it('an explicit end/expiry date is still enforced even with the registered flag on', () => {
+    expect(resolveContractorPaymentGst({ gstRegistered: true, gstNumber: '999', gstEffectiveDate: null, gstEndDate: '2026-06-30', taxTreatment: 'ordinary_trade_creditor' }, 230, '2026-07-15'))
+      .toMatchObject({ status: 'not_registered', applied: false })
+  })
+
   // Rates are GST-inclusive. When GST can't be CONFIRMED (pending/incomplete/
   // before-effective/not-registered) we must NEVER present a confirmed split and
   // NEVER reduce what's payable — the contractor is still owed the full agreed,
@@ -60,8 +70,7 @@ describe('resolveContractorPaymentGst — registration-window GST snapshot (flag
     const cases: Array<[string, Parameters<typeof resolveContractorPaymentGst>[0], string]> = [
       ['pending_review (tax treatment)', { ...reg, taxTreatment: 'pending_review' }, '2026-05-10'],
       ['pending_review (flag off, historical effective date)', { gstRegistered: false, gstNumber: '123', gstEffectiveDate: '2026-04-01', gstEndDate: null }, '2026-05-10'],
-      ['incomplete (registered, no effective date)', { gstRegistered: true, gstNumber: '123', gstEffectiveDate: null, gstEndDate: null }, '2026-05-10'],
-      ['incomplete (in window, no number)', { gstRegistered: true, gstNumber: null, gstEffectiveDate: '2026-04-01', gstEndDate: null }, '2026-05-10'],
+      ['incomplete (registered, no GST number)', { gstRegistered: true, gstNumber: null, gstEffectiveDate: '2026-04-01', gstEndDate: null }, '2026-05-10'],
       ['before_effective_date', reg, '2026-03-31'],
       ['not_registered', { gstRegistered: false }, '2026-05-10'],
     ]

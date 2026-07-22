@@ -79,8 +79,8 @@ export function contractorGstOnPayment(
  * - 'not_registered'        after the end date, or plainly never registered → no GST
  * - 'pending_review'        tax treatment pending, OR not-registered flag conflicts
  *                           with historical dates → FLAGGED (never auto no-GST)
- * - 'incomplete'            registration claimed but not confirmable (no effective
- *                           date / no GST number) → FLAGGED
+ * - 'incomplete'            registered but no GST number on file → FLAGGED
+ *                           (dates are optional; a missing number is not)
  * - 'not_assessed'          historical row, never assessed (migration backfill only)
  */
 export type ContractorGstStatus =
@@ -112,11 +112,13 @@ export interface ResolvedContractorGst {
 }
 
 /**
- * Resolve GST for a contractor payment at its supply date, using the
- * registration WINDOW [effective, end] rather than the current flag alone.
- * Rates are GST-inclusive; GST is split OUT (3/23), never added on top.
- * Ambiguity (pending treatment, incomplete dates, or a not-registered flag that
- * conflicts with historical dates) is FLAGGED, never guessed as no-GST.
+ * Resolve GST for a contractor payment at its supply date. A GST-registered
+ * contractor with a GST number gets the 3/23 split; effective/end dates are
+ * OPTIONAL but, when recorded, bound the window (supply before the start or
+ * after the end → no GST). Rates are GST-inclusive; GST is split OUT (3/23),
+ * never added on top. Ambiguity (pending treatment, missing GST number, or a
+ * not-registered flag that conflicts with historical dates) is FLAGGED, never
+ * guessed as no-GST.
  */
 export function resolveContractorPaymentGst(
   c: ContractorPaymentGstInput,
@@ -129,27 +131,30 @@ export function resolveContractorPaymentGst(
   const end = c.gstEndDate || null
   const supply = supplyDateIso || null
 
-  // Unresolved tax treatment → flag.
+  // Unresolved tax treatment → flag. (Staff must confirm the treatment; the
+  // default is 'pending_review' so this stays a deliberate gate.)
   if ((c.taxTreatment ?? '') === 'pending_review') return flag('pending_review')
 
-  // Supply before the window started → not registered yet (distinct status).
+  // Start/expiry dates are OPTIONAL, but any that ARE recorded are enforced:
+  // supply before an explicit effective date, or after an explicit end date,
+  // means no GST for that supply.
   if (eff && supply && supply < eff) return flag('before_effective_date')
-  // Supply after an explicit end date → deregistered by then.
   if (end && supply && supply > end) return flag('not_registered')
 
-  // Within a CONFIRMED window → applied. Confirmed = effective date set + supply
-  // on/after it AND (an explicit end covers it, OR still registered with no end).
-  if (eff && supply && supply >= eff && (end ? supply <= end : !!c.gstRegistered)) {
-    if (!c.gstNumber?.trim()) return flag('incomplete') // in-window but no number
+  // Apply GST (3/23) when the supply sits inside a registration window:
+  //  - currently registered (flag on): open window, start/end not required, OR
+  //  - flag off but an explicit end date exists (a closed historical window we're
+  //    not past) — e.g. deregistered contractor paid for in-window work.
+  // A GST number is still required (that's the one thing we won't invent).
+  if (c.gstRegistered || end) {
+    if (!c.gstNumber?.trim()) return flag('incomplete') // registered but no GST number on file
     const split = splitGstInclusive(amount)
     return { status: 'applied', applied: true, gstAmount: split.gst, exclusive: split.exclusive }
   }
 
-  // Registration claimed but not confirmable (no effective date) → flag.
-  if (c.gstRegistered && !eff) return flag('incomplete')
-  // Not currently registered but there IS historical registration data we can't
-  // place cleanly (e.g. effective date but no end, flag off) → don't auto no-GST.
-  if (!c.gstRegistered && eff) return flag('pending_review')
+  // Not currently registered but a historical effective date exists with no end →
+  // ambiguous; don't auto no-GST, flag for a look.
+  if (eff) return flag('pending_review')
 
   // No registration information at all → not registered.
   return flag('not_registered')
