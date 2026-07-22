@@ -83,7 +83,7 @@ export function IssuePanel({
               {gstReviewCount > 0 && (
                 <p className="mt-2 flex items-start gap-2 text-sm text-amber-800">
                   <AlertTriangle size={15} className="mt-0.5 shrink-0" />
-                  <span><strong>{gstReviewCount}</strong> line(s) have GST awaiting verification — they’ll show “awaiting verification” to the contractor. Issue anyway?</span>
+                  <span><strong>{gstReviewCount}</strong> line(s) have no confirmed GST amount (the contractor sees no GST on those lines). Issue anyway?</span>
                 </p>
               )}
               <div className="flex items-center gap-3 mt-3">
