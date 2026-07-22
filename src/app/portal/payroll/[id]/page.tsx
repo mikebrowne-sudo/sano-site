@@ -13,7 +13,7 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
 
   const [{ data: run, error }, { data: lines }, { data: payslips }] = await Promise.all([
     supabase.from('pay_runs').select('*').eq('id', params.id).single(),
-    supabase.from('pay_run_lines').select('id, contractor_id, hours_worked, hourly_rate, gross_pay, holiday_pay, paye, student_loan, kiwisaver_employee, kiwisaver_employer, net_pay, tax_code, contractors ( full_name )').eq('pay_run_id', params.id).order('created_at'),
+    supabase.from('pay_run_lines').select('id, contractor_id, hours_worked, hourly_rate, gross_pay, holiday_pay, paye, student_loan, kiwisaver_employee, kiwisaver_employer, net_pay, mileage_reimbursement, tax_code, contractors ( full_name )').eq('pay_run_id', params.id).order('created_at'),
     supabase.from('payslips').select('id, contractor_id, sent_at, pay_run_line_id').eq('pay_run_id', params.id),
   ])
 
@@ -25,6 +25,8 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
   const totalPaye = (lines ?? []).reduce((s, l) => s + (l.paye ?? 0), 0)
   const totalKsEmp = (lines ?? []).reduce((s, l) => s + (l.kiwisaver_employee ?? 0), 0)
   const totalKsEr = (lines ?? []).reduce((s, l) => s + (l.kiwisaver_employer ?? 0), 0)
+  const totalReimb = (lines ?? []).reduce((s, l) => s + (l.mileage_reimbursement ?? 0), 0)
+  const totalPaid = Math.round((totalNet + totalReimb) * 100) / 100
 
   return (
     <div>
@@ -48,7 +50,16 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4"><p className="text-xs text-sage-500">PAYE</p><p className="text-lg font-bold text-red-600">{fmt(totalPaye)}</p></div>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4"><p className="text-xs text-sage-500">KiwiSaver</p><p className="text-lg font-bold text-sage-700">{fmt(totalKsEmp + totalKsEr)}</p></div>
         <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-4"><p className="text-xs text-emerald-600">Net pay</p><p className="text-lg font-bold text-emerald-700">{fmt(totalNet)}</p></div>
+        {totalReimb > 0 && (
+          <>
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4"><p className="text-xs text-sage-500">Mileage reimb.</p><p className="text-lg font-bold text-sage-800">{fmt(totalReimb)}</p></div>
+            <div className="bg-sage-800 rounded-xl p-4"><p className="text-xs text-sage-300">Total paid</p><p className="text-lg font-bold text-white">{fmt(totalPaid)}</p></div>
+          </>
+        )}
       </div>
+      {totalReimb > 0 && (
+        <p className="-mt-4 mb-8 text-xs text-sage-500">Mileage reimbursement is non-taxable — added to net pay, excluded from gross, PAYE, ACC and KiwiSaver.</p>
+      )}
 
       {/* Lines */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -63,6 +74,8 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
                 <th className="px-4 py-3 font-semibold text-right">PAYE</th>
                 <th className="px-4 py-3 font-semibold text-right">KS Emp</th>
                 <th className="px-4 py-3 font-semibold text-right">Net</th>
+                {totalReimb > 0 && <th className="px-4 py-3 font-semibold text-right">Reimb.</th>}
+                {totalReimb > 0 && <th className="px-4 py-3 font-semibold text-right">Paid</th>}
                 <th className="px-4 py-3 font-semibold">Payslip</th>
               </tr>
             </thead>
@@ -79,6 +92,8 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
                     <td className="px-4 py-3 text-right text-red-600">{fmt(l.paye)}</td>
                     <td className="px-4 py-3 text-right text-sage-600">{fmt(l.kiwisaver_employee)}</td>
                     <td className="px-4 py-3 text-right text-emerald-700 font-bold">{fmt(l.net_pay)}</td>
+                    {totalReimb > 0 && <td className="px-4 py-3 text-right text-sage-600">{fmt(l.mileage_reimbursement ?? 0)}</td>}
+                    {totalReimb > 0 && <td className="px-4 py-3 text-right text-sage-800 font-bold">{fmt((l.net_pay ?? 0) + (l.mileage_reimbursement ?? 0))}</td>}
                     <td className="px-4 py-3">
                       {ps ? (
                         ps.sent_at
@@ -101,6 +116,8 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
                 <td className="px-4 py-3 text-right text-red-600">{fmt(totalPaye)}</td>
                 <td className="px-4 py-3 text-right text-sage-600">{fmt(totalKsEmp)}</td>
                 <td className="px-4 py-3 text-right text-emerald-700">{fmt(totalNet)}</td>
+                {totalReimb > 0 && <td className="px-4 py-3 text-right text-sage-700">{fmt(totalReimb)}</td>}
+                {totalReimb > 0 && <td className="px-4 py-3 text-right text-sage-900">{fmt(totalPaid)}</td>}
                 <td className="px-4 py-3"></td>
               </tr>
             </tfoot>
