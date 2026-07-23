@@ -2,7 +2,9 @@
 
 > Short, current. The deep history lives in [`docs/PORTAL.md`](../PORTAL.md). Update this after each Netlify-verified deploy.
 
-**Last verified:** 2026-07-04 (production on `55ce5c4` = PR #315 merge; Netlify deploy `ready` + live checks: wave-4 pages returning 200 with FAQPage schema, e.g. `/service-area/takanini`, `/service-area/westgate`.)
+**Last Mike-confirmed production verify:** 2026-07-04 (production on `55ce5c4` = PR #315 merge; Netlify deploy `ready` + live checks: wave-4 pages returning 200 with FAQPage schema, e.g. `/service-area/takanini`, `/service-area/westgate`.)
+
+**Merged to `main` since (auto-deployed, awaiting a fresh live confirm):** everything through `7cffad2` = PR #425 (2026-07-23). A large payroll + contractor-payments + Google-reviews release landed 2026-07-17→07-23 (PRs #375–#425) — captured in the dedicated block below. Not independently re-verified against production from this session (a `sano.nz` fetch here returns 403, consistent with bot protection rather than an outage — symptoms do **not** match the 2026-05-31 pattern). Mike to confirm the portal payroll/pay-statement flows on production.
 
 ## Live in production today
 
@@ -27,6 +29,18 @@
 - Public share routes (`/share/quote/[token]`, `/share/invoice/[token]`) with action cards (#185); Stripe Pay-Now; Twilio SMS; Mapbox autocomplete.
 - Quote/Invoice document family under `src/components/document/` (PR #180) + Phase J PDF routes.
 
+## Payroll + contractor payments release (merged 2026-07-17 → 07-23, PRs #375–#425)
+
+> Big workstream that landed after the last Mike-confirmed verify. All merged to `main` and auto-deployed; **pending a live production confirmation** of the portal flows. Specs in `docs/superpowers/specs/2026-07-21-*` and `2026-07-23-*`; several ship DB migrations (mileage, GST snapshot, ESCT, holiday, KiwiSaver, cadence guard, permanent agreement).
+
+- **Payroll engine (permanent staff):** PAYE 2026-27 consolidation (#393), ESCT whole-dollar/floor handling (#394/#395/#397), holiday pay (#395), KiwiSaver rate section (#398), leave calc + Carol's verified figures (#419), cadence-aware pay runs + double-pay guard (#419/#420), weekly pay-run auto-draft cron — **draft only, never pays** (#424), permanent-employee agreement type reusable for Carol + future staff (#425).
+- **Mileage reimbursement:** dated IRD rate config + calculator (#421), link to employee + vehicle/tier/rate + approval (#422), non-taxable pay-run line (#423).
+- **Contractor payment statements (Stage 1):** draft-statement foundation (#407), issue + immutable snapshot + supersede (#409), viewed/confirm/Sano-confirm/reminders (#410), bulk-first ready-to-pay workflow (#411), remittance + pay-by-contractor builder with uniform reference (#414), clean dates on remittance advice (#418), void unlinks a payable from its draft statement (#416).
+- **GST handling:** snapshot at approve-pay + not-assessed history + manual path (#404/#405), decoupled from `tax_treatment` (#413), optional start/expiry dates (#412), shared-number-across-profiles warning (#405).
+- **Contractor rate/job integrity (Stage 0):** snapshot `pay_rate` on every assignment path (#400), non-destructive `job_workers` reconciliation + `contractor_id ↔ job_workers` invariant (#401), recurring-job atomic worker seed + rollback escalation (#402), job-identity protection + dup index (#403), recurring fixed-monthly contractor pay (#415), mark-paid/remittance audit coverage (#406).
+- **Security:** closed a `contractor_invoices` RLS hole — contractors could previously read all pay data (#408).
+- **Public site:** Google Reviews display via Places API (New) with a reviews tab + "no reviews yet" state (#374/#375).
+
 ## Verification status
 - `npm test` baseline: 3 failing suites (`submit-application`, `services`, `Header`) - pre-existing, leave alone.
 - `npx next lint` should be clean (Errors fail Netlify builds).
@@ -37,7 +51,7 @@
 - `docs/compliance/` and `docs/AI/New Text Document.txt` are untracked operational scratch - never `git add`.
 - Wave-2/3 near-duplicate cluster: Papakura, Flat Bush, Hobsonville, Browns Bay, and Milford share verbatim intro-P2 / card copy with each other (flagged by thin-content guard 2026-07-04). Differentiation pass queued in [`NEXT.md`](./NEXT.md) before further volume waves.
 - `src/app/collateral/marketing-a4/page.tsx` is a finished A4 flyer print route kept **local-only / uncommitted** by choice (2026-07-04).
-- **Production outage 2026-05-31 04:05–04:29 UTC** — every Next.js-handled route (including `/favicon.ico`) returned plain-text `Internal Server Error` while static files served fine. Rollback to a prior known-good SHA did NOT fix it; a fresh redeploy of the same source DID. Strong evidence: bad Netlify function bundle / artifact corruption, not a code regression. **Recovery rule: when symptoms match (dynamic routes 500, static files 200, no `X-Powered-By: Next.js`), Netlify dashboard → Deploys → Trigger deploy → "Clear cache and deploy site" BEFORE attempting a source rollback.** Prevention items still queued in [`NEXT.md`](./NEXT.md) — none built as of 2026-07-04 (verified: no `/api/health` route exists).
+- **Production outage 2026-05-31 04:05–04:29 UTC** — every Next.js-handled route (including `/favicon.ico`) returned plain-text `Internal Server Error` while static files served fine. Rollback to a prior known-good SHA did NOT fix it; a fresh redeploy of the same source DID. Strong evidence: bad Netlify function bundle / artifact corruption, not a code regression. **Recovery rule: when symptoms match (dynamic routes 500, static files 200, no `X-Powered-By: Next.js`), Netlify dashboard → Deploys → Trigger deploy → "Clear cache and deploy site" BEFORE attempting a source rollback.** Prevention items still queued in [`NEXT.md`](./NEXT.md) — none built as of 2026-07-23, re-checked (still no `/api/health` route, `NODE_VERSION` unpinned in `netlify.toml`, no incident playbook; note `src/app/api/cron/weekly-payroll` now exists from PR #424).
 
 ## How to update this doc
 - Append-style entries are fine but keep the "Live in production today" list short and accurate.

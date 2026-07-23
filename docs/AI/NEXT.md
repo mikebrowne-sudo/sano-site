@@ -10,7 +10,7 @@
 - **Suburb wave 5** — ~37 registry suburbs still pageless. Strongest candidates: Beach Haven, Glen Eden, Mangere, Meadowbank, Orakei, Otahuhu, Green Bay, Te Atatu South. Same pipeline as wave 4: planner agent → Mike confirms property-stock claims → build on template → thin-content guard → PR.
 - **Site-wide commercial pass** — lean commercial where genuine (services, about, FAQ, CTAs); residential stays primary. Open review item from the commercial growth focus.
 
-## Outage prevention plan (queued after 2026-05-31 incident — none built as of 2026-07-04)
+## Outage prevention plan (queued after 2026-05-31 incident — none built as of 2026-07-23, re-checked)
 - **Uptime monitoring (P0)** — Better Stack (primary) + UptimeRobot (redundant secondary). Three monitors: `/`, `/portal/login`, `/api/health`. Both free tier; expect 1–3 min check interval, push + email alerts. Zero code change.
 - **Health endpoint (P1)** — add `src/app/api/health/route.ts` returning `{ok:true}` with `export const dynamic = 'force-dynamic'`. No DB / Supabase / external dependency — pure Lambda probe.
 - **Pin `NODE_VERSION` + switch to `npm ci` (P1)** — add `NODE_VERSION` to `netlify.toml` `[build.environment]` (pull the value from the current working deploy's build log first); switch build command to `npm ci && npm run build` so the lockfile is strictly enforced.
@@ -23,7 +23,8 @@
 ## Blocked / waiting
 - _(empty)_
 
-## Recently completed (housekept 2026-07-04)
+## Recently completed (housekept 2026-07-23)
+- **2026-07-17 → 07-23 — payroll + contractor-payments release (PRs #375–#425):** permanent-staff payroll engine (PAYE 2026-27, ESCT, holiday pay, KiwiSaver, leave, cadence-aware runs + double-pay guard, weekly auto-draft cron, permanent-employee agreement for Carol), mileage reimbursement (IRD rate config → employee link → non-taxable pay-run line), contractor payment statements Stage 1 (draft → issue+snapshot → confirm/reminders → bulk ready-to-pay → remittance), GST handling (snapshot at approve-pay, decoupled from tax treatment, optional dates, shared-number warning), Stage 0 contractor rate/job integrity hardening, a `contractor_invoices` RLS security fix (#408), and Google Reviews display on the public site (#374/#375). **All merged to `main` + auto-deployed; still needs a live production confirmation of the portal flows** (see STATE.md dated block). Specs under `docs/superpowers/specs/2026-07-21-*` / `2026-07-23-*`.
 - **2026-07-04 session:** PR #313 (docs/repo hygiene), PR #282 (GA4 privacy disclosure, merged after 9 days open), PR #314 (suburb parity sweep — 14 legacy pages onto the template, copy verbatim, −2,089 lines), PR #315 (wave 4 — 8 new pages, estate to 42). All verified live on production (`55ce5c4`).
 - PRs #146–#312 merged between 2026-05-19 and 2026-07-02 — service-page differentiation + cleaning standards, suburb waves 1–3 + geo/FAQ schema, finance suite (expenses, P&L, ASB import + reconciliation), contractor pay pipeline + remittance, invoice/quote editing suite, global search + command palette, GA4 analytics (site + portal), accountant access, perf pass. Detail in [`STATE.md`](./STATE.md) and `git log --merges`.
 - Dropped from this queue 2026-07-04: PR #195 verification (PR was **closed unmerged** — the client-reference inherit work is dead unless re-raised) and the 2026-05-14 fix-marathon verification items (superseded by seven weeks of subsequent shipping).
