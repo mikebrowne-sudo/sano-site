@@ -91,6 +91,7 @@ export async function autoAssignInductionModules(
     contractor_id: contractorId,
     training_module_id: m.id,
     status: 'assigned' as const,
+    assignment_source: 'automatic_on_sign' as const,
   }))
   await client
     .from('worker_training_assignments')

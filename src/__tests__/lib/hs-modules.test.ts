@@ -8,6 +8,8 @@ import { join } from 'path'
 import { INDUCTION_MODULE_KEYS } from '@/lib/induction-modules'
 
 const sql = readFileSync(join(process.cwd(), 'docs/db/2026-07-24-phase6-hs-module-content.sql'), 'utf8')
+const sourceSql = readFileSync(join(process.cwd(), 'docs/db/2026-07-24-phase6-assignment-source.sql'), 'utf8')
+const backfillSql = readFileSync(join(process.cwd(), 'docs/db/2026-07-24-phase6-assign-core-modules-to-existing.sql'), 'utf8')
 
 const CORE = ['hs_induction', 'hazardous_substances', 'safe_work_practices', 'hazard_incident_reporting', 'security_property', 'privacy_conduct']
 const ROLE = ['working_at_height', 'team_leader']
@@ -40,5 +42,27 @@ describe('Phase 6 — H&S module seed', () => {
     const cols = sql.match(/\(key, title[\s\S]*?document_label\)/)?.[0] ?? ''
     expect(cols).toContain('document_label')
     expect(cols).not.toContain('document_url')
+  })
+})
+
+describe('Phase 6 — assignment traceability', () => {
+  it('adds an assignment_source column + CHECK covering the known sources', () => {
+    expect(sourceSql).toMatch(/add column if not exists assignment_source text/)
+    expect(sourceSql).toMatch(/wta_assignment_source_chk/)
+    for (const v of ['automatic_on_sign', 'manual_staff_assignment', 'phase6_existing_worker_backfill', 'phase7_role_targeting', 'site_specific_assignment', 'imported_legacy']) {
+      expect(sourceSql).toContain(`'${v}'`)
+    }
+  })
+  it('the backfill stamps the phase6 source, pins the six core keys, and keeps ON CONFLICT DO NOTHING', () => {
+    expect(backfillSql).toContain("'phase6_existing_worker_backfill'")
+    expect(backfillSql).toMatch(/on conflict \(contractor_id, training_module_id\) do nothing/)
+    for (const k of CORE) expect(backfillSql).toContain(`'${k}'`)
+    expect(backfillSql).not.toMatch(/m\.auto_assign = true/) // pinned by explicit key, not the flag
+  })
+  it('the backfill rollback deletes ONLY the phase6 source rows (never pre-existing / manual)', () => {
+    const rb = backfillSql.slice(backfillSql.indexOf('ROLLBACK'))
+    expect(rb).toMatch(/delete from public\.worker_training_assignments[\s\S]*?assignment_source = 'phase6_existing_worker_backfill'/)
+    // never deletes by key/status alone (which would catch pre-existing rows)
+    expect(rb).not.toMatch(/using public\.training_modules/)
   })
 })

@@ -1,20 +1,21 @@
 -- ============================================================================
 -- Phase 6 — assign the SIX CORE H&S modules to EXISTING ACTIVE workers.
--- PREPARED — DO NOT RUN until Mike approves. Mike-run, AFTER the content seed
--- (docs/db/2026-07-24-phase6-hs-module-content.sql) has been applied.
+-- PREPARED — DO NOT RUN until Mike approves. Mike-run, AFTER both the content
+-- seed (2026-07-24-phase6-hs-module-content.sql) AND the assignment-source
+-- migration (2026-07-24-phase6-assignment-source.sql) have been applied.
 -- ============================================================================
--- New signings already auto-get the core modules. This one-off assigns them to
--- workers who signed BEFORE the modules existed. It targets the SIX APPROVED
--- CORE MODULES BY KEY (never `auto_assign = true`, which could sweep in a future
--- auto-assigned module). It is deliberately safe:
+-- Every row created here is stamped assignment_source = 'phase6_existing_worker_backfill'
+-- so the batch is fully traceable and the rollback removes ONLY these rows —
+-- never a pre-existing or manually created assignment.
+--
+-- Safe by design:
 --   • ONLY the six core keys below. Role modules (working_at_height, team_leader)
 --     are excluded.
 --   • ONLY active workers (employees + contractors).
---   • NO duplicates (ON CONFLICT DO NOTHING on the unique (contractor, module)).
+--   • NO duplicates (ON CONFLICT DO NOTHING).
 --   • status = 'assigned' — NO auto-completion, NO acknowledged_at/completed_at.
---   • NO worker_training_acknowledgements rows — no invented acknowledgement.
+--   • NO worker_training_acknowledgements rows.
 --   • NO change to any worker's status, activation, onboarding or completion.
--- The workers then read + acknowledge each module themselves (scroll-gate).
 -- ============================================================================
 
 
@@ -47,13 +48,15 @@ insert into public.worker_training_assignments (
   contractor_id,
   training_module_id,
   status,
-  assigned_at
+  assigned_at,
+  assignment_source
 )
 select
   c.id,
   m.id,
   'assigned',
-  now()
+  now(),
+  'phase6_existing_worker_backfill'
 from public.contractors c
 cross join public.training_modules m
 where c.status = 'active'
@@ -72,40 +75,40 @@ commit;
 
 
 -- ---- VERIFICATION (read-only) -----------------------------------------------
--- Every active worker now has exactly the six core modules assigned:
-select c.full_name, count(a.id) as core_modules_assigned   -- expect 6 for each
+-- Number created by THIS batch (traceable by source):
+select count(*) as created_by_phase6_backfill
+from public.worker_training_assignments where assignment_source = 'phase6_existing_worker_backfill';
+-- Every active worker now has exactly the six core modules assigned (expect 6 each):
+select c.full_name, count(a.id) as core_modules_assigned
 from public.contractors c
 left join public.worker_training_assignments a on a.contractor_id = c.id
   and a.training_module_id in (
     select id from public.training_modules
     where key in ('hs_induction','hazardous_substances','safe_work_practices',
-                  'hazard_incident_reporting','security_property','privacy_conduct')
-  )
+                  'hazard_incident_reporting','security_property','privacy_conduct'))
 where c.status = 'active'
 group by c.full_name order by c.full_name;
--- No Working at Height or Team Leader assignments were created by this script:
-select count(*) as role_module_assignments
+-- Zero role-specific assignments created by this batch:
+select count(*) as role_module_backfill_assignments
 from public.worker_training_assignments a
 join public.training_modules m on m.id = a.training_module_id
-where m.key in ('working_at_height','team_leader');   -- expect 0 (unless staff assigned one manually)
--- Nothing was auto-completed or acknowledged:
-select count(*) as core_assigned_still_pending
-from public.worker_training_assignments a
-join public.training_modules m on m.id = a.training_module_id
-where m.key in ('hs_induction','hazardous_substances','safe_work_practices',
-                'hazard_incident_reporting','security_property','privacy_conduct')
-  and a.status = 'assigned' and a.acknowledged_at is null and a.completed_at is null;
+where a.assignment_source = 'phase6_existing_worker_backfill'
+  and m.key in ('working_at_height','team_leader');   -- expect 0
+-- Zero completed / acknowledged rows in this batch:
+select count(*) filter (where status = 'completed') as batch_completed,
+       count(*) filter (where acknowledged_at is not null) as batch_acknowledged
+from public.worker_training_assignments where assignment_source = 'phase6_existing_worker_backfill';  -- expect 0 / 0
 select count(*) as acknowledgements from public.worker_training_acknowledgements;   -- unchanged by this script
+-- Worker status / onboarding untouched (spot-check the employees):
+select full_name, status, onboarding_status from public.contractors where worker_type = 'employee' order by full_name;
 
 
 -- ---- ROLLBACK ---------------------------------------------------------------
--- Removes ONLY the six-core assignments that have NOT been acted on (never
--- touches an acknowledged or completed assignment, and never a role module).
+-- Removes ONLY this batch's rows (by source marker) that have NOT been acted on.
+-- The source marker guarantees pre-existing / manual assignments are never
+-- touched; the acted-on guard avoids the RESTRICT error from ack-history FKs.
 -- begin;
---   delete from public.worker_training_assignments a
---   using public.training_modules m
---   where a.training_module_id = m.id
---     and m.key in ('hs_induction','hazardous_substances','safe_work_practices',
---                   'hazard_incident_reporting','security_property','privacy_conduct')
---     and a.status = 'assigned' and a.acknowledged_at is null and a.completed_at is null;
+--   delete from public.worker_training_assignments
+--   where assignment_source = 'phase6_existing_worker_backfill'
+--     and status = 'assigned' and acknowledged_at is null and completed_at is null;
 -- commit;

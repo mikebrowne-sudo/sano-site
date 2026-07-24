@@ -74,8 +74,8 @@ describe('autoAssignInductionModules', () => {
     expect(res.assigned).toBe(2)
     expect(calls.upserts[0].opts).toEqual({ onConflict: 'contractor_id,training_module_id', ignoreDuplicates: true })
     expect(calls.upserts[0].rows).toEqual([
-      { contractor_id: 'c-1', training_module_id: 'm1', status: 'assigned' },
-      { contractor_id: 'c-1', training_module_id: 'm2', status: 'assigned' },
+      { contractor_id: 'c-1', training_module_id: 'm1', status: 'assigned', assignment_source: 'automatic_on_sign' },
+      { contractor_id: 'c-1', training_module_id: 'm2', status: 'assigned', assignment_source: 'automatic_on_sign' },
     ])
   })
 

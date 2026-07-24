@@ -82,6 +82,7 @@ export async function assignModuleToContractor(moduleId: string, contractorId: s
       training_module_id: moduleId,
       status: 'assigned',
       due_date: dueDate || null,
+      assignment_source: 'manual_staff_assignment',
     }, { onConflict: 'contractor_id,training_module_id' })
 
   if (error) return { error: `Failed to assign: ${error.message}` }
@@ -105,6 +106,7 @@ export async function assignModuleToAll(moduleId: string, dueDate?: string) {
     training_module_id: moduleId,
     status: 'assigned' as const,
     due_date: dueDate || null,
+    assignment_source: 'manual_staff_assignment' as const,
   }))
 
   const { error } = await supabase
