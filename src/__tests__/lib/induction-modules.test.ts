@@ -6,9 +6,10 @@ import {
 } from '@/lib/induction-modules'
 
 describe('induction-modules — keys', () => {
-  it('defines the four induction module keys', () => {
+  it('defines the six core induction module keys (Phase 6)', () => {
     expect(INDUCTION_MODULE_KEYS).toEqual([
-      'hs_induction', 'hazardous_substances', 'security_property', 'privacy_conduct',
+      'hs_induction', 'hazardous_substances', 'safe_work_practices',
+      'hazard_incident_reporting', 'security_property', 'privacy_conduct',
     ])
   })
 })
@@ -73,8 +74,8 @@ describe('autoAssignInductionModules', () => {
     expect(res.assigned).toBe(2)
     expect(calls.upserts[0].opts).toEqual({ onConflict: 'contractor_id,training_module_id', ignoreDuplicates: true })
     expect(calls.upserts[0].rows).toEqual([
-      { contractor_id: 'c-1', training_module_id: 'm1', status: 'assigned' },
-      { contractor_id: 'c-1', training_module_id: 'm2', status: 'assigned' },
+      { contractor_id: 'c-1', training_module_id: 'm1', status: 'assigned', assignment_source: 'automatic_on_sign' },
+      { contractor_id: 'c-1', training_module_id: 'm2', status: 'assigned', assignment_source: 'automatic_on_sign' },
     ])
   })
 
