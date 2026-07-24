@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { AssignModule } from '../_components/AssignModule'
+import { RequireReackButton } from '../_components/RequireReackButton'
 import clsx from 'clsx'
 
 const CAT_STYLES: Record<string, string> = {
@@ -19,7 +20,7 @@ export default async function ModuleDetailPage({ params }: { params: { id: strin
 
   const [{ data: mod, error }, { data: assignments }, { data: contractors }] = await Promise.all([
     supabase.from('training_modules').select('*').eq('id', params.id).single(),
-    supabase.from('worker_training_assignments').select('id, contractor_id, status, due_date, completed_at, acknowledged_at, contractors ( full_name )').eq('training_module_id', params.id).order('assigned_at', { ascending: false }),
+    supabase.from('worker_training_assignments').select('id, contractor_id, status, due_date, completed_at, acknowledged_at, acknowledged_version, reacknowledgement_required, contractors ( full_name )').eq('training_module_id', params.id).order('assigned_at', { ascending: false }),
     supabase.from('contractors').select('id, full_name').eq('status', 'active').order('full_name'),
   ])
 
@@ -38,9 +39,13 @@ export default async function ModuleDetailPage({ params }: { params: { id: strin
           <div className="flex items-center gap-2 mt-1">
             <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', CAT_STYLES[mod.category] ?? CAT_STYLES.other)}>{mod.category.replace(/_/g, ' ')}</span>
             <span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', mod.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600')}>{mod.status}</span>
+            {mod.version && <span className="text-xs text-sage-500">v{mod.version}</span>}
           </div>
         </div>
-        <Link href={`/portal/training/${params.id}/edit`} className="inline-flex items-center gap-2 bg-sage-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"><Pencil size={14} /> Edit</Link>
+        <div className="flex items-center gap-2">
+          <RequireReackButton moduleId={params.id} />
+          <Link href={`/portal/training/${params.id}/edit`} className="inline-flex items-center gap-2 bg-sage-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"><Pencil size={14} /> Edit</Link>
+        </div>
       </div>
 
       <div className="max-w-3xl space-y-8">

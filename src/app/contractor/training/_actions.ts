@@ -25,55 +25,54 @@ async function getContractorId(): Promise<string | null> {
   return data?.id ?? null
 }
 
-async function verifyAssignment(assignmentId: string, contractorId: string): Promise<boolean> {
-  const supabase = createClient()
-  const { data } = await supabase
+// Record an acknowledgement through the ATOMIC, SERVICE-ROLE-ONLY database RPC.
+// The worker ID is derived from the authenticated session (never the browser).
+// The RPC is not executable by the authenticated role, so a worker cannot invoke
+// it directly and bypass this flow / the scroll-gate. The history insert + the
+// assignment update commit together (or both roll back) in one transaction, and
+// the RPC independently re-confirms ownership + active module and takes the
+// version + timestamp from the DB. Idempotent for a duplicate (assignment,
+// version).
+async function recordAcknowledgement(assignmentId: string, workerId: string, complete: boolean) {
+  const svc = getServiceSupabase()
+
+  // Defense-in-depth ownership pre-check. workerId came from the auth session;
+  // the RPC re-confirms this too.
+  const { data: owned } = await svc
     .from('worker_training_assignments')
     .select('id')
     .eq('id', assignmentId)
-    .eq('contractor_id', contractorId)
+    .eq('contractor_id', workerId)
     .maybeSingle()
-  return !!data
+  if (!owned) return { error: 'Access denied.' }
+
+  // Only server-derived identifiers + the requested action are passed.
+  const { error } = await svc.rpc('record_training_acknowledgement', {
+    p_assignment_id: assignmentId,
+    p_worker_id: workerId,
+    p_complete: complete,
+  })
+  if (error) {
+    const msg = error.message || ''
+    if (/assignment not found/i.test(msg)) return { error: 'Access denied.' }
+    if (/module not active/i.test(msg)) return { error: 'This module isn’t available to acknowledge.' }
+    return { error: 'Could not record your acknowledgement. Please try again.' }
+  }
+
+  await syncInductionChecklist(workerId)
+  revalidatePath('/contractor/training')
+  revalidatePath(`/contractor/training/${assignmentId}`)
+  return { success: true as const }
 }
 
 export async function acknowledgeTraining(assignmentId: string) {
-  const contractorId = await getContractorId()
+  const contractorId = await getContractorId()   // derived from the authenticated session
   if (!contractorId) return { error: 'Not authenticated.' }
-  if (!await verifyAssignment(assignmentId, contractorId)) return { error: 'Access denied.' }
-
-  const supabase = createClient()
-  const { error } = await supabase
-    .from('worker_training_assignments')
-    .update({ acknowledged_at: new Date().toISOString() })
-    .eq('id', assignmentId)
-    .eq('contractor_id', contractorId)
-
-  if (error) return { error: error.message }
-  await syncInductionChecklist(contractorId)
-  revalidatePath('/contractor/training')
-  revalidatePath(`/contractor/training/${assignmentId}`)
-  return { success: true }
+  return recordAcknowledgement(assignmentId, contractorId, false)
 }
 
 export async function completeTraining(assignmentId: string) {
   const contractorId = await getContractorId()
   if (!contractorId) return { error: 'Not authenticated.' }
-  if (!await verifyAssignment(assignmentId, contractorId)) return { error: 'Access denied.' }
-
-  const supabase = createClient()
-  const { error } = await supabase
-    .from('worker_training_assignments')
-    .update({
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-      acknowledged_at: new Date().toISOString(),
-    })
-    .eq('id', assignmentId)
-    .eq('contractor_id', contractorId)
-
-  if (error) return { error: error.message }
-  await syncInductionChecklist(contractorId)
-  revalidatePath('/contractor/training')
-  revalidatePath(`/contractor/training/${assignmentId}`)
-  return { success: true }
+  return recordAcknowledgement(assignmentId, contractorId, true)
 }

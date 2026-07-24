@@ -13,6 +13,8 @@ interface Assignment {
   due_date: string | null
   completed_at: string | null
   acknowledged_at: string | null
+  acknowledged_version?: string | null
+  reacknowledgement_required?: boolean | null
   contractors: { full_name: string } | null
 }
 
@@ -117,6 +119,8 @@ export function AssignModule({
                 <div className="flex items-center gap-3 text-xs text-sage-500">
                   {a.due_date && <span>Due {fmtDate(a.due_date)}</span>}
                   {a.completed_at && <span>Completed {fmtDate(a.completed_at)}</span>}
+                  {a.acknowledged_at && <span>{a.acknowledged_version ? `Ack v${a.acknowledged_version}` : 'Ack (legacy)'}</span>}
+                  {a.reacknowledgement_required && <span className="text-amber-600 font-medium">Re-ack required</span>}
                   <button onClick={() => handleRemove(a.id)} disabled={isPending} className="text-sage-400 hover:text-red-500 transition-colors"><Trash2 size={13} /></button>
                 </div>
               </div>

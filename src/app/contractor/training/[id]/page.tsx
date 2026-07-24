@@ -2,7 +2,7 @@ import { getContractor } from '../../_lib/get-contractor'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { TrainingActions } from './_components/TrainingActions'
+import { AcknowledgeGate } from './_components/AcknowledgeGate'
 import clsx from 'clsx'
 
 const CAT_STYLES: Record<string, string> = {
@@ -54,7 +54,7 @@ export default async function ContractorTrainingDetailPage({ params }: { params:
 
   const { data: assignment, error } = await supabase
     .from('worker_training_assignments')
-    .select('id, status, due_date, completed_at, acknowledged_at, training_modules ( id, title, category, description, content, requires_acknowledgement, requires_completion, version, document_url, document_label )')
+    .select('id, status, due_date, completed_at, acknowledged_at, acknowledged_version, reacknowledgement_required, training_modules ( id, title, category, description, content, requires_acknowledgement, requires_completion, version, document_url, document_label )')
     .eq('id', params.id)
     .eq('contractor_id', contractor.id)
     .single()
@@ -81,17 +81,8 @@ export default async function ContractorTrainingDetailPage({ params }: { params:
         </div>
       </div>
 
-      <TrainingActions
-        assignmentId={assignment.id}
-        status={assignment.status}
-        acknowledgedAt={assignment.acknowledged_at}
-        completedAt={assignment.completed_at}
-        requiresAck={mod?.requires_acknowledgement ?? false}
-        requiresCompletion={mod?.requires_completion ?? true}
-      />
-
       {mod?.description && (
-        <div className="bg-white rounded-2xl border border-sage-100 p-5 mt-5">
+        <div className="bg-white rounded-2xl border border-sage-100 p-5">
           <h2 className="text-xs text-sage-500 font-semibold uppercase tracking-wide mb-2">Overview</h2>
           <p className="text-sage-700 text-sm leading-relaxed">{mod.description}</p>
         </div>
@@ -104,6 +95,7 @@ export default async function ContractorTrainingDetailPage({ params }: { params:
         </div>
       )}
 
+      {/* Supporting PDF — optional; opening it is NOT required to acknowledge. */}
       {mod?.document_url && (
         <a
           href={mod.document_url}
@@ -112,18 +104,31 @@ export default async function ContractorTrainingDetailPage({ params }: { params:
           className="flex items-center justify-between gap-3 bg-white rounded-2xl border border-sage-200 p-5 mt-4 hover:border-sage-300 transition-colors"
         >
           <div className="min-w-0">
-            <p className="text-sm font-medium text-sage-800">{mod.document_label || 'Full document'}</p>
-            <p className="text-xs text-sage-500">Open the full document (PDF){mod.version ? ` · v${mod.version}` : ''}</p>
+            <p className="text-sm font-medium text-sage-800">{mod.document_label || 'Supporting document'}</p>
+            <p className="text-xs text-sage-500">View or download the full document (PDF){mod.version ? ` · v${mod.version}` : ''} — optional</p>
           </div>
           <span className="shrink-0 text-sage-500 text-sm font-medium">Open →</span>
         </a>
       )}
 
-      {assignment.completed_at && (
-        <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-4 mt-5 text-sm text-emerald-700">
-          Completed on {fmtDate(assignment.completed_at)}
-        </div>
-      )}
+      {/* Sentinel: the acknowledgement gate enables only once this is reached. */}
+      <div id="module-read-bottom" className="h-px w-full" aria-hidden="true" />
+
+      <div className="mt-6">
+        <AcknowledgeGate
+          assignmentId={assignment.id}
+          status={assignment.status}
+          acknowledgedAt={assignment.acknowledged_at}
+          completedAt={assignment.completed_at}
+          acknowledgedVersion={(assignment as { acknowledged_version?: string | null }).acknowledged_version ?? null}
+          currentVersion={mod?.version ?? null}
+          reacknowledgementRequired={!!(assignment as { reacknowledgement_required?: boolean }).reacknowledgement_required}
+          requiresAck={mod?.requires_acknowledgement ?? false}
+          requiresCompletion={mod?.requires_completion ?? true}
+          gateEnabled={!!mod?.content}
+          sentinelId="module-read-bottom"
+        />
+      </div>
     </div>
   )
 }

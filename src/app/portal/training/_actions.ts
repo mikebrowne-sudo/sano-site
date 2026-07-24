@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase-server'
+import { isAdminUser } from '@/lib/is-admin'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 
@@ -113,6 +114,41 @@ export async function assignModuleToAll(moduleId: string, dueDate?: string) {
   if (error) return { error: `Failed to assign: ${error.message}` }
   revalidatePath(`/portal/training/${moduleId}`)
   return { success: true }
+}
+
+/**
+ * Explicitly require re-acknowledgement of a module (admin only). Flags workers
+ * who acknowledged an OLDER version so they must read the updated content again.
+ * Completions stay valid — this is an additive flag, so it never re-gates an
+ * already-active worker (the induction sync only ever completes, never
+ * un-completes). Workers already on the current version are not flagged.
+ */
+export async function requireModuleReacknowledgement(moduleId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
+
+  const { data: mod } = await supabase.from('training_modules').select('version').eq('id', moduleId).maybeSingle()
+  const currentVersion = (mod as { version?: string | null } | null)?.version ?? null
+
+  const { data: acked } = await supabase
+    .from('worker_training_assignments')
+    .select('id, acknowledged_version')
+    .eq('training_module_id', moduleId)
+    .not('acknowledged_at', 'is', null)
+  const toFlag = ((acked ?? []) as { id: string; acknowledged_version: string | null }[])
+    .filter((a) => (a.acknowledged_version ?? null) !== currentVersion)
+    .map((a) => a.id)
+
+  if (toFlag.length) {
+    const { error } = await supabase
+      .from('worker_training_assignments')
+      .update({ reacknowledgement_required: true })
+      .in('id', toFlag)
+    if (error) return { error: error.message }
+  }
+  revalidatePath(`/portal/training/${moduleId}`)
+  return { success: true, flagged: toFlag.length }
 }
 
 export async function removeAssignment(assignmentId: string, moduleId: string) {
