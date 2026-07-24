@@ -121,38 +121,38 @@ create policy wta_ack_staff_read on public.worker_training_acknowledgements
     public.is_admin() or exists (select 1 from public.staff s where s.auth_user_id = auth.uid() and s.access_disabled_at is null)
   );
 
--- 5. ATOMIC acknowledgement RPC — the ONLY write path. security definer (so it
---    can write past the worker's read-only RLS), but it derives identity from
---    the caller's JWT (auth.uid()) and re-validates ownership + module state, so
---    it trusts NOTHING from the client except the assignment id. The whole body
---    runs in one transaction: the history insert + the assignment update commit
---    together, or both roll back. Idempotent via the unique index (a duplicate
---    ack for the same version writes no new evidence and is not an error).
+-- 5. ATOMIC acknowledgement RPC — the ONLY write path, and SERVICE-ROLE ONLY.
+--    It is NOT granted to authenticated/anon, so a worker cannot invoke it
+--    directly (which would bypass the scroll-gate and let them pass
+--    p_complete=true). It is reachable only through the validated server action,
+--    which derives p_worker_id from the authenticated session and calls this via
+--    the service-role client. The function still INDEPENDENTLY confirms the
+--    assignment exists + belongs to p_worker_id + the module is active, and takes
+--    the version + timestamp from the DB. Whole body = one transaction: the
+--    history insert + the assignment update commit together or both roll back;
+--    idempotent via the unique index.
+drop function if exists public.record_training_acknowledgement(uuid, boolean);  -- retire the earlier auth.uid() signature if present
 create or replace function public.record_training_acknowledgement(
   p_assignment_id uuid,
-  p_complete boolean default false
-) returns table (module_version text, contractor_id uuid, is_new boolean)
+  p_worker_id     uuid,
+  p_complete      boolean default false
+) returns table (module_version text, is_new boolean)
 language plpgsql security definer set search_path = public as $$
 declare
-  v_contractor_id uuid;
   v_module_id     uuid;
   v_version       text;
   v_module_status text;
   v_now           timestamptz := now();   -- database/server timestamp
   v_inserted      integer;
 begin
-  -- Identity from the caller's JWT — never a client-supplied id.
-  select c.id into v_contractor_id from public.contractors c where c.auth_user_id = auth.uid();
-  if v_contractor_id is null then
-    raise exception 'not a worker' using errcode = '42501';
-  end if;
-
-  -- Ownership + module (lock the assignment row for this transaction).
+  -- Independently confirm the assignment exists + belongs to the passed worker.
+  -- p_worker_id is derived by the server from the authenticated session — it is
+  -- never taken from the browser. Lock the row for this transaction.
   select a.training_module_id, m.version, m.status
     into v_module_id, v_version, v_module_status
   from public.worker_training_assignments a
   join public.training_modules m on m.id = a.training_module_id
-  where a.id = p_assignment_id and a.contractor_id = v_contractor_id
+  where a.id = p_assignment_id and a.contractor_id = p_worker_id
   for update of a;
   if v_module_id is null then
     raise exception 'assignment not found for this worker' using errcode = 'P0002';
@@ -163,7 +163,7 @@ begin
 
   -- Append evidence (idempotent for the same assignment+version).
   insert into public.worker_training_acknowledgements (assignment_id, contractor_id, training_module_id, module_version, acknowledged_at)
-  values (p_assignment_id, v_contractor_id, v_module_id, v_version, v_now)
+  values (p_assignment_id, p_worker_id, v_module_id, v_version, v_now)
   on conflict (assignment_id, module_version) where module_version is not null do nothing;
   get diagnostics v_inserted = row_count;
 
@@ -174,14 +174,18 @@ begin
       reacknowledgement_required = false,
       status = case when p_complete then 'completed' else status end,
       completed_at = case when p_complete then coalesce(completed_at, v_now) else completed_at end
-  where id = p_assignment_id and contractor_id = v_contractor_id;
+  where id = p_assignment_id and contractor_id = p_worker_id;
 
-  return query select v_version, v_contractor_id, (v_inserted > 0);
+  return query select v_version, (v_inserted > 0);
 end;
 $$;
 
-revoke all on function public.record_training_acknowledgement(uuid, boolean) from public;
-grant execute on function public.record_training_acknowledgement(uuid, boolean) to authenticated;
+-- Service-role-only execute: strip the default PUBLIC grant + anon/authenticated,
+-- grant ONLY to service_role.
+revoke all on function public.record_training_acknowledgement(uuid, uuid, boolean) from public;
+revoke all on function public.record_training_acknowledgement(uuid, uuid, boolean) from anon;
+revoke all on function public.record_training_acknowledgement(uuid, uuid, boolean) from authenticated;
+grant execute on function public.record_training_acknowledgement(uuid, uuid, boolean) to service_role;
 
 commit;
 
@@ -201,6 +205,11 @@ select policyname, cmd, qual from pg_policies where schemaname='public' and tabl
 -- The atomic RPC + ownership helper exist:
 select proname from pg_proc p join pg_namespace n on n.oid=p.pronamespace
 where n.nspname='public' and proname in ('record_training_acknowledgement','worker_has_module_assignment');
+-- The RPC is SERVICE-ROLE ONLY: authenticated/anon/public cannot execute it.
+select
+  has_function_privilege('authenticated', 'public.record_training_acknowledgement(uuid, uuid, boolean)', 'execute') as authenticated_can_execute,  -- expect false
+  has_function_privilege('anon',          'public.record_training_acknowledgement(uuid, uuid, boolean)', 'execute') as anon_can_execute,           -- expect false
+  has_function_privilege('service_role',  'public.record_training_acknowledgement(uuid, uuid, boolean)', 'execute') as service_role_can_execute;   -- expect true
 -- Duplicate-evidence unique index exists:
 select indexname from pg_indexes where schemaname='public' and tablename='worker_training_acknowledgements' and indexname='wta_ack_assignment_version_unique';
 -- Evidence FKs are ON DELETE RESTRICT (expect three 'r'):
@@ -213,7 +222,7 @@ select count(*) as reack_flagged from public.worker_training_assignments where r
 
 -- ---- ROLLBACK ---------------------------------------------------------------
 -- begin;
---   drop function if exists public.record_training_acknowledgement(uuid, boolean);
+--   drop function if exists public.record_training_acknowledgement(uuid, uuid, boolean);
 --   drop table if exists public.worker_training_acknowledgements cascade;  -- (RESTRICT FKs point INTO this table; dropping the table itself is fine)
 --   alter table public.worker_training_assignments
 --     drop column if exists acknowledged_version,

@@ -36,59 +36,80 @@ const mockedCreate = createClient as unknown as jest.Mock
 const mockedService = getServiceSupabase as unknown as jest.Mock
 const mockedIsAdmin = isAdminUser as unknown as jest.Mock
 
-// The worker's USER client authenticates, resolves their contractor_id, and
-// calls the atomic RPC (which does the transactional write itself).
-function rpcClient(cfg: { contractorId?: string | null; rpcError?: { message: string } | null }) {
+// USER client: authenticates + resolves the worker's contractor_id (from the
+// session). SERVICE-ROLE client: ownership pre-check + the RPC. The RPC lives
+// ONLY on the service client — if the action called it on the user client the
+// mock would throw (proving it uses service-role).
+function flow(cfg: { workerId?: string | null; owned?: boolean; rpcError?: { message: string } | null }) {
   const cap = { rpc: null as { name: string; args: unknown } | null }
-  const client = {
+  const userClient = {
     auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'u1' } } }) },
-    from: () => ({ select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: cfg.contractorId === null ? null : { id: cfg.contractorId ?? 'c1' }, error: null }) }),
-    rpc: (name: string, args: unknown) => { cap.rpc = { name, args }; return Promise.resolve({ data: [{ module_version: '2.0', contractor_id: 'c1', is_new: true }], error: cfg.rpcError ?? null }) },
+    from: () => ({ select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: cfg.workerId === null ? null : { id: cfg.workerId ?? 'c1' }, error: null }) }),
+    // deliberately NO rpc on the user client.
   }
-  return { client, cap }
+  const svcClient = {
+    from: () => {
+      const chain: Record<string, unknown> = {}
+      chain.select = () => chain
+      chain.eq = () => chain
+      chain.maybeSingle = () => Promise.resolve({ data: cfg.owned === false ? null : { id: 'a1' }, error: null })
+      return chain
+    },
+    rpc: (name: string, args: unknown) => { cap.rpc = { name, args }; return Promise.resolve({ data: [{ module_version: '2.0', is_new: true }], error: cfg.rpcError ?? null }) },
+  }
+  return { userClient, svcClient, cap }
 }
 
-beforeEach(() => { jest.clearAllMocks(); mockedIsAdmin.mockReturnValue(true); mockedService.mockReturnValue({}) })
+beforeEach(() => { jest.clearAllMocks(); mockedIsAdmin.mockReturnValue(true) })
 
-describe('acknowledgeTraining — atomic RPC, no trusted client input', () => {
-  it('calls the atomic RPC with ONLY the assignment id + complete flag (no client-supplied identity/version/timestamp)', async () => {
-    const { client, cap } = rpcClient({})
-    mockedCreate.mockReturnValue(client)
+describe('acknowledgeTraining — service-role RPC, session-derived worker id', () => {
+  it('invokes the RPC on the SERVICE-ROLE client, passing the SESSION-derived worker id + only server ids', async () => {
+    const f = flow({ workerId: 'c1' })
+    mockedCreate.mockReturnValue(f.userClient)   // resolves worker c1 from the session
+    mockedService.mockReturnValue(f.svcClient)
     const r = await acknowledgeTraining('a1')
     expect(r).toMatchObject({ success: true })
-    expect(cap.rpc?.name).toBe('record_training_acknowledgement')
-    expect(cap.rpc?.args).toEqual({ p_assignment_id: 'a1', p_complete: false })
+    expect(f.cap.rpc?.name).toBe('record_training_acknowledgement')
+    // p_worker_id is the session-resolved id, not any browser input.
+    expect(f.cap.rpc?.args).toEqual({ p_assignment_id: 'a1', p_worker_id: 'c1', p_complete: false })
   })
 
   it('completeTraining sets p_complete = true', async () => {
-    const { client, cap } = rpcClient({})
-    mockedCreate.mockReturnValue(client)
+    const f = flow({ workerId: 'c1' })
+    mockedCreate.mockReturnValue(f.userClient); mockedService.mockReturnValue(f.svcClient)
     await completeTraining('a1')
-    expect(cap.rpc?.args).toEqual({ p_assignment_id: 'a1', p_complete: true })
+    expect(f.cap.rpc?.args).toEqual({ p_assignment_id: 'a1', p_worker_id: 'c1', p_complete: true })
   })
 
-  it('maps the RPC ownership error to Access denied', async () => {
-    const { client } = rpcClient({ rpcError: { message: 'assignment not found for this worker' } })
-    mockedCreate.mockReturnValue(client)
+  it('a mismatched assignment/worker fails the ownership pre-check — RPC never runs', async () => {
+    const f = flow({ workerId: 'c1', owned: false })
+    mockedCreate.mockReturnValue(f.userClient); mockedService.mockReturnValue(f.svcClient)
+    expect(await acknowledgeTraining('not-mine')).toEqual({ error: 'Access denied.' })
+    expect(f.cap.rpc).toBeNull()   // no write attempted
+  })
+
+  it('maps the RPC ownership error to Access denied (cross-worker blocked)', async () => {
+    const f = flow({ workerId: 'c1', rpcError: { message: 'assignment not found for this worker' } })
+    mockedCreate.mockReturnValue(f.userClient); mockedService.mockReturnValue(f.svcClient)
     expect(await acknowledgeTraining('a1')).toEqual({ error: 'Access denied.' })
   })
 
   it('maps the RPC inactive-module error', async () => {
-    const { client } = rpcClient({ rpcError: { message: 'module not active' } })
-    mockedCreate.mockReturnValue(client)
+    const f = flow({ workerId: 'c1', rpcError: { message: 'module not active' } })
+    mockedCreate.mockReturnValue(f.userClient); mockedService.mockReturnValue(f.svcClient)
     const r = await acknowledgeTraining('a1')
     expect('error' in r && /available/i.test((r as { error: string }).error)).toBe(true)
   })
 
-  it('a duplicate acknowledgement (idempotent RPC, is_new=false) is still a success, not an error', async () => {
-    const { client } = rpcClient({}) // RPC returns no error even on a duplicate
-    mockedCreate.mockReturnValue(client)
+  it('a duplicate acknowledgement (idempotent RPC) is still a success', async () => {
+    const f = flow({ workerId: 'c1' })
+    mockedCreate.mockReturnValue(f.userClient); mockedService.mockReturnValue(f.svcClient)
     expect(await acknowledgeTraining('a1')).toMatchObject({ success: true })
   })
 
-  it('an atomic failure surfaces as an error (no partial state — the RPC rolls both writes back)', async () => {
-    const { client } = rpcClient({ rpcError: { message: 'deadlock detected' } })
-    mockedCreate.mockReturnValue(client)
+  it('an atomic RPC failure surfaces as an error (no partial state)', async () => {
+    const f = flow({ workerId: 'c1', rpcError: { message: 'deadlock detected' } })
+    mockedCreate.mockReturnValue(f.userClient); mockedService.mockReturnValue(f.svcClient)
     expect('error' in (await acknowledgeTraining('a1'))).toBe(true)
   })
 })
@@ -112,6 +133,16 @@ describe('RLS design (direct-access assumptions) — Phase 5 migration', () => {
     expect(sql).toMatch(/security definer/)
     expect(sql).toMatch(/on conflict \(assignment_id, module_version\)/)
     expect(sql).toMatch(/create unique index if not exists wta_ack_assignment_version_unique/)
+  })
+  it('the RPC takes an explicit p_worker_id (no auth.uid inside a service-role call)', () => {
+    expect(sql).toMatch(/p_worker_id\s+uuid/)
+    expect(sql).toMatch(/a\.contractor_id = p_worker_id/)
+  })
+  it('the RPC is SERVICE-ROLE ONLY — revoked from authenticated/anon/public, granted to service_role', () => {
+    expect(sql).toMatch(/revoke all on function public\.record_training_acknowledgement\(uuid, uuid, boolean\) from authenticated/)
+    expect(sql).toMatch(/revoke all on function public\.record_training_acknowledgement\(uuid, uuid, boolean\) from anon/)
+    expect(sql).toMatch(/grant execute on function public\.record_training_acknowledgement\(uuid, uuid, boolean\) to service_role/)
+    expect(sql).not.toMatch(/grant execute on function public\.record_training_acknowledgement\([^)]*\) to authenticated/)
   })
   it('the acknowledgement-history table uses ON DELETE RESTRICT (evidence retention), not cascade', () => {
     const ackTable = sql.slice(sql.indexOf('create table if not exists public.worker_training_acknowledgements'))
