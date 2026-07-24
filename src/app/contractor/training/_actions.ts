@@ -25,55 +25,53 @@ async function getContractorId(): Promise<string | null> {
   return data?.id ?? null
 }
 
-async function verifyAssignment(assignmentId: string, contractorId: string): Promise<boolean> {
+// Load the assignment for the current worker + the module's CURRENT version
+// (server-authoritative — never trust a client-supplied version). Returns null
+// if the assignment isn't the worker's own (ownership enforcement).
+async function loadOwnAssignment(assignmentId: string, contractorId: string) {
   const supabase = createClient()
   const { data } = await supabase
     .from('worker_training_assignments')
-    .select('id')
+    .select('id, training_module_id, training_modules ( version )')
     .eq('id', assignmentId)
     .eq('contractor_id', contractorId)
     .maybeSingle()
-  return !!data
+  if (!data) return null
+  const version = (data as { training_modules?: { version?: string | null } | null }).training_modules?.version ?? null
+  return { moduleId: (data as { training_module_id: string }).training_module_id, version }
+}
+
+// Record an acknowledgement: snapshot the version onto the assignment, clear any
+// re-acknowledgement flag, and append an immutable history row (per version).
+async function recordAcknowledgement(assignmentId: string, contractorId: string, extra: Record<string, unknown> = {}) {
+  const a = await loadOwnAssignment(assignmentId, contractorId)
+  if (!a) return { error: 'Access denied.' }
+  const supabase = createClient()
+  const nowIso = new Date().toISOString()
+  const { error } = await supabase
+    .from('worker_training_assignments')
+    .update({ acknowledged_at: nowIso, acknowledged_version: a.version, reacknowledgement_required: false, ...extra })
+    .eq('id', assignmentId)
+    .eq('contractor_id', contractorId)
+  if (error) return { error: error.message }
+  await supabase.from('worker_training_acknowledgements').insert({
+    assignment_id: assignmentId, contractor_id: contractorId,
+    training_module_id: a.moduleId, module_version: a.version, acknowledged_at: nowIso,
+  })
+  await syncInductionChecklist(contractorId)
+  revalidatePath('/contractor/training')
+  revalidatePath(`/contractor/training/${assignmentId}`)
+  return { success: true as const }
 }
 
 export async function acknowledgeTraining(assignmentId: string) {
   const contractorId = await getContractorId()
   if (!contractorId) return { error: 'Not authenticated.' }
-  if (!await verifyAssignment(assignmentId, contractorId)) return { error: 'Access denied.' }
-
-  const supabase = createClient()
-  const { error } = await supabase
-    .from('worker_training_assignments')
-    .update({ acknowledged_at: new Date().toISOString() })
-    .eq('id', assignmentId)
-    .eq('contractor_id', contractorId)
-
-  if (error) return { error: error.message }
-  await syncInductionChecklist(contractorId)
-  revalidatePath('/contractor/training')
-  revalidatePath(`/contractor/training/${assignmentId}`)
-  return { success: true }
+  return recordAcknowledgement(assignmentId, contractorId)
 }
 
 export async function completeTraining(assignmentId: string) {
   const contractorId = await getContractorId()
   if (!contractorId) return { error: 'Not authenticated.' }
-  if (!await verifyAssignment(assignmentId, contractorId)) return { error: 'Access denied.' }
-
-  const supabase = createClient()
-  const { error } = await supabase
-    .from('worker_training_assignments')
-    .update({
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-      acknowledged_at: new Date().toISOString(),
-    })
-    .eq('id', assignmentId)
-    .eq('contractor_id', contractorId)
-
-  if (error) return { error: error.message }
-  await syncInductionChecklist(contractorId)
-  revalidatePath('/contractor/training')
-  revalidatePath(`/contractor/training/${assignmentId}`)
-  return { success: true }
+  return recordAcknowledgement(assignmentId, contractorId, { status: 'completed', completed_at: new Date().toISOString() })
 }

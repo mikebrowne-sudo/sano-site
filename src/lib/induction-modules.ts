@@ -26,6 +26,7 @@ export interface InductionAssignmentState {
   acknowledged_at: string | null
   completed_at: string | null
   status: string | null
+  reacknowledgement_required?: boolean | null
 }
 
 /**
@@ -42,6 +43,10 @@ export function isInductionComplete(
   if (assigned.length === 0) return false
   return assigned.every((m) => {
     const a = assignments.find((x) => x.training_module_id === m.id)!
+    // A module awaiting re-acknowledgement is not "complete" for a NEW induction.
+    // (completeInductionIfDone only ever COMPLETES a pending item — it never
+    //  un-completes — so this cannot re-gate an already-active worker.)
+    if (a.reacknowledgement_required) return false
     if (m.requires_completion) return !!a.completed_at || a.status === 'completed'
     if (m.requires_acknowledgement) return !!a.acknowledged_at
     return true
@@ -104,7 +109,7 @@ export async function completeInductionIfDone(
 
   const { data: asg } = await client
     .from('worker_training_assignments')
-    .select('training_module_id, acknowledged_at, completed_at, status')
+    .select('training_module_id, acknowledged_at, completed_at, status, reacknowledgement_required')
     .eq('contractor_id', contractorId)
     .in('training_module_id', modules.map((m) => m.id))
 
