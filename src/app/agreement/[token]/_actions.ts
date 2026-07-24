@@ -16,6 +16,7 @@ import { validateUploadFile } from '@/lib/upload-validation'
 import { AGREEMENT_DOC_TYPE_VALUES } from '@/lib/agreement-documents'
 import { deriveInitialTaxReview } from '@/lib/tax-review'
 import { autoAssignInductionModules } from '@/lib/induction-modules'
+import { recordTaxDeclaration, validateTaxDeclaration } from '@/lib/tax-declaration'
 
 export interface SignAgreementInput {
   token: string
@@ -27,6 +28,7 @@ export interface SignAgreementInput {
   dateOfBirth?: string
   irdNumber: string
   taxCode: string
+  ir330Acknowledged?: boolean // employee IR330 tax-code declaration acknowledgement
   bankAccountName?: string
   bankAccount: string
   kiwisaverChoice: string // 'opt_out' | 'stay_in'
@@ -69,6 +71,19 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
   const isPermanent = agreement.agreement_type === 'permanent_employee'
   const name = input.fullName.trim()
   const email = input.email?.trim() || null
+
+  // Employees make a proper IR330 tax-code declaration — its own acknowledgement,
+  // separate from the general agreement signature. Reject before anything is
+  // saved if the declaration is incomplete.
+  if (!isContractor) {
+    const decErr = validateTaxDeclaration({
+      employeeLegalName: input.fullName,
+      declaredTaxCode: input.taxCode,
+      acknowledged: input.ir330Acknowledged,
+      signedName: input.signedName,
+    })
+    if (decErr) return { error: decErr }
+  }
 
   const { error: updErr } = await svc
     .from('employment_agreements')
@@ -302,6 +317,25 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
         await autoAssignInductionModules(svc, workerId, 'employee')
       } catch (e) {
         console.error('[agreement] employee induction auto-assign failed:', e instanceof Error ? e.message : e)
+      }
+
+      // Record the immutable IR330 tax declaration. This — not the sign flow —
+      // completes ir330_supplied (worker_submitted, evidence = declaration ref).
+      // The payroll tax_code stays 'ND' until staff verify the declaration.
+      try {
+        const res = await recordTaxDeclaration(svc, {
+          workerId,
+          employeeLegalName: name,
+          irdNumber: input.irdNumber?.trim() || null,
+          declaredTaxCode: input.taxCode?.trim() || '',
+          signedName: input.signedName.trim(),
+          acknowledged: !!input.ir330Acknowledged,
+          agreementId: agreement.id,
+          submittedVia: 'agreement_wizard',
+        })
+        if ('error' in res) console.error('[agreement] IR330 declaration not recorded:', res.error)
+      } catch (e) {
+        console.error('[agreement] IR330 declaration failed:', e instanceof Error ? e.message : e)
       }
     }
   }

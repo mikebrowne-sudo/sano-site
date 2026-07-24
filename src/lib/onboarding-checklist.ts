@@ -81,8 +81,11 @@ export const ONBOARDING_TEMPLATE: OnboardingItemTemplate[] = [
 // The worker-supplied form items that are objectively satisfied once the
 // worker completes and signs (they provided the information on the form).
 // EMPLOYEE-only: contractors don't have these. id/right-to-work uploads are NOT
-// here — those complete only when a real document exists.
-export const SIGN_SUPPLIED_EMPLOYEE_KEYS = ['ir330_supplied', 'kiwisaver_information_supplied']
+// here — those complete only when a real document exists. `ir330_supplied` is
+// NOT here either — from Phase 3 it completes only when an IR330 declaration
+// record is submitted (see recordTaxDeclaration), with the declaration as its
+// evidence reference.
+export const SIGN_SUPPLIED_EMPLOYEE_KEYS = ['kiwisaver_information_supplied']
 
 export interface ChecklistOptions {
   /** Include the conditional right-to-work items. */
@@ -211,10 +214,13 @@ export const COMPLETION_SOURCE_LABEL: Record<CompletionSource, string> = {
 // `staff_verified` and audited.
 export const STAFF_VERIFY_KEYS: string[] = [
   'id_verified',
-  'payroll_tax_verified',
   'kiwisaver_verified',
   'insurance_verified',
   'right_to_work_verified',
+  // NOTE: `payroll_tax_verified` is intentionally NOT here. From Phase 3 it is
+  // workflow-owned — completed only by the IR330 declaration verification action
+  // (verifyTaxDeclaration), which records the applied tax code + effective date.
+  // The generic toggle must never complete it.
 ]
 
 // Items OWNED by a dedicated workflow (agreement signing, document upload,
@@ -238,8 +244,10 @@ export function workflowCompletionSource(itemKey: string): CompletionSource {
   if (item?.kind === 'system') return 'system_completed'
   if (itemKey === 'induction_completed') return 'worker_acknowledged'
   if (itemKey.endsWith('_uploaded')) return 'worker_submitted'
-  if (SIGN_SUPPLIED_EMPLOYEE_KEYS.includes(itemKey)) return 'worker_submitted'
-  // Remaining workflow-owned items are staff sign-offs (tax_review, competency).
+  // Worker-supplied declarations: IR330 (via a declaration record) + KiwiSaver.
+  if (itemKey === 'ir330_supplied' || SIGN_SUPPLIED_EMPLOYEE_KEYS.includes(itemKey)) return 'worker_submitted'
+  // Remaining workflow-owned items are staff sign-offs (tax_review, competency,
+  // payroll_tax_verified).
   return 'staff_verified'
 }
 

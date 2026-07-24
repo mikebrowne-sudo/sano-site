@@ -14,11 +14,12 @@ import { signEmploymentAgreement } from '../_actions'
 import { AgreementDocumentsUpload, type UploadedDoc } from './AgreementDocumentsUpload'
 import { BUSINESS_STRUCTURES } from '@/lib/business-structure'
 import { TAX_CODES, KS_EMPLOYEE_RATES } from '@/lib/nz-paye'
+import { IR330_DECLARATION_TEXT } from '@/lib/tax-declaration'
 import { EmploymentAgreementDocument, type AgreementView } from '@/components/EmploymentAgreementDocument'
 
 const INITIAL = {
   fullName: '', preferredName: '', phone: '', email: '', address: '', dateOfBirth: '',
-  ird: '', bankName: '', bank: '', taxCode: 'M', kiwisaver: 'opt_out', kiwisaverRate: '3',
+  ird: '', bankName: '', bank: '', taxCode: '', kiwisaver: 'opt_out', kiwisaverRate: '3',
   tradingName: '', legalName: '', nzbn: '', companyNumber: '', gstNumber: '',
   insurerName: '', insuranceCover: '', insuranceExpiry: '',
   emName: '', emPhone: '', emRel: '', signedName: '',
@@ -81,6 +82,9 @@ export function SignAgreementForm({
   const [businessStructure, setBusinessStructure] = useState('')
   const [gstRegistered, setGstRegistered] = useState(false)
   const [agreed, setAgreed] = useState(false)
+  // IR330 tax-code declaration acknowledgement — deliberately NOT persisted to
+  // localStorage, so returning to the wizard requires re-confirming.
+  const [ir330Ack, setIr330Ack] = useState(false)
   const [step, setStep] = useState(0)
   const [showAgreement, setShowAgreement] = useState(false)
   const [restored, setRestored] = useState(false)
@@ -132,6 +136,10 @@ export function SignAgreementForm({
       if (!f.email.trim()) return 'Please enter your email so we can send your signed copy.'
     }
     if (s === 2 && isContractor && !businessStructure) return 'Please choose how you operate.'
+    if (s === 2 && !isContractor) {
+      if (!f.taxCode.trim()) return 'Please choose your tax code.'
+      if (!ir330Ack) return 'Please confirm your tax code declaration to continue.'
+    }
     if (s === 3 && !f.bank.trim()) return 'Please enter your bank account number.'
     if (s === 5) {
       if (!agreed) return 'Please tick the box to confirm you agree.'
@@ -158,7 +166,7 @@ export function SignAgreementForm({
         token,
         fullName: f.fullName, preferredName: f.preferredName, phone: f.phone, email: f.email,
         address: f.address, dateOfBirth: f.dateOfBirth, irdNumber: f.ird,
-        bankAccountName: f.bankName, bankAccount: f.bank, taxCode: f.taxCode, kiwisaverChoice: f.kiwisaver, kiwisaverRate: f.kiwisaverRate,
+        bankAccountName: f.bankName, bankAccount: f.bank, taxCode: f.taxCode, ir330Acknowledged: ir330Ack, kiwisaverChoice: f.kiwisaver, kiwisaverRate: f.kiwisaverRate,
         emergencyName: f.emName, emergencyPhone: f.emPhone, emergencyRelationship: f.emRel,
         tradingName: f.tradingName, gstNumber: f.gstNumber,
         businessStructure, legalName: f.legalName, nzbn: f.nzbn, companyNumber: f.companyNumber, gstRegistered,
@@ -276,14 +284,23 @@ export function SignAgreementForm({
         {/* Step 2 — Tax & KiwiSaver (employee) */}
         {step === 2 && !isContractor && (
           <div>
-            <h2 className="text-lg font-semibold text-sage-800 mb-4">Tax &amp; KiwiSaver</h2>
+            <h2 className="text-lg font-semibold text-sage-800 mb-1">Tax code declaration (IR330)</h2>
+            <p className="text-sm text-sage-500 mb-4">This is your employee tax code declaration. It is separate from your employment agreement, which you sign at the end.</p>
             <div className="grid sm:grid-cols-2 gap-3">
-              <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Tax code</span>
+              <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Your tax code <span className="text-red-500">*</span></span>
                 <select value={f.taxCode} onChange={set('taxCode')} className={inputCls}>
-                  {TAX_CODES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  <option value="" disabled>Please choose your tax code…</option>
+                  {TAX_CODES.filter((c) => c.value !== 'ND').map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select></label>
             </div>
-            <p className="text-[11px] text-sage-400 mt-2">Please complete an IR330 tax code declaration. Until we receive and verify it, PAYE is deducted at the no-notification rate; we correct it once your IR330 is confirmed (you can upload it in the Documents step).</p>
+            <p className="text-[11px] text-sage-400 mt-2">Choose the tax code that applies to you. If you&rsquo;re unsure, check the IRD guidance or ask us. Until we verify your declaration, PAYE is deducted at the no-notification rate and corrected once it&rsquo;s confirmed.</p>
+            <div className="mt-4 rounded-lg border border-sage-200 bg-sage-50/50 p-3">
+              <p className="text-[11px] leading-relaxed text-sage-600">{IR330_DECLARATION_TEXT}</p>
+              <label className="flex items-start gap-2 text-sm text-sage-700 mt-2.5">
+                <input type="checkbox" checked={ir330Ack} onChange={(e) => setIr330Ack(e.target.checked)} className="mt-0.5 rounded border-sage-300" />
+                <span>I confirm this tax code declaration. <span className="text-red-500">*</span></span>
+              </label>
+            </div>
             <div className="mt-5">
               <span className="text-[11px] font-medium text-sage-500">KiwiSaver</span>
               <div className="flex gap-4 mt-1 text-sm text-sage-700">
