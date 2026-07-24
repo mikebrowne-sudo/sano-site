@@ -51,8 +51,8 @@ export default async function TaxDeclarationPrintPage({ params }: { params: { id
           <div style={{ fontSize: 11, color: '#8a978f' }}>Sano Property Services Limited</div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>Employee Tax Code Declaration</div>
-          <div style={{ fontSize: 11, color: '#8a978f' }}>IR330 · {decl.declaration_number as string}</div>
+          <div style={{ fontSize: 16, fontWeight: 700 }}>Electronic Tax Code Declaration</div>
+          <div style={{ fontSize: 11, color: '#8a978f' }}>Sano electronic IR330 equivalent · {decl.declaration_number as string}</div>
         </div>
       </div>
 
@@ -102,8 +102,10 @@ export default async function TaxDeclarationPrintPage({ params }: { params: { id
         </table>
       </div>
 
-      <p style={{ fontSize: 10, color: '#a7b1aa', marginTop: 28 }}>
-        Declaration reference {decl.declaration_number as string} · This document represents the immutable declaration record retained by Sano Property Services Limited.
+      <p style={{ fontSize: 10, color: '#a7b1aa', marginTop: 28, lineHeight: 1.5 }}>
+        Declaration reference {decl.declaration_number as string}. This is Sano Property Services Limited&rsquo;s electronic
+        tax code declaration record — the electronic equivalent of a paper IR330 tax code declaration. It is not an Inland
+        Revenue form and does not reproduce Inland Revenue branding. This immutable record is retained for at least 7 years.
       </p>
     </div>
   )

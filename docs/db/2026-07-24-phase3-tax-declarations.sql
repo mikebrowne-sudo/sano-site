@@ -9,8 +9,15 @@
 -- and those are audited by the application.
 --
 -- RLS is written against the ACTUAL model: helper fns is_admin() / is_contractor()
--- exist (is_finance() too); there is NO is_staff() — "staff" = not is_contractor().
--- Workers link to auth via contractors.auth_user_id.
+-- exist (is_finance() too); there is NO is_staff(). "Staff" is defined here as an
+-- admin OR an active row in the `staff` registry (NOT `not is_contractor()`, which
+-- would admit non-staff authenticated logins). Workers link to auth via
+-- contractors.auth_user_id.
+--
+-- RETENTION: this table is append-only (no delete path in the app), the worker FK
+-- is ON DELETE RESTRICT, and declaration_number is unique. Records are retained
+-- for at least 7 years (NZ employer record-keeping) — a correction supersedes,
+-- never deletes.
 --
 -- Run PREFLIGHT first, then MIGRATION.
 -- ============================================================================
@@ -22,6 +29,10 @@ select to_regclass('public.worker_tax_declarations') as existing_table;   -- exp
 -- Helper functions present (expect is_admin + is_contractor):
 select proname from pg_proc p join pg_namespace n on n.oid=p.pronamespace
 where n.nspname='public' and proname in ('is_admin','is_contractor');
+-- Staff registry the staff-only RLS relies on (expect the staff table + the
+-- auth_user_id / access_disabled_at columns it references):
+select column_name from information_schema.columns
+where table_schema='public' and table_name='staff' and column_name in ('auth_user_id','access_disabled_at');
 -- Employees in scope (context for the legacy report):
 select count(*) filter (where worker_type='employee') as employees,
        count(*) filter (where worker_type='employee' and status='active') as active_employees
@@ -35,8 +46,10 @@ create sequence if not exists public.worker_tax_declaration_number_seq;
 
 create table if not exists public.worker_tax_declarations (
   id                          uuid primary key default gen_random_uuid(),
-  declaration_number          text not null default ('TAX-' || lpad(nextval('public.worker_tax_declaration_number_seq')::text, 4, '0')),
-  worker_id                   uuid not null references public.contractors(id) on delete cascade,
+  declaration_number          text not null unique default ('TAX-' || lpad(nextval('public.worker_tax_declaration_number_seq')::text, 4, '0')),
+  -- ON DELETE RESTRICT for 7-year retention: a worker with tax declarations
+  -- cannot be hard-deleted (the tax record must be retained). Archive instead.
+  worker_id                   uuid not null references public.contractors(id) on delete restrict,
 
   -- Immutable submitted facts (frozen by trigger) --------------------------
   declaration_type            text not null default 'ir330',
@@ -109,10 +122,21 @@ create trigger wtd_immutable_facts before update on public.worker_tax_declaratio
 -- RLS ----------------------------------------------------------------------
 alter table public.worker_tax_declarations enable row level security;
 
--- Staff (any authenticated non-contractor; includes finance) may READ.
+-- Genuinely staff-only READ: an admin, OR an active member of the staff
+-- registry. Deliberately NOT `not is_contractor()` — that admits any
+-- authenticated non-contractor (e.g. future client-portal logins). Tax
+-- declarations are sensitive PII, so this is restricted to internal Sano staff.
+-- (The external accountant/finance role is NOT granted read here by design; add
+--  `or public.is_finance()` only if that access is explicitly required.)
 drop policy if exists wtd_staff_read on public.worker_tax_declarations;
 create policy wtd_staff_read on public.worker_tax_declarations
-  for select using (not public.is_contractor());
+  for select using (
+    public.is_admin()
+    or exists (
+      select 1 from public.staff s
+      where s.auth_user_id = auth.uid() and s.access_disabled_at is null
+    )
+  );
 
 -- A worker may READ ONLY THEIR OWN declaration (blocks cross-worker access).
 drop policy if exists wtd_worker_own_read on public.worker_tax_declarations;
@@ -137,11 +161,13 @@ commit;
 -- ---- VERIFICATION (read-only) -----------------------------------------------
 select to_regclass('public.worker_tax_declarations') as table_created;        -- not null
 select conname, pg_get_constraintdef(oid) from pg_constraint
-where conrelid='public.worker_tax_declarations'::regclass and contype='c';
-select indexname from pg_indexes where schemaname='public' and tablename='worker_tax_declarations';
-select policyname, cmd from pg_policies where schemaname='public' and tablename='worker_tax_declarations' order by policyname;
+where conrelid='public.worker_tax_declarations'::regclass;                    -- incl. unique(declaration_number) + FK ON DELETE RESTRICT
+select indexname from pg_indexes where schemaname='public' and tablename='worker_tax_declarations';  -- incl. a unique index on declaration_number
+select policyname, cmd, qual from pg_policies where schemaname='public' and tablename='worker_tax_declarations' order by policyname;  -- wtd_staff_read must use is_admin() + staff registry, NOT is_contractor()
 select tgname from pg_trigger where tgrelid='public.worker_tax_declarations'::regclass and not tgisinternal;
 select relrowsecurity from pg_class where oid='public.worker_tax_declarations'::regclass;  -- expect true
+-- Retention: worker FK is ON DELETE RESTRICT (declarations can't be cascade-deleted):
+select confdeltype from pg_constraint where conrelid='public.worker_tax_declarations'::regclass and contype='f' and conname like '%worker_id%';  -- expect 'r'
 
 
 -- ---- ROLLBACK ---------------------------------------------------------------

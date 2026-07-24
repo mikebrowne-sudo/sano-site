@@ -113,6 +113,20 @@ describe('recordTaxDeclaration', () => {
     const reopen = cap.onboardingUpdates.find((u) => u.filters.some((f) => f[0] === 'item_key' && f[1] === 'payroll_tax_verified'))
     expect(reopen?.payload).toMatchObject({ status: 'pending', completion_source: null })
   })
+
+  it('audits creation (no IRD number in the audit) and supersession/reopening', async () => {
+    const first = makeClient({ prior: null })
+    await recordTaxDeclaration(first.client, facts)
+    expect(first.cap.audit).toMatchObject({ actor_role: 'system', action: 'tax_declaration.created' })
+    expect(JSON.stringify(first.cap.audit)).not.toContain('123-456-789') // no IRD number in audit
+
+    const corrected = makeClient({ prior: { id: 'old-decl' } })
+    await recordTaxDeclaration(corrected.client, facts)
+    expect(corrected.cap.audit).toMatchObject({
+      actor_role: 'system', action: 'tax_declaration.superseded',
+      after: { payroll_tax_verified_reopened: true, supersedes_declaration_id: 'old-decl' },
+    })
+  })
 })
 
 // verifyTaxDeclaration

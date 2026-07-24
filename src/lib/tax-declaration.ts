@@ -6,15 +6,17 @@
 // and reopening staff verification. Client-agnostic (takes the supabase client)
 // so it runs on the service-role client from the token-keyed sign flow.
 
-export const IR330_DECLARATION_VERSION = 'IR330-2026.07'
+export const IR330_DECLARATION_VERSION = 'SANO-IR330-2026.07'
 
-// The exact wording the employee agrees to. Stored verbatim on EACH declaration
-// row (frozen), so updating this constant never changes the meaning of an
-// already-submitted declaration. NOTE: confirm this against the current IR330
-// form; it is a faithful electronic rendering of the IR330 declaration.
+// Sano's OWN electronic tax-code declaration wording — the electronic equivalent
+// of a paper IR330 tax code declaration, NOT a reproduction of the IRD form or
+// its verbatim wording. Stored verbatim on EACH declaration row (frozen), so
+// updating this constant never changes the meaning of an already-submitted
+// declaration.
 export const IR330_DECLARATION_TEXT =
-  'This is my tax code declaration (IR330) for my employment with Sano Property Services Limited. ' +
-  'I have chosen the tax code shown based on my circumstances, and I understand it determines the PAYE deducted from my pay. ' +
+  'This is my electronic tax code declaration for my employment with Sano Property Services Limited, ' +
+  'provided in place of a paper IR330 tax code declaration. I have chosen the tax code shown based on my ' +
+  'circumstances and understand it determines the PAYE deducted from my pay. ' +
   'I declare that the information I have given in this declaration is true and correct.'
 
 /** Mask an IRD number for summary / general views: 123-456-789 → •••-•••-789. */
@@ -133,6 +135,23 @@ export async function recordTaxDeclaration(
     })
     .eq('contractor_id', facts.workerId)
     .eq('item_key', 'ir330_supplied')
+
+  // Audit creation + (where applicable) supersession + verification reopening.
+  // System actor (service-role sign flow). No IRD number in the audit record.
+  await client.from('audit_log').insert({
+    actor_id: null,
+    actor_role: 'system',
+    action: priorId ? 'tax_declaration.superseded' : 'tax_declaration.created',
+    entity_table: 'contractors',
+    entity_id: facts.workerId,
+    before: priorId ? { superseded_declaration_id: priorId } : {},
+    after: {
+      declaration: created.declaration_number,
+      supersedes_declaration_id: priorId,
+      ir330_supplied: 'completed',
+      payroll_tax_verified_reopened: !!priorId,
+    },
+  })
 
   return { ok: true, declaration: { id: newId, declarationNumber: created.declaration_number as string, supersededId: priorId } }
 }
