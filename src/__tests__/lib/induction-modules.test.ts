@@ -6,9 +6,10 @@ import {
 } from '@/lib/induction-modules'
 
 describe('induction-modules — keys', () => {
-  it('defines the four induction module keys', () => {
+  it('defines the six core induction module keys (Phase 6)', () => {
     expect(INDUCTION_MODULE_KEYS).toEqual([
-      'hs_induction', 'hazardous_substances', 'security_property', 'privacy_conduct',
+      'hs_induction', 'hazardous_substances', 'safe_work_practices',
+      'hazard_incident_reporting', 'security_property', 'privacy_conduct',
     ])
   })
 })

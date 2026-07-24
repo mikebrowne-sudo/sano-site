@@ -8,9 +8,14 @@
 // Data-driven: the app selects induction modules by the auto_assign flag, not
 // by hard-coded ids, so staff can add/retire modules without code changes.
 
+// The six CORE H&S modules auto-assigned to every worker (Phase 6). Reference
+// only — selection is by the auto_assign flag, not this list. Role-specific
+// modules (working_at_height, team_leader) are manual-assign, not listed here.
 export const INDUCTION_MODULE_KEYS = [
   'hs_induction',
   'hazardous_substances',
+  'safe_work_practices',
+  'hazard_incident_reporting',
   'security_property',
   'privacy_conduct',
 ] as const
