@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { calculatePayPreview, KS_DEFAULT_EMPLOYEE } from '@/lib/nz-paye'
+import { KS_DEFAULT_EMPLOYER, employerKiwiSaverRate } from '@/lib/payroll/kiwisaver'
 import clsx from 'clsx'
 
 function fmt(d: number) { return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(d) }
@@ -35,8 +36,8 @@ export function PayPreview({ contractor }: {
     payFrequency: (contractor.pay_frequency as 'weekly' | 'fortnightly') || 'fortnightly',
     taxCode: contractor.tax_code || 'M',
     kiwisaverEnrolled: contractor.kiwisaver_enrolled,
-    kiwisaverEmployeeRate: contractor.kiwisaver_employee_rate ?? 3,
-    kiwisaverEmployerRate: contractor.kiwisaver_employer_rate ?? 3,
+    kiwisaverEmployeeRate: contractor.kiwisaver_employee_rate ?? KS_DEFAULT_EMPLOYEE,
+    kiwisaverEmployerRate: employerKiwiSaverRate(contractor.kiwisaver_employer_rate),
     holidayPayMethod: isPaygo ? null : contractor.holiday_pay_method,
   })
 
@@ -75,7 +76,7 @@ export function PayPreview({ contractor }: {
         <table className="w-full text-sm">
           <tbody>
             <Row label="Gross pay" value={fmt(result.effectiveGross)} />
-            {result.employerKiwisaver > 0 && <Row label={`KiwiSaver employer (${contractor.kiwisaver_employer_rate ?? 3}%)`} value={fmt(result.employerKiwisaver)} />}
+            {result.employerKiwisaver > 0 && <Row label={`KiwiSaver employer (${contractor.kiwisaver_employer_rate ?? KS_DEFAULT_EMPLOYER}%)`} value={fmt(result.employerKiwisaver)} />}
             <Row label="Total employer cost" value={fmt(result.totalEmployerCost)} bold />
           </tbody>
         </table>

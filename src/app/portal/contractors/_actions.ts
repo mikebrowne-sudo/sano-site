@@ -3,6 +3,11 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import {
+  KS_DEFAULT_EMPLOYEE,
+  employerKiwiSaverRate,
+  validateKiwiSaverElection,
+} from '@/lib/payroll/kiwisaver'
 
 interface ContractorInput {
   full_name: string
@@ -99,8 +104,8 @@ function payrollFields(input: ContractorInput) {
     tax_code: input.tax_code || 'M',
     ir330_received: input.ir330_received ?? false,
     kiwisaver_enrolled: input.kiwisaver_enrolled ?? false,
-    kiwisaver_employee_rate: input.kiwisaver_employee_rate ?? 3.5,
-    kiwisaver_employer_rate: Math.max(input.kiwisaver_employer_rate ?? 3.5, 3.5),
+    kiwisaver_employee_rate: input.kiwisaver_employee_rate ?? KS_DEFAULT_EMPLOYEE,
+    kiwisaver_employer_rate: employerKiwiSaverRate(input.kiwisaver_employer_rate),
     kiwisaver_rate_source: input.kiwisaver_rate_source || 'standard',
     kiwisaver_rate_effective_date: input.kiwisaver_rate_effective_date || null,
     kiwisaver_temp_reduction_expiry: input.kiwisaver_temp_reduction_expiry || null,
@@ -114,6 +119,21 @@ function validateGst(input: ContractorInput): string | null {
   return null
 }
 
+// Server-side KiwiSaver validation. Only STRUCTURAL errors block a write (bad
+// rate, bad source, a temporary reduction missing its 3% / expiry). The
+// "3% needs a temporary reduction" inconsistency is a soft warning surfaced in
+// the form, never a hard block — so a historical record can still be edited.
+// Not enrolled ⇒ nothing to validate.
+function validateKiwiSaver(input: ContractorInput): string | null {
+  if (!input.kiwisaver_enrolled) return null
+  const { error } = validateKiwiSaverElection({
+    rate: input.kiwisaver_employee_rate,
+    source: input.kiwisaver_rate_source,
+    expiry: input.kiwisaver_temp_reduction_expiry,
+  })
+  return error ?? null
+}
+
 export async function createContractor(input: ContractorInput) {
   const supabase = createClient()
 
@@ -123,6 +143,9 @@ export async function createContractor(input: ContractorInput) {
 
   const gstError = validateGst(input)
   if (gstError) return { error: gstError }
+
+  const ksError = validateKiwiSaver(input)
+  if (ksError) return { error: ksError }
 
   const { data, error } = await supabase
     .from('contractors')
@@ -198,6 +221,9 @@ export async function updateContractor(id: string, input: ContractorInput) {
 
   const gstError = validateGst(input)
   if (gstError) return { error: gstError }
+
+  const ksError = validateKiwiSaver(input)
+  if (ksError) return { error: ksError }
 
   const { error } = await supabase
     .from('contractors')

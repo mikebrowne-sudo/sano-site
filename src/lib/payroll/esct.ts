@@ -32,10 +32,12 @@ export const ESCT_RATES: EsctRates = {
 }
 
 /**
- * Compulsory employer KiwiSaver contribution rate. Rose from 3% to 3.5% on
- * 1 April 2026 (continues to 4% on 1 April 2028). We're in the 2026/27 year.
+ * Compulsory employer KiwiSaver contribution rate (fraction form). Rose from 3%
+ * to 3.5% on 1 April 2026 (continues to 4% on 1 April 2028). Sourced from the
+ * single canonical KiwiSaver module so it can never drift from the percentage
+ * form used elsewhere.
  */
-export const EMPLOYER_KIWISAVER_MIN_RATE = 0.035
+export { KS_EMPLOYER_MIN_RATE_FRACTION as EMPLOYER_KIWISAVER_MIN_RATE } from '@/lib/payroll/kiwisaver'
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 const trunc2 = (n: number) => Math.floor(n * 100) / 100 // IRD truncates deductions

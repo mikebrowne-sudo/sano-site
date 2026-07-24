@@ -10,6 +10,7 @@ import { revalidatePath } from 'next/cache'
 import { renderPdfFromUrl } from '@/lib/pdf/render-pdf'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { sendAgreementSignedEmail } from '@/lib/resend'
+import { KS_DEFAULT_EMPLOYEE, KS_DEFAULT_EMPLOYER } from '@/lib/payroll/kiwisaver'
 import { parseCoverAmount } from '@/lib/parse-cover-amount'
 import { seedAndAutoCompleteOnboardingOnSign, completeUploadedItems } from '@/lib/onboarding-sign'
 import { validateUploadFile } from '@/lib/upload-validation'
@@ -213,7 +214,9 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
     // Phase 7 — employees converge onto the payroll-wired contractors table
     // (worker_type='employee'). The employees table is no longer written to.
     const enrolled = input.kiwisaverChoice === 'stay_in'
-    const empRate = input.kiwisaverRate ? Number(input.kiwisaverRate) : null
+    // Default an enrolled new hire to the standard minimum (3.5% from 1 Apr
+    // 2026) when they didn't pick a rate — never the pre-2026 3%.
+    const empRate = input.kiwisaverRate ? Number(input.kiwisaverRate) : KS_DEFAULT_EMPLOYEE
 
     // Fields the employee supplies/confirms at signing — always safe to write.
     const signingCore = {
@@ -241,7 +244,8 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
       ir330_received: false,
       kiwisaver_enrolled: enrolled,
       kiwisaver_employee_rate: enrolled ? empRate : null,
-      kiwisaver_employer_rate: enrolled ? 3 : null,
+      // Employer minimum is 3.5% from 1 Apr 2026 (was hardcoded 3 — the bug).
+      kiwisaver_employer_rate: enrolled ? KS_DEFAULT_EMPLOYER : null,
       holiday_pay_method: isPermanent ? 'accrue_leave' : 'pay_as_you_go_8_percent',
       status: 'onboarding',
       onboarding_status: 'in_progress',

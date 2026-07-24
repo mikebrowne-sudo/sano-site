@@ -2,7 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { createContractor, updateContractor } from '../_actions'
-import { TAX_CODES, KS_EMPLOYEE_RATES, KS_DEFAULT_EMPLOYEE, KS_DEFAULT_EMPLOYER, KS_RATE_SOURCES } from '@/lib/nz-paye'
+import { TAX_CODES, KS_DEFAULT_EMPLOYEE, KS_DEFAULT_EMPLOYER, KS_RATE_SOURCES } from '@/lib/nz-paye'
+// Staff form offers the full ALLOWED set (incl. 3% for a temporary reduction) —
+// unlike the employee self-select wizard, which uses the standard set only.
+import { KS_EMPLOYEE_ALLOWED_RATES, KS_EMPLOYER_MIN_RATE } from '@/lib/payroll/kiwisaver'
 import { CONTRACTOR_TAX_TREATMENTS } from '@/lib/payroll/gst'
 import { BUSINESS_STRUCTURES } from '@/lib/business-structure'
 import clsx from 'clsx'
@@ -500,10 +503,10 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
                   <div>
                     <span className="block text-sm font-semibold text-sage-800 mb-1.5">Employee rate (%)</span>
                     <select value={ksEmployeeRate} onChange={(e) => setKsEmployeeRate(e.target.value)} className="w-full appearance-none rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sage-500">
-                      {KS_EMPLOYEE_RATES.map((r) => <option key={r} value={String(r)}>{r}%</option>)}
+                      {KS_EMPLOYEE_ALLOWED_RATES.map((r) => <option key={r} value={String(r)}>{r}%</option>)}
                     </select>
                   </div>
-                  <Field label="Employer rate (% — min 3.5)" type="number" step="0.5" min="3.5" max="10" value={ksEmployerRate} onChange={setKsEmployerRate} />
+                  <Field label={`Employer rate (% — min ${KS_EMPLOYER_MIN_RATE})`} type="number" step="0.5" min={String(KS_EMPLOYER_MIN_RATE)} max="10" value={ksEmployerRate} onChange={setKsEmployerRate} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
