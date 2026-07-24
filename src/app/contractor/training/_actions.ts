@@ -25,39 +25,62 @@ async function getContractorId(): Promise<string | null> {
   return data?.id ?? null
 }
 
-// Load the assignment for the current worker + the module's CURRENT version
-// (server-authoritative — never trust a client-supplied version). Returns null
-// if the assignment isn't the worker's own (ownership enforcement).
-async function loadOwnAssignment(assignmentId: string, contractorId: string) {
-  const supabase = createClient()
-  const { data } = await supabase
+// Record an acknowledgement — FULLY SERVER-AUTHORITATIVE. The worker's user
+// client has NO write access to these tables (RLS is read-own only); every write
+// goes through the service-role client here, after the server has:
+//   • authenticated the user + resolved their contractor_id (getContractorId),
+//   • confirmed the assignment belongs to that contractor,
+//   • read the current module + version FROM THE DATABASE,
+//   • confirmed the module is active (eligible to acknowledge),
+//   • stamped the server timestamp,
+//   • updated ONLY the intended assignment fields,
+//   • inserted the history row from DB-derived IDs + version + server time.
+// No worker-supplied contractor_id / module_id / version / timestamp / status is
+// ever trusted.
+async function recordAcknowledgement(assignmentId: string, contractorId: string, opts: { complete?: boolean } = {}) {
+  const svc = getServiceSupabase()
+
+  // Ownership + module (DB-authoritative). contractorId came from the auth'd
+  // session, never the client.
+  const { data: a } = await svc
     .from('worker_training_assignments')
-    .select('id, training_module_id, training_modules ( version )')
+    .select('id, contractor_id, status, training_module_id, training_modules ( id, version, status )')
     .eq('id', assignmentId)
     .eq('contractor_id', contractorId)
     .maybeSingle()
-  if (!data) return null
-  const version = (data as { training_modules?: { version?: string | null } | null }).training_modules?.version ?? null
-  return { moduleId: (data as { training_module_id: string }).training_module_id, version }
-}
-
-// Record an acknowledgement: snapshot the version onto the assignment, clear any
-// re-acknowledgement flag, and append an immutable history row (per version).
-async function recordAcknowledgement(assignmentId: string, contractorId: string, extra: Record<string, unknown> = {}) {
-  const a = await loadOwnAssignment(assignmentId, contractorId)
   if (!a) return { error: 'Access denied.' }
-  const supabase = createClient()
+
+  const mod = (a as { training_modules?: { id?: string; version?: string | null; status?: string | null } | null }).training_modules
+  if (!mod || mod.status !== 'active') return { error: 'This module isn’t available to acknowledge.' }
+
+  const moduleId = (a as { training_module_id: string }).training_module_id
+  const version = mod.version ?? null
   const nowIso = new Date().toISOString()
-  const { error } = await supabase
+
+  // Update ONLY the intended fields — never a client-supplied set.
+  const update: Record<string, unknown> = {
+    acknowledged_at: nowIso,
+    acknowledged_version: version,
+    reacknowledgement_required: false,
+  }
+  if (opts.complete) { update.status = 'completed'; update.completed_at = nowIso }
+
+  const { error: uErr } = await svc
     .from('worker_training_assignments')
-    .update({ acknowledged_at: nowIso, acknowledged_version: a.version, reacknowledgement_required: false, ...extra })
+    .update(update)
     .eq('id', assignmentId)
     .eq('contractor_id', contractorId)
-  if (error) return { error: error.message }
-  await supabase.from('worker_training_acknowledgements').insert({
-    assignment_id: assignmentId, contractor_id: contractorId,
-    training_module_id: a.moduleId, module_version: a.version, acknowledged_at: nowIso,
+  if (uErr) return { error: uErr.message }
+
+  // History from DB-derived IDs + version + server timestamp.
+  await svc.from('worker_training_acknowledgements').insert({
+    assignment_id: assignmentId,
+    contractor_id: contractorId,
+    training_module_id: moduleId,
+    module_version: version,
+    acknowledged_at: nowIso,
   })
+
   await syncInductionChecklist(contractorId)
   revalidatePath('/contractor/training')
   revalidatePath(`/contractor/training/${assignmentId}`)
@@ -73,5 +96,5 @@ export async function acknowledgeTraining(assignmentId: string) {
 export async function completeTraining(assignmentId: string) {
   const contractorId = await getContractorId()
   if (!contractorId) return { error: 'Not authenticated.' }
-  return recordAcknowledgement(assignmentId, contractorId, { status: 'completed', completed_at: new Date().toISOString() })
+  return recordAcknowledgement(assignmentId, contractorId, { complete: true })
 }

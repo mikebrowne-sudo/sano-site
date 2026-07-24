@@ -49,15 +49,16 @@ create index if not exists wta_ack_assignment_idx on public.worker_training_ackn
 create index if not exists wta_ack_contractor_idx on public.worker_training_acknowledgements (contractor_id);
 
 -- 3. Close the RLS hole on worker_training_assignments.
+--    Workers get READ-ONLY on their own rows. They have NO direct UPDATE — the
+--    acknowledge server action performs the write via the service-role path
+--    after deriving everything itself, so a worker cannot set status / clear a
+--    re-ack flag / fabricate a version / backdate a timestamp via the API.
 alter table public.worker_training_assignments enable row level security;
 drop policy if exists "Staff full access to worker_training_assignments" on public.worker_training_assignments;
+drop policy if exists wta_worker_update_own on public.worker_training_assignments;  -- removed: no worker direct UPDATE
 drop policy if exists wta_worker_read_own on public.worker_training_assignments;
 create policy wta_worker_read_own on public.worker_training_assignments
   for select using (exists (select 1 from public.contractors c where c.id = contractor_id and c.auth_user_id = auth.uid()));
-drop policy if exists wta_worker_update_own on public.worker_training_assignments;
-create policy wta_worker_update_own on public.worker_training_assignments
-  for update using (exists (select 1 from public.contractors c where c.id = contractor_id and c.auth_user_id = auth.uid()))
-  with check (exists (select 1 from public.contractors c where c.id = contractor_id and c.auth_user_id = auth.uid()));
 drop policy if exists wta_staff_all on public.worker_training_assignments;
 create policy wta_staff_all on public.worker_training_assignments
   for all using (
@@ -80,14 +81,15 @@ create policy tm_staff_write on public.training_modules
     public.is_admin() or exists (select 1 from public.staff s where s.auth_user_id = auth.uid() and s.access_disabled_at is null)
   );
 
--- 4. RLS for the acknowledgement history: worker own read + insert; staff read.
+-- 4. RLS for the acknowledgement history: worker own READ only; staff read.
+--    Workers have NO direct INSERT — history rows are written only by the
+--    service-role acknowledge action, from DB-derived IDs + version + server
+--    timestamp. This prevents a worker fabricating / backdating a record.
 alter table public.worker_training_acknowledgements enable row level security;
+drop policy if exists wta_ack_worker_insert on public.worker_training_acknowledgements;  -- removed: no worker direct INSERT
 drop policy if exists wta_ack_worker_read on public.worker_training_acknowledgements;
 create policy wta_ack_worker_read on public.worker_training_acknowledgements
   for select using (exists (select 1 from public.contractors c where c.id = contractor_id and c.auth_user_id = auth.uid()));
-drop policy if exists wta_ack_worker_insert on public.worker_training_acknowledgements;
-create policy wta_ack_worker_insert on public.worker_training_acknowledgements
-  for insert with check (exists (select 1 from public.contractors c where c.id = contractor_id and c.auth_user_id = auth.uid()));
 drop policy if exists wta_ack_staff_read on public.worker_training_acknowledgements;
 create policy wta_ack_staff_read on public.worker_training_acknowledgements
   for select using (
@@ -101,7 +103,11 @@ commit;
 select column_name from information_schema.columns where table_schema='public' and table_name='worker_training_assignments'
   and column_name in ('acknowledged_version','reacknowledgement_required') order by column_name;   -- 2 rows
 select to_regclass('public.worker_training_acknowledgements') as ack_table;    -- not null
-select policyname, cmd from pg_policies where schemaname='public' and tablename='worker_training_assignments' order by policyname;  -- worker own + staff; NO USING(true)
+-- Assignments: worker gets ONLY a SELECT policy; NO worker UPDATE; staff = ALL.
+-- (Expect wta_worker_read_own=SELECT, wta_staff_all=ALL. No worker cmd='UPDATE'.)
+select policyname, cmd from pg_policies where schemaname='public' and tablename='worker_training_assignments' order by policyname;
+-- Ack history: worker gets ONLY a SELECT policy; NO worker INSERT; staff read.
+-- (Expect wta_ack_worker_read=SELECT, wta_ack_staff_read=SELECT. No cmd='INSERT'.)
 select policyname, cmd from pg_policies where schemaname='public' and tablename='worker_training_acknowledgements' order by policyname;
 -- Existing completions preserved + not versioned (legacy):
 select count(*) as legacy_acked_no_version from public.worker_training_assignments
