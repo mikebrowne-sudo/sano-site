@@ -43,22 +43,34 @@ export async function seedAndAutoCompleteOnboardingOnSign(
       .upsert(rows, { onConflict: 'contractor_id,item_key', ignoreDuplicates: true })
   }
 
-  // 2. Auto-complete the system items (both types) + the employee-supplied
-  //    form items (employees only) that are still pending. Document-upload items
-  //    are never auto-completed here — they need a real document.
-  const autoKeys = workerType === 'employee'
-    ? [...SIGN_AUTO_COMPLETE_KEYS, ...SIGN_SUPPLIED_EMPLOYEE_KEYS]
-    : SIGN_AUTO_COMPLETE_KEYS
+  // 2. Auto-complete the system items + the employee-supplied form items
+  //    (employees only) that are still pending, each stamped with its correct
+  //    completion source. Document-upload items are never auto-completed here —
+  //    they need a real document.
   const nowIso = new Date().toISOString()
-  const { data: completed } = await client
+  const completedKeys: string[] = []
+
+  // System-kind items → system_completed.
+  const { data: sysDone } = await client
     .from('contractor_onboarding')
-    .update({ status: 'complete', completed_at: nowIso, completed_by: null })
+    .update({ status: 'complete', completed_at: nowIso, completed_by: null, completion_source: 'system_completed' })
     .eq('contractor_id', contractorId)
-    .in('item_key', autoKeys)
+    .in('item_key', SIGN_AUTO_COMPLETE_KEYS)
     .eq('status', 'pending')
     .select('item_key')
+  completedKeys.push(...((sysDone ?? []) as { item_key: string }[]).map((r) => r.item_key))
 
-  const completedKeys = ((completed ?? []) as { item_key: string }[]).map((r) => r.item_key)
+  // Employee-supplied declaration items (IR330 / KiwiSaver details) → worker_submitted.
+  if (workerType === 'employee') {
+    const { data: supDone } = await client
+      .from('contractor_onboarding')
+      .update({ status: 'complete', completed_at: nowIso, completed_by: null, completion_source: 'worker_submitted' })
+      .eq('contractor_id', contractorId)
+      .in('item_key', SIGN_SUPPLIED_EMPLOYEE_KEYS)
+      .eq('status', 'pending')
+      .select('item_key')
+    completedKeys.push(...((supDone ?? []) as { item_key: string }[]).map((r) => r.item_key))
+  }
 
   // 3. One system audit row — only when something actually changed, so a
   //    retry of an already-completed signing writes no duplicate audit.
@@ -94,7 +106,7 @@ export async function completeUploadedItems(
   const nowIso = new Date().toISOString()
   const { data: completed } = await client
     .from('contractor_onboarding')
-    .update({ status: 'complete', completed_at: nowIso, completed_by: completedBy })
+    .update({ status: 'complete', completed_at: nowIso, completed_by: completedBy, completion_source: 'worker_submitted' })
     .eq('contractor_id', contractorId)
     .in('item_key', keys)
     .eq('status', 'pending')

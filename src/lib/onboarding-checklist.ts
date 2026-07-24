@@ -179,3 +179,81 @@ export function isAllRequiredComplete(
   const requiredRows = items.filter((i) => required.has(i.item_key))
   return requiredRows.length > 0 && requiredRows.every((i) => i.status === 'complete')
 }
+
+// ---------------------------------------------------------------------------
+// Phase 2 — completion evidence model.
+//
+// Every completed checklist row records HOW it was completed. The checklist is
+// a summary of the evidence held, and an admin override is always visibly an
+// override — never indistinguishable from a genuine workflow completion.
+// ---------------------------------------------------------------------------
+
+export type CompletionSource =
+  | 'worker_submitted'      // a worker-provided form value / declaration (IR330, KiwiSaver, uploads)
+  | 'worker_acknowledged'   // a worker acknowledgement (induction modules)
+  | 'staff_verified'        // a staff verification / sign-off action
+  | 'system_completed'      // completed automatically by a Sano system action (signing)
+  | 'admin_override'        // an admin recorded an offline completion, with a reason
+  | 'imported_legacy'       // pre-evidence-model completion; true source unknown
+
+export const COMPLETION_SOURCE_LABEL: Record<CompletionSource, string> = {
+  worker_submitted: 'Worker submitted',
+  worker_acknowledged: 'Worker acknowledged',
+  staff_verified: 'Staff verified',
+  system_completed: 'System completed',
+  admin_override: 'Admin override',
+  imported_legacy: 'Imported (legacy)',
+}
+
+// Items completed by a DIRECT staff verification — the staff tick IS the review
+// action (there is no separate document-review workflow behind them). These
+// remain completable through setOnboardingItemStatus, recorded as
+// `staff_verified` and audited.
+export const STAFF_VERIFY_KEYS: string[] = [
+  'id_verified',
+  'payroll_tax_verified',
+  'kiwisaver_verified',
+  'insurance_verified',
+  'right_to_work_verified',
+]
+
+// Items OWNED by a dedicated workflow (agreement signing, document upload,
+// induction module acknowledgement, competency assessment, tax review). These
+// must NEVER be completed by the generic manual toggle — they complete via
+// their workflow, or via an audited admin OVERRIDE.
+export const WORKFLOW_OWNED_KEYS: string[] = ONBOARDING_TEMPLATE
+  .map((i) => i.item_key)
+  .filter((k) => !STAFF_VERIFY_KEYS.includes(k))
+
+export function isStaffVerifyItem(itemKey: string): boolean {
+  return STAFF_VERIFY_KEYS.includes(itemKey)
+}
+export function isWorkflowOwnedItem(itemKey: string): boolean {
+  return WORKFLOW_OWNED_KEYS.includes(itemKey)
+}
+
+/** The completion source to stamp when a real workflow completes an item. */
+export function workflowCompletionSource(itemKey: string): CompletionSource {
+  const item = ONBOARDING_TEMPLATE.find((i) => i.item_key === itemKey)
+  if (item?.kind === 'system') return 'system_completed'
+  if (itemKey === 'induction_completed') return 'worker_acknowledged'
+  if (itemKey.endsWith('_uploaded')) return 'worker_submitted'
+  if (SIGN_SUPPLIED_EMPLOYEE_KEYS.includes(itemKey)) return 'worker_submitted'
+  // Remaining workflow-owned items are staff sign-offs (tax_review, competency).
+  return 'staff_verified'
+}
+
+export interface OverrideFieldsInput {
+  reason?: string | null
+  effectiveDate?: string | null
+  confirmedBy?: string | null
+}
+
+/** Validate the mandatory admin-override fields. Returns an error string when a
+ *  required field is missing, else null. Pure — safe to unit test. */
+export function validateOverrideFields(input: OverrideFieldsInput): string | null {
+  if (!input.reason?.trim()) return 'A reason is required to override a checklist item.'
+  if (!input.effectiveDate?.trim()) return 'An effective completion date is required.'
+  if (!input.confirmedBy?.trim()) return 'Record who completed or confirmed the underlying action.'
+  return null
+}

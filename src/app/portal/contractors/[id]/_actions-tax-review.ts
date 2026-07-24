@@ -42,7 +42,7 @@ export async function setTaxReviewStatus(input: {
   if (taxReviewCompletesChecklist(input.status)) {
     const { error: itemErr } = await supabase
       .from('contractor_onboarding')
-      .update({ status: 'complete', completed_at: new Date().toISOString(), completed_by: user.id })
+      .update({ status: 'complete', completed_at: new Date().toISOString(), completed_by: user.id, completion_source: 'staff_verified' })
       .eq('contractor_id', input.contractorId)
       .eq('item_key', 'tax_review')
       .eq('status', 'pending')

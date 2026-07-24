@@ -114,7 +114,7 @@ export async function completeInductionIfDone(
 
   const { data: done } = await client
     .from('contractor_onboarding')
-    .update({ status: 'complete', completed_at: new Date().toISOString(), completed_by: null })
+    .update({ status: 'complete', completed_at: new Date().toISOString(), completed_by: null, completion_source: 'worker_acknowledged' })
     .eq('contractor_id', contractorId)
     .eq('item_key', 'induction_completed')
     .eq('status', 'pending')
