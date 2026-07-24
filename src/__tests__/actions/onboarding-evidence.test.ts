@@ -25,13 +25,13 @@ describe('Phase 2 — item classification', () => {
       expect(staff !== workflow).toBe(true) // exactly one is true
     }
   })
-  it('staff-verify items are exactly the *_verified sign-offs', () => {
+  it('staff-verify items are the *_verified sign-offs (payroll_tax_verified is workflow-owned from Phase 3)', () => {
     expect([...STAFF_VERIFY_KEYS].sort()).toEqual(
-      ['id_verified', 'insurance_verified', 'kiwisaver_verified', 'payroll_tax_verified', 'right_to_work_verified'].sort(),
+      ['id_verified', 'insurance_verified', 'kiwisaver_verified', 'right_to_work_verified'].sort(),
     )
   })
   it('evidence-backed workflow items are NOT staff-verify (blocked from the toggle)', () => {
-    for (const k of ['induction_completed', 'competency_confirmed', 'ir330_supplied', 'kiwisaver_information_supplied', 'contract_signed', 'tax_review', 'id_uploaded']) {
+    for (const k of ['induction_completed', 'competency_confirmed', 'ir330_supplied', 'kiwisaver_information_supplied', 'contract_signed', 'tax_review', 'id_uploaded', 'payroll_tax_verified']) {
       expect(isWorkflowOwnedItem(k)).toBe(true)
       expect(isStaffVerifyItem(k)).toBe(false)
     }

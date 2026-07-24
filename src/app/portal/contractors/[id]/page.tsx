@@ -21,6 +21,7 @@ import { businessStructureLabel } from '@/lib/business-structure'
 import { findSharedGstProfiles, sharedGstWarning, type GstProfile } from '@/lib/shared-gst-number'
 import { TaxReviewPanel } from './_components/TaxReviewPanel'
 import { CompetencyPanel } from './_components/CompetencyPanel'
+import { TaxDeclarationPanel } from './_components/TaxDeclarationPanel'
 
 // Phase 5.3 — worker_type now collapses to {contractor, employee};
 // the prior sub-classifications (casual / part_time / full_time)
@@ -257,6 +258,17 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
                 : 'Insurance not on file'}
           </p>
           <p>{insuranceWarning.message}</p>
+        </div>
+      )}
+
+      {/* Phase 3 — employee IR330 tax declaration (declared vs payroll-applied). */}
+      {workerType === 'employee' && (
+        <div className="max-w-5xl">
+          <TaxDeclarationPanel
+            contractorId={contractor.id}
+            appliedTaxCode={(contractor.tax_code as string | null) ?? null}
+            isAdmin={isAdmin}
+          />
         </div>
       )}
 
