@@ -83,36 +83,47 @@ describe('Phase 7 — employee activation gating', () => {
   })
 })
 
-// Minimal thenable fake to assert what the employee sign-seed completes.
+// Minimal thenable fake to assert what the employee sign-seed completes, and
+// with which completion_source (Phase 2 — system vs worker-supplied are written
+// as SEPARATE, correctly-sourced updates).
+type UpdateCall = { filters: [string, string, unknown][]; payload: Record<string, unknown> }
 function makeFakeClient(updateReturns: { item_key: string }[]) {
-  const calls = { upserts: [] as { rows: unknown[] }[], updates: [] as { filters: [string, string, unknown][] }[] }
+  const calls = { upserts: [] as { rows: unknown[] }[], updates: [] as UpdateCall[] }
   function from() {
     let isUpdate = false
+    let payload: Record<string, unknown> = {}
     const filters: [string, string, unknown][] = []
     const chain: Record<string, unknown> = {}
     chain.upsert = ((rows: unknown[]) => { calls.upserts.push({ rows }); return Promise.resolve({ data: null, error: null }) }) as never
-    chain.update = (() => { isUpdate = true; return chain }) as never
+    chain.update = ((p: Record<string, unknown>) => { isUpdate = true; payload = p; return chain }) as never
     chain.eq = ((c: string, v: unknown) => { filters.push(['eq', c, v]); return chain }) as never
     chain.in = ((c: string, v: unknown) => { filters.push(['in', c, v]); return chain }) as never
     chain.insert = (() => Promise.resolve({ data: null, error: null })) as never
-    chain.select = (() => { if (isUpdate) calls.updates.push({ filters }); return Promise.resolve({ data: updateReturns, error: null }) }) as never
+    chain.select = (() => { if (isUpdate) calls.updates.push({ filters, payload }); return Promise.resolve({ data: updateReturns, error: null }) }) as never
     return chain
   }
   return { client: { from }, calls }
 }
 
+const inKeys = (u: UpdateCall) => u.filters.find((f) => f[0] === 'in' && f[1] === 'item_key')?.[2]
+
 describe('Phase 7 — employee signing auto-completes system + supplied items', () => {
-  it('completes confirm/bank/contract PLUS ir330_supplied + kiwisaver_information_supplied', async () => {
+  it('completes system items and worker-supplied items as separate, correctly-sourced updates', async () => {
     const { client, calls } = makeFakeClient([])
     await seedAndAutoCompleteOnboardingOnSign(client, { contractorId: 'e-1', agreementId: 'a-1', workerType: 'employee' })
-    const inFilter = calls.updates[0].filters.find((f) => f[0] === 'in' && f[1] === 'item_key')
-    expect(inFilter?.[2]).toEqual([...SIGN_AUTO_COMPLETE_KEYS, ...SIGN_SUPPLIED_EMPLOYEE_KEYS])
+    // Two updates: system-kind items, then the employee-supplied declaration items.
+    expect(calls.updates.length).toBe(2)
+    expect(inKeys(calls.updates[0])).toEqual(SIGN_AUTO_COMPLETE_KEYS)
+    expect(calls.updates[0].payload.completion_source).toBe('system_completed')
+    expect(inKeys(calls.updates[1])).toEqual(SIGN_SUPPLIED_EMPLOYEE_KEYS)
+    expect(calls.updates[1].payload.completion_source).toBe('worker_submitted')
   })
 
-  it('a contractor signing does NOT complete the employee supplied items', async () => {
+  it('a contractor signing does NOT complete the employee supplied items (one system update only)', async () => {
     const { client, calls } = makeFakeClient([])
     await seedAndAutoCompleteOnboardingOnSign(client, { contractorId: 'c-1', agreementId: 'a-1', workerType: 'contractor' })
-    const inFilter = calls.updates[0].filters.find((f) => f[0] === 'in' && f[1] === 'item_key')
-    expect(inFilter?.[2]).toEqual(SIGN_AUTO_COMPLETE_KEYS)
+    expect(calls.updates.length).toBe(1)
+    expect(inKeys(calls.updates[0])).toEqual(SIGN_AUTO_COMPLETE_KEYS)
+    expect(calls.updates[0].payload.completion_source).toBe('system_completed')
   })
 })
