@@ -24,7 +24,12 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
-import { checklistForWorkerType } from '@/lib/onboarding-checklist'
+import {
+  checklistForWorkerType,
+  isStaffVerifyItem,
+  isWorkflowOwnedItem,
+  validateOverrideFields,
+} from '@/lib/onboarding-checklist'
 import {
   loadWorkforceSettings,
   requiredItemsForWorkerType,
@@ -167,13 +172,46 @@ export async function setOnboardingItemStatus(input: {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
 
+  // Look up the item so completion can be enforced by how the item is owned.
+  const { data: item } = await supabase
+    .from('contractor_onboarding')
+    .select('item_key, status')
+    .eq('id', input.itemId)
+    .eq('contractor_id', input.contractorId)
+    .maybeSingle()
+  if (!item) return { error: 'Checklist item not found.' }
+  const itemKey = (item as { item_key: string }).item_key
+  const prevStatus = (item as { status: string }).status
+
   const updates: Record<string, unknown> = { status: input.status }
   if (input.status === 'complete') {
+    // Evidence-backed, workflow-owned items are NOT completable by the generic
+    // toggle — only via their own workflow, or an audited admin override.
+    if (isWorkflowOwnedItem(itemKey)) {
+      return { error: 'This item is completed by its own process, or by an admin override — it can’t be ticked directly.' }
+    }
+    if (!isStaffVerifyItem(itemKey)) {
+      return { error: 'This item can’t be completed manually.' }
+    }
+    // Genuine staff verification — the tick IS the review action.
     updates.completed_at = new Date().toISOString()
     updates.completed_by = user.id
+    updates.completion_source = 'staff_verified'
+    updates.override_reason = null
+    updates.override_by = null
+    updates.effective_date = null
+    updates.confirmed_by = null
+    updates.evidence_ref = null
   } else {
+    // Reopen / revert — clears completion + all evidence for any item.
     updates.completed_at = null
     updates.completed_by = null
+    updates.completion_source = null
+    updates.override_reason = null
+    updates.override_by = null
+    updates.effective_date = null
+    updates.confirmed_by = null
+    updates.evidence_ref = null
   }
 
   const { error } = await supabase
@@ -182,6 +220,83 @@ export async function setOnboardingItemStatus(input: {
     .eq('id', input.itemId)
     .eq('contractor_id', input.contractorId)
   if (error) return { error: error.message }
+
+  await writeAudit(
+    supabase, user.id, input.contractorId,
+    { item_key: itemKey, status: prevStatus },
+    { item_key: itemKey, status: input.status, completion_source: updates.completion_source ?? null },
+    input.status === 'complete' ? 'contractor.onboarding_item_verified' : 'contractor.onboarding_item_reopened',
+  )
+
+  const { allRequiredComplete } = await recomputeOnboardingStatus(
+    supabase, input.contractorId, { actorId: user.id },
+  )
+
+  revalidatePath(`/portal/contractors/${input.contractorId}`)
+  revalidatePath('/portal/contractors')
+  return { ok: true, allRequiredComplete }
+}
+
+/**
+ * Admin-only override: record an offline/out-of-band completion of any checklist
+ * item, always visibly stamped as an override (never mistaken for a genuine
+ * workflow completion). Requires a reason, an effective date, and who confirmed
+ * the underlying action; writes an audit row.
+ */
+export async function overrideOnboardingItem(input: {
+  itemId: string
+  contractorId: string
+  reason: string
+  effectiveDate: string
+  confirmedBy: string
+  evidenceRef?: string | null
+}): Promise<{ ok: true; allRequiredComplete: boolean } | { error: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
+
+  const fieldError = validateOverrideFields(input)
+  if (fieldError) return { error: fieldError }
+
+  const { data: item } = await supabase
+    .from('contractor_onboarding')
+    .select('item_key, status')
+    .eq('id', input.itemId)
+    .eq('contractor_id', input.contractorId)
+    .maybeSingle()
+  if (!item) return { error: 'Checklist item not found.' }
+  const itemKey = (item as { item_key: string }).item_key
+  const prevStatus = (item as { status: string }).status
+
+  const nowIso = new Date().toISOString()
+  const { error } = await supabase
+    .from('contractor_onboarding')
+    .update({
+      status: 'complete',
+      completed_at: nowIso,
+      completed_by: user.id,
+      completion_source: 'admin_override',
+      override_reason: input.reason.trim(),
+      override_by: user.id,
+      effective_date: input.effectiveDate,
+      confirmed_by: input.confirmedBy.trim(),
+      evidence_ref: input.evidenceRef?.trim() || null,
+    })
+    .eq('id', input.itemId)
+    .eq('contractor_id', input.contractorId)
+  if (error) return { error: error.message }
+
+  await writeAudit(
+    supabase, user.id, input.contractorId,
+    { item_key: itemKey, status: prevStatus },
+    {
+      item_key: itemKey, status: 'complete', completion_source: 'admin_override',
+      reason: input.reason.trim(), effective_date: input.effectiveDate,
+      confirmed_by: input.confirmedBy.trim(), evidence_ref: input.evidenceRef?.trim() || null,
+    },
+    'contractor.onboarding_item_override',
+  )
 
   const { allRequiredComplete } = await recomputeOnboardingStatus(
     supabase, input.contractorId, { actorId: user.id },

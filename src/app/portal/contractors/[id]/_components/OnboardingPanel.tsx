@@ -11,7 +11,7 @@
 import { createClient } from '@/lib/supabase-server'
 import clsx from 'clsx'
 import { OnboardingChecklistItem } from './OnboardingChecklistItem'
-import { ONBOARDING_SECTIONS } from '@/lib/onboarding-checklist'
+import { ONBOARDING_SECTIONS, isStaffVerifyItem, isWorkflowOwnedItem } from '@/lib/onboarding-checklist'
 import { SeedChecklistButton } from './SeedChecklistButton'
 import { MarkActiveButton } from './MarkActiveButton'
 import {
@@ -27,6 +27,11 @@ type ItemRow = {
   status: 'pending' | 'complete'
   sort_order: number
   completed_at: string | null
+  completion_source: string | null
+  effective_date: string | null
+  confirmed_by: string | null
+  evidence_ref: string | null
+  override_reason: string | null
 }
 
 function fmtRelative(iso: string | null): string {
@@ -54,6 +59,7 @@ export async function OnboardingPanel({
   trialRequired,
   trialStatus,
   grandfathered = false,
+  isAdmin = false,
 }: {
   contractorId: string
   workerType: 'contractor' | 'employee'
@@ -62,12 +68,13 @@ export async function OnboardingPanel({
   trialRequired: boolean
   trialStatus: string
   grandfathered?: boolean
+  isAdmin?: boolean
 }) {
   const supabase = createClient()
   const [{ data: rowsData }, settings] = await Promise.all([
     supabase
       .from('contractor_onboarding')
-      .select('id, section, item_key, label, status, sort_order, completed_at')
+      .select('id, section, item_key, label, status, sort_order, completed_at, completion_source, effective_date, confirmed_by, evidence_ref, override_reason')
       .eq('contractor_id', contractorId)
       .order('sort_order', { ascending: true }),
     loadWorkforceSettings(supabase),
@@ -163,11 +170,19 @@ export async function OnboardingPanel({
                       <OnboardingChecklistItem
                         itemId={it.id}
                         contractorId={contractorId}
+                        itemKey={it.item_key}
                         label={it.label}
                         required={requiredKeys.has(it.item_key)}
                         complete={it.status === 'complete'}
-                        completedAt={it.completed_at}
                         completedDateLabel={fmtRelative(it.completed_at)}
+                        source={it.completion_source}
+                        effectiveDate={it.effective_date}
+                        confirmedBy={it.confirmed_by}
+                        evidenceRef={it.evidence_ref}
+                        overrideReason={it.override_reason}
+                        isStaffVerify={isStaffVerifyItem(it.item_key)}
+                        isWorkflowOwned={isWorkflowOwnedItem(it.item_key)}
+                        isAdmin={isAdmin}
                       />
                     </li>
                   ))}

@@ -57,7 +57,7 @@ export async function recordCompetency(input: CompetencyInput): Promise<{ ok: tr
   // Best-effort: the checklist is admin-RLS; the sign-off above is source of truth.
   const { error: itemErr } = await supabase
     .from('contractor_onboarding')
-    .update({ status: 'complete', completed_at: nowIso, completed_by: user.id })
+    .update({ status: 'complete', completed_at: nowIso, completed_by: user.id, completion_source: 'staff_verified' })
     .eq('contractor_id', input.contractorId)
     .eq('item_key', 'competency_confirmed')
     .eq('status', 'pending')

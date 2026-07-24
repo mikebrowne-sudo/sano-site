@@ -273,6 +273,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
               trialRequired={trialRequired}
               trialStatus={trialStatus}
               grandfathered={grandfathered}
+              isAdmin={isAdmin}
             />
             {isAdmin && contractorStatus !== 'active' && (
               <div className="-mt-3 mb-6 px-1">
