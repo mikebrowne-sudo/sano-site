@@ -25,62 +25,26 @@ async function getContractorId(): Promise<string | null> {
   return data?.id ?? null
 }
 
-// Record an acknowledgement — FULLY SERVER-AUTHORITATIVE. The worker's user
-// client has NO write access to these tables (RLS is read-own only); every write
-// goes through the service-role client here, after the server has:
-//   • authenticated the user + resolved their contractor_id (getContractorId),
-//   • confirmed the assignment belongs to that contractor,
-//   • read the current module + version FROM THE DATABASE,
-//   • confirmed the module is active (eligible to acknowledge),
-//   • stamped the server timestamp,
-//   • updated ONLY the intended assignment fields,
-//   • inserted the history row from DB-derived IDs + version + server time.
-// No worker-supplied contractor_id / module_id / version / timestamp / status is
-// ever trusted.
-async function recordAcknowledgement(assignmentId: string, contractorId: string, opts: { complete?: boolean } = {}) {
-  const svc = getServiceSupabase()
-
-  // Ownership + module (DB-authoritative). contractorId came from the auth'd
-  // session, never the client.
-  const { data: a } = await svc
-    .from('worker_training_assignments')
-    .select('id, contractor_id, status, training_module_id, training_modules ( id, version, status )')
-    .eq('id', assignmentId)
-    .eq('contractor_id', contractorId)
-    .maybeSingle()
-  if (!a) return { error: 'Access denied.' }
-
-  const mod = (a as { training_modules?: { id?: string; version?: string | null; status?: string | null } | null }).training_modules
-  if (!mod || mod.status !== 'active') return { error: 'This module isn’t available to acknowledge.' }
-
-  const moduleId = (a as { training_module_id: string }).training_module_id
-  const version = mod.version ?? null
-  const nowIso = new Date().toISOString()
-
-  // Update ONLY the intended fields — never a client-supplied set.
-  const update: Record<string, unknown> = {
-    acknowledged_at: nowIso,
-    acknowledged_version: version,
-    reacknowledgement_required: false,
-  }
-  if (opts.complete) { update.status = 'completed'; update.completed_at = nowIso }
-
-  const { error: uErr } = await svc
-    .from('worker_training_assignments')
-    .update(update)
-    .eq('id', assignmentId)
-    .eq('contractor_id', contractorId)
-  if (uErr) return { error: uErr.message }
-
-  // History from DB-derived IDs + version + server timestamp.
-  await svc.from('worker_training_acknowledgements').insert({
-    assignment_id: assignmentId,
-    contractor_id: contractorId,
-    training_module_id: moduleId,
-    module_version: version,
-    acknowledged_at: nowIso,
+// Record an acknowledgement through the ATOMIC database RPC. The history insert
+// and the assignment update commit together (or both roll back) inside one
+// transaction. The RPC is security-definer but derives identity from the
+// caller's JWT (auth.uid()) and re-validates ownership + active module itself —
+// so it is called via the worker's USER client and trusts NOTHING from the
+// client except the assignment id. It is idempotent (a duplicate ack for the
+// same version writes no new evidence and is not an error).
+async function recordAcknowledgement(assignmentId: string, contractorId: string, complete: boolean) {
+  const supabase = createClient()
+  const { error } = await supabase.rpc('record_training_acknowledgement', {
+    p_assignment_id: assignmentId,
+    p_complete: complete,
   })
-
+  if (error) {
+    const msg = error.message || ''
+    if (/assignment not found/i.test(msg)) return { error: 'Access denied.' }
+    if (/module not active/i.test(msg)) return { error: 'This module isn’t available to acknowledge.' }
+    if (/not a worker/i.test(msg)) return { error: 'Not authenticated.' }
+    return { error: 'Could not record your acknowledgement. Please try again.' }
+  }
   await syncInductionChecklist(contractorId)
   revalidatePath('/contractor/training')
   revalidatePath(`/contractor/training/${assignmentId}`)
@@ -90,11 +54,11 @@ async function recordAcknowledgement(assignmentId: string, contractorId: string,
 export async function acknowledgeTraining(assignmentId: string) {
   const contractorId = await getContractorId()
   if (!contractorId) return { error: 'Not authenticated.' }
-  return recordAcknowledgement(assignmentId, contractorId)
+  return recordAcknowledgement(assignmentId, contractorId, false)
 }
 
 export async function completeTraining(assignmentId: string) {
   const contractorId = await getContractorId()
   if (!contractorId) return { error: 'Not authenticated.' }
-  return recordAcknowledgement(assignmentId, contractorId, { complete: true })
+  return recordAcknowledgement(assignmentId, contractorId, true)
 }
