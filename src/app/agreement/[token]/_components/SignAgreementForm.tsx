@@ -19,7 +19,7 @@ import { EmploymentAgreementDocument, type AgreementView } from '@/components/Em
 
 const INITIAL = {
   fullName: '', preferredName: '', phone: '', email: '', address: '', dateOfBirth: '',
-  ird: '', bankName: '', bank: '', taxCode: '', kiwisaver: 'opt_out', kiwisaverRate: '3',
+  ird: '', bankName: '', bank: '', taxCode: '', kiwisaver: '', kiwisaverRate: '3.5',
   tradingName: '', legalName: '', nzbn: '', companyNumber: '', gstNumber: '',
   insurerName: '', insuranceCover: '', insuranceExpiry: '',
   emName: '', emPhone: '', emRel: '', signedName: '',
@@ -139,6 +139,7 @@ export function SignAgreementForm({
     if (s === 2 && !isContractor) {
       if (!f.taxCode.trim()) return 'Please choose your tax code.'
       if (!ir330Ack) return 'Please confirm your tax code declaration to continue.'
+      if (!f.kiwisaver) return 'Please tell us your KiwiSaver situation.'
     }
     if (s === 3 && !f.bank.trim()) return 'Please enter your bank account number.'
     if (s === 5) {
@@ -166,7 +167,7 @@ export function SignAgreementForm({
         token,
         fullName: f.fullName, preferredName: f.preferredName, phone: f.phone, email: f.email,
         address: f.address, dateOfBirth: f.dateOfBirth, irdNumber: f.ird,
-        bankAccountName: f.bankName, bankAccount: f.bank, taxCode: f.taxCode, ir330Acknowledged: ir330Ack, kiwisaverChoice: f.kiwisaver, kiwisaverRate: f.kiwisaverRate,
+        bankAccountName: f.bankName, bankAccount: f.bank, taxCode: f.taxCode, ir330Acknowledged: ir330Ack, kiwisaverSituation: f.kiwisaver, kiwisaverRate: f.kiwisaverRate,
         emergencyName: f.emName, emergencyPhone: f.emPhone, emergencyRelationship: f.emRel,
         tradingName: f.tradingName, gstNumber: f.gstNumber,
         businessStructure, legalName: f.legalName, nzbn: f.nzbn, companyNumber: f.companyNumber, gstRegistered,
@@ -303,12 +304,24 @@ export function SignAgreementForm({
             </div>
             <div className="mt-5">
               <span className="text-[11px] font-medium text-sage-500">KiwiSaver</span>
-              <div className="flex gap-4 mt-1 text-sm text-sage-700">
-                <label className="flex items-center gap-2"><input type="radio" name="ks" checked={f.kiwisaver === 'opt_out'} onChange={() => setF((p) => ({ ...p, kiwisaver: 'opt_out' }))} /> Opt out</label>
-                <label className="flex items-center gap-2"><input type="radio" name="ks" checked={f.kiwisaver === 'stay_in'} onChange={() => setF((p) => ({ ...p, kiwisaver: 'stay_in' }))} /> Enrol</label>
+              <p className="text-[11px] text-sage-400 mt-0.5 mb-2">Are you already a KiwiSaver member? <span className="text-red-500">*</span></p>
+              <div className="flex flex-col gap-2 text-sm text-sage-700">
+                <label className="flex items-start gap-2">
+                  <input type="radio" name="ks" className="mt-0.5" checked={f.kiwisaver === 'existing_member'} onChange={() => setF((p) => ({ ...p, kiwisaver: 'existing_member' }))} />
+                  <span>Yes — I&rsquo;m already a KiwiSaver member.</span>
+                </label>
+                <label className="flex items-start gap-2">
+                  <input type="radio" name="ks" className="mt-0.5" checked={f.kiwisaver === 'joining'} onChange={() => setF((p) => ({ ...p, kiwisaver: 'joining' }))} />
+                  <span>No — I&rsquo;m not currently a KiwiSaver member.</span>
+                </label>
               </div>
-              {f.kiwisaver === 'stay_in' && (
-                <label className="flex flex-col gap-1 max-w-[10rem] mt-2"><span className="text-[11px] font-medium text-sage-500">Contribution rate</span>
+              {f.kiwisaver === 'joining' && (
+                <p className="text-[11px] text-sage-500 mt-2 rounded-lg bg-sage-50/60 border border-sage-100 px-3 py-2">
+                  As a new employee you&rsquo;ll be automatically enrolled in KiwiSaver. If you don&rsquo;t want to stay in, you can opt out between weeks 2 and 8 of starting (Inland Revenue form KS10) — you&rsquo;re not opting out now.
+                </p>
+              )}
+              {(f.kiwisaver === 'existing_member' || f.kiwisaver === 'joining') && (
+                <label className="flex flex-col gap-1 max-w-[10rem] mt-3"><span className="text-[11px] font-medium text-sage-500">Contribution rate</span>
                   <select value={f.kiwisaverRate} onChange={set('kiwisaverRate')} className={inputCls}>
                     {KS_EMPLOYEE_RATES.map((r) => <option key={r} value={String(r)}>{r}%</option>)}
                   </select></label>
@@ -370,7 +383,7 @@ export function SignAgreementForm({
               ) : (
                 <>
                   <ReviewBlock title="Tax & KiwiSaver" onEdit={() => goTo(2)} rows={[
-                    ['Tax code', f.taxCode || '—'], ['KiwiSaver', f.kiwisaver === 'stay_in' ? `Enrolled (${f.kiwisaverRate}%)` : 'Opted out'],
+                    ['Tax code', f.taxCode || '—'], ['KiwiSaver', f.kiwisaver === 'existing_member' ? `Existing member (${f.kiwisaverRate}%)` : f.kiwisaver === 'joining' ? `Enrolling (${f.kiwisaverRate}%)` : '—'],
                   ]} />
                   <ReviewBlock title="Payment" onEdit={() => goTo(3)} rows={[['Bank name', f.bankName || '—'], ['Bank account', f.bank || '—']]} />
                 </>

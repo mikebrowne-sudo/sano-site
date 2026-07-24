@@ -5,7 +5,7 @@ import { createContractor, updateContractor } from '../_actions'
 import { TAX_CODES, KS_DEFAULT_EMPLOYEE, KS_DEFAULT_EMPLOYER, KS_RATE_SOURCES } from '@/lib/nz-paye'
 // Staff form offers the full ALLOWED set (incl. 3% for a temporary reduction) —
 // unlike the employee self-select wizard, which uses the standard set only.
-import { KS_EMPLOYEE_ALLOWED_RATES, KS_EMPLOYER_MIN_RATE } from '@/lib/payroll/kiwisaver'
+import { KS_EMPLOYEE_ALLOWED_RATES, KS_EMPLOYER_MIN_RATE, KIWISAVER_STATUSES, kiwiSaverStatusEnrolled, kiwiSaverStatusCanOptOut } from '@/lib/payroll/kiwisaver'
 import { CONTRACTOR_TAX_TREATMENTS } from '@/lib/payroll/gst'
 import { BUSINESS_STRUCTURES } from '@/lib/business-structure'
 import clsx from 'clsx'
@@ -54,6 +54,9 @@ export interface ContractorData {
   tax_code?: string | null
   ir330_received?: boolean | null
   kiwisaver_enrolled?: boolean | null
+  kiwisaver_status?: string | null
+  kiwisaver_ks3_provided?: boolean | null
+  kiwisaver_optout_filed?: boolean | null
   kiwisaver_employee_rate?: number | null
   kiwisaver_employer_rate?: number | null
   kiwisaver_rate_source?: string | null
@@ -146,7 +149,12 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
   const [irdNumber, setIrdNumber] = useState(contractor?.ird_number ?? '')
   const [taxCode, setTaxCode] = useState(contractor?.tax_code ?? 'M')
   const [ir330Received, setIr330Received] = useState(contractor?.ir330_received ?? false)
-  const [ksEnrolled, setKsEnrolled] = useState(contractor?.kiwisaver_enrolled ?? false)
+  const [ksStatus, setKsStatus] = useState(
+    contractor?.kiwisaver_status ?? (contractor?.kiwisaver_enrolled ? 'existing_member' : 'review_required'),
+  )
+  const [ksKs3Provided, setKsKs3Provided] = useState(contractor?.kiwisaver_ks3_provided ?? false)
+  const [ksOptoutFiled, setKsOptoutFiled] = useState(contractor?.kiwisaver_optout_filed ?? false)
+  const ksEnrolled = kiwiSaverStatusEnrolled(ksStatus)
   const [ksEmployeeRate, setKsEmployeeRate] = useState(contractor?.kiwisaver_employee_rate != null ? String(contractor.kiwisaver_employee_rate) : String(KS_DEFAULT_EMPLOYEE))
   const [ksEmployerRate, setKsEmployerRate] = useState(contractor?.kiwisaver_employer_rate != null ? String(contractor.kiwisaver_employer_rate) : String(KS_DEFAULT_EMPLOYER))
   const [ksRateSource, setKsRateSource] = useState(contractor?.kiwisaver_rate_source ?? 'standard')
@@ -240,6 +248,9 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
         tax_code: taxCode || 'M',
         ir330_received: ir330Received,
         kiwisaver_enrolled: ksEnrolled,
+        kiwisaver_status: ksStatus || undefined,
+        kiwisaver_ks3_provided: ksKs3Provided,
+        kiwisaver_optout_filed: ksOptoutFiled,
         kiwisaver_employee_rate: toNum(ksEmployeeRate),
         kiwisaver_employer_rate: toNum(ksEmployerRate),
         kiwisaver_rate_source: ksRateSource || undefined,
@@ -489,10 +500,27 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
 
       {isEmployee && (
         <Section title="KiwiSaver" badge="Employee only">
-          <label className="flex items-center gap-3 cursor-pointer mb-4">
-            <input type="checkbox" checked={ksEnrolled} onChange={(e) => setKsEnrolled(e.target.checked)} className="rounded border-sage-300 text-sage-500 focus:ring-sage-500" />
-            <span className="text-sm text-sage-800">KiwiSaver enrolled</span>
-          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+              <span className="block text-sm font-semibold text-sage-800 mb-1.5">KiwiSaver status</span>
+              <select value={ksStatus} onChange={(e) => setKsStatus(e.target.value)} className="w-full appearance-none rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sage-500">
+                {KIWISAVER_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+              <p className="text-[11px] text-sage-500 mt-1">{ksEnrolled ? 'Payroll deducts KiwiSaver.' : 'No KiwiSaver deducted in payroll.'}</p>
+            </div>
+            <div className="flex flex-col gap-2 justify-center">
+              <label className="flex items-center gap-2 text-sm text-sage-700">
+                <input type="checkbox" checked={ksKs3Provided} onChange={(e) => setKsKs3Provided(e.target.checked)} className="rounded border-sage-300" />
+                KS3 information provided
+              </label>
+              {kiwiSaverStatusCanOptOut(ksStatus) && (
+                <label className="flex items-center gap-2 text-sm text-sage-700">
+                  <input type="checkbox" checked={ksOptoutFiled} onChange={(e) => setKsOptoutFiled(e.target.checked)} className="rounded border-sage-300" />
+                  Opt-out (KS10) filed
+                </label>
+              )}
+            </div>
+          </div>
           {ksEnrolled && (() => {
             const rateIs3 = Number(ksEmployeeRate) === 3
             const validReduction = ksRateSource === 'temporary_reduction' && !!ksTempReductionExpiry

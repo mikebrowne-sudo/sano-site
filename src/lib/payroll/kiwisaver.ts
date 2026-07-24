@@ -43,6 +43,58 @@ export function employerKiwiSaverRate(stored: number | null | undefined): number
   return Math.max(Number(stored ?? KS_DEFAULT_EMPLOYER), KS_EMPLOYER_MIN_RATE)
 }
 
+// ---------------------------------------------------------------------------
+// Membership STATUS model (Phase 4) — an employee's KiwiSaver situation, distinct
+// from the contribution RATE above. Drives whether payroll deducts
+// (kiwisaver_enrolled) and whether the KS10 opt-out window applies.
+// IRD (KS4, 2026): auto-enrol new eligible employees 18–65 (not if already a
+// member); ONLY auto-enrolled employees may opt out (day 14–56, via KS10);
+// opted-in employees cannot opt out. Ref: https://www.ird.govt.nz/kiwisaver
+// ---------------------------------------------------------------------------
+
+export type KiwiSaverMembershipStatus =
+  | 'existing_member'     // already a member (KS2) — enrolled, cannot opt out
+  | 'auto_enrolled'       // new eligible employee 18–65 — enrolled, KS10 window applies
+  | 'opted_in'            // chose to opt in — enrolled, cannot opt out
+  | 'not_eligible'        // not eligible for automatic enrolment — not enrolled
+  | 'savings_suspension'  // on a savings suspension — deductions paused
+  | 'opted_out'           // opted out within the permitted window (KS10) — not enrolled
+  | 'review_required'     // status not yet determined — staff review
+
+export const KIWISAVER_STATUSES: ReadonlyArray<{ value: KiwiSaverMembershipStatus; label: string; enrolled: boolean; canOptOut: boolean }> = [
+  { value: 'existing_member',    label: 'Existing KiwiSaver member',               enrolled: true,  canOptOut: false },
+  { value: 'auto_enrolled',      label: 'Automatically enrolled (new employee)',   enrolled: true,  canOptOut: true },
+  { value: 'opted_in',           label: 'Opted in',                                enrolled: true,  canOptOut: false },
+  { value: 'not_eligible',       label: 'Not eligible for automatic enrolment',    enrolled: false, canOptOut: false },
+  { value: 'savings_suspension', label: 'Savings suspension',                      enrolled: false, canOptOut: false },
+  { value: 'opted_out',          label: 'Opted out (within the permitted period)', enrolled: false, canOptOut: false },
+  { value: 'review_required',    label: 'Review required',                         enrolled: false, canOptOut: false },
+]
+
+const KS_STATUS_MAP = new Map(KIWISAVER_STATUSES.map((s) => [s.value, s]))
+
+/** Whether payroll deducts KiwiSaver for this membership status. Payroll reads
+ *  the derived kiwisaver_enrolled flag; this keeps that flag in sync with status. */
+export function kiwiSaverStatusEnrolled(status: string | null | undefined): boolean {
+  return KS_STATUS_MAP.get(status as KiwiSaverMembershipStatus)?.enrolled ?? false
+}
+
+/** Only an auto-enrolled employee may opt out (day 14–56, via KS10). */
+export function kiwiSaverStatusCanOptOut(status: string | null | undefined): boolean {
+  return KS_STATUS_MAP.get(status as KiwiSaverMembershipStatus)?.canOptOut ?? false
+}
+
+export function isKiwiSaverStatus(v: string | null | undefined): v is KiwiSaverMembershipStatus {
+  return !!v && KS_STATUS_MAP.has(v as KiwiSaverMembershipStatus)
+}
+
+/** Map the employee's self-declared situation at signing to a status. A
+ *  non-member eligible new employee is AUTO-ENROLLED (never a pre-emptive
+ *  opt-out — that is only possible later, within the KS10 window). */
+export function newHireKiwiSaverStatus(situation: 'existing_member' | 'joining'): KiwiSaverMembershipStatus {
+  return situation === 'existing_member' ? 'existing_member' : 'auto_enrolled'
+}
+
 /** True when a temporary reduction has lapsed as of `asOf`. ISO date strings
  *  compare lexicographically, so no Date parsing is needed. */
 export function isTempReductionExpired(

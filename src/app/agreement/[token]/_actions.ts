@@ -10,7 +10,7 @@ import { revalidatePath } from 'next/cache'
 import { renderPdfFromUrl } from '@/lib/pdf/render-pdf'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { sendAgreementSignedEmail } from '@/lib/resend'
-import { KS_DEFAULT_EMPLOYEE, KS_DEFAULT_EMPLOYER } from '@/lib/payroll/kiwisaver'
+import { KS_DEFAULT_EMPLOYEE, KS_DEFAULT_EMPLOYER, newHireKiwiSaverStatus, kiwiSaverStatusEnrolled } from '@/lib/payroll/kiwisaver'
 import { parseCoverAmount } from '@/lib/parse-cover-amount'
 import { seedAndAutoCompleteOnboardingOnSign, completeUploadedItems } from '@/lib/onboarding-sign'
 import { validateUploadFile } from '@/lib/upload-validation'
@@ -32,7 +32,7 @@ export interface SignAgreementInput {
   ir330Acknowledged?: boolean // employee IR330 tax-code declaration acknowledgement
   bankAccountName?: string
   bankAccount: string
-  kiwisaverChoice: string // 'opt_out' | 'stay_in'
+  kiwisaverSituation?: string // employee KiwiSaver situation: 'existing_member' | 'joining'
   kiwisaverRate?: string // employee KiwiSaver contribution rate (3/4/6/8/10)
   emergencyName?: string
   emergencyPhone?: string
@@ -99,7 +99,9 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
       tax_code: input.taxCode?.trim() || 'M',
       bank_account_name: input.bankAccountName?.trim() || null,
       employee_bank_account: input.bankAccount?.trim() || null,
-      kiwisaver_choice: input.kiwisaverChoice === 'stay_in' ? 'stay_in' : 'opt_out',
+      // Both situations enrol at signing (existing member / auto-enrolled). A
+      // pre-emptive opt-out is never captured here — opting out is a later KS10.
+      kiwisaver_choice: 'stay_in',
       emergency_contact_name: input.emergencyName?.trim() || null,
       emergency_contact_phone: input.emergencyPhone?.trim() || null,
       emergency_contact_relationship: input.emergencyRelationship?.trim() || null,
@@ -228,7 +230,12 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
   } else {
     // Phase 7 — employees converge onto the payroll-wired contractors table
     // (worker_type='employee'). The employees table is no longer written to.
-    const enrolled = input.kiwisaverChoice === 'stay_in'
+    // Phase 4 — map the employee's declared situation to a KiwiSaver membership
+    // status; payroll enrolment derives from it. A non-member new hire is
+    // AUTO-ENROLLED (never a pre-emptive opt-out — that is only possible later,
+    // within the KS10 window).
+    const ksStatus = newHireKiwiSaverStatus(input.kiwisaverSituation === 'existing_member' ? 'existing_member' : 'joining')
+    const enrolled = kiwiSaverStatusEnrolled(ksStatus)
     // Default an enrolled new hire to the standard minimum (3.5% from 1 Apr
     // 2026) when they didn't pick a rate — never the pre-2026 3%.
     const empRate = input.kiwisaverRate ? Number(input.kiwisaverRate) : KS_DEFAULT_EMPLOYEE
@@ -257,6 +264,7 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
       hourly_rate: agreement.hourly_rate,
       tax_code: 'ND',
       ir330_received: false,
+      kiwisaver_status: ksStatus,
       kiwisaver_enrolled: enrolled,
       kiwisaver_employee_rate: enrolled ? empRate : null,
       // Employer minimum is 3.5% from 1 Apr 2026 (was hardcoded 3 — the bug).

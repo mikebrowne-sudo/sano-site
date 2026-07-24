@@ -7,6 +7,7 @@ import {
   KS_DEFAULT_EMPLOYEE,
   employerKiwiSaverRate,
   validateKiwiSaverElection,
+  kiwiSaverStatusEnrolled,
 } from '@/lib/payroll/kiwisaver'
 
 interface ContractorInput {
@@ -31,6 +32,9 @@ interface ContractorInput {
   tax_code?: string
   ir330_received?: boolean
   kiwisaver_enrolled?: boolean
+  kiwisaver_status?: string
+  kiwisaver_ks3_provided?: boolean
+  kiwisaver_optout_filed?: boolean
   kiwisaver_employee_rate?: number
   kiwisaver_employer_rate?: number
   kiwisaver_rate_source?: string
@@ -103,7 +107,12 @@ function payrollFields(input: ContractorInput) {
     ird_number: input.ird_number?.trim() || null,
     tax_code: input.tax_code || 'M',
     ir330_received: input.ir330_received ?? false,
-    kiwisaver_enrolled: input.kiwisaver_enrolled ?? false,
+    // Payroll enrolment DERIVES from the KiwiSaver membership status (single
+    // source of truth); the passed enrolled flag is ignored when a status is set.
+    kiwisaver_status: input.kiwisaver_status || null,
+    kiwisaver_enrolled: input.kiwisaver_status ? kiwiSaverStatusEnrolled(input.kiwisaver_status) : (input.kiwisaver_enrolled ?? false),
+    kiwisaver_ks3_provided: input.kiwisaver_ks3_provided ?? false,
+    kiwisaver_optout_filed: input.kiwisaver_optout_filed ?? false,
     kiwisaver_employee_rate: input.kiwisaver_employee_rate ?? KS_DEFAULT_EMPLOYEE,
     kiwisaver_employer_rate: employerKiwiSaverRate(input.kiwisaver_employer_rate),
     kiwisaver_rate_source: input.kiwisaver_rate_source || 'standard',
