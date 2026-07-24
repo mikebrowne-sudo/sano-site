@@ -12,7 +12,7 @@ import {
   HardHat, BookOpen, DollarSign, FileInput, Wallet, Bell, Settings,
   Calendar, UserCog, ArchiveRestore,
   Wallet2, UserPlus, Scale, Landmark, BarChart3, KeyRound,
-  Target, Megaphone, Car, Banknote, FileSignature, Star, Layers,
+  Target, Megaphone, Car, FileSignature, Star, Layers,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -31,9 +31,10 @@ export interface NavGroup {
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    heading: 'Core operations',
+    heading: 'Operations',
     items: [
       { href: '/portal',                label: 'Dashboard', icon: LayoutDashboard, exact: true },
+      { href: '/portal/alerts',         label: 'Alerts',    icon: Bell },
       { href: '/portal/jobs',           label: 'Jobs',      icon: Briefcase },
       { href: '/portal/jobs/calendar',  label: 'Calendar',  icon: Calendar },
       { href: '/portal/recurring-jobs', label: 'Recurring', icon: RefreshCw },
@@ -55,39 +56,46 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    heading: 'Workforce',
+    heading: 'Team',
     items: [
       { href: '/portal/applicants',  label: 'Applicants',             icon: UserPlus },
-      { href: '/portal/contractors', label: 'Workforce',              icon: HardHat },
-      // Employees now live under Workforce (contractors, worker_type='employee').
-      // The legacy /portal/employees page redirects there.
+      // Cleaners = the field workforce: contractors AND employees
+      // (contractors rows, worker_type='employee'). The legacy
+      // /portal/employees page redirects here.
+      { href: '/portal/contractors', label: 'Cleaners',               icon: HardHat },
       { href: '/portal/staff',       label: 'Staff',                  icon: UserCog },
       { href: '/portal/training',    label: 'Training & compliance',  icon: BookOpen },
+      { href: '/portal/agreements',  label: 'Employment agreements',  icon: FileSignature },
     ],
   },
   {
-    heading: 'Finance',
+    heading: 'Payroll & pay',
+    items: [
+      { href: '/portal/contractor-invoices',   label: 'Contractor invoices',   icon: FileInput, finance: true },
+      { href: '/portal/contractor-statements', label: 'Contractor statements', icon: Layers, finance: true },
+      // Single payroll entry → the LIVE pay flow (/portal/payroll → /new).
+      // The old /portal/payroll/employee flow is inactive (no
+      // employee_pay_runs table) and is no longer linked from nav.
+      { href: '/portal/payroll',               label: 'Employee pay',          icon: Wallet, finance: true },
+      { href: '/portal/mileage',               label: 'Mileage logbook',       icon: Car, finance: true },
+    ],
+  },
+  {
+    heading: 'Books',
     items: [
       { href: '/portal/expenses',            label: 'Expenses',             icon: Wallet2, finance: true },
-      { href: '/portal/finance/profit-loss', label: 'P&L statement',        icon: Scale, finance: true },
       { href: '/portal/finance/reconcile',   label: 'Bank reconciliation',  icon: Landmark, finance: true },
+      { href: '/portal/finance/profit-loss', label: 'P&L statement',        icon: Scale, finance: true },
       { href: '/portal/finance',             label: 'Profit / reports',     icon: DollarSign, finance: true },
-      { href: '/portal/contractor-invoices', label: 'Contractor invoices',  icon: FileInput, finance: true },
-      { href: '/portal/contractor-statements', label: 'Contractor statements', icon: Layers, finance: true },
-      { href: '/portal/payroll',             label: 'Payroll',              icon: Wallet, finance: true },
-      { href: '/portal/payroll/employee',    label: 'Employee pay',         icon: Banknote, finance: true },
-      { href: '/portal/mileage',             label: 'Mileage logbook',      icon: Car, finance: true },
     ],
   },
   {
     heading: 'System',
     items: [
-      { href: '/portal/analytics',        label: 'Website analytics', icon: BarChart3 },
-      { href: '/portal/settings',         label: 'Settings',        icon: Settings },
+      { href: '/portal/analytics',            label: 'Website analytics', icon: BarChart3 },
+      { href: '/portal/settings',             label: 'Settings',          icon: Settings },
       { href: '/portal/settings/accountants', label: 'Accountant access', icon: KeyRound },
-      { href: '/portal/agreements', label: 'Employment agreements', icon: FileSignature },
-      { href: '/portal/settings/archive', label: 'Archived records', icon: ArchiveRestore },
-      { href: '/portal/alerts',           label: 'Alerts',          icon: Bell },
+      { href: '/portal/settings/archive',     label: 'Archived records',  icon: ArchiveRestore },
     ],
   },
 ]
@@ -113,12 +121,6 @@ export function isNavActive(pathname: string, item: NavItem): boolean {
   }
   // P&L statement and Bank reconciliation are nested under /portal/finance —
   // keep "Profit / reports" from also lighting up when on those pages.
-  // Employee pay is nested under /portal/payroll — keep Payroll from also
-  // lighting up when on it.
-  if (item.href === '/portal/payroll') {
-    return pathname === '/portal/payroll' ||
-      (pathname.startsWith('/portal/payroll/') && !pathname.startsWith('/portal/payroll/employee'))
-  }
   if (item.href === '/portal/finance') {
     return pathname === '/portal/finance' ||
       (pathname.startsWith('/portal/finance/')
