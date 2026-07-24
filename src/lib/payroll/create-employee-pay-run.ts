@@ -10,6 +10,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { calculatePayPreview } from '@/lib/nz-paye'
+import { employerKiwiSaverRate, resolveEmployeeKiwiSaverRateForPay } from '@/lib/payroll/kiwisaver'
 
 export interface CreatePayRunInput {
   pay_period_start: string
@@ -19,10 +20,17 @@ export interface CreatePayRunInput {
   notes?: string | null
 }
 
+/** A pay-run line that needs staff review before finalising (never a silent
+ *  problem) — e.g. an employee whose temporary KiwiSaver reduction has expired. */
+export interface PayRunWarning {
+  contractor_id: string
+  message: string
+}
+
 export async function createEmployeePayRun(
   supabase: SupabaseClient,
   input: CreatePayRunInput,
-): Promise<{ id?: string; error?: string; duplicate?: boolean }> {
+): Promise<{ id?: string; error?: string; duplicate?: boolean; warnings?: PayRunWarning[] }> {
   if (!input.pay_period_start || !input.pay_period_end || !input.pay_date) {
     return { error: 'All dates are required.' }
   }
@@ -55,7 +63,7 @@ export async function createEmployeePayRun(
   // Active employees on THIS cycle only (frequency-aware).
   const { data: employees } = await supabase
     .from('contractors')
-    .select('id, hourly_rate, standard_hours, tax_code, pay_frequency, holiday_pay_method, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate, base_hourly_rate, loaded_hourly_rate')
+    .select('id, hourly_rate, standard_hours, tax_code, pay_frequency, holiday_pay_method, kiwisaver_enrolled, kiwisaver_employee_rate, kiwisaver_employer_rate, kiwisaver_rate_source, kiwisaver_temp_reduction_expiry, base_hourly_rate, loaded_hourly_rate')
     .eq('status', 'active')
     .neq('worker_type', 'contractor')
     .eq('pay_frequency', input.pay_frequency)
@@ -77,10 +85,23 @@ export async function createEmployeePayRun(
       mileageByContractor.set(cid, (mileageByContractor.get(cid) ?? 0) + Number(m.reimbursement_amount ?? 0))
     }
 
+    const warnings: PayRunWarning[] = []
+
     const lines = employees.map((emp) => {
       const isPaygo = emp.holiday_pay_method === 'pay_as_you_go_8_percent'
       const rate = isPaygo ? (emp.loaded_hourly_rate ?? emp.hourly_rate ?? 0) : (emp.hourly_rate ?? 0)
       const hours = emp.standard_hours ?? 0
+
+      // Resolve the employee KiwiSaver rate, actively guarding against an
+      // EXPIRED temporary reduction: an expired 3% is never continued silently —
+      // the standard minimum is used and the run is flagged for staff review.
+      const ks = resolveEmployeeKiwiSaverRateForPay({
+        rate: emp.kiwisaver_employee_rate,
+        source: emp.kiwisaver_rate_source,
+        expiry: emp.kiwisaver_temp_reduction_expiry as string | null,
+        asOf: input.pay_date,
+      })
+      if (ks.warning) warnings.push({ contractor_id: emp.id, message: ks.warning })
 
       const preview = calculatePayPreview({
         hoursWorked: hours,
@@ -88,9 +109,9 @@ export async function createEmployeePayRun(
         payFrequency: (emp.pay_frequency as 'weekly' | 'fortnightly') || 'fortnightly',
         taxCode: emp.tax_code || 'M',
         kiwisaverEnrolled: emp.kiwisaver_enrolled,
-        kiwisaverEmployeeRate: emp.kiwisaver_employee_rate ?? 3,
-        // Employer KiwiSaver minimum is 3.5% from 1 Apr 2026 — floor it.
-        kiwisaverEmployerRate: Math.max(emp.kiwisaver_employer_rate ?? 3.5, 3.5),
+        kiwisaverEmployeeRate: ks.rate,
+        // Employer KiwiSaver minimum is 3.5% from 1 Apr 2026 — floored centrally.
+        kiwisaverEmployerRate: employerKiwiSaverRate(emp.kiwisaver_employer_rate),
         holidayPayMethod: isPaygo ? null : emp.holiday_pay_method,
       })
 
@@ -114,6 +135,8 @@ export async function createEmployeePayRun(
     })
 
     await supabase.from('pay_run_lines').insert(lines)
+
+    if (warnings.length) return { id: data.id as string, warnings }
   }
 
   return { id: data.id as string }

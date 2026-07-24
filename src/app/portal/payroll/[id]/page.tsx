@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { PayRunActions } from './_components/PayRunActions'
+import { isTempReductionExpired } from '@/lib/payroll/kiwisaver'
+import { AlertTriangle } from 'lucide-react'
 import clsx from 'clsx'
 
 function fmt(d: number) { return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(d) }
@@ -18,6 +20,20 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
   ])
 
   if (error || !run) notFound()
+
+  // Flag any line whose employee's temporary KiwiSaver reduction had expired as
+  // of the pay date — the run used the standard rate (never a silent 3%), but
+  // staff must confirm and update the employee's record before finalising.
+  const lineContractorIds = Array.from(new Set((lines ?? []).map((l) => l.contractor_id as string)))
+  const { data: ksRows } = lineContractorIds.length
+    ? await supabase
+        .from('contractors')
+        .select('id, full_name, kiwisaver_rate_source, kiwisaver_temp_reduction_expiry')
+        .in('id', lineContractorIds)
+    : { data: [] as Array<{ id: string; full_name: string; kiwisaver_rate_source: string | null; kiwisaver_temp_reduction_expiry: string | null }> }
+  const expiredReductionNames = (ksRows ?? [])
+    .filter((c) => isTempReductionExpired(c.kiwisaver_rate_source, c.kiwisaver_temp_reduction_expiry, run.pay_date))
+    .map((c) => c.full_name)
 
   const payslipMap = new Map((payslips ?? []).map((p) => [p.pay_run_line_id, p]))
   const totalGross = (lines ?? []).reduce((s, l) => s + (l.gross_pay ?? 0), 0)
@@ -42,6 +58,20 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
           <PayRunActions payRunId={run.id} status={run.status} />
         </div>
       </div>
+
+      {expiredReductionNames.length > 0 && (
+        <div className="mb-6 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600" />
+          <div className="text-sm text-amber-800">
+            <p className="font-semibold">Review required before finalising</p>
+            <p className="mt-0.5 text-amber-700">
+              {expiredReductionNames.join(', ')} {expiredReductionNames.length === 1 ? 'has' : 'have'} an expired temporary
+              KiwiSaver rate reduction. The run used the standard 3.5% (not 3%). Confirm and update
+              {expiredReductionNames.length === 1 ? ' their' : ' each'} record before paying.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">

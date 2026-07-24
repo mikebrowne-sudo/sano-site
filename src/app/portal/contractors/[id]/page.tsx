@@ -9,6 +9,7 @@ import { ComplianceBadge } from '../_components/ComplianceBadge'
 import { IncidentList } from '../_components/IncidentList'
 import { DeleteButton } from '../../_components/DeleteButton'
 import { computeComplianceStatus } from '@/lib/contractor-compliance'
+import { KS_DEFAULT_EMPLOYEE, KS_DEFAULT_EMPLOYER } from '@/lib/payroll/kiwisaver'
 import clsx from 'clsx'
 import { OnboardingPanel } from './_components/OnboardingPanel'
 import { TrialPanel } from './_components/TrialPanel'
@@ -476,8 +477,8 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
           <Section title="KiwiSaver">
             {contractor.kiwisaver_enrolled ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div><span className="text-sage-500">Employee rate</span><p className="text-sage-800 font-medium">{contractor.kiwisaver_employee_rate ?? 3}%</p></div>
-                <div><span className="text-sage-500">Employer rate</span><p className="text-sage-800 font-medium">{contractor.kiwisaver_employer_rate ?? 3}%</p></div>
+                <div><span className="text-sage-500">Employee rate</span><p className="text-sage-800 font-medium">{contractor.kiwisaver_employee_rate ?? KS_DEFAULT_EMPLOYEE}%</p></div>
+                <div><span className="text-sage-500">Employer rate</span><p className="text-sage-800 font-medium">{contractor.kiwisaver_employer_rate ?? KS_DEFAULT_EMPLOYER}%</p></div>
               </div>
             ) : (
               <p className="text-sage-500 text-sm">Not enrolled</p>

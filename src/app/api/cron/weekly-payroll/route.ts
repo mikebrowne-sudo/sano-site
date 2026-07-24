@@ -71,21 +71,31 @@ export async function POST(req: NextRequest) {
   // Notify — draft only, never auto-paid.
   const notifyEmail = process.env.SANO_NOTIFY_EMAIL
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.URL ?? ''
+  // Surface any pay-line review flags (e.g. an expired KiwiSaver temporary
+  // reduction) so they can't slip through unnoticed on the unattended path.
+  const warnings = res.warnings ?? []
+  const warningsHtml = warnings.length
+    ? `<div style="margin-top:16px;padding:12px;border:1px solid #f0c36d;background:#fff8e1;border-radius:8px;">
+         <p style="margin:0 0 6px;font-weight:600;color:#8a6d0b;">Review required before finalising:</p>
+         <ul style="margin:0;padding-left:18px;color:#8a6d0b;">${warnings.map((w) => `<li>${w.message}</li>`).join('')}</ul>
+       </div>`
+    : ''
   if (notifyEmail && process.env.RESEND_API_KEY) {
     try {
       const resend = new Resend(process.env.RESEND_API_KEY)
       await resend.emails.send({
         from: 'Sano <noreply@sano.nz>',
         to: notifyEmail,
-        subject: `Weekly pay run drafted — ${periodStart} to ${periodEnd}`,
+        subject: `Weekly pay run drafted — ${periodStart} to ${periodEnd}${warnings.length ? ' (review required)' : ''}`,
         html: `<p>A weekly pay run has been <strong>auto-drafted</strong> for ${periodStart} – ${periodEnd}.</p>
           <p>It is a draft only — nothing has been approved or paid. Review, approve and pay it here:</p>
-          <p><a href="${baseUrl}/portal/payroll/${res.id}">${baseUrl}/portal/payroll/${res.id}</a></p>`,
+          <p><a href="${baseUrl}/portal/payroll/${res.id}">${baseUrl}/portal/payroll/${res.id}</a></p>
+          ${warningsHtml}`,
       })
     } catch {
       // Notification failure is non-fatal — the draft still exists to review.
     }
   }
 
-  return NextResponse.json({ ok: true, payRunId: res.id, period: { periodStart, periodEnd, payDate } })
+  return NextResponse.json({ ok: true, payRunId: res.id, warnings, period: { periodStart, periodEnd, payDate } })
 }

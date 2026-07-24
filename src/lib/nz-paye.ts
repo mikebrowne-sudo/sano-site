@@ -10,6 +10,12 @@
 
 import { annualIncomeTax, annualAccLevy, periodsPerYear, type PayPeriod } from '@/lib/payroll/paye'
 import { computeEsct } from '@/lib/payroll/esct'
+import {
+  KS_EMPLOYEE_STANDARD_RATES,
+  KS_DEFAULT_EMPLOYEE,
+  KS_DEFAULT_EMPLOYER,
+  KS_RATE_SOURCES,
+} from '@/lib/payroll/kiwisaver'
 
 // IRD payroll truncates (not rounds): whole-dollar gross for the PAYE/SL calc,
 // and truncate deduction results to the cent. Net pay is the residual, rounded.
@@ -79,18 +85,13 @@ export const TAX_CODES = [
   { value: 'ND', label: 'ND — No declaration (45%)', group: 'Non-notified' },
 ]
 
-// 3% is the reduced rate (temporary reduction only); 3.5% is the standard
-// minimum from 1 Apr 2026.
-export const KS_EMPLOYEE_RATES = [3, 3.5, 4, 6, 8, 10]
-export const KS_DEFAULT_EMPLOYEE = 3.5
-export const KS_DEFAULT_EMPLOYER = 3.5
-
-// Why an employee's KiwiSaver rate is what it is.
-export const KS_RATE_SOURCES = [
-  { value: 'standard', label: 'Standard minimum (3.5%)' },
-  { value: 'temporary_reduction', label: 'Temporary rate reduction (3%)' },
-  { value: 'employee_election', label: 'Employee-elected higher rate' },
-] as const
+// KiwiSaver rate constants are centralised in `@/lib/payroll/kiwisaver` (the
+// single source of truth). Re-exported here for back-compat with existing
+// imports. `KS_EMPLOYEE_RATES` is the STANDARD employee election set — 3% is
+// deliberately excluded (it is valid only under a temporary rate reduction,
+// which staff apply on the worker record, not something an employee elects).
+export const KS_EMPLOYEE_RATES = KS_EMPLOYEE_STANDARD_RATES
+export { KS_DEFAULT_EMPLOYEE, KS_DEFAULT_EMPLOYER, KS_RATE_SOURCES }
 
 export function calculatePayPreview(params: {
   hoursWorked: number
