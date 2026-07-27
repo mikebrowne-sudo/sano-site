@@ -85,6 +85,9 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
     }
   })
   const paymentLabel = (lines ?? []).length === 1 ? (readiness[0]?.employeeName ?? 'employee') : `${(lines ?? []).length} employees`
+  const singleBank = (lines ?? []).length === 1
+    ? ((ksRowById.get(lines![0].contractor_id as string) ?? {}).bank_account_number as string | null) ?? null
+    : null
   const filingDue = paydayFilingDue(run.pay_date)
 
   const payslipMap = new Map((payslips ?? []).map((p) => [p.pay_run_line_id, p]))
@@ -110,7 +113,7 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
           <p className="text-sage-600 text-sm mt-1">Pay date: {fmtDate(run.pay_date)}</p>
         </div>
         <div className="flex items-center gap-3">
-          <span className={clsx('inline-block px-3 py-1 rounded-full text-sm font-medium capitalize', run.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-700')}>{run.status}</span>
+          <span className={clsx('inline-block px-3 py-1 rounded-full text-sm font-medium capitalize', run.status === 'paid' || run.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : run.status === 'approved' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-700')}>{run.status}</span>
           <PayRunActions payRunId={run.id} status={run.status} />
         </div>
       </div>
@@ -118,7 +121,13 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
       <PayRunWorkflowPanel
         runId={run.id}
         isAdmin={isAdmin}
-        payment={{ status: run.status, netTotal: totalNet, label: paymentLabel, paidAt: (run.paid_at as string | null) ?? null }}
+        payment={{
+          status: run.status, netTotal: totalNet, label: paymentLabel, paidAt: (run.paid_at as string | null) ?? null,
+          bankAccount: singleBank,
+          paymentDate: (run as { payment_date?: string | null }).payment_date ?? null,
+          paymentReference: (run as { payment_reference?: string | null }).payment_reference ?? null,
+          paymentMethod: (run as { payment_method?: string | null }).payment_method ?? null,
+        }}
         filing={{
           status: (run as { payday_filing_status?: string }).payday_filing_status ?? 'not_filed',
           submittedAt: (run as { payday_filing_submitted_at?: string | null }).payday_filing_submitted_at ?? null,

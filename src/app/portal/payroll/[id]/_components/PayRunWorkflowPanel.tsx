@@ -11,6 +11,7 @@ import { CheckCircle2, AlertTriangle, Clock, Wallet, FileText, Landmark } from '
 import type { ReadinessItem } from '@/lib/payroll/first-pay-readiness'
 import type { IrdSetAside } from '@/lib/payroll/payrun-obligations'
 import { markIrdCompared, markFilingSubmitted, markFilingAccepted, markEmpRegistered } from '../_actions-status'
+import { approvePayRun, markPayRunPaid } from '../../_actions'
 
 const money = (n: number) => new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' }) : '—')
@@ -18,7 +19,11 @@ const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(
 export interface PayRunWorkflowProps {
   runId: string
   isAdmin: boolean
-  payment: { status: string; netTotal: number; label: string; paidAt: string | null }
+  payment: {
+    status: string; netTotal: number; label: string; paidAt: string | null
+    bankAccount: string | null
+    paymentDate: string | null; paymentReference: string | null; paymentMethod: string | null
+  }
   filing: { status: string; submittedAt: string | null; acceptedAt: string | null; due: string }
   emp: { registered: boolean; note: string | null }
   setAside: IrdSetAside
@@ -43,6 +48,12 @@ export function PayRunWorkflowPanel(p: PayRunWorkflowProps) {
     })
   }
   const paid = p.payment.status === 'paid'
+  const approved = p.payment.status === 'approved'
+  const draft = p.payment.status === 'draft'
+  const [recording, setRecording] = useState(false)
+  const [pd, setPd] = useState('')
+  const [pref, setPref] = useState('')
+  const [pmethod, setPmethod] = useState('bank transfer')
   const filingDone = p.filing.status === 'accepted'
   const card = 'rounded-xl border p-4 bg-white'
   const btn = 'inline-flex items-center gap-1.5 text-xs font-medium rounded-lg px-3 py-1.5 border border-sage-200 text-sage-700 hover:bg-sage-50 disabled:opacity-50'
@@ -50,15 +61,41 @@ export function PayRunWorkflowPanel(p: PayRunWorkflowProps) {
   return (
     <div className="mb-8">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* 1 — Employee wage payment */}
+        {/* 1 — Employee wage payment: draft → approved → paid */}
         <div className={`${card} ${paid ? 'border-emerald-200' : 'border-sage-200'}`}>
           <div className="flex items-center gap-2 text-sage-500 text-xs font-semibold uppercase tracking-wide"><Wallet size={14} /> Employee payment</div>
-          <p className="mt-2 text-sage-800 font-semibold">
-            {paid ? `${money(p.payment.netTotal)} paid` : `Pay ${p.payment.label} ${money(p.payment.netTotal)}`}
-          </p>
-          <p className="text-xs text-sage-500 mt-0.5">
-            {paid ? `Paid on ${fmtDate(p.payment.paidAt)}` : `Status: ${p.payment.status}. Approve, then make the bank transfer and mark paid.`}
-          </p>
+
+          {draft && (
+            <>
+              <p className="mt-2 text-sage-800 font-semibold">Draft — {money(p.payment.netTotal)} net</p>
+              <p className="text-xs text-sage-500 mt-0.5">Review the figures + readiness, then approve to freeze them.</p>
+              {p.isAdmin && <button className={`${btn} mt-2`} disabled={isPending} onClick={() => run(() => approvePayRun(p.runId))}>Approve pay run</button>}
+            </>
+          )}
+
+          {approved && (
+            <>
+              <p className="mt-2 text-sage-800 font-semibold">Pay {p.payment.label} {money(p.payment.netTotal)}</p>
+              <p className="text-xs text-sage-500 mt-0.5">{p.payment.bankAccount ? `To ${p.payment.bankAccount}` : 'No bank account on file'} · figures frozen.</p>
+              {p.isAdmin && !recording && <button className={`${btn} mt-2`} onClick={() => setRecording(true)}>Record payment</button>}
+              {p.isAdmin && recording && (
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <p className="col-span-2 text-[11px] text-sage-500">Records an existing bank transfer — this never initiates a payment.</p>
+                  <label className="flex flex-col gap-1"><span className="text-[10px] text-sage-500">Payment date</span><input type="date" value={pd} onChange={(e) => setPd(e.target.value)} className="rounded border border-sage-200 px-2 py-1 text-xs" /></label>
+                  <label className="flex flex-col gap-1"><span className="text-[10px] text-sage-500">Method</span><input value={pmethod} onChange={(e) => setPmethod(e.target.value)} className="rounded border border-sage-200 px-2 py-1 text-xs" /></label>
+                  <label className="flex flex-col gap-1 col-span-2"><span className="text-[10px] text-sage-500">Reference</span><input value={pref} onChange={(e) => setPref(e.target.value)} placeholder="e.g. SANO PAYROLL 270726" className="rounded border border-sage-200 px-2 py-1 text-xs" /></label>
+                  <div className="col-span-2"><button className={btn} disabled={isPending} onClick={() => run(() => markPayRunPaid({ payRunId: p.runId, paymentDate: pd, paymentReference: pref, paymentMethod: pmethod }))}>Mark paid</button></div>
+                </div>
+              )}
+            </>
+          )}
+
+          {paid && (
+            <>
+              <p className="mt-2 text-sage-800 font-semibold">{money(p.payment.netTotal)} paid to {p.payment.label}</p>
+              <p className="text-xs text-sage-500 mt-0.5">On {fmtDate(p.payment.paymentDate ?? p.payment.paidAt)} · {p.payment.paymentMethod ?? '—'} · ref {p.payment.paymentReference ?? '—'}</p>
+            </>
+          )}
         </div>
 
         {/* 2 — Payday filing */}
@@ -90,8 +127,8 @@ export function PayRunWorkflowPanel(p: PayRunWorkflowProps) {
         </div>
       </div>
 
-      {/* First-pay readiness */}
-      {!paid && p.readiness.length > 0 && (
+      {/* First-pay readiness — advisory, before approval */}
+      {draft && p.readiness.length > 0 && (
         <div className="mt-4 rounded-xl border border-sage-200 bg-white overflow-hidden">
           <div className="px-4 py-3 border-b border-sage-100 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-sage-800">First-pay readiness</h3>
