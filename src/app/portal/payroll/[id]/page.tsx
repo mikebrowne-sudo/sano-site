@@ -6,6 +6,8 @@ import { PayRunActions } from './_components/PayRunActions'
 import { isTempReductionExpired } from '@/lib/payroll/kiwisaver'
 import { AlertTriangle } from 'lucide-react'
 import clsx from 'clsx'
+import { Ks10IrdAlert } from '../../_components/Ks10IrdAlert'
+import { loadPendingKs10Submissions, type PendingKs10 } from '@/lib/kiwisaver-ks10-reminders'
 
 function fmt(d: number) { return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(d) }
 function fmtDate(iso: string) { return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' }) }
@@ -35,6 +37,14 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
     .filter((c) => isTempReductionExpired(c.kiwisaver_rate_source, c.kiwisaver_temp_reduction_expiry, run.pay_date))
     .map((c) => c.full_name)
 
+  // KS10 opt-outs received but not yet forwarded to IRD — this payday filing
+  // (IR348) is the vehicle to send them. Best-effort (migration-dependent).
+  const today = new Date().toISOString().slice(0, 10)
+  let pendingKs10: PendingKs10[] = []
+  try {
+    pendingKs10 = await loadPendingKs10Submissions(supabase, today)
+  } catch { /* migration not applied yet */ }
+
   const payslipMap = new Map((payslips ?? []).map((p) => [p.pay_run_line_id, p]))
   const totalGross = (lines ?? []).reduce((s, l) => s + (l.gross_pay ?? 0), 0)
   const totalNet = (lines ?? []).reduce((s, l) => s + (l.net_pay ?? 0), 0)
@@ -47,6 +57,10 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
   return (
     <div>
       <Link href="/portal/payroll" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"><ArrowLeft size={14} /> Back</Link>
+
+      {pendingKs10.length > 0 && (
+        <div className="mb-6"><Ks10IrdAlert pending={pendingKs10} context="payrun" /></div>
+      )}
 
       <div className="flex items-center justify-between mb-6">
         <div>
