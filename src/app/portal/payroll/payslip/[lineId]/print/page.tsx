@@ -7,7 +7,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { PayslipDocument } from '@/components/PayslipDocument'
-import { buildPreviewSnapshot, getCurrentOfficialPayslip } from '@/lib/payroll/payslip-service'
+import { buildPreviewSnapshot, buildOfficialPreviewSnapshot, getCurrentOfficialPayslip } from '@/lib/payroll/payslip-service'
 import { getServiceSupabase } from '@/lib/supabase-service'
 
 export const dynamic = 'force-dynamic'
@@ -27,14 +27,21 @@ export default async function PayslipPrintPage({ params, searchParams }: { param
   const admin = isAdminUser(user)
   if (!(await canAccess(supabase, user.id, admin, params.lineId))) notFound()
 
-  const preview = searchParams?.mode === 'preview'
+  const mode = searchParams?.mode
   // Reads use the service client (RLS-independent) — access already authorised above.
   const svc = getServiceSupabase()
 
-  if (preview) {
+  if (mode === 'preview') {
     const snap = await buildPreviewSnapshot(svc, params.lineId)
     if (!snap) notFound()
     return <PayslipDocument snapshot={snap} preview />
+  }
+
+  // Read-only OFFICIAL LOOK for a paid run — nothing created or stored.
+  if (mode === 'review') {
+    const snap = await buildOfficialPreviewSnapshot(svc, params.lineId)
+    if (!snap) notFound()
+    return <PayslipDocument snapshot={snap} reviewCopy />
   }
 
   // READ-ONLY: render only an already-created official payslip. Generation happens

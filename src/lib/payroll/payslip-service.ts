@@ -89,6 +89,15 @@ export async function buildPreviewSnapshot(client: AnyClient, lineId: string): P
   return snapshotFrom(d, { reference: 'PREVIEW', version: 0, generatedAt: new Date().toISOString(), paid: false })
 }
 
+/** READ-ONLY. The exact snapshot the official payslip WOULD have (paid look,
+ *  real payment metadata, deterministic reference) — built fresh, NOT stored and
+ *  NO record created. For visual review of a paid run before generating. */
+export async function buildOfficialPreviewSnapshot(client: AnyClient, lineId: string): Promise<PayslipSnapshot | null> {
+  const d = await loadLineData(client, lineId)
+  if (!d || d.status !== 'paid') return null
+  return snapshotFrom(d, { reference: payslipReference(d.payDate, lineId), version: 1, generatedAt: new Date().toISOString(), paid: true })
+}
+
 export interface OfficialPayslip { id: string; snapshot: PayslipSnapshot; storagePath: string | null; reference: string | null }
 
 /** READ-ONLY. The current official payslip row for a line (or null). Never

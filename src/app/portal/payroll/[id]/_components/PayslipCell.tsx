@@ -23,7 +23,8 @@ export function PayslipCell({ lineId, runId, runStatus, hasOfficial, isAdmin }: 
   }
   if (runStatus === 'paid' && isAdmin) {
     return (
-      <span>
+      <span className="inline-flex items-center gap-2">
+        <a href={`/api/payslips/${lineId}/pdf?mode=review`} target="_blank" rel="noopener noreferrer" className="text-sage-500 text-xs font-medium underline underline-offset-2 hover:no-underline">Review</a>
         <button
           disabled={isPending}
           onClick={() => { setErr(null); startTransition(async () => { const r = await generateOfficialPayslips(runId); if (r.error) setErr(r.error); else router.refresh() }) }}

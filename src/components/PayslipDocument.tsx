@@ -36,8 +36,9 @@ const CSS = `
   .ps-watermark { position:absolute; top: 120mm; left:0; right:0; text-align:center; font-size: 60pt; font-weight:800; color: rgba(138,109,31,0.08); transform: rotate(-20deg); letter-spacing: 8px; }
 `
 
-export function PayslipDocument({ snapshot, preview = false }: { snapshot: PayslipSnapshot; preview?: boolean }) {
+export function PayslipDocument({ snapshot, preview = false, reviewCopy = false }: { snapshot: PayslipSnapshot; preview?: boolean; reviewCopy?: boolean }) {
   const s = snapshot
+  // reviewCopy = the official paid look, read-only (not the retained document).
   const paid = s.payment.paid && !preview
   return (
     <>
@@ -127,7 +128,7 @@ export function PayslipDocument({ snapshot, preview = false }: { snapshot: Paysl
 
           {/* Footer */}
           <div className="ps-foot">
-            <span>{s.employer.tradingName} · {s.employer.payrollEmail} · Please contact us if anything on this payslip appears incorrect.</span>
+            <span>{s.employer.tradingName} · {s.employer.payrollEmail} · Please contact us if anything on this payslip appears incorrect.{reviewCopy ? ' · Review copy — not the retained payslip.' : ''}</span>
             <span>{preview ? 'Preview' : `Ref ${s.reference}`} · Generated {fmtDate(s.generatedAt.slice(0, 10))}</span>
           </div>
         </div>

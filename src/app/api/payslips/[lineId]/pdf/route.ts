@@ -33,16 +33,18 @@ export async function GET(request: NextRequest, { params }: { params: { lineId: 
   const { data: contractor } = await svc.from('contractors').select('full_name').eq('id', line.contractor_id as string).maybeSingle()
   const { data: run } = await svc.from('pay_runs').select('status, pay_date').eq('id', line.pay_run_id as string).maybeSingle()
 
-  const preview = new URL(request.url).searchParams.get('mode') === 'preview'
+  const mode = new URL(request.url).searchParams.get('mode') // 'preview' | 'review' | null(official)
+  const onTheFly = mode === 'preview' || mode === 'review'
   const name = (contractor?.full_name as string | null) || 'Employee'
   const payDate = (run?.pay_date as string | null) || ''
-  const stem = sanitizePdfFilename(`Sano-Payslip-${name}-${payDate}${preview ? '-PREVIEW' : ''}`)
+  const suffix = mode === 'preview' ? '-PREVIEW' : mode === 'review' ? '-REVIEW' : ''
+  const stem = sanitizePdfFilename(`Sano-Payslip-${name}-${payDate}${suffix}`)
   const filename = `${stem}.pdf`
 
   // OFFICIAL: strictly READ-ONLY — serve the already-retained bytes. Never
   // generate on a GET (guards against prefetch / link previews / monitors). If no
   // official payslip is stored yet, tell the caller to generate it explicitly.
-  if (!preview) {
+  if (!onTheFly) {
     const official = await getCurrentOfficialPayslip(svc, params.lineId)
     if (!official?.storagePath) {
       return NextResponse.json({ error: 'No official payslip yet. Generate it from the pay run (admin).' }, { status: 409 })
@@ -52,9 +54,10 @@ export async function GET(request: NextRequest, { params }: { params: { lineId: 
     return pdfResponse(Buffer.from(await file.arrayBuffer()), filename)
   }
 
-  // PREVIEW: render on the fly. Creates NO record and stores nothing.
+  // PREVIEW (draft look) or REVIEW (official look) — rendered on the fly. Creates
+  // NO record and stores nothing.
   const url = new URL(request.url)
-  const printUrl = `${url.origin}/portal/payroll/payslip/${params.lineId}/print?mode=preview`
+  const printUrl = `${url.origin}/portal/payroll/payslip/${params.lineId}/print?mode=${mode}`
   const cookies = parseCookieHeader(request.headers.get('cookie') ?? '', url.origin)
   try {
     const buffer = await renderPdfFromUrl(printUrl, { cookies })
