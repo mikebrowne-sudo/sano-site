@@ -410,11 +410,12 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
   return { ok: true }
 }
 
-// ── Phase 3 — contractor-facing document uploads on the sign flow ──────
+// ── Document uploads on the sign flow (contractors AND employees) ──────
 //
-// Token-keyed (service-role). A signer can upload before their contractor
-// record exists; the document carries agreement_id until signing backfills
-// contractor_id. Contractors never get a staff document surface — only the
+// Token-keyed (service-role). A signer can upload before their worker record
+// exists; the document carries agreement_id until signing backfills
+// contractor_id. Employees upload photo ID / right-to-work; contractors also
+// upload insurance etc. Signers never get a staff document surface — only the
 // upload/remove of their own pre-sign files.
 
 const AGREEMENT_DOC_BUCKET = 'worker-documents'
@@ -438,7 +439,6 @@ export async function uploadAgreementDocument(formData: FormData): Promise<
     .eq('token', token)
     .maybeSingle()
   if (!agreement) return { error: 'Invalid link.' }
-  if (agreement.agreement_type !== 'contractor') return { error: 'Document uploads are for contractor agreements.' }
   if (agreement.status === 'signed') return { error: 'This agreement is already signed.' }
 
   const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '')
