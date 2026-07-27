@@ -12,6 +12,7 @@ import { PayRunWorkflowPanel } from './_components/PayRunWorkflowPanel'
 import { computeIrdSetAside, paydayFilingDue } from '@/lib/payroll/payrun-obligations'
 import { firstPayReadiness } from '@/lib/payroll/first-pay-readiness'
 import { isAdminUser } from '@/lib/is-admin'
+import { DeleteDraftButton } from './_components/DeleteDraftButton'
 
 function fmt(d: number) { return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(d) }
 function fmtDate(iso: string) { return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' }) }
@@ -228,6 +229,19 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
 
       {run.notes && (
         <div className="mt-6 text-sage-600 text-sm whitespace-pre-wrap">{run.notes}</div>
+      )}
+
+      {isAdmin && run.status === 'draft' && (
+        <div className="mt-8 pt-6 border-t border-sage-100">
+          <DeleteDraftButton
+            runId={run.id}
+            employeeLabel={paymentLabel}
+            periodStart={run.pay_period_start}
+            periodEnd={run.pay_period_end}
+            payDate={run.pay_date}
+            netTotal={totalNet}
+          />
+        </div>
       )}
     </div>
   )

@@ -9,7 +9,7 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export default async function PayrollPage() {
+export default async function PayrollPage({ searchParams }: { searchParams?: { deleted?: string } }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const isAdmin = isAdminEmail(user?.email)
@@ -33,6 +33,9 @@ export default async function PayrollPage() {
 
   return (
     <div>
+      {searchParams?.deleted && (
+        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">Draft pay run deleted.</div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl tracking-tight font-bold text-sage-800">Payroll</h1>
         <div className="flex items-center gap-2">
