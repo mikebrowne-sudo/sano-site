@@ -30,7 +30,7 @@ export function CreateAgreementForm({
   const [isTest, setIsTest] = useState(false)
   // Permanent-only terms (defaults reflect a standard part-time hire).
   const [hoursPerWeek, setHoursPerWeek] = useState('20')
-  const [days, setDays] = useState('4 days × 5 hours')
+  const [days, setDays] = useState('Monday, Tuesday, Thursday and Friday, normally 9:00 am to 2:00 pm')
   const [placeOfWork, setPlaceOfWork] = useState('Home-based (visiting client sites as required)')
   const [payFrequency, setPayFrequency] = useState('weekly')
   const [noticePeriod, setNoticePeriod] = useState('2 weeks')
@@ -120,8 +120,10 @@ export function CreateAgreementForm({
         <div className="mt-3 grid grid-cols-2 gap-3 rounded-lg border border-sage-100 bg-sage-50/50 p-3">
           <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Hours per week</span>
             <input type="number" step="0.5" min="0" value={hoursPerWeek} onChange={(e) => setHoursPerWeek(e.target.value)} className={input} /></label>
-          <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Days / pattern</span>
-            <input value={days} onChange={(e) => setDays(e.target.value)} className={input} /></label>
+          <label className="flex flex-col gap-1 col-span-2"><span className="text-[11px] font-medium text-sage-500">Working pattern — days &amp; approximate hours</span>
+            <textarea rows={2} value={days} onChange={(e) => setDays(e.target.value)} className={input}
+              placeholder="e.g. Monday, Tuesday, Thursday and Friday, normally 9:00 am to 2:00 pm (hours may vary by agreement)" />
+            <span className="text-[11px] text-sage-400">State the actual days and approximate start/finish times, plus any flexibility expected. This appears in the agreement under “Hours of work”.</span></label>
           <label className="flex flex-col gap-1 col-span-2"><span className="text-[11px] font-medium text-sage-500">Place of work</span>
             <input value={placeOfWork} onChange={(e) => setPlaceOfWork(e.target.value)} className={input} /></label>
           <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Pay cycle</span>
