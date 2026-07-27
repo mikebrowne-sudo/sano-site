@@ -11,7 +11,24 @@ interface Person {
   email: string | null
 }
 
+type Mode = 'employee' | 'contractor'
+type EmploymentType = 'casual' | 'part_time' | 'full_time'
 type AgreementType = 'casual_employee' | 'permanent_employee' | 'contractor'
+
+// Employment type → the legal agreement (clause set). Casual is a casual
+// employment agreement (PAYG holiday pay); part-time and full-time are both
+// permanent agreements (accrued leave) — they differ only in hours + the label.
+function agreementTypeFor(mode: Mode, empType: EmploymentType): AgreementType {
+  if (mode === 'contractor') return 'contractor'
+  return empType === 'casual' ? 'casual_employee' : 'permanent_employee'
+}
+
+// Sensible defaults per employment type.
+const DEFAULTS: Record<EmploymentType, { position: string; hours: string; days: string; place: string; pay: string; notice: string }> = {
+  casual:    { position: 'Cleaner (Casual)', hours: '',   days: 'As offered — no guaranteed hours (e.g. typically Saturday mornings)', place: 'Various client premises across Auckland', pay: 'weekly', notice: '1 week' },
+  part_time: { position: 'Cleaner', hours: '20', days: 'Monday, Tuesday, Thursday and Friday, normally 9:00 am to 2:00 pm', place: 'Home-based (visiting client sites as required)', pay: 'weekly', notice: '2 weeks' },
+  full_time: { position: 'Cleaner', hours: '40', days: 'Monday to Friday, 9:00 am to 5:00 pm', place: 'Home-based (visiting client sites as required)', pay: 'weekly', notice: '4 weeks' },
+}
 
 export function CreateAgreementForm({
   contractors,
@@ -21,31 +38,43 @@ export function CreateAgreementForm({
   employees: Person[]
 }) {
   const router = useRouter()
-  const [agreementType, setAgreementType] = useState<AgreementType>('permanent_employee')
+  const [mode, setMode] = useState<Mode>('employee')
+  const [employmentType, setEmploymentType] = useState<EmploymentType>('part_time')
   const [personLabel, setPersonLabel] = useState('')
-  const [position, setPosition] = useState('Cleaner')
+  const [position, setPosition] = useState(DEFAULTS.part_time.position)
   const [rate, setRate] = useState('')
   const [startDate, setStartDate] = useState('')
   const [linkedId, setLinkedId] = useState('')
   const [isTest, setIsTest] = useState(false)
-  // Permanent-only terms (defaults reflect a standard part-time hire).
-  const [hoursPerWeek, setHoursPerWeek] = useState('20')
-  const [days, setDays] = useState('Monday, Tuesday, Thursday and Friday, normally 9:00 am to 2:00 pm')
-  const [placeOfWork, setPlaceOfWork] = useState('Home-based (visiting client sites as required)')
-  const [payFrequency, setPayFrequency] = useState('weekly')
-  const [noticePeriod, setNoticePeriod] = useState('2 weeks')
+  const [hoursPerWeek, setHoursPerWeek] = useState(DEFAULTS.part_time.hours)
+  const [days, setDays] = useState(DEFAULTS.part_time.days)
+  const [placeOfWork, setPlaceOfWork] = useState(DEFAULTS.part_time.place)
+  const [payFrequency, setPayFrequency] = useState(DEFAULTS.part_time.pay)
+  const [noticePeriod, setNoticePeriod] = useState(DEFAULTS.part_time.notice)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const isContractor = agreementType === 'contractor'
-  const isPermanent = agreementType === 'permanent_employee'
+  const isContractor = mode === 'contractor'
+  const isCasual = mode === 'employee' && employmentType === 'casual'
+  const isPermanent = mode === 'employee' && (employmentType === 'part_time' || employmentType === 'full_time')
+  const agreementType = agreementTypeFor(mode, employmentType)
   const people = isContractor ? contractors : employees
 
-  function switchType(t: AgreementType) {
-    setAgreementType(t)
-    setLinkedId('') // linked person is type-specific
-    if (t === 'casual_employee') setPosition('Cleaner (Casual)')
-    else if (t === 'permanent_employee') setPosition('Cleaner')
+  function switchMode(m: Mode) {
+    setMode(m)
+    setLinkedId('')
+    if (m === 'employee') applyEmploymentDefaults(employmentType)
+  }
+
+  function applyEmploymentDefaults(t: EmploymentType) {
+    setEmploymentType(t)
+    const d = DEFAULTS[t]
+    setPosition(d.position)
+    setHoursPerWeek(d.hours)
+    setDays(d.days)
+    setPlaceOfWork(d.place)
+    setPayFrequency(d.pay)
+    setNoticePeriod(d.notice)
   }
 
   function pickPerson(id: string) {
@@ -59,12 +88,15 @@ export function CreateAgreementForm({
     startTransition(async () => {
       const res = await createEmploymentAgreement({
         agreementType,
+        employmentType: isContractor ? null : employmentType,
         personLabel,
         position,
         hourlyRate: rate ? Number(rate) : null,
         startDate: startDate || null,
+        // Part-time/full-time carry hours; all employee types carry the pattern/
+        // availability text in agreedDays. Casual has no guaranteed hours.
         agreedHoursPerWeek: isPermanent && hoursPerWeek ? Number(hoursPerWeek) : null,
-        agreedDays: isPermanent ? days : null,
+        agreedDays: !isContractor ? days : null,
         placeOfWork: isPermanent ? placeOfWork : null,
         payFrequency: isPermanent ? payFrequency : null,
         noticePeriod: isPermanent ? noticePeriod : null,
@@ -84,10 +116,21 @@ export function CreateAgreementForm({
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
       <h2 className="text-sm font-semibold text-sage-800 mb-3">New agreement</h2>
       <div className="inline-flex p-1 rounded-lg bg-sage-50 border border-sage-100 mb-4 text-sm">
-        <button type="button" onClick={() => switchType('permanent_employee')} className={tab(isPermanent)}>Permanent employee</button>
-        <button type="button" onClick={() => switchType('casual_employee')} className={tab(agreementType === 'casual_employee')}>Casual employee</button>
-        <button type="button" onClick={() => switchType('contractor')} className={tab(isContractor)}>Contractor</button>
+        <button type="button" onClick={() => switchMode('employee')} className={tab(mode === 'employee')}>Employee</button>
+        <button type="button" onClick={() => switchMode('contractor')} className={tab(isContractor)}>Contractor</button>
       </div>
+
+      {/* Employment type — employees only. Drives the clause set + entitlements. */}
+      {!isContractor && (
+        <label className="flex flex-col gap-1 mb-3 max-w-xs">
+          <span className="text-[11px] font-medium text-sage-500">Employment type</span>
+          <select value={employmentType} onChange={(e) => applyEmploymentDefaults(e.target.value as EmploymentType)} className={input}>
+            <option value="casual">Casual (no guaranteed hours · PAYG holiday pay)</option>
+            <option value="part_time">Part-time (permanent · accrued leave)</option>
+            <option value="full_time">Full-time (permanent · accrued leave)</option>
+          </select>
+        </label>
+      )}
 
       {/* Link an existing person — pre-fills their known details and ties the
           agreement to them so signing updates that record (no duplicate). */}
@@ -109,13 +152,23 @@ export function CreateAgreementForm({
           <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Position</span>
             <input value={position} onChange={(e) => setPosition(e.target.value)} className={input} /></label>
         )}
-        <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">{isContractor ? 'Contractor rate $ (per hour, incl. GST)' : isPermanent ? 'Hourly rate $ (base — leave accrued)' : 'Hourly rate $ (incl. 8% hol.)'}</span>
+        <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">{isContractor ? 'Contractor rate $ (per hour, incl. GST)' : isCasual ? 'Hourly rate $ (incl. 8% hol.)' : 'Hourly rate $ (base — leave accrued)'}</span>
           <input type="number" step="0.01" min="0" value={rate} onChange={(e) => setRate(e.target.value)} className={input} placeholder={isContractor ? 'e.g. 35.00' : 'e.g. 30.00'} /></label>
         <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">{isContractor ? 'Commencement date' : 'Start date'}</span>
           <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={input} /></label>
       </div>
 
-      {/* Permanent-employee terms */}
+      {/* Casual — indicative availability only (no guaranteed hours). */}
+      {isCasual && (
+        <div className="mt-3 rounded-lg border border-sage-100 bg-sage-50/50 p-3">
+          <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Indicative availability</span>
+            <textarea rows={2} value={days} onChange={(e) => setDays(e.target.value)} className={input}
+              placeholder="e.g. As offered — typically Saturday mornings; no guaranteed hours" />
+            <span className="text-[11px] text-sage-400">Casual employment has no guaranteed hours. This is an indicative note only; work is offered and accepted per engagement.</span></label>
+        </div>
+      )}
+
+      {/* Part-time / full-time — permanent terms. */}
       {isPermanent && (
         <div className="mt-3 grid grid-cols-2 gap-3 rounded-lg border border-sage-100 bg-sage-50/50 p-3">
           <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Hours per week</span>
@@ -151,7 +204,7 @@ export function CreateAgreementForm({
         {isPending ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
         {isPending ? 'Creating…' : 'Create & get link'}
       </button>
-      <p className="text-[11px] text-sage-400 mt-2">Creates the agreement and a private link to send the employee to complete + sign.</p>
+      <p className="text-[11px] text-sage-400 mt-2">Creates the agreement and a private link to send the {isContractor ? 'contractor' : 'employee'} to complete + sign.</p>
     </div>
   )
 }

@@ -236,6 +236,18 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
     // within the KS10 window).
     const ksStatus = newHireKiwiSaverStatus(input.kiwisaverSituation === 'existing_member' ? 'existing_member' : 'joining')
     const enrolled = kiwiSaverStatusEnrolled(ksStatus)
+
+    // Employment sub-type from the agreement (part-time vs full-time). Best-effort
+    // read so a not-yet-applied migration never breaks signing; falls back to
+    // part_time for a permanent agreement, casual otherwise.
+    let agreementEmploymentType: string | null = null
+    try {
+      const { data: et } = await svc.from('employment_agreements').select('employment_type').eq('id', agreement.id).maybeSingle()
+      agreementEmploymentType = (et as { employment_type?: string | null } | null)?.employment_type ?? null
+    } catch { /* column may not exist yet */ }
+    const workerEmploymentType = isPermanent
+      ? (agreementEmploymentType === 'full_time' ? 'full_time' : 'part_time')
+      : 'casual'
     // Default an enrolled new hire to the standard minimum (3.5% from 1 Apr
     // 2026) when they didn't pick a rate — never the pre-2026 3%.
     const empRate = input.kiwisaverRate ? Number(input.kiwisaverRate) : KS_DEFAULT_EMPLOYEE
@@ -257,7 +269,7 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
     // verified; ND is the no-notification safety default for a fresh hire.
     const newHireDefaults = {
       worker_type: 'employee',
-      employment_type: isPermanent ? 'part_time' : 'casual',
+      employment_type: workerEmploymentType,
       position: (agreement.position as string | null) || null,
       start_date: (agreement.start_date as string | null) || null,
       base_hourly_rate: agreement.hourly_rate,

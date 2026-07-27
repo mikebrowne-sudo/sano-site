@@ -7,12 +7,15 @@ import { sendAgreementLinkEmail } from '@/lib/resend'
 
 export async function createEmploymentAgreement(input: {
   agreementType: 'casual_employee' | 'permanent_employee' | 'contractor'
+  /** Employee sub-classification: 'casual' | 'part_time' | 'full_time'. Null for contractors. */
+  employmentType?: string | null
   personLabel: string
   position: string
   hourlyRate: number | null
   startDate: string | null
   /** Permanent-employee terms (ignored for casual/contractor). */
   agreedHoursPerWeek?: number | null
+  /** Working pattern (permanent) OR indicative availability (casual). */
   agreedDays?: string | null
   placeOfWork?: string | null
   payFrequency?: string | null
@@ -85,9 +88,11 @@ export async function createEmploymentAgreement(input: {
       position,
       hourly_rate: input.hourlyRate,
       start_date: input.startDate || null,
-      // Permanent-only terms — null for other types.
+      // agreed_days holds the working pattern (permanent) OR indicative
+      // availability (casual) — stored for any employee, not contractors.
+      agreed_days: !isContractor ? (input.agreedDays?.trim() || null) : null,
+      // The remaining terms are permanent-only.
       agreed_hours_per_week: isPermanent ? (input.agreedHoursPerWeek ?? null) : null,
-      agreed_days: isPermanent ? (input.agreedDays?.trim() || null) : null,
       place_of_work: isPermanent ? (input.placeOfWork?.trim() || null) : null,
       pay_frequency: isPermanent ? (input.payFrequency ?? null) : null,
       notice_period: isPermanent ? (input.noticePeriod?.trim() || null) : null,
@@ -99,6 +104,16 @@ export async function createEmploymentAgreement(input: {
     .select('id')
     .single()
   if (error || !data) return { error: `Couldn’t create: ${error?.message ?? 'no row'}` }
+
+  // Employment sub-type (casual/part_time/full_time) — best-effort so a
+  // not-yet-applied migration can't block agreement creation.
+  if (!isContractor && input.employmentType) {
+    const { error: etErr } = await supabase
+      .from('employment_agreements')
+      .update({ employment_type: input.employmentType })
+      .eq('id', data.id)
+    if (etErr) console.error('[agreement] employment_type not saved (run migration?):', etErr.message)
+  }
 
   revalidatePath('/portal/agreements')
   return { ok: true, id: data.id as string }
