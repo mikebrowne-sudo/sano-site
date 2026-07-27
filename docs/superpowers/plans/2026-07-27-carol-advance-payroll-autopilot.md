@@ -21,8 +21,8 @@ These become the golden test fixture. PAYE is **one** statutory deduction.
 | Employee KiwiSaver 3.5% | $21.00 |
 | **Net pay** | **$484.50** |
 | Gross employer KiwiSaver | $21.00 |
-| ESCT 17.5% | $3.68 |
-| Net employer contribution | $17.32 |
+| ESCT 17.5% | $3.67 |
+| Net employer contribution | $17.33 |
 | **Total Sano wage cost** | **$621.00** |
 
 **Hard rule:** net = gross − PAYE − employee KiwiSaver. ACC is **inside** PAYE;
@@ -155,7 +155,7 @@ terms_version_created · pay_run_drafted · pay_run_auto_approved · pay_run_app
 
 ## 10. Tests (TDD — write first, red → green)
 **Pure unit (Jest):**
-- Golden payslip: $600 → PAYE $94.50 (single line, no double ACC), KS $21.00, net $484.50, employer $21.00/ESCT $3.68/net $17.32, cost $621.00.
+- Golden payslip: $600 → PAYE $94.50 (single line, no double ACC), KS $21.00, net $484.50, employer $21.00/ESCT $3.67/net $17.33, cost $621.00.
 - PAYE single-deduction invariant: `net === gross − paye − employeeKs` and PAYE already includes ACC.
 - `resolveTermsAsAt`: picks the right version at boundary dates; historical run resolves to its snapshot after a later change.
 - Auto-approve gate: a table-driven test — each of the 11 blockers individually forces `draft`; the all-clear case auto-approves.
@@ -183,7 +183,7 @@ terms_version_created · pay_run_drafted · pay_run_auto_approved · pay_run_app
 2. **EMP registration** submitted via myIR **27 Jul 2026, still processing.** Portal shows: EMP registration pending · payday filing required · filing not completed · filing due date · a clear action once the employer account is available. Pending registration **does not block** paying Carol, but the portal must **never** show the employment information as filed/accepted until it actually is.
 3. **KiwiSaver refund route:** not-yet-remitted → Sano direct-refunds through payroll; already-remitted → IRD refunds. Employer reversals + ESCT corrections recorded separately + auditable. Never edit the original approved run.
 4. **First real pay:** Mike is paying Carol **now**, before PR A, once the existing portal confirms the figures below. PAYE stays one $94.50 deduction; ACC is supporting detail only, never re-deducted.
-   - Gross $600.00 · PAYE $94.50 · employee KiwiSaver $21.00 · **net $484.50** · gross employer KiwiSaver $21.00 (ESCT $3.68 within it, net $17.32) · **total Sano cost $621.00** · **total payable to IRD $136.50**.
+   - Gross $600.00 · PAYE $94.50 · employee KiwiSaver $21.00 · **net $484.50** · gross employer KiwiSaver $21.00 (ESCT $3.67 within it, net $17.33) · **total Sano cost $621.00** · **total payable to IRD $136.50**.
 
 ## 13. Three distinct workflows (NEW — required addition)
 A pay run must **never** carry one generic "completed" status implying all three
@@ -207,7 +207,7 @@ Each approved pay run creates an employer-liability contribution, added to the
 never disconnected weekly amounts).
 
 **"Set aside for IRD" card (Carol's first pay): $136.50**
-- PAYE $94.50 · employee KiwiSaver $21.00 · gross employer KiwiSaver $21.00 (ESCT $3.68 **within** it, net $17.32).
+- PAYE $94.50 · employee KiwiSaver $21.00 · gross employer KiwiSaver $21.00 (ESCT $3.67 **within** it, net $17.33).
 - ESCT is inside the $21 employer contribution — **never added again** on top of $136.50.
 - Per-run display: Paid to Carol $484.50 · Held for IRD $136.50 · Total Sano cost $621.00.
 

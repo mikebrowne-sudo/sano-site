@@ -4,13 +4,14 @@ import { firstPayReadiness, readinessOutstanding } from '@/lib/payroll/first-pay
 describe('computeIrdSetAside — Carol golden', () => {
   it('sets aside PAYE + employee KS + gross employer KS, ESCT shown but not added', () => {
     const res = computeIrdSetAside([
-      { paye: 94.5, kiwisaverEmployee: 21, kiwisaverEmployerGross: 21, kiwisaverEmployerNet: 17.32 },
+      // IRD truncation: 21 × 17.5% = 3.675 → ESCT $3.67 (truncated), net $17.33.
+      { paye: 94.5, kiwisaverEmployee: 21, kiwisaverEmployerGross: 21, kiwisaverEmployerNet: 17.33 },
     ])
     expect(res.paye).toBe(94.5)
     expect(res.employeeKs).toBe(21)
     expect(res.employerKsGross).toBe(21)
-    expect(res.esct).toBe(3.68)            // 21 − 17.32, informational
-    expect(res.total).toBe(136.5)          // NOT 136.5 + 3.68
+    expect(res.esct).toBe(3.67)            // 21 − 17.33 (IRD truncation), informational
+    expect(res.total).toBe(136.5)          // NOT 136.5 + 3.67
   })
 
   it('sums multiple lines and leaves ESCT null when net is unknown', () => {
