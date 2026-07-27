@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { createEmployeePayRun } from '@/lib/payroll/create-employee-pay-run'
+import { isAdminUser } from '@/lib/is-admin'
+import { canTransitionPayment, validatePaymentDetails, markPaidPatch } from '@/lib/payroll/pay-run-lifecycle'
 import { Resend } from 'resend'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
@@ -13,79 +15,77 @@ export async function createPayRun(input: { pay_period_start: string; pay_period
   redirect(`/portal/payroll/${res.id}`)
 }
 
-export async function completePayRun(payRunId: string) {
+/**
+ * APPROVE a draft pay run (draft → approved). Freezes the calculation: the
+ * figures + terms snapshot are now immutable (enforced by canModifyPayRun / the
+ * delete guard). Finalises payslips. Does NOT pay the employee, settle mileage,
+ * file, or remit. Mileage is handled in the separate monthly workflow — it is
+ * deliberately NOT settled here.
+ */
+export async function approvePayRun(payRunId: string) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !isAdminUser(user)) return { error: 'Admin only.' }
 
-  const { data: run } = await supabase
-    .from('pay_runs')
-    .select('status, pay_period_start, pay_period_end, pay_date')
-    .eq('id', payRunId)
-    .single()
+  const { data: run } = await supabase.from('pay_runs').select('status').eq('id', payRunId).single()
   if (!run) return { error: 'Pay run not found.' }
-
-  const { data: lines } = await supabase
-    .from('pay_run_lines')
-    .select('id, contractor_id')
-    .eq('pay_run_id', payRunId)
-
-  // Settle mileage reimbursements — only on the first completion (re-completing
-  // must not zero the line or double-post). For each employee: recompute from
-  // approved, unreimbursed in-period mileage (authoritative at pay time), lock
-  // the line amount to it, mark those mileage rows reimbursed, and post ONE
-  // motor-vehicle expense (NOT wages). This is a reimbursement, never taxable.
-  if (run.status !== 'completed') {
-    for (const l of lines ?? []) {
-      const cid = l.contractor_id as string
-      const { data: ml } = await supabase
-        .from('mileage_logs')
-        .select('id, reimbursement_amount, person_label')
-        .eq('contractor_id', cid)
-        .eq('status', 'approved')
-        .is('pay_run_id', null)
-        .gte('log_date', run.pay_period_start)
-        .lte('log_date', run.pay_period_end)
-      const rows = ml ?? []
-      const total = Math.round(rows.reduce((s, m) => s + Number(m.reimbursement_amount ?? 0), 0) * 100) / 100
-
-      await supabase.from('pay_run_lines').update({ mileage_reimbursement: total }).eq('id', l.id)
-      if (rows.length > 0) {
-        await supabase.from('mileage_logs')
-          .update({ status: 'reimbursed', pay_run_id: payRunId })
-          .in('id', rows.map((m) => m.id as string))
-      }
-      if (total > 0) {
-        const label = (rows[0]?.person_label as string | null) || 'Employee'
-        await supabase.from('expenses').insert({
-          expense_date: run.pay_date,
-          amount: total,
-          category: 'motor_vehicle',
-          vendor: label,
-          description: `Mileage reimbursement — ${label} (${run.pay_period_start} to ${run.pay_period_end})`,
-          gst_inclusive: false,
-          created_by: user?.id ?? null,
-        })
-      }
-    }
-  }
+  const t = canTransitionPayment(run.status as string, 'approved')
+  if (!t.ok) return { error: t.reason }
 
   const { error } = await supabase
     .from('pay_runs')
-    .update({ status: 'completed' })
+    .update({ status: 'approved', approved_at: new Date().toISOString(), approved_by: user.id })
     .eq('id', payRunId)
-
   if (error) return { error: error.message }
 
+  // Finalise payslips (payslip may be sent once approved).
+  const { data: lines } = await supabase.from('pay_run_lines').select('id, contractor_id').eq('pay_run_id', payRunId)
   if (lines?.length) {
-    const payslips = lines.map((l) => ({
-      pay_run_line_id: l.id,
-      contractor_id: l.contractor_id,
-      pay_run_id: payRunId,
-    }))
-    await supabase.from('payslips').upsert(payslips, { onConflict: 'pay_run_line_id' })
+    await supabase.from('payslips').upsert(
+      lines.map((l) => ({ pay_run_line_id: l.id, contractor_id: l.contractor_id, pay_run_id: payRunId })),
+      { onConflict: 'pay_run_line_id' },
+    )
   }
+  try {
+    await supabase.from('audit_log').insert({ entity_table: 'pay_runs', entity_id: payRunId, action: 'pay_run_approved', detail: 'Pay run approved — figures frozen.', performed_by: user.id })
+  } catch { /* audit shape varies */ }
 
   revalidatePath(`/portal/payroll/${payRunId}`)
+  revalidatePath('/portal/payroll')
+  return { success: true }
+}
+
+/**
+ * Mark an approved run PAID (approved → paid) — RECORDS an existing bank
+ * transfer; it never initiates a payment. Adds only employee-payment metadata.
+ * Does NOT imply payday filing or IRD remittance is done (markPaidPatch carries
+ * no filing/remittance fields), and never changes the frozen figures.
+ */
+export async function markPayRunPaid(input: { payRunId: string; paymentDate: string; paymentReference: string; paymentMethod: string }) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !isAdminUser(user)) return { error: 'Admin only.' }
+
+  const details = { paymentDate: input.paymentDate, paymentReference: input.paymentReference, paymentMethod: input.paymentMethod }
+  const v = validatePaymentDetails(details)
+  if (!v.ok) return { error: v.reason }
+
+  const { data: run } = await supabase.from('pay_runs').select('status').eq('id', input.payRunId).single()
+  if (!run) return { error: 'Pay run not found.' }
+  const t = canTransitionPayment(run.status as string, 'paid')
+  if (!t.ok) return { error: t.reason }
+
+  const { error } = await supabase
+    .from('pay_runs')
+    .update(markPaidPatch(details, new Date().toISOString(), user.id))
+    .eq('id', input.payRunId)
+  if (error) return { error: error.message }
+
+  try {
+    await supabase.from('audit_log').insert({ entity_table: 'pay_runs', entity_id: input.payRunId, action: 'pay_run_marked_paid', detail: `Recorded payment ${input.paymentReference} on ${input.paymentDate} (${input.paymentMethod}). Payday filing + IRD remittance remain separate.`, performed_by: user.id })
+  } catch { /* audit shape varies */ }
+
+  revalidatePath(`/portal/payroll/${input.payRunId}`)
   revalidatePath('/portal/payroll')
   return { success: true }
 }
