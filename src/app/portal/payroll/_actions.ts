@@ -5,6 +5,7 @@ import { createEmployeePayRun } from '@/lib/payroll/create-employee-pay-run'
 import { isAdminUser } from '@/lib/is-admin'
 import { canTransitionPayment, validatePaymentDetails, markPaidPatch } from '@/lib/payroll/pay-run-lifecycle'
 import { ensureLiabilityLineForRun } from '@/lib/payroll/ird-liability-ledger'
+import { renderAndStoreOfficialPayslip } from '@/lib/payroll/payslip-generate'
 import { Resend } from 'resend'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
@@ -39,14 +40,9 @@ export async function approvePayRun(payRunId: string) {
     .eq('id', payRunId)
   if (error) return { error: error.message }
 
-  // Finalise payslips (payslip may be sent once approved).
-  const { data: lines } = await supabase.from('pay_run_lines').select('id, contractor_id').eq('pay_run_id', payRunId)
-  if (lines?.length) {
-    await supabase.from('payslips').upsert(
-      lines.map((l) => ({ pay_run_line_id: l.id, contractor_id: l.contractor_id, pay_run_id: payRunId })),
-      { onConflict: 'pay_run_line_id' },
-    )
-  }
+  // Approval freezes the figures + enables a live payslip PREVIEW. The OFFICIAL
+  // retained payslip is generated only once the run is paid (it needs the payment
+  // metadata), so nothing is created here.
   try {
     await supabase.from('audit_log').insert({ entity_table: 'pay_runs', entity_id: payRunId, action: 'pay_run_approved', detail: 'Pay run approved — figures frozen.', performed_by: user.id })
   } catch { /* audit shape varies */ }
@@ -93,9 +89,46 @@ export async function markPayRunPaid(input: { payRunId: string; paymentDate: str
     await supabase.from('audit_log').insert({ entity_table: 'pay_runs', entity_id: input.payRunId, action: 'pay_run_marked_paid', detail: `Recorded payment ${input.paymentReference} on ${input.paymentDate} (${input.paymentMethod}). Payday filing + IRD remittance remain separate.`, performed_by: user.id })
   } catch { /* audit shape varies */ }
 
+  // Generate + retain the official payslip(s) now that payment metadata exists
+  // (idempotent, best-effort). A render hiccup leaves the immutable record intact;
+  // the explicit "Generate official payslip" action can retry the render/store.
+  try {
+    const { data: lines } = await supabase.from('pay_run_lines').select('id').eq('pay_run_id', input.payRunId)
+    for (const l of (lines ?? []) as Array<{ id: string }>) await renderAndStoreOfficialPayslip(l.id)
+  } catch (e) { console.error('[payroll] official payslip not generated (run migration?):', e instanceof Error ? e.message : e) }
+
   revalidatePath(`/portal/payroll/${input.payRunId}`)
   revalidatePath('/portal/payroll')
   return { success: true }
+}
+
+/**
+ * Explicit admin action to generate the official payslip(s) for a PAID run — for
+ * runs paid before payslips existed (e.g. Carol), or to retry a failed render.
+ * Safe to retry: never creates a second version or new bytes once retained.
+ */
+export async function generateOfficialPayslips(payRunId: string): Promise<{ ok?: true; error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !isAdminUser(user)) return { error: 'Admin only.' }
+
+  const { data: run } = await supabase.from('pay_runs').select('status').eq('id', payRunId).single()
+  if (!run) return { error: 'Pay run not found.' }
+  if (run.status !== 'paid') return { error: 'Official payslips can only be generated once the run is paid.' }
+
+  const { data: lines } = await supabase.from('pay_run_lines').select('id').eq('pay_run_id', payRunId)
+  let failed: string | null = null
+  for (const l of (lines ?? []) as Array<{ id: string }>) {
+    const res = await renderAndStoreOfficialPayslip(l.id)
+    if (res.error) failed = res.error
+  }
+  if (failed) return { error: `Some payslips could not be generated: ${failed}` }
+
+  try {
+    await supabase.from('audit_log').insert({ entity_table: 'pay_runs', entity_id: payRunId, action: 'official_payslip_generated', detail: 'Official payslip(s) generated + retained.', performed_by: user.id })
+  } catch { /* audit shape varies */ }
+  revalidatePath(`/portal/payroll/${payRunId}`)
+  return { ok: true }
 }
 
 function esc(s: string) {
