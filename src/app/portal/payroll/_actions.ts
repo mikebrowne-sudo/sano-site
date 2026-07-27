@@ -5,6 +5,7 @@ import { createEmployeePayRun } from '@/lib/payroll/create-employee-pay-run'
 import { isAdminUser } from '@/lib/is-admin'
 import { canTransitionPayment, validatePaymentDetails, markPaidPatch } from '@/lib/payroll/pay-run-lifecycle'
 import { ensureLiabilityLineForRun } from '@/lib/payroll/ird-liability-ledger'
+import { ensureOfficialPayslip } from '@/lib/payroll/payslip-service'
 import { Resend } from 'resend'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
@@ -39,14 +40,9 @@ export async function approvePayRun(payRunId: string) {
     .eq('id', payRunId)
   if (error) return { error: error.message }
 
-  // Finalise payslips (payslip may be sent once approved).
-  const { data: lines } = await supabase.from('pay_run_lines').select('id, contractor_id').eq('pay_run_id', payRunId)
-  if (lines?.length) {
-    await supabase.from('payslips').upsert(
-      lines.map((l) => ({ pay_run_line_id: l.id, contractor_id: l.contractor_id, pay_run_id: payRunId })),
-      { onConflict: 'pay_run_line_id' },
-    )
-  }
+  // Approval freezes the figures + enables a live payslip PREVIEW. The OFFICIAL
+  // retained payslip is generated only once the run is paid (it needs the payment
+  // metadata), so nothing is created here.
   try {
     await supabase.from('audit_log').insert({ entity_table: 'pay_runs', entity_id: payRunId, action: 'pay_run_approved', detail: 'Pay run approved — figures frozen.', performed_by: user.id })
   } catch { /* audit shape varies */ }
@@ -92,6 +88,13 @@ export async function markPayRunPaid(input: { payRunId: string; paymentDate: str
   try {
     await supabase.from('audit_log').insert({ entity_table: 'pay_runs', entity_id: input.payRunId, action: 'pay_run_marked_paid', detail: `Recorded payment ${input.paymentReference} on ${input.paymentDate} (${input.paymentMethod}). Payday filing + IRD remittance remain separate.`, performed_by: user.id })
   } catch { /* audit shape varies */ }
+
+  // Generate the official retained payslip(s) now that payment metadata exists
+  // (idempotent). Best-effort — payslip versioning depends on the PR1 migration.
+  try {
+    const { data: lines } = await supabase.from('pay_run_lines').select('id').eq('pay_run_id', input.payRunId)
+    for (const l of (lines ?? []) as Array<{ id: string }>) await ensureOfficialPayslip(supabase, l.id)
+  } catch (e) { console.error('[payroll] official payslip not generated (run migration?):', e instanceof Error ? e.message : e) }
 
   revalidatePath(`/portal/payroll/${input.payRunId}`)
   revalidatePath('/portal/payroll')

@@ -206,10 +206,10 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
                     {totalReimb > 0 && <td className="px-4 py-3 text-right text-sage-600">{fmt(l.mileage_reimbursement ?? 0)}</td>}
                     {totalReimb > 0 && <td className="px-4 py-3 text-right text-sage-800 font-bold">{fmt((l.net_pay ?? 0) + (l.mileage_reimbursement ?? 0))}</td>}
                     <td className="px-4 py-3">
-                      {ps ? (
-                        ps.sent_at
-                          ? <span className="text-emerald-600 text-xs font-medium">Sent</span>
-                          : <span className="text-sage-400 text-xs">Ready</span>
+                      {run.status === 'paid' ? (
+                        <a href={`/api/payslips/${l.id}/pdf`} target="_blank" rel="noopener noreferrer" className="text-sage-700 text-xs font-medium underline underline-offset-2 hover:no-underline">View PDF{ps?.sent_at ? ' · sent' : ''}</a>
+                      ) : run.status === 'approved' ? (
+                        <a href={`/api/payslips/${l.id}/pdf?mode=preview`} target="_blank" rel="noopener noreferrer" className="text-sage-500 text-xs font-medium underline underline-offset-2 hover:no-underline">Preview</a>
                       ) : (
                         <span className="text-sage-300 text-xs">—</span>
                       )}
