@@ -35,14 +35,13 @@ export function agreementDocTypesForStructure(structure?: string | null): Agreem
   return base
 }
 
-// Employee document slots (Phase 7). ID + right-to-work complete the matching
-// *_uploaded items; IR330 + KiwiSaver forms are evidence for staff verification
-// and complete NO checklist item.
+// Employee upload slots — genuine EVIDENCE only. ID + right-to-work complete the
+// matching *_uploaded items. The IR330 tax code declaration and KiwiSaver
+// membership/rate are captured ONLINE in the wizard (declaration + rate), so they
+// are NOT upload slots — asking for a completed paper form would be redundant.
 export const EMPLOYEE_DOC_TYPES: readonly AgreementDocType[] = [
-  { value: 'id_verification', label: 'Photo ID',                    hint: 'Passport or driver licence' },
-  { value: 'right_to_work',   label: 'Right-to-work evidence',      hint: 'Only if you work on a visa' },
-  { value: 'ir330',           label: 'IR330 tax code declaration',  hint: 'Your completed IR330 form' },
-  { value: 'kiwisaver',       label: 'KiwiSaver form',              hint: 'KS2 / opt-out form, if applicable' },
+  { value: 'id_verification', label: 'Photo ID',               hint: 'Passport or driver licence' },
+  { value: 'right_to_work',   label: 'Right-to-work evidence', hint: 'Only if you work on a visa' },
 ]
 
 /** Document slots for a worker type (employee) or contractor structure. */

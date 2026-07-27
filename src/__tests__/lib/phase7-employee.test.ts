@@ -50,13 +50,13 @@ describe('Phase 7 — employee checklist', () => {
 })
 
 describe('Phase 7 — employee document types', () => {
-  it('offers ID, right-to-work, IR330 and KiwiSaver', () => {
+  it('offers ID + right-to-work only (IR330 + KiwiSaver are captured online, not uploaded)', () => {
     expect(agreementDocTypesForWorker('employee').map((d) => d.value)).toEqual([
-      'id_verification', 'right_to_work', 'ir330', 'kiwisaver',
+      'id_verification', 'right_to_work',
     ])
   })
 
-  it('uploading an IR330 or KiwiSaver form completes NO checklist item (staff verify)', () => {
+  it('the ir330/kiwisaver doc types still map to NO checklist item (defensive)', () => {
     expect(uploadedItemKeysForDocTypes(['ir330', 'kiwisaver'])).toEqual([])
     // ID + RTW still complete their uploaded items
     expect(uploadedItemKeysForDocTypes(['id_verification', 'right_to_work'])).toEqual(['id_uploaded', 'right_to_work_uploaded'])

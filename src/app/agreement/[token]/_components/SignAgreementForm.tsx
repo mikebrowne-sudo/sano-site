@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2, PenLine, ArrowLeft, ArrowRight, Check, FileText, X, Pencil } from 'lucide-react'
 import { signEmploymentAgreement } from '../_actions'
 import { AgreementDocumentsUpload, type UploadedDoc } from './AgreementDocumentsUpload'
+import { IrdFormsPanel } from './IrdFormsPanel'
 import { BUSINESS_STRUCTURES } from '@/lib/business-structure'
 import { TAX_CODES, KS_EMPLOYEE_RATES } from '@/lib/nz-paye'
 import { IR330_DECLARATION_TEXT } from '@/lib/tax-declaration'
@@ -357,6 +358,7 @@ export function SignAgreementForm({
           <div>
             <h2 className="text-lg font-semibold text-sage-800 mb-4">Documents</h2>
             <AgreementDocumentsUpload token={token} initialDocs={initialDocs} workerType={isContractor ? 'contractor' : 'employee'} structure={businessStructure} />
+            {!isContractor && <IrdFormsPanel />}
           </div>
         )}
 
