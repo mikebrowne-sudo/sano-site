@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase-server'
 import { createEmployeePayRun } from '@/lib/payroll/create-employee-pay-run'
 import { isAdminUser } from '@/lib/is-admin'
 import { canTransitionPayment, validatePaymentDetails, markPaidPatch } from '@/lib/payroll/pay-run-lifecycle'
+import { ensureLiabilityLineForRun } from '@/lib/payroll/ird-liability-ledger'
 import { Resend } from 'resend'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
@@ -49,6 +50,13 @@ export async function approvePayRun(payRunId: string) {
   try {
     await supabase.from('audit_log').insert({ entity_table: 'pay_runs', entity_id: payRunId, action: 'pay_run_approved', detail: 'Pay run approved — figures frozen.', performed_by: user.id })
   } catch { /* audit shape varies */ }
+
+  // Create the IRD liability line from the now-frozen figures (idempotent).
+  // Best-effort: the ledger tables depend on the PR C migration; approval must
+  // never fail because the ledger isn't applied yet.
+  try { await ensureLiabilityLineForRun(supabase, payRunId) } catch (e) {
+    console.error('[payroll] IRD liability not created (run migration?):', e instanceof Error ? e.message : e)
+  }
 
   revalidatePath(`/portal/payroll/${payRunId}`)
   revalidatePath('/portal/payroll')
