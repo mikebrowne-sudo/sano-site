@@ -31,10 +31,12 @@ alter table public.pay_runs
   add column if not exists payment_date       date;
 
 -- Status set: draft/approved/paid + legacy 'completed' (kept, never a new target).
-alter table public.pay_runs drop constraint if exists pay_runs_status_chk;
+-- The existing constraint is named pay_runs_status_check and allows only
+-- (draft, completed) — drop it (and any stray variant) and replace it.
+alter table public.pay_runs drop constraint if exists pay_runs_status_check;
 do $$ begin
-  if not exists (select 1 from pg_constraint where conname='pay_runs_status_chk') then
-    alter table public.pay_runs add constraint pay_runs_status_chk
+  if not exists (select 1 from pg_constraint where conname='pay_runs_status_check') then
+    alter table public.pay_runs add constraint pay_runs_status_check
       check (status in ('draft','approved','paid','completed'));
   end if;
 end $$;
@@ -64,7 +66,7 @@ order by pr.pay_date;   -- as at 2026-07-28: 0 rows → nothing to reclassify
 
 
 -- ---- VERIFICATION (read-only) -----------------------------------------------
-select conname, pg_get_constraintdef(oid) from pg_constraint where conname='pay_runs_status_chk';
+select conname, pg_get_constraintdef(oid) from pg_constraint where conname='pay_runs_status_check';
 select column_name from information_schema.columns
 where table_schema='public' and table_name='pay_runs' and column_name in ('payment_reference','payment_method','payment_date') order by column_name;  -- 3 rows
 select column_name from information_schema.columns
@@ -73,7 +75,7 @@ where table_schema='public' and table_name='mileage_logs' and column_name='legac
 
 -- ---- ROLLBACK ---------------------------------------------------------------
 -- begin;
---   alter table public.pay_runs drop constraint if exists pay_runs_status_chk;
+--   alter table public.pay_runs drop constraint if exists pay_runs_status_check;
 --   alter table public.pay_runs drop column if exists payment_reference, drop column if exists payment_method, drop column if exists payment_date;
 --   alter table public.mileage_logs drop column if exists legacy_weekly_settled;
 -- commit;
