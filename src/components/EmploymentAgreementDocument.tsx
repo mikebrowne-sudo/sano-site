@@ -41,9 +41,12 @@ export interface AgreementView {
 /** Map an employment_agreements DB row to the document view. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function agreementViewFromRow(a: any): AgreementView {
+  // Hours line combines the weekly total with the concrete working pattern
+  // (days + approximate start/finish times + any flexibility) captured in
+  // agreed_days, so the actual pattern appears in the agreement, not just a total.
   const hrs = a.agreed_hours_per_week != null ? Number(a.agreed_hours_per_week) : null
   const agreedHours = hrs != null
-    ? `${hrs} hours per week${a.agreed_days ? ` (${a.agreed_days})` : ''}`
+    ? `${hrs} hours per week${a.agreed_days ? ` — ${a.agreed_days}` : ''}`
     : (a.agreed_days ?? null)
   return {
     type: a.agreement_type === 'contractor'
@@ -86,6 +89,18 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
+// KiwiSaver wording for the agreement. The agreement shows the employee's
+// CURRENT legal status only — never a future intention. At signing, an eligible
+// employee is automatically enrolled; opting out is a separate manual process
+// after employment starts (valid KS10 or IRD-processed opt-out), so a signing
+// selection never records an opt-out or an "intention to opt out" here.
+function kiwisaverLine(choice: string | null): string {
+  if (choice === 'opt_out' || choice === 'stay_in') {
+    return 'Automatically enrolled in KiwiSaver. Contributions and deductions apply in accordance with the KiwiSaver Act 2006.'
+  }
+  return '—'
+}
+
 function emergencyLine(a: AgreementView): string | null {
   if (!a.emergencyName && !a.emergencyPhone) return null
   const rel = a.emergencyRelationship ? ` (${a.emergencyRelationship})` : ''
@@ -106,8 +121,9 @@ export function EmploymentAgreementDocument({
   const signerLabel = isContractor ? 'Contractor' : 'Employee'
   const cap = (s: string | null) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '—')
 
-  // Party detail lines (name is separate).
-  const employerLines = [EMPLOYER.address, `GST No. ${EMPLOYER.gstNo}`]
+  // Party detail lines (name is separate). GST number is a payroll/company
+  // record, not a contractual term — it is deliberately not shown on the agreement.
+  const employerLines = [EMPLOYER.address]
   const signerLines: string[] = []
   if (isContractor && a.contractorTradingName) signerLines.push(a.contractorTradingName)
   if (a.employeeAddress) signerLines.push(a.employeeAddress)
@@ -142,8 +158,7 @@ export function EmploymentAgreementDocument({
         ['Annual leave', '4 weeks paid annual holidays (accrued)'],
         ['Sick leave', '10 days per year (after 6 months)'],
         ['Employee IRD No.', a.employeeIrdNumber || '—'],
-        ['Tax code', a.taxCode || '—'],
-        ['KiwiSaver', a.kiwisaverChoice === 'opt_out' ? 'Opting out' : a.kiwisaverChoice === 'stay_in' ? 'Staying in' : '—'],
+        ['KiwiSaver', kiwisaverLine(a.kiwisaverChoice)],
         ['Date of birth', fmtDate(a.dateOfBirth)],
         ...(emergency ? [['Emergency contact', emergency] as [string, string]] : []),
       ]
@@ -152,8 +167,7 @@ export function EmploymentAgreementDocument({
         ['Commencement date', fmtDate(a.startDate)],
         ['Agreed hourly rate', a.hourlyRate != null ? `$${Number(a.hourlyRate).toFixed(2)} per hour (inclusive of 8% holiday pay)` : '—'],
         ['Employee IRD No.', a.employeeIrdNumber || '—'],
-        ['Tax code', a.taxCode || '—'],
-        ['KiwiSaver', a.kiwisaverChoice === 'opt_out' ? 'Opting out' : a.kiwisaverChoice === 'stay_in' ? 'Staying in' : '—'],
+        ['KiwiSaver', kiwisaverLine(a.kiwisaverChoice)],
         ['Date of birth', fmtDate(a.dateOfBirth)],
         ...(emergency ? [['Emergency contact', emergency] as [string, string]] : []),
       ]

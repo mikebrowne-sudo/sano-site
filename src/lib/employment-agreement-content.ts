@@ -136,7 +136,7 @@ export const CASUAL_AGREEMENT_SECTIONS: AgreementSection[] = [
     body: [
       '12.1 Both parties are bound by the duty of good faith under the Employment Relations Act 2000 — to be active and constructive in maintaining a productive employment relationship, responsive and communicative, and not to act in a misleading or deceptive manner.',
       '12.2 The parties will attempt to resolve any employment relationship problem by raising it promptly and discussing it in good faith. If it cannot be resolved directly, either party may refer it to mediation through the Ministry of Business, Innovation and Employment (MBIE).',
-      '12.3 If the Employee wishes to raise a personal grievance, they must do so within 90 days of the action complained of (or of it coming to their attention), in accordance with section 114 of the Employment Relations Act 2000. The Employee may seek assistance from a union representative, support person, or advocate at any stage.',
+      '12.3 If the Employee wishes to raise a personal grievance, most personal grievances must be raised within 90 days of the action complained of, or of it coming to the Employee’s attention, whichever is later. A personal grievance relating to sexual harassment must generally be raised within 12 months. These timeframes apply in accordance with section 114 of the Employment Relations Act 2000. The Employee may seek assistance from a union representative, support person, or advocate at any stage.',
     ],
   },
   {
@@ -247,9 +247,18 @@ export const PERMANENT_AGREEMENT_SECTIONS: AgreementSection[] = [
     ],
   },
   {
-    title: '12. Employee Protection Provision',
+    // ⚠️ Part 6A employee-protection clause for the cleaning sector. Cleaning is
+    // a category of work specified in Schedule 1A of the Employment Relations Act
+    // 2000, so relevant employees are "specified employees" with a statutory
+    // right to elect to transfer to an incoming provider on their existing terms
+    // when the work is restructured/contracted out. Confirm this wording against
+    // Employment NZ's agreement builder (employment.govt.nz) for the cleaning
+    // sector before issuing — it must not be shortened below the statutory rights.
+    title: '12. Employee Protection Provision — Restructuring and Contracting Out',
     body: [
-      '12.1 If the Employer is restructuring, or contracting out or selling all or part of its business, and this affects the Employee’s work, the Employer will: negotiate with the new employer for the Employee to transfer on terms no less favourable where reasonably practicable; and, if the Employee does not transfer, follow a fair process and address any entitlements in accordance with the law. This provision is included in accordance with sections 69OI–69OJ of the Employment Relations Act 2000.',
+      '12.1 The Employer provides cleaning services, which is a category of work specified in Schedule 1A of the Employment Relations Act 2000. If the Employer’s cleaning work, or part of it, is restructured — for example by being contracted out, sold or transferred, or where a client’s cleaning contract passes to another provider — the Employee may be a “specified employee” with rights under Subpart 1 of Part 6A of that Act.',
+      '12.2 A specified employee has the right to elect to transfer to the new employer (the incoming provider) and, if they elect to do so, to continue on the same terms and conditions of employment as under this Agreement. The Employer will, within the timeframes required by Part 6A, give the Employee the information about this right and about the restructuring that the Act requires, and will give the new employer the employee-related information the Act requires so that the Employee’s continuous service and entitlements are preserved on transfer.',
+      '12.3 If the Employee does not elect to transfer, or Part 6A does not apply to the particular restructuring, the Employer will follow a fair process consistent with the Employment Relations Act 2000 and the duty of good faith, and will meet any entitlements owed to the Employee under this Agreement and the law.',
     ],
   },
   {
@@ -257,7 +266,7 @@ export const PERMANENT_AGREEMENT_SECTIONS: AgreementSection[] = [
     body: [
       '13.1 Both parties are bound by the duty of good faith under the Employment Relations Act 2000 — to be responsive and communicative, and not to act in a misleading or deceptive way.',
       '13.2 If an employment relationship problem arises, the parties will raise it promptly and try to resolve it in good faith by discussion. If it cannot be resolved directly, either party may seek mediation through the Ministry of Business, Innovation and Employment (MBIE).',
-      '13.3 If the Employee wishes to raise a personal grievance, they must do so within 90 days of the action complained of (or of it coming to their attention), in accordance with section 114 of the Employment Relations Act 2000. The Employee may seek assistance from a union representative, support person or advocate at any stage.',
+      '13.3 If the Employee wishes to raise a personal grievance, most personal grievances must be raised within 90 days of the action complained of, or of it coming to the Employee’s attention, whichever is later. A personal grievance relating to sexual harassment must generally be raised within 12 months. These timeframes apply in accordance with section 114 of the Employment Relations Act 2000. The Employee may seek assistance from a union representative, support person or advocate at any stage.',
     ],
   },
   {
