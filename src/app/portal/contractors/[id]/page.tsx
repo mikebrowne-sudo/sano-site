@@ -24,6 +24,7 @@ import { findSharedGstProfiles, sharedGstWarning, type GstProfile } from '@/lib/
 import { TaxReviewPanel } from './_components/TaxReviewPanel'
 import { CompetencyPanel } from './_components/CompetencyPanel'
 import { TaxDeclarationPanel } from './_components/TaxDeclarationPanel'
+import { KiwiSaverPanel, type KiwiSaverPanelEvent } from './_components/KiwiSaverPanel'
 
 // Phase 5.3 — worker_type now collapses to {contractor, employee};
 // the prior sub-classifications (casual / part_time / full_time)
@@ -70,11 +71,12 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
     { data: incidents },
     { data: taxItem },
     { data: gstPeers },
+    { data: ksEvents },
   ] = await Promise.all([
     supabase.auth.getUser(),
     supabase
       .from('contractors')
-      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, employment_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_status, kiwisaver_ks3_provided, kiwisaver_optout_filed, kiwisaver_employee_rate, kiwisaver_employer_rate, insurance_provider, insurance_policy_number, insurance_expiry, insurance_liability_cover, company_name, business_structure, nzbn, gst_registered, gst_number, bank_account_name, bank_account_number, payment_terms_days, contract_signed_date, right_to_work_required, right_to_work_expiry, service_areas, approved_services, availability_notes, has_vehicle, provides_own_equipment, key_holding_approved, alarm_access_approved, pet_friendly, experience_level, can_lead_jobs, can_work_solo, can_supervise_others, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, portal_access_active, auth_user_id, onboarding_status, onboarding_started_at, onboarding_completed_at, trial_required, trial_status, trial_scheduled_for, trial_outcome_note, source_applicant_id, legal_name, company_number, tax_review_status, tax_review_notes, ir330c_requested, onboarding_grandfathered, competency_confirmed_at, competency_confirmed_by, competency_assessment_date, competency_limitations, competency_notes')
+      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, employment_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_status, kiwisaver_ks3_provided, kiwisaver_optout_filed, kiwisaver_employee_rate, kiwisaver_employer_rate, kiwisaver_ks2_completed, kiwisaver_ks2_completed_date, kiwisaver_auto_enrolment_date, kiwisaver_info_pack_delivered_date, kiwisaver_ks10_signed_date, kiwisaver_ks10_received_date, kiwisaver_optout_submitted_to_ird_date, kiwisaver_ird_approval_reference, kiwisaver_ird_approval_date, kiwisaver_payroll_stop_effective_date, kiwisaver_savings_suspension_ref, kiwisaver_savings_suspension_from, kiwisaver_savings_suspension_to, kiwisaver_optout_intention_note, kiwisaver_optout_intention_recorded_at, insurance_provider, insurance_policy_number, insurance_expiry, insurance_liability_cover, company_name, business_structure, nzbn, gst_registered, gst_number, bank_account_name, bank_account_number, payment_terms_days, contract_signed_date, right_to_work_required, right_to_work_expiry, service_areas, approved_services, availability_notes, has_vehicle, provides_own_equipment, key_holding_approved, alarm_access_approved, pet_friendly, experience_level, can_lead_jobs, can_work_solo, can_supervise_others, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, portal_access_active, auth_user_id, onboarding_status, onboarding_started_at, onboarding_completed_at, trial_required, trial_status, trial_scheduled_for, trial_outcome_note, source_applicant_id, legal_name, company_number, tax_review_status, tax_review_notes, ir330c_requested, onboarding_grandfathered, competency_confirmed_at, competency_confirmed_by, competency_assessment_date, competency_limitations, competency_notes')
       .eq('id', params.id)
       .single(),
     supabase
@@ -111,6 +113,12 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
       .select('id, full_name, gst_number')
       .eq('status', 'active')
       .not('gst_number', 'is', null),
+    // KiwiSaver audit trail (admin-read RLS — empty for non-admins).
+    supabase
+      .from('worker_kiwisaver_events')
+      .select('id, event_type, evidence_ref, effective_date, note, performed_at')
+      .eq('worker_id', params.id)
+      .order('performed_at', { ascending: false }),
   ])
   const isAdmin = isAdminUser(user)
 
@@ -473,34 +481,53 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
           </Section>
         )}
 
-        {/* KiwiSaver — employees only */}
+        {/* KiwiSaver — employees only. Interactive: status + audit record + gated
+            transitions (KS2, info pack, two opt-out routes, savings suspension,
+            non-operative intention note). */}
         {workerType !== 'contractor' && (() => {
-          const ksStatus = (contractor as { kiwisaver_status?: string | null }).kiwisaver_status ?? null
+          const c = contractor as Record<string, unknown>
+          const ksStatus = (c.kiwisaver_status as string | null) ?? null
           const ksLabel = KIWISAVER_STATUSES.find((s) => s.value === ksStatus)?.label ?? (contractor.kiwisaver_enrolled ? 'Enrolled' : 'Review required')
           const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' })
           const win = ksStatus === 'auto_enrolled'
-            ? kiwiSaverOptOutStatus({ startDate: (contractor as { start_date?: string | null }).start_date ?? null, optOutFiled: !!(contractor as { kiwisaver_optout_filed?: boolean }).kiwisaver_optout_filed }, today)
+            ? kiwiSaverOptOutStatus({ startDate: (c.start_date as string | null) ?? null, optOutFiled: !!(c.kiwisaver_optout_filed as boolean) }, today)
             : null
           const winText = win && ({
-            before_window: win.daysUntilOpen != null ? `KS10 opt-out window opens in ${win.daysUntilOpen} day${win.daysUntilOpen === 1 ? '' : 's'}` : 'KS10 opt-out window not open yet',
+            before_window: win.daysUntilOpen != null ? `KS10 opt-out window opens in ${win.daysUntilOpen} day${win.daysUntilOpen === 1 ? '' : 's'} (received on/after day 14)` : 'KS10 opt-out window not open yet',
             in_window: `KS10 opt-out window open${win.daysLeft != null ? ` — ${win.daysLeft} day${win.daysLeft === 1 ? '' : 's'} left` : ''}`,
-            after_window: 'KS10 opt-out window closed (opt-out now goes via IRD)',
+            after_window: 'KS10 opt-out window closed — a late opt-out now goes via IRD',
             filed: 'Opted out — KS10 filed',
             no_start: null,
           } as Record<string, string | null>)[win.status]
           return (
             <Section title="KiwiSaver">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div><span className="text-sage-500">Status</span><p className="text-sage-800 font-medium">{ksLabel}</p></div>
-                <div><span className="text-sage-500">KS3 provided</span><p className="text-sage-800 font-medium">{(contractor as { kiwisaver_ks3_provided?: boolean }).kiwisaver_ks3_provided ? 'Yes' : 'No'}</p></div>
-                {contractor.kiwisaver_enrolled && <>
-                  <div><span className="text-sage-500">Employee rate</span><p className="text-sage-800 font-medium">{contractor.kiwisaver_employee_rate ?? KS_DEFAULT_EMPLOYEE}%</p></div>
-                  <div><span className="text-sage-500">Employer rate</span><p className="text-sage-800 font-medium">{contractor.kiwisaver_employer_rate ?? KS_DEFAULT_EMPLOYER}%</p></div>
-                </>}
-              </div>
-              {winText && (
-                <p className={`mt-3 text-xs rounded-lg px-3 py-2 ${win?.status === 'in_window' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-sage-50 text-sage-600 border border-sage-100'}`}>{winText}</p>
-              )}
+              <KiwiSaverPanel
+                workerId={contractor.id as string}
+                isAdmin={isAdmin}
+                status={ksStatus}
+                statusLabel={ksLabel}
+                enrolled={!!contractor.kiwisaver_enrolled}
+                employeeRate={(contractor.kiwisaver_employee_rate as number | null) ?? (contractor.kiwisaver_enrolled ? KS_DEFAULT_EMPLOYEE : null)}
+                employerRate={(contractor.kiwisaver_employer_rate as number | null) ?? (contractor.kiwisaver_enrolled ? KS_DEFAULT_EMPLOYER : null)}
+                ks2Completed={!!(c.kiwisaver_ks2_completed as boolean)}
+                ks2CompletedDate={(c.kiwisaver_ks2_completed_date as string | null) ?? null}
+                autoEnrolmentDate={(c.kiwisaver_auto_enrolment_date as string | null) ?? null}
+                infoPackDeliveredDate={(c.kiwisaver_info_pack_delivered_date as string | null) ?? null}
+                ks10SignedDate={(c.kiwisaver_ks10_signed_date as string | null) ?? null}
+                ks10ReceivedDate={(c.kiwisaver_ks10_received_date as string | null) ?? null}
+                optoutSubmittedToIrdDate={(c.kiwisaver_optout_submitted_to_ird_date as string | null) ?? null}
+                irdApprovalReference={(c.kiwisaver_ird_approval_reference as string | null) ?? null}
+                irdApprovalDate={(c.kiwisaver_ird_approval_date as string | null) ?? null}
+                payrollStopEffectiveDate={(c.kiwisaver_payroll_stop_effective_date as string | null) ?? null}
+                suspensionRef={(c.kiwisaver_savings_suspension_ref as string | null) ?? null}
+                suspensionFrom={(c.kiwisaver_savings_suspension_from as string | null) ?? null}
+                suspensionTo={(c.kiwisaver_savings_suspension_to as string | null) ?? null}
+                intentionNote={(c.kiwisaver_optout_intention_note as string | null) ?? null}
+                intentionRecordedAt={(c.kiwisaver_optout_intention_recorded_at as string | null) ?? null}
+                winText={winText ?? null}
+                winOpen={win?.status === 'in_window'}
+                events={(ksEvents ?? []) as KiwiSaverPanelEvent[]}
+              />
             </Section>
           )
         })()}
