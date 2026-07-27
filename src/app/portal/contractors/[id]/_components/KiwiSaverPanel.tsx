@@ -131,6 +131,13 @@ export function KiwiSaverPanel(props: KiwiSaverPanelProps) {
         <p className={`mt-3 text-xs rounded-lg px-3 py-2 ${props.winOpen ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-sage-50 text-sage-600 border border-sage-100'}`}>{props.winText}</p>
       )}
 
+      {/* KS10 received but not yet forwarded to IRD — the standing reminder. */}
+      {props.ks10ReceivedDate && !props.optoutSubmittedToIrdDate && (
+        <p className="mt-3 text-xs rounded-lg px-3 py-2 bg-amber-50 text-amber-800 border border-amber-200">
+          <span className="font-semibold">KS10 not yet sent to IRD.</span> Forward it by your next payday filing (IR348), then record it below with “Record KS10 opt-out submitted to IRD.”
+        </p>
+      )}
+
       {/* Non-operative intention note — never affects deductions. */}
       {props.intentionNote && (
         <p className="mt-3 text-xs rounded-lg px-3 py-2 bg-sage-50 text-sage-600 border border-sage-100">

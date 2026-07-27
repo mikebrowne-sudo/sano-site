@@ -19,6 +19,8 @@ import { StatusBadge } from './_components/StatusBadge'
 import { CreateMenu } from './_components/CreateMenu'
 import { StaffTodoChecklist } from './_components/StaffTodoChecklist'
 import { KiwiSaverReminder } from './_components/KiwiSaverReminder'
+import { Ks10IrdAlert } from './_components/Ks10IrdAlert'
+import { loadPendingKs10Submissions, type PendingKs10 } from '@/lib/kiwisaver-ks10-reminders'
 import { loadStaffTaskCounts } from './_lib/staff-tasks-data'
 import { buildStaffTasks } from '@/lib/staff-tasks'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
@@ -80,6 +82,13 @@ export default async function PortalDashboard() {
     .select('person_label, start_date, opt_out_filed')
     .eq('person_label', 'Carol')
     .maybeSingle()
+
+  // KS10 opt-outs received but not yet forwarded to IRD (best-effort — the
+  // columns depend on the KiwiSaver audit migration).
+  let pendingKs10: PendingKs10[] = []
+  try {
+    pendingKs10 = await loadPendingKs10Submissions(supabase, today)
+  } catch { /* migration not applied yet */ }
 
   const outstandingCount = sentInvoices?.length ?? 0
   const overdueCount = (sentInvoices ?? []).filter((i) => i.due_date && i.due_date < today).length
@@ -159,6 +168,11 @@ export default async function PortalDashboard() {
         startDate={(kiwisaver?.start_date as string | null) ?? null}
         optOutFiled={!!kiwisaver?.opt_out_filed}
       />
+
+      {/* ── KS10 opt-outs awaiting submission to IRD ── */}
+      {pendingKs10.length > 0 && (
+        <div className="mt-2"><Ks10IrdAlert pending={pendingKs10} /></div>
+      )}
 
       {/* ── To-do checklist (staff action centre) ──────── */}
       <StaffTodoChecklist tasks={staffTasks} />
