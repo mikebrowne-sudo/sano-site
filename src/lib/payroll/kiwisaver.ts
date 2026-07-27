@@ -13,6 +13,8 @@
 // Ref: https://www.ird.govt.nz/kiwisaver-changes
 // ============================================================================
 
+import { kiwiSaverOptOutStatus } from '@/lib/kiwisaver'
+
 /** Employee contribution rates an employee may elect (standard). 3% is not here. */
 export const KS_EMPLOYEE_STANDARD_RATES: readonly number[] = [3.5, 4, 6, 8, 10]
 
@@ -110,6 +112,175 @@ export interface KsElection {
   rate: number | null | undefined
   source: string | null | undefined
   expiry?: string | null | undefined
+}
+
+// ---------------------------------------------------------------------------
+// Compliance transitions (opt-out / savings suspension / intention). Pure +
+// testable — they return the exact contractor patch to apply, or an error that
+// BLOCKS the write. The rule the whole design turns on: a stated intention to
+// opt out is NEVER operative. Deductions and employer contributions continue
+// until a valid opt-out (KS10 or IRD-processed) or an evidenced savings
+// suspension is recorded. Payroll reads only kiwisaver_status + kiwisaver_enrolled.
+// Ref: IRD KS4/KS10; opt-out window day 14–56 (see kiwiSaverOptOutStatus).
+// ---------------------------------------------------------------------------
+
+/** The patch these transitions produce — a subset of the contractors columns. */
+export interface KiwiSaverStatePatch {
+  kiwisaver_status: KiwiSaverMembershipStatus
+  kiwisaver_enrolled: boolean
+  kiwisaver_ks10_signed_date?: string | null
+  kiwisaver_ks10_received_date?: string | null
+  kiwisaver_ird_approval_reference?: string | null
+  kiwisaver_ird_approval_date?: string | null
+  kiwisaver_payroll_stop_effective_date?: string | null
+  kiwisaver_savings_suspension_ref?: string | null
+  kiwisaver_savings_suspension_from?: string | null
+  kiwisaver_savings_suspension_to?: string | null
+}
+
+// Two DISTINCT opt-out routes — never interchangeable. Both require the worker
+// to be currently auto_enrolled (only auto-enrolled employees can opt out).
+
+export interface EmployerOptOutInput {
+  status: string | null | undefined
+  startDate: string | null | undefined
+  /** Date the employee signed the KS10. */
+  ks10SignedDate: string | null | undefined
+  /** Date Sano (the employer) received the completed KS10. */
+  ks10ReceivedDate: string | null | undefined
+  /** Effective date payroll deductions stop (defaults to the KS10 received date). */
+  payrollStopEffectiveDate?: string | null
+}
+
+/**
+ * EMPLOYER-RECEIVED opt-out (KS10). Valid only when the employer receives a
+ * completed KS10 within the statutory window: received on/after day 14 and
+ * on/before day 56. Records both the employee-signed date and the received
+ * date. On success Sano may stop deductions from the effective date and must
+ * then submit the opt-out to IRD (recorded separately).
+ */
+export function validateEmployerOptOut(i: EmployerOptOutInput): { error?: string; patch?: KiwiSaverStatePatch } {
+  if (i.status !== 'auto_enrolled') {
+    return { error: 'Only an automatically enrolled employee may opt out. Existing/opted-in members cannot opt out; use a savings suspension instead.' }
+  }
+  if (!i.ks10SignedDate) return { error: 'Record the date the employee signed the KS10.' }
+  if (!i.ks10ReceivedDate) return { error: 'A KS10 employer opt-out requires the date the completed KS10 was received by Sano.' }
+  // The RECEIVED date must fall within the day-14–56 window (evaluate the window
+  // as at the received date). A late KS10 must go through the IRD route instead.
+  const w = kiwiSaverOptOutStatus({ startDate: i.startDate ?? null, optOutFiled: false }, i.ks10ReceivedDate)
+  if (w.status === 'no_start') return { error: 'A start date is required to validate the KS10 opt-out window.' }
+  if (w.status === 'before_window') return { error: `The KS10 was received before the opt-out window opened (day 14, ${w.windowStart}).` }
+  if (w.status === 'after_window') return { error: `The KS10 was received after the opt-out window closed (day 56, ${w.windowEnd}). A late opt-out must go through IRD/myIR and be recorded as an IRD-managed opt-out.` }
+  return {
+    patch: {
+      kiwisaver_status: 'opted_out',
+      kiwisaver_enrolled: false,
+      kiwisaver_ks10_signed_date: i.ks10SignedDate,
+      kiwisaver_ks10_received_date: i.ks10ReceivedDate,
+      kiwisaver_payroll_stop_effective_date: i.payrollStopEffectiveDate || i.ks10ReceivedDate,
+    },
+  }
+}
+
+export interface IrdOptOutInput {
+  status: string | null | undefined
+  /** IRD approval must actually be received — a pending application never stops deductions. */
+  irdApprovalReference: string | null | undefined
+  irdApprovalDate: string | null | undefined
+  /** The effective date IRD instructs deductions to stop. */
+  instructedEffectiveDate: string | null | undefined
+}
+
+/**
+ * IRD-MANAGED opt-out (myIR / late opt-out after day 56). Deductions, employer
+ * contributions and ESCT CONTINUE until IRD APPROVAL is received — an intention
+ * or a pending application is never sufficient. Requires the IRD approval
+ * reference, approval date and the IRD-instructed effective date.
+ */
+export function validateIrdOptOut(i: IrdOptOutInput): { error?: string; patch?: KiwiSaverStatePatch } {
+  if (i.status !== 'auto_enrolled') {
+    return { error: 'Only an automatically enrolled employee may opt out. Existing/opted-in members cannot opt out; use a savings suspension instead.' }
+  }
+  if (!i.irdApprovalReference?.trim() || !i.irdApprovalDate) {
+    return { error: 'An IRD-managed opt-out only takes effect once IRD approval is received. Record the IRD approval reference and approval date — a pending application does not stop deductions.' }
+  }
+  if (!i.instructedEffectiveDate) {
+    return { error: 'Record the effective date IRD has instructed deductions to stop.' }
+  }
+  return {
+    patch: {
+      kiwisaver_status: 'opted_out',
+      kiwisaver_enrolled: false,
+      kiwisaver_ird_approval_reference: i.irdApprovalReference.trim(),
+      kiwisaver_ird_approval_date: i.irdApprovalDate,
+      kiwisaver_payroll_stop_effective_date: i.instructedEffectiveDate,
+    },
+  }
+}
+
+export interface SavingsSuspensionInput {
+  /** Reference/identifier of the approved savings-suspension notice (evidence). */
+  noticeRef: string | null | undefined
+  /** Effective dates of the approved suspension. */
+  from: string | null | undefined
+  to?: string | null
+}
+
+/**
+ * Validate + build a savings suspension. Deductions only stop once an approved
+ * savings-suspension notice is evidenced (a reference + effective-from date).
+ * Without evidence the write is blocked and deductions continue.
+ */
+export function validateSavingsSuspension(i: SavingsSuspensionInput): { error?: string; patch?: KiwiSaverStatePatch } {
+  if (!i.noticeRef?.trim()) {
+    return { error: 'A savings suspension requires evidence of an approved savings-suspension notice (its reference) before deductions can stop.' }
+  }
+  if (!i.from) {
+    return { error: 'A savings suspension requires an effective-from date.' }
+  }
+  if (i.to && i.to < i.from) {
+    return { error: 'The savings-suspension end date cannot be before its start date.' }
+  }
+  return {
+    patch: {
+      kiwisaver_status: 'savings_suspension',
+      kiwisaver_enrolled: false,
+      kiwisaver_savings_suspension_ref: i.noticeRef.trim(),
+      kiwisaver_savings_suspension_from: i.from,
+      kiwisaver_savings_suspension_to: i.to || null,
+    },
+  }
+}
+
+/**
+ * The KiwiSaver line for the agreement / employee record, from the ACTUAL
+ * status — never a future intention. Mirrors the suggested statuses.
+ */
+export function kiwiSaverStatusStatement(
+  status: string | null | undefined,
+  opts: { suspensionTo?: string | null; notEligibleReason?: string | null; optOutEffectiveDate?: string | null } = {},
+): string {
+  switch (status) {
+    case 'existing_member':
+      return 'Existing KiwiSaver member. Deductions will be made at the rate recorded on the employee’s KS2.'
+    case 'auto_enrolled':
+    case 'opted_in':
+      return 'Automatically enrolled in KiwiSaver. Contributions and deductions apply in accordance with the KiwiSaver Act 2006.'
+    case 'savings_suspension':
+      return opts.suspensionTo
+        ? `Approved KiwiSaver savings suspension recorded until ${opts.suspensionTo}.`
+        : 'Approved KiwiSaver savings suspension recorded.'
+    case 'opted_out':
+      return opts.optOutEffectiveDate
+        ? `Opted out of KiwiSaver, effective ${opts.optOutEffectiveDate}.`
+        : 'Opted out of KiwiSaver.'
+    case 'not_eligible':
+      return opts.notEligibleReason
+        ? `Not eligible for automatic enrolment (${opts.notEligibleReason}).`
+        : 'Not eligible for automatic enrolment, with reason recorded.'
+    default:
+      return '—'
+  }
 }
 
 /**
