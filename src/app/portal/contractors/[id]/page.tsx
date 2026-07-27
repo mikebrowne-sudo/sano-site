@@ -25,6 +25,8 @@ import { TaxReviewPanel } from './_components/TaxReviewPanel'
 import { CompetencyPanel } from './_components/CompetencyPanel'
 import { TaxDeclarationPanel } from './_components/TaxDeclarationPanel'
 import { KiwiSaverPanel, type KiwiSaverPanelEvent } from './_components/KiwiSaverPanel'
+import { PayTermsPanel, type PayTermsVersion } from './_components/PayTermsPanel'
+import { payTermsFromRow } from '@/lib/payroll/pay-terms'
 
 // Phase 5.3 — worker_type now collapses to {contractor, employee};
 // the prior sub-classifications (casual / part_time / full_time)
@@ -190,6 +192,23 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
     ? findSharedGstProfiles(gstNumber, contractor.id as string, (gstPeers as GstProfile[] | null) ?? [])
     : []
   const sharedGstMsg = sharedGstWarning(gstNumber, sharedGstOthers)
+
+  // Effective-dated pay terms (employees only; best-effort — depends on PR A's
+  // migration, so a not-yet-applied migration never breaks the page).
+  let payTermsVersions: PayTermsVersion[] = []
+  if (workerType === 'employee') {
+    try {
+      const { data: ptRows } = await supabase
+        .from('employee_pay_terms')
+        .select('id, standard_weekly_hours, hourly_rate, working_pattern, pay_frequency, payday, basis, effective_from, effective_to')
+        .eq('contractor_id', contractor.id)
+        .order('effective_from', { ascending: false })
+      payTermsVersions = ((ptRows ?? []) as unknown[]).map((r) => {
+        const t = payTermsFromRow(r)
+        return { id: t.id as string, standardWeeklyHours: t.standardWeeklyHours, hourlyRate: t.hourlyRate, workingPattern: t.workingPattern, payFrequency: t.payFrequency, payday: t.payday, basis: t.basis, effectiveFrom: t.effectiveFrom, effectiveTo: t.effectiveTo }
+      })
+    } catch { /* migration not applied yet */ }
+  }
 
   return (
     <div>
@@ -462,6 +481,13 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
               <div><span className="text-sage-500">Standard hours</span><p className="text-sage-800 font-medium">{contractor.standard_hours ?? '—'}</p></div>
               <div><span className="text-sage-500">Holiday pay</span><p className="text-sage-800 font-medium capitalize">{(contractor.holiday_pay_method ?? '—').replace(/_/g, ' ')}</p></div>
             </div>
+          </Section>
+        )}
+
+        {/* Pay terms — employees only (effective-dated) */}
+        {workerType !== 'contractor' && (
+          <Section title="Pay terms">
+            <PayTermsPanel workerId={contractor.id as string} isAdmin={isAdmin} versions={payTermsVersions} />
           </Section>
         )}
 
