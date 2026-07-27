@@ -301,6 +301,28 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
       }).eq('id', workerId)
       if (extErr) console.error('[agreement] employee extended fields not saved:', extErr.message)
 
+      // KiwiSaver audit trail + point-in-time status on the agreement (best-effort
+      // — depends on the KiwiSaver audit migration). Records the enrolment date
+      // and the initial event; KS2 completion stays a staff-verified step. A
+      // stated intention is never captured here — opting out is a later process.
+      try {
+        if (ksStatus === 'auto_enrolled') {
+          await svc.from('contractors')
+            .update({ kiwisaver_auto_enrolment_date: (agreement.start_date as string | null) || today })
+            .eq('id', workerId)
+        }
+        await svc.from('employment_agreements').update({ kiwisaver_status: ksStatus }).eq('id', agreement.id)
+        await svc.from('worker_kiwisaver_events').insert({
+          worker_id: workerId,
+          event_type: ksStatus === 'existing_member' ? 'existing_member_recorded' : 'auto_enrolled',
+          effective_date: (agreement.start_date as string | null) || today,
+          note: `Recorded at signing: ${ksStatus}${enrolled ? `, contributing at ${empRate}%` : ''}.`,
+          performed_by: null,
+        })
+      } catch (e) {
+        console.error('[agreement] KiwiSaver audit not recorded (run migration?):', e instanceof Error ? e.message : e)
+      }
+
       // Seed the employee checklist + auto-complete system + supplied items.
       try {
         const { data: rtwRow } = await svc.from('contractors').select('right_to_work_required').eq('id', workerId).maybeSingle()

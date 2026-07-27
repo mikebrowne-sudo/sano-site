@@ -6,6 +6,7 @@
 
 import { QUOTE_INVOICE_CSS } from './document/QuoteInvoiceCss'
 import { EMPLOYER, agreementTitle, agreementSections, type AgreementType } from '@/lib/employment-agreement-content'
+import { kiwiSaverStatusStatement } from '@/lib/payroll/kiwisaver'
 
 export interface AgreementView {
   type: AgreementType
@@ -24,6 +25,7 @@ export interface AgreementView {
   employeeIrdNumber: string | null
   taxCode: string | null
   kiwisaverChoice: string | null
+  kiwisaverStatus: string | null
   emergencyName: string | null
   emergencyPhone: string | null
   emergencyRelationship: string | null
@@ -69,6 +71,7 @@ export function agreementViewFromRow(a: any): AgreementView {
     employeeIrdNumber: a.employee_ird_number ?? null,
     taxCode: a.tax_code ?? null,
     kiwisaverChoice: a.kiwisaver_choice ?? null,
+    kiwisaverStatus: a.kiwisaver_status ?? null,
     emergencyName: a.emergency_contact_name ?? null,
     emergencyPhone: a.emergency_contact_phone ?? null,
     emergencyRelationship: a.emergency_contact_relationship ?? null,
@@ -89,12 +92,13 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-// KiwiSaver wording for the agreement. The agreement shows the employee's
-// CURRENT legal status only — never a future intention. At signing, an eligible
-// employee is automatically enrolled; opting out is a separate manual process
-// after employment starts (valid KS10 or IRD-processed opt-out), so a signing
-// selection never records an opt-out or an "intention to opt out" here.
-function kiwisaverLine(choice: string | null): string {
+// KiwiSaver wording for the agreement. Shows the employee's CURRENT LEGAL STATUS
+// only — never a future intention, pending opt-out or form-processing detail
+// (those live in onboarding/payroll records). Driven by the status determined at
+// signing; falls back to the auto-enrolled statement for legacy signed rows that
+// predate the status column (choice was captured but is never an opt-out).
+function kiwisaverLine(status: string | null, choice: string | null): string {
+  if (status) return kiwiSaverStatusStatement(status)
   if (choice === 'opt_out' || choice === 'stay_in') {
     return 'Automatically enrolled in KiwiSaver. Contributions and deductions apply in accordance with the KiwiSaver Act 2006.'
   }
@@ -158,7 +162,7 @@ export function EmploymentAgreementDocument({
         ['Annual leave', '4 weeks paid annual holidays (accrued)'],
         ['Sick leave', '10 days per year (after 6 months)'],
         ['Employee IRD No.', a.employeeIrdNumber || '—'],
-        ['KiwiSaver', kiwisaverLine(a.kiwisaverChoice)],
+        ['KiwiSaver', kiwisaverLine(a.kiwisaverStatus, a.kiwisaverChoice)],
         ['Date of birth', fmtDate(a.dateOfBirth)],
         ...(emergency ? [['Emergency contact', emergency] as [string, string]] : []),
       ]
@@ -167,7 +171,7 @@ export function EmploymentAgreementDocument({
         ['Commencement date', fmtDate(a.startDate)],
         ['Agreed hourly rate', a.hourlyRate != null ? `$${Number(a.hourlyRate).toFixed(2)} per hour (inclusive of 8% holiday pay)` : '—'],
         ['Employee IRD No.', a.employeeIrdNumber || '—'],
-        ['KiwiSaver', kiwisaverLine(a.kiwisaverChoice)],
+        ['KiwiSaver', kiwisaverLine(a.kiwisaverStatus, a.kiwisaverChoice)],
         ['Date of birth', fmtDate(a.dateOfBirth)],
         ...(emergency ? [['Emergency contact', emergency] as [string, string]] : []),
       ]

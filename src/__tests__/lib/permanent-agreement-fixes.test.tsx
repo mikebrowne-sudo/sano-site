@@ -74,6 +74,7 @@ function view(over: Partial<AgreementView> = {}): AgreementView {
     employeeAddress: null, employeeEmail: null, employeePhone: null,
     dateOfBirth: null, employeeIrdNumber: null, taxCode: 'M',
     kiwisaverChoice: 'opt_out',
+    kiwisaverStatus: null,
     emergencyName: null, emergencyPhone: null, emergencyRelationship: null,
     contractorTradingName: null, contractorGstNumber: null,
     insurerName: null, insuranceCover: null, insuranceExpiry: null,
@@ -104,5 +105,14 @@ describe('EmploymentAgreementDocument — details table', () => {
   it('renders the working pattern in the Hours of work row', () => {
     render(<EmploymentAgreementDocument a={view()} wrapper="share-page" />)
     expect(screen.getByText(/20 hours per week — Mon, Tue, Thu, Fri/)).toBeInTheDocument()
+  })
+
+  it('drives the KiwiSaver line from the actual status when present', () => {
+    const { rerender } = render(<EmploymentAgreementDocument a={view({ kiwisaverStatus: 'existing_member' })} wrapper="share-page" />)
+    expect(screen.getByText(/Existing KiwiSaver member\. Deductions will be made at the rate recorded on the employee’s KS2\./)).toBeInTheDocument()
+    rerender(<EmploymentAgreementDocument a={view({ kiwisaverStatus: 'auto_enrolled' })} wrapper="share-page" />)
+    expect(screen.getByText(/Automatically enrolled in KiwiSaver\./)).toBeInTheDocument()
+    rerender(<EmploymentAgreementDocument a={view({ kiwisaverStatus: 'opted_out', kiwisaverChoice: null })} wrapper="share-page" />)
+    expect(screen.getByText(/Opted out of KiwiSaver\./)).toBeInTheDocument()
   })
 })
