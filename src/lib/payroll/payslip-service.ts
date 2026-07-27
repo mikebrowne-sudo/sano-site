@@ -81,35 +81,50 @@ function snapshotFrom(d: LineData, meta: { reference: string; version: number; g
   })
 }
 
-/** Preview snapshot for an approved (not-yet-paid) run — built fresh, never stored. */
+/** READ-ONLY. Preview snapshot for an approved (not-yet-paid) run — built fresh,
+ *  never stored. Safe to call from a GET. */
 export async function buildPreviewSnapshot(client: AnyClient, lineId: string): Promise<PayslipSnapshot | null> {
   const d = await loadLineData(client, lineId)
   if (!d) return null
   return snapshotFrom(d, { reference: 'PREVIEW', version: 0, generatedAt: new Date().toISOString(), paid: false })
 }
 
+export interface OfficialPayslip { id: string; snapshot: PayslipSnapshot; storagePath: string | null; reference: string | null }
+
+/** READ-ONLY. The current official payslip row for a line (or null). Never
+ *  creates or mutates — safe from a GET. */
+export async function getCurrentOfficialPayslip(client: AnyClient, lineId: string): Promise<OfficialPayslip | null> {
+  const { data } = await client
+    .from('payslips').select('id, snapshot, storage_path, reference')
+    .eq('pay_run_line_id', lineId).eq('is_current', true).not('snapshot', 'is', null).maybeSingle()
+  if (!data?.snapshot) return null
+  return { id: data.id, snapshot: data.snapshot as PayslipSnapshot, storagePath: data.storage_path ?? null, reference: data.reference ?? null }
+}
+
 /**
- * The current OFFICIAL payslip for a paid run's line, creating its immutable row
- * (snapshot + permanent reference, version 1, is_current) if it doesn't exist.
- * Returns null if the run isn't paid. Idempotent (partial-unique is_current).
+ * WRITE. Create the immutable OFFICIAL payslip record for a PAID run's line —
+ * snapshot + permanent reference, version 1, is_current. NEVER called from a GET;
+ * only from markPayRunPaid or the explicit "Generate official payslip" action.
+ * Idempotent: returns the existing record unchanged if one already exists.
+ * Does NOT render/store bytes (that's payslip-generate).
  */
-export async function ensureOfficialPayslip(client: AnyClient, lineId: string): Promise<{ id: string; snapshot: PayslipSnapshot; storagePath: string | null } | null> {
-  const { data: existing } = await client
-    .from('payslips').select('id, snapshot, storage_path').eq('pay_run_line_id', lineId).eq('is_current', true).maybeSingle()
-  if (existing?.snapshot) return { id: existing.id, snapshot: existing.snapshot as PayslipSnapshot, storagePath: existing.storage_path ?? null }
+export async function createOfficialPayslipRecord(client: AnyClient, lineId: string): Promise<OfficialPayslip | null> {
+  const existing = await getCurrentOfficialPayslip(client, lineId)
+  if (existing) return existing
 
   const d = await loadLineData(client, lineId)
   if (!d || d.status !== 'paid') return null
   const reference = payslipReference(d.payDate, lineId)
   const snapshot = snapshotFrom(d, { reference, version: 1, generatedAt: new Date().toISOString(), paid: true })
-
-  // Upgrade an approval-shell row if present, else insert.
   const patch = { contractor_id: d.contractorId, pay_run_id: d.runId, reference, version: 1, is_current: true, snapshot, generated_at: snapshot.generatedAt }
-  if (existing?.id) {
-    await client.from('payslips').update(patch).eq('id', existing.id)
-    return { id: existing.id, snapshot, storagePath: null }
+
+  // Upgrade an approval-era shell row (created by the old flow) if present, else insert.
+  const { data: shell } = await client.from('payslips').select('id').eq('pay_run_line_id', lineId).eq('is_current', true).maybeSingle()
+  if (shell?.id) {
+    await client.from('payslips').update(patch).eq('id', shell.id)
+    return { id: shell.id, snapshot, storagePath: null, reference }
   }
   const { data: created, error } = await client.from('payslips').insert({ pay_run_line_id: lineId, ...patch }).select('id').single()
   if (error || !created) return null
-  return { id: created.id as string, snapshot, storagePath: null }
+  return { id: created.id as string, snapshot, storagePath: null, reference }
 }

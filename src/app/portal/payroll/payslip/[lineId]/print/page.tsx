@@ -7,7 +7,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { PayslipDocument } from '@/components/PayslipDocument'
-import { buildPreviewSnapshot, ensureOfficialPayslip } from '@/lib/payroll/payslip-service'
+import { buildPreviewSnapshot, getCurrentOfficialPayslip } from '@/lib/payroll/payslip-service'
 import { getServiceSupabase } from '@/lib/supabase-service'
 
 export const dynamic = 'force-dynamic'
@@ -37,7 +37,9 @@ export default async function PayslipPrintPage({ params, searchParams }: { param
     return <PayslipDocument snapshot={snap} preview />
   }
 
-  const official = await ensureOfficialPayslip(svc, params.lineId)
-  if (!official) notFound() // not paid yet → no official payslip
+  // READ-ONLY: render only an already-created official payslip. Generation happens
+  // at 'paid' or via the explicit admin action — never on a view.
+  const official = await getCurrentOfficialPayslip(svc, params.lineId)
+  if (!official) notFound()
   return <PayslipDocument snapshot={official.snapshot} />
 }

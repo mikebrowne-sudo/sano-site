@@ -13,6 +13,7 @@ import { computeIrdSetAside, paydayFilingDue } from '@/lib/payroll/payrun-obliga
 import { firstPayReadiness } from '@/lib/payroll/first-pay-readiness'
 import { isAdminUser } from '@/lib/is-admin'
 import { DeleteDraftButton } from './_components/DeleteDraftButton'
+import { PayslipCell } from './_components/PayslipCell'
 
 function fmt(d: number) { return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(d) }
 function fmtDate(iso: string) { return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' }) }
@@ -20,10 +21,9 @@ function fmtDate(iso: string) { return new Date(iso).toLocaleDateString('en-NZ',
 export default async function PayRunDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
 
-  const [{ data: run, error }, { data: lines }, { data: payslips }] = await Promise.all([
+  const [{ data: run, error }, { data: lines }] = await Promise.all([
     supabase.from('pay_runs').select('*').eq('id', params.id).single(),
     supabase.from('pay_run_lines').select('id, contractor_id, hours_worked, hourly_rate, gross_pay, holiday_pay, paye, student_loan, kiwisaver_employee, kiwisaver_employer, kiwisaver_employer_net, net_pay, mileage_reimbursement, tax_code, contractors ( full_name )').eq('pay_run_id', params.id).order('created_at'),
-    supabase.from('payslips').select('id, contractor_id, sent_at, pay_run_line_id').eq('pay_run_id', params.id),
   ])
 
   if (error || !run) notFound()
@@ -90,7 +90,14 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
     : null
   const filingDue = paydayFilingDue(run.pay_date)
 
-  const payslipMap = new Map((payslips ?? []).map((p) => [p.pay_run_line_id, p]))
+  // Which lines already have a retained official payslip (best-effort — payslip
+  // versioning columns depend on the PR1 migration).
+  let officialByLine: Record<string, boolean> = {}
+  try {
+    const { data: official } = await supabase.from('payslips').select('pay_run_line_id, storage_path').eq('pay_run_id', params.id).eq('is_current', true)
+    officialByLine = Object.fromEntries(((official ?? []) as Array<{ pay_run_line_id: string; storage_path: string | null }>).map((p) => [p.pay_run_line_id, !!p.storage_path]))
+  } catch { /* migration not applied yet */ }
+
   const totalGross = (lines ?? []).reduce((s, l) => s + (l.gross_pay ?? 0), 0)
   const totalNet = (lines ?? []).reduce((s, l) => s + (l.net_pay ?? 0), 0)
   const totalPaye = (lines ?? []).reduce((s, l) => s + (l.paye ?? 0), 0)
@@ -193,7 +200,6 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
             <tbody>
               {(lines ?? []).map((l) => {
                 const name = (l.contractors as unknown as { full_name: string } | null)?.full_name ?? '—'
-                const ps = payslipMap.get(l.id)
                 return (
                   <tr key={l.id} className="border-b border-gray-50 last:border-0">
                     <td className="px-4 py-3 font-medium text-sage-800">{name}</td>
@@ -206,13 +212,7 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
                     {totalReimb > 0 && <td className="px-4 py-3 text-right text-sage-600">{fmt(l.mileage_reimbursement ?? 0)}</td>}
                     {totalReimb > 0 && <td className="px-4 py-3 text-right text-sage-800 font-bold">{fmt((l.net_pay ?? 0) + (l.mileage_reimbursement ?? 0))}</td>}
                     <td className="px-4 py-3">
-                      {run.status === 'paid' ? (
-                        <a href={`/api/payslips/${l.id}/pdf`} target="_blank" rel="noopener noreferrer" className="text-sage-700 text-xs font-medium underline underline-offset-2 hover:no-underline">View PDF{ps?.sent_at ? ' · sent' : ''}</a>
-                      ) : run.status === 'approved' ? (
-                        <a href={`/api/payslips/${l.id}/pdf?mode=preview`} target="_blank" rel="noopener noreferrer" className="text-sage-500 text-xs font-medium underline underline-offset-2 hover:no-underline">Preview</a>
-                      ) : (
-                        <span className="text-sage-300 text-xs">—</span>
-                      )}
+                      <PayslipCell lineId={l.id} runId={run.id} runStatus={run.status} hasOfficial={!!officialByLine[l.id]} isAdmin={isAdmin} />
                     </td>
                   </tr>
                 )

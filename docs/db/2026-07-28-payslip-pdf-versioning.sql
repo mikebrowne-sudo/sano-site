@@ -29,12 +29,16 @@ alter table public.payslips
   add column if not exists superseded_by uuid references public.payslips(id),
   add column if not exists is_current    boolean not null default true;
 
--- The old rule allowed only ONE payslip row per line — drop it so versions can
--- coexist, and instead enforce exactly ONE CURRENT version per line.
-alter table public.payslips drop constraint if exists payslips_pay_run_line_id_key;
-drop index if exists public.payslips_pay_run_line_id_key;
+-- Enforce exactly ONE CURRENT version per line (DB-enforced). This coexists
+-- safely with the existing unique(pay_run_line_id) while that constraint remains.
 create unique index if not exists payslips_current_per_line_uniq
   on public.payslips (pay_run_line_id) where is_current;
+
+-- NOTE: the old unique(pay_run_line_id) is NOT dropped here — the currently-live
+-- approvePayRun upserts on it, so dropping it before PR #450 deploys would break
+-- approvals in production. It's dropped by a one-line follow-up AFTER #450 merges
+-- (once no code relies on it). Until then only version 1 exists per line, which
+-- the old unique permits — nothing is blocked for PR1.
 
 -- A payslip reference (permanent document ID) is unique when assigned.
 create unique index if not exists payslips_reference_uniq
@@ -48,10 +52,9 @@ select column_name from information_schema.columns
 where table_schema='public' and table_name='payslips'
   and column_name in ('reference','version','snapshot','storage_path','generated_at','superseded_by','is_current')
 order by column_name;   -- 7 rows
--- Old per-line unique is gone; the current-per-line partial unique exists:
+-- The current-per-line + reference partial uniques exist (old unique still present):
 select indexname from pg_indexes where schemaname='public' and tablename='payslips'
   and indexname in ('payslips_current_per_line_uniq','payslips_reference_uniq');   -- 2 rows
-select conname from pg_constraint where conrelid='public.payslips'::regclass and conname='payslips_pay_run_line_id_key';  -- 0 rows
 
 
 -- ---- ROLLBACK ---------------------------------------------------------------

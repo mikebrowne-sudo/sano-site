@@ -9,7 +9,7 @@ import { getServiceSupabase } from '@/lib/supabase-service'
 import { isAdminUser } from '@/lib/is-admin'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { parseCookieHeader, renderPdfFromUrl, RenderPdfError } from '@/lib/pdf/render-pdf'
-import { ensureOfficialPayslip } from '@/lib/payroll/payslip-service'
+import { getCurrentOfficialPayslip } from '@/lib/payroll/payslip-service'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -39,32 +39,25 @@ export async function GET(request: NextRequest, { params }: { params: { lineId: 
   const stem = sanitizePdfFilename(`Sano-Payslip-${name}-${payDate}${preview ? '-PREVIEW' : ''}`)
   const filename = `${stem}.pdf`
 
-  // OFFICIAL: serve the retained bytes if already stored.
+  // OFFICIAL: strictly READ-ONLY — serve the already-retained bytes. Never
+  // generate on a GET (guards against prefetch / link previews / monitors). If no
+  // official payslip is stored yet, tell the caller to generate it explicitly.
   if (!preview) {
-    if ((run?.status as string) !== 'paid') return NextResponse.json({ error: 'Official payslip is available once the run is paid.' }, { status: 409 })
-    const official = await ensureOfficialPayslip(svc, params.lineId)
-    if (official?.storagePath) {
-      const { data: file } = await svc.storage.from(BUCKET).download(official.storagePath)
-      if (file) return pdfResponse(Buffer.from(await file.arrayBuffer()), filename)
+    const official = await getCurrentOfficialPayslip(svc, params.lineId)
+    if (!official?.storagePath) {
+      return NextResponse.json({ error: 'No official payslip yet. Generate it from the pay run (admin).' }, { status: 409 })
     }
+    const { data: file } = await svc.storage.from(BUCKET).download(official.storagePath)
+    if (!file) return NextResponse.json({ error: 'Stored payslip not found.' }, { status: 404 })
+    return pdfResponse(Buffer.from(await file.arrayBuffer()), filename)
   }
 
-  // Render from the print view.
+  // PREVIEW: render on the fly. Creates NO record and stores nothing.
   const url = new URL(request.url)
-  const printUrl = `${url.origin}/portal/payroll/payslip/${params.lineId}/print${preview ? '?mode=preview' : ''}`
+  const printUrl = `${url.origin}/portal/payroll/payslip/${params.lineId}/print?mode=preview`
   const cookies = parseCookieHeader(request.headers.get('cookie') ?? '', url.origin)
   try {
     const buffer = await renderPdfFromUrl(printUrl, { cookies })
-
-    // Retain the OFFICIAL bytes once (immutable).
-    if (!preview) {
-      const official = await ensureOfficialPayslip(svc, params.lineId)
-      if (official && !official.storagePath) {
-        const path = `payslips/${line.pay_run_id}/${official.id}.pdf`
-        const { error: upErr } = await svc.storage.from(BUCKET).upload(path, buffer, { contentType: 'application/pdf', upsert: false })
-        if (!upErr) await svc.from('payslips').update({ storage_path: path }).eq('id', official.id)
-      }
-    }
     return pdfResponse(buffer, filename)
   } catch (err) {
     if (err instanceof RenderPdfError) return NextResponse.json({ error: err.message }, { status: err.status })
