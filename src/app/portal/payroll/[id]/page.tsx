@@ -8,6 +8,10 @@ import { AlertTriangle } from 'lucide-react'
 import clsx from 'clsx'
 import { Ks10IrdAlert } from '../../_components/Ks10IrdAlert'
 import { loadPendingKs10Submissions, type PendingKs10 } from '@/lib/kiwisaver-ks10-reminders'
+import { PayRunWorkflowPanel } from './_components/PayRunWorkflowPanel'
+import { computeIrdSetAside, paydayFilingDue } from '@/lib/payroll/payrun-obligations'
+import { firstPayReadiness } from '@/lib/payroll/first-pay-readiness'
+import { isAdminUser } from '@/lib/is-admin'
 
 function fmt(d: number) { return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(d) }
 function fmtDate(iso: string) { return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' }) }
@@ -17,7 +21,7 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
 
   const [{ data: run, error }, { data: lines }, { data: payslips }] = await Promise.all([
     supabase.from('pay_runs').select('*').eq('id', params.id).single(),
-    supabase.from('pay_run_lines').select('id, contractor_id, hours_worked, hourly_rate, gross_pay, holiday_pay, paye, student_loan, kiwisaver_employee, kiwisaver_employer, net_pay, mileage_reimbursement, tax_code, contractors ( full_name )').eq('pay_run_id', params.id).order('created_at'),
+    supabase.from('pay_run_lines').select('id, contractor_id, hours_worked, hourly_rate, gross_pay, holiday_pay, paye, student_loan, kiwisaver_employee, kiwisaver_employer, kiwisaver_employer_net, net_pay, mileage_reimbursement, tax_code, contractors ( full_name )').eq('pay_run_id', params.id).order('created_at'),
     supabase.from('payslips').select('id, contractor_id, sent_at, pay_run_line_id').eq('pay_run_id', params.id),
   ])
 
@@ -30,12 +34,12 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
   const { data: ksRows } = lineContractorIds.length
     ? await supabase
         .from('contractors')
-        .select('id, full_name, kiwisaver_rate_source, kiwisaver_temp_reduction_expiry')
+        .select('id, full_name, kiwisaver_rate_source, kiwisaver_temp_reduction_expiry, contract_signed_date, ir330_received, bank_account_number, kiwisaver_status, kiwisaver_info_pack_delivered_date, kiwisaver_ks3_provided')
         .in('id', lineContractorIds)
-    : { data: [] as Array<{ id: string; full_name: string; kiwisaver_rate_source: string | null; kiwisaver_temp_reduction_expiry: string | null }> }
+    : { data: [] as Array<Record<string, unknown>> }
   const expiredReductionNames = (ksRows ?? [])
-    .filter((c) => isTempReductionExpired(c.kiwisaver_rate_source, c.kiwisaver_temp_reduction_expiry, run.pay_date))
-    .map((c) => c.full_name)
+    .filter((c) => isTempReductionExpired((c as Record<string, unknown>).kiwisaver_rate_source as string | null, (c as Record<string, unknown>).kiwisaver_temp_reduction_expiry as string | null, run.pay_date))
+    .map((c) => (c as Record<string, unknown>).full_name as string)
 
   // KS10 opt-outs received but not yet forwarded to IRD — this payday filing
   // (IR348) is the vehicle to send them. Best-effort (migration-dependent).
@@ -44,6 +48,43 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
   try {
     pendingKs10 = await loadPendingKs10Submissions(supabase, today)
   } catch { /* migration not applied yet */ }
+
+  // ── Three-workflow view (payment / filing / IRD remittance) + readiness ──
+  const { data: { user: staffUser } } = await supabase.auth.getUser()
+  const isAdmin = isAdminUser(staffUser)
+
+  let empRegistered = false, empNote: string | null = null
+  try {
+    const { data: ws } = await supabase.from('workforce_settings').select('emp_registered, emp_note').limit(1).maybeSingle()
+    empRegistered = !!(ws as { emp_registered?: boolean } | null)?.emp_registered
+    empNote = (ws as { emp_note?: string | null } | null)?.emp_note ?? null
+  } catch { /* column may not exist yet */ }
+
+  const setAside = computeIrdSetAside((lines ?? []).map((l) => ({
+    paye: l.paye ?? 0,
+    kiwisaverEmployee: l.kiwisaver_employee ?? 0,
+    kiwisaverEmployerGross: l.kiwisaver_employer ?? 0,
+    kiwisaverEmployerNet: (l as { kiwisaver_employer_net?: number | null }).kiwisaver_employer_net ?? null,
+  })))
+
+  const ksRowById = new Map((ksRows ?? []).map((r) => [(r as { id: string }).id, r as Record<string, unknown>]))
+  const readiness = (lines ?? []).map((l) => {
+    const r = ksRowById.get(l.contractor_id as string) ?? {}
+    return {
+      employeeName: (l.contractors as unknown as { full_name: string } | null)?.full_name ?? '—',
+      items: firstPayReadiness({
+        agreementSigned: !!r.contract_signed_date,
+        ir330Received: !!r.ir330_received,
+        bankAccount: (r.bank_account_number as string | null) ?? null,
+        kiwisaverStatus: (r.kiwisaver_status as string | null) ?? null,
+        infoPackRecorded: !!r.kiwisaver_info_pack_delivered_date || !!r.kiwisaver_ks3_provided,
+        irdCompared: !!(run as { ird_compared_at?: string | null }).ird_compared_at,
+        empRegistered,
+      }),
+    }
+  })
+  const paymentLabel = (lines ?? []).length === 1 ? (readiness[0]?.employeeName ?? 'employee') : `${(lines ?? []).length} employees`
+  const filingDue = paydayFilingDue(run.pay_date)
 
   const payslipMap = new Map((payslips ?? []).map((p) => [p.pay_run_line_id, p]))
   const totalGross = (lines ?? []).reduce((s, l) => s + (l.gross_pay ?? 0), 0)
@@ -72,6 +113,22 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
           <PayRunActions payRunId={run.id} status={run.status} />
         </div>
       </div>
+
+      <PayRunWorkflowPanel
+        runId={run.id}
+        isAdmin={isAdmin}
+        payment={{ status: run.status, netTotal: totalNet, label: paymentLabel, paidAt: (run.paid_at as string | null) ?? null }}
+        filing={{
+          status: (run as { payday_filing_status?: string }).payday_filing_status ?? 'not_filed',
+          submittedAt: (run as { payday_filing_submitted_at?: string | null }).payday_filing_submitted_at ?? null,
+          acceptedAt: (run as { payday_filing_accepted_at?: string | null }).payday_filing_accepted_at ?? null,
+          due: filingDue,
+        }}
+        emp={{ registered: empRegistered, note: empNote }}
+        setAside={setAside}
+        irdComparedAt={(run as { ird_compared_at?: string | null }).ird_compared_at ?? null}
+        readiness={readiness}
+      />
 
       {expiredReductionNames.length > 0 && (
         <div className="mb-6 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -115,7 +172,7 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
                 <th className="px-4 py-3 font-semibold text-right">Hours</th>
                 <th className="px-4 py-3 font-semibold text-right">Rate</th>
                 <th className="px-4 py-3 font-semibold text-right">Gross</th>
-                <th className="px-4 py-3 font-semibold text-right">PAYE</th>
+                <th className="px-4 py-3 font-semibold text-right" title="Income tax + ACC earner levy, as one statutory deduction">PAYE <span className="font-normal text-sage-400">(incl. ACC)</span></th>
                 <th className="px-4 py-3 font-semibold text-right">KS Emp</th>
                 <th className="px-4 py-3 font-semibold text-right">Net</th>
                 {totalReimb > 0 && <th className="px-4 py-3 font-semibold text-right">Reimb.</th>}
