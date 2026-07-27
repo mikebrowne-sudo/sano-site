@@ -41,7 +41,7 @@ export const IRD_ONBOARDING_FORMS: readonly IrdForm[] = [
     title: 'KiwiSaver opt-out request',
     blurb: 'Only if you’re auto-enrolled and choose to opt out — after you start (day 14–56), via this form or myIR.',
     status: 'later',
-    hostedPath: null,
+    hostedPath: '/forms/KS10.pdf',
     irdUrl: 'https://www.ird.govt.nz/kiwisaver/kiwisaver-individuals/opting-out-of-kiwisaver/opt-out-of-kiwisaver',
   },
 ]
