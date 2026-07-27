@@ -62,10 +62,14 @@ export interface EsctBreakdown {
 /**
  * Split a gross employer KiwiSaver contribution into ESCT + net contribution.
  *
- * IRD method: ESCT is calculated on the WHOLE-DOLLAR portion of the employer
- * contribution — the cents are disregarded in the ESCT base only. The full
- * dollars-and-cents contribution is retained for the net-contribution figure.
- * e.g. a $17.50 contribution → ESCT is calculated on $17, and net = 17.50 − ESCT.
+ * IRD 2026/27 Payroll Calculations & Business Rules method (confirmed 2026-07-28):
+ *   1. gross employer contribution in dollars and cents
+ *   2. drop the cents for the ESCT base (whole-dollar contribution)
+ *   3. ESCT = truncated base × ESCT rate
+ *   4. truncate the ESCT to whole cents — NO rounding
+ *   5. net contribution = gross − truncated ESCT
+ * e.g. Carol: $21.00 → base $21 → 21 × 17.5% = $3.675 → truncate → ESCT $3.67 →
+ * net $17.33. Do NOT round ESCT to $3.68 — truncation is required.
  */
 export function computeEsct(
   employerContribution: number,
