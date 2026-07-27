@@ -63,6 +63,7 @@ describe('agreementViewFromRow — working pattern in the hours line', () => {
 function view(over: Partial<AgreementView> = {}): AgreementView {
   return {
     type: 'permanent_employee',
+    employmentType: 'part_time',
     position: 'Cleaner',
     hourlyRate: 30,
     startDate: '2026-07-27',
@@ -105,6 +106,19 @@ describe('EmploymentAgreementDocument — details table', () => {
   it('renders the working pattern in the Hours of work row', () => {
     render(<EmploymentAgreementDocument a={view()} wrapper="share-page" />)
     expect(screen.getByText(/20 hours per week — Mon, Tue, Thu, Fri/)).toBeInTheDocument()
+  })
+
+  it('labels the employment type as part-time or full-time', () => {
+    const { rerender } = render(<EmploymentAgreementDocument a={view({ employmentType: 'part_time' })} wrapper="share-page" />)
+    expect(screen.getByText('Permanent part-time')).toBeInTheDocument()
+    rerender(<EmploymentAgreementDocument a={view({ employmentType: 'full_time' })} wrapper="share-page" />)
+    expect(screen.getByText('Permanent full-time')).toBeInTheDocument()
+  })
+
+  it('shows a casual agreement with no guaranteed hours + indicative availability', () => {
+    render(<EmploymentAgreementDocument a={view({ type: 'casual_employee', employmentType: 'casual', agreedHours: 'As offered — Saturday mornings' })} wrapper="share-page" />)
+    expect(screen.getByText('Casual (no guaranteed hours)')).toBeInTheDocument()
+    expect(screen.getByText('As offered — Saturday mornings')).toBeInTheDocument()
   })
 
   it('drives the KiwiSaver line from the actual status when present', () => {

@@ -10,6 +10,7 @@ import { kiwiSaverStatusStatement } from '@/lib/payroll/kiwisaver'
 
 export interface AgreementView {
   type: AgreementType
+  employmentType: string | null
   position: string | null
   hourlyRate: number | null
   startDate: string | null
@@ -56,6 +57,7 @@ export function agreementViewFromRow(a: any): AgreementView {
       : a.agreement_type === 'permanent_employee'
         ? 'permanent_employee'
         : 'casual_employee',
+    employmentType: a.employment_type ?? null,
     position: a.position ?? null,
     hourlyRate: a.hourly_rate ?? null,
     startDate: a.start_date ?? null,
@@ -152,7 +154,7 @@ export function EmploymentAgreementDocument({
     : isPermanent
     ? [
         ['Position', a.position || 'Employee'],
-        ['Employment type', 'Permanent part-time'],
+        ['Employment type', a.employmentType === 'full_time' ? 'Permanent full-time' : 'Permanent part-time'],
         ['Commencement date', fmtDate(a.startDate)],
         ['Hours of work', a.agreedHours || '—'],
         ['Place of work', a.placeOfWork || '—'],
@@ -168,7 +170,9 @@ export function EmploymentAgreementDocument({
       ]
     : [
         ['Position', a.position || 'Cleaner (Casual)'],
+        ['Employment type', 'Casual (no guaranteed hours)'],
         ['Commencement date', fmtDate(a.startDate)],
+        ...(a.agreedHours ? [['Indicative availability', a.agreedHours] as [string, string]] : []),
         ['Agreed hourly rate', a.hourlyRate != null ? `$${Number(a.hourlyRate).toFixed(2)} per hour (inclusive of 8% holiday pay)` : '—'],
         ['Employee IRD No.', a.employeeIrdNumber || '—'],
         ['KiwiSaver', kiwisaverLine(a.kiwisaverStatus, a.kiwisaverChoice)],
