@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { CheckCircle2, AlertTriangle, Clock, Wallet, FileText, Landmark } from 'lucide-react'
 import type { ReadinessItem } from '@/lib/payroll/first-pay-readiness'
 import type { IrdSetAside } from '@/lib/payroll/payrun-obligations'
+import Link from 'next/link'
 import { markIrdCompared, markFilingSubmitted, markFilingAccepted, markEmpRegistered } from '../_actions-status'
 import { approvePayRun, markPayRunPaid } from '../../_actions'
 
@@ -123,7 +124,8 @@ export function PayRunWorkflowPanel(p: PayRunWorkflowProps) {
             PAYE {money(p.setAside.paye)} · employee KiwiSaver {money(p.setAside.employeeKs)} · gross employer KiwiSaver {money(p.setAside.employerKsGross)}
             {p.setAside.esct != null ? ` (ESCT ${money(p.setAside.esct)} within it)` : ''}.
           </p>
-          <p className="text-[11px] text-sage-400 mt-1">Outstanding — cleared only when the IRD payment is recorded. (Running ledger arrives with the liability tally.)</p>
+          <p className="text-[11px] text-sage-400 mt-1">Outstanding — cleared only when the IRD payment is recorded (not by paying the employee).</p>
+          <Link href="/portal/payroll/ird" className="text-[12px] font-medium text-sage-600 hover:text-sage-800 mt-1 inline-block">View IRD liabilities →</Link>
         </div>
       </div>
 
