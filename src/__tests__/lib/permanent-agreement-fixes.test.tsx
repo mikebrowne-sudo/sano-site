@@ -94,9 +94,10 @@ describe('EmploymentAgreementDocument — details table', () => {
     expect(screen.queryByText('Tax code')).toBeNull()
   })
 
-  it('states auto-enrolment + intention to opt out, never "opted out"', () => {
+  it('states current auto-enrolled status only — never an intention to opt out', () => {
     render(<EmploymentAgreementDocument a={view({ kiwisaverChoice: 'opt_out' })} wrapper="share-page" />)
-    expect(screen.getByText(/Automatically enrolled\. Employee has indicated an intention to opt out/)).toBeInTheDocument()
+    expect(screen.getByText(/Automatically enrolled in KiwiSaver\. Contributions and deductions apply in accordance with the KiwiSaver Act 2006\./)).toBeInTheDocument()
+    expect(screen.queryByText(/intention to opt out/i)).toBeNull()
     expect(screen.queryByText(/opted out/i)).toBeNull()
   })
 

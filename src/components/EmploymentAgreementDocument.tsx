@@ -89,13 +89,15 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-// KiwiSaver wording for the agreement. A newly auto-enrolled employee cannot
-// formally opt out until day 14 and must generally do so by day 56 (KS10), so a
-// stated intention to opt out is described as exactly that — the agreement never
-// records the employee as already "opted out".
+// KiwiSaver wording for the agreement. The agreement shows the employee's
+// CURRENT legal status only — never a future intention. At signing, an eligible
+// employee is automatically enrolled; opting out is a separate manual process
+// after employment starts (valid KS10 or IRD-processed opt-out), so a signing
+// selection never records an opt-out or an "intention to opt out" here.
 function kiwisaverLine(choice: string | null): string {
-  if (choice === 'opt_out') return 'Automatically enrolled. Employee has indicated an intention to opt out during the statutory opt-out period (KS10, between day 14 and day 56).'
-  if (choice === 'stay_in') return 'Automatically enrolled and contributing.'
+  if (choice === 'opt_out' || choice === 'stay_in') {
+    return 'Automatically enrolled in KiwiSaver. Contributions and deductions apply in accordance with the KiwiSaver Act 2006.'
+  }
   return '—'
 }
 
