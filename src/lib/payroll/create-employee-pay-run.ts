@@ -11,6 +11,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { calculatePayPreview } from '@/lib/nz-paye'
 import { employerKiwiSaverRate, resolveEmployeeKiwiSaverRateForPay } from '@/lib/payroll/kiwisaver'
+import { resolveTermsAsAt, payTermsFromRow } from '@/lib/payroll/pay-terms'
 
 export interface CreatePayRunInput {
   pay_period_start: string
@@ -135,6 +136,25 @@ export async function createEmployeePayRun(
     })
 
     await supabase.from('pay_run_lines').insert(lines)
+
+    // Stamp the effective pay-terms snapshot when the run covers exactly one
+    // employee (the advance-weekly norm), so the run is reproducible and PR C's
+    // liability backfill has an exact source. Best-effort — the columns/table
+    // depend on the PR A/B migrations, so this never blocks run creation.
+    if (employees.length === 1) {
+      try {
+        const { data: termRows } = await supabase
+          .from('employee_pay_terms')
+          .select('id, standard_weekly_hours, hourly_rate, working_pattern, pay_frequency, payday, basis, effective_from, effective_to')
+          .eq('contractor_id', employees[0].id)
+        const resolved = resolveTermsAsAt((termRows ?? []).map(payTermsFromRow), input.pay_period_start)
+        if (resolved) {
+          await supabase.from('pay_runs')
+            .update({ pay_terms_id: resolved.id ?? null, terms_snapshot: resolved, basis: resolved.basis })
+            .eq('id', data.id)
+        }
+      } catch { /* migration not applied yet */ }
+    }
 
     if (warnings.length) return { id: data.id as string, warnings }
   }

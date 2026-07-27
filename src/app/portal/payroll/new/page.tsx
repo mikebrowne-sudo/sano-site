@@ -5,11 +5,28 @@ import { createPayRun } from '../_actions'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
+// Advance weekly period from a reference date: the Monday of that week (payday),
+// through the following Sunday, paid on the Monday. Matches Carol's terms
+// (weekly · Monday payday · Mon–Sun · advance) so staff don't fight defaults.
+function advanceWeek(ref: Date): { start: string; end: string; payDate: string } {
+  const dow = ref.getDay() // 0 Sun … 6 Sat
+  const mondayOffset = (dow + 6) % 7 // days back to Monday
+  const monday = new Date(ref)
+  monday.setDate(ref.getDate() - mondayOffset)
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return { start: iso(monday), end: iso(sunday), payDate: iso(monday) }
+}
+
 export default function NewPayRunPage() {
   const [frequency, setFrequency] = useState<'weekly' | 'fortnightly'>('weekly')
-  const [start, setStart] = useState('')
-  const [end, setEnd] = useState('')
-  const [payDate, setPayDate] = useState('')
+  // Pre-fill the current advance week (Monday payday) so the weekly run resolves
+  // from the standing terms rather than being typed / defaulting to arrears.
+  const initial = advanceWeek(new Date())
+  const [start, setStart] = useState(initial.start)
+  const [end, setEnd] = useState(initial.end)
+  const [payDate, setPayDate] = useState(initial.payDate)
   const [notes, setNotes] = useState('')
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -36,6 +53,7 @@ export default function NewPayRunPage() {
           </select>
           <span className="block text-xs text-sage-400 mt-1.5">Only employees on this cycle are added to the run.</span>
         </label>
+        <p className="text-xs text-sage-500 bg-sage-50 border border-sage-100 rounded-lg px-3 py-2">Pre-filled to the current <strong>advance</strong> week (Mon–Sun, paid on the Monday). Adjust if needed.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="block">
             <span className="block text-sm font-semibold text-sage-800 mb-1.5">Period start</span>
