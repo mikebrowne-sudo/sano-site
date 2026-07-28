@@ -23,6 +23,7 @@ const SENT_STATUSES = ['sent', 'paid', 'overdue']
 
 export interface InvoiceLineInput {
   label: string
+  description?: string | null
   price: number
 }
 
@@ -55,7 +56,7 @@ export async function updateInvoiceFinancials(
 
   const { data: currentItemsRaw } = await supabase
     .from('invoice_items')
-    .select('label, price, sort_order')
+    .select('label, description, price, sort_order')
     .eq('invoice_id', input.invoiceId)
     .order('sort_order')
   const currentItems = (currentItemsRaw ?? []) as Array<{ label: string | null; price: number | null }>
@@ -71,7 +72,7 @@ export async function updateInvoiceFinancials(
   // Normalise the submitted lines (drop blank labels; keep finite prices —
   // negative is allowed for a correction/credit line).
   const newItems = (input.items ?? [])
-    .map((i) => ({ label: (i.label ?? '').trim(), price: Number(i.price) }))
+    .map((i) => ({ label: (i.label ?? '').trim(), description: (i.description ?? '').trim() || null, price: Number(i.price) }))
     .filter((i) => i.label && Number.isFinite(i.price))
 
   const oldTotal = calculateInvoiceTotal({ base_price: inv.base_price as number | null, discount: inv.discount as number | null }, currentItems)
@@ -102,7 +103,7 @@ export async function updateInvoiceFinancials(
     await supabase.from('invoice_items').delete().eq('invoice_id', input.invoiceId)
     if (newItems.length > 0) {
       await supabase.from('invoice_items').insert(
-        newItems.map((i, idx) => ({ invoice_id: input.invoiceId, label: i.label, price: i.price, sort_order: idx })),
+        newItems.map((i, idx) => ({ invoice_id: input.invoiceId, label: i.label, description: i.description, price: i.price, sort_order: idx })),
       )
     }
   }

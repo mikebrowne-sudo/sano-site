@@ -96,7 +96,7 @@ export default async function PublicQuotePage({
 
   const { data: items } = await supabase
     .from('quote_items')
-    .select('label, price, sort_order')
+    .select('label, description, price, sort_order')
     .eq('quote_id', quote.id)
     .order('sort_order')
 

@@ -136,7 +136,7 @@ export default async function QuoteDetailPage({
   ] = await Promise.all([
     supabase
       .from('quote_items')
-      .select('id, label, price, sort_order')
+      .select('id, label, description, price, sort_order')
       .eq('quote_id', params.id)
       .order('sort_order'),
     supabase

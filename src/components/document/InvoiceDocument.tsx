@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
+import { computeDocumentTotals } from '@/lib/doc-totals'
 import { computeInvoiceDueDate } from '@/lib/invoice-dates'
 import {
   DocumentLayout,
@@ -70,6 +71,7 @@ export interface InvoiceDocumentInput {
 
 export interface InvoiceItemInput {
   label: string
+  description?: string | null
   price: number | null
 }
 
@@ -111,9 +113,7 @@ export function InvoiceDocument({
   const addons = items.filter((a) => (a.price ?? 0) > 0)
   const addonsTotal = addons.reduce((sum, i) => sum + (i.price ?? 0), 0)
   const lineTotal = (invoice.base_price ?? 0) + addonsTotal - (invoice.discount ?? 0)
-  const gstAmount = invoice.gst_included ? (lineTotal * 3) / 23 : lineTotal * 0.15
-  const subtotalExGst = invoice.gst_included ? lineTotal - gstAmount : lineTotal
-  const total = invoice.gst_included ? lineTotal : lineTotal + gstAmount
+  const { gstAmount, subtotalExGst, total } = computeDocumentTotals(lineTotal, !!invoice.gst_included)
 
   // Service Description source order (per brief):
   //   1. invoice.service_description (operator-typed, custom invoice)
@@ -232,7 +232,12 @@ export function InvoiceDocument({
     })
   }
   for (const addon of addons) {
-    lineItems.push({ description: addon.label, amount: fmt(addon.price ?? 0) })
+    const addonDesc = (addon.description ?? '').trim()
+    lineItems.push({
+      description: addon.label,
+      subBlocks: addonDesc ? [{ label: 'Description', value: addonDesc }] : undefined,
+      amount: fmt(addon.price ?? 0),
+    })
   }
   if ((invoice.discount ?? 0) > 0) {
     lineItems.push({ description: 'Discount', amount: `-${fmt(invoice.discount ?? 0)}` })
@@ -247,9 +252,14 @@ export function InvoiceDocument({
     paymentDetails.push({ label: 'Your reference / PO', value: trimmedReference })
   }
 
-  const termsBody = isCashSale
-    ? 'Payment is required prior to the clean. All amounts are in New Zealand Dollars and include GST. Sano Property Services Limited is GST registered (GST No. 148-387-648) under the Goods and Services Tax Act 1985. Please use your invoice number as the payment reference.'
-    : 'Payment is due within 14 days of the invoice date. All amounts are in New Zealand Dollars and include GST. Sano Property Services Limited is GST registered (GST No. 148-387-648) under the Goods and Services Tax Act 1985. Please use your invoice number as the payment reference.'
+  // Label + GST sentence reflect the actual GST treatment (a GST-exclusive
+  // invoice never claims its line amounts include GST).
+  const amountLabel = invoice.gst_included ? 'Amount (incl. GST)' : 'Amount (excl. GST)'
+  const gstSentence = invoice.gst_included
+    ? 'All amounts are in New Zealand Dollars and include GST.'
+    : 'Amounts are in New Zealand Dollars and exclude GST; GST is added to the total.'
+  const paymentSentence = isCashSale ? 'Payment is required prior to the clean.' : 'Payment is due within 14 days of the invoice date.'
+  const termsBody = `${paymentSentence} ${gstSentence} Sano Property Services Limited is GST registered (GST No. 148-387-648) under the Goods and Services Tax Act 1985. Please use your invoice number as the payment reference.`
 
   return (
     <DocumentLayout
@@ -267,6 +277,7 @@ export function InvoiceDocument({
       fromParty={fromParty}
       toParty={toParty}
       lineItems={lineItems}
+      amountLabel={amountLabel}
       notes={invoice.notes}
       paymentDetails={paymentDetails}
       totals={{

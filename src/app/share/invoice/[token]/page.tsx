@@ -66,7 +66,7 @@ export default async function PublicInvoicePage({
 
   const { data: items } = await supabase
     .from('invoice_items')
-    .select('label, price, sort_order')
+    .select('label, description, price, sort_order')
     .eq('invoice_id', invoice.id)
     .order('sort_order')
 

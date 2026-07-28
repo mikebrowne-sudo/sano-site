@@ -12,7 +12,7 @@ import clsx from 'clsx'
 import { formatCurrency } from '@/lib/format'
 import { updateInvoiceFinancials } from '../_actions-financials'
 
-export interface InvoiceLine { label: string; price: string }
+export interface InvoiceLine { label: string; description: string; price: string }
 
 export function EditInvoiceFinancials({
   invoiceId,
@@ -29,14 +29,14 @@ export function EditInvoiceFinancials({
   basePrice: number
   discount: number
   gstIncluded: boolean
-  items: { label: string | null; price: number | null }[]
+  items: { label: string | null; description?: string | null; price: number | null }[]
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [base, setBase] = useState(String(basePrice ?? 0))
   const [disc, setDisc] = useState(String(discount ?? 0))
   const [gst, setGst] = useState(gstIncluded)
-  const [lines, setLines] = useState<InvoiceLine[]>(items.map((i) => ({ label: i.label ?? '', price: String(i.price ?? 0) })))
+  const [lines, setLines] = useState<InvoiceLine[]>(items.map((i) => ({ label: i.label ?? '', description: i.description ?? '', price: String(i.price ?? 0) })))
   const [reason, setReason] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
@@ -55,7 +55,7 @@ export function EditInvoiceFinancials({
         base_price: n(base),
         discount: n(disc),
         gst_included: gst,
-        items: lines.map((l) => ({ label: l.label, price: n(l.price) })),
+        items: lines.map((l) => ({ label: l.label, description: l.description.trim() || null, price: n(l.price) })),
         reason: reason || null,
       })
       if ('error' in res) { setErr(res.error); return }
@@ -100,15 +100,18 @@ export function EditInvoiceFinancials({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-sage-500">Line items</span>
-          <button type="button" onClick={() => setLines((p) => [...p, { label: '', price: '' }])}
+          <button type="button" onClick={() => setLines((p) => [...p, { label: '', description: '', price: '' }])}
             className="inline-flex items-center gap-1 text-xs font-medium text-sage-600 hover:text-sage-800"><Plus size={13} /> Add line</button>
         </div>
         {lines.length === 0 && <p className="text-xs text-sage-400">No add-on lines.</p>}
         {lines.map((l, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <input value={l.label} onChange={(e) => setLines((p) => p.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} placeholder="Description" className={clsx(input, 'flex-1')} aria-label={`Line ${i + 1} description`} />
-            <input type="number" step="0.01" value={l.price} onChange={(e) => setLines((p) => p.map((x, j) => j === i ? { ...x, price: e.target.value } : x))} placeholder="0.00" className={clsx(input, 'w-28 text-right')} aria-label={`Line ${i + 1} amount`} />
-            <button type="button" onClick={() => setLines((p) => p.filter((_, j) => j !== i))} className="text-sage-400 hover:text-red-600" aria-label={`Remove line ${i + 1}`}><Trash2 size={15} /></button>
+          <div key={i} className="rounded-lg border border-sage-100 bg-sage-50/40 p-2 space-y-2">
+            <div className="flex items-center gap-2">
+              <input value={l.label} onChange={(e) => setLines((p) => p.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} placeholder="Item name" className={clsx(input, 'flex-1')} aria-label={`Line ${i + 1} name`} />
+              <input type="number" step="0.01" value={l.price} onChange={(e) => setLines((p) => p.map((x, j) => j === i ? { ...x, price: e.target.value } : x))} placeholder="0.00" className={clsx(input, 'w-28 text-right')} aria-label={`Line ${i + 1} amount`} />
+              <button type="button" onClick={() => setLines((p) => p.filter((_, j) => j !== i))} className="text-sage-400 hover:text-red-600" aria-label={`Remove line ${i + 1}`}><Trash2 size={15} /></button>
+            </div>
+            <textarea rows={2} value={l.description} onChange={(e) => setLines((p) => p.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Optional description" className={clsx(input, 'w-full resize-y')} aria-label={`Line ${i + 1} description`} />
           </div>
         ))}
       </div>

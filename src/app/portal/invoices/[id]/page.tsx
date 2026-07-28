@@ -63,7 +63,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       .single(),
     supabase
       .from('invoice_items')
-      .select('id, label, price, sort_order')
+      .select('id, label, description, price, sort_order')
       .eq('invoice_id', params.id)
       .order('sort_order'),
   ])
@@ -427,7 +427,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
               basePrice={invoice.base_price ?? 0}
               discount={invoice.discount ?? 0}
               gstIncluded={invoice.gst_included ?? false}
-              items={addons.map((a) => ({ label: a.label ?? null, price: a.price ?? null }))}
+              items={addons.map((a) => ({ label: a.label ?? null, description: a.description ?? null, price: a.price ?? null }))}
             />
           )}
         </Section>
