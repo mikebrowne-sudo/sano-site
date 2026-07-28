@@ -70,6 +70,7 @@ export default async function QuoteDetailPage({
       condition_tags,
       addons_wording,
       generated_scope,
+      structured_scope,
       description_edited,
       service_address,
       preferred_dates,

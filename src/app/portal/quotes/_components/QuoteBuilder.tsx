@@ -15,6 +15,14 @@ import {
   supportsRecurring,
   type ServiceCategory,
 } from '@/lib/quote-wording'
+import {
+  type StructuredScope,
+  buildDefaultResetScope,
+} from '@/lib/full-property-reset-scope'
+import { StructuredScopeEditor } from './StructuredScopeEditor'
+
+/** Service-type code that triggers the structured Full Property Reset scope. */
+export const FULL_RESET_CODE = 'full_property_reset'
 
 export interface QuoteBuilderState {
   service_category: ServiceCategory | ''
@@ -31,6 +39,9 @@ export interface QuoteBuilderState {
   support_line: string
   generated_scope: string
   description_edited: boolean
+  /** Structured Full Property Reset scope; null for every other service type
+   *  (which keep using the free-text generated_scope). */
+  structured_scope: StructuredScope | null
 }
 
 export function emptyBuilderState(): QuoteBuilderState {
@@ -49,6 +60,7 @@ export function emptyBuilderState(): QuoteBuilderState {
     support_line: '',
     generated_scope: '',
     description_edited: false,
+    structured_scope: null,
   }
 }
 
@@ -81,10 +93,14 @@ export function QuoteBuilder({
   )
 
   const showFrequency = supportsRecurring(category, s.service_type_code || null)
+  const isFullReset = s.service_type_code === FULL_RESET_CODE
 
   // ── Live regeneration ──────────────────────────────────────
   useEffect(() => {
     if (s.description_edited) return
+    // Full Property Reset uses the structured scope, not the free-text
+    // generator — never overwrite it here.
+    if (s.service_type_code === FULL_RESET_CODE) return
     const generated = generateQuoteScope({
       service_category: category,
       service_type_code: s.service_type_code || null,
@@ -142,10 +158,19 @@ export function QuoteBuilder({
       'airbnb.turnover',
       'commercial.maintenance',
     ].includes(key)
-    patch({
+    const next: Partial<QuoteBuilderState> = {
       service_type_code: code,
       frequency: recurring ? (s.service_category === 'commercial' ? 'x_per_week' : 'weekly') : 'one_off',
-    })
+    }
+    // Full Property Reset: load the standard structured scope the first time
+    // it's selected. Never clobber an existing structured_scope (preserves
+    // edits if the operator toggles away and back). Selecting a different
+    // service type leaves structured_scope in place but unused — only the
+    // free-text generated_scope renders for non-reset types.
+    if (code === FULL_RESET_CODE && !s.structured_scope) {
+      next.structured_scope = buildDefaultResetScope()
+    }
+    patch(next)
   }
 
   function toggleInArray(arr: string[], val: string, max?: number): string[] {
@@ -376,8 +401,18 @@ export function QuoteBuilder({
         </Block>
       )}
 
+      {/* ── Full Property Reset: structured scope editor ─── */}
+      {category && isFullReset && s.structured_scope && (
+        <Block title="Full Property Reset scope">
+          <StructuredScopeEditor
+            value={s.structured_scope}
+            onChange={(next) => patch({ structured_scope: next })}
+          />
+        </Block>
+      )}
+
       {/* ── Generated scope (preview / editable) ─────────── */}
-      {category && (
+      {category && !isFullReset && (
         <Block title="Generated scope">
           {s.description_edited ? (
             <div className="mb-2 flex items-center justify-between">

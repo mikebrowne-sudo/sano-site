@@ -5,7 +5,7 @@ import { createQuote, findRecentQuotesForClient, type RecentQuoteMatch } from '.
 import Link from 'next/link'
 import { AlertTriangle } from 'lucide-react'
 import { AddressField } from '../../../_components/AddressField'
-import { QuoteBuilder, emptyBuilderState, type QuoteBuilderState } from '../../_components/QuoteBuilder'
+import { QuoteBuilder, emptyBuilderState, type QuoteBuilderState, FULL_RESET_CODE } from '../../_components/QuoteBuilder'
 import { PricingSummary, emptyPricingSummaryValue, type PricingSummaryValue } from '../../_components/PricingSummary'
 import { OverridePanel, type OverridePanelValue } from '../../_components/OverridePanel'
 import { validateOverride, type OverrideValidationErrors } from '../../_components/override-validation'
@@ -492,6 +492,8 @@ export function NewQuoteForm({
         addons_wording: builder.addons_wording,
         generated_scope: builder.generated_scope || undefined,
         description_edited: builder.description_edited,
+        structured_scope:
+          builder.service_type_code === FULL_RESET_CODE ? builder.structured_scope : null,
         service_address: serviceAddress.trim() || undefined,
         preferred_dates: preferredDates.trim() || undefined,
         scheduled_clean_date: scheduledCleanDate || undefined,

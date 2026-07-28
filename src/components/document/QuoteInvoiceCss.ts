@@ -253,6 +253,52 @@ export const QUOTE_INVOICE_CSS = `
 
   /* Long detail — service address + description. Flows; may break across pages. */
   .doc-item-detail { margin-top: 12px; padding-left: 54px; } /* aligns under Description */
+
+  /* ── Structured scope (Full Property Reset) ────────────────────────
+     Bold section headings kept with their first task line; sections free to
+     flow across pages; no orphaned headings; no whole-scope wrapper. */
+  .doc-scope { }
+  .doc-scope-intro {
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--sage-700);
+    margin: 0 0 14px;
+  }
+  .doc-scope-section {
+    margin-top: 14px;
+    /* Sections may split across pages if long; only the heading is pinned to
+       the first item below (never leave a heading stranded at a page bottom). */
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+  .doc-scope-section:first-of-type { margin-top: 0; }
+  .doc-scope-heading {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--sage-800);
+    margin: 0 0 5px;
+    break-after: avoid;              /* heading stays with the first task */
+    page-break-after: avoid;
+  }
+  .doc-scope-list {
+    margin: 0;
+    padding-left: 16px;              /* modest indent, no oversized bullets */
+    list-style: disc;
+  }
+  .doc-scope-list li {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--sage-600);
+    margin: 0 0 2px;
+    orphans: 2;
+    widows: 2;
+  }
+  .doc-scope-text {
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--sage-600);
+    margin: 0;
+  }
   .doc-item-detail .desc-block { margin-top: 12px; }
   .doc-item-detail .desc-block:first-child { margin-top: 0; }
   .doc-item-detail .desc-block-label {
