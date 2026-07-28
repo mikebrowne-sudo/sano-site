@@ -174,7 +174,7 @@ async function cloneAsNewVersion(
   // quote_items (1:N — every quote)
   const { data: items } = await supabase
     .from('quote_items')
-    .select('label, price, sort_order')
+    .select('label, description, price, sort_order')
     .eq('quote_id', source.id)
   if (items && items.length > 0) {
     await supabase

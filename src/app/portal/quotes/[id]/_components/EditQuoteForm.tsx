@@ -78,6 +78,7 @@ interface Client {
 interface QuoteItem {
   id: string
   label: string
+  description: string | null
   price: number
   sort_order: number
 }
@@ -146,6 +147,7 @@ interface Quote {
 interface Addon {
   key: string
   label: string
+  description: string
   price: string
 }
 
@@ -295,7 +297,7 @@ export function EditQuoteForm({
   const [addons, setAddons] = useState<Addon[]>(
     items
       .sort((a, b) => a.sort_order - b.sort_order)
-      .map((it) => ({ key: it.id, label: it.label, price: String(it.price) })),
+      .map((it) => ({ key: it.id, label: it.label, description: it.description ?? '', price: String(it.price) })),
   )
 
   // Commercial quote engine state — hydrated from props; only used when
@@ -430,10 +432,10 @@ export function EditQuoteForm({
 
   // Add-on management
   function addAddon() {
-    setAddons((prev) => [...prev, { key: crypto.randomUUID(), label: '', price: '' }])
+    setAddons((prev) => [...prev, { key: crypto.randomUUID(), label: '', description: '', price: '' }])
   }
 
-  function updateAddon(key: string, field: 'label' | 'price', value: string) {
+  function updateAddon(key: string, field: 'label' | 'description' | 'price', value: string) {
     setAddons((prev) => prev.map((a) => (a.key === key ? { ...a, [field]: value } : a)))
   }
 
@@ -553,7 +555,7 @@ export function EditQuoteForm({
         payment_type: paymentType,
         addons: addons
           .filter((a) => a.label.trim())
-          .map((a, i) => ({ label: a.label.trim(), price: toNum(a.price), sort_order: i })),
+          .map((a, i) => ({ label: a.label.trim(), description: a.description.trim() || null, price: toNum(a.price), sort_order: i })),
         // Phase 5B — when admin has opted into override mode via the
         // ?override=1 URL param, the server action audit-logs the save
         // as `quote.amended_after_invoice` instead of `quote.amended`.
@@ -908,35 +910,44 @@ export function EditQuoteForm({
         {addons.length > 0 && (
           <div className="space-y-3 mb-4">
             {addons.map((a) => (
-              <div key={a.key} className="flex items-start gap-3">
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    placeholder="Description"
-                    value={a.label}
-                    onChange={(e) => updateAddon(a.key, 'label', e.target.value)}
-                    className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm"
-                  />
+              <div key={a.key} className="rounded-lg border border-sage-100 bg-sage-50/40 p-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      placeholder="Item name (e.g. Skip bin)"
+                      value={a.label}
+                      onChange={(e) => updateAddon(a.key, 'label', e.target.value)}
+                      className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+                  <div className="w-28">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="$0.00"
+                      value={a.price}
+                      onChange={(e) => updateAddon(a.key, 'price', e.target.value)}
+                      className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeAddon(a.key)}
+                    className="mt-2.5 text-sage-400 hover:text-red-500 transition-colors"
+                    aria-label="Remove item"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
-                <div className="w-28">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="$0.00"
-                    value={a.price}
-                    onChange={(e) => updateAddon(a.key, 'price', e.target.value)}
-                    className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeAddon(a.key)}
-                  className="mt-2.5 text-sage-400 hover:text-red-500 transition-colors"
-                  aria-label="Remove add-on"
-                >
-                  <Trash2 size={16} />
-                </button>
+                <textarea
+                  rows={2}
+                  placeholder="Optional description (shown under the item on the quote)"
+                  value={a.description}
+                  onChange={(e) => updateAddon(a.key, 'description', e.target.value)}
+                  className="mt-2 w-full rounded-lg border border-sage-200 px-4 py-2.5 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm resize-y"
+                />
               </div>
             ))}
           </div>

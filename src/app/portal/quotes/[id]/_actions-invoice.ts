@@ -38,7 +38,7 @@ export async function convertToInvoice(quoteId: string) {
   // 2. Load quote items
   const { data: items } = await supabase
     .from('quote_items')
-    .select('label, price, sort_order')
+    .select('label, description, price, sort_order')
     .eq('quote_id', quoteId)
     .order('sort_order')
 
@@ -113,6 +113,7 @@ export async function convertToInvoice(quoteId: string) {
     const invoiceItems = items.map((it) => ({
       invoice_id: invoice.id,
       label: it.label,
+      description: it.description ?? null,
       price: it.price,
       sort_order: it.sort_order,
     }))

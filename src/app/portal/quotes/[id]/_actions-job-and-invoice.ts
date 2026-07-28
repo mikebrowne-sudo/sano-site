@@ -30,6 +30,7 @@ import { computeInvoiceDueDate, resolveServiceDate } from '@/lib/invoice-dates'
 
 type ResidentialItemRow = {
   label: string | null
+  description: string | null
   price: number | null
   sort_order: number | null
 }
@@ -89,7 +90,7 @@ export async function createJobAndInvoiceFromQuote(quoteId: string) {
   ] = await Promise.all([
     supabase
       .from('quote_items')
-      .select('label, price, sort_order')
+      .select('label, description, price, sort_order')
       .eq('quote_id', quoteId)
       .order('sort_order'),
     supabase
@@ -166,6 +167,7 @@ export async function createJobAndInvoiceFromQuote(quoteId: string) {
     const invoiceItems = residentialItems.map((it: ResidentialItemRow) => ({
       invoice_id: invoice.id,
       label: it.label ?? '',
+      description: it.description ?? null,
       price: it.price ?? 0,
       sort_order: it.sort_order ?? 0,
     }))

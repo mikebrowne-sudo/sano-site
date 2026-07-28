@@ -48,7 +48,7 @@ export default async function PrintQuotePage({ params }: { params: { id: string 
       .single(),
     supabase
       .from('quote_items')
-      .select('label, price, sort_order')
+      .select('label, description, price, sort_order')
       .eq('quote_id', params.id)
       .order('sort_order'),
   ])

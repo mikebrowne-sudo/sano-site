@@ -71,6 +71,7 @@ export interface InvoiceDocumentInput {
 
 export interface InvoiceItemInput {
   label: string
+  description?: string | null
   price: number | null
 }
 
@@ -231,7 +232,12 @@ export function InvoiceDocument({
     })
   }
   for (const addon of addons) {
-    lineItems.push({ description: addon.label, amount: fmt(addon.price ?? 0) })
+    const addonDesc = (addon.description ?? '').trim()
+    lineItems.push({
+      description: addon.label,
+      subBlocks: addonDesc ? [{ label: 'Description', value: addonDesc }] : undefined,
+      amount: fmt(addon.price ?? 0),
+    })
   }
   if ((invoice.discount ?? 0) > 0) {
     lineItems.push({ description: 'Discount', amount: `-${fmt(invoice.discount ?? 0)}` })

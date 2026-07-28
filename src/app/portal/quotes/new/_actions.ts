@@ -60,6 +60,7 @@ export async function findRecentQuotesForClient(input: {
 
 interface AddonInput {
   label: string
+  description?: string | null
   price: number
   sort_order: number
 }
@@ -274,6 +275,7 @@ export async function createQuote(input: CreateQuoteInput) {
     const items = input.addons.map((a) => ({
       quote_id: quote.id,
       label: a.label,
+      description: a.description ?? null,
       price: a.price,
       sort_order: a.sort_order,
     }))

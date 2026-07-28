@@ -23,6 +23,7 @@ function addDaysISO(iso: string, days: number): string {
 
 interface AddonInput {
   label: string
+  description?: string | null
   price: number
   sort_order: number
 }
@@ -207,6 +208,7 @@ export async function updateQuote(input: UpdateQuoteInput) {
     const items = input.addons.map((a) => ({
       quote_id: input.id,
       label: a.label,
+      description: a.description ?? null,
       price: a.price,
       sort_order: a.sort_order,
     }))

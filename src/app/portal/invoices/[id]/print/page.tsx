@@ -47,7 +47,7 @@ export default async function PrintInvoicePage({ params }: { params: { id: strin
       .single(),
     supabase
       .from('invoice_items')
-      .select('label, price, sort_order')
+      .select('label, description, price, sort_order')
       .eq('invoice_id', params.id)
       .order('sort_order'),
   ])
