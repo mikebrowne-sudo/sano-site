@@ -19,8 +19,8 @@ export default function SandringhamServiceAreaPage() {
           'From regular upkeep to deeper cleans and end-of-tenancy resets, Sano helps Sandringham households keep homes, townhouses, and rentals properly looked after.',
         heroImage: '/images/heroes/regular-house-cleaning-hero.jpg',
         introParagraphs: [
-          'In Sandringham, Sano looks after homes, townhouses, and rentals, whether that’s a regular clean, a deeper one, or an end-of-tenancy reset before new tenants arrive.',
-          'We agree what needs doing before the clean, work around each property’s layout and timing, and leave it clean, settled, and ready.',
+          'Sandringham homes, townhouses, and rentals are looked after by Sano on whatever basis suits, from a standing weekly or fortnightly clean to a one-off deeper visit or a full reset when a rental changes hands.',
+          'Details are settled before the first visit, the work is planned around how the property runs day to day, and it is left clean, settled, and ready.',
         ],
         introImage: '/images/herne-bay-residential.jpg',
         introImageAlt: 'A well-kept Auckland home interior',

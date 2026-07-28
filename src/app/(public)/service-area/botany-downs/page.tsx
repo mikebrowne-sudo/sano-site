@@ -19,8 +19,8 @@ export default function BotanyDownsServiceAreaPage() {
           'From family homes and townhouses to rentals and workplaces, Sano matches the clean to the property across Botany Downs.',
         heroImage: '/images/heroes/carpet-upholstery-cleaning-hero.jpg',
         introParagraphs: [
-          'Sano cleans homes and workplaces across Botany Downs, including family homes, townhouses, rentals, and offices. The work runs from regular upkeep and workplace presentation to deeper cleans and move-out or handover jobs.',
-          'We confirm what’s needed before we start, fit around access and the hours that suit the home or business, and leave the space clean, presentable, and ready to use.',
+          'Across Botany Downs, Sano handles cleaning for family homes, townhouses, rentals, and offices alike. That covers regular home upkeep, workplace presentation, deeper cleans, and move-out or handover work.',
+          'Every job is scoped up front, worked around access and hours that suit the household or workplace, and finished with the space clean, presentable, and ready to use.',
         ],
         introImage: '/images/carpet-upholstery.jpg',
         introImageAlt: 'Freshly cleaned carpet and living space in an Auckland home',

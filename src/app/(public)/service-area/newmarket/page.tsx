@@ -19,8 +19,8 @@ export default function NewmarketServiceAreaPage() {
           'From offices and commercial spaces to apartments and rentals, Sano keeps Newmarket workplaces and homes consistently clean and presentable.',
         heroImage: '/images/heroes/commercial-office-cleaning-hero.jpg',
         introParagraphs: [
-          'Sano cleans workplaces and homes across Newmarket, including offices, retail and commercial spaces, apartments, and rentals. The work ranges from regular workplace presentation and ongoing upkeep to deeper cleans and move-out jobs.',
-          'We agree the job before we start, schedule around trading and business hours, and leave the workplace or home clean, presentable, and ready to use.',
+          'Across Newmarket, Sano cleans offices, retail and commercial spaces, apartments, and rentals. Jobs span ongoing upkeep, workplace presentation, deeper one-off cleans, and move-out work.',
+          'Cleans are scheduled around trading and business hours so they don’t get in the way, with the job agreed in advance and the workplace or home left presentable and ready to use.',
         ],
         introImage: '/images/sano-commercial-clean-auckland.jpeg',
         introImageAlt: 'A clean, presentable Auckland workplace',

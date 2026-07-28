@@ -19,7 +19,7 @@ export default function FlatBushServiceAreaPage() {
           'From regular upkeep to deeper cleans and end-of-tenancy resets, Sano helps Flat Bush households keep homes and rentals properly looked after.',
         heroImage: '/images/heroes/end-of-tenancy-hero.jpg',
         introParagraphs: [
-          'Sano cleans family homes, newer builds, townhouses, and rentals across Flat Bush, from regular upkeep to deeper cleans and move-in or move-out work.',
+          'From family homes and newer builds to townhouses and rentals, Sano covers cleaning right across Flat Bush, whether that’s regular upkeep, a deeper one-off clean, or move-in and move-out work.',
           'For larger or newer Flat Bush homes, a deep clean is a good way to reset the detail across skirtings, glass, wet areas, and edges, with regular visits after to keep it there.',
         ],
         introImage: '/images/end-of-tenancy.jpg',

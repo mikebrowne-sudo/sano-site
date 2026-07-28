@@ -19,8 +19,8 @@ export default function MountAlbertServiceAreaPage() {
           'From homes and townhouses to rentals and workplaces, Sano matches the clean to the property across Mount Albert.',
         heroImage: '/images/heroes/carpet-upholstery-cleaning-hero.jpg',
         introParagraphs: [
-          'In Mount Albert, Sano looks after homes, townhouses, rentals, and smaller workplaces, whether that’s a regular clean, a deeper one, or an end-of-tenancy reset before new tenants arrive.',
-          'We agree what needs doing before the clean, work around each property’s layout and timing, and leave it clean, settled, and ready.',
+          'Across Mount Albert, Sano cleans family homes, units, rentals, and smaller workplaces. Some are booked as ongoing upkeep, others as a one-off deep clean or a full end-of-tenancy reset ahead of a new tenancy.',
+          'The scope is agreed up front, the clean is worked around each property’s layout and preferred timing, and the home is left settled and ready.',
         ],
         introImage: '/images/cleaned-by-sano.jpg',
         introImageAlt: 'A clean, well-kept Auckland home',

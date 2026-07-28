@@ -29,7 +29,7 @@ export default function PapatoetoeServiceAreaPage() {
         heroImage: '/images/heroes/regular-house-cleaning-hero.jpg',
         introParagraphs: [
           'Sano cleans houses, units, flats, and rentals across Papatoetoe, covering regular upkeep, one-off deeper cleans, end-of-tenancy resets, and move-in work, with office and workplace cleaning available around the local town centres.',
-          'The scope gets confirmed before the first visit, the team fits around the property’s layout and handover timing, and the clean is finished properly.',
+          'Work is fitted around the property’s layout and any handover timing, the scope is agreed beforehand, and the clean is finished properly before the team leaves.',
         ],
         introImage: '/images/deep-cleaning.jpg',
         introImageAlt: 'A deep-cleaned kitchen in an Auckland home',

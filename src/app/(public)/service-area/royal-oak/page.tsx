@@ -19,8 +19,8 @@ export default function RoyalOakServiceAreaPage() {
           'From regular upkeep to deeper cleans and end-of-tenancy resets, Sano helps Royal Oak households keep homes, townhouses, and rentals properly looked after.',
         heroImage: '/images/heroes/deep-cleaning-hero.jpg',
         introParagraphs: [
-          'In Royal Oak, Sano looks after homes, townhouses, and rentals, whether that’s a regular clean, a deeper one, or an end-of-tenancy reset before new tenants arrive.',
-          'We agree what needs doing before the clean, fit the work around each property’s layout and timing, and leave it clean, settled, and ready.',
+          'Sano cleans homes, townhouses, and rentals across Royal Oak, covering regular weekly or fortnightly upkeep, one-off deep cleans, and end-of-tenancy resets at the end of a lease.',
+          'Each clean is scoped in advance, planned around the property’s layout and the timing that works best, and finished with the home left settled and ready.',
         ],
         introImage: '/images/cleaned-by-sano.jpg',
         introImageAlt: 'A clean, well-kept Auckland home',

@@ -28,8 +28,8 @@ export default function PonsonbyServiceAreaPage() {
           'From regular upkeep to deeper move-in and move-out cleans, Sano helps Ponsonby households keep homes, townhouses, apartments, and rentals looking properly cared for.',
         heroImage: '/images/heroes/regular-house-cleaning-hero.jpg',
         introParagraphs: [
-          "In Ponsonby, Sano looks after character homes, renovated homes, terraces, townhouses, apartments, and rentals, whether that's a regular clean, a deeper one, or an end-of-tenancy reset before new tenants arrive.",
-          "We agree what needs doing before the clean, fit the work around each property's layout and timing, and leave it clean, settled, and ready.",
+          'Sano cleans character homes, renovated homes, terraces, townhouses, apartments, and rentals throughout Ponsonby, from regular upkeep through to deeper one-off cleans and end-of-tenancy resets at changeover.',
+          'Older and renovated homes each have their quirks, so the scope is agreed up front and the clean is shaped around the property, leaving it settled and ready.',
         ],
         introImage: '/images/herne-bay-residential.jpg',
         introImageAlt: 'A well-presented residential Auckland home',

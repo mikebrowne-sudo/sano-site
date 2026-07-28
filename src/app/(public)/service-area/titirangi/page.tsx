@@ -29,7 +29,7 @@ export default function TitirangiServiceAreaPage() {
         heroImage: '/images/heroes/regular-house-cleaning-hero.jpg',
         introParagraphs: [
           'Sano cleans family homes, standalone properties, larger homes, and rentals across Titirangi, from regular upkeep to deeper cleans and move-in or move-out work.',
-          'We sort the details before the first visit, allow for access and timing where a property calls for it, and leave the home clean, presentable, and ready.',
+          'Where a property needs a little extra thought on access or timing, that gets planned in ahead of the visit, and the home is left clean, presentable, and ready.',
         ],
         introImage: '/images/herne-bay-residential.jpg',
         introImageAlt: 'A timber home set among trees in West Auckland',

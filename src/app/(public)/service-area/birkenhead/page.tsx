@@ -19,7 +19,7 @@ export default function BirkenheadServiceAreaPage() {
           'From regular upkeep to deeper cleans and move-out resets, Sano keeps Birkenhead homes, townhouses, and rentals well looked after.',
         heroImage: '/images/heroes/deep-cleaning-hero.jpg',
         introParagraphs: [
-          'Across Birkenhead, Sano cleans family homes, townhouses, and rentals, whether that’s ongoing upkeep, a deeper clean, or an end-of-tenancy reset before a new tenancy.',
+          'Sano cleans family homes, townhouses, and rentals throughout Birkenhead, covering ongoing upkeep, deeper one-off cleans, and end-of-tenancy resets when a rental changes over.',
           'We sort the details before the first visit, work around each property’s layout and timing, and leave the home clean, presentable, and ready.',
         ],
         introImage: '/images/deep-cleaning.jpg',
