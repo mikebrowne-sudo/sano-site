@@ -35,6 +35,7 @@ const ACTION_LABELS: Record<string, string> = {
   // Quotes
   'quote.amended':                 'Quote amended',
   'quote.amended_after_invoice':   'Quote amended (after invoice)',
+  'quote.test_sent':               'Test preview email (internal)',
   // Jobs
   'job.amended':                   'Job amended',
   'job.amended_after_invoice':     'Job amended (after invoice)',

@@ -501,10 +501,20 @@ export function EditQuoteForm({
           setError(versionResult.error)
           return
         }
-        if (versionResult.new_quote_id) {
-          targetId = versionResult.new_quote_id
-          targetStatus = 'draft'
+        // Hard requirement: a fork MUST return the new draft's id. If it
+        // doesn't (unexpected server state), STOP — do not fall through and
+        // write the edits onto the old row, which cloneAsNewVersion has
+        // already demoted to a read-only historical version. Silently
+        // continuing here was the cause of "my changes didn't save": edits
+        // landed on a version the operator never saw. Fail loudly instead.
+        if (!versionResult.new_quote_id) {
+          setError(
+            'Could not create a new draft version to save your changes. Nothing was saved. Please reload the quote and try again.',
+          )
+          return
         }
+        targetId = versionResult.new_quote_id
+        targetStatus = 'draft'
       }
 
       const result = await updateQuote({
@@ -601,8 +611,14 @@ export function EditQuoteForm({
         }
       }
 
-      // If we created a new version, take the operator to it.
-      if (willCreateNewVersion && targetId !== quote.id) {
+      // If we created a new version, take the operator to it. targetId is
+      // guaranteed to differ from quote.id here (the fork path above returns
+      // early unless a new_quote_id came back), so this redirect always
+      // fires after a fork — the operator can never be stranded on the old,
+      // now-demoted version. refresh() first so the destination renders the
+      // freshly-saved draft rather than a cached shell.
+      if (willCreateNewVersion) {
+        router.refresh()
         router.push(`/portal/quotes/${targetId}`)
         return
       }

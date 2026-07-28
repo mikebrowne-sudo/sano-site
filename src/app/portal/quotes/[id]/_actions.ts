@@ -21,6 +21,27 @@ function addDaysISO(iso: string, days: number): string {
   return dt.toISOString().slice(0, 10)
 }
 
+/**
+ * Revalidate every surface that renders a quote, so an edit / send never
+ * leaves a stale preview or PDF behind. Previously only the detail + list
+ * routes were revalidated, so the Print page, the /api PDF, and the public
+ * share page kept serving pre-edit content — a key cause of "my changes
+ * didn't save" after editing a quote. Pass the share_token to also refresh
+ * the public share route (skip when unknown).
+ */
+function revalidateQuoteSurfaces(quoteId: string, shareToken?: string | null) {
+  revalidatePath(`/portal/quotes/${quoteId}`)
+  revalidatePath('/portal/quotes')
+  revalidatePath(`/portal/quotes/${quoteId}/print`)
+  revalidatePath(`/portal/quotes/${quoteId}/proposal/preview`)
+  revalidatePath(`/api/quotes/${quoteId}/pdf`)
+  revalidatePath(`/api/proposals/${quoteId}/pdf`)
+  if (shareToken) {
+    revalidatePath(`/share/quote/${shareToken}`)
+    revalidatePath(`/api/share/quote/${shareToken}/pdf`)
+  }
+}
+
 interface AddonInput {
   label: string
   description?: string | null
@@ -101,7 +122,7 @@ export async function updateQuote(input: UpdateQuoteInput) {
   // override is unchanged (or stamp them when it transitions from off to on).
   const { data: existing, error: existingErr } = await supabase
     .from('quotes')
-    .select('is_price_overridden, override_confirmed_by, override_confirmed_at, base_price, discount')
+    .select('is_price_overridden, override_confirmed_by, override_confirmed_at, base_price, discount, share_token')
     .eq('id', input.id)
     .single()
 
@@ -244,8 +265,7 @@ export async function updateQuote(input: UpdateQuoteInput) {
     },
   })
 
-  revalidatePath(`/portal/quotes/${input.id}`)
-  revalidatePath('/portal/quotes')
+  revalidateQuoteSurfaces(input.id, (existing as { share_token?: string | null }).share_token)
   return { success: true, overridden: guard.overridden }
 }
 
@@ -393,9 +413,148 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
     return { error: `Email sent but failed to update quote status: ${updateErr.message}` }
   }
 
-  revalidatePath(`/portal/quotes/${input.quote_id}`)
-  revalidatePath('/portal/quotes')
+  revalidateQuoteSurfaces(input.quote_id, quote.share_token as string | null)
   return { success: true }
+}
+
+// ── Send TEST / internal-preview quote email ──────────────────
+//
+// Sends the SAME customer-facing PDF + presentation to an internal
+// address (defaults to the logged-in staff member) so staff can review
+// the email + attachment before formally issuing. Critically, this does
+// NOT mark the quote as sent: no status change, no sent_at, no
+// versioning, no share-token rotation. It records a `quote.test_sent`
+// audit row labelled as internal test activity — distinct from a real
+// customer send.
+
+interface SendTestQuoteEmailInput {
+  quote_id: string
+  /** Optional override; when blank, defaults to the logged-in staff email. */
+  to?: string
+  print_url: string
+}
+
+export async function sendQuoteTestEmail(input: SendTestQuoteEmailInput) {
+  const supabase = createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+
+  // Recipient rule: default to the logged-in staff member's own email
+  // (Carol's portal → carol@sano.nz, etc.). A typed override is allowed
+  // but must still be a real address. This never reads or writes the
+  // quote's customer recipient fields, so the customer email is untouched.
+  const recipient = (input.to?.trim() || user.email || '').trim()
+  if (!recipient) {
+    return { error: 'No internal email address available for the test send.' }
+  }
+
+  const { data: quote, error: loadErr } = await supabase
+    .from('quotes')
+    .select('date_issued, valid_until, share_token, quote_number')
+    .eq('id', input.quote_id)
+    .single()
+
+  if (loadErr || !quote) {
+    return { error: `Quote not found: ${loadErr?.message ?? 'unknown'}` }
+  }
+
+  if (!quote.share_token || !quote.quote_number) {
+    return { error: 'PDF generation failed, so the email was not sent. Please try again.' }
+  }
+
+  // Stamp missing display dates BEFORE rendering so the test PDF shows
+  // populated dates — mirrors the customer send. This is display-only
+  // date backfill and does NOT change status/sent_at.
+  const today = new Date().toISOString().slice(0, 10)
+  const effectiveIssued = (quote.date_issued as string | null) || today
+  const effectiveValidUntil =
+    (quote.valid_until as string | null) || addDaysISO(effectiveIssued, 30)
+
+  const datePatch: Record<string, string> = {}
+  if (!quote.date_issued) datePatch.date_issued = effectiveIssued
+  if (!quote.valid_until) datePatch.valid_until = effectiveValidUntil
+  if (Object.keys(datePatch).length > 0) {
+    const { error: dateUpdErr } = await supabase
+      .from('quotes')
+      .update(datePatch)
+      .eq('id', input.quote_id)
+    if (dateUpdErr) {
+      return {
+        error: 'PDF generation failed, so the email was not sent. Please try again.',
+        detail: dateUpdErr.message,
+      }
+    }
+  }
+
+  const origin =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    `https://${headers().get('host') ?? 'sano.nz'}`
+
+  let pdfBuffer: Buffer
+  try {
+    pdfBuffer = await renderPdfFromUrl(
+      `${origin}/share/quote/${quote.share_token}?pdf=1`,
+      {},
+    )
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : 'unknown error'
+    return {
+      error: 'PDF generation failed, so the email was not sent. Please try again.',
+      detail,
+    }
+  }
+
+  const pdfFilename = `${sanitizePdfFilename(`Sano Quote - ${quote.quote_number}`)}.pdf`
+  const resend = new Resend(process.env.RESEND_API_KEY)
+
+  // Clear internal markers so the review email can never be mistaken for
+  // (or forwarded as) the real customer document.
+  const subject = `TEST – Quote preview – ${quote.quote_number}`
+  const html = `
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;margin-bottom:20px;">
+      <p style="margin:0;color:#9a3412;font-weight:600;font-size:14px;">⚠ Internal test preview — not sent to the customer</p>
+      <p style="margin:6px 0 0;color:#9a3412;font-size:13px;">This is a review copy of quote ${esc(quote.quote_number as string)}. The quote has NOT been marked as sent. Do not forward this to the customer.</p>
+    </div>
+    <p>Review copy of the quote as the customer would receive it. The PDF attached is the customer-facing document.</p>
+    <p><a href="${esc(input.print_url)}" style="display:inline-block;padding:10px 20px;background:#076653;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">View Quote</a></p>
+    <p style="color:#888;font-size:13px;margin-top:24px;">Sano Property Services Limited — internal preview</p>
+  `
+
+  const { error: emailErr } = await resend.emails.send({
+    from: 'Sano <noreply@sano.nz>',
+    replyTo: getCustomerReplyToEmail(),
+    to: recipient,
+    subject,
+    html,
+    attachments: [{ filename: pdfFilename, content: pdfBuffer }],
+  })
+
+  if (emailErr) {
+    return { error: `Failed to send test email: ${emailErr.message}` }
+  }
+
+  // Audit as TEST activity — labelled distinctly from a customer send,
+  // records the internal recipient. Never flips status/sent_at.
+  try {
+    await supabase.from('audit_log').insert({
+      actor_id: user.id,
+      actor_role: 'staff',
+      action: 'quote.test_sent',
+      entity_table: 'quotes',
+      entity_id: input.quote_id,
+      before: {},
+      after: { recipient, quote_number: quote.quote_number },
+    })
+  } catch (err) {
+    console.warn('[sendQuoteTestEmail] audit insert failed:', err)
+  }
+
+  revalidatePath(`/portal/quotes/${input.quote_id}`)
+  // The test render may have backfilled display dates; refresh doc surfaces
+  // so a subsequent preview/PDF shows them. Status is unchanged.
+  revalidateQuoteSurfaces(input.quote_id, quote.share_token as string | null)
+  return { success: true, recipient }
 }
 
 export async function markQuoteAccepted(quoteId: string) {
