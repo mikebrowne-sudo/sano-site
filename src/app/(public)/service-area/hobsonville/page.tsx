@@ -20,32 +20,32 @@ export default function HobsonvilleServiceAreaPage() {
         heroImage: '/images/heroes/regular-house-cleaning-hero.jpg',
         introParagraphs: [
           'Sano cleans family homes, newer builds, townhouses, and rentals across Hobsonville, from regular upkeep to deeper cleans and move-in or move-out work.',
-          'We sort the details before the first visit, work around each property’s layout and timing, and leave the home clean, presentable, and ready.',
+          'Move-in and move-out cleans are available across Hobsonville, handing a home over spotless for the next occupants, with regular and deep cleaning to keep it that way once settled.',
         ],
         introImage: '/images/sano-auckland-team.jpeg',
         introImageAlt: 'A Sano cleaner at work in an Auckland home',
         servicesLead:
-          'From regular home cleaning and deeper resets to move cleans, carpets, and windows, the full range of Sano services is available across Hobsonville. Pick a service to read its full scope.',
+          'Move cleans and end-of-tenancy resets are available across Hobsonville, together with regular upkeep, deep cleans, carpets, and windows. Pick a service to read its full scope.',
         serviceGroups: [HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP],
         cover: [
           {
             title: 'Family homes and new builds',
-            body: 'Regular and deep cleaning for houses of all sizes, keeping finishes, kitchens, and bathrooms consistently done.',
+            body: 'A clean handover for a new home, then regular or deep cleaning once you’re in, keeping kitchens and bathrooms on track.',
             icon: Home,
           },
           {
             title: 'Townhouses and units',
-            body: 'Cleaning scoped to multi-level layouts and shared access, with kitchens, bathrooms, and glass a regular focus.',
+            body: 'Move and upkeep cleans suited to multi-level layouts and shared entries, with glass and wet areas a standing focus.',
             icon: Building2,
           },
           {
             title: 'Carpets and soft furnishings',
-            body: 'Carpet and upholstery cleaning to lift built-up dirt, marks, and odours between deeper household cleans.',
+            body: 'Carpet and upholstery cleaning at changeover or between cleans, clearing built-up dirt and odours before the next occupant.',
             icon: Sofa,
           },
           {
             title: 'Rentals and move cleans',
-            body: 'Move-in and move-out cleans booked to the handover and scoped around what owners and property managers check.',
+            body: 'Move-in and move-out cleans timed to the handover and worked to the standard owners and property managers expect at inspection.',
             icon: KeyRound,
           },
         ],

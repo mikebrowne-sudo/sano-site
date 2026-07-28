@@ -20,32 +20,32 @@ export default function FlatBushServiceAreaPage() {
         heroImage: '/images/heroes/end-of-tenancy-hero.jpg',
         introParagraphs: [
           'Sano cleans family homes, newer builds, townhouses, and rentals across Flat Bush, from regular upkeep to deeper cleans and move-in or move-out work.',
-          'We sort the details before the first visit, work around each property’s layout and timing, and leave the home clean, presentable, and ready.',
+          'For larger or newer Flat Bush homes, a deep clean is a good way to reset the detail across skirtings, glass, wet areas, and edges, with regular visits after to keep it there.',
         ],
         introImage: '/images/end-of-tenancy.jpg',
         introImageAlt: 'A home cleaned and ready for handover in Auckland',
         servicesLead:
-          'From regular home cleaning and deeper resets to move cleans, carpets, and windows, the full range of Sano services is available across Flat Bush. Pick a service to read its full scope.',
+          'Deep cleans and detailed resets are available across Flat Bush, along with regular upkeep, move cleans, carpets, and windows. Pick a service to read its full scope.',
         serviceGroups: [HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP],
         cover: [
           {
             title: 'Family homes and new builds',
-            body: 'Regular and deep cleaning for houses of all sizes, keeping finishes, kitchens, and bathrooms consistently done.',
+            body: 'A full deep clean that gets larger homes back to detail across edges, skirtings, and wet areas, then regular visits to hold the standard.',
             icon: Home,
           },
           {
             title: 'Townhouses and units',
-            body: 'Cleaning scoped to multi-level layouts and shared access, with kitchens, bathrooms, and glass a regular focus.',
+            body: 'Cleaning worked around stairs and multiple levels, with glass, kitchens, and bathrooms given the extra attention they need.',
             icon: Building2,
           },
           {
             title: 'Carpets and soft furnishings',
-            body: 'Carpet and upholstery cleaning to lift built-up dirt, marks, and odours between deeper household cleans.',
+            body: 'Carpet and upholstery cleaning folded into a deeper reset, lifting the dirt and odours a surface clean leaves behind.',
             icon: Sofa,
           },
           {
             title: 'Rentals and move cleans',
-            body: 'Move-in and move-out cleans booked to the handover and scoped around what owners and property managers check.',
+            body: 'Move-out cleans that take a lived-in home back to handover condition, scoped to what owners and property managers sign off on.',
             icon: KeyRound,
           },
         ],

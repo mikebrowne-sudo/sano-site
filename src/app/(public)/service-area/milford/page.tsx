@@ -20,32 +20,32 @@ export default function MilfordServiceAreaPage() {
         heroImage: '/images/heroes/window-cleaning-hero.jpg',
         introParagraphs: [
           'Across Milford, Sano cleans family homes, apartments, and rentals, whether that’s ongoing upkeep, a deeper clean, or an end-of-tenancy reset before a new tenancy.',
-          'We sort the details before the first visit, work around each property’s layout and timing, and leave the home clean, presentable, and ready.',
+          'Apartment upkeep and end-of-tenancy resets are both covered in Milford, with steady regular cleans and thorough move-out work that takes a unit back to inspection-ready.',
         ],
         introImage: '/images/window-cleaning.jpg',
         introImageAlt: 'Clean, streak-free windows in an Auckland home',
         servicesLead:
-          'From regular home cleaning and deeper resets to move cleans, windows, and carpets, the full range of Sano services is available across Milford. Pick a service to read its full scope.',
+          'End-of-tenancy resets and regular apartment upkeep are available across Milford, as are deep cleans, carpets, and windows. Pick a service to read its full scope.',
         serviceGroups: [HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP],
         cover: [
           {
             title: 'Family homes',
-            body: 'Regular and deep cleaning worked room by room so kitchens, bathrooms, and living areas stay consistently done.',
+            body: 'A regular clean kept to a schedule that suits the household, with a deeper reset dropped in whenever the home needs one.',
             icon: Home,
           },
           {
             title: 'Apartments and units',
-            body: 'Cleaning scoped to apartment layouts and shared access, keeping kitchens, bathrooms, and glass on a regular footing.',
+            body: 'Upkeep and changeover cleaning built for apartment living, from routine visits to a full end-of-tenancy turnaround between tenants.',
             icon: Building2,
           },
           {
             title: 'Glass and windows',
-            body: 'Interior and exterior window cleaning for streak-free glass, worked in alongside a regular or deeper clean where it helps.',
+            body: 'Interior and exterior window cleaning for clear glass, booked on its own or worked into a deeper clean where it makes sense.',
             icon: Sparkles,
           },
           {
             title: 'Rentals and move cleans',
-            body: 'Move-in and move-out cleans booked to the handover and scoped around what owners and property managers check.',
+            body: 'End-of-tenancy cleans that take a unit back to inspection-ready, scoped around what owners and property managers check off.',
             icon: KeyRound,
           },
         ],

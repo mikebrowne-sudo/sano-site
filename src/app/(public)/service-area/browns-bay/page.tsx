@@ -20,32 +20,32 @@ export default function BrownsBayServiceAreaPage() {
         heroImage: '/images/heroes/window-cleaning-hero.jpg',
         introParagraphs: [
           'Sano cleans family homes, apartments, and rentals across Browns Bay, from regular upkeep to deeper cleans and move-in or move-out work.',
-          'We sort the details before the first visit, work around each property’s layout and timing, and leave the home clean, presentable, and ready.',
+          'Window and glass cleaning is available across Browns Bay for clear, streak-free views inside and out, worked in alongside regular home cleaning and deeper resets.',
         ],
         introImage: '/images/window-cleaning.jpg',
         introImageAlt: 'Clean, streak-free windows in an Auckland home',
         servicesLead:
-          'From regular home cleaning and deeper resets to move cleans, windows, and carpets, the full range of Sano services is available across Browns Bay. Pick a service to read its full scope.',
+          'Window and glass cleaning is one of the services Sano offers in Browns Bay, alongside regular upkeep, deep cleans, move cleans, and carpets. Pick a service to read its full scope.',
         serviceGroups: [HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP],
         cover: [
           {
             title: 'Family homes',
-            body: 'Regular and deep cleaning worked room by room so kitchens, bathrooms, and living areas stay consistently done.',
+            body: 'Regular and deep cleaning through the living areas, kitchens, and bathrooms, with interior glass kept clear as part of the visit.',
             icon: Home,
           },
           {
             title: 'Apartments and units',
-            body: 'Cleaning scoped to apartment layouts and shared access, keeping kitchens, bathrooms, and glass on a regular footing.',
+            body: 'Cleaning suited to apartment layouts and shared access, keeping wet areas, floors, and windows on a steady footing.',
             icon: Building2,
           },
           {
             title: 'Glass and windows',
-            body: 'Interior and exterior window cleaning for streak-free glass, worked in alongside a regular or deeper clean where it helps.',
+            body: 'Interior and exterior window cleaning for clear, streak-free glass, booked on its own or added onto a regular or deep clean.',
             icon: Sparkles,
           },
           {
             title: 'Rentals and move cleans',
-            body: 'Move-in and move-out cleans booked to the handover and scoped around what owners and property managers check.',
+            body: 'Move-in and move-out cleans set to the handover, with glass and wet areas taken to the standard inspections look for.',
             icon: KeyRound,
           },
         ],
