@@ -1,0 +1,76 @@
+name: Post-deploy smoke
+
+# After a push to main, Netlify auto-deploys. This job waits for that deploy to
+# go live, then curls the key public + dynamic surfaces and fails if any is not
+# 200 — a lightweight backstop for the 2026-05-31 failure mode (dynamic routes
+# 500 while static files 200). On failure, GitHub emails the repo admins.
+#
+# Self-contained: no Netlify webhook, no secrets, no extra services — just curl
+# on the GitHub-hosted runner. Because it can't know exactly when Netlify
+# finishes, it polls /api/health until the freshly-built function answers (up to
+# ~5 min) before running the full check, rather than blind-sleeping.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}  # allow manual re-runs from the Actions tab
+
+# Only smoke-test the latest push; cancel older in-flight runs.
+concurrency:
+  group: post-deploy-smoke
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE: https://sano.nz
+    steps:
+      - name: Wait for the new deploy to come live
+        # Poll the dynamic health probe. force-dynamic + no-store means a 200
+        # here proves the freshly-deployed SSR function is executing. Give
+        # Netlify time to build + publish: up to 30 tries × 12s ≈ 6 min.
+        run: |
+          echo "Waiting for $BASE/api/health to return 200…"
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$BASE/api/health" || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "health is up (attempt $i)"
+              exit 0
+            fi
+            echo "attempt $i: health=$code — retrying in 12s"
+            sleep 12
+          done
+          echo "::error::/api/health did not return 200 within the wait window"
+          exit 1
+
+      - name: Smoke-check key surfaces
+        # Each URL must return 200. Retry each up to 3× with 30s backoff to
+        # absorb per-route cold-start jitter after a fresh deploy.
+        run: |
+          set -u
+          urls="/ /services /portal/login /robots.txt /api/health"
+          failed=""
+          for path in $urls; do
+            ok=""
+            for attempt in 1 2 3; do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$BASE$path" || echo 000)
+              if [ "$code" = "200" ]; then
+                echo "OK   $path ($code)"
+                ok="1"
+                break
+              fi
+              echo "WARN $path -> $code (attempt $attempt/3)"
+              [ "$attempt" -lt 3 ] && sleep 30
+            done
+            [ -z "$ok" ] && failed="$failed $path"
+          done
+          if [ -n "$failed" ]; then
+            echo "::error::Post-deploy smoke failed for:$failed"
+            exit 1
+          fi
+          echo "All surfaces returned 200."
