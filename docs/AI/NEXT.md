@@ -10,12 +10,12 @@
 - **Suburb wave 5** — ~37 registry suburbs still pageless. Strongest candidates: Beach Haven, Glen Eden, Mangere, Meadowbank, Orakei, Otahuhu, Green Bay, Te Atatu South. Same pipeline as wave 4: planner agent → Mike confirms property-stock claims → build on template → thin-content guard → PR.
 - **Site-wide commercial pass** — lean commercial where genuine (services, about, FAQ, CTAs); residential stays primary. Open review item from the commercial growth focus.
 
-## Outage prevention plan (queued after 2026-05-31 incident — none built as of 2026-07-04)
-- **Uptime monitoring (P0)** — Better Stack (primary) + UptimeRobot (redundant secondary). Three monitors: `/`, `/portal/login`, `/api/health`. Both free tier; expect 1–3 min check interval, push + email alerts. Zero code change.
-- **Health endpoint (P1)** — add `src/app/api/health/route.ts` returning `{ok:true}` with `export const dynamic = 'force-dynamic'`. No DB / Supabase / external dependency — pure Lambda probe.
-- **Pin `NODE_VERSION` + switch to `npm ci` (P1)** — add `NODE_VERSION` to `netlify.toml` `[build.environment]` (pull the value from the current working deploy's build log first); switch build command to `npm ci && npm run build` so the lockfile is strictly enforced.
-- **Incident playbook (P2)** — new `docs/AI/INCIDENT_PLAYBOOK.md` documenting the "dynamic routes 500 / static files 200 → Trigger deploy → Clear cache and deploy site" recovery procedure that resolved 2026-05-31. Reference in `CLAUDE.md` Status pointers + `STATE.md` Known caveats.
-- **Post-deploy smoke check (P3)** — `.github/workflows/post-deploy-smoke.yml` triggered on push to main; sleeps 90s then curls `/`, `/services`, `/portal/login`, `/robots.txt`, `/api/health`; alerts on non-200. 3× retry with 30s backoff to absorb cold-start jitter.
+## Outage prevention plan (queued after 2026-05-31 incident)
+- **✅ Health endpoint (P1)** — `src/app/api/health/route.ts` returning `{ok:true}`, `force-dynamic`, no deps. Built 2026-07-29.
+- **✅ Pin `NODE_VERSION` + switch to `npm ci` (P1)** — `NODE_VERSION = "22"` + `npm ci && npm run build` in `netlify.toml`. Built 2026-07-29 (`npm ci --dry-run` verified in sync before switching).
+- **✅ Incident playbook (P2)** — [`INCIDENT_PLAYBOOK.md`](./INCIDENT_PLAYBOOK.md), linked from `CLAUDE.md` + `STATE.md`. Built 2026-07-29.
+- **Uptime monitoring (P0, still TODO — Mike)** — Better Stack (primary) + UptimeRobot (redundant secondary). Three monitors: `/`, `/portal/login`, `/api/health`. Both free tier; 1–3 min interval, push + email alerts. **Zero code — account setup only.** The health endpoint now exists for this.
+- **Post-deploy smoke check (P3, still TODO)** — `.github/workflows/post-deploy-smoke.yml` on push to main; sleeps 90s then curls `/`, `/services`, `/portal/login`, `/robots.txt`, `/api/health`; alerts on non-200. 3× retry with 30s backoff.
 
 ## Pending decisions
 - **A4 marketing flyer route** — `src/app/collateral/marketing-a4/page.tsx` is finished but deliberately local-only/uncommitted (decision 2026-07-04: leave local). Commit when Mike wants it deployable; it would be publicly routable though unlinked.

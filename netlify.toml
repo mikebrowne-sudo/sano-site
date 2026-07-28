@@ -1,9 +1,18 @@
 [build]
-  command = "npm run build"
+  # `npm ci` (not `npm install`) enforces package-lock.json strictly and fails
+  # the build on any lockfile drift, instead of silently resolving a different
+  # dependency tree than was tested. Part of the post-2026-05-31 outage-
+  # prevention hardening.
+  command = "npm ci && npm run build"
   publish = ".next"
 
 [build.environment]
   NEXT_TELEMETRY_DISABLED = "1"
+  # Pin the Node major so builds don't silently move when Netlify changes its
+  # default. "22" tracks the latest 22.x (active LTS) — matches local dev
+  # (v22.17.0) and the Node line the working deploys already build on. Bump
+  # deliberately, never by surprise.
+  NODE_VERSION = "22"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
