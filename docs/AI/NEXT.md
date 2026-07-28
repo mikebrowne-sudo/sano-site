@@ -6,9 +6,12 @@
 - _(empty)_
 
 ## Next up (this week)
-- **Wave-2/3 suburb differentiation pass** — Papakura, Flat Bush, Hobsonville, Browns Bay, and Milford share verbatim intro-P2 and cover-card copy with each other (thin-content guard finding, 2026-07-04). Vary at sentence level before shipping more volume waves; also vary the estate-wide "Rentals and move cleans" card structure where cheap.
-- **Suburb wave 5** — ~37 registry suburbs still pageless. Strongest candidates: Beach Haven, Glen Eden, Mangere, Meadowbank, Orakei, Otahuhu, Green Bay, Te Atatu South. Same pipeline as wave 4: planner agent → Mike confirms property-stock claims → build on template → thin-content guard → PR.
-- **Site-wide commercial pass** — lean commercial where genuine (services, about, FAQ, CTAs); residential stays primary. Open review item from the commercial growth focus.
+- _(empty — suburb thread complete; commercial pass parked, see Backlog below)_
+
+## Backlog / revisit when the business is ready
+- **Site-wide commercial pass — PARKED 2026-07-29 (do not action yet).** Sano is still ~90% residential and not yet geared to actively grow/service a larger commercial base, so this is deliberately deferred until the business is ready. **Explicitly out of scope for now:** the enquiry form, the contact-page journey, suburb-page `serviceGroups` ordering, FAQ additions, and commercial internal linking — leave all as-is.
+  - Audit findings (2026-07-29): the `/services/commercial-cleaning` page is already **strong and complete** (hero, why-choose, 9-card "what we cover", Service JSON-LD) — not the gap. 7 suburb pages already lead commercial-first genuinely (CBD, Newmarket, Manukau, Henderson, Onehunga, Westgate, Takapuna). About page addresses commercial; nav + footer link it.
+  - Highest-value items *when revisited*: (1) the commercial page's CTAs land on `/contact` ("Let's get your home sparkling") and trust links on `/guarantee` (residential-only) — a business lead hits residential-framed pages; (2) Mount Wellington, Botany Downs, Albany are commercial-aware (name workplaces) but residential-led — genuine candidates to flip to commercial-first ordering; (3) no commercial-specific FAQ (after-hours, contract/per-site, multi-site); (4) no targeted internal links between commercial-heavy suburbs and the commercial page. **Deliberately NOT recommended even later:** a commercial hub, new commercial landing pages, homepage commercial-rebrand, or invented testimonials.
 
 ## Outage prevention plan (queued after 2026-05-31 incident)
 - **✅ Health endpoint (P1)** — `src/app/api/health/route.ts` returning `{ok:true}`, `force-dynamic`, no deps. Built 2026-07-29.
@@ -24,6 +27,7 @@
 - _(empty)_
 
 ## Recently completed (housekept 2026-07-04)
+- **2026-07-29 session — suburb thread COMPLETE:** PR #461 (wave-2/3 differentiation — the flagged 5-page cluster), PR #462 (sitewide intro dedup — 22 pages, both intro paragraphs deduped by name- + skeleton-normalized check across all 42), PR #463 (wave 5 — 8 new pages: Beach Haven, Glen Eden, Mangere, Meadowbank, Orakei, Otahuhu, Green Bay, Te Atatu South, estate to 50). All 8 new URLs verified live (200, correct schema/postcode/region, titles, nearby + hub links). Suburb copy is done — do not re-open without a genuine new finding. Also this session: quote/invoice PDF pagination + closing-block bottom-anchor, Full Property Reset structured scope, quote test-send vs customer-send split, outage-prevention P1 + P3 (health endpoint, Node pin, `npm ci`, incident playbook, post-deploy smoke).
 - **2026-07-04 session:** PR #313 (docs/repo hygiene), PR #282 (GA4 privacy disclosure, merged after 9 days open), PR #314 (suburb parity sweep — 14 legacy pages onto the template, copy verbatim, −2,089 lines), PR #315 (wave 4 — 8 new pages, estate to 42). All verified live on production (`55ce5c4`).
 - PRs #146–#312 merged between 2026-05-19 and 2026-07-02 — service-page differentiation + cleaning standards, suburb waves 1–3 + geo/FAQ schema, finance suite (expenses, P&L, ASB import + reconciliation), contractor pay pipeline + remittance, invoice/quote editing suite, global search + command palette, GA4 analytics (site + portal), accountant access, perf pass. Detail in [`STATE.md`](./STATE.md) and `git log --merges`.
 - Dropped from this queue 2026-07-04: PR #195 verification (PR was **closed unmerged** — the client-reference inherit work is dead unless re-raised) and the 2026-05-14 fix-marathon verification items (superseded by seven weeks of subsequent shipping).
