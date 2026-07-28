@@ -23,6 +23,7 @@ Short, current. Link to PORTAL.md for depth.
 - **[`docs/AI/NEXT.md`](docs/AI/NEXT.md)** — immediate queue.
 - **[`docs/AI/ROADMAP.md`](docs/AI/ROADMAP.md)** — sequencing.
 - **[`docs/AI/DECISIONS.md`](docs/AI/DECISIONS.md)** — architectural decisions log.
+- **[`docs/AI/INCIDENT_PLAYBOOK.md`](docs/AI/INCIDENT_PLAYBOOK.md)** — what to do if the live site is down (triage + recovery).
 - **[`docs/AI/OBSIDIAN_SECOND_BRAIN.md`](docs/AI/OBSIDIAN_SECOND_BRAIN.md)** — Obsidian vault pointer (`C:\Second Brain\`).
 
 ---
