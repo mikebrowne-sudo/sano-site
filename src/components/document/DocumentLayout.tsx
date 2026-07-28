@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { QUOTE_INVOICE_CSS } from './QuoteInvoiceCss'
+import { LastPageFill } from './LastPageFill'
 
 /**
  * Shared chrome for the standard Sano Quote / Tax Invoice document.
@@ -146,6 +147,7 @@ export function DocumentLayout({
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: QUOTE_INVOICE_CSS }} />
+      <LastPageFill />
       <div className={wrapper}>
         {shareActionsSlot && <div className="doc-share-actions">{shareActionsSlot}</div>}
 
@@ -228,6 +230,13 @@ export function DocumentLayout({
                 </div>
               ))}
             </section>
+
+            {/* Last-page fill spacer. In print/PDF a small script measures the
+                remaining height on the final page and expands this so the
+                closing block (totals → terms → footer) sits at the bottom of
+                that page. Zero height on screen and until the script runs, so
+                it never affects normal flow or the content pagination above. */}
+            <div className="doc-endspacer" aria-hidden="true" />
 
             {/* Totals block — Notes/Payment left, Totals + grand-total right. */}
             <section className="doc-totals-wrap">

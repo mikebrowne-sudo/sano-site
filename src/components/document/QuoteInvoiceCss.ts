@@ -280,6 +280,10 @@ export const QUOTE_INVOICE_CSS = `
   .doc-terms h4 { break-after: avoid; }          /* T&C heading stays with the first of its body */
   .doc-footer { break-inside: avoid; }
 
+  /* Last-page fill spacer — inert (0px) on screen and by default; the
+     print/share pages' fill script gives it a height in PDF/print only. */
+  .doc-endspacer { height: 0; }
+
   /* ====================== TOTALS ====================== */
   .doc-totals-wrap {
     margin-top: 32px;
@@ -657,30 +661,20 @@ export const QUOTE_INVOICE_CSS = `
          article as a single atomic box and push it to a fresh page
          when its natural height exceeds A4 — the cause of "page 1
          empty, doc starts on page 2". Reset here so pagination
-         works normally. */
+         works normally. Everything below stays in ordinary block flow so
+         long content paginates naturally; the closing block (totals →
+         terms → footer) is anchored to the bottom of the FINAL page by a
+         measured spacer (.doc-endspacer), not by flex/min-height — a
+         one-page 100vh cannot fill the remainder of the last page on a
+         multi-page document, which left the totals floating mid-page. */
       overflow: visible;
-      /* Flex column with a one-page min-height. The body grows to fill
-         the slack on the final page, and the totals-wrap inside it uses
-         margin-top:auto to drop the pricing + notes to the bottom of the
-         body — so pricing, terms and footer form a bottom-anchored tail
-         instead of floating mid-page. On multi-page docs the content
-         exceeds 100vh and everything sits in natural flow. */
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
     }
-    .doc-body {
-      /* Grow to consume leftover vertical space on the final page so the
-         trailing totals can be pushed to the bottom (see rule below).
-         Made a flex column so margin-top:auto on the totals resolves. */
-      flex: 1 0 auto;
-      display: flex;
-      flex-direction: column;
-    }
-    .doc-totals-wrap {
-      /* Drop the pricing/notes block to the bottom of the (grown) body
-         whenever there's slack. No effect once content fills the page. */
-      margin-top: auto;
+    .doc-endspacer {
+      /* Height is set at print time by the last-page-fill script on the
+         print/share pages. Until then it is zero, so it never disturbs
+         the natural flow or pagination of the content above it. */
+      display: block;
+      height: 0;
     }
     .doc-item-detail {
       /* Continuation breathing room: when a long service description
