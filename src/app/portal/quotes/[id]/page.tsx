@@ -435,6 +435,7 @@ export default async function QuoteDetailPage({
         shareUrl={shareUrl}
         clientEmail={currentClient?.email ?? ''}
         greeting={greeting}
+        staffEmail={user?.email ?? ''}
         primaryContactEmail={quote.contact_email ?? ''}
         accountsEmail={quote.accounts_email ?? ''}
         clientReference={quote.client_reference ?? ''}

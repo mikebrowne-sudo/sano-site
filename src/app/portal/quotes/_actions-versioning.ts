@@ -226,10 +226,18 @@ async function cloneAsNewVersion(
     after: { ...audit_after, new_version_number: nextVersionNumber },
   })
 
-  // Revalidate caches that show this chain.
+  // Revalidate every surface that shows this chain — including the print,
+  // PDF and share routes for BOTH the demoted old version and the new
+  // draft, so a stale preview/PDF can't linger after the fork (a key
+  // cause of "my edit didn't show" reports).
   revalidatePath('/portal/quotes')
-  revalidatePath(`/portal/quotes/${source.id}`)
-  revalidatePath(`/portal/quotes/${newId}`)
+  for (const id of [source.id, newId]) {
+    revalidatePath(`/portal/quotes/${id}`)
+    revalidatePath(`/portal/quotes/${id}/print`)
+    revalidatePath(`/portal/quotes/${id}/proposal/preview`)
+    revalidatePath(`/api/quotes/${id}/pdf`)
+    revalidatePath(`/api/proposals/${id}/pdf`)
+  }
 
   return { ok: true, new_quote_id: newId }
 }

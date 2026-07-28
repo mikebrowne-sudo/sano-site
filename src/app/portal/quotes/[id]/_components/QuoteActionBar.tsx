@@ -34,6 +34,7 @@ export interface QuoteActionBarProps {
   shareUrl: string
   clientEmail: string
   greeting: string
+  staffEmail: string
   primaryContactEmail: string
   accountsEmail: string
   clientReference: string
@@ -49,6 +50,7 @@ export function QuoteActionBar({
   shareUrl,
   clientEmail,
   greeting,
+  staffEmail,
   primaryContactEmail,
   accountsEmail,
   clientReference,
@@ -103,6 +105,7 @@ export function QuoteActionBar({
               clientEmail={clientEmail}
               greeting={greeting}
               printUrl={shareUrl}
+              staffEmail={staffEmail}
               primaryContactEmail={primaryContactEmail}
               accountsEmail={accountsEmail}
               clientReference={clientReference}
@@ -137,6 +140,7 @@ export function QuoteActionBar({
               clientEmail={clientEmail}
               greeting={greeting}
               printUrl={shareUrl}
+              staffEmail={staffEmail}
               primaryContactEmail={primaryContactEmail}
               accountsEmail={accountsEmail}
               clientReference={clientReference}
