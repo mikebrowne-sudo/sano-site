@@ -122,14 +122,6 @@ export const QUOTE_INVOICE_CSS = `
   }
 
   .doc-identity { text-align: right; }
-  .doc-eyebrow {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--sage-300);
-    margin-bottom: 8px;
-  }
   .doc-type {
     font-family: var(--font-display);
     font-weight: 700;
@@ -332,10 +324,18 @@ export const QUOTE_INVOICE_CSS = `
 
   /* ====================== TOTALS ====================== */
   .doc-totals-wrap {
-    margin-top: 32px;
+    /* Sits inside .doc-closing, which is flush to the page edge — so the
+       48px side safe-margin must live here (it used to be inherited from
+       .doc-body before the closing block was split out). Without it the
+       grand-total pill ran to the physical page edge and the last digit
+       looked clipped. The top hairline anchors the band so it doesn't read
+       as a box floating in empty space. */
+    margin: 32px 48px 0;
+    padding-top: 24px;
+    border-top: 1px solid var(--sage-100);
     display: grid;
-    grid-template-columns: 1fr 320px;
-    gap: 40px;
+    grid-template-columns: 1fr minmax(300px, 340px);
+    gap: 48px;
     align-items: start;
   }
 
@@ -394,14 +394,17 @@ export const QUOTE_INVOICE_CSS = `
     margin: 4px 0;
   }
   .doc-grand-total {
-    margin-top: 8px;
+    margin-top: 12px;
     background: var(--sage-800);
     color: var(--white);
     border-radius: 14px;
-    padding: 18px 22px;
+    /* Roomier padding; extra on the right so the (serif, tabular) total can
+       never sit hard against the rounded corner or clip its last digit. */
+    padding: 20px 28px 20px 26px;
     display: flex;
     justify-content: space-between;
     align-items: baseline;
+    gap: 20px;
     position: relative;
     overflow: hidden;
   }
@@ -419,13 +422,18 @@ export const QUOTE_INVOICE_CSS = `
     text-transform: uppercase;
     letter-spacing: 0.15em;
     color: rgba(255,255,255,0.7);
+    white-space: nowrap;
   }
   .doc-grand-total .val {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 26px;
-    letter-spacing: -0.02em;
+    font-size: 27px;
+    /* No negative tracking — it was nudging the final digit into the padding
+       and clipping it. Slightly positive keeps the number crisp and inset. */
+    letter-spacing: 0;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    text-align: right;
   }
 
   /* ====================== TERMS ====================== */

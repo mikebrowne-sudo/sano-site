@@ -152,7 +152,6 @@ export function DocumentLayout({
   shareActionsSlot,
 }: DocumentLayoutProps) {
   const isQuote = kind === 'quote'
-  const eyebrow = isQuote ? 'Quote' : 'Tax Invoice'
   const typeWord = isQuote ? 'Quote' : 'Invoice'
   const numberLabel = isQuote ? 'Quote #' : 'Invoice #'
   const toPartyLabel = isQuote ? 'Quote for' : 'Billed to'
@@ -177,7 +176,6 @@ export function DocumentLayout({
                 />
               </div>
               <div className="doc-identity">
-                <div className="doc-eyebrow">{eyebrow}</div>
                 <h1 className="doc-type">
                   {typeWord}
                   <span className="dot">.</span>
