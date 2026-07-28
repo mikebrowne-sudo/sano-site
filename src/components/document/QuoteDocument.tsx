@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
 import { computeDocumentTotals } from '@/lib/doc-totals'
+import { normaliseStructuredScope } from '@/lib/full-property-reset-scope'
 import {
   DocumentLayout,
   type DocumentLineItem,
@@ -42,6 +43,8 @@ export interface QuoteDocumentInput {
   frequency?: string | null
   scope_size?: string | null
   generated_scope?: string | null
+  /** Full Property Reset structured scope (raw JSON from quotes.structured_scope). */
+  structured_scope?: unknown | null
   service_address?: string | null
   scheduled_clean_date?: string | null
   notes?: string | null
@@ -180,21 +183,35 @@ export function QuoteDocument({
     }
   }
 
+  // Full Property Reset structured scope, if this quote carries one. When
+  // present it replaces the free-text "Service description" sub-block with the
+  // headed, itemised scope; the Service address block is kept.
+  const structuredScope = normaliseStructuredScope(quote.structured_scope)
+
   const primarySubBlocks: { label: string; value: string }[] = []
   if (address) primarySubBlocks.push({ label: 'Service address', value: address })
-  if (descBlockValue) primarySubBlocks.push({ label: 'Service description', value: descBlockValue })
+  if (!structuredScope && descBlockValue) {
+    primarySubBlocks.push({ label: 'Service description', value: descBlockValue })
+  }
+
+  // The main line's title: structured scope title takes precedence, then the
+  // structured clean-type label.
+  const mainLineTitle = structuredScope?.title?.trim() || pricingLabel
+  const scopeForDoc = structuredScope ?? undefined
 
   const lineItems: DocumentLineItem[] = []
   if ((quote.base_price ?? 0) > 0) {
     lineItems.push({
-      description: pricingLabel,
+      description: mainLineTitle,
       subBlocks: primarySubBlocks.length > 0 ? primarySubBlocks : undefined,
+      structuredScope: scopeForDoc,
       amount: fmt(quote.base_price ?? 0),
     })
-  } else if (primarySubBlocks.length > 0) {
+  } else if (primarySubBlocks.length > 0 || scopeForDoc) {
     lineItems.push({
-      description: pricingLabel || 'Service',
-      subBlocks: primarySubBlocks,
+      description: mainLineTitle || 'Service',
+      subBlocks: primarySubBlocks.length > 0 ? primarySubBlocks : undefined,
+      structuredScope: scopeForDoc,
       amount: fmt(0),
     })
   }

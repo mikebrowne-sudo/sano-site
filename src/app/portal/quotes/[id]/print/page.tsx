@@ -37,6 +37,7 @@ export default async function PrintQuotePage({ params }: { params: { id: string 
         id, quote_number, status, date_issued, valid_until, created_at,
         property_category, type_of_clean, frequency, scope_size,
         generated_scope,
+        structured_scope,
         service_address, scheduled_clean_date, notes,
         base_price, discount, gst_included, payment_type,
         contact_name, contact_email, contact_phone,

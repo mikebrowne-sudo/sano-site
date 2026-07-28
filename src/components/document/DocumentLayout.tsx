@@ -67,8 +67,23 @@ export interface DocumentLineItem {
    * line below). Used by Quote/InvoiceDocument to show Service
    * address + Service description in the first line item. */
   subBlocks?: ReadonlyArray<{ label: string; value: string }>
+  /** Optional structured scope (Full Property Reset). When present it renders
+   * beneath the line as intro → headed sections → completion → notes →
+   * exclusions, with bold headings that stay with their first task and
+   * sections free to flow across pages. Descriptive only. */
+  structuredScope?: DocumentStructuredScope
   /** Formatted dollar amount, e.g. "$120.00" or "-$50.00". */
   amount: string
+}
+
+/** Presentation shape of the structured scope (decoupled from the lib type). */
+export interface DocumentStructuredScope {
+  title?: string
+  intro?: string
+  sections: ReadonlyArray<{ heading: string; items: ReadonlyArray<string> }>
+  completion?: string
+  notes?: ReadonlyArray<string>
+  exclusions?: ReadonlyArray<string>
 }
 
 export interface DocumentTotals {
@@ -225,6 +240,9 @@ export function DocumentLayout({
                       ))}
                     </div>
                   )}
+                  {item.structuredScope && (
+                    <StructuredScopeView scope={item.structuredScope} />
+                  )}
                 </div>
               ))}
             </section>
@@ -308,6 +326,54 @@ export function DocumentLayout({
         {interactiveSlot}
       </div>
     </>
+  )
+}
+
+function StructuredScopeView({ scope }: { scope: DocumentStructuredScope }) {
+  const notes = (scope.notes ?? []).filter((n) => n.trim())
+  const exclusions = (scope.exclusions ?? []).filter((e) => e.trim())
+  return (
+    <div className="doc-item-detail doc-scope">
+      {scope.intro?.trim() && <p className="doc-scope-intro">{scope.intro}</p>}
+
+      {scope.sections
+        .filter((s) => s.heading.trim() || s.items.some((i) => i.trim()))
+        .map((section, i) => (
+          <div className="doc-scope-section" key={`${i}-${section.heading}`}>
+            <div className="doc-scope-heading">{section.heading}</div>
+            <ul className="doc-scope-list">
+              {section.items.filter((it) => it.trim()).map((it, j) => (
+                <li key={j}>{it}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
+
+      {scope.completion?.trim() && (
+        <div className="doc-scope-section">
+          <div className="doc-scope-heading">Completion approach</div>
+          <p className="doc-scope-text">{scope.completion}</p>
+        </div>
+      )}
+
+      {notes.length > 0 && (
+        <div className="doc-scope-section">
+          <div className="doc-scope-heading">Important notes</div>
+          <ul className="doc-scope-list">
+            {notes.map((n, i) => <li key={i}>{n}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {exclusions.length > 0 && (
+        <div className="doc-scope-section">
+          <div className="doc-scope-heading">Exclusions</div>
+          <ul className="doc-scope-list">
+            {exclusions.map((e, i) => <li key={i}>{e}</li>)}
+          </ul>
+        </div>
+      )}
+    </div>
   )
 }
 

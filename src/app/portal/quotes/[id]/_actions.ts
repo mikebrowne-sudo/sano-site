@@ -71,6 +71,8 @@ interface UpdateQuoteInput {
   condition_tags?: string[]
   addons_wording?: string[]
   generated_scope?: string
+  /** Full Property Reset structured scope (JSON); null clears it. */
+  structured_scope?: unknown | null
   description_edited?: boolean
   service_address?: string
   preferred_dates?: string
@@ -180,6 +182,7 @@ export async function updateQuote(input: UpdateQuoteInput) {
       condition_tags: input.condition_tags ?? [],
       addons_wording: input.addons_wording ?? [],
       generated_scope: input.generated_scope || null,
+      structured_scope: input.structured_scope ?? null,
       description_edited: input.description_edited ?? false,
       service_address: input.service_address || null,
       preferred_dates: input.preferred_dates || null,

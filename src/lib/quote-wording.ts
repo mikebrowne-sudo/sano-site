@@ -36,6 +36,11 @@ export const SERVICE_TYPES_BY_CATEGORY: Record<ServiceCategory, { value: string;
     // service type rather than a condition tag, so it controls depth
     // + pricing buffer + closing line.
     { value: 'post_construction',  label: 'Post-Construction Clean' },
+    // Full Property Reset — a detailed, itemised full-property reset. Not in
+    // service_multipliers, so it is pricing-ineligible and falls through to
+    // manual override pricing (staff enter the price). Selecting it loads the
+    // standard structured scope (see lib/full-property-reset-scope).
+    { value: 'full_property_reset', label: 'Full Property Reset' },
   ],
   property_management: [
     { value: 'routine',        label: 'Routine Clean' },

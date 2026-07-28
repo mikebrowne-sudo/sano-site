@@ -96,6 +96,8 @@ interface CreateQuoteInput {
   condition_tags?: string[]
   addons_wording?: string[]
   generated_scope?: string
+  /** Full Property Reset structured scope (JSON); null/undefined otherwise. */
+  structured_scope?: unknown | null
   description_edited?: boolean
 
   frequency?: string
@@ -224,6 +226,7 @@ export async function createQuote(input: CreateQuoteInput) {
       condition_tags: input.condition_tags ?? [],
       addons_wording: input.addons_wording ?? [],
       generated_scope: input.generated_scope || null,
+      structured_scope: input.structured_scope ?? null,
       description_edited: input.description_edited ?? false,
       service_address: input.service_address || null,
       preferred_dates: input.preferred_dates || null,
