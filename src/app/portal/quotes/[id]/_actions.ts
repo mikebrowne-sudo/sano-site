@@ -356,7 +356,7 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
   try {
     pdfBuffer = await renderPdfFromUrl(
       `${origin}/share/quote/${quote.share_token}?pdf=1`,
-      {},
+      { anchorClosingBlock: true },
     )
   } catch (err) {
     const detail = err instanceof Error ? err.message : 'unknown error'
@@ -495,7 +495,7 @@ export async function sendQuoteTestEmail(input: SendTestQuoteEmailInput) {
   try {
     pdfBuffer = await renderPdfFromUrl(
       `${origin}/share/quote/${quote.share_token}?pdf=1`,
-      {},
+      { anchorClosingBlock: true },
     )
   } catch (err) {
     const detail = err instanceof Error ? err.message : 'unknown error'

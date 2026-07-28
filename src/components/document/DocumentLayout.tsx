@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { QUOTE_INVOICE_CSS } from './QuoteInvoiceCss'
-import { LastPageFill } from './LastPageFill'
 
 /**
  * Shared chrome for the standard Sano Quote / Tax Invoice document.
@@ -147,7 +146,6 @@ export function DocumentLayout({
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: QUOTE_INVOICE_CSS }} />
-      <LastPageFill />
       <div className={wrapper}>
         {shareActionsSlot && <div className="doc-share-actions">{shareActionsSlot}</div>}
 
@@ -231,13 +229,17 @@ export function DocumentLayout({
               ))}
             </section>
 
-            {/* Last-page fill spacer. In print/PDF a small script measures the
-                remaining height on the final page and expands this so the
-                closing block (totals → terms → footer) sits at the bottom of
-                that page. Zero height on screen and until the script runs, so
-                it never affects normal flow or the content pagination above. */}
-            <div className="doc-endspacer" aria-hidden="true" />
+          </div>
 
+          {/* Last-page fill spacer. The PDF renderer grows this so the closing
+              block below sits at the bottom of the final page. Zero otherwise
+              (screen + browser print), so it never affects normal flow or the
+              content pagination above. */}
+          <div className="doc-endspacer" aria-hidden="true" />
+
+          {/* Closing block — kept together as one unit (break-inside: avoid) so
+              a page break can never orphan the footer from the terms/totals. */}
+          <div className="doc-closing">
             {/* Totals block — Notes/Payment left, Totals + grand-total right. */}
             <section className="doc-totals-wrap">
               <div className="doc-side-notes">
@@ -275,7 +277,6 @@ export function DocumentLayout({
                 </div>
               </div>
             </section>
-          </div>
 
           {/* Terms — cream band with sage-100 top border. */}
           <section className="doc-terms">
@@ -301,6 +302,7 @@ export function DocumentLayout({
             </div>
             <div className="doc-footer-thanks">Cleaning, done properly.</div>
           </footer>
+          </div>
         </article>
 
         {interactiveSlot}

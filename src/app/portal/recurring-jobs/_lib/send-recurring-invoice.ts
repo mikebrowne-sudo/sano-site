@@ -57,7 +57,7 @@ export async function sendRecurringInvoiceEmail(
 
   let pdf: Buffer
   try {
-    pdf = await renderPdfFromUrl(`${shareUrl}?pdf=1`, {})
+    pdf = await renderPdfFromUrl(`${shareUrl}?pdf=1`, { anchorClosingBlock: true })
   } catch (err) {
     return { error: `PDF render failed: ${err instanceof Error ? err.message : 'unknown'}` }
   }

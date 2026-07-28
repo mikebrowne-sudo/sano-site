@@ -35,7 +35,7 @@ export async function GET(
   const cookies = parseCookieHeader(request.headers.get('cookie') ?? '', url.origin)
 
   try {
-    const buffer = await renderPdfFromUrl(printUrl, { cookies })
+    const buffer = await renderPdfFromUrl(printUrl, { cookies, anchorClosingBlock: true })
     const stem = sanitizePdfFilename(`Sano Tax Invoice - ${invoice.invoice_number}`)
     const filename = `${stem}.pdf`
     return new NextResponse(Buffer.from(buffer), {

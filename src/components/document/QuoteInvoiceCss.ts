@@ -670,11 +670,21 @@ export const QUOTE_INVOICE_CSS = `
       overflow: visible;
     }
     .doc-endspacer {
-      /* Height is set at print time by the last-page-fill script on the
-         print/share pages. Until then it is zero, so it never disturbs
-         the natural flow or pagination of the content above it. */
+      /* Grown by the PDF renderer (render-pdf.ts, anchorClosingBlock) to push
+         the closing block to the bottom of its final page. Zero by default so
+         it never disturbs the natural flow or pagination of the content above
+         it — and zero in browser print, where we can't iterate on the real
+         page count (the closing block still stays together, just not pinned). */
       display: block;
       height: 0;
+    }
+    .doc-closing {
+      /* Keep subtotal + GST + total + terms + footer together as ONE unit so a
+         page break can never orphan the footer from the terms. If the block
+         can't fit under the content on the current page it moves as a whole to
+         the next page (never split, never overlap). */
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     .doc-item-detail {
       /* Continuation breathing room: when a long service description

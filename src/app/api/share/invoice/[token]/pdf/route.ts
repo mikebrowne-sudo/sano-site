@@ -24,7 +24,7 @@ export async function GET(
   const printUrl = `${url.origin}/share/invoice/${params.token}?pdf=1`
 
   try {
-    const buffer = await renderPdfFromUrl(printUrl, {})
+    const buffer = await renderPdfFromUrl(printUrl, { anchorClosingBlock: true })
     const stem = sanitizePdfFilename(`Sano Tax Invoice - ${invoice.invoice_number}`)
     const filename = `${stem}.pdf`
     return new NextResponse(Buffer.from(buffer), {

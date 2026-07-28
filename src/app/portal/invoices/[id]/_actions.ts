@@ -112,7 +112,7 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
   try {
     pdfBuffer = await renderPdfFromUrl(
       `${origin}/share/invoice/${invoice.share_token}?pdf=1`,
-      {},
+      { anchorClosingBlock: true },
     )
   } catch (err) {
     const detail = err instanceof Error ? err.message : 'unknown error'
