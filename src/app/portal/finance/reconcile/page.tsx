@@ -10,6 +10,7 @@ import { getReconcileData } from './_data'
 import { Uploader } from './_components/Uploader'
 import { ClearToggle } from './_components/ClearToggle'
 import { MatchPanel, type MatchInvoice } from './_components/MatchPanel'
+import { ReverseAllocation } from './_components/ReverseAllocation'
 import clsx from 'clsx'
 
 const STATUS_ORDER: Record<string, number> = { sent: 0, draft: 1, paid: 2 }
@@ -25,12 +26,16 @@ function buildMatch(
   invoices: ReconInvoice[],
   clientNames: string[],
 ): { candidates: MatchInvoice[]; allCandidates: MatchInvoice[]; suggestions: string[][]; scoped: boolean } {
+  const toMatchInvoice = (i: ReconInvoice): MatchInvoice => ({
+    id: i.id, number: i.invoiceNumber, total: i.total, status: i.status,
+    address: i.address ?? '', client: i.client ?? '', allocated: i.allocatedTotal ?? 0,
+  })
   const toCandidates = (pool: ReconInvoice[]): MatchInvoice[] =>
     pool
       .filter((i) => i.status === 'sent' || i.status === 'draft' || i.status === 'paid')
       .sort((a, b) => (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3) || b.total - a.total)
       .slice(0, 40)
-      .map((i) => ({ id: i.id, number: i.invoiceNumber, total: i.total, status: i.status, address: i.address ?? '', client: i.client ?? '' }))
+      .map(toMatchInvoice)
 
   const scopedNames = matchClientsForPayee(payee, clientNames)
   const scoped = scopedNames.length > 0
@@ -38,9 +43,12 @@ function buildMatch(
     ? invoices.filter((i) => i.client && scopedNames.includes(i.client))
     : invoices.filter((i) => i.status === 'sent') // fallback: open invoices
   const candidates = toCandidates(scopedPool)
-  // Full, all-clients list for the "show all clients" safety valve — only
-  // differs from `candidates` when we scoped to an identified client.
-  const allCandidates = scoped ? toCandidates(invoices) : candidates
+  // Full, all-clients list — the searchable pool. Includes PAID invoices so a
+  // paid manual invoice (e.g. INV-26022) can be found via the search box.
+  const allCandidates = invoices
+    .filter((i) => i.status !== 'cancelled')
+    .sort((a, b) => (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3) || b.total - a.total)
+    .map(toMatchInvoice)
   const suggestions = findSubsets(amount, candidates.map((c) => ({ id: c.id, amount: c.total })))
   return { candidates, allCandidates, suggestions, scoped }
 }
@@ -58,11 +66,11 @@ function fmtDate(iso: string) {
 }
 
 const CREDIT_LABEL: Record<CreditStatus, string> = {
-  reconciled: 'Reconciled', unpaid_match: 'Not marked paid', amount_match: 'Likely match', financing: 'Owner / transfer', unmatched: 'No match',
+  reconciled: 'Reconciled', unpaid_match: 'Not marked paid', allocate_match: 'Paid — allocate', amount_match: 'Likely match', financing: 'Owner / transfer', unmatched: 'No match',
   likely_bundle: 'Likely bundle', likely_match: 'Likely match',
 }
 const CREDIT_TONE: Record<CreditStatus, string> = {
-  reconciled: 'bg-emerald-50 text-emerald-700', unpaid_match: 'bg-amber-50 text-amber-700', amount_match: 'bg-amber-50 text-amber-700', financing: 'bg-sage-100 text-sage-600', unmatched: 'bg-red-50 text-red-700',
+  reconciled: 'bg-emerald-50 text-emerald-700', unpaid_match: 'bg-amber-50 text-amber-700', allocate_match: 'bg-sky-50 text-sky-700', amount_match: 'bg-amber-50 text-amber-700', financing: 'bg-sage-100 text-sage-600', unmatched: 'bg-red-50 text-red-700',
   likely_bundle: 'bg-amber-50 text-amber-700', likely_match: 'bg-amber-50 text-amber-700',
 }
 const DEBIT_LABEL: Record<DebitStatus, string> = { recorded: 'Recorded', not_recorded: 'Not recorded' }
@@ -83,7 +91,11 @@ export default async function ReconcilePage() {
   const clientNames = Array.from(new Set(invoices.map((i) => i.client ?? '').filter(Boolean)))
   const creditMatch = new Map<string, { candidates: MatchInvoice[]; allCandidates: MatchInvoice[]; suggestions: string[][]; scoped: boolean }>()
   for (const c of result.credits) {
-    if (c.status === 'unmatched') creditMatch.set(c.txn.uniqueId, buildMatch(c.txn.payee, c.txn.amount, invoices, clientNames))
+    // Build a match/allocate panel for anything that still needs allocating:
+    // no auto-match (unmatched), or a paid-but-unallocated invoice (allocate_match).
+    if (c.status === 'unmatched' || c.status === 'allocate_match') {
+      creditMatch.set(c.txn.uniqueId, buildMatch(c.txn.payee, c.txn.amount, invoices, clientNames))
+    }
   }
 
   // A line is "done" when it needs nothing from us: an auto-reconciled credit
@@ -116,7 +128,7 @@ export default async function ReconcilePage() {
           {canEdit && (c.status === 'unpaid_match' || c.status === 'amount_match') && c.invoice && (
             <Link href={`/portal/invoices/${c.invoice.id}`} className="text-sage-600 hover:text-sage-800 underline whitespace-nowrap">Mark paid →</Link>
           )}
-          {canEdit && c.status === 'unmatched' && m && creditMatch.has(c.txn.uniqueId) && (
+          {canEdit && (c.status === 'unmatched' || c.status === 'allocate_match') && m && creditMatch.has(c.txn.uniqueId) && (
             <MatchPanel
               lineId={m.id}
               amount={c.txn.amount}
@@ -126,7 +138,19 @@ export default async function ReconcilePage() {
               allCandidates={creditMatch.get(c.txn.uniqueId)!.allCandidates}
               scoped={creditMatch.get(c.txn.uniqueId)!.scoped}
               suggestions={creditMatch.get(c.txn.uniqueId)!.suggestions}
+              triggerLabel={c.status === 'allocate_match' ? 'Allocate →' : 'Match →'}
             />
+          )}
+          {/* Existing allocations on this line, each reversible. */}
+          {m && m.allocations.length > 0 && (
+            <div className="mt-1 space-y-0.5">
+              {m.allocations.map((a) => (
+                <div key={a.id} className="flex items-center justify-end gap-2 text-xs text-sage-500">
+                  <span className="tabular-nums">{a.invoiceNumber} · {fmt(a.amount)}</span>
+                  {canEdit && <ReverseAllocation allocationId={a.id} invoiceNumber={a.invoiceNumber} amount={a.amount} />}
+                </div>
+              ))}
+            </div>
           )}
         </Td>
         <Td className="text-right">{canEdit && m && <ClearToggle id={m.id} cleared={m.cleared} />}</Td>
