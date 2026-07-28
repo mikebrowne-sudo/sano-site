@@ -623,13 +623,14 @@ export const QUOTE_INVOICE_CSS = `
     .pay-amount-value { font-size: 28px; }
   }
 
-  /* Keep critical sections together when paginating to a multi-page PDF. */
+  /* Keep critical sections together when paginating to a multi-page PDF.
+     NB: .doc-terms is intentionally NOT locked here — long terms must be
+     free to flow across pages, and the print block below controls how the
+     totals + terms + footer tail anchors to the bottom of the final page. */
   .doc-parties,
   .doc-totals-wrap,
   .doc-grand-total,
-  .doc-terms,
   .doc-footer { break-inside: avoid; page-break-inside: avoid; }
-  .doc-items tr { break-inside: avoid; page-break-inside: avoid; }
 
   /* ====================== PRINT ====================== */
   @page { size: A4; margin: 0; }
@@ -658,32 +659,48 @@ export const QUOTE_INVOICE_CSS = `
          empty, doc starts on page 2". Reset here so pagination
          works normally. */
       overflow: visible;
-      /* Flex column with a one-page min-height lets .doc-footer
-         below use margin-top:auto to anchor itself to the bottom
-         of the final page on single-page documents. On multi-page
-         documents the doc naturally exceeds 100vh and the footer
-         sits at the end of content. */
+      /* Flex column with a one-page min-height. The body grows to fill
+         the slack on the final page, and the totals-wrap inside it uses
+         margin-top:auto to drop the pricing + notes to the bottom of the
+         body — so pricing, terms and footer form a bottom-anchored tail
+         instead of floating mid-page. On multi-page docs the content
+         exceeds 100vh and everything sits in natural flow. */
       display: flex;
       flex-direction: column;
       min-height: 100vh;
     }
+    .doc-body {
+      /* Grow to consume leftover vertical space on the final page so the
+         trailing totals can be pushed to the bottom (see rule below).
+         Made a flex column so margin-top:auto on the totals resolves. */
+      flex: 1 0 auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .doc-totals-wrap {
+      /* Drop the pricing/notes block to the bottom of the (grown) body
+         whenever there's slack. No effect once content fills the page. */
+      margin-top: auto;
+    }
+    .doc-item-detail {
+      /* Continuation breathing room: when a long service description
+         breaks onto a new page, don't let it start hard against the top
+         edge — looks unfinished. A small top pad on the fragment that
+         begins the page gives it air. */
+      padding-top: 2px;
+    }
+    .doc-item-detail .desc-block-value {
+      /* Keep at least two lines together so a description never breaks
+         with a single orphan line stranded at a page top/bottom. */
+      orphans: 2;
+      widows: 2;
+    }
     .doc-terms {
-      /* Tighter spacing keeps terms closer to totals so they're
-         more likely to stay on the same page. */
-      margin-top: 24px;
-      /* break-inside:avoid on terms (defined above for screen) was
-         forcing terms + footer onto a fresh page whenever they
-         couldn't fit as a unit, producing a near-empty final page
-         with footer near the top. Allow natural flow in print. */
+      /* Sit directly above the footer as part of the bottom tail. Keep it
+         reasonably close to the totals but allow long terms to flow. */
+      margin-top: 28px;
       break-inside: auto;
       page-break-inside: auto;
-    }
-    .doc-footer {
-      /* Anchor footer to the bottom of the final page on
-         single-page documents (paired with .doc's flex column +
-         100vh min-height above). Harmless on multi-page docs —
-         the auto margin only takes effect when there's slack. */
-      margin-top: auto;
     }
     .doc-share-actions { display: none !important; }
     .accept-panel,
