@@ -4,6 +4,13 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { parseAsbCsv } from '@/lib/asb-import'
+import {
+  validateAllocation,
+  isFullyAllocated,
+  round2,
+  type AllocationContext,
+  type ProposedAllocation,
+} from '@/lib/payment-allocation'
 
 export interface ImportResponse {
   ok: boolean
@@ -117,6 +124,247 @@ export async function matchCreditToInvoices(
 
     revalidatePath('/portal/finance/reconcile')
     return { ok: true, markedPaid: updated?.length ?? 0 }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Unexpected error.' }
+  }
+}
+
+export interface AllocationInput {
+  invoiceId: string
+  amount: number
+}
+
+/**
+ * Durably reconcile a bank credit to one or more invoices by recording payment
+ * ALLOCATIONS (invoice_payment_allocations). Supports partial / split
+ * allocations. This is the correct replacement for the old cleared-only flow:
+ *   - creates a live allocation row per invoice (the durable bank↔invoice link)
+ *   - re-validates against current live allocations (no double-allocation of
+ *     the same money, no over-allocating an invoice or the payment)
+ *   - marks any not-yet-paid target invoices as paid (already-paid invoices,
+ *     e.g. INV-26022, STAY paid — only the allocation is recorded)
+ *   - marks the bank line cleared once it is fully allocated
+ *   - writes an audit_log row
+ * Admin-gated. The DB also enforces amount>0 and one-live-allocation-per-pair.
+ */
+export async function reconcileBankTransaction(
+  lineId: string,
+  allocations: AllocationInput[],
+  paidDate: string | null,
+): Promise<{ ok: boolean; error?: string; allocated?: number; markedPaid?: number; cleared?: boolean }> {
+  try {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!isAdminUser(user)) return { ok: false, error: 'Not authorised.' }
+    if (!allocations.length) return { ok: false, error: 'Select at least one invoice to allocate to.' }
+
+    // Load the bank line.
+    const { data: line, error: lineErr } = await supabase
+      .from('bank_transactions')
+      .select('id, amount, direction')
+      .eq('id', lineId)
+      .single()
+    if (lineErr || !line) return { ok: false, error: `Bank transaction not found: ${lineErr?.message ?? 'missing'}` }
+    if ((line.direction as string) !== 'in') {
+      return { ok: false, error: 'Only incoming payments can be allocated to invoices.' }
+    }
+    const txnAmount = round2(Math.abs(Number(line.amount ?? 0)))
+
+    const invoiceIds = allocations.map((a) => a.invoiceId)
+
+    // Load the target invoices + all LIVE allocations that affect the balances
+    // we're about to validate (this bank line, and the target invoices).
+    const [{ data: invRows, error: invErr }, { data: liveTxnAllocs }, { data: liveInvAllocs }] = await Promise.all([
+      supabase
+        .from('invoices')
+        .select('id, invoice_number, status, base_price, discount, invoice_items ( price )')
+        .in('id', invoiceIds)
+        .is('deleted_at', null),
+      supabase
+        .from('invoice_payment_allocations')
+        .select('amount_allocated')
+        .eq('bank_transaction_id', lineId)
+        .is('reversed_at', null),
+      supabase
+        .from('invoice_payment_allocations')
+        .select('invoice_id, amount_allocated')
+        .in('invoice_id', invoiceIds)
+        .is('reversed_at', null),
+    ])
+    if (invErr) return { ok: false, error: invErr.message }
+    if (!invRows || invRows.length !== invoiceIds.length) {
+      return { ok: false, error: 'One or more selected invoices could not be found.' }
+    }
+
+    const transactionAllocated = round2(
+      ((liveTxnAllocs ?? []) as Array<{ amount_allocated: number }>).reduce((s, r) => s + Number(r.amount_allocated ?? 0), 0),
+    )
+    const allocatedByInvoice = new Map<string, number>()
+    for (const r of (liveInvAllocs ?? []) as Array<{ invoice_id: string; amount_allocated: number }>) {
+      allocatedByInvoice.set(r.invoice_id, round2((allocatedByInvoice.get(r.invoice_id) ?? 0) + Number(r.amount_allocated ?? 0)))
+    }
+
+    const invoiceTotals = new Map<string, { total: number; status: string; number: string }>()
+    const ctxInvoices: AllocationContext['invoices'] = {}
+    for (const i of invRows as Array<Record<string, unknown>>) {
+      const items = (i.invoice_items ?? []) as Array<{ price: number }>
+      const addons = items.reduce((s, it) => s + (it.price ?? 0), 0)
+      const total = round2(Number(i.base_price ?? 0) + addons - Number(i.discount ?? 0))
+      const id = i.id as string
+      invoiceTotals.set(id, { total, status: (i.status as string) ?? 'draft', number: (i.invoice_number as string) ?? '' })
+      ctxInvoices[id] = { total, allocated: allocatedByInvoice.get(id) ?? 0 }
+    }
+
+    const proposed: ProposedAllocation[] = allocations.map((a) => ({ invoiceId: a.invoiceId, amount: round2(a.amount) }))
+    const ctx: AllocationContext = { transactionAmount: txnAmount, transactionAllocated, invoices: ctxInvoices }
+    const check = validateAllocation(ctx, proposed)
+    if (!check.ok) return { ok: false, error: check.error }
+
+    // Insert the allocation rows. The DB partial-unique index also guards
+    // against a concurrent duplicate for the same (txn, invoice) pair.
+    const nowIso = new Date().toISOString()
+    const { error: insErr } = await supabase.from('invoice_payment_allocations').insert(
+      proposed.map((p) => ({
+        bank_transaction_id: lineId,
+        invoice_id: p.invoiceId,
+        amount_allocated: p.amount,
+        method: 'manual',
+        reconciled_at: nowIso,
+        reconciled_by: user?.id ?? null,
+      })),
+    )
+    if (insErr) {
+      // 23505 = unique_violation on uq_ipa_live_pair.
+      if ((insErr as { code?: string }).code === '23505') {
+        return { ok: false, error: 'One of these invoices is already allocated to this payment. Reverse it first to re-allocate.' }
+      }
+      return { ok: false, error: insErr.message }
+    }
+
+    // Mark any not-yet-paid target invoices paid (already-paid stay as-is).
+    const date = paidDate || new Date().toISOString().slice(0, 10)
+    const unpaidIds = Array.from(invoiceTotals.entries()).filter(([, v]) => v.status !== 'paid').map(([id]) => id)
+    let markedPaid = 0
+    if (unpaidIds.length > 0) {
+      const { data: upd, error: updErr } = await supabase
+        .from('invoices')
+        .update({ status: 'paid', date_paid: date })
+        .in('id', unpaidIds)
+        .neq('status', 'paid')
+        .select('id')
+      if (updErr) return { ok: false, error: `Allocations saved but marking invoices paid failed: ${updErr.message}` }
+      markedPaid = upd?.length ?? 0
+    }
+
+    // Clear the bank line once fully allocated.
+    const proposedSum = round2(proposed.reduce((s, p) => s + p.amount, 0))
+    const fully = isFullyAllocated(txnAmount, round2(transactionAllocated + proposedSum))
+    if (fully) {
+      const { error: clrErr } = await supabase
+        .from('bank_transactions')
+        .update({ cleared: true, cleared_at: nowIso, cleared_by: user?.id ?? null })
+        .eq('id', lineId)
+      if (clrErr) return { ok: false, error: `Allocations saved but clearing the line failed: ${clrErr.message}` }
+    }
+
+    // Audit — one row summarising the reconciliation.
+    try {
+      await supabase.from('audit_log').insert({
+        actor_id: user?.id ?? null,
+        actor_role: 'admin',
+        action: 'bank.reconciled',
+        entity_table: 'bank_transactions',
+        entity_id: lineId,
+        before: {},
+        after: {
+          allocations: proposed.map((p) => ({ invoice: invoiceTotals.get(p.invoiceId)?.number, amount: p.amount })),
+          marked_paid: markedPaid,
+          cleared: fully,
+        },
+      })
+    } catch (err) {
+      console.warn('[reconcile] audit insert failed:', err)
+    }
+
+    revalidatePath('/portal/finance/reconcile')
+    return { ok: true, allocated: proposed.length, markedPaid, cleared: fully }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Unexpected error.' }
+  }
+}
+
+/**
+ * Reverse a single live allocation (soft — the row stays for audit). If the
+ * bank line was cleared and reversing this drops it below fully-allocated, the
+ * cleared flag is lifted so it re-appears for reconciliation. The invoice's
+ * paid status is intentionally left as-is (reversing an allocation is a
+ * bank-side correction, not an un-payment — flip the invoice separately if it
+ * truly wasn't paid).
+ */
+export async function reverseAllocation(
+  allocationId: string,
+  reason: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!isAdminUser(user)) return { ok: false, error: 'Not authorised.' }
+
+    const { data: alloc, error: aErr } = await supabase
+      .from('invoice_payment_allocations')
+      .select('id, bank_transaction_id, invoice_id, amount_allocated, reversed_at')
+      .eq('id', allocationId)
+      .single()
+    if (aErr || !alloc) return { ok: false, error: `Allocation not found: ${aErr?.message ?? 'missing'}` }
+    if (alloc.reversed_at) return { ok: false, error: 'This allocation has already been reversed.' }
+
+    const nowIso = new Date().toISOString()
+    const { error: revErr } = await supabase
+      .from('invoice_payment_allocations')
+      .update({ reversed_at: nowIso, reversed_by: user?.id ?? null, reversal_reason: reason || null })
+      .eq('id', allocationId)
+      .is('reversed_at', null)
+    if (revErr) return { ok: false, error: revErr.message }
+
+    // Re-evaluate the bank line: if it's no longer fully allocated, un-clear it.
+    const lineId = alloc.bank_transaction_id as string
+    const { data: line } = await supabase
+      .from('bank_transactions')
+      .select('amount')
+      .eq('id', lineId)
+      .single()
+    const { data: remainingAllocs } = await supabase
+      .from('invoice_payment_allocations')
+      .select('amount_allocated')
+      .eq('bank_transaction_id', lineId)
+      .is('reversed_at', null)
+    const txnAmount = round2(Math.abs(Number(line?.amount ?? 0)))
+    const stillAllocated = round2(
+      ((remainingAllocs ?? []) as Array<{ amount_allocated: number }>).reduce((s, r) => s + Number(r.amount_allocated ?? 0), 0),
+    )
+    if (!isFullyAllocated(txnAmount, stillAllocated)) {
+      await supabase
+        .from('bank_transactions')
+        .update({ cleared: false, cleared_at: null, cleared_by: null })
+        .eq('id', lineId)
+    }
+
+    try {
+      await supabase.from('audit_log').insert({
+        actor_id: user?.id ?? null,
+        actor_role: 'admin',
+        action: 'bank.allocation_reversed',
+        entity_table: 'invoice_payment_allocations',
+        entity_id: allocationId,
+        before: { amount: Number(alloc.amount_allocated ?? 0), invoice_id: alloc.invoice_id, bank_transaction_id: lineId },
+        after: { reversal_reason: reason || null },
+      })
+    } catch (err) {
+      console.warn('[reconcile] reversal audit insert failed:', err)
+    }
+
+    revalidatePath('/portal/finance/reconcile')
+    return { ok: true }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Unexpected error.' }
   }

@@ -1,4 +1,4 @@
-import { parseAsbCsv, splitCsvLine, parseAsbDate, extractInvoiceRefs } from '@/lib/asb-import'
+import { parseAsbCsv, splitCsvLine, parseAsbDate, extractInvoiceRefs, extractNumberRefs } from '@/lib/asb-import'
 
 const SAMPLE = `Created date / time : 23 June 2026 / 18:36:55,,,,,,
 Bank 12; Branch 3627; Account 0005597-00 (Business Account),,,,,,
@@ -71,6 +71,26 @@ describe('extractInvoiceRefs', () => {
   })
   it('does not match the word invoice', () => {
     expect(extractInvoiceRefs('invoice attached')).toEqual([])
+  })
+})
+
+describe('extractNumberRefs — bare invoice numbers (no INV token)', () => {
+  it('extracts a bare 4–6 digit number as a candidate INV ref (the INV-26022 memo)', () => {
+    expect(extractNumberRefs('Sue Bunce  26022')).toContain('INV-26022')
+    expect(extractNumberRefs('78 Browns Rd cleaning 0053')).toContain('INV-0053')
+  })
+  it('does not double-count an already INV-prefixed number', () => {
+    // "INV-0033" is high-confidence and handled by extractInvoiceRefs; the bare
+    // extractor strips it so it is not re-emitted here.
+    expect(extractNumberRefs('INV-0033')).toEqual([])
+  })
+  it('skips 4-digit years to avoid matching dates in the memo', () => {
+    expect(extractNumberRefs('payment 2026 for cleaning')).toEqual([])
+    // A 5-digit number is never a year, so it is kept.
+    expect(extractNumberRefs('ref 20260')).toContain('INV-20260')
+  })
+  it('ignores short numbers (< 4 digits)', () => {
+    expect(extractNumberRefs('unit 12 apt 3')).toEqual([])
   })
 })
 

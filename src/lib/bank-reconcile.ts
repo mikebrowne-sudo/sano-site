@@ -29,6 +29,9 @@ export interface ReconInvoice {
   datePaid: string | null
   client?: string
   address?: string
+  /** Sum of live (un-reversed) allocations already made against this invoice.
+   *  Defaults to 0 when the caller doesn't supply it. */
+  allocatedTotal?: number
 }
 export interface ReconExpense {
   amount: number
@@ -38,7 +41,12 @@ export interface ReconExpense {
 // reconcile() emits the first five. 'likely_bundle' / 'likely_match' are
 // display-only states the page derives for an unmatched credit when a
 // payer-scoped subset of invoices plausibly explains it.
-export type CreditStatus = 'reconciled' | 'unpaid_match' | 'amount_match' | 'financing' | 'unmatched' | 'likely_bundle' | 'likely_match'
+// 'allocate_match' — a confident match to an invoice that is ALREADY paid but
+// whose payment isn't yet allocated to a bank line (e.g. a manual invoice paid
+// before reconciliation). On confirm the invoice STAYS paid; we only record the
+// allocation + clear the bank line. Distinct from 'unpaid_match', which also
+// flips the invoice to paid.
+export type CreditStatus = 'reconciled' | 'unpaid_match' | 'allocate_match' | 'amount_match' | 'financing' | 'unmatched' | 'likely_bundle' | 'likely_match'
 export type DebitStatus = 'recorded' | 'not_recorded'
 
 export interface CreditRow {
@@ -61,6 +69,7 @@ export interface ReconResult {
     creditCount: number
     debitCount: number
     invoicesToMarkPaid: number // unpaid_match + amount_match
+    allocationsToRecord: number // allocate_match (already-paid, needs allocation)
     debitsToRecord: number // not_recorded
     unmatchedCredits: number
     financingCredits: number
@@ -119,6 +128,7 @@ export function reconcile(args: {
       creditCount: credits.length,
       debitCount: debits.length,
       invoicesToMarkPaid: credits.filter((c) => c.status === 'unpaid_match' || c.status === 'amount_match').length,
+      allocationsToRecord: credits.filter((c) => c.status === 'allocate_match').length,
       debitsToRecord: debits.filter((d) => d.status === 'not_recorded').length,
       unmatchedCredits: credits.filter((c) => c.status === 'unmatched').length,
       financingCredits: credits.filter((c) => c.status === 'financing').length,
@@ -126,31 +136,80 @@ export function reconcile(args: {
   }
 }
 
+/** Remaining unallocated balance on an invoice (total − live allocations). */
+function remaining(inv: ReconInvoice): number {
+  return round2(round2(inv.total) - round2(inv.allocatedTotal ?? 0))
+}
+
+/** Is this invoice already fully covered by live allocations? */
+function fullyAllocated(inv: ReconInvoice): boolean {
+  return remaining(inv) <= 0.005
+}
+
+/**
+ * Does the bank text plausibly name this invoice's client? Token-overlap on the
+ * client name — every significant name token (3+ chars) must appear in the
+ * payee+memo text. Deliberately strict so "Sue Bunce" matches "…Sue Bunce 26022"
+ * but a single common token doesn't cause false positives.
+ */
+function textNamesClient(text: string, client: string | undefined): boolean {
+  if (!client) return false
+  const hay = text.toLowerCase()
+  const tokens = client.toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length >= 3)
+  if (tokens.length === 0) return false
+  return tokens.every((t) => hay.includes(t))
+}
+
 function matchCredit(txn: BankTxn, byNumber: Map<string, ReconInvoice>, invoices: ReconInvoice[]): CreditRow {
-  // 1. Direct invoice-number reference in the memo/payee.
-  for (const ref of txn.invoiceRefs) {
+  const text = `${txn.payee} ${txn.memo}`
+  const amt = round2(txn.amount)
+
+  // 1. Invoice-number reference in the memo/payee. High-confidence INV-#### refs
+  //    first, then bare numbers (e.g. "…26022") — both resolve against real
+  //    invoice numbers, so a stray number simply won't match.
+  const refCandidates = [...txn.invoiceRefs, ...(txn.numberRefs ?? [])]
+  for (const ref of refCandidates) {
     const inv = byNumber.get(ref.toUpperCase())
     if (inv) {
-      return { txn, invoice: inv, status: inv.status === 'paid' ? 'reconciled' : 'unpaid_match' }
+      // A paid invoice is only "reconciled" (nothing to do) once its payment is
+      // actually allocated. Paid-but-unallocated → surface as a match the user
+      // can allocate (the INV-26022 case). Unpaid → mark-paid on allocate.
+      if (inv.status === 'paid') {
+        return { txn, invoice: inv, status: fullyAllocated(inv) ? 'reconciled' : 'allocate_match' }
+      }
+      return { txn, invoice: inv, status: 'unpaid_match' }
     }
   }
 
   // 2. Owner / financing inflow (not income).
-  if (FINANCING_RE.test(`${txn.payee} ${txn.memo}`)) {
+  if (FINANCING_RE.test(text)) {
     return { txn, invoice: null, status: 'financing' }
   }
 
-  // 3. Exactly one unpaid invoice with the same amount.
-  const amt = round2(txn.amount)
-  const sameAmountUnpaid = invoices.filter((i) => i.status !== 'paid' && round2(i.total) === amt)
+  // 3. Client name in the memo/payee resolving to a single invoice that still
+  //    has an unallocated balance equal to the payment. Catches "Sue Bunce 26022"
+  //    even when the bare number step didn't (e.g. name only), and paid invoices.
+  const nameMatches = invoices.filter(
+    (i) => !fullyAllocated(i) && round2(remaining(i)) === amt && textNamesClient(text, i.client),
+  )
+  if (nameMatches.length === 1) {
+    const inv = nameMatches[0]
+    return { txn, invoice: inv, status: inv.status === 'paid' ? 'allocate_match' : 'unpaid_match' }
+  }
+
+  // 4. Exactly one unpaid invoice whose remaining balance equals the amount.
+  const sameAmountUnpaid = invoices.filter((i) => i.status !== 'paid' && round2(remaining(i)) === amt)
   if (sameAmountUnpaid.length === 1) {
     return { txn, invoice: sameAmountUnpaid[0], status: 'amount_match' }
   }
 
-  // 3b. If a paid invoice already matches the amount, treat as reconciled.
-  const sameAmountPaid = invoices.filter((i) => i.status === 'paid' && round2(i.total) === amt)
-  if (sameAmountPaid.length === 1) {
-    return { txn, invoice: sameAmountPaid[0], status: 'reconciled' }
+  // 4b. Exactly one paid-but-unallocated invoice with the same amount → surface
+  //     it so the payment can be allocated (previously this dead-ended).
+  const sameAmountPaidOpen = invoices.filter(
+    (i) => i.status === 'paid' && !fullyAllocated(i) && round2(remaining(i)) === amt,
+  )
+  if (sameAmountPaidOpen.length === 1) {
+    return { txn, invoice: sameAmountPaidOpen[0], status: 'allocate_match' }
   }
 
   return { txn, invoice: null, status: 'unmatched' }
