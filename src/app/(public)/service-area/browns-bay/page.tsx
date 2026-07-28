@@ -19,7 +19,7 @@ export default function BrownsBayServiceAreaPage() {
           'From regular upkeep to deeper cleans and end-of-tenancy resets, Sano keeps Browns Bay homes, apartments, and rentals well looked after.',
         heroImage: '/images/heroes/window-cleaning-hero.jpg',
         introParagraphs: [
-          'Sano cleans family homes, apartments, and rentals across Browns Bay, from regular upkeep to deeper cleans and move-in or move-out work.',
+          'For family homes, apartments, and rentals in Browns Bay, Sano covers regular upkeep alongside deeper one-off cleans and move-in or move-out work.',
           'Window and glass cleaning is available across Browns Bay for clear, streak-free views inside and out, worked in alongside regular home cleaning and deeper resets.',
         ],
         introImage: '/images/window-cleaning.jpg',

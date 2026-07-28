@@ -19,7 +19,7 @@ export default function HobsonvilleServiceAreaPage() {
           'From regular upkeep to deeper cleans and end-of-tenancy resets, Sano helps Hobsonville households keep homes and rentals properly looked after.',
         heroImage: '/images/heroes/regular-house-cleaning-hero.jpg',
         introParagraphs: [
-          'Sano cleans family homes, newer builds, townhouses, and rentals across Hobsonville, from regular upkeep to deeper cleans and move-in or move-out work.',
+          'Across Hobsonville, Sano looks after family homes, newer builds, townhouses, and rentals, with regular upkeep, deeper one-off cleans, and move-in or move-out work all available.',
           'Move-in and move-out cleans are available across Hobsonville, handing a home over spotless for the next occupants, with regular and deep cleaning to keep it that way once settled.',
         ],
         introImage: '/images/sano-auckland-team.jpeg',

@@ -29,7 +29,7 @@ export default function TakapunaServiceAreaPage() {
           'From apartments and family homes to offices and rentals, Sano helps match the cleaning scope to the property and the reason for the clean.',
         heroImage: '/images/heroes/regular-house-cleaning-hero.jpg',
         introParagraphs: [
-          'Sano cleans homes and workplaces across Takapuna, including apartments, family homes, townhouses, offices, and rentals. The work ranges from regular upkeep and workplace presentation to deeper cleans and move-out or handover jobs.',
+          'Sano cleans apartments, family homes, townhouses, offices, and rentals throughout Takapuna, with options that cover everyday upkeep, keeping a workplace presentable, one-off deep cleans, and end-of-lease changeovers.',
           'We confirm the job before we start, fit around building access and trading hours where needed, and leave the home or workplace clean, presentable, and ready.',
         ],
         introImage: '/images/herne-bay-residential.jpg',

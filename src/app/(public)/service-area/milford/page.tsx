@@ -19,7 +19,7 @@ export default function MilfordServiceAreaPage() {
           'From regular upkeep to deeper cleans and move-out resets, Sano keeps Milford homes, apartments, and rentals well looked after.',
         heroImage: '/images/heroes/window-cleaning-hero.jpg',
         introParagraphs: [
-          'Across Milford, Sano cleans family homes, apartments, and rentals, whether that’s ongoing upkeep, a deeper clean, or an end-of-tenancy reset before a new tenancy.',
+          'Sano looks after family homes, apartments, and rentals throughout Milford, covering ongoing upkeep, deeper one-off cleans, and end-of-tenancy resets ahead of a new tenancy.',
           'Apartment upkeep and end-of-tenancy resets are both covered in Milford, with steady regular cleans and thorough move-out work that takes a unit back to inspection-ready.',
         ],
         introImage: '/images/window-cleaning.jpg',

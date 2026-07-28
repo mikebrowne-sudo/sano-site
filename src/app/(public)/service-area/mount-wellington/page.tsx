@@ -19,7 +19,7 @@ export default function MountWellingtonServiceAreaPage() {
           'From family homes and rentals to offices and commercial spaces, Sano matches the clean to the property across Mount Wellington.',
         heroImage: '/images/heroes/post-construction-cleaning-hero.jpg',
         introParagraphs: [
-          'Sano cleans homes and workplaces across Mount Wellington, including family homes, townhouses, rentals, offices, and commercial spaces. The work runs from regular upkeep and workplace presentation to deeper cleans and move-out or handover jobs.',
+          'Sano works across Mount Wellington on family homes, townhouses, rentals, offices, and commercial spaces. Jobs range from regular upkeep and workplace presentation to deeper cleans, move-outs, and handovers.',
           'We confirm what’s needed before we start, fit around access and business hours, and leave the home or workplace clean, presentable, and ready to use.',
         ],
         introImage: '/images/post-construction.jpg',
