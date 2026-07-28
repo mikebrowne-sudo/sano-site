@@ -199,54 +199,63 @@ export const QUOTE_INVOICE_CSS = `
     white-space: pre-line;
   }
 
-  /* ====================== ITEMS TABLE ====================== */
+  /* ====================== ITEMS (block layout) ======================
+     Not a <table>: a long service description must be able to FLOW across a
+     page break. The priced-line row (No · name · amount) is kept together and
+     visually associated with its detail; only the detail is allowed to break. */
   .doc-items-section { padding-top: 32px; }
 
-  .doc-items {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  .doc-items thead th {
+  .doc-items-head {
+    display: grid;
+    grid-template-columns: 38px 1fr 150px;
+    column-gap: 16px;
     font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.18em;
     color: var(--sage-500);
-    text-align: left;
-    padding: 0 0 12px;
+    padding-bottom: 12px;
     border-bottom: 1.5px solid var(--sage-800);
+    break-after: avoid; /* keep column labels with the first item */
   }
-  .doc-items thead th.is-right { text-align: right; }
-  .doc-items thead th.col-no  { width: 38px; }
-  .doc-items thead th.col-amt { width: 150px; }
+  .doc-items-head .col-amt { text-align: right; }
 
-  .doc-items tbody tr {
-    border-bottom: 1px solid var(--sage-100);
+  .doc-item { border-bottom: 1px solid var(--sage-100); padding: 16px 0; }
+  /* Name + amount + number never split apart, and stay with the start of their
+     detail (break-after: avoid), so a page break never orphans a priced line. */
+  .doc-item-row {
+    display: grid;
+    grid-template-columns: 38px 1fr 150px;
+    column-gap: 16px;
+    align-items: baseline;
+    break-inside: avoid;
+    break-after: avoid;
   }
-  .doc-items tbody td {
-    padding: 16px 0;
-    font-size: 14px;
-    color: var(--sage-800);
-    vertical-align: top;
-  }
-  .doc-items td.col-no {
+  .doc-item-row .col-no {
     color: var(--gray-400);
     font-variant-numeric: tabular-nums;
     font-size: 12.5px;
-    padding-top: 18px;
     font-weight: 500;
   }
-  .doc-items td.col-desc { padding-right: 16px; }
-  .doc-items td.col-desc .desc-title {
+  .doc-item-row .col-title {
+    font-size: 14px;
     font-weight: 500;
     color: var(--sage-800);
     line-height: 1.5;
   }
-  /* Labelled sub-rows: small uppercase label sitting above the value
-     on its own line. Used for Service address + Service description
-     in the first line item. */
-  .doc-items td.col-desc .desc-block { margin-top: 12px; }
-  .doc-items td.col-desc .desc-block-label {
+  .doc-item-row .col-amt {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--sage-800);
+  }
+
+  /* Long detail — service address + description. Flows; may break across pages. */
+  .doc-item-detail { margin-top: 12px; padding-left: 54px; } /* aligns under Description */
+  .doc-item-detail .desc-block { margin-top: 12px; }
+  .doc-item-detail .desc-block:first-child { margin-top: 0; }
+  .doc-item-detail .desc-block-label {
     font-size: 10.5px;
     font-weight: 600;
     text-transform: uppercase;
@@ -254,18 +263,22 @@ export const QUOTE_INVOICE_CSS = `
     color: var(--sage-500);
     margin-bottom: 3px;
   }
-  .doc-items td.col-desc .desc-block-value {
+  .doc-item-detail .desc-block-value {
     font-size: 12.5px;
     color: var(--sage-600);
     line-height: 1.55;
     white-space: pre-line;
   }
-  .doc-items td.col-amt {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-    font-weight: 500;
-    padding-top: 18px;
-  }
+
+  /* ── Pagination rules ──────────────────────────────────────────────
+     Keep small, self-contained sections together; let large content flow.
+     (No break-inside:avoid on whole items / terms — those must be free to
+     break across pages.) */
+  .doc-header { break-inside: avoid; }
+  .doc-parties { break-inside: avoid; }
+  .doc-totals { break-inside: avoid; }          /* the totals column stays as one block */
+  .doc-terms h4 { break-after: avoid; }          /* T&C heading stays with the first of its body */
+  .doc-footer { break-inside: avoid; }
 
   /* ====================== TOTALS ====================== */
   .doc-totals-wrap {

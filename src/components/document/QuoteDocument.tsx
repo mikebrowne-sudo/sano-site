@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
+import { computeDocumentTotals } from '@/lib/doc-totals'
 import {
   DocumentLayout,
   type DocumentLineItem,
@@ -105,9 +106,7 @@ export function QuoteDocument({
   const addons = items.filter((a) => (a.price ?? 0) > 0)
   const addonsTotal = addons.reduce((sum, i) => sum + (i.price ?? 0), 0)
   const lineTotal = (quote.base_price ?? 0) + addonsTotal - (quote.discount ?? 0)
-  const gstAmount = quote.gst_included ? (lineTotal * 3) / 23 : lineTotal * 0.15
-  const subtotalExGst = quote.gst_included ? lineTotal - gstAmount : lineTotal
-  const total = quote.gst_included ? lineTotal : lineTotal + gstAmount
+  const { gstAmount, subtotalExGst, total } = computeDocumentTotals(lineTotal, !!quote.gst_included)
 
   // Service Description source order (parallels InvoiceDocument):
   //   1. quote.generated_scope (operator-edited or AI-generated wording)
@@ -205,9 +204,14 @@ export function QuoteDocument({
     lineItems.push({ description: 'Discount', amount: `-${fmt(quote.discount ?? 0)}` })
   }
 
-  const termsBody = isCashSale
-    ? 'This quote is valid for 30 days from the issue date. Prices are in New Zealand Dollars and include GST. Payment is required prior to the clean. Sano Property Services Limited is GST registered (GST No. 148-387-648). No lock-in contracts — you can pause or cancel any time.'
-    : 'This quote is valid for 30 days from the issue date. Prices are in New Zealand Dollars and include GST. Payment is due within 14 days of the invoice date. Sano Property Services Limited is GST registered (GST No. 148-387-648). No lock-in contracts — you can pause or cancel any time.'
+  // Amount-column label + GST sentence reflect the actual GST treatment, so a
+  // GST-exclusive quote never claims its line amounts include GST.
+  const amountLabel = quote.gst_included ? 'Amount (incl. GST)' : 'Amount (excl. GST)'
+  const gstSentence = quote.gst_included
+    ? 'Prices are in New Zealand Dollars and include GST.'
+    : 'Prices are in New Zealand Dollars and exclude GST; GST is added to the total.'
+  const paymentSentence = isCashSale ? 'Payment is required prior to the clean.' : 'Payment is due within 14 days of the invoice date.'
+  const termsBody = `This quote is valid for 30 days from the issue date. ${gstSentence} ${paymentSentence} Sano Property Services Limited is GST registered (GST No. 148-387-648). No lock-in contracts — you can pause or cancel any time.`
 
   return (
     <DocumentLayout
@@ -225,6 +229,7 @@ export function QuoteDocument({
       fromParty={fromParty}
       toParty={toParty}
       lineItems={lineItems}
+      amountLabel={amountLabel}
       notes={quote.notes}
       totals={{
         subtotalExGstDisplay: fmt(subtotalExGst),

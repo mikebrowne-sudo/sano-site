@@ -49,6 +49,7 @@ import {
 import { ContactPicker, type QuoteContact } from '../../_components/ContactPicker'
 import { AddContactInline } from '../../_components/AddContactInline'
 import { accountLabel } from '@/lib/account-label'
+import { noteLooksLikePrice } from '@/lib/doc-totals'
 import { computeCommercialPreview, type CommercialPreviewScopeRow, type ScopeFrequency } from '@/lib/commercialQuote'
 import type { PricingSettings } from '@/lib/pricingSettings'
 import type { ResidentialPricingSettings } from '@/lib/residentialPricingSettings'
@@ -745,6 +746,12 @@ export function EditQuoteForm({
           <Field label="Scheduled clean date" type="date" value={scheduledCleanDate} onChange={setScheduledCleanDate} />
         </div>
         <TextArea label="Notes" value={notes} onChange={setNotes} className="mt-4" />
+        <p className="text-xs text-sage-500 mt-1">Notes are for additional information only and do not affect the quote total.</p>
+        {noteLooksLikePrice(notes) && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+            This note appears to contain a price. If it should be charged, add it as an item under “Additional items &amp; charges” so it’s included in the quote total.
+          </p>
+        )}
       </Section>
 
       {/* ── Section: Commercial details + scope (commercial only) ── */}
@@ -878,6 +885,11 @@ export function EditQuoteForm({
           </button>
           <span className="text-sm font-medium text-sage-800">GST included</span>
         </label>
+        <p className="text-xs text-sage-500 mt-1.5">
+          {gstIncluded
+            ? 'Enter the final customer price, including GST. GST is shown extracted from that amount.'
+            : 'Enter the price before GST. GST (15%) will be added to the total.'}
+        </p>
 
         <div className="mt-4">
           <span className="block text-sm font-semibold text-sage-800 mb-1.5">Payment type</span>
@@ -888,8 +900,11 @@ export function EditQuoteForm({
         </div>
       </Section>
 
-      {/* ── Section: Add-ons ────────────────────────── */}
-      <Section title="Add-ons" disabled={isLocked}>
+      {/* ── Section: Additional items & charges ────────────────────────── */}
+      <Section title="Additional items & charges" disabled={isLocked}>
+        <p className="text-xs text-sage-500 mb-3 -mt-1">
+          Add all separately charged products, services and expenses (skip bins, disposal fees, parking, materials, travel, extra services) as priced lines so they’re included in the quote total. They use the quote’s GST setting above.
+        </p>
         {addons.length > 0 && (
           <div className="space-y-3 mb-4">
             {addons.map((a) => (

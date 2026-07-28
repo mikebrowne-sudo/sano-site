@@ -97,8 +97,11 @@ export interface DocumentLayoutProps {
   /** From / To parties. */
   fromParty: DocumentParty
   toParty: DocumentParty
-  /** Line items rendered in the items table. */
+  /** Line items rendered in the items list. */
   lineItems: ReadonlyArray<DocumentLineItem>
+  /** Amount-column heading — reflects the GST treatment
+   *  ("Amount (incl. GST)" or "Amount (excl. GST)"). */
+  amountLabel?: string
   /** Notes block (free text). Optional. */
   notes?: string | null
   /** Invoice-only Payment Details block. Pass null/undefined for quotes. */
@@ -124,6 +127,7 @@ export function DocumentLayout({
   fromParty,
   toParty,
   lineItems,
+  amountLabel = 'Amount (incl. GST)',
   notes,
   paymentDetails,
   totals,
@@ -195,34 +199,34 @@ export function DocumentLayout({
               </div>
             </section>
 
-            {/* Items table — No. / Description / Amount (incl. GST). */}
+            {/* Items — block layout (not a table) so a long service description
+                can FLOW across a page break while the priced-line header (No. ·
+                name · amount) stays together and clearly associated. */}
             <section className="doc-items-section">
-              <table className="doc-items">
-                <thead>
-                  <tr>
-                    <th className="col-no">No.</th>
-                    <th className="col-desc">Description</th>
-                    <th className="col-amt is-right">Amount (incl. GST)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lineItems.map((item, i) => (
-                    <tr key={`${i}-${item.description}`}>
-                      <td className="col-no">{String(i + 1).padStart(2, '0')}</td>
-                      <td className="col-desc">
-                        <div className="desc-title">{item.description}</div>
-                        {item.subBlocks?.map((block) => (
-                          <div className="desc-block" key={block.label}>
-                            <div className="desc-block-label">{block.label}</div>
-                            <div className="desc-block-value">{block.value}</div>
-                          </div>
-                        ))}
-                      </td>
-                      <td className="col-amt">{item.amount}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="doc-items-head">
+                <span className="col-no">No.</span>
+                <span className="col-desc">Description</span>
+                <span className="col-amt">{amountLabel}</span>
+              </div>
+              {lineItems.map((item, i) => (
+                <div className="doc-item" key={`${i}-${item.description}`}>
+                  <div className="doc-item-row">
+                    <span className="col-no">{String(i + 1).padStart(2, '0')}</span>
+                    <span className="col-title">{item.description}</span>
+                    <span className="col-amt">{item.amount}</span>
+                  </div>
+                  {item.subBlocks && item.subBlocks.length > 0 && (
+                    <div className="doc-item-detail">
+                      {item.subBlocks.map((block) => (
+                        <div className="desc-block" key={block.label}>
+                          <div className="desc-block-label">{block.label}</div>
+                          <div className="desc-block-value">{block.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
             </section>
 
             {/* Totals block — Notes/Payment left, Totals + grand-total right. */}
