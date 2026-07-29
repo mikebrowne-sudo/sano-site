@@ -115,6 +115,10 @@ export interface RemittanceBatchSummary {
   total: number
   sentAt: string | null
   paidAt: string | null
+  /** True once the remittance is fully matched to outgoing bank money. A
+   *  remittance can be paidAt-stamped (manual) yet unconfirmed = "paid,
+   *  unconfirmed" until bank reconciliation ties it to a debit. */
+  paymentConfirmed: boolean
   createdAt: string | null
   contractorNames: string[]
 }
@@ -125,7 +129,7 @@ export async function listRemittanceBatches(): Promise<RemittanceBatchSummary[]>
   const svc = getServiceSupabase()
   const { data: headers } = await svc
     .from('contractor_remittances')
-    .select('id, remittance_number, payment_date, reference, payee_label, sent_at, paid_at, created_at')
+    .select('id, remittance_number, payment_date, reference, payee_label, sent_at, paid_at, payment_confirmed, created_at')
     .order('created_at', { ascending: false })
   if (!headers || headers.length === 0) return []
 
@@ -159,6 +163,7 @@ export async function listRemittanceBatches(): Promise<RemittanceBatchSummary[]>
       total: Math.round((totals.get(id) ?? 0) * 100) / 100,
       sentAt: (h.sent_at as string | null) ?? null,
       paidAt: (h.paid_at as string | null) ?? null,
+      paymentConfirmed: !!(h as { payment_confirmed?: boolean }).payment_confirmed,
       createdAt: (h.created_at as string | null) ?? null,
       contractorNames: Array.from(names.get(id) ?? []),
     }
