@@ -35,6 +35,10 @@ export interface AgreementScheduleBlock {
   closureTreatment: string | null
   additionalWorkApproval: string | null
   equipmentProducts: string | null
+  /** INTERNAL: the tax classification that applied when this schedule was
+   *  accepted. Preserved on the agreement snapshot for internal traceability —
+   *  NOT rendered on the general signed PDF. */
+  taxTreatment?: string | null
 }
 
 /** Minimal schedule input the builder needs (a subset of ServiceSchedule + an
@@ -60,6 +64,7 @@ export interface ScheduleForBlock {
   closureTreatment?: string | null
   additionalWorkApproval?: string | null
   equipmentProducts?: string | null
+  taxTreatment?: string | null
   status?: string
 }
 
@@ -115,6 +120,7 @@ export function buildScheduleBlocks(schedules: ScheduleForBlock[], selectedIds?:
       closureTreatment: s.closureTreatment ?? null,
       additionalWorkApproval: s.additionalWorkApproval ?? null,
       equipmentProducts: s.equipmentProducts ?? null,
+      taxTreatment: s.taxTreatment ?? null,
     }))
 }
 

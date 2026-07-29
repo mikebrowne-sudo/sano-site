@@ -23,7 +23,7 @@ export async function buildAgreementScheduleSnapshot(
 
   const { data: rows } = await supabase
     .from('contractor_service_schedules')
-    .select('id, name, customer_client_id, classification, service_type, service_address, start_date, frequency, term, payment_method, payment_basis, rate_basis, agreed_amount, notice_period, price_review_date, closure_treatment, additional_work_approval, equipment_products, status, effective_from, updated_at')
+    .select('id, name, customer_client_id, classification, service_type, service_address, start_date, frequency, term, payment_method, payment_basis, rate_basis, agreed_amount, notice_period, price_review_date, closure_treatment, additional_work_approval, equipment_products, tax_treatment, status, effective_from, updated_at')
     .eq('contractor_id', contractorId)   // same-contractor guard: a foreign id can't match
     .in('id', selected)
     .order('created_at', { ascending: true })
@@ -58,6 +58,7 @@ export async function buildAgreementScheduleSnapshot(
     closureTreatment: (r.closure_treatment as string | null) ?? null,
     additionalWorkApproval: (r.additional_work_approval as string | null) ?? null,
     equipmentProducts: (r.equipment_products as string | null) ?? null,
+    taxTreatment: (r.tax_treatment as string | null) ?? null,
     status: (r.status as string) ?? 'draft',
   }))
 

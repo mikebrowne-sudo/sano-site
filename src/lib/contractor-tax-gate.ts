@@ -75,6 +75,25 @@ export interface ContractorTaxGateResult {
   blocked: ScheduleGateResult[]
 }
 
+/**
+ * How a tax-classification change to a schedule must be applied, given the
+ * schedule's lifecycle status. Pure so the rule is unit-tested and shared.
+ *  - draft            → edit in place (classification is part of the version being built)
+ *  - active / paused  → supersede (create a new effective-dated version; the old
+ *                       one is never mutated in place)
+ *  - superseded/ended → rejected (not the current version)
+ */
+export type ClassificationChangeMode = 'edit_in_place' | 'supersede' | 'rejected'
+
+export function classificationChangeMode(status: string | null | undefined): ClassificationChangeMode {
+  switch (status) {
+    case 'draft': return 'edit_in_place'
+    case 'active':
+    case 'paused': return 'supersede'
+    default: return 'rejected' // superseded, ended, or unknown
+  }
+}
+
 /** Resolve the gate across all of a contractor's schedules. */
 export function resolveContractorTaxGate(
   schedules: ScheduleForGate[],

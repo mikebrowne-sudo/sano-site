@@ -13,6 +13,7 @@ import {
   validateDeclarationRate, CONTRACTOR_DECLARATION_TEXT, CONTRACTOR_DECLARATION_VERSION,
   type DeclarationType, type DeclarationInput,
 } from '@/lib/contractor-tax-declaration'
+import { classificationChangeMode } from '@/lib/contractor-tax-gate'
 
 function revalidate(contractorId: string) {
   revalidatePath(`/portal/contractors/${contractorId}/tax`)
@@ -171,30 +172,88 @@ export async function setScheduleTaxTreatment(
   scheduleId: string,
   treatment: 'schedular_payment' | 'ordinary_trade_creditor' | 'exempt_certificate' | 'pending_review',
   note: string | null,
-): Promise<{ ok?: true; error?: string }> {
+  effectiveFrom?: string | null,
+): Promise<{ ok?: true; error?: string; supersededBy?: string }> {
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
 
-  // Confirm the schedule belongs to this contractor.
+  // Load the FULL schedule (we clone it if it must supersede). Confirm ownership.
   const { data: sch } = await supabase
     .from('contractor_service_schedules')
-    .select('id, tax_treatment')
+    .select('*')
     .eq('id', scheduleId)
     .eq('contractor_id', contractorId)
     .maybeSingle()
   if (!sch) return { error: 'That schedule does not belong to this contractor.' }
+  const s = sch as Record<string, unknown>
+  const status = (s.status as string) ?? 'draft'
+  const mode = classificationChangeMode(status)
+  if (mode === 'rejected') {
+    return { error: 'This schedule version is no longer current — classify the current version.' }
+  }
 
-  const { error } = await supabase
+  const nowIso = new Date().toISOString()
+  const priorTreatment = (s.tax_treatment as string | null) ?? null
+
+  // DRAFT: classification is part of the version being built — edit in place.
+  if (mode === 'edit_in_place') {
+    const { error } = await supabase
+      .from('contractor_service_schedules')
+      .update({ tax_treatment: treatment, tax_treatment_note: note || null, updated_at: nowIso })
+      .eq('id', scheduleId)
+    if (error) return { error: error.message }
+    await supabase.from('audit_log').insert({
+      actor_id: user.id, actor_role: 'admin', action: 'contractor_schedule.tax_treatment_set_draft',
+      entity_table: 'contractor_service_schedules', entity_id: scheduleId,
+      before: { tax_treatment: priorTreatment }, after: { tax_treatment: treatment },
+    })
+    revalidate(contractorId)
+    return { ok: true }
+  }
+
+  // ACTIVE (or paused): the classification is part of an effective-dated version —
+  // no silent in-place change. Supersede: create a NEW version (clone) carrying the
+  // new tax_treatment + effective_from, mark the old one superseded pointing at the
+  // new one. Later payment snapshots can identify which version/classification
+  // applied on any date via the effective_from + supersession lineage.
+  if (priorTreatment === treatment) return { ok: true } // no-op, nothing to supersede
+
+  const effIso = (effectiveFrom || nowIso.slice(0, 10))
+  // Clone the current version's fields into a new row (new id), with the new
+  // classification, effective from the change date, superseding the old row.
+  const clone: Record<string, unknown> = { ...s }
+  delete clone.id
+  delete clone.created_at
+  delete clone.updated_at
+  delete clone.superseded_at
+  delete clone.superseded_by
+  clone.tax_treatment = treatment
+  clone.tax_treatment_note = note || null
+  clone.effective_from = effIso
+  clone.supersedes_id = scheduleId
+  clone.status = status // stays active/paused
+  clone.created_by = user.id
+  clone.approved_by = user.id
+
+  const { data: newRow, error: insErr } = await supabase
     .from('contractor_service_schedules')
-    .update({ tax_treatment: treatment, tax_treatment_note: note || null, updated_at: new Date().toISOString() })
+    .insert(clone)
+    .select('id')
+    .single()
+  if (insErr) return { error: `Could not create the new schedule version: ${insErr.message}` }
+
+  const { error: supErr } = await supabase
+    .from('contractor_service_schedules')
+    .update({ status: 'superseded', superseded_at: nowIso, superseded_by: newRow.id, updated_at: nowIso })
     .eq('id', scheduleId)
-  if (error) return { error: error.message }
+  if (supErr) return { error: `New version created but superseding the old failed: ${supErr.message}` }
 
   await supabase.from('audit_log').insert({
-    actor_id: user.id, actor_role: 'admin', action: 'contractor_schedule.tax_treatment_set',
-    entity_table: 'contractor_service_schedules', entity_id: scheduleId,
-    before: { tax_treatment: (sch.tax_treatment as string | null) ?? null }, after: { tax_treatment: treatment },
+    actor_id: user.id, actor_role: 'admin', action: 'contractor_schedule.tax_treatment_superseded',
+    entity_table: 'contractor_service_schedules', entity_id: newRow.id,
+    before: { schedule_version: scheduleId, tax_treatment: priorTreatment },
+    after: { schedule_version: newRow.id, tax_treatment: treatment, effective_from: effIso, supersedes: scheduleId },
   })
   revalidate(contractorId)
-  return { ok: true }
+  return { ok: true, supersededBy: newRow.id as string }
 }

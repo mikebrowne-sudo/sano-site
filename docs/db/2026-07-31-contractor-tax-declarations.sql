@@ -103,16 +103,27 @@ drop trigger if exists ctd_immutable_facts on public.contractor_tax_declarations
 create trigger ctd_immutable_facts before update on public.contractor_tax_declarations
   for each row execute function public.ctd_block_fact_updates();
 
--- ── 2. Per-schedule tax classification ──────────────────────────────────────
+-- ── 2. Per-schedule tax classification (part of the effective-dated version) ─
 -- A verified IR330C does NOT make every schedule schedular. Each schedule's
--- treatment is set/reviewed independently by staff.
+-- treatment is set/reviewed independently by staff. The classification is PART OF
+-- the effective-dated schedule version: a DRAFT can be edited in place; changing
+-- an ACTIVE schedule's classification SUPERSEDES it with a new effective-dated
+-- version (see setScheduleTaxTreatment). supersedes_id is the back-pointer
+-- (new → old) complementing the existing superseded_by (old → new), so a payment
+-- snapshot can reconstruct the exact version + classification that applied on a
+-- given date.
 alter table public.contractor_service_schedules
   add column if not exists tax_treatment text
     check (tax_treatment in ('schedular_payment','ordinary_trade_creditor','exempt_certificate','pending_review')),
-  add column if not exists tax_treatment_note text;
+  add column if not exists tax_treatment_note text,
+  add column if not exists supersedes_id uuid references public.contractor_service_schedules(id) on delete set null;
+
+create index if not exists idx_css_supersedes on public.contractor_service_schedules (supersedes_id);
 
 comment on column public.contractor_service_schedules.tax_treatment is
-  'Per-schedule tax classification, set/reviewed independently of the contractor tax declaration. schedular_payment → the schedule is gated on a verified IR330C/exemption; ordinary_trade_creditor → not gated by IR330C; exempt_certificate → covered by a verified exemption; pending_review → unresolved (blocks). Null = not yet classified (treated as pending).';
+  'Per-schedule tax classification, set/reviewed independently of the contractor tax declaration and forming part of the effective-dated schedule version. schedular_payment → gated on a verified IR330C/exemption; ordinary_trade_creditor → not gated by IR330C; exempt_certificate → covered by a verified exemption; pending_review → unresolved (blocks). Null = not yet classified (treated as pending). Changing an ACTIVE schedule''s classification supersedes the version rather than mutating in place.';
+comment on column public.contractor_service_schedules.supersedes_id is
+  'Back-pointer to the schedule version this row replaced (new → old), complementing superseded_by (old → new). Lets a payment/job snapshot resolve the exact schedule version + tax classification effective on a date.';
 
 -- ── RLS — admin-only (token reads use the service-role client + app allowlist) ─
 alter table public.contractor_tax_declarations enable row level security;
@@ -136,7 +147,7 @@ select tgname from pg_trigger where tgrelid = 'public.contractor_tax_declaration
 
 select column_name from information_schema.columns
 where table_schema='public' and table_name='contractor_service_schedules'
-  and column_name in ('tax_treatment','tax_treatment_note') order by column_name;   -- 2 rows
+  and column_name in ('tax_treatment','tax_treatment_note','supersedes_id') order by column_name;   -- 3 rows
 
 select count(*) as policies from pg_policies
 where schemaname='public' and tablename='contractor_tax_declarations';   -- 1
@@ -147,5 +158,6 @@ where schemaname='public' and tablename='contractor_tax_declarations';   -- 1
 --   drop function if exists public.ctd_block_fact_updates();
 --   drop table if exists public.contractor_tax_declarations;
 --   alter table public.contractor_service_schedules
---     drop column if exists tax_treatment, drop column if exists tax_treatment_note;
+--     drop column if exists tax_treatment, drop column if exists tax_treatment_note,
+--     drop column if exists supersedes_id;
 -- commit;
