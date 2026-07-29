@@ -11,6 +11,7 @@ import { formatRatePct } from '@/lib/contractor-tax-declaration'
 import { getContractorPaymentPreviews } from '@/lib/contractor-payment-preview'
 import { formatCurrency } from '@/lib/format'
 import { VerifyReject, RecordDeclaration, ScheduleTaxClassifier } from './_components/TaxDeclarationControls'
+import { SnapshotControls } from './_components/SnapshotControls'
 
 export const dynamic = 'force-dynamic'
 
@@ -117,6 +118,7 @@ export default async function ContractorTaxPage({ params }: { params: { id: stri
                     <PreviewRow k="Total cost to Sano" v={formatCurrency(p.calc.sanoCost ?? 0)} />
                   </tbody></table>
                 )}
+                {p.calc && <SnapshotControls contractorId={params.id} scheduleId={p.scheduleId} supplyDate={todayIso} approvable={p.calc.status === 'ok'} />}
               </li>
             ))}
           </ul>
