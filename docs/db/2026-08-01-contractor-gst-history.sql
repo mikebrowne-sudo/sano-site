@@ -120,20 +120,30 @@ create policy "contractor_gst_history admin all" on public.contractor_gst_histor
 
 commit;
 
--- ── Backfill (explicit, evidence-preserving — NOT an inference) ─────────────
--- Seed one verified history row per contractor that currently has a GST flag set,
--- from their EXISTING contractors.gst_* columns, so the history reflects what was
--- already recorded. This copies existing recorded state; it does not infer
--- registration from turnover. Run AFTER reviewing the counts; safe to skip and
--- record fresh declarations instead. Idempotent: only seeds contractors with no
--- history row yet.
+-- ── OPTIONAL backfill (COMMENTED — a deliberate, reviewed decision only) ─────
+-- Seeds ONE history row per registered contractor from the EXISTING contractors.gst_*
+-- columns, so the history reflects what was already recorded.
+--
+-- IMPORTANT — imported legacy cache data is NOT equivalent to a verified contractor
+-- declaration. It has no contractor signature and was not independently verified
+-- through this workflow. It is therefore imported as status='submitted' (PENDING
+-- REVIEW), NOT 'verified': a staff member must review the evidence and verify it
+-- (supplying a verifier + declaration/signature) in the GST panel before it becomes
+-- authoritative. Because it is not verified, it CANNOT violate cgh_verified_complete_chk
+-- (that constraint applies only to verified rows), and it does NOT present legacy
+-- data as contractor-verified. No signature is invented. It does NOT infer
+-- registration from turnover and does NOT alter any invoice/remittance/statement.
+--
+-- Idempotent (skips contractors that already have any history row). Review the
+-- count first; then a staff member verifies each imported row in the GST panel.
 --
 -- insert into public.contractor_gst_history
 --   (contractor_id, gst_registered, gst_number, effective_date, end_date,
---    declaration_text, declaration_version, source, status, verified_at, created_at)
+--    declaration_text, declaration_version, source, status, review_notes, created_at)
 -- select c.id, coalesce(c.gst_registered,false), c.gst_number, c.gst_effective_date, c.gst_end_date,
---        'Backfilled from the existing contractor GST record.', 'gst-backfill-2026-v1',
---        'staff_recorded', 'verified', now(), now()
+--        'Imported from the pre-existing contractor GST record — NOT a verified contractor declaration; staff review required.',
+--        'gst-import-2026-v1', 'staff_recorded', 'submitted',
+--        'Imported legacy cache data pending staff verification.', now()
 -- from public.contractors c
 -- where c.gst_registered is true
 --   and not exists (select 1 from public.contractor_gst_history h where h.contractor_id = c.id);

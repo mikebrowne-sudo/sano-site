@@ -4,7 +4,8 @@ import { ArrowLeft } from 'lucide-react'
 import clsx from 'clsx'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
-import { getContractorGstHistory, gstRecordForDate, type FullGstHistory } from '@/lib/contractor-gst-history-data'
+import { getContractorGstHistory, refreshGstCacheIfStale, type FullGstHistory } from '@/lib/contractor-gst-history-data'
+import { getServiceSupabase } from '@/lib/supabase-service'
 import { VerifyRejectGst, RecordGst } from './_components/GstControls'
 
 export const dynamic = 'force-dynamic'
@@ -28,7 +29,10 @@ export default async function ContractorGstPage({ params }: { params: { id: stri
 
   const { verifiedCurrent, pendingReplacement, history } = await getContractorGstHistory(params.id)
   const todayIso = new Date().toISOString().slice(0, 10)
-  const applicableToday = gstRecordForDate(history, todayIso)
+  // GST-sensitive read: refresh the derived cache to the status applicable today
+  // (this is how a future-effective registration "arrives" on its effective date)
+  // and get that date-resolved record for display.
+  const applicableToday = await refreshGstCacheIfStale(getServiceSupabase(), params.id, history)
 
   return (
     <div className="max-w-4xl mx-auto">

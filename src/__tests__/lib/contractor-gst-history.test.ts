@@ -72,3 +72,32 @@ describe('gstWindowForDate', () => {
     expect(gstWindowForDate(pending, '2026-06-01').gstRegistered).toBe(false)
   })
 })
+
+// The derived cache writes exactly what selectGstStatusForDate returns for TODAY,
+// so these assert the cache-transition behaviour the review requires.
+describe('cache = status applicable today (date-resolved, not newest verified)', () => {
+  // Existing status: not registered from Jan. Verified-today replacement: registered from next month.
+  const notRegNow = row({ id: 'now', gstRegistered: false, gstNumber: null, effectiveDate: '2026-01-01', endDate: null })
+  const futureReg = row({ id: 'future', gstRegistered: true, gstNumber: '135-712-264', effectiveDate: '2026-09-01', endDate: null })
+  const history = [notRegNow, futureReg]
+
+  it('a future-effective verified registration does NOT become the cache early', () => {
+    // Today (before 1 Sep) the cache should reflect the PRIOR status (not registered).
+    expect(gstWindowForDate(history, '2026-08-15').gstRegistered).toBe(false)
+  })
+  it('the prior status stays until the effective date, then the cache changes', () => {
+    expect(gstWindowForDate(history, '2026-08-31').gstRegistered).toBe(false) // day before
+    expect(gstWindowForDate(history, '2026-09-01')).toMatchObject({ gstRegistered: true, gstNumber: '135-712-264' }) // effective day
+    expect(gstWindowForDate(history, '2026-10-15').gstRegistered).toBe(true)
+  })
+  it('after a verified end date the cache shows NOT registered', () => {
+    const ceased = [row({ id: 'c', gstRegistered: true, gstNumber: '1', effectiveDate: '2026-01-01', endDate: '2026-06-30' })]
+    expect(gstWindowForDate(ceased, '2026-06-30').gstRegistered).toBe(true)  // last day registered
+    expect(gstWindowForDate(ceased, '2026-07-01').gstRegistered).toBe(false) // after cessation
+  })
+  it('history-based supply-date resolution is unchanged by any cache concern', () => {
+    // A historical supply still resolves the row in force then, independent of "today".
+    expect(gstWindowForDate(history, '2026-03-01').gstRegistered).toBe(false)
+    expect(gstWindowForDate(history, '2026-12-01').gstRegistered).toBe(true)
+  })
+})

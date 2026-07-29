@@ -32,11 +32,12 @@ describe('verify supersedes the prior verified atomically + syncs the cache', ()
     expect(staffAction).toMatch(/if\s*\(status === 'rejected'\)/)
     expect(staffAction).toMatch(/status:\s*'rejected'/)
   })
-  it('verify + verify-now sync the derived contractors.gst_* cache', () => {
+  it('verify + verify-now sync the derived contractors.gst_* cache (date-resolved)', () => {
     expect(staffAction).toMatch(/syncGstCache/)
     expect(dataLib).toMatch(/export async function syncGstCache/)
-    // the cache sync reads the CURRENT VERIFIED row (not newest).
-    expect(dataLib).toMatch(/\.eq\('status',\s*'verified'\)[\s\S]*\.is\('superseded_at',\s*null\)/)
+    // the cache reflects the status APPLICABLE TODAY (date-resolved), not newest.
+    const sync = dataLib.slice(dataLib.indexOf('export async function syncGstCache'), dataLib.indexOf('export async function refreshGstCacheIfStale'))
+    expect(sync).toMatch(/selectGstStatusForDate/)
   })
   it('completeness guard on verify (effective for registered, signature, wording)', () => {
     expect(staffAction).toMatch(/Set an effective date before verifying a registered/)
@@ -85,11 +86,12 @@ describe('source of truth = history; existing invoices untouched', () => {
       expect(src).not.toContain('contractor_remittance')
     }
   })
-  it('historical resolution uses the history list, and only the CACHE write targets contractors.gst_*', () => {
-    // syncGstCache is the ONLY place that updates contractors.gst_* — and it reads
-    // the verified history row first.
-    const sync = dataLib.slice(dataLib.indexOf('export async function syncGstCache'))
-    expect(sync).toMatch(/from\('contractor_gst_history'\)[\s\S]*\.eq\('status',\s*'verified'\)/)
+  it('historical resolution uses the history list; the cache write is date-resolved from verified rows', () => {
+    // syncGstCache reads verified history rows + date-resolves before writing the
+    // contractors.gst_* cache.
+    const sync = dataLib.slice(dataLib.indexOf('export async function syncGstCache'), dataLib.indexOf('export async function refreshGstCacheIfStale'))
+    expect(sync).toMatch(/from\('contractor_gst_history'\)/)
+    expect(sync).toMatch(/selectGstStatusForDate/)
     expect(sync).toMatch(/from\('contractors'\)\.update/)
     // date resolution keys off the history records, not the flat contractors columns.
     const gstLib = readFileSync(join(process.cwd(), 'src/lib/contractor-gst-history.ts'), 'utf8')
@@ -115,7 +117,37 @@ describe('migration: immutable, split indexes, consistency constraints', () => {
   it('registered-number CHECK requires a GST number when registered', () => {
     expect(sql).toMatch(/gst_registered = false or \(gst_number is not null/)
   })
-  it('the backfill is commented out (opt-in, evidence-preserving, not an inference)', () => {
+  it('the backfill is commented out (opt-in)', () => {
     expect(sql).toMatch(/-- insert into public\.contractor_gst_history/)
+  })
+
+  it('the backfill imports as SUBMITTED (pending), never verified — cannot violate the completeness CHECK', () => {
+    // The commented backfill's status must be 'submitted', and it must not set
+    // verified_at / a signature, so it can never create an invalid verified row.
+    const backfill = sql.slice(sql.indexOf('OPTIONAL backfill'))
+    expect(backfill).toMatch(/'staff_recorded',\s*'submitted'/)
+    expect(backfill).not.toMatch(/'staff_recorded',\s*'verified'/)
+    expect(backfill).not.toMatch(/verified_at/)
+    expect(backfill).not.toMatch(/signed_name|signed_at/)
+  })
+
+  it('the backfill states imported legacy data is NOT a verified contractor declaration', () => {
+    expect(sql).toMatch(/NOT (a )?verified contractor declaration|NOT equivalent to a verified contractor declaration/i)
+    expect(sql).toMatch(/staff review required|staff verification/i)
+  })
+})
+
+describe('derived cache is date-resolved (applicable today), with a refresh mechanism', () => {
+  it('syncGstCache resolves the status applicable on a date, not the newest verified row', () => {
+    const sync = dataLib.slice(dataLib.indexOf('export async function syncGstCache'), dataLib.indexOf('export async function refreshGstCacheIfStale'))
+    expect(sync).toMatch(/selectGstStatusForDate/)
+    expect(sync).toMatch(/asOf/)
+    // it must NOT just take the single current verified row.
+    expect(sync).not.toMatch(/\.eq\('status',\s*'verified'\)\s*[\s\S]{0,40}\.maybeSingle\(\)/)
+  })
+  it('a refresh-on-read mechanism exists (so a future-effective row arrives on its effective date)', () => {
+    expect(dataLib).toMatch(/export async function refreshGstCacheIfStale/)
+    const gstPage = readFileSync(join(process.cwd(), 'src/app/portal/contractors/[id]/gst/page.tsx'), 'utf8')
+    expect(gstPage).toMatch(/refreshGstCacheIfStale/)
   })
 })

@@ -105,21 +105,70 @@ export async function getContractorSafeGstByToken(token: string): Promise<{ cont
   return { contractorId, gst }
 }
 
-/** Sync the contractors.gst_* DERIVED CACHE from the current verified row. Called
- *  after any verify/supersede so the flat columns reflect the current verified
- *  registration (used by the GST resolver's default path). Never inferred. */
-export async function syncGstCache(supabase: ReturnType<typeof getServiceSupabase>, contractorId: string): Promise<void> {
+/**
+ * Sync the contractors.gst_* DERIVED CACHE to the verified GST status APPLICABLE
+ * ON `asOfIso` (default today) — date-resolved, NOT the newest verified row. A
+ * future-effective verified replacement therefore does NOT update the cache
+ * early: the cache keeps showing the status in force until that effective date.
+ * After a verified end date the cache shows not-registered. Never inferred.
+ *
+ * The cache has no scheduled job, so it can go stale as an effective/end date
+ * passes with no write. `refreshGstCacheIfStale` (below) re-syncs it on read /
+ * before a GST-sensitive action; the history remains the authoritative source for
+ * any date-based resolution regardless of the cache.
+ */
+export async function syncGstCache(
+  supabase: ReturnType<typeof getServiceSupabase>,
+  contractorId: string,
+  asOfIso?: string,
+): Promise<void> {
+  const asOf = asOfIso ?? new Date().toISOString().slice(0, 10)
   const { data } = await supabase
     .from('contractor_gst_history')
-    .select('gst_registered, gst_number, effective_date, end_date')
+    .select('id, status, gst_registered, gst_number, effective_date, end_date')
     .eq('contractor_id', contractorId)
-    .eq('status', 'verified')
-    .is('superseded_at', null)
-    .maybeSingle()
+    .in('status', ['verified', 'superseded']) // superseded rows still cover historical/current windows
+  const rows = (data ?? []).map((r) => ({
+    id: r.id as string, status: r.status as GstHistoryRecord['status'],
+    gstRegistered: !!r.gst_registered, gstNumber: (r.gst_number as string | null) ?? null,
+    effectiveDate: (r.effective_date as string | null) ?? null, endDate: (r.end_date as string | null) ?? null,
+  }))
+  // selectGstStatusForDate only accepts 'verified'; a superseded row that was
+  // verified for a past window is not re-verified, so we resolve over verified
+  // rows only — the applicable CURRENT status is a verified, in-window row.
+  const applicable = selectGstStatusForDate(rows.filter((r) => r.status === 'verified'), asOf)
   await supabase.from('contractors').update({
-    gst_registered: data ? !!data.gst_registered : false,
-    gst_number: data?.gst_number ?? null,
-    gst_effective_date: data?.effective_date ?? null,
-    gst_end_date: data?.end_date ?? null,
+    gst_registered: applicable ? applicable.gstRegistered : false,
+    gst_number: applicable?.gstNumber ?? null,
+    gst_effective_date: applicable?.effectiveDate ?? null,
+    gst_end_date: applicable?.endDate ?? null,
   }).eq('id', contractorId)
+}
+
+/**
+ * Refresh the cache to the status applicable today, but only if it has drifted —
+ * cheap enough to call on a GST-sensitive contractor read. This is what makes a
+ * future-effective registration "arrive": the first read on/after the effective
+ * date re-syncs the cache. Returns the applicable-today record (authoritative).
+ */
+export async function refreshGstCacheIfStale(
+  supabase: ReturnType<typeof getServiceSupabase>,
+  contractorId: string,
+  history: FullGstHistory[],
+): Promise<FullGstHistory | null> {
+  const today = new Date().toISOString().slice(0, 10)
+  const applicable = selectGstStatusForDate(history, today)
+  const { data: c } = await supabase.from('contractors').select('gst_registered, gst_number, gst_effective_date, gst_end_date').eq('id', contractorId).maybeSingle()
+  const cache = {
+    reg: !!c?.gst_registered, num: (c?.gst_number as string | null) ?? null,
+    eff: (c?.gst_effective_date as string | null) ?? null, end: (c?.gst_end_date as string | null) ?? null,
+  }
+  const want = {
+    reg: applicable ? applicable.gstRegistered : false, num: applicable?.gstNumber ?? null,
+    eff: applicable?.effectiveDate ?? null, end: applicable?.endDate ?? null,
+  }
+  if (cache.reg !== want.reg || cache.num !== want.num || cache.eff !== want.eff || cache.end !== want.end) {
+    await syncGstCache(supabase, contractorId, today)
+  }
+  return applicable
 }
