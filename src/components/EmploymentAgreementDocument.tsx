@@ -8,6 +8,7 @@ import { QUOTE_INVOICE_CSS } from './document/QuoteInvoiceCss'
 import { EMPLOYER, agreementTitle, agreementSections, type AgreementType } from '@/lib/employment-agreement-content'
 import { kiwiSaverStatusStatement } from '@/lib/payroll/kiwisaver'
 import { schedulePayLine, type AgreementScheduleBlock } from '@/lib/agreement-schedule-blocks'
+import { entityDisplayLines } from '@/lib/contractor-structure-fields'
 
 export interface AgreementView {
   type: AgreementType
@@ -33,6 +34,12 @@ export interface AgreementView {
   emergencyRelationship: string | null
   contractorTradingName: string | null
   contractorGstNumber: string | null
+  contractorBusinessStructure?: string | null
+  contractorLegalName?: string | null
+  contractorNzbn?: string | null
+  contractorCompanyNumber?: string | null
+  authorisedSignatoryName?: string | null
+  authorisedSignatoryCapacity?: string | null
   insurerName: string | null
   insuranceCover: string | null
   insuranceExpiry: string | null
@@ -86,6 +93,12 @@ export function agreementViewFromRow(a: any): AgreementView {
     emergencyRelationship: a.emergency_contact_relationship ?? null,
     contractorTradingName: a.contractor_trading_name ?? null,
     contractorGstNumber: a.contractor_gst_number ?? null,
+    contractorBusinessStructure: a.contractor_business_structure ?? null,
+    contractorLegalName: a.contractor_legal_name ?? null,
+    contractorNzbn: a.contractor_nzbn ?? null,
+    contractorCompanyNumber: a.contractor_company_number ?? null,
+    authorisedSignatoryName: a.authorised_signatory_name ?? null,
+    authorisedSignatoryCapacity: a.authorised_signatory_capacity ?? null,
     insurerName: a.insurer_name ?? null,
     insuranceCover: a.insurance_cover ?? null,
     insuranceExpiry: a.insurance_expiry ?? null,
@@ -144,7 +157,19 @@ export function EmploymentAgreementDocument({
   // record, not a contractual term — it is deliberately not shown on the agreement.
   const employerLines = [EMPLOYER.address]
   const signerLines: string[] = []
-  if (isContractor && a.contractorTradingName) signerLines.push(a.contractorTradingName)
+  // Full legal entity identity on the contractor party block (company/trust/
+  // partnership). Sole traders show their trading name only, as before.
+  if (isContractor) {
+    const entityLines = entityDisplayLines({
+      structure: a.contractorBusinessStructure,
+      legalName: a.contractorLegalName,
+      tradingName: a.contractorTradingName,
+      companyNumber: a.contractorCompanyNumber,
+      nzbn: a.contractorNzbn,
+    })
+    if (entityLines.length > 0) signerLines.push(...entityLines)
+    else if (a.contractorTradingName) signerLines.push(a.contractorTradingName)
+  }
   if (a.employeeAddress) signerLines.push(a.employeeAddress)
   if (a.employeeEmail) signerLines.push(a.employeeEmail)
   if (a.employeePhone) signerLines.push(a.employeePhone)
@@ -351,12 +376,19 @@ export function EmploymentAgreementDocument({
               ))}
             </section>
 
-            {/* Signature */}
+            {/* Signature. For an entity contractor, name the signatory + capacity. */}
             {a.signedName && a.signedAt ? (
               <div className="mt-7 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                <p className="text-sm font-semibold text-emerald-800">Signed by the {signerLabel}</p>
-                <p className="text-sm text-emerald-700 mt-1">{a.signedName} · {fmtDate(a.signedAt)}</p>
-                <p className="text-[11px] text-emerald-600 mt-1">Electronically signed — by typing their name the {signerLabel} confirmed they had read, understood, and agreed to this Agreement.</p>
+                <p className="text-sm font-semibold text-emerald-800">
+                  Signed by the {signerLabel}
+                  {isContractor && a.contractorLegalName ? ` (${a.contractorLegalName})` : ''}
+                </p>
+                <p className="text-sm text-emerald-700 mt-1">
+                  {a.signedName}
+                  {isContractor && a.authorisedSignatoryCapacity ? `, ${a.authorisedSignatoryCapacity}` : ''}
+                  {' · '}{fmtDate(a.signedAt)}
+                </p>
+                <p className="text-[11px] text-emerald-600 mt-1">Electronically signed — by typing their name the {isContractor && a.authorisedSignatoryName ? 'authorised signatory' : signerLabel} confirmed they had read, understood, and agreed to this Agreement{isContractor && a.contractorLegalName ? ' on behalf of the entity named above' : ''}.</p>
               </div>
             ) : null}
           </div>

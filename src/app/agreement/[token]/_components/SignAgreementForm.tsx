@@ -14,6 +14,7 @@ import { signEmploymentAgreement } from '../_actions'
 import { AgreementDocumentsUpload, type UploadedDoc } from './AgreementDocumentsUpload'
 import { IrdFormsPanel } from './IrdFormsPanel'
 import { BUSINESS_STRUCTURES } from '@/lib/business-structure'
+import { structureFieldRules, type ContractingStructure } from '@/lib/contractor-structure-fields'
 import { TAX_CODES, KS_EMPLOYEE_RATES } from '@/lib/nz-paye'
 import { IR330_DECLARATION_TEXT } from '@/lib/tax-declaration'
 import { EmploymentAgreementDocument, type AgreementView } from '@/components/EmploymentAgreementDocument'
@@ -22,6 +23,7 @@ const INITIAL = {
   fullName: '', preferredName: '', phone: '', email: '', address: '', dateOfBirth: '',
   ird: '', bankName: '', bank: '', taxCode: '', kiwisaver: '', kiwisaverRate: '3.5',
   tradingName: '', legalName: '', nzbn: '', companyNumber: '', gstNumber: '',
+  signatoryName: '', signatoryCapacity: '',
   insurerName: '', insuranceCover: '', insuranceExpiry: '',
   emName: '', emPhone: '', emRel: '', signedName: '',
 }
@@ -137,6 +139,13 @@ export function SignAgreementForm({
       if (!f.email.trim()) return 'Please enter your email so we can send your signed copy.'
     }
     if (s === 2 && isContractor && !businessStructure) return 'Please choose how you operate.'
+    if (s === 2 && isContractor && businessStructure) {
+      const rules = structureFieldRules(businessStructure as ContractingStructure)
+      if (rules.legalName.required && !f.legalName.trim()) return `Please enter the ${rules.legalName.label.toLowerCase()}.`
+      if (rules.companyNumber.required && !f.companyNumber.trim()) return 'Please enter the company number.'
+      if (rules.signatory.required && !f.signatoryName.trim()) return 'Please enter the authorised signatory’s name.'
+      if (rules.signatory.required && !f.signatoryCapacity.trim()) return 'Please enter the signatory’s capacity.'
+    }
     if (s === 2 && !isContractor) {
       if (!f.taxCode.trim()) return 'Please choose your tax code.'
       if (!ir330Ack) return 'Please confirm your tax code declaration to continue.'
@@ -145,7 +154,16 @@ export function SignAgreementForm({
     if (s === 3 && !f.bank.trim()) return 'Please enter your bank account number.'
     if (s === 5) {
       if (!agreed) return 'Please tick the box to confirm you agree.'
-      if (f.signedName.trim().toLowerCase() !== f.fullName.trim().toLowerCase()) return 'Your signature must match your full legal name.'
+      // For an entity contractor, the signature matches the authorised signatory;
+      // for a sole trader / employee, it matches their own full legal name.
+      const signerName = (isContractor && isEntityStructure && f.signatoryName.trim())
+        ? f.signatoryName.trim()
+        : f.fullName.trim()
+      if (f.signedName.trim().toLowerCase() !== signerName.toLowerCase()) {
+        return isContractor && isEntityStructure
+          ? 'Your signature must match the authorised signatory’s name.'
+          : 'Your signature must match your full legal name.'
+      }
     }
     return null
   }
@@ -172,6 +190,7 @@ export function SignAgreementForm({
         emergencyName: f.emName, emergencyPhone: f.emPhone, emergencyRelationship: f.emRel,
         tradingName: f.tradingName, gstNumber: f.gstNumber,
         businessStructure, legalName: f.legalName, nzbn: f.nzbn, companyNumber: f.companyNumber, gstRegistered,
+        signatoryName: f.signatoryName, signatoryCapacity: f.signatoryCapacity,
         insurerName: f.insurerName, insuranceCover: f.insuranceCover, insuranceExpiry: f.insuranceExpiry,
         signedName: f.signedName,
       })
@@ -182,6 +201,7 @@ export function SignAgreementForm({
   }
 
   const showLegalName = ['company', 'partnership', 'trust', 'other'].includes(businessStructure)
+  const isEntityStructure = ['company', 'partnership', 'trust', 'other'].includes(businessStructure)
   const legalNameLabel = businessStructure === 'company' ? 'Legal company name'
     : businessStructure === 'partnership' ? 'Partnership name'
       : businessStructure === 'trust' ? 'Trust name' : 'Entity name'
@@ -270,7 +290,19 @@ export function SignAgreementForm({
                     <input value={f.legalName} onChange={set('legalName')} className={inputCls} /></label>
                 )}
                 <Field label="NZBN (if you have one)" ph="9429000000000" value={f.nzbn} onChange={set('nzbn')} />
-                {businessStructure === 'company' && <Field label="Company number (if you have one)" value={f.companyNumber} onChange={set('companyNumber')} />}
+                {businessStructure === 'company' && <Field label="Company number" value={f.companyNumber} onChange={set('companyNumber')} />}
+              </div>
+            )}
+            {/* Authorised signatory — entities only (a company/trust/partnership is
+                signed on its behalf by an authorised person). Sole traders sign
+                personally, so this block is hidden for them. */}
+            {isEntityStructure && (
+              <div className="mt-4">
+                <p className="text-[13px] text-sage-600 mb-2">You&rsquo;re signing on behalf of {legalNameLabel.toLowerCase().includes('name') ? 'the entity' : legalNameLabel}. Please confirm who is signing and in what capacity.</p>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <Field label="Authorised signatory (your full name)" value={f.signatoryName} onChange={set('signatoryName')} />
+                  <Field label="Capacity (e.g. Director, Trustee, Partner)" value={f.signatoryCapacity} onChange={set('signatoryCapacity')} />
+                </div>
               </div>
             )}
             <div className="mt-5">
