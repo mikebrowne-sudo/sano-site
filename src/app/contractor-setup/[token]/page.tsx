@@ -1,8 +1,10 @@
 import { notFound } from 'next/navigation'
 import { getSetupByToken } from '@/lib/contractor-setup-data'
 import { getContractorSafeDeclarationByToken } from '@/lib/contractor-tax-declaration-data'
+import { getContractorSafeGstByToken } from '@/lib/contractor-gst-history-data'
 import { ContractorSetupForm } from './_components/ContractorSetupForm'
 import { TaxDeclarationForm } from './_components/TaxDeclarationForm'
+import { GstDeclarationForm } from './_components/GstDeclarationForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,6 +12,7 @@ export default async function ContractorSetupTokenPage({ params }: { params: { t
   const bundle = await getSetupByToken(params.token)
   if (!bundle) notFound()
   const taxBundle = await getContractorSafeDeclarationByToken(params.token)
+  const gstBundle = await getContractorSafeGstByToken(params.token)
 
   return (
     <div className="min-h-screen bg-sage-50/40">
@@ -22,6 +25,9 @@ export default async function ContractorSetupTokenPage({ params }: { params: { t
         <ContractorSetupForm token={params.token} contractor={bundle.contractor} schedules={bundle.schedules} />
         <div className="mt-6">
           <TaxDeclarationForm token={params.token} existing={taxBundle?.declaration ?? null} />
+        </div>
+        <div className="mt-6">
+          <GstDeclarationForm token={params.token} existing={gstBundle?.gst ?? null} />
         </div>
       </div>
     </div>

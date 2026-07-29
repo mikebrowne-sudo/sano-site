@@ -269,6 +269,13 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
             Tax
           </Link>
           <Link
+            href={`/portal/contractors/${params.id}/gst`}
+            className="inline-flex items-center gap-2 bg-white border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
+          >
+            <ClipboardList size={14} />
+            GST
+          </Link>
+          <Link
             href={`/portal/contractors/${params.id}/edit`}
             className="inline-flex items-center gap-2 bg-sage-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
           >
