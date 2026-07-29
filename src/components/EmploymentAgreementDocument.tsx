@@ -7,6 +7,7 @@
 import { QUOTE_INVOICE_CSS } from './document/QuoteInvoiceCss'
 import { EMPLOYER, agreementTitle, agreementSections, type AgreementType } from '@/lib/employment-agreement-content'
 import { kiwiSaverStatusStatement } from '@/lib/payroll/kiwisaver'
+import { schedulePayLine, type AgreementScheduleBlock } from '@/lib/agreement-schedule-blocks'
 
 export interface AgreementView {
   type: AgreementType
@@ -39,6 +40,12 @@ export interface AgreementView {
   signedAt: string | null
   agreementVersion: string | null
   issuedAt: string | null
+  /** Contractor service schedules presented on this agreement (Schedule A/B/…).
+   *  Absent/empty for employees. Display terms only. */
+  scheduleBlocks?: AgreementScheduleBlock[]
+  /** Explicit staff choice that this contractor agreement has NO service schedule.
+   *  When true the document states so plainly instead of showing an agreed rate. */
+  noSchedules?: boolean
 }
 
 /** Map an employment_agreements DB row to the document view. */
@@ -86,6 +93,12 @@ export function agreementViewFromRow(a: any): AgreementView {
     signedAt: a.signed_at ?? null,
     agreementVersion: a.agreement_version ?? null,
     issuedAt: a.created_at ?? null,
+    // Frozen snapshot when present (sent/signed); else whatever the caller
+    // supplies live. The DB row carries the snapshot as service_schedules_snapshot.
+    scheduleBlocks: Array.isArray(a.service_schedules_snapshot)
+      ? (a.service_schedules_snapshot as AgreementScheduleBlock[])
+      : [],
+    noSchedules: !!a.no_service_schedules,
   }
 }
 
@@ -138,11 +151,22 @@ export function EmploymentAgreementDocument({
 
   const emergency = emergencyLine(a)
 
+  // Contractor rate/schedule presentation:
+  //  - schedule blocks present → each schedule carries its own terms below; omit
+  //    the single "Agreed rate" row (no universal rate implied).
+  //  - explicit no-schedule exception → omit the rate row too; a plain statement
+  //    below says no schedules are attached (never a misleading universal rate).
+  //  - genuine legacy (no blocks, no exception) → keep the legacy agreed-rate row.
+  const scheduleBlocks = a.scheduleBlocks ?? []
+  const hasSchedules = isContractor && scheduleBlocks.length > 0
+  const noSchedulesStated = isContractor && !hasSchedules && !!a.noSchedules
   const rows: [string, string][] = isContractor
     ? [
         ['Engagement', 'Independent Contractor'],
         ['Commencement date', fmtDate(a.startDate)],
-        ['Agreed rate', a.hourlyRate != null ? `$${Number(a.hourlyRate).toFixed(2)} per hour (inclusive of GST)` : '—'],
+        ...(hasSchedules || noSchedulesStated
+          ? []
+          : [['Agreed rate', a.hourlyRate != null ? `$${Number(a.hourlyRate).toFixed(2)} per hour (inclusive of GST)` : '—'] as [string, string]]),
         ['Contractor GST No.', a.contractorGstNumber || '—'],
         ['Contractor IRD No.', a.employeeIrdNumber || '—'],
         ['Date of birth', fmtDate(a.dateOfBirth)],
@@ -256,6 +280,62 @@ export function EmploymentAgreementDocument({
                 </table>
               </div>
             </section>
+
+            {/* Service schedules (contractor, when present) — each arrangement
+                as its own clearly-labelled block. Display terms only. */}
+            {hasSchedules && (
+              <section className="mb-7 space-y-4">
+                <h2 className="font-semibold text-sage-800 text-[15px]">Service schedules</h2>
+                <p className="text-[13px] text-sage-600 leading-relaxed">
+                  The following work arrangements apply under this agreement. Each schedule sets its own customer, scope and payment terms.
+                </p>
+                {scheduleBlocks.map((b) => {
+                  const detail: [string, string][] = [
+                    ...(b.customer ? [['Customer', b.customer] as [string, string]] : []),
+                    ...(b.serviceType ? [['Service', b.serviceType] as [string, string]] : []),
+                    ...(b.classification ? [['Type', b.classification === 'commercial' ? 'Commercial' : 'Residential'] as [string, string]] : []),
+                    ...(b.serviceAddress ? [['Site', b.serviceAddress] as [string, string]] : []),
+                    ...(b.startDate ? [['Start date', fmtDate(b.startDate)] as [string, string]] : []),
+                    ...(b.frequency ? [['Frequency', b.frequency] as [string, string]] : []),
+                    ...(b.term ? [['Term', b.term === 'ongoing' ? 'Ongoing' : 'Fixed term'] as [string, string]] : []),
+                    ['Payment', schedulePayLine(b)],
+                    ...(b.additionalWorkApproval ? [['Additional work', b.additionalWorkApproval] as [string, string]] : []),
+                    ...(b.closureTreatment ? [['Cancellation / closure', b.closureTreatment] as [string, string]] : []),
+                    ...(b.equipmentProducts ? [['Equipment & products', b.equipmentProducts] as [string, string]] : []),
+                    ...(b.noticePeriod ? [['Notice period', b.noticePeriod] as [string, string]] : []),
+                    ...(b.priceReviewDate ? [['Price review', fmtDate(b.priceReviewDate)] as [string, string]] : []),
+                  ]
+                  return (
+                    <div key={b.id} className="rounded-xl border border-sage-100 overflow-hidden">
+                      <div className="bg-sage-50 px-4 py-2 border-b border-sage-100">
+                        <span className="font-semibold text-sage-800 text-[13px]">{b.label}</span>
+                        <span className="text-sage-600 text-[13px]"> — {b.name}</span>
+                      </div>
+                      <table className="w-full text-[13px]">
+                        <tbody>
+                          {detail.map(([k, v], i) => (
+                            <tr key={i} className="border-b border-sage-50 last:border-0">
+                              <td className="py-2 px-4 text-sage-500 w-2/5 align-top">{k}</td>
+                              <td className="py-2 px-4 font-medium text-sage-800">{v}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                })}
+              </section>
+            )}
+
+            {/* Explicit no-service-schedule statement (contractor). Shown instead
+                of a schedules section / rate row so nothing implies a universal rate. */}
+            {noSchedulesStated && (
+              <section className="mb-7">
+                <div className="rounded-xl border border-sage-100 bg-sage-50/50 px-4 py-3">
+                  <p className="text-[13px] text-sage-700">No service schedules are attached to this agreement. Work and payment terms will be set out in a separate service schedule before any work is performed.</p>
+                </div>
+              </section>
+            )}
 
             {/* Clauses */}
             <section className="space-y-5">

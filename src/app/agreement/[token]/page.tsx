@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation'
 import { CheckCircle2 } from 'lucide-react'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { EmploymentAgreementDocument, agreementViewFromRow } from '@/components/EmploymentAgreementDocument'
+import { ScheduleReviewNote } from './_components/ScheduleReviewNote'
 import { SignAgreementForm, type PrefillValues } from './_components/SignAgreementForm'
 
 export const dynamic = 'force-dynamic'
@@ -76,9 +77,14 @@ export default async function PublicAgreementPage({ params }: { params: { token:
             <EmploymentAgreementDocument a={view} wrapper="share-page" />
           </>
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-7">
-            <SignAgreementForm token={params.token} type={a.agreement_type === 'contractor' ? 'contractor' : a.agreement_type === 'permanent_employee' ? 'permanent_employee' : 'casual_employee'} initialDocs={initialDocs} agreement={view} prefill={prefill} />
-          </div>
+          <>
+            {a.agreement_type === 'contractor' && (view.scheduleBlocks?.length ?? 0) > 0 && (
+              <ScheduleReviewNote token={params.token} blocks={view.scheduleBlocks ?? []} />
+            )}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-7">
+              <SignAgreementForm token={params.token} type={a.agreement_type === 'contractor' ? 'contractor' : a.agreement_type === 'permanent_employee' ? 'permanent_employee' : 'casual_employee'} initialDocs={initialDocs} agreement={view} prefill={prefill} />
+            </div>
+          </>
         )}
       </div>
     </div>

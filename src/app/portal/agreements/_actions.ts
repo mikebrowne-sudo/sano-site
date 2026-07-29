@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { revalidatePath } from 'next/cache'
 import { sendAgreementLinkEmail } from '@/lib/resend'
+import { buildAgreementScheduleSnapshot } from '@/lib/agreement-schedule-snapshot'
+import { evaluateSendGuard } from '@/lib/agreement-send-guard'
 
 export async function createEmploymentAgreement(input: {
   agreementType: 'casual_employee' | 'permanent_employee' | 'contractor'
@@ -130,11 +132,44 @@ export async function sendAgreementLink(input: { agreementId: string; email: str
 
   const { data: a } = await supabase
     .from('employment_agreements')
-    .select('id, token, person_label, agreement_type, employee_full_name, contractor_id, status')
+    .select('id, token, person_label, agreement_type, employee_full_name, contractor_id, status, service_schedules_snapshot, selected_service_schedule_ids, no_service_schedules, no_service_schedules_reason')
     .eq('id', input.agreementId)
     .maybeSingle()
   if (!a) return { error: 'Agreement not found.' }
   if (a.status === 'signed') return { error: 'This agreement is already signed.' }
+
+  // Freeze ONLY the staff-selected service schedules onto the agreement at send
+  // time so the presented Schedule A/B/… blocks are stable (a later schedule edit
+  // supersedes — it must not mutate what was sent; a newly-added schedule must not
+  // appear). Contractors only; re-sending re-snapshots (still unsigned). No tax
+  // math — display terms only.
+  //
+  // SEND GUARD: a contractor agreement must NOT silently send with zero selected
+  // schedules and fall back to the legacy agreed-rate row. Where eligible
+  // schedules exist, staff must select at least one, OR set the explicit
+  // no-service-schedules exception (with a reason). Enforced server-side here.
+  if (a.agreement_type === 'contractor' && a.contractor_id) {
+    const selected = (a.selected_service_schedule_ids as string[] | null) ?? []
+    const { count: eligibleCount } = await supabase
+      .from('contractor_service_schedules')
+      .select('id', { count: 'exact', head: true })
+      .eq('contractor_id', a.contractor_id as string)
+      .in('status', ['draft', 'active'])
+
+    const guard = evaluateSendGuard({
+      eligibleCount: eligibleCount ?? 0,
+      selectedCount: selected.length,
+      noScheduleException: !!a.no_service_schedules,
+      noScheduleReason: (a.no_service_schedules_reason as string | null) ?? null,
+    })
+    if (!guard.ok) return { error: guard.error }
+
+    const blocks = await buildAgreementScheduleSnapshot(supabase, a.contractor_id as string, selected)
+    await supabase
+      .from('employment_agreements')
+      .update({ service_schedules_snapshot: blocks, service_schedules_snapshot_at: new Date().toISOString() })
+      .eq('id', input.agreementId)
+  }
 
   // Greet by the worker's real name — prefer the linked contractor record, then
   // the agreement's captured name, then a non-generic label; never "Contractor".
@@ -164,6 +199,108 @@ export async function sendAgreementLink(input: { agreementId: string; email: str
   // Remember the address we sent to (fills employee_email if it was blank).
   await supabase.from('employment_agreements').update({ employee_email: email }).eq('id', input.agreementId)
   revalidatePath(`/portal/agreements/${input.agreementId}`)
+  return { ok: true }
+}
+
+/**
+ * Set which of the contractor's schedules this agreement covers. Only eligible
+ * (draft/active) schedules belonging to THIS agreement's contractor may be
+ * selected — any other id is rejected. Refused once the agreement is signed
+ * (its selection is frozen). Clears any stale snapshot so the next send/preview
+ * reflects the new selection.
+ */
+export async function setAgreementScheduleSelection(
+  agreementId: string,
+  scheduleIds: string[],
+): Promise<{ ok?: true; error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
+
+  const { data: a } = await supabase
+    .from('employment_agreements')
+    .select('id, agreement_type, contractor_id, status')
+    .eq('id', agreementId)
+    .maybeSingle()
+  if (!a) return { error: 'Agreement not found.' }
+  if (a.agreement_type !== 'contractor' || !a.contractor_id) return { error: 'Schedules apply to contractor agreements only.' }
+  if (a.status === 'signed') return { error: 'This agreement is signed — its schedules are frozen.' }
+
+  const wanted = Array.from(new Set((scheduleIds ?? []).filter(Boolean)))
+  if (wanted.length > 0) {
+    // Validate every id belongs to this contractor AND is eligible (draft/active).
+    const { data: valid } = await supabase
+      .from('contractor_service_schedules')
+      .select('id')
+      .eq('contractor_id', a.contractor_id as string)
+      .in('status', ['draft', 'active'])
+      .in('id', wanted)
+    const validIds = new Set((valid ?? []).map((r) => r.id as string))
+    const bad = wanted.filter((id) => !validIds.has(id))
+    if (bad.length > 0) {
+      return { error: 'One or more selected schedules are not eligible or belong to another contractor.' }
+    }
+  }
+
+  // Changing selection invalidates any prior draft snapshot (never a signed one —
+  // guarded above).
+  const { error } = await supabase
+    .from('employment_agreements')
+    .update({ selected_service_schedule_ids: wanted, service_schedules_snapshot: null, service_schedules_snapshot_at: null })
+    .eq('id', agreementId)
+  if (error) return { error: error.message }
+
+  revalidatePath(`/portal/agreements/${agreementId}`)
+  return { ok: true }
+}
+
+/**
+ * Set (or clear) the explicit "this contractor agreement has no service schedule"
+ * exception. Admin-only, audited. Setting it requires a reason. Refused once
+ * signed. Selecting a schedule later automatically supersedes the need for it,
+ * but the flag is cleared here explicitly when turned off.
+ */
+export async function setAgreementNoScheduleException(
+  agreementId: string,
+  enabled: boolean,
+  reason: string | null,
+): Promise<{ ok?: true; error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
+
+  const { data: a } = await supabase
+    .from('employment_agreements')
+    .select('id, agreement_type, contractor_id, status, no_service_schedules')
+    .eq('id', agreementId)
+    .maybeSingle()
+  if (!a) return { error: 'Agreement not found.' }
+  if (a.agreement_type !== 'contractor') return { error: 'Only contractor agreements have service schedules.' }
+  if (a.status === 'signed') return { error: 'This agreement is signed — its schedule terms are frozen.' }
+  if (enabled && !(reason ?? '').trim()) return { error: 'A reason is required to create a contractor agreement without a service schedule.' }
+
+  const { error } = await supabase
+    .from('employment_agreements')
+    .update({
+      no_service_schedules: enabled,
+      no_service_schedules_reason: enabled ? (reason ?? '').trim() : null,
+    })
+    .eq('id', agreementId)
+  if (error) return { error: error.message }
+
+  await supabase.from('audit_log').insert({
+    actor_id: user.id,
+    actor_role: 'admin',
+    action: enabled ? 'agreement.no_schedule_exception_set' : 'agreement.no_schedule_exception_cleared',
+    entity_table: 'employment_agreements',
+    entity_id: agreementId,
+    before: { no_service_schedules: !!a.no_service_schedules },
+    after: enabled ? { no_service_schedules: true, reason: (reason ?? '').trim() } : { no_service_schedules: false },
+  })
+
+  revalidatePath(`/portal/agreements/${agreementId}`)
   return { ok: true }
 }
 

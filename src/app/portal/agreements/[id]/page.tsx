@@ -4,8 +4,10 @@ import { ArrowLeft, Link2, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { EmploymentAgreementDocument, agreementViewFromRow } from '@/components/EmploymentAgreementDocument'
+import { buildAgreementScheduleSnapshot } from '@/lib/agreement-schedule-snapshot'
 import { CopyLinkButton } from './_components/CopyLinkButton'
 import { SendLinkForm } from './_components/SendLinkForm'
+import { ScheduleSelector, type EligibleSchedule } from './_components/ScheduleSelector'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +22,34 @@ export default async function AgreementDetailPage({ params }: { params: { id: st
   const origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://sano.nz'
   const link = `${origin}/agreement/${a.token}`
   const signed = a.status === 'signed'
+
+  // Staff preview of a contractor DRAFT: show ONLY the SELECTED schedules (live),
+  // unless a snapshot already exists (sent/signed → the frozen set wins). Never
+  // recomputes a signed agreement.
+  const selectedIds = (a.selected_service_schedule_ids as string[] | null) ?? []
+  const view = agreementViewFromRow(a)
+  if (a.agreement_type === 'contractor' && a.contractor_id && !a.service_schedules_snapshot) {
+    view.scheduleBlocks = await buildAgreementScheduleSnapshot(supabase, a.contractor_id as string, selectedIds)
+  }
+
+  // Eligible schedules for the selection UI (unsigned contractor agreements only).
+  let eligible: EligibleSchedule[] = []
+  if (!signed && a.agreement_type === 'contractor' && a.contractor_id) {
+    const { data: sched } = await supabase
+      .from('contractor_service_schedules')
+      .select('id, name, status, payment_method, payment_basis, agreed_amount')
+      .eq('contractor_id', a.contractor_id as string)
+      .in('status', ['draft', 'active'])
+      .order('created_at', { ascending: true })
+    eligible = (sched ?? []).map((s) => ({
+      id: s.id as string,
+      name: (s.name as string | null) ?? '',
+      status: (s.status as string) ?? 'draft',
+      paymentMethod: (s.payment_method as string | null) ?? null,
+      paymentBasis: (s.payment_basis as string | null) ?? null,
+      agreedAmount: s.agreed_amount == null ? null : Number(s.agreed_amount),
+    }))
+  }
 
   return (
     <div className="max-w-3xl">
@@ -44,6 +74,16 @@ export default async function AgreementDetailPage({ params }: { params: { id: st
         </div>
       )}
 
+      {!signed && a.agreement_type === 'contractor' && a.contractor_id && (
+        <ScheduleSelector
+          agreementId={a.id as string}
+          eligible={eligible}
+          selectedIds={selectedIds}
+          noSchedules={!!a.no_service_schedules}
+          noScheduleReason={(a.no_service_schedules_reason as string | null) ?? null}
+        />
+      )}
+
       {!signed && (
         <div className="rounded-xl border border-sage-200 bg-white p-5 mb-6">
           <p className="flex items-center gap-2 text-sm font-semibold text-sage-800 mb-2"><Link2 size={15} className="text-sage-500" /> Send this link to {a.person_label || 'the employee'}</p>
@@ -62,7 +102,7 @@ export default async function AgreementDetailPage({ params }: { params: { id: st
         </div>
       )}
 
-      <EmploymentAgreementDocument a={agreementViewFromRow(a)} wrapper="share-page" />
+      <EmploymentAgreementDocument a={view} wrapper="share-page" />
     </div>
   )
 }
