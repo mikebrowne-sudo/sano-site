@@ -20,6 +20,7 @@ import { autoAssignInductionModules } from '@/lib/induction-modules'
 import { recordTaxDeclaration, validateTaxDeclaration } from '@/lib/tax-declaration'
 import { buildAgreementScheduleSnapshot } from '@/lib/agreement-schedule-snapshot'
 import { evaluateSendGuard } from '@/lib/agreement-send-guard'
+import { validateStructureSubmission, AUTHORITY_TO_BIND_DECLARATION, AUTHORITY_TO_BIND_VERSION, type ContractingStructure } from '@/lib/contractor-structure-fields'
 
 export interface SignAgreementInput {
   token: string
@@ -47,6 +48,9 @@ export interface SignAgreementInput {
   companyNumber?: string
   gstRegistered?: boolean
   gstNumber?: string
+  signatoryName?: string
+  signatoryCapacity?: string
+  authorityConfirmed?: boolean
   insurerName?: string
   insuranceCover?: string
   insuranceExpiry?: string
@@ -57,7 +61,26 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
   if (!input.token) return { error: 'Invalid link.' }
   if (!input.fullName?.trim()) return { error: 'Your full name is required.' }
   if (!input.signedName?.trim()) return { error: 'Type your name to sign.' }
-  if (input.signedName.trim().toLowerCase() !== input.fullName.trim().toLowerCase()) {
+  // Signature match: for an entity contractor it matches the authorised signatory;
+  // otherwise the individual's own full legal name. The structure-aware validator
+  // also enforces the required entity fields (legal name, company number,
+  // signatory + capacity). Employees keep the simple name match.
+  const structure = (input.businessStructure as ContractingStructure | undefined) ?? 'sole_trader'
+  const isContractorEntity = !!input.businessStructure && structure !== 'sole_trader'
+  if (isContractorEntity) {
+    const err = validateStructureSubmission({
+      structure,
+      fullName: input.fullName,
+      legalName: input.legalName ?? null,
+      companyNumber: input.companyNumber ?? null,
+      nzbn: input.nzbn ?? null,
+      signatoryName: input.signatoryName ?? null,
+      signatoryCapacity: input.signatoryCapacity ?? null,
+      authorityConfirmed: input.authorityConfirmed === true,
+      signedName: input.signedName,
+    })
+    if (err) return { error: err }
+  } else if (input.signedName.trim().toLowerCase() !== input.fullName.trim().toLowerCase()) {
     return { error: 'The signature must match your full legal name above.' }
   }
 
@@ -136,6 +159,22 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
       emergency_contact_relationship: input.emergencyRelationship?.trim() || null,
       contractor_trading_name: input.tradingName?.trim() || null,
       contractor_gst_number: input.gstNumber?.trim() || null,
+      // Structure-aware entity + authorised-signatory snapshot onto the agreement
+      // so the signed record + PDF show the contracting entity and who signed for
+      // it. Sole traders sign personally (no signatory). Contractor path only.
+      contractor_business_structure: isContractor ? (input.businessStructure?.trim() || null) : null,
+      contractor_legal_name: isContractor ? (input.legalName?.trim() || null) : null,
+      contractor_nzbn: isContractor ? (input.nzbn?.trim() || null) : null,
+      contractor_company_number: isContractor ? (input.companyNumber?.trim() || null) : null,
+      authorised_signatory_name: isContractor ? (input.signatoryName?.trim() || null) : null,
+      authorised_signatory_capacity: isContractor ? (input.signatoryCapacity?.trim() || null) : null,
+      // Authority-to-bind declaration snapshot (entities only). Freeze the exact
+      // wording + version + timestamp confirmed at signing. Sole traders and
+      // employees: not applicable (false, null text/version).
+      authority_confirmed: isContractorEntity && input.authorityConfirmed === true,
+      authority_declaration_text: isContractorEntity && input.authorityConfirmed === true ? AUTHORITY_TO_BIND_DECLARATION : null,
+      authority_declaration_version: isContractorEntity && input.authorityConfirmed === true ? AUTHORITY_TO_BIND_VERSION : null,
+      authority_confirmed_at: isContractorEntity && input.authorityConfirmed === true ? new Date().toISOString() : null,
       insurer_name: input.insurerName?.trim() || null,
       insurance_cover: input.insuranceCover?.trim() || null,
       insurance_expiry: input.insuranceExpiry || null,
