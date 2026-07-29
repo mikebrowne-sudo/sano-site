@@ -131,18 +131,20 @@ export async function sendAgreementLink(input: { agreementId: string; email: str
 
   const { data: a } = await supabase
     .from('employment_agreements')
-    .select('id, token, person_label, agreement_type, employee_full_name, contractor_id, status, service_schedules_snapshot')
+    .select('id, token, person_label, agreement_type, employee_full_name, contractor_id, status, service_schedules_snapshot, selected_service_schedule_ids')
     .eq('id', input.agreementId)
     .maybeSingle()
   if (!a) return { error: 'Agreement not found.' }
   if (a.status === 'signed') return { error: 'This agreement is already signed.' }
 
-  // Freeze the contractor's active service schedules onto the agreement at send
+  // Freeze ONLY the staff-selected service schedules onto the agreement at send
   // time so the presented Schedule A/B/… blocks are stable (a later schedule edit
-  // supersedes — it must not mutate what was sent). Contractors only; re-sending
-  // re-snapshots (still unsigned). No tax math — display terms only.
+  // supersedes — it must not mutate what was sent; a newly-added schedule must not
+  // appear). Contractors only; re-sending re-snapshots (still unsigned). No tax
+  // math — display terms only.
   if (a.agreement_type === 'contractor' && a.contractor_id) {
-    const blocks = await buildAgreementScheduleSnapshot(supabase, a.contractor_id as string)
+    const selected = (a.selected_service_schedule_ids as string[] | null) ?? []
+    const blocks = await buildAgreementScheduleSnapshot(supabase, a.contractor_id as string, selected)
     await supabase
       .from('employment_agreements')
       .update({ service_schedules_snapshot: blocks, service_schedules_snapshot_at: new Date().toISOString() })
@@ -177,6 +179,59 @@ export async function sendAgreementLink(input: { agreementId: string; email: str
   // Remember the address we sent to (fills employee_email if it was blank).
   await supabase.from('employment_agreements').update({ employee_email: email }).eq('id', input.agreementId)
   revalidatePath(`/portal/agreements/${input.agreementId}`)
+  return { ok: true }
+}
+
+/**
+ * Set which of the contractor's schedules this agreement covers. Only eligible
+ * (draft/active) schedules belonging to THIS agreement's contractor may be
+ * selected — any other id is rejected. Refused once the agreement is signed
+ * (its selection is frozen). Clears any stale snapshot so the next send/preview
+ * reflects the new selection.
+ */
+export async function setAgreementScheduleSelection(
+  agreementId: string,
+  scheduleIds: string[],
+): Promise<{ ok?: true; error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
+
+  const { data: a } = await supabase
+    .from('employment_agreements')
+    .select('id, agreement_type, contractor_id, status')
+    .eq('id', agreementId)
+    .maybeSingle()
+  if (!a) return { error: 'Agreement not found.' }
+  if (a.agreement_type !== 'contractor' || !a.contractor_id) return { error: 'Schedules apply to contractor agreements only.' }
+  if (a.status === 'signed') return { error: 'This agreement is signed — its schedules are frozen.' }
+
+  const wanted = Array.from(new Set((scheduleIds ?? []).filter(Boolean)))
+  if (wanted.length > 0) {
+    // Validate every id belongs to this contractor AND is eligible (draft/active).
+    const { data: valid } = await supabase
+      .from('contractor_service_schedules')
+      .select('id')
+      .eq('contractor_id', a.contractor_id as string)
+      .in('status', ['draft', 'active'])
+      .in('id', wanted)
+    const validIds = new Set((valid ?? []).map((r) => r.id as string))
+    const bad = wanted.filter((id) => !validIds.has(id))
+    if (bad.length > 0) {
+      return { error: 'One or more selected schedules are not eligible or belong to another contractor.' }
+    }
+  }
+
+  // Changing selection invalidates any prior draft snapshot (never a signed one —
+  // guarded above).
+  const { error } = await supabase
+    .from('employment_agreements')
+    .update({ selected_service_schedule_ids: wanted, service_schedules_snapshot: null, service_schedules_snapshot_at: null })
+    .eq('id', agreementId)
+  if (error) return { error: error.message }
+
+  revalidatePath(`/portal/agreements/${agreementId}`)
   return { ok: true }
 }
 

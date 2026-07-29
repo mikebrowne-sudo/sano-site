@@ -213,9 +213,15 @@ sent_at · submitted_at · reviewed_at · created_by
 ## 6. Agreement output (PDF)
 
 Master agreement + identity/entity + authorised signatory (where relevant) + tax & GST
-declarations + insurance arrangement + **all active service schedules with per-schedule
-payment terms** + signing records + declaration/document snapshots + version + supersession
-history. Schedules clearly distinguished:
+declarations + insurance arrangement + the **STAFF-SELECTED service schedules with
+per-schedule payment terms** + signing records + declaration/document snapshots + version
++ supersession history. Schedules are **explicitly selected** per agreement
+(`employment_agreements.selected_service_schedule_ids`) — never auto-included for being
+active. On send/sign, ONLY the selected schedules are frozen into
+`service_schedules_snapshot` (each entry records schedule id + version_key +
+effective_from + full displayed terms), so later edits or newly-added schedules can't
+mutate a sent/signed agreement; a replacement agreement selects its own set. Schedules
+clearly distinguished:
 ```
 Schedule A — Pukekohe Golf Club commercial cleaning — Guaranteed net $1,500 monthly
 Schedule B — Residential cleaning services — Hourly rate $[entered by Sano]

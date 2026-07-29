@@ -16,10 +16,10 @@ export function ScheduleReviewNote({ token, blocks }: { token: string; blocks: A
 
   if (blocks.length === 0) return null
 
-  function send(label: string) {
+  function send(id: string, label: string) {
     setErr(null)
     startTransition(async () => {
-      const res = await requestAgreementScheduleCorrection(token, label, note)
+      const res = await requestAgreementScheduleCorrection(token, id, note)
       if (res.error) { setErr(res.error); return }
       setDoneFor((prev) => new Set(prev).add(label))
       setOpenFor(null); setNote('')
@@ -46,7 +46,7 @@ export function ScheduleReviewNote({ token, blocks }: { token: string; blocks: A
             {openFor === b.label && (
               <div className="mt-2 flex items-center gap-2">
                 <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What looks wrong?" className="rounded-lg border border-sage-200 px-3 py-1.5 text-sm w-full" />
-                <button type="button" onClick={() => send(b.label)} disabled={isPending} className="text-sm bg-amber-600 text-white px-3 py-1.5 rounded-lg disabled:opacity-50 shrink-0">Send</button>
+                <button type="button" onClick={() => send(b.id, b.label)} disabled={isPending} className="text-sm bg-amber-600 text-white px-3 py-1.5 rounded-lg disabled:opacity-50 shrink-0">Send</button>
               </div>
             )}
           </li>

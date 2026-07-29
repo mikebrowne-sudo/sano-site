@@ -63,7 +63,7 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
   const svc = getServiceSupabase()
   const { data: agreement } = await svc
     .from('employment_agreements')
-    .select('id, status, agreement_type, position, hourly_rate, start_date, contractor_id, employee_id, is_test, service_schedules_snapshot')
+    .select('id, status, agreement_type, position, hourly_rate, start_date, contractor_id, employee_id, is_test, service_schedules_snapshot, selected_service_schedule_ids')
     .eq('token', input.token)
     .maybeSingle()
   if (!agreement) return { error: 'Agreement not found.' }
@@ -92,7 +92,8 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
   // current active schedules now so the signed document + PDF are stable.
   let scheduleSnapshot: unknown | undefined
   if (isContractor && agreement.contractor_id && !agreement.service_schedules_snapshot) {
-    scheduleSnapshot = await buildAgreementScheduleSnapshot(svc, agreement.contractor_id as string)
+    const selected = (agreement.selected_service_schedule_ids as string[] | null) ?? []
+    scheduleSnapshot = await buildAgreementScheduleSnapshot(svc, agreement.contractor_id as string, selected)
   }
 
   const { error: updErr } = await svc
@@ -438,7 +439,7 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
  */
 export async function requestAgreementScheduleCorrection(
   token: string,
-  scheduleLabel: string,
+  scheduleId: string,
   note: string,
 ): Promise<{ ok?: true; error?: string }> {
   if (!token) return { error: 'Invalid link.' }
@@ -446,11 +447,17 @@ export async function requestAgreementScheduleCorrection(
   const svc = getServiceSupabase()
   const { data: agreement } = await svc
     .from('employment_agreements')
-    .select('id, status, contractor_id')
+    .select('id, status, contractor_id, service_schedules_snapshot')
     .eq('token', token)
     .maybeSingle()
   if (!agreement) return { error: 'Invalid link.' }
   if (agreement.status === 'signed') return { error: 'This agreement is already signed.' }
+
+  // The contractor may only flag a schedule that is actually IN this agreement's
+  // snapshot — never an arbitrary or other-agreement schedule.
+  const snapshot = (agreement.service_schedules_snapshot as Array<{ id: string; label: string; name: string }> | null) ?? []
+  const block = snapshot.find((b) => b.id === scheduleId)
+  if (!block) return { error: 'That schedule is not part of this agreement.' }
 
   await svc.from('audit_log').insert({
     actor_id: null,
@@ -459,7 +466,7 @@ export async function requestAgreementScheduleCorrection(
     entity_table: 'employment_agreements',
     entity_id: agreement.id,
     before: null,
-    after: { contractor_id: agreement.contractor_id, schedule: scheduleLabel, note: note.trim() },
+    after: { contractor_id: agreement.contractor_id, schedule_id: block.id, schedule: `${block.label} — ${block.name}`, note: note.trim() },
   })
   return { ok: true }
 }

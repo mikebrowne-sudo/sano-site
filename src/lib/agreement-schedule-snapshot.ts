@@ -5,17 +5,27 @@
 import { buildScheduleBlocks, type AgreementScheduleBlock, type ScheduleForBlock } from './agreement-schedule-blocks'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-/** Load a contractor's non-superseded schedules and their customer names, and
- *  build the labelled display blocks. Returns [] for a contractor with none. */
+/**
+ * Build the frozen schedule blocks for an agreement from the STAFF-SELECTED
+ * schedule IDs. Only schedules that (a) are in the selection, (b) belong to THIS
+ * contractor, and (c) are eligible (draft/active) are included — enforced by the
+ * contractor-scoped query plus buildScheduleBlocks. A selected ID that belongs
+ * to another contractor, or is paused/ended/superseded, is silently dropped
+ * (never included). Returns [] when nothing eligible is selected.
+ */
 export async function buildAgreementScheduleSnapshot(
   supabase: SupabaseClient,
   contractorId: string,
+  selectedIds: string[],
 ): Promise<AgreementScheduleBlock[]> {
+  const selected = Array.from(new Set((selectedIds ?? []).filter(Boolean)))
+  if (selected.length === 0) return []
+
   const { data: rows } = await supabase
     .from('contractor_service_schedules')
-    .select('id, name, customer_client_id, classification, service_type, service_address, start_date, frequency, term, payment_method, payment_basis, rate_basis, agreed_amount, notice_period, price_review_date, closure_treatment, additional_work_approval, equipment_products, status')
-    .eq('contractor_id', contractorId)
-    .in('status', ['draft', 'active'])
+    .select('id, name, customer_client_id, classification, service_type, service_address, start_date, frequency, term, payment_method, payment_basis, rate_basis, agreed_amount, notice_period, price_review_date, closure_treatment, additional_work_approval, equipment_products, status, effective_from, updated_at')
+    .eq('contractor_id', contractorId)   // same-contractor guard: a foreign id can't match
+    .in('id', selected)
     .order('created_at', { ascending: true })
 
   const list = (rows ?? []) as Array<Record<string, unknown>>
@@ -29,6 +39,8 @@ export async function buildAgreementScheduleSnapshot(
 
   const forBlocks: ScheduleForBlock[] = list.map((r) => ({
     id: r.id as string,
+    versionKey: `${(r.effective_from as string | null) ?? ''}|${(r.updated_at as string | null) ?? ''}`,
+    effectiveFrom: (r.effective_from as string | null) ?? null,
     name: (r.name as string | null) ?? '',
     customerName: r.customer_client_id ? (nameById.get(r.customer_client_id as string) ?? null) : null,
     classification: (r.classification as 'residential' | 'commercial' | null) ?? null,
@@ -49,5 +61,6 @@ export async function buildAgreementScheduleSnapshot(
     status: (r.status as string) ?? 'draft',
   }))
 
-  return buildScheduleBlocks(forBlocks)
+  // Build in the STAFF-SELECTED order, eligibility enforced by buildScheduleBlocks.
+  return buildScheduleBlocks(forBlocks, selected)
 }

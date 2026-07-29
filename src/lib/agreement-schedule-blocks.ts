@@ -13,6 +13,10 @@ import type { PaymentBasis, PaymentMethod, RateBasis } from './contractor-schedu
  *  employment_agreements.service_schedules_snapshot and rendered by the document. */
 export interface AgreementScheduleBlock {
   id: string
+  /** Version marker of the schedule at snapshot time (effective_from + updated_at)
+   *  so the frozen block is traceable to the exact schedule version shown. */
+  versionKey: string | null
+  effectiveFrom: string | null
   label: string // "Schedule A", "Schedule B", …
   name: string
   customer: string | null
@@ -37,6 +41,8 @@ export interface AgreementScheduleBlock {
  *  optional resolved customer name). */
 export interface ScheduleForBlock {
   id: string
+  versionKey?: string | null
+  effectiveFrom?: string | null
   name: string
   customerName?: string | null
   classification?: 'residential' | 'commercial' | null
@@ -68,14 +74,29 @@ export function scheduleLabel(index: number): string {
   return `Schedule ${s}`
 }
 
-/** Build ordered, labelled blocks from a contractor's schedules. Only 'active'
- *  and 'draft' schedules appear on an agreement; 'superseded'/'ended' are
- *  excluded (a superseded version must never show alongside its replacement). */
-export function buildScheduleBlocks(schedules: ScheduleForBlock[]): AgreementScheduleBlock[] {
-  return schedules
-    .filter((s) => s.status !== 'superseded' && s.status !== 'ended')
+/**
+ * Build ordered, labelled blocks from a contractor's schedules.
+ *
+ * Inclusion rules (all enforced here so no ineligible schedule slips in):
+ *  - `selectedIds`, when provided, is the ONLY set considered — a schedule is
+ *    included solely because staff explicitly selected it, never because it is
+ *    active. Pass undefined only for internal callers that have already filtered.
+ *  - eligible status is 'draft' or 'active'; 'paused'/'superseded'/'ended' are
+ *    excluded even if selected (a stale/paused version must never appear).
+ *  - ordering follows `selectedIds` order when given, else input order.
+ */
+export function buildScheduleBlocks(schedules: ScheduleForBlock[], selectedIds?: string[]): AgreementScheduleBlock[] {
+  const ELIGIBLE = new Set(['draft', 'active'])
+  const byId = new Map(schedules.map((s) => [s.id, s]))
+  const ordered: ScheduleForBlock[] = selectedIds
+    ? selectedIds.map((id) => byId.get(id)).filter((s): s is ScheduleForBlock => !!s)
+    : schedules
+  return ordered
+    .filter((s) => ELIGIBLE.has(s.status ?? 'draft'))
     .map((s, i) => ({
       id: s.id,
+      versionKey: s.versionKey ?? null,
+      effectiveFrom: s.effectiveFrom ?? null,
       label: scheduleLabel(i),
       name: s.name,
       customer: s.customerName ?? null,
