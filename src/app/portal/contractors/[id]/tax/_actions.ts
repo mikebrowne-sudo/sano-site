@@ -1,0 +1,200 @@
+'use server'
+
+// Staff contractor tax-declaration actions (PR 4). Record / verify / reject /
+// supersede IR330C, tailored-rate and exemption declarations, and classify each
+// service schedule's tax treatment. Immutable + superseding: a correction creates
+// a new row and supersedes the prior current one — verified declarations are never
+// overwritten. Admin-only, audited. NO withholding calc / money movement.
+
+import { createClient } from '@/lib/supabase-server'
+import { isAdminUser } from '@/lib/is-admin'
+import { revalidatePath } from 'next/cache'
+import {
+  validateDeclarationRate, CONTRACTOR_DECLARATION_TEXT, CONTRACTOR_DECLARATION_VERSION,
+  type DeclarationType, type DeclarationInput,
+} from '@/lib/contractor-tax-declaration'
+
+function revalidate(contractorId: string) {
+  revalidatePath(`/portal/contractors/${contractorId}/tax`)
+  revalidatePath(`/portal/contractors/${contractorId}/setup`)
+  revalidatePath(`/portal/contractors/${contractorId}`)
+}
+
+async function admin() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !isAdminUser(user)) return { supabase, user: null as null }
+  return { supabase, user }
+}
+
+export interface DeclarationStaffInput {
+  contractorId: string
+  contractingEntityType?: string | null
+  contractingLegalName?: string | null
+  contractingIrdNumber?: string | null
+  residencyStatus?: string | null
+  declarationType: DeclarationType
+  ir330cActivityNumber?: string | null
+  ir330cActivityDescription?: string | null
+  withholdingRate?: number | null   // decimal
+  declarationDate?: string | null
+  effectiveDate?: string | null
+  expiryDate?: string | null
+  tailoredRateCertificateRef?: string | null
+  exemptionCertificateRef?: string | null
+  evidenceRef?: string | null
+  signedName?: string | null
+  /** Mark verified immediately (a staff-received paper IR330C the staff member is
+   *  verifying now). Contractor-submitted rows are NEVER auto-verified. */
+  verifyNow?: boolean
+}
+
+/**
+ * Record a new declaration (staff-entered, e.g. a paper IR330C). Supersedes any
+ * existing current row. Rate-validated. If verifyNow, it's created verified;
+ * otherwise submitted (pending).
+ */
+export async function recordDeclaration(input: DeclarationStaffInput): Promise<{ ok?: true; id?: string; error?: string }> {
+  const { supabase, user } = await admin()
+  if (!user) return { error: 'Admin only.' }
+
+  const rateErr = validateDeclarationRate(input as DeclarationInput)
+  if (rateErr) return { error: rateErr }
+
+  const nowIso = new Date().toISOString()
+  // Supersede the existing current row first (keeps the one-current index happy).
+  const { data: current } = await supabase
+    .from('contractor_tax_declarations')
+    .select('id')
+    .eq('contractor_id', input.contractorId)
+    .in('status', ['submitted', 'verified'])
+    .maybeSingle()
+
+  const { data: inserted, error: insErr } = await supabase
+    .from('contractor_tax_declarations')
+    .insert({
+      contractor_id: input.contractorId,
+      contracting_entity_type: input.contractingEntityType || null,
+      contracting_legal_name: input.contractingLegalName || null,
+      contracting_ird_number: input.contractingIrdNumber || null,
+      residency_status: input.residencyStatus || null,
+      declaration_type: input.declarationType,
+      ir330c_activity_number: input.ir330cActivityNumber || null,
+      ir330c_activity_description: input.ir330cActivityDescription || null,
+      withholding_rate: input.withholdingRate ?? null,
+      declaration_date: input.declarationDate || null,
+      effective_date: input.effectiveDate || null,
+      expiry_date: input.expiryDate || null,
+      tailored_rate_certificate_ref: input.tailoredRateCertificateRef || null,
+      exemption_certificate_ref: input.exemptionCertificateRef || null,
+      evidence_ref: input.evidenceRef || null,
+      signed_name: input.signedName || null,
+      signed_at: input.signedName ? nowIso : null,
+      declaration_text: CONTRACTOR_DECLARATION_TEXT,
+      declaration_version: CONTRACTOR_DECLARATION_VERSION,
+      source: 'staff_recorded',
+      status: input.verifyNow ? 'verified' : 'submitted',
+      verified_at: input.verifyNow ? nowIso : null,
+      verified_by: input.verifyNow ? user.id : null,
+      supersedes_id: current?.id ?? null,
+      created_by: user.id,
+    })
+    .select('id')
+    .single()
+  if (insErr) {
+    if ((insErr as { code?: string }).code === '23505') return { error: 'There is already a current declaration — supersede it first.' }
+    return { error: insErr.message }
+  }
+
+  await supabase.from('contractor_tax_declarations').update({ declaration_number: `CTD-${String(inserted.id).slice(0, 4).toUpperCase()}` }).eq('id', inserted.id)
+
+  if (current?.id) {
+    await supabase
+      .from('contractor_tax_declarations')
+      .update({ status: 'superseded', superseded_at: nowIso, superseded_by_id: inserted.id })
+      .eq('id', current.id)
+  }
+
+  await supabase.from('audit_log').insert({
+    actor_id: user.id, actor_role: 'admin', action: 'contractor_tax_declaration.recorded',
+    entity_table: 'contractor_tax_declarations', entity_id: inserted.id,
+    before: current?.id ? { superseded: current.id } : null,
+    after: { type: input.declarationType, verified: !!input.verifyNow },
+  })
+  revalidate(input.contractorId)
+  return { ok: true, id: inserted.id as string }
+}
+
+/** Verify (or reject) a submitted declaration. Audited with old→new status. */
+export async function setDeclarationStatus(
+  declarationId: string,
+  status: 'verified' | 'rejected',
+  reviewNotes: string | null,
+): Promise<{ ok?: true; error?: string }> {
+  const { supabase, user } = await admin()
+  if (!user) return { error: 'Admin only.' }
+
+  const { data: d } = await supabase
+    .from('contractor_tax_declarations')
+    .select('id, contractor_id, status')
+    .eq('id', declarationId)
+    .maybeSingle()
+  if (!d) return { error: 'Declaration not found.' }
+  if (d.status !== 'submitted') return { error: `Only a submitted declaration can be ${status}. This one is ${d.status}.` }
+
+  const nowIso = new Date().toISOString()
+  const { error } = await supabase
+    .from('contractor_tax_declarations')
+    .update({
+      status,
+      verified_at: status === 'verified' ? nowIso : null,
+      verified_by: status === 'verified' ? user.id : null,
+      review_notes: reviewNotes || null,
+    })
+    .eq('id', declarationId)
+    .eq('status', 'submitted') // guard against a concurrent change
+  if (error) return { error: error.message }
+
+  await supabase.from('audit_log').insert({
+    actor_id: user.id, actor_role: 'admin', action: `contractor_tax_declaration.${status}`,
+    entity_table: 'contractor_tax_declarations', entity_id: declarationId,
+    before: { status: 'submitted' }, after: { status, review_notes: reviewNotes || null },
+  })
+  revalidate(d.contractor_id as string)
+  return { ok: true }
+}
+
+/** Classify a service schedule's tax treatment (staff-only). Contractors cannot
+ *  reach this — it lives in the admin-gated portal actions. */
+export async function setScheduleTaxTreatment(
+  contractorId: string,
+  scheduleId: string,
+  treatment: 'schedular_payment' | 'ordinary_trade_creditor' | 'exempt_certificate' | 'pending_review',
+  note: string | null,
+): Promise<{ ok?: true; error?: string }> {
+  const { supabase, user } = await admin()
+  if (!user) return { error: 'Admin only.' }
+
+  // Confirm the schedule belongs to this contractor.
+  const { data: sch } = await supabase
+    .from('contractor_service_schedules')
+    .select('id, tax_treatment')
+    .eq('id', scheduleId)
+    .eq('contractor_id', contractorId)
+    .maybeSingle()
+  if (!sch) return { error: 'That schedule does not belong to this contractor.' }
+
+  const { error } = await supabase
+    .from('contractor_service_schedules')
+    .update({ tax_treatment: treatment, tax_treatment_note: note || null, updated_at: new Date().toISOString() })
+    .eq('id', scheduleId)
+  if (error) return { error: error.message }
+
+  await supabase.from('audit_log').insert({
+    actor_id: user.id, actor_role: 'admin', action: 'contractor_schedule.tax_treatment_set',
+    entity_table: 'contractor_service_schedules', entity_id: scheduleId,
+    before: { tax_treatment: (sch.tax_treatment as string | null) ?? null }, after: { tax_treatment: treatment },
+  })
+  revalidate(contractorId)
+  return { ok: true }
+}

@@ -35,6 +35,8 @@ export interface ServiceSchedule {
   status: 'draft' | 'active' | 'paused' | 'ended' | 'superseded'
   effectiveFrom: string | null
   createdAt: string | null
+  /** Per-schedule tax classification (PR 4). Null = unclassified. */
+  taxTreatment: string | null
 }
 
 export interface InsuranceArrangement {
@@ -100,6 +102,7 @@ function mapSchedule(r: Record<string, unknown>): ServiceSchedule {
     status: (r.status as ServiceSchedule['status']) ?? 'draft',
     effectiveFrom: (r.effective_from as string | null) ?? null,
     createdAt: (r.created_at as string | null) ?? null,
+    taxTreatment: (r.tax_treatment as string | null) ?? null,
   }
 }
 

@@ -57,8 +57,13 @@ export function sectionState(map: SectionStatusMap, section: SetupSection): Sect
 
 export interface TaxContext {
   /** Is this contractor classified as a schedular payee? If so, tax stays
-   *  blocked until the later verified IR330C/exemption workflow completes it. */
+   *  blocked until the verified IR330C/exemption workflow completes it. */
   schedular: boolean
+  /** PR 4: the REAL per-schedule tax-gate result (from resolveContractorTaxGate).
+   *  When provided it drives the tax_declaration blocker precisely — a schedule
+   *  is blocked on its own classification, not universally. When omitted, the
+   *  PR-1 placeholder `schedular` behaviour applies. */
+  taxGate?: { allClear: boolean; blocked: Array<{ name: string; reason: string }> }
 }
 
 export interface ReadinessResult {
@@ -102,7 +107,18 @@ export function computeReadiness(map: SectionStatusMap, ctx: TaxContext): Readin
     const state = sectionState(map, section)
     if (isSectionSettled(state)) continue
 
-    // Schedular tax gets an explicit, unmistakable blocker message.
+    // PR 4: when the real per-schedule tax gate is supplied, it is authoritative
+    // for the tax_declaration section — a schedule is blocked on its own
+    // classification, not universally. allClear → tax section is satisfied
+    // regardless of the raw section-status value.
+    if (section === 'tax_declaration' && ctx.taxGate) {
+      if (ctx.taxGate.allClear) continue
+      for (const b of ctx.taxGate.blocked) {
+        blockers.push({ section, state, reason: `${b.name}: ${b.reason}` })
+      }
+      continue
+    }
+    // Fallback (PR 1 placeholder): schedular tax gets an explicit blocker.
     if (section === 'tax_declaration' && ctx.schedular) {
       blockers.push({
         section,
