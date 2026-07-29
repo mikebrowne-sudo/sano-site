@@ -66,11 +66,13 @@ export interface SnapshotLineInput {
   amount: number
   gst_status: string | null
   gst_amount: number | null
-  // Frozen schedular tax breakdown (PR 9) — populated only when an approved
-  // payment tax snapshot matched this line's contractor + supply date; null on
-  // ordinary/non-schedular lines. Copied from the snapshot, never recomputed.
+  // Frozen schedular tax breakdown (PR 9) — populated only when the payable
+  // carried an explicit approved snapshot id; null on ordinary/non-schedular
+  // lines. Copied from the snapshot, never recomputed. gst_amount_frozen is the
+  // snapshot's authoritative GST (kept separate from the display `gst_amount`).
   contractor_payment_snapshot_id?: string | null
   gross_ex_gst?: number | null
+  gst_amount_frozen?: number | null
   wht_rate?: number | null
   wht_amount?: number | null
   net_paid?: number | null

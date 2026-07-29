@@ -25,6 +25,7 @@ export interface RemittanceBatchLine {
   // Frozen schedular tax breakdown (PR 9). Non-null only when the line was
   // frozen from an approved payment tax snapshot; null/absent for ordinary lines
   // and all pre-PR-9 remittances. Read-only passthrough of the persisted figures.
+  contractorPaymentSnapshotId?: string | null
   grossExGst?: number | null
   gstAmount?: number | null
   whtRate?: number | null
@@ -45,6 +46,9 @@ export interface RemittanceBatch {
   paidAt: string | null
   lines: RemittanceBatchLine[]
   total: number
+  /** Frozen schedular withholding retained to IRD across tax-bearing lines
+   *  (PR 9). 0 when no line carries a snapshot. */
+  whtTotal: number
   contractorNames: string[]
 }
 
@@ -63,8 +67,9 @@ interface Header {
 async function build(svc: SupabaseClient, h: Header): Promise<RemittanceBatch> {
   const { data: itemsRaw } = await svc
     .from('contractor_remittance_items')
-    .select('kind, contractor_name, job_number, job_address, note, label, hours, amount, gross_ex_gst, gst_amount, wht_rate, wht_amount, net_paid, sort, contractor_invoices ( job_id, service_date, gst_supply_date, jobs ( completed_at ) )')
+    .select('kind, contractor_name, job_number, job_address, note, label, hours, amount, contractor_payment_snapshot_id, gross_ex_gst, gst_amount, wht_rate, wht_amount, net_paid, tax_status, sort, contractor_invoices ( job_id, service_date, gst_supply_date, jobs ( completed_at ) )')
     .eq('remittance_id', h.id)
+    .neq('tax_status', 'superseded')
     .order('sort', { ascending: true })
 
   const flat = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null))
@@ -91,6 +96,7 @@ async function build(svc: SupabaseClient, h: Header): Promise<RemittanceBatch> {
       label: (it.label as string | null) ?? null,
       hours: (it.hours as number | null) ?? null,
       amount: (it.amount as number) ?? 0,
+      contractorPaymentSnapshotId: (it.contractor_payment_snapshot_id as string | null) ?? null,
       grossExGst: (it.gross_ex_gst as number | null) ?? null,
       gstAmount: (it.gst_amount as number | null) ?? null,
       whtRate: (it.wht_rate as number | null) ?? null,
@@ -99,6 +105,7 @@ async function build(svc: SupabaseClient, h: Header): Promise<RemittanceBatch> {
     }
   })
   const total = Math.round(lines.reduce((s, l) => s + l.amount, 0) * 100) / 100
+  const whtTotal = Math.round(lines.reduce((s, l) => s + (l.whtAmount ?? 0), 0) * 100) / 100
   const contractorNames = Array.from(new Set(lines.map((l) => l.contractorName).filter((n): n is string => !!n)))
 
   return {
@@ -113,6 +120,7 @@ async function build(svc: SupabaseClient, h: Header): Promise<RemittanceBatch> {
     paidAt: h.paid_at,
     lines,
     total,
+    whtTotal,
     contractorNames,
   }
 }

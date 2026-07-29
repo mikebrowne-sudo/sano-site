@@ -1,23 +1,23 @@
 // Contractor remittance/statement tax snapshot resolver (PR 9) — pure helpers.
 //
-// A remittance line (or statement snapshot line) may carry the frozen tax
-// breakdown copied from an APPROVED contractor_payment_tax_snapshots row (PR 7):
-// gross ex GST, GST, withholding rate + amount, net paid, the tax declaration
-// used, and the supply date. There is no invoice→snapshot FK, so the match key is
-// (contractor_id, supply_date) among approved snapshots.
+// A remittance/statement line may carry the frozen tax breakdown copied from an
+// APPROVED contractor_payment_tax_snapshots row (PR 7): gross ex GST, GST,
+// withholding rate + amount, net paid, the tax declaration used, and supply date.
 //
-// STRICT: figures are COPIED, never recomputed. If exactly one approved snapshot
-// matches, freeze it. If none match (the ordinary/non-schedular case), the line
-// stays amount-only (all tax fields null). If MORE than one approved snapshot
-// matches the same contractor + supply_date, it is ambiguous — we DO NOT guess;
-// the line stays unfrozen and the ambiguity is reported. No number is invented.
+// EXPLICIT ID ONLY. The snapshot is identified by the id the payable
+// (contractor_invoices.contractor_payment_snapshot_id) already carries — set when
+// the schedular/tax-bearing payable was priced from an approved snapshot. There is
+// NO (contractor_id, supply_date) lookup: a same-day pair of payments is
+// disambiguated purely by their explicit ids. A payable with no snapshot id is an
+// ordinary amount-only line. Figures are COPIED, never recomputed.
 
-/** An approved snapshot row as needed to freeze a remittance/statement line. */
+/** An approved snapshot row, loaded by its explicit id, as needed to freeze. */
 export interface ApprovedSnapshotForRemittance {
   id: string
   contractorId: string
   status: string          // must be 'approved'
   calcStatus: string      // must be 'ok'
+  serviceScheduleId: string | null
   supplyDate: string      // YYYY-MM-DD
   grossExGst: number | null
   gstAmount: number | null
@@ -25,6 +25,14 @@ export interface ApprovedSnapshotForRemittance {
   withholdingAmount: number | null
   netBank: number | null
   taxDeclarationId: string | null
+}
+
+/** The payable being remitted, with its explicit snapshot link. */
+export interface PayableForRemittance {
+  contractorId: string | null
+  serviceScheduleId: string | null
+  /** The explicit snapshot id on the payable — null for ordinary payables. */
+  contractorPaymentSnapshotId: string | null
 }
 
 /** The frozen tax figures written onto a remittance item / snapshot line. */
@@ -40,29 +48,40 @@ export interface FrozenLineTax {
 }
 
 export type ResolveTaxResult =
-  | { kind: 'none' }                                   // no approved snapshot — amount-only line
-  | { kind: 'frozen'; tax: FrozenLineTax }             // exactly one match — freeze it
-  | { kind: 'ambiguous'; snapshotIds: string[] }       // >1 approved match — never guess
+  | { kind: 'none' }                              // ordinary payable — amount-only line
+  | { kind: 'frozen'; tax: FrozenLineTax }        // explicit snapshot resolved + valid
+  | { kind: 'error'; reason: string }             // an explicit id was given but is invalid → BLOCK
 
 /**
- * Resolve the frozen tax for a contractor + supply date from the set of that
- * contractor's approved snapshots. Only 'approved' + calc 'ok' snapshots are
- * eligible. Returns 'none' / 'frozen' / 'ambiguous' — the caller writes tax only
- * on 'frozen'.
+ * Resolve the frozen tax for a payable from its EXPLICIT snapshot id.
+ *
+ * - Payable has no snapshot id → 'none' (ordinary amount-only line).
+ * - Payable has a snapshot id and it loads as approved/ok/same-contractor/
+ *   same-schedule → 'frozen' with the copied figures.
+ * - Payable has a snapshot id that is missing, not approved, superseded/void,
+ *   the wrong contractor, or the wrong schedule → 'error' (the caller BLOCKS the
+ *   remittance rather than paying a tax-bearing line with a bad/absent snapshot).
+ *
+ * `approvedSnapshotsById` is the caller's map of the explicit ids it loaded.
  */
 export function resolveRemittanceLineTax(
-  contractorId: string | null,
-  supplyDate: string | null,
-  approvedSnapshots: ApprovedSnapshotForRemittance[],
+  payable: PayableForRemittance,
+  approvedSnapshotsById: Map<string, ApprovedSnapshotForRemittance>,
 ): ResolveTaxResult {
-  if (!contractorId || !supplyDate) return { kind: 'none' }
-  const matches = approvedSnapshots.filter(
-    (s) => s.status === 'approved' && s.calcStatus === 'ok'
-      && s.contractorId === contractorId && s.supplyDate === supplyDate,
-  )
-  if (matches.length === 0) return { kind: 'none' }
-  if (matches.length > 1) return { kind: 'ambiguous', snapshotIds: matches.map((m) => m.id) }
-  const s = matches[0]
+  const id = payable.contractorPaymentSnapshotId
+  if (!id) return { kind: 'none' }
+
+  const s = approvedSnapshotsById.get(id)
+  if (!s) return { kind: 'error', reason: `payment snapshot ${id} does not exist or is not approved` }
+  if (s.status !== 'approved' || s.calcStatus !== 'ok') {
+    return { kind: 'error', reason: `payment snapshot ${id} is not an approved, ok snapshot (status=${s.status}, calc=${s.calcStatus})` }
+  }
+  if (payable.contractorId && s.contractorId !== payable.contractorId) {
+    return { kind: 'error', reason: `payment snapshot ${id} belongs to a different contractor` }
+  }
+  if (s.serviceScheduleId && payable.serviceScheduleId && s.serviceScheduleId !== payable.serviceScheduleId) {
+    return { kind: 'error', reason: `payment snapshot ${id} is for a different service schedule` }
+  }
   return {
     kind: 'frozen',
     tax: {

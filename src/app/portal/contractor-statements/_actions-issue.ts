@@ -37,6 +37,8 @@ interface CiRow {
   notes: string | null
   site_label: string | null
   status: string
+  contractor_payment_snapshot_id: string | null
+  service_schedule_id: string | null
   jobs: { job_number: string | null; title: string | null; address: string | null; completed_at: string | null } | null
 }
 
@@ -141,7 +143,7 @@ export async function issueContractorStatement(input: { id: string; review_due_a
 
   const { data: ciRows } = await supabase
     .from('contractor_invoices')
-    .select('id, invoice_number, contractor_id, amount, gst_status, gst_amount, job_id, service_date, gst_supply_date, pay_hours, pay_basis, notes, site_label, status, jobs(job_number, title, address, completed_at)')
+    .select('id, invoice_number, contractor_id, amount, gst_status, gst_amount, job_id, service_date, gst_supply_date, pay_hours, pay_basis, notes, site_label, status, contractor_payment_snapshot_id, service_schedule_id, jobs(job_number, title, address, completed_at)')
     .eq('statement_id', input.id)
   const cis = (ciRows ?? []) as unknown as CiRow[]
   if (cis.length === 0) return { error: 'Cannot issue an empty statement — it has no lines.' }
@@ -171,39 +173,51 @@ export async function issueContractorStatement(input: { id: string; review_due_a
     for (const w of (jw ?? []) as Array<{ job_id: string; pay_rate: number | null }>) rateByJob.set(w.job_id, w.pay_rate)
   }
 
-  // Frozen schedular tax breakdown (PR 9): freeze from the contractor's APPROVED
-  // payment tax snapshots, matched by supply date. Non-schedular lines stay
-  // amount-only. Figures are copied from the snapshot, never recomputed.
-  const { data: snapRaw } = await supabase
-    .from('contractor_payment_tax_snapshots')
-    .select('id, contractor_id, status, calc_status, supply_date, gross_ex_gst, gst_amount, withholding_rate, withholding_amount, net_bank, tax_declaration_id')
-    .eq('status', 'approved')
-    .eq('calc_status', 'ok')
-    .eq('contractor_id', stmt.contractor_id)
-  const approvedSnapshots: ApprovedSnapshotForRemittance[] = ((snapRaw ?? []) as Array<Record<string, unknown>>).map((s) => ({
-    id: s.id as string,
-    contractorId: s.contractor_id as string,
-    status: s.status as string,
-    calcStatus: s.calc_status as string,
-    supplyDate: s.supply_date as string,
-    grossExGst: s.gross_ex_gst == null ? null : Number(s.gross_ex_gst),
-    gstAmount: s.gst_amount == null ? null : Number(s.gst_amount),
-    withholdingRate: s.withholding_rate == null ? null : Number(s.withholding_rate),
-    withholdingAmount: s.withholding_amount == null ? null : Number(s.withholding_amount),
-    netBank: s.net_bank == null ? null : Number(s.net_bank),
-    taxDeclarationId: (s.tax_declaration_id as string | null) ?? null,
-  }))
+  // Frozen schedular tax breakdown (PR 9): freeze from the EXPLICIT snapshot id
+  // each payable carries (contractor_payment_snapshot_id). No supply-date search.
+  // A payable with no snapshot id stays amount-only; a payable WITH a snapshot id
+  // that is missing/invalid BLOCKS the issue (never issue a tax-bearing statement
+  // off a bad snapshot). Figures are copied from the snapshot, never recomputed.
+  const stmtSnapshotIds = Array.from(new Set(cis.map((ci) => ci.contractor_payment_snapshot_id).filter((x): x is string => !!x)))
+  const snapshotsById = new Map<string, ApprovedSnapshotForRemittance>()
+  if (stmtSnapshotIds.length > 0) {
+    const { data: snapRaw } = await supabase
+      .from('contractor_payment_tax_snapshots')
+      .select('id, contractor_id, status, calc_status, service_schedule_id, supply_date, gross_ex_gst, gst_amount, withholding_rate, withholding_amount, net_bank, tax_declaration_id')
+      .in('id', stmtSnapshotIds)
+    for (const s of ((snapRaw ?? []) as Array<Record<string, unknown>>)) {
+      snapshotsById.set(s.id as string, {
+        id: s.id as string,
+        contractorId: s.contractor_id as string,
+        status: s.status as string,
+        calcStatus: s.calc_status as string,
+        serviceScheduleId: (s.service_schedule_id as string | null) ?? null,
+        supplyDate: s.supply_date as string,
+        grossExGst: s.gross_ex_gst == null ? null : Number(s.gross_ex_gst),
+        gstAmount: s.gst_amount == null ? null : Number(s.gst_amount),
+        withholdingRate: s.withholding_rate == null ? null : Number(s.withholding_rate),
+        withholdingAmount: s.withholding_amount == null ? null : Number(s.withholding_amount),
+        netBank: s.net_bank == null ? null : Number(s.net_bank),
+        taxDeclarationId: (s.tax_declaration_id as string | null) ?? null,
+      })
+    }
+  }
 
-  const lines: SnapshotLineInput[] = cis.map((ci) => {
+  const lines: SnapshotLineInput[] = []
+  for (const ci of cis) {
     const service = resolveContractorServiceDate({
       job_id: ci.job_id,
       job_completed_at_nz: toNzCalendarDate(ci.jobs?.completed_at ?? null),
       service_date: ci.service_date,
       gst_supply_date: ci.gst_supply_date,
     }).date
-    const taxR = resolveRemittanceLineTax(ci.contractor_id, service, approvedSnapshots)
+    const taxR = resolveRemittanceLineTax(
+      { contractorId: ci.contractor_id, serviceScheduleId: ci.service_schedule_id, contractorPaymentSnapshotId: ci.contractor_payment_snapshot_id },
+      snapshotsById,
+    )
+    if (taxR.kind === 'error') return { error: `Cannot issue: ${ci.invoice_number ?? 'a payable'} — ${taxR.reason}. Resolve its tax snapshot first.` }
     const tax = taxR.kind === 'frozen' ? taxR.tax : null
-    return {
+    lines.push({
       contractor_invoice_id: ci.id,
       invoice_number: ci.invoice_number,
       job_number: ci.jobs?.job_number ?? null,
@@ -218,12 +232,13 @@ export async function issueContractorStatement(input: { id: string; review_due_a
       gst_amount: ci.gst_amount == null ? null : Number(ci.gst_amount),
       contractor_payment_snapshot_id: tax?.contractor_payment_snapshot_id ?? null,
       gross_ex_gst: tax?.gross_ex_gst ?? null,
+      gst_amount_frozen: tax?.gst_amount ?? null,
       wht_rate: tax?.wht_rate ?? null,
       wht_amount: tax?.wht_amount ?? null,
       net_paid: tax?.net_paid ?? null,
       tax_declaration_id: tax?.tax_declaration_id ?? null,
-    }
-  })
+    })
+  }
 
   const supplier = resolveSupplierIdentity(contractor)
   const issuedAt = new Date().toISOString()
