@@ -415,6 +415,7 @@ export function QuoteBuilder({
           <StructuredScopeEditor
             value={s.structured_scope}
             onChange={(next) => patch({ structured_scope: next })}
+            serviceTypeCode={s.service_type_code}
           />
         </Block>
       )}

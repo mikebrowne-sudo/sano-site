@@ -8,6 +8,7 @@ import {
   FULL_PROPERTY_RESET_NOTES,
   FULL_PROPERTY_RESET_TITLE,
   buildDefaultHousekeepingScope,
+  buildHousekeepingIntro,
   buildDefaultScopeFor,
   isStructuredScopeType,
   STRUCTURED_SCOPE_CODES,
@@ -145,14 +146,23 @@ describe('Residential Housekeeping default scope', () => {
     expect(s.notes.length).toBeGreaterThan(0)
   })
 
-  it('communicates the weekly nature in WORDING only (no rate/qty/hourly figure)', () => {
+  it('defaults weekly hours + service days to BLANK (entered per quote, not baked in)', () => {
     const s = buildDefaultHousekeepingScope()
+    expect(s.weeklyHours).toBe('')
+    expect(s.serviceDays).toBe('')
+    // No specific hours or days baked into the default scope anywhere.
     const text = JSON.stringify(s)
-    expect(s.intro).toMatch(/20 hours/)
-    expect(s.intro).toMatch(/Monday, Wednesday and Friday/)
-    // No hourly rate, no "x $", no "45", no per-hour maths anywhere in the scope.
+    expect(text).not.toMatch(/20 hours/)
+    expect(text).not.toMatch(/Monday, Wednesday and Friday/)
+    // Blank → neutral fallback intro, never a placeholder or broken bracket.
+    expect(s.intro).toContain('within the agreed weekly service allocation')
+    expect(s.intro).not.toMatch(/\[|\]|undefined|up to\s+hours/)
+  })
+
+  it('communicates the service in WORDING only — no rate/qty/hourly figure', () => {
+    const text = JSON.stringify(buildDefaultHousekeepingScope())
     expect(text).not.toMatch(/\$45|45\.00|per hour|\/hr|hourly rate/i)
-    expect(text).not.toMatch(/20\s*[x×]\s*\$?45/)
+    expect(text).not.toMatch(/\d+\s*[x×]\s*\$?\d/)
   })
 
   it('excludes cooking, groceries, childcare and out-of-allocation work', () => {
@@ -169,6 +179,41 @@ describe('Residential Housekeeping default scope', () => {
     const b = buildDefaultHousekeepingScope()
     expect(b.sections[0].items).not.toContain('Custom line')
     expect(RESIDENTIAL_HOUSEKEEPING_SECTIONS[0].items).not.toContain('Custom line')
+  })
+})
+
+describe('buildHousekeepingIntro — weekly hours + service days are DESCRIPTIVE, blank-safe', () => {
+  it('names both when hours + days are given', () => {
+    const intro = buildHousekeepingIntro({ weeklyHours: '20', serviceDays: 'Monday, Wednesday and Friday' })
+    expect(intro).toContain('up to 20 hours')
+    expect(intro).toContain('per week, generally provided across Monday, Wednesday and Friday')
+  })
+  it('names hours only when days are blank', () => {
+    const intro = buildHousekeepingIntro({ weeklyHours: '15', serviceDays: '' })
+    expect(intro).toContain('up to 15 hours of residential housekeeping and cleaning support per week.')
+    expect(intro).not.toMatch(/across\s*\./)
+  })
+  it('names days only when hours are blank', () => {
+    const intro = buildHousekeepingIntro({ weeklyHours: '', serviceDays: 'Tuesday and Thursday' })
+    expect(intro).toContain('within the agreed weekly service allocation, generally across Tuesday and Thursday')
+    expect(intro).not.toMatch(/up to\s+hours/)
+  })
+  it('falls back to neutral wording when BOTH are blank — no placeholder or broken text', () => {
+    const intro = buildHousekeepingIntro({ weeklyHours: '', serviceDays: '' })
+    expect(intro).toContain('Residential housekeeping and cleaning support provided within the agreed weekly service allocation.')
+    expect(intro).not.toMatch(/\[|\]|undefined|null|up to\s+hours|across\s*\./)
+  })
+  it('trims whitespace-only values to the blank fallback', () => {
+    expect(buildHousekeepingIntro({ weeklyHours: '   ', serviceDays: '  ' }))
+      .toContain('within the agreed weekly service allocation.')
+  })
+  it('preserves entered weekly hours + days through normalise (round-trip)', () => {
+    const s = buildDefaultHousekeepingScope()
+    s.weeklyHours = '20'
+    s.serviceDays = 'Monday, Wednesday and Friday'
+    const round = normaliseStructuredScope(JSON.parse(JSON.stringify(s)))
+    expect(round!.weeklyHours).toBe('20')
+    expect(round!.serviceDays).toBe('Monday, Wednesday and Friday')
   })
 })
 

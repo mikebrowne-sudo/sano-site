@@ -31,6 +31,13 @@ export interface StructuredScope {
   notes: string[]
   /** Optional exclusions. Editable list. */
   exclusions: string[]
+  /** Quote-specific weekly hour allocation (Residential Housekeeping). Blank by
+   *  default; DESCRIPTIVE ONLY — feeds the generated intro wording, never any
+   *  price calculation. Free text so "20" or "up to 20" both read naturally. */
+  weeklyHours?: string
+  /** Quote-specific service days (Residential Housekeeping). Blank by default;
+   *  descriptive only. e.g. "Monday, Wednesday and Friday". */
+  serviceDays?: string
 }
 
 export const FULL_PROPERTY_RESET_TITLE = 'Full Property Reset'
@@ -315,15 +322,34 @@ export const RESIDENTIAL_HOUSEKEEPING_EXCLUSIONS: string[] = [
 export const RESIDENTIAL_HOUSEKEEPING_NOTES: string[] = [
   'Services are provided on a time-allocation basis. Tasks will be prioritised and completed within the agreed weekly hours. Completion of every listed task during every visit or every week is not guaranteed',
   'Larger, detailed or less frequent tasks may be completed on a rotational basis according to household priorities and the time available',
-  'The weekly allocation is generally provided across Monday, Wednesday and Friday. The allocation of hours between those days may vary by agreement and according to operational requirements',
+  'The allocation of hours between service days may vary by agreement and according to operational requirements',
   'The client may provide reasonable day-to-day priorities, provided requested duties remain within the agreed scope, available hours and health and safety requirements',
   'Cooking, meal preparation and grocery shopping are specifically excluded from this service',
   'This is a temporary service ending on the agreed date. Any extension will be subject to availability, revised pricing if applicable and written agreement',
 ]
 
-/** Default housekeeping intro. Editable; static (no generated clauses to invent). */
-export function buildHousekeepingIntro(): string {
-  return 'Provision of up to 20 hours of residential housekeeping and cleaning support per week, generally provided across Monday, Wednesday and Friday. The service is intended for households requiring broader practical support than a standard residential clean. Depending on the agreed scope and household priorities, services may include general cleaning, laundry, linen changes, tidying and rotational detailed cleaning tasks.'
+/**
+ * Housekeeping intro, generated from the quote-specific weekly hours + service
+ * days. Both are DESCRIPTIVE ONLY — they never touch pricing. When both are
+ * present the wording names them; when either is blank it falls back to neutral
+ * wording (never shows a placeholder, empty brackets, or broken text).
+ */
+export function buildHousekeepingIntro(input?: { weeklyHours?: string | null; serviceDays?: string | null }): string {
+  const hours = (input?.weeklyHours ?? '').trim()
+  const days = (input?.serviceDays ?? '').trim()
+  const context = ' The service is intended for households requiring broader practical support than a standard residential clean. Depending on the agreed scope and household priorities, services may include general cleaning, laundry, linen changes, tidying and rotational detailed cleaning tasks.'
+
+  let lead: string
+  if (hours && days) {
+    lead = `Provision of up to ${hours} hours of residential housekeeping and cleaning support per week, generally provided across ${days}.`
+  } else if (hours) {
+    lead = `Provision of up to ${hours} hours of residential housekeeping and cleaning support per week.`
+  } else if (days) {
+    lead = `Residential housekeeping and cleaning support provided within the agreed weekly service allocation, generally across ${days}.`
+  } else {
+    lead = 'Residential housekeeping and cleaning support provided within the agreed weekly service allocation.'
+  }
+  return `${lead}${context}`
 }
 
 /** Default housekeeping completion/service-basis wording. Editable. */
@@ -339,7 +365,12 @@ export function buildDefaultHousekeepingScope(): StructuredScope {
   return {
     title: RESIDENTIAL_HOUSEKEEPING_TITLE,
     expectedDuration: '',
-    intro: buildHousekeepingIntro(),
+    // Weekly hours + service days are quote-specific — blank by default. Staff
+    // enter them per quote; the intro regenerates from them (with clean neutral
+    // fallback wording while blank).
+    weeklyHours: '',
+    serviceDays: '',
+    intro: buildHousekeepingIntro({ weeklyHours: '', serviceDays: '' }),
     sections: RESIDENTIAL_HOUSEKEEPING_SECTIONS.map((s) => ({ heading: s.heading, items: [...s.items] })),
     completion: buildHousekeepingCompletion(),
     notes: [...RESIDENTIAL_HOUSEKEEPING_NOTES],
@@ -394,5 +425,8 @@ export function normaliseStructuredScope(v: unknown): StructuredScope | null {
     completion: typeof o.completion === 'string' ? o.completion : '',
     notes: Array.isArray(o.notes) ? (o.notes as unknown[]).map((n) => String(n ?? '')) : [],
     exclusions: Array.isArray(o.exclusions) ? (o.exclusions as unknown[]).map((e) => String(e ?? '')) : [],
+    // Optional quote-specific housekeeping fields (absent on FPR / legacy quotes).
+    weeklyHours: typeof o.weeklyHours === 'string' ? o.weeklyHours : '',
+    serviceDays: typeof o.serviceDays === 'string' ? o.serviceDays : '',
   }
 }

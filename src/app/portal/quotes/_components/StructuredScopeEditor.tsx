@@ -14,18 +14,25 @@ import {
   type ScopeSection,
   buildResetIntro,
   buildResetCompletion,
+  buildHousekeepingIntro,
 } from '@/lib/full-property-reset-scope'
 
 export function StructuredScopeEditor({
   value,
   onChange,
   disabled = false,
+  serviceTypeCode,
 }: {
   value: StructuredScope
   onChange: (next: StructuredScope) => void
   disabled?: boolean
+  /** Drives service-specific fields + intro generation. 'residential_housekeeping'
+   *  shows the weekly-hours + service-days inputs and regenerates the housekeeping
+   *  intro; anything else keeps the Full Property Reset behaviour. */
+  serviceTypeCode?: string | null
 }) {
   const set = (patch: Partial<StructuredScope>) => onChange({ ...value, ...patch })
+  const isHousekeeping = serviceTypeCode === 'residential_housekeeping'
 
   // ── Sections ──────────────────────────────────────────────
   function updateSection(i: number, patch: Partial<ScopeSection>) {
@@ -76,7 +83,22 @@ export function StructuredScopeEditor({
 
   // ── Regenerate intro (intro only) ─────────────────────────
   function regenerateIntro() {
-    set({ intro: buildResetIntro({ title: value.title, expectedDuration: value.expectedDuration, sections: value.sections }) })
+    const intro = isHousekeeping
+      ? buildHousekeepingIntro({ weeklyHours: value.weeklyHours, serviceDays: value.serviceDays })
+      : buildResetIntro({ title: value.title, expectedDuration: value.expectedDuration, sections: value.sections })
+    set({ intro })
+  }
+  // Housekeeping: keep the intro in sync as weekly hours / service days change,
+  // but only while the operator hasn't hand-edited the intro away from a
+  // generated form (so manual wording is never clobbered). Descriptive only —
+  // these fields never affect price.
+  function onHousekeepingFieldChange(patch: { weeklyHours?: string; serviceDays?: string }) {
+    const nextHours = patch.weeklyHours ?? value.weeklyHours ?? ''
+    const nextDays = patch.serviceDays ?? value.serviceDays ?? ''
+    const wasGenerated = value.intro === buildHousekeepingIntro({ weeklyHours: value.weeklyHours, serviceDays: value.serviceDays })
+    const next: Partial<StructuredScope> = { ...patch }
+    if (wasGenerated) next.intro = buildHousekeepingIntro({ weeklyHours: nextHours, serviceDays: nextDays })
+    set(next)
   }
   // Keep the completion clause's duration in sync when the field changes, but
   // only if the operator hasn't hand-edited completion away from a generated
@@ -102,20 +124,42 @@ export function StructuredScopeEditor({
         added separately as priced lines.
       </p>
 
-      {/* Title + expected duration */}
+      {/* Title + (FPR) expected duration */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label className="block">
           <span className="block text-sm font-semibold text-sage-800 mb-1.5">Service title</span>
           <input className={inputCls} value={value.title} disabled={disabled}
             onChange={(e) => set({ title: e.target.value })} />
         </label>
-        <label className="block">
-          <span className="block text-sm font-semibold text-sage-800 mb-1.5">Expected duration (optional)</span>
-          <input className={inputCls} value={value.expectedDuration} disabled={disabled}
-            placeholder="e.g. two days"
-            onChange={(e) => onDurationChange(e.target.value)} />
-        </label>
+        {!isHousekeeping && (
+          <label className="block">
+            <span className="block text-sm font-semibold text-sage-800 mb-1.5">Expected duration (optional)</span>
+            <input className={inputCls} value={value.expectedDuration} disabled={disabled}
+              placeholder="e.g. two days"
+              onChange={(e) => onDurationChange(e.target.value)} />
+          </label>
+        )}
       </div>
+
+      {/* Housekeeping: quote-specific weekly hours + service days (descriptive
+          only — these feed the intro wording and NEVER the price). */}
+      {isHousekeeping && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="block text-sm font-semibold text-sage-800 mb-1.5">Weekly hours (optional)</span>
+            <input className={inputCls} value={value.weeklyHours ?? ''} disabled={disabled}
+              inputMode="numeric" placeholder="e.g. 20"
+              onChange={(e) => onHousekeepingFieldChange({ weeklyHours: e.target.value })} />
+            <span className="block text-[11px] text-sage-400 mt-1">Shown in the description only. Does not affect the price.</span>
+          </label>
+          <label className="block">
+            <span className="block text-sm font-semibold text-sage-800 mb-1.5">Service days (optional)</span>
+            <input className={inputCls} value={value.serviceDays ?? ''} disabled={disabled}
+              placeholder="e.g. Monday, Wednesday and Friday"
+              onChange={(e) => onHousekeepingFieldChange({ serviceDays: e.target.value })} />
+          </label>
+        </div>
+      )}
 
       {/* Introduction */}
       <div>
