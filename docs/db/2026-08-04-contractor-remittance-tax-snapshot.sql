@@ -17,9 +17,17 @@
 -- snapshot backs at most one ACTIVE remittance item (a partial-unique index); a
 -- reissue/correction supersedes the prior item and keeps explicit lineage.
 --
+-- PAYABLE WIRING (this rev): contractor_invoices also gains service_schedule_id +
+-- the explicit contractor_payment_snapshot_id + correction lineage. A payable that
+-- references a service schedule (the schedular pipeline) MUST carry a snapshot id
+-- (trigger ci_require_snapshot_for_schedule) — it can never silently fall back to
+-- an ordinary amount-only line. One approved snapshot backs at most one ACTIVE
+-- payable (ci_one_active_snapshot_uidx); a correction supersedes + retains.
+--
 -- SCOPE / GUARDRAILS: additive nullable columns only; ordinary contractors and
--- every existing remittance are unchanged. NO backfill, NO money movement, NO
--- Myrtle change. Source FKs ON DELETE RESTRICT. Additive + idempotent. Mike-run.
+-- every existing remittance/payable are unchanged (service_schedule_id null →
+-- trigger no-op). NO backfill, NO money movement, NO Myrtle change. Source FKs ON
+-- DELETE RESTRICT. Additive + idempotent. Mike-run.
 
 -- ── Read-only preflight ─────────────────────────────────────────────────────
 select column_name from information_schema.columns
@@ -28,19 +36,55 @@ where table_schema='public' and table_name='contractor_remittance_items'
     'wht_rate','wht_amount','net_paid','tax_declaration_id','supply_date');  -- expect 0 rows
 select column_name from information_schema.columns
 where table_schema='public' and table_name='contractor_invoices'
-  and column_name = 'contractor_payment_snapshot_id';  -- expect 0 rows
+  and column_name in ('contractor_payment_snapshot_id','service_schedule_id',
+    'ci_tax_status','supersedes_invoice_id','correction_reason');  -- expect 0 rows
 
 begin;
 
--- ── 1. Explicit link on the PAYABLE (source of truth) ───────────────────────
--- A schedular/tax-bearing contractor_invoice carries the exact approved snapshot
--- it was priced from. Null for every existing (ordinary) payable — unchanged.
+-- ── 1. Explicit link + schedule + correction lineage on the PAYABLE ─────────
+-- A schedular/tax-bearing contractor_invoice references its service schedule AND
+-- carries the exact approved snapshot it was priced from. Both NULL for every
+-- existing (ordinary) payable — unchanged. A payable that references a service
+-- schedule (i.e. flows through the schedular pipeline) MUST carry a snapshot id
+-- (enforced by ci_require_snapshot_for_schedule below): it can never silently
+-- fall back to an ordinary amount-only line.
 alter table public.contractor_invoices
   add column if not exists contractor_payment_snapshot_id uuid
-    references public.contractor_payment_tax_snapshots(id) on delete restrict;
+    references public.contractor_payment_tax_snapshots(id) on delete restrict,
+  add column if not exists service_schedule_id uuid
+    references public.contractor_service_schedules(id) on delete restrict,
+  -- Correction lineage on the payable (retain original; replacement links out).
+  add column if not exists ci_tax_status text not null default 'active'
+    check (ci_tax_status in ('active','superseded')),
+  add column if not exists supersedes_invoice_id uuid
+    references public.contractor_invoices(id) on delete restrict,
+  add column if not exists correction_reason text;
 
 comment on column public.contractor_invoices.contractor_payment_snapshot_id is
   'The APPROVED contractor_payment_tax_snapshots row this schedular/tax-bearing payable was priced from (PR 9). Set explicitly when the payable is created from a snapshot; NULL for ordinary amount-only payables. The remittance copies this exact id — never searched.';
+comment on column public.contractor_invoices.service_schedule_id is
+  'The contractor service schedule this payable is for (PR 9). Non-null = schedular pipeline → a snapshot id is REQUIRED. NULL for ordinary job/manual payables.';
+
+-- A payable that references a service schedule MUST carry a payment snapshot —
+-- a schedular payable can never be created without its frozen snapshot. Ordinary
+-- payables (no schedule) are unaffected. One approved snapshot backs at most one
+-- ACTIVE payable (partial-unique) — a correction supersedes first.
+create or replace function public.ci_require_snapshot_for_schedule() returns trigger as $$
+begin
+  if new.service_schedule_id is not null and new.contractor_payment_snapshot_id is null then
+    raise exception 'contractor_invoices: a schedule-based (schedular) payable requires an approved contractor_payment_snapshot_id';
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists ci_require_snapshot_for_schedule_trg on public.contractor_invoices;
+create trigger ci_require_snapshot_for_schedule_trg before insert or update on public.contractor_invoices
+  for each row execute function public.ci_require_snapshot_for_schedule();
+
+create unique index if not exists ci_one_active_snapshot_uidx
+  on public.contractor_invoices (contractor_payment_snapshot_id)
+  where contractor_payment_snapshot_id is not null and ci_tax_status = 'active';
 
 -- ── 2. Remittance-item tax snapshot columns (all nullable, additive) ────────
 alter table public.contractor_remittance_items
@@ -187,31 +231,43 @@ order by column_name;  -- 11 rows
 
 select column_name from information_schema.columns
 where table_schema='public' and table_name='contractor_invoices'
-  and column_name = 'contractor_payment_snapshot_id';  -- 1 row
+  and column_name in ('contractor_payment_snapshot_id','service_schedule_id',
+    'ci_tax_status','supersedes_invoice_id','correction_reason')
+order by column_name;  -- 5 rows
 
 select tgname from pg_trigger where tgrelid='public.contractor_remittance_items'::regclass
   and tgname in ('cri_freeze_tax_snapshot_trg','cri_validate_tax_snapshot_trg') order by tgname;  -- 2 rows
 
-select indexname from pg_indexes where schemaname='public'
-  and tablename='contractor_remittance_items' and indexname='cri_one_active_snapshot_uidx';  -- 1 row
+select tgname from pg_trigger where tgrelid='public.contractor_invoices'::regclass
+  and tgname = 'ci_require_snapshot_for_schedule_trg';  -- 1 row
 
--- snapshot + declaration + payable-link FKs are ON DELETE RESTRICT ('r')
+select indexname from pg_indexes where schemaname='public'
+  and indexname in ('cri_one_active_snapshot_uidx','ci_one_active_snapshot_uidx') order by indexname;  -- 2 rows
+
+-- snapshot + declaration + payable-link + schedule + lineage FKs are ON DELETE RESTRICT ('r')
 select conname, confdeltype from pg_constraint
 where contype='f' and confdeltype='r'
   and conrelid in ('public.contractor_remittance_items'::regclass,'public.contractor_invoices'::regclass)
-  and (conname like '%payment_snapshot%' or conname like '%tax_declaration%' or conname like '%supersedes_item%');
+  and (conname like '%payment_snapshot%' or conname like '%tax_declaration%'
+       or conname like '%supersedes_item%' or conname like '%service_schedule%'
+       or conname like '%supersedes_invoice%');
 
 -- ── Rollback (commented) ────────────────────────────────────────────────────
 -- begin;
 --   drop trigger if exists cri_validate_tax_snapshot_trg on public.contractor_remittance_items;
 --   drop trigger if exists cri_freeze_tax_snapshot_trg on public.contractor_remittance_items;
+--   drop trigger if exists ci_require_snapshot_for_schedule_trg on public.contractor_invoices;
 --   drop function if exists public.cri_validate_tax_snapshot();
 --   drop function if exists public.cri_freeze_tax_snapshot();
+--   drop function if exists public.ci_require_snapshot_for_schedule();
 --   drop index if exists public.cri_one_active_snapshot_uidx;
+--   drop index if exists public.ci_one_active_snapshot_uidx;
 --   alter table public.contractor_remittance_items
 --     drop column if exists contractor_payment_snapshot_id, drop column if exists gross_ex_gst,
 --     drop column if exists gst_amount, drop column if exists wht_rate, drop column if exists wht_amount,
 --     drop column if exists net_paid, drop column if exists tax_declaration_id, drop column if exists supply_date,
 --     drop column if exists tax_status, drop column if exists supersedes_item_id, drop column if exists correction_reason;
---   alter table public.contractor_invoices drop column if exists contractor_payment_snapshot_id;
+--   alter table public.contractor_invoices
+--     drop column if exists contractor_payment_snapshot_id, drop column if exists service_schedule_id,
+--     drop column if exists ci_tax_status, drop column if exists supersedes_invoice_id, drop column if exists correction_reason;
 -- commit;

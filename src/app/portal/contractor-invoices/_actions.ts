@@ -5,6 +5,7 @@ import { isAdminUser } from '@/lib/is-admin'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { resolveContractorGstSnapshot } from '@/lib/contractor-gst-snapshot'
+import { resolveSnapshotForPayable } from '@/lib/contractor-payment-snapshot-link'
 
 interface CIInput {
   contractor_id: string
@@ -27,6 +28,18 @@ interface CIInput {
   payment_type?: string
   site_label?: string | null
   period_label?: string | null
+  // Schedular pipeline (PR 9): when this payable is priced from an approved
+  // contractor payment tax snapshot, staff pass BOTH the service schedule and the
+  // EXACT approved snapshot id. The snapshot is validated (approved/ok/same
+  // contractor/same schedule/not already on another active payable) and its
+  // frozen figures flow to the remittance + statement. A schedule WITHOUT a
+  // snapshot id is rejected (never a silent ordinary fallback). Ordinary payables
+  // omit both. isCorrection allows a snapshot to back a replacement payable.
+  service_schedule_id?: string | null
+  contractor_payment_snapshot_id?: string | null
+  supersedes_invoice_id?: string | null
+  correction_reason?: string | null
+  is_correction?: boolean
   // Bypass the soft fixed-payment duplicate warning after the operator
   // confirms "create anyway".
   force?: boolean
@@ -76,6 +89,26 @@ export async function createContractorInvoice(input: CIInput) {
   const supplyDate = input.gst_supply_date || dateSubmitted
   const { fields: gstFields, resolved: gst } = await resolveContractorGstSnapshot(supabase, input.contractor_id, input.amount, supplyDate)
 
+  // Schedular pipeline (PR 9): a schedule-based payable REQUIRES an approved
+  // snapshot — validate it explicitly (never infer). A schedule with no snapshot,
+  // or a snapshot with no schedule, is rejected. Ordinary payables skip this.
+  const scheduleId = input.service_schedule_id?.trim() || null
+  const snapshotId = input.contractor_payment_snapshot_id?.trim() || null
+  if (scheduleId && !snapshotId) {
+    return { error: 'A schedule-based (schedular) payable requires an approved payment snapshot id.' }
+  }
+  if (snapshotId && !scheduleId) {
+    return { error: 'A payment snapshot must be linked to its service schedule.' }
+  }
+  let snapshotLink: { contractor_payment_snapshot_id: string; service_schedule_id: string } | null = null
+  if (snapshotId && scheduleId) {
+    const resolved = await resolveSnapshotForPayable(supabase, {
+      snapshotId, contractorId: input.contractor_id, serviceScheduleId: scheduleId, isCorrection: input.is_correction === true,
+    })
+    if ('error' in resolved) return { error: `Cannot create schedular payable: ${resolved.error}` }
+    snapshotLink = { contractor_payment_snapshot_id: snapshotId, service_schedule_id: scheduleId }
+  }
+
   const { data, error } = await supabase
     .from('contractor_invoices')
     .insert({
@@ -92,12 +125,25 @@ export async function createContractorInvoice(input: CIInput) {
       // staff date (service_date or the confirmed GST supply date). Job-derived
       // CIs leave it null and resolve from job.completed_at at statement time.
       service_date: input.job_id ? null : (input.service_date || input.gst_supply_date || null),
+      // Schedular link + correction lineage (null for ordinary payables).
+      ...(snapshotLink ?? {}),
+      supersedes_invoice_id: input.supersedes_invoice_id?.trim() || null,
+      correction_reason: input.correction_reason?.trim() || null,
       ...gstFields,
     })
     .select('id, invoice_number')
     .single()
 
   if (error || !data) return { error: `Failed to create: ${error?.message}` }
+
+  // If this is a correction, supersede the original payable (retain it).
+  if (input.is_correction === true && input.supersedes_invoice_id?.trim()) {
+    await supabase
+      .from('contractor_invoices')
+      .update({ ci_tax_status: 'superseded' })
+      .eq('id', input.supersedes_invoice_id.trim())
+      .neq('ci_tax_status', 'superseded')
+  }
 
   const { data: { user } } = await supabase.auth.getUser()
   await supabase.from('audit_log').insert({
@@ -114,6 +160,9 @@ export async function createContractorInvoice(input: CIInput) {
       amount: input.amount,
       payment_type: paymentType,
       gst: { status: gst.status, applied: gst.applied, amount: gst.gstAmount, supply_date: supplyDate },
+      contractor_payment_snapshot_id: snapshotLink?.contractor_payment_snapshot_id ?? null,
+      service_schedule_id: snapshotLink?.service_schedule_id ?? null,
+      is_correction: input.is_correction === true,
     },
   })
 
@@ -177,10 +226,28 @@ export async function approveContractorInvoice(id: string) {
   // treatment at the (unchanged) supply date. Amount is untouched.
   const { data: ci } = await supabase
     .from('contractor_invoices')
-    .select('contractor_id, amount, gst_supply_date, date_submitted, invoice_number')
+    .select('contractor_id, amount, gst_supply_date, date_submitted, invoice_number, service_schedule_id, contractor_payment_snapshot_id')
     .eq('id', id)
     .maybeSingle()
   if (!ci) return { error: 'Payable not found.' }
+
+  // Schedular gate (PR 9): a schedule-based payable must not be approved unless it
+  // still carries a valid approved snapshot. Re-validate at approval so a snapshot
+  // that was superseded/voided after creation blocks approval.
+  if (ci.service_schedule_id) {
+    if (!ci.contractor_payment_snapshot_id) {
+      return { error: 'This schedular payable has no payment snapshot — it cannot be approved.' }
+    }
+    const { resolveSnapshotForPayable } = await import('@/lib/contractor-payment-snapshot-link')
+    const resolved = await resolveSnapshotForPayable(supabase, {
+      snapshotId: ci.contractor_payment_snapshot_id as string,
+      contractorId: ci.contractor_id as string,
+      serviceScheduleId: ci.service_schedule_id as string,
+      isCorrection: true, // it already owns this snapshot — single-use check n/a here
+    })
+    if ('error' in resolved) return { error: `Cannot approve schedular payable: ${resolved.error}` }
+  }
+
   const supplyDate = (ci.gst_supply_date as string | null) ?? (ci.date_submitted as string | null) ?? null
   const { fields: gstFields, resolved: gst } = await resolveContractorGstSnapshot(supabase, ci.contractor_id as string, Number(ci.amount), supplyDate)
 

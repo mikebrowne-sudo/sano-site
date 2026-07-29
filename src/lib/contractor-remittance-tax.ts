@@ -101,3 +101,35 @@ export function resolveRemittanceLineTax(
 export function hasFrozenTax(line: { contractor_payment_snapshot_id?: string | null }): boolean {
   return line.contractor_payment_snapshot_id != null
 }
+
+/**
+ * Validate that an explicit snapshot may be LINKED to a payable being created
+ * (approve/create time). Shared source-of-truth check used by every path that
+ * sets contractor_invoices.contractor_payment_snapshot_id, so the rules can't
+ * drift. Returns an error string, or null when the link is valid. Never infers a
+ * snapshot — the id is supplied explicitly.
+ *
+ * `alreadyActiveSnapshotIds` is the set of snapshot ids already carried by an
+ * ACTIVE (non-superseded) payable — a snapshot can't back a second active
+ * payable unless this is an explicit correction (isCorrection = true).
+ */
+export function validateSnapshotForPayable(args: {
+  snapshot: ApprovedSnapshotForRemittance | null | undefined
+  contractorId: string
+  serviceScheduleId: string | null
+  alreadyActiveSnapshotIds?: Set<string>
+  isCorrection?: boolean
+}): string | null {
+  const { snapshot: s, contractorId, serviceScheduleId } = args
+  if (!s) return 'The referenced payment snapshot does not exist.'
+  if (s.status !== 'approved') return `The payment snapshot is not approved (status: ${s.status}).`
+  if (s.calcStatus !== 'ok') return `The payment snapshot calculation is not resolved (calc_status: ${s.calcStatus}).`
+  if (s.contractorId !== contractorId) return 'The payment snapshot belongs to a different contractor.'
+  if (s.serviceScheduleId && serviceScheduleId && s.serviceScheduleId !== serviceScheduleId) {
+    return 'The payment snapshot is for a different service schedule.'
+  }
+  if (!args.isCorrection && args.alreadyActiveSnapshotIds?.has(s.id)) {
+    return 'This payment snapshot is already linked to another active payable.'
+  }
+  return null
+}

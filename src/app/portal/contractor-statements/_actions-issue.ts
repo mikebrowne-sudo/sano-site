@@ -211,6 +211,11 @@ export async function issueContractorStatement(input: { id: string; review_due_a
       service_date: ci.service_date,
       gst_supply_date: ci.gst_supply_date,
     }).date
+    // A schedule-based payable with no snapshot must never be issued as an
+    // ordinary amount-only line (defence in depth over the DB trigger).
+    if (ci.service_schedule_id && !ci.contractor_payment_snapshot_id) {
+      return { error: `Cannot issue: ${ci.invoice_number ?? 'a payable'} is schedular but has no payment snapshot. Resolve its tax snapshot first.` }
+    }
     const taxR = resolveRemittanceLineTax(
       { contractorId: ci.contractor_id, serviceScheduleId: ci.service_schedule_id, contractorPaymentSnapshotId: ci.contractor_payment_snapshot_id },
       snapshotsById,

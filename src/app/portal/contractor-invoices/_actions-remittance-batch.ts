@@ -157,6 +157,11 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
   // whole batch (fail-fast, no partial tax-bearing remittance).
   const frozenByCi = new Map<string, ReturnType<typeof resolveRemittanceLineTax>>()
   for (const ci of cis) {
+    // A schedule-based payable with no snapshot must never be remitted as an
+    // ordinary amount-only line (defence in depth over the DB trigger).
+    if (ci.service_schedule_id && !ci.contractor_payment_snapshot_id) {
+      return { error: `Cannot create remittance: a schedular payable has no payment snapshot. Resolve its tax snapshot first.` }
+    }
     const r = resolveRemittanceLineTax(
       { contractorId: ci.contractor_id, serviceScheduleId: ci.service_schedule_id, contractorPaymentSnapshotId: ci.contractor_payment_snapshot_id },
       snapshotsById,
