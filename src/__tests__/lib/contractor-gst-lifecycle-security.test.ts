@@ -77,6 +77,27 @@ describe('no turnover inference; never applied before effective date', () => {
   })
 })
 
+describe('source of truth = history; existing invoices untouched', () => {
+  it('the GST feature never reads or writes contractor_invoices / gst_applied / remittances', () => {
+    for (const src of [staffAction, contractorAction, dataLib]) {
+      expect(src).not.toContain('contractor_invoices')
+      expect(src).not.toContain('gst_applied')
+      expect(src).not.toContain('contractor_remittance')
+    }
+  })
+  it('historical resolution uses the history list, and only the CACHE write targets contractors.gst_*', () => {
+    // syncGstCache is the ONLY place that updates contractors.gst_* — and it reads
+    // the verified history row first.
+    const sync = dataLib.slice(dataLib.indexOf('export async function syncGstCache'))
+    expect(sync).toMatch(/from\('contractor_gst_history'\)[\s\S]*\.eq\('status',\s*'verified'\)/)
+    expect(sync).toMatch(/from\('contractors'\)\.update/)
+    // date resolution keys off the history records, not the flat contractors columns.
+    const gstLib = readFileSync(join(process.cwd(), 'src/lib/contractor-gst-history.ts'), 'utf8')
+    expect(gstLib).toMatch(/selectGstStatusForDate/)
+    expect(gstLib).not.toContain('contractors')
+  })
+})
+
 describe('migration: immutable, split indexes, consistency constraints', () => {
   it('has the immutability trigger', () => {
     expect(sql).toMatch(/cgh_immutable_facts/)

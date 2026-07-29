@@ -59,4 +59,16 @@ describe('gstWindowForDate', () => {
     const h = [row({ id: 'r', gstRegistered: true, gstNumber: '1', effectiveDate: '2026-08-01' })]
     expect(gstWindowForDate(h, '2026-07-31').gstRegistered).toBe(false)
   })
+
+  it('a supply AFTER a verified cessation (end date) is not GST', () => {
+    const ceased = [row({ id: 'c', gstRegistered: true, gstNumber: '1', effectiveDate: '2026-01-01', endDate: '2026-06-30' })]
+    expect(gstWindowForDate(ceased, '2026-05-01').gstRegistered).toBe(true)   // during registration
+    expect(gstWindowForDate(ceased, '2026-07-01').gstRegistered).toBe(false)  // after cessation → no GST
+  })
+
+  it('registration-pending (a submitted registered row) does not apply until verified', () => {
+    const pending = [row({ id: 'p', status: 'submitted', gstRegistered: true, gstNumber: '1', effectiveDate: '2026-01-01' })]
+    // Not verified → no window applies → treated as not registered.
+    expect(gstWindowForDate(pending, '2026-06-01').gstRegistered).toBe(false)
+  })
 })
