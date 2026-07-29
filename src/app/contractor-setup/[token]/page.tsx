@@ -1,12 +1,15 @@
 import { notFound } from 'next/navigation'
 import { getSetupByToken } from '@/lib/contractor-setup-data'
+import { getContractorSafeDeclarationByToken } from '@/lib/contractor-tax-declaration-data'
 import { ContractorSetupForm } from './_components/ContractorSetupForm'
+import { TaxDeclarationForm } from './_components/TaxDeclarationForm'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ContractorSetupTokenPage({ params }: { params: { token: string } }) {
   const bundle = await getSetupByToken(params.token)
   if (!bundle) notFound()
+  const taxBundle = await getContractorSafeDeclarationByToken(params.token)
 
   return (
     <div className="min-h-screen bg-sage-50/40">
@@ -17,6 +20,9 @@ export default async function ContractorSetupTokenPage({ params }: { params: { t
           <p className="text-sm text-sage-500 mt-1">Confirm your details and check your work arrangements below. This secure link is just for you — you can come back to it later.</p>
         </div>
         <ContractorSetupForm token={params.token} contractor={bundle.contractor} schedules={bundle.schedules} />
+        <div className="mt-6">
+          <TaxDeclarationForm token={params.token} existing={taxBundle?.declaration ?? null} />
+        </div>
       </div>
     </div>
   )

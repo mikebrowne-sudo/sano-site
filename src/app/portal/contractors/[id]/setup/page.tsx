@@ -4,6 +4,8 @@ import { ArrowLeft, ClipboardList, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { getContractorSetupBundle } from '@/lib/contractor-setup-data'
+import { getContractorDeclarations, applicableDeclarationRecord } from '@/lib/contractor-tax-declaration-data'
+import { resolveContractorTaxGate, type ScheduleTaxTreatment } from '@/lib/contractor-tax-gate'
 import {
   SETUP_SECTIONS, sectionLabel, sectionState, computeReadiness, type SectionStatusMap,
 } from '@/lib/contractor-setup-status'
@@ -28,11 +30,19 @@ export default async function ContractorSetupPage({ params }: { params: { id: st
   if (!contractor) notFound()
 
   const { setup, schedules, insuranceDefault, insuranceOverrides } = await getContractorSetupBundle(params.id)
-  // A contractor is "schedular" when staff have classified them so. Until the
-  // later IR330C workflow verifies a rate, whtRate is null → previews show pending.
-  const schedular = (contractor.tax_treatment as string | null) === 'schedular_payment'
+  // PR 4: the REAL per-schedule tax gate. Each schedule is judged on its own
+  // tax_treatment against the contractor's current verified declaration — a
+  // verified IR330C does NOT make every schedule schedular.
+  const { history: declHistory } = await getContractorDeclarations(params.id)
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const taxGate = resolveContractorTaxGate(
+    schedules.map((s) => ({ id: s.id, name: s.name, taxTreatment: (s.taxTreatment ?? null) as ScheduleTaxTreatment })),
+    applicableDeclarationRecord(declHistory, todayIso), // date-based, not newest
+    todayIso,
+  )
+  const schedular = schedules.some((s) => s.taxTreatment === 'schedular_payment')
   const sectionStatus: SectionStatusMap = setup?.sectionStatus ?? {}
-  const readiness = setup ? computeReadiness(sectionStatus, { schedular }) : null
+  const readiness = setup ? computeReadiness(sectionStatus, { schedular, taxGate }) : null
 
   return (
     <div className="max-w-4xl mx-auto">
