@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs'
+import { join } from 'path'
 import { computeContractorPayment, type PaymentCalcInput } from '@/lib/contractor-payment-calc'
 import type { DeclarationRecord } from '@/lib/contractor-tax-declaration'
 import type { GstHistoryRecord } from '@/lib/contractor-gst-history'
@@ -105,8 +107,6 @@ describe('never guesses — blocked/pending states with null figures', () => {
 })
 
 describe('PR 6 is pure preview — writes NOTHING to financial records', () => {
-  const { readFileSync } = require('fs') as typeof import('fs')
-  const { join } = require('path') as typeof import('path')
   const calc = readFileSync(join(process.cwd(), 'src/lib/contractor-payment-calc.ts'), 'utf8')
   const preview = readFileSync(join(process.cwd(), 'src/lib/contractor-payment-preview.ts'), 'utf8')
 
