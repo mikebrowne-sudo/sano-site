@@ -285,6 +285,7 @@ export default async function FinancePage({
         <a href={`/api/finance/cash-out-csv?from=${from}&to=${to}`} className="inline-flex items-center gap-1.5 border border-sage-200 text-sage-700 px-3 py-1.5 rounded-lg hover:bg-sage-50 transition-colors">Cash-out (combined)</a>
         <Link href="/portal/finance/profit-loss" className="inline-flex items-center gap-1.5 bg-sage-500 text-white px-3 py-1.5 rounded-lg hover:bg-sage-700 transition-colors">P&amp;L statement →</Link>
         <Link href="/portal/finance/reconcile" className="inline-flex items-center gap-1.5 border border-sage-200 text-sage-700 px-3 py-1.5 rounded-lg hover:bg-sage-50 transition-colors">Bank reconciliation →</Link>
+        <Link href="/portal/finance/reconcile-out" className="inline-flex items-center gap-1.5 border border-sage-200 text-sage-700 px-3 py-1.5 rounded-lg hover:bg-sage-50 transition-colors">Outgoing reconciliation →</Link>
         <Link href="/portal/expenses" className="ml-auto text-sage-500 hover:text-sage-700">Manage expenses →</Link>
       </div>
 
