@@ -4,7 +4,7 @@
 
 import { render, screen } from '@testing-library/react'
 import { QuoteDocument, type QuoteDocumentInput } from '@/components/document/QuoteDocument'
-import { buildDefaultResetScope } from '@/lib/full-property-reset-scope'
+import { buildDefaultResetScope, buildDefaultHousekeepingScope } from '@/lib/full-property-reset-scope'
 
 function baseQuote(overrides: Partial<QuoteDocumentInput> = {}): QuoteDocumentInput {
   return {
@@ -76,5 +76,35 @@ describe('QuoteDocument — Full Property Reset structured scope', () => {
       />,
     )
     expect(screen.getByText('Fallback description.')).toBeInTheDocument()
+  })
+})
+
+describe('QuoteDocument — Residential Housekeeping (fixed weekly price, no hourly rate)', () => {
+  it('renders the housekeeping title, scope, and a fixed $900 + GST total — never an hourly rate or qty×rate', () => {
+    const scope = buildDefaultHousekeepingScope()
+    const { container } = render(
+      <QuoteDocument
+        wrapper="print-overlay"
+        quote={baseQuote({
+          type_of_clean: 'Residential Housekeeping',
+          structured_scope: scope,
+          base_price: 900,          // manual fixed amount
+          gst_included: false,      // GST added on top → $135 → $1,035
+        })}
+        items={[]}
+      />,
+    )
+    // Customer-facing title from the scope.
+    expect(screen.getByText('Weekly residential housekeeping service')).toBeInTheDocument()
+    // Scope wording carries the weekly allocation (in the description, not a line).
+    expect(screen.getByText('Laundry & linen')).toBeInTheDocument()
+    // Fixed total maths: 900 + 15% GST = 1,035.
+    const text = container.textContent ?? ''
+    expect(text).toContain('$900.00')
+    expect(text).toContain('$135.00')
+    expect(text).toContain('$1,035.00')
+    // NEVER an hourly rate, per-hour wording, or a qty × rate breakdown.
+    expect(text).not.toMatch(/\$45|per hour|\/hr|hourly/i)
+    expect(text).not.toMatch(/20\s*[x×]\s*\$?45/)
   })
 })

@@ -50,8 +50,7 @@ import { ContactPicker, type QuoteContact } from '../../_components/ContactPicke
 import { AddContactInline } from '../../_components/AddContactInline'
 import { accountLabel } from '@/lib/account-label'
 import { noteLooksLikePrice } from '@/lib/doc-totals'
-import { normaliseStructuredScope } from '@/lib/full-property-reset-scope'
-import { FULL_RESET_CODE } from '../../_components/QuoteBuilder'
+import { normaliseStructuredScope, isStructuredScopeType } from '@/lib/full-property-reset-scope'
 import { computeCommercialPreview, type CommercialPreviewScopeRow, type ScopeFrequency } from '@/lib/commercialQuote'
 import type { PricingSettings } from '@/lib/pricingSettings'
 import type { ResidentialPricingSettings } from '@/lib/residentialPricingSettings'
@@ -546,9 +545,9 @@ export function EditQuoteForm({
         generated_scope: builder.generated_scope || undefined,
         description_edited: builder.description_edited,
         // Structured scope only when this is a Full Property Reset; otherwise
-        // explicitly null so switching a quote away from reset clears it.
+        // explicitly null so switching a quote away from a structured type clears it.
         structured_scope:
-          builder.service_type_code === FULL_RESET_CODE ? builder.structured_scope : null,
+          isStructuredScopeType(builder.service_type_code) ? builder.structured_scope : null,
         service_address: serviceAddress.trim() || undefined,
         preferred_dates: preferredDates.trim() || undefined,
         scheduled_clean_date: scheduledCleanDate || undefined,

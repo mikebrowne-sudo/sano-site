@@ -97,7 +97,7 @@ export function StructuredScopeEditor({
   return (
     <div className="space-y-6">
       <p className="text-xs text-sage-500 -mt-1">
-        The standard Full Property Reset scope is loaded below. Remove anything that doesn’t apply,
+        The standard scope for this service is loaded below. Remove anything that doesn’t apply,
         add job-specific items, then save. This is the description shown to the customer — pricing is
         added separately as priced lines.
       </p>

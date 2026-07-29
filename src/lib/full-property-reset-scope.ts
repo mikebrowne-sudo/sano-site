@@ -241,6 +241,129 @@ export function buildDefaultResetScope(input?: {
   }
 }
 
+// ── Residential Housekeeping ────────────────────────────────────────────────
+// A second structured-scope service, sharing the SAME StructuredScope type,
+// editor, storage and manual-pricing path as Full Property Reset. Description
+// only — no rate/quantity/hourly is ever stored or shown. The "weekly" nature is
+// wording only (this is a standard one-off quote, never a recurring engine).
+
+export const RESIDENTIAL_HOUSEKEEPING_TITLE = 'Weekly residential housekeeping service'
+
+/** Approved default housekeeping scope sections (grouped inclusions). Fully editable. */
+export const RESIDENTIAL_HOUSEKEEPING_SECTIONS: ScopeSection[] = [
+  {
+    heading: 'General cleaning',
+    items: [
+      'General cleaning of bedrooms, bathrooms, kitchens, living areas, entrances and other household spaces',
+      'Vacuuming and mopping floors',
+      'Dusting and wiping accessible surfaces',
+      'Cleaning accessible interior windows, mirrors and glass',
+      'Cleaning skirting boards, curtain tracks, doors and other detailed areas',
+    ],
+  },
+  {
+    heading: 'Kitchen',
+    items: [
+      'Cleaning kitchen benches, sinks, cupboard fronts and splashbacks',
+      'Cleaning the fridge, freezer, oven, dishwasher or similar household appliances',
+      'Cleaning inside selected cupboards, drawers and appliances',
+    ],
+  },
+  {
+    heading: 'Bathrooms',
+    items: [
+      'Cleaning bathroom fixtures, showers, baths, toilets and vanities',
+    ],
+  },
+  {
+    heading: 'Laundry & linen',
+    items: [
+      'Laundry, folding and putting away clothes or household linen',
+      'Changing bed linen',
+      'Washing and replacing removable chair or couch covers',
+    ],
+  },
+  {
+    heading: 'Tidying & detailed tasks',
+    items: [
+      'Tidying bedrooms, children’s belongings and shared household areas',
+      'Cleaning under movable furniture and household items where it is safe and practical',
+      'Rotational deep-cleaning tasks agreed with the client',
+      'Other reasonable housekeeping duties agreed within the available service time',
+    ],
+  },
+]
+
+/** Approved default housekeeping exclusions. Fully editable. */
+export const RESIDENTIAL_HOUSEKEEPING_EXCLUSIONS: string[] = [
+  'Cooking or meal preparation',
+  'Menu planning',
+  'Grocery shopping',
+  'Personal care or caregiving duties',
+  'Childcare',
+  'Exterior window cleaning requiring ladders, roof access or specialist equipment',
+  'Moving heavy furniture or appliances',
+  'Specialist carpet cleaning',
+  'Pest treatment',
+  'Mould remediation',
+  'Hazardous waste or biohazard cleaning',
+  'Work that creates an unreasonable health and safety risk',
+  'Work outside the agreed weekly time allocation unless separately approved and quoted',
+]
+
+/** Approved default housekeeping service conditions (shown as Important Notes). */
+export const RESIDENTIAL_HOUSEKEEPING_NOTES: string[] = [
+  'Services are provided on a time-allocation basis. Tasks will be prioritised and completed within the agreed weekly hours. Completion of every listed task during every visit or every week is not guaranteed',
+  'Larger, detailed or less frequent tasks may be completed on a rotational basis according to household priorities and the time available',
+  'The weekly allocation is generally provided across Monday, Wednesday and Friday. The allocation of hours between those days may vary by agreement and according to operational requirements',
+  'The client may provide reasonable day-to-day priorities, provided requested duties remain within the agreed scope, available hours and health and safety requirements',
+  'Cooking, meal preparation and grocery shopping are specifically excluded from this service',
+  'This is a temporary service ending on the agreed date. Any extension will be subject to availability, revised pricing if applicable and written agreement',
+]
+
+/** Default housekeeping intro. Editable; static (no generated clauses to invent). */
+export function buildHousekeepingIntro(): string {
+  return 'Provision of up to 20 hours of residential housekeeping and cleaning support per week, generally provided across Monday, Wednesday and Friday. The service is intended for households requiring broader practical support than a standard residential clean. Depending on the agreed scope and household priorities, services may include general cleaning, laundry, linen changes, tidying and rotational detailed cleaning tasks.'
+}
+
+/** Default housekeeping completion/service-basis wording. Editable. */
+export function buildHousekeepingCompletion(): string {
+  return 'Services are provided on a time-allocation basis. Tasks will be prioritised and completed in order of household priority within the available hours, with larger or less frequent duties completed on a rotational basis.'
+}
+
+/**
+ * The default Residential Housekeeping scope, loaded when a staff member first
+ * selects the service type. Fully editable thereafter. No pricing data here.
+ */
+export function buildDefaultHousekeepingScope(): StructuredScope {
+  return {
+    title: RESIDENTIAL_HOUSEKEEPING_TITLE,
+    expectedDuration: '',
+    intro: buildHousekeepingIntro(),
+    sections: RESIDENTIAL_HOUSEKEEPING_SECTIONS.map((s) => ({ heading: s.heading, items: [...s.items] })),
+    completion: buildHousekeepingCompletion(),
+    notes: [...RESIDENTIAL_HOUSEKEEPING_NOTES],
+    exclusions: [...RESIDENTIAL_HOUSEKEEPING_EXCLUSIONS],
+  }
+}
+
+/** Service-type codes that use the structured-scope editor + manual pricing. */
+export const STRUCTURED_SCOPE_CODES = ['full_property_reset', 'residential_housekeeping'] as const
+
+/** True when a service_type_code uses the structured-scope editor (FPR-style). */
+export function isStructuredScopeType(code?: string | null): boolean {
+  return !!code && (STRUCTURED_SCOPE_CODES as readonly string[]).includes(code)
+}
+
+/** Build the correct default structured scope for a service type code. */
+export function buildDefaultScopeFor(
+  code: string | null | undefined,
+  input?: { property_category?: string | null; service_address?: string | null },
+): StructuredScope {
+  if (code === 'residential_housekeeping') return buildDefaultHousekeepingScope()
+  return buildDefaultResetScope(input)
+}
+
 /** Runtime check — does this value look like a stored structured scope?
  *  Tolerant of partial/legacy JSON. Returns a plain boolean (not a type
  *  predicate) so callers can still treat the value as `unknown` and normalise. */
