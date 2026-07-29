@@ -27,7 +27,7 @@ export default async function ContractorSetupPage({ params }: { params: { id: st
     .maybeSingle()
   if (!contractor) notFound()
 
-  const { setup, schedules, insurance } = await getContractorSetupBundle(params.id)
+  const { setup, schedules, insuranceDefault, insuranceOverrides } = await getContractorSetupBundle(params.id)
   // A contractor is "schedular" when staff have classified them so. Until the
   // later IR330C workflow verifies a rate, whtRate is null → previews show pending.
   const schedular = (contractor.tax_treatment as string | null) === 'schedular_payment'
@@ -101,7 +101,7 @@ export default async function ContractorSetupPage({ params }: { params: { id: st
 
           {/* Insurance */}
           <Panel title="Insurance arrangement">
-            <InsurancePanel contractorId={params.id} existing={insurance} />
+            <InsurancePanel contractorId={params.id} existing={insuranceDefault} schedules={schedules.map((s) => ({ id: s.id, name: s.name }))} overrides={insuranceOverrides} />
           </Panel>
 
           {/* Deferred sections note */}

@@ -39,6 +39,8 @@ export interface ServiceSchedule {
 
 export interface InsuranceArrangement {
   id: string
+  scope: 'contractor_default' | 'schedule_override'
+  serviceScheduleId: string | null
   mode: 'own_required' | 'covered_by_sano' | 'not_required' | 'pending_review'
   requiredType: string | null
   minCover: number | null
@@ -52,6 +54,7 @@ export interface InsuranceArrangement {
   coverLimit: number | null
   confirmedAt: string | null
   notes: string | null
+  status: 'current' | 'superseded'
 }
 
 export interface ContractorSetup {
@@ -116,22 +119,27 @@ function mapSetup(r: Record<string, unknown>): ContractorSetup {
   }
 }
 
-/** Staff read: the setup + schedules + insurance for a contractor. */
+/** Staff read: the setup + schedules + insurance for a contractor. Returns the
+ *  CURRENT contractor-default arrangement plus any CURRENT per-schedule overrides
+ *  (superseded history is not loaded here). */
 export async function getContractorSetupBundle(contractorId: string): Promise<{
   setup: ContractorSetup | null
   schedules: ServiceSchedule[]
-  insurance: InsuranceArrangement | null
+  insuranceDefault: InsuranceArrangement | null
+  insuranceOverrides: InsuranceArrangement[]
 }> {
   const svc = getServiceSupabase()
   const [{ data: setup }, { data: schedules }, { data: insurance }] = await Promise.all([
     svc.from('contractor_setup').select('*').eq('contractor_id', contractorId).maybeSingle(),
     svc.from('contractor_service_schedules').select('*').eq('contractor_id', contractorId).order('created_at', { ascending: true }),
-    svc.from('contractor_insurance_arrangement').select('*').eq('contractor_id', contractorId).maybeSingle(),
+    svc.from('contractor_insurance_arrangement').select('*').eq('contractor_id', contractorId).eq('status', 'current'),
   ])
+  const insuranceRows = (insurance ?? []).map((i) => mapInsurance(i as Record<string, unknown>))
   return {
     setup: setup ? mapSetup(setup as Record<string, unknown>) : null,
     schedules: (schedules ?? []).map((s) => mapSchedule(s as Record<string, unknown>)),
-    insurance: insurance ? mapInsurance(insurance as Record<string, unknown>) : null,
+    insuranceDefault: insuranceRows.find((i) => i.scope === 'contractor_default') ?? null,
+    insuranceOverrides: insuranceRows.filter((i) => i.scope === 'schedule_override'),
   }
 }
 
@@ -225,9 +233,25 @@ export async function getSetupByToken(token: string): Promise<{
   }
 }
 
+/**
+ * Resolve the EFFECTIVE insurance arrangement for a given schedule: its current
+ * schedule_override if one exists, otherwise the contractor_default. Pure — used
+ * by reads (and testable). Returns null when neither exists.
+ */
+export function effectiveInsuranceForSchedule(
+  scheduleId: string,
+  contractorDefault: InsuranceArrangement | null,
+  overrides: InsuranceArrangement[],
+): InsuranceArrangement | null {
+  const override = overrides.find((o) => o.scope === 'schedule_override' && o.serviceScheduleId === scheduleId && o.status === 'current')
+  return override ?? contractorDefault ?? null
+}
+
 function mapInsurance(r: Record<string, unknown>): InsuranceArrangement {
   return {
     id: r.id as string,
+    scope: (r.scope as InsuranceArrangement['scope']) ?? 'contractor_default',
+    serviceScheduleId: (r.service_schedule_id as string | null) ?? null,
     mode: (r.mode as InsuranceArrangement['mode']) ?? 'pending_review',
     requiredType: (r.required_type as string | null) ?? null,
     minCover: r.min_cover == null ? null : Number(r.min_cover),
@@ -241,5 +265,6 @@ function mapInsurance(r: Record<string, unknown>): InsuranceArrangement {
     coverLimit: r.cover_limit == null ? null : Number(r.cover_limit),
     confirmedAt: (r.confirmed_at as string | null) ?? null,
     notes: (r.notes as string | null) ?? null,
+    status: (r.status as InsuranceArrangement['status']) ?? 'current',
   }
 }

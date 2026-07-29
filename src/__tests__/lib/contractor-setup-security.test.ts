@@ -2,8 +2,36 @@
 // These lock the guarantees the security review requires so a later change
 // can't silently regress them.
 
-import { TOKEN_OPEN_STATUSES, CONTRACTOR_SAFE_SCHEDULE_FIELDS, type ContractorSafeSchedule } from '@/lib/contractor-setup-data'
+import { TOKEN_OPEN_STATUSES, CONTRACTOR_SAFE_SCHEDULE_FIELDS, effectiveInsuranceForSchedule, type ContractorSafeSchedule, type InsuranceArrangement } from '@/lib/contractor-setup-data'
 import { CONTRACTOR_PROPOSABLE_FIELDS } from '@/lib/contractor-setup-allowlist'
+
+function ins(p: Partial<InsuranceArrangement> & { id: string }): InsuranceArrangement {
+  return {
+    scope: 'contractor_default', serviceScheduleId: null, mode: 'pending_review',
+    requiredType: null, minCover: null, insurer: null, policyNumber: null, effectiveDate: null,
+    expiryDate: null, verificationStatus: null, sanoPolicyRef: null, coverType: null, coverLimit: null,
+    confirmedAt: null, notes: null, status: 'current', ...p,
+  }
+}
+
+describe('effectiveInsuranceForSchedule (default vs per-schedule override)', () => {
+  const def = ins({ id: 'def', scope: 'contractor_default', mode: 'covered_by_sano' })
+  const override = ins({ id: 'ovr', scope: 'schedule_override', serviceScheduleId: 'sch1', mode: 'own_required' })
+
+  it('uses the schedule override when one is current', () => {
+    expect(effectiveInsuranceForSchedule('sch1', def, [override])?.id).toBe('ovr')
+  })
+  it('falls back to the contractor default when no override', () => {
+    expect(effectiveInsuranceForSchedule('sch2', def, [override])?.id).toBe('def')
+  })
+  it('ignores a superseded override', () => {
+    const stale = ins({ id: 'old', scope: 'schedule_override', serviceScheduleId: 'sch1', status: 'superseded' })
+    expect(effectiveInsuranceForSchedule('sch1', def, [stale])?.id).toBe('def')
+  })
+  it('returns null when neither a default nor an override exists', () => {
+    expect(effectiveInsuranceForSchedule('sch3', null, [])).toBeNull()
+  })
+})
 
 describe('token status gate', () => {
   it('refuses closed / revoked / completed setups', () => {

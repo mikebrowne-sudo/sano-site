@@ -169,9 +169,17 @@ export async function upsertServiceSchedule(contractorId: string, input: Schedul
   return { ok: true, id: data.id as string }
 }
 
-/** Set the insurance arrangement (incl. covered_by_sano, which suppresses the
- *  contractor upload step). Upsert — one arrangement per contractor. */
+/**
+ * Set an insurance arrangement (incl. covered_by_sano, which suppresses the
+ * contractor upload step). Effective-dated + superseding: the prior CURRENT row
+ * for this scope (contractor_default, or an override for one schedule) is marked
+ * superseded and a new current row is inserted — history is preserved, never
+ * overwritten. A schedule_override must name a schedule belonging to THIS
+ * contractor (the DB composite FK enforces it too).
+ */
 export async function setInsuranceArrangement(contractorId: string, input: {
+  scope?: 'contractor_default' | 'schedule_override'
+  serviceScheduleId?: string | null
   mode: 'own_required' | 'covered_by_sano' | 'not_required' | 'pending_review'
   requiredType?: string | null
   minCover?: number | null
@@ -187,9 +195,44 @@ export async function setInsuranceArrangement(contractorId: string, input: {
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
 
+  const scope = input.scope ?? 'contractor_default'
+  const scheduleId = scope === 'schedule_override' ? (input.serviceScheduleId || null) : null
+  if (scope === 'schedule_override' && !scheduleId) return { error: 'A schedule override must reference a service schedule.' }
+  if (scheduleId) {
+    // Confirm the schedule belongs to this contractor (belt-and-braces alongside
+    // the DB composite FK) before we supersede/insert.
+    const { data: sch } = await supabase.from('contractor_service_schedules').select('id').eq('id', scheduleId).eq('contractor_id', contractorId).maybeSingle()
+    if (!sch) return { error: 'That service schedule does not belong to this contractor.' }
+  }
+
   const coveredBySano = input.mode === 'covered_by_sano'
-  const row = {
+  const nowIso = new Date().toISOString()
+
+  // Find the current row for this exact scope (default, or this schedule's override).
+  const currentQuery = supabase
+    .from('contractor_insurance_arrangement')
+    .select('id')
+    .eq('contractor_id', contractorId)
+    .eq('scope', scope)
+    .eq('status', 'current')
+  const { data: currentRow } = scheduleId
+    ? await currentQuery.eq('service_schedule_id', scheduleId).maybeSingle()
+    : await currentQuery.is('service_schedule_id', null).maybeSingle()
+
+  // Supersede the prior current row FIRST so the partial-unique index never sees
+  // two current rows for the same scope.
+  if (currentRow) {
+    const { error: supErr } = await supabase
+      .from('contractor_insurance_arrangement')
+      .update({ status: 'superseded', superseded_at: nowIso, updated_at: nowIso })
+      .eq('id', currentRow.id)
+    if (supErr) return { error: supErr.message }
+  }
+
+  const { error: insErr } = await supabase.from('contractor_insurance_arrangement').insert({
     contractor_id: contractorId,
+    scope,
+    service_schedule_id: scheduleId,
     mode: input.mode,
     required_type: input.mode === 'own_required' ? (input.requiredType || null) : null,
     min_cover: input.mode === 'own_required' ? (input.minCover ?? null) : null,
@@ -201,25 +244,31 @@ export async function setInsuranceArrangement(contractorId: string, input: {
     cover_type: coveredBySano ? (input.coverType || null) : null,
     cover_limit: coveredBySano ? (input.coverLimit ?? null) : null,
     confirmed_by: coveredBySano ? user.id : null,
-    confirmed_at: coveredBySano ? new Date().toISOString() : null,
+    confirmed_at: coveredBySano ? nowIso : null,
     notes: input.notes || null,
-    updated_at: new Date().toISOString(),
+    status: 'current',
+    supersedes_id: currentRow?.id ?? null,
+    effective_from: input.effectiveDate || null,
+    created_by: user.id,
+  })
+  if (insErr) return { error: insErr.message }
+
+  await supabase.from('audit_log').insert({
+    actor_id: user.id, actor_role: 'admin', action: 'contractor_insurance.set',
+    entity_table: 'contractor_insurance_arrangement', entity_id: contractorId,
+    before: currentRow ? { superseded: currentRow.id } : null,
+    after: { scope, service_schedule_id: scheduleId, mode: input.mode },
+  })
+
+  // The MASTER insurance section status reflects the contractor_default only
+  // (a per-schedule override doesn't change the contractor-level section state).
+  if (scope === 'contractor_default') {
+    const insState: SectionState =
+      input.mode === 'covered_by_sano' || input.mode === 'not_required' ? 'not_applicable'
+      : input.mode === 'own_required' ? 'contractor_to_complete'
+      : 'awaiting_sano_review'
+    await setSectionStatus(contractorId, 'insurance', insState)
   }
-
-  const { data: existing } = await supabase.from('contractor_insurance_arrangement').select('id').eq('contractor_id', contractorId).maybeSingle()
-  const res = existing
-    ? await supabase.from('contractor_insurance_arrangement').update(row).eq('id', existing.id)
-    : await supabase.from('contractor_insurance_arrangement').insert(row)
-  if (res.error) return { error: res.error.message }
-
-  // Reflect into the section status: covered_by_sano / not_required → the
-  // insurance section is not_applicable (no contractor upload step). own_required
-  // → contractor_to_complete. pending_review → sano_review_required.
-  const insState: SectionState =
-    input.mode === 'covered_by_sano' || input.mode === 'not_required' ? 'not_applicable'
-    : input.mode === 'own_required' ? 'contractor_to_complete'
-    : 'awaiting_sano_review'
-  await setSectionStatus(contractorId, 'insurance', insState)
 
   revalidate(contractorId)
   return { ok: true }

@@ -150,19 +150,28 @@ gst_registered, gst_number, effective_date, end_date, evidence_ref, status, supe
 recorded_at/by. Never infer from turnover; no GST before verified effective date.
 `contractors.gst_*` becomes a derived cache of the current row.
 
-### 4.4 `contractor_insurance_arrangement` (NEW — flexible, incl. "covered under Sano's")
+### 4.4 `contractor_insurance_arrangement` (NEW — multi-row, scoped, effective-dated)
 ```
-contractor_id · mode text ('own_required'|'covered_by_sano'|'not_required'|'pending_review')
+contractor_id · scope ('contractor_default'|'schedule_override') · service_schedule_id
+mode ('own_required'|'covered_by_sano'|'not_required'|'pending_review')
 -- own_required: required_type, min_cover, insurer, policy_number, effective, expiry,
 --   certificate_ref, verification_status, block_config
 -- covered_by_sano: sano_policy_ref, insurer, policy_number, cover_type, limit,
---   effective, expiry, confirmed_by, confirmed_at, internal_evidence_ref
--- NEVER exposes Sano's unrelated insurance/staffing to the contractor
+--   confirmed_by, confirmed_at, internal_evidence_ref  (NEVER exposed to contractor)
+-- effective_from · status ('current'|'superseded') · supersedes_id · superseded_at
 ```
-`covered_by_sano` → no upload step, no "insurance missing", no onboarding/payment block;
-records the decision + internal policy reference + who confirmed; triggers internal
-review when Sano's policy changes/expires. Set at master level, **overridable per
-schedule** where a customer contract requires different cover.
+**Multiple effective-dated rows per contractor** — a `contractor_default` fallback plus
+optional `schedule_override` rows for individual schedules. Integrity: partial unique
+`(contractor_id) where scope='contractor_default' and status='current'` (one current
+default per contractor); partial unique `(service_schedule_id) where
+scope='schedule_override' and status='current'` (one current override per schedule);
+composite FK `(service_schedule_id, contractor_id) → contractor_service_schedules(id,
+contractor_id)` (an override's schedule must belong to the same contractor). Changes
+**supersede** (status flips, new current row) — never overwrite. `covered_by_sano` →
+no upload step, no "insurance missing", no block; records the internal policy reference
++ who confirmed. The token route never queries this table, so policy details are
+structurally unreachable by the contractor. Effective insurance for a schedule =
+its current override else the contractor default.
 
 ### 4.5 `contractor_setup` (NEW — the staff draft + secure-link workflow)
 ```
