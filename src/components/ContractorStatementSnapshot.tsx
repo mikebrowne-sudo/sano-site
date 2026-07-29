@@ -23,6 +23,8 @@ function gstCell(status: string | null, amount: number | null): string {
 
 export function ContractorStatementSnapshot({ snapshot, superseded }: { snapshot: IssuedSnapshot; superseded?: boolean }) {
   const exGst = snapshot.subtotal - snapshot.gst_total
+  const whtTotal = snapshot.wht_total ?? 0
+  const showWht = snapshot.lines.some((l) => l.wht_amount != null)
   return (
     <div>
       {superseded && (
@@ -53,7 +55,13 @@ export function ContractorStatementSnapshot({ snapshot, superseded }: { snapshot
       <div className="bg-white rounded-xl border border-sage-100 shadow-sm p-5 mb-6 max-w-md">
         <div className="flex justify-between text-sm py-1"><span className="text-sage-500">Subtotal (excl. confirmed GST)</span><span className="text-sage-800 font-medium">{fmtCurrency(exGst)}</span></div>
         <div className="flex justify-between text-sm py-1"><span className="text-sage-500">GST included (confirmed)</span><span className="text-sage-800 font-medium">{fmtCurrency(snapshot.gst_total)}</span></div>
+        {whtTotal > 0 && (
+          <div className="flex justify-between text-sm py-1"><span className="text-sage-500">Schedular withholding to IRD</span><span className="text-sage-700 font-medium">− {fmtCurrency(whtTotal)}</span></div>
+        )}
         <div className="flex justify-between text-sm py-1 border-t border-sage-100 mt-1 pt-2"><span className="text-sage-800 font-semibold">Total payable</span><span className="text-sage-800 font-bold">{fmtCurrency(snapshot.total_payable)}</span></div>
+        {whtTotal > 0 && (
+          <p className="text-[11px] text-sage-400 mt-2">Withholding is deducted from the total and paid to Inland Revenue on your behalf.</p>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-sage-100 shadow-sm overflow-hidden">
@@ -67,6 +75,7 @@ export function ContractorStatementSnapshot({ snapshot, superseded }: { snapshot
                 <th className="px-4 py-3 font-medium">Site</th>
                 <th className="px-4 py-3 font-medium text-right">Hours / rate</th>
                 <th className="px-4 py-3 font-medium">GST</th>
+                {showWht && <th className="px-4 py-3 font-medium text-right">Withholding</th>}
                 <th className="px-4 py-3 font-medium text-right">Amount</th>
               </tr>
             </thead>
@@ -90,11 +99,16 @@ export function ContractorStatementSnapshot({ snapshot, superseded }: { snapshot
                     {l.hours != null ? `${l.hours}${l.rate != null ? ` @ ${fmtCurrency(l.rate)}` : ''}` : '—'}
                   </td>
                   <td className="px-4 py-3 text-sage-600 whitespace-nowrap">{gstCell(l.gst_status, l.gst_amount)}</td>
+                  {showWht && (
+                    <td className="px-4 py-3 text-sage-600 text-right whitespace-nowrap">
+                      {l.wht_amount != null ? `− ${fmtCurrency(l.wht_amount)}${l.wht_rate != null ? ` (${Math.round(l.wht_rate * 1000) / 10}%)` : ''}` : '—'}
+                    </td>
+                  )}
                   <td className="px-4 py-3 text-sage-800 font-medium text-right whitespace-nowrap">{fmtCurrency(l.amount)}</td>
                 </tr>
               ))}
               {snapshot.lines.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-6 text-center text-sage-400">No lines.</td></tr>
+                <tr><td colSpan={showWht ? 8 : 7} className="px-4 py-6 text-center text-sage-400">No lines.</td></tr>
               )}
             </tbody>
           </table>

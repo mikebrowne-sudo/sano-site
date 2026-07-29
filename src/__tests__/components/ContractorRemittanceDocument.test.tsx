@@ -39,6 +39,7 @@ function batch(lines: RemittanceBatchLine[]): RemittanceBatch {
     paidAt: null,
     lines,
     total: lines.reduce((s, l) => s + l.amount, 0),
+    whtTotal: lines.reduce((s, l) => s + (l.whtAmount ?? 0), 0),
     contractorNames: Array.from(new Set(lines.map((l) => l.contractorName).filter(Boolean) as string[])),
   }
 }
@@ -91,5 +92,24 @@ describe('ContractorRemittanceDocument', () => {
     render(<ContractorRemittanceDocument data={batch([line({ hours: 5 }), line({ jobNumber: 'JOB-0008', hours: null })])} />)
     expect(screen.getByText('Hours')).toBeInTheDocument()
     expect(screen.getByText('5')).toBeInTheDocument()
+  })
+
+  it('renders the frozen tax breakdown (gross/GST/withholding/net) for a tax-bearing line', () => {
+    render(<ContractorRemittanceDocument data={batch([line({
+      amount: 1875, contractorPaymentSnapshotId: 's1', grossExGst: 1875, gstAmount: 0,
+      whtRate: 0.2, whtAmount: 375, netPaid: 1500,
+    })])} />)
+    expect(screen.getByText('Gross fee (excl GST)')).toBeInTheDocument()
+    expect(screen.getByText('Withholding to IRD')).toBeInTheDocument()
+    expect(screen.getByText('Net paid to you')).toBeInTheDocument()
+    expect(screen.getByText('20%')).toBeInTheDocument()
+    expect(screen.getByText(/Total schedular withholding retained to IRD/)).toBeInTheDocument()
+  })
+
+  it('an ordinary line renders unchanged — no tax breakdown', () => {
+    render(<ContractorRemittanceDocument data={batch([line()])} />)
+    expect(screen.queryByText('Gross fee (excl GST)')).not.toBeInTheDocument()
+    expect(screen.queryByText('Withholding to IRD')).not.toBeInTheDocument()
+    expect(screen.queryByText(/withholding retained to IRD/i)).not.toBeInTheDocument()
   })
 })
