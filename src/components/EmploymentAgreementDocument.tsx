@@ -193,7 +193,11 @@ export function EmploymentAgreementDocument({
           ? []
           : [['Agreed rate', a.hourlyRate != null ? `$${Number(a.hourlyRate).toFixed(2)} per hour (inclusive of GST)` : '—'] as [string, string]]),
         ['Contractor GST No.', a.contractorGstNumber || '—'],
-        ['Contractor IRD No.', a.employeeIrdNumber || '—'],
+        // Contractor IRD number is a tax identifier — deliberately NOT shown on
+        // the general signed agreement/PDF. It is retained only in the secure
+        // structured record (employment_agreements.employee_ird_number + the
+        // contractor / tax-declaration record). The signed agreement shows the
+        // legal contracting identity, not unnecessary tax identifiers.
         ['Date of birth', fmtDate(a.dateOfBirth)],
         ...(emergency ? [['Emergency contact', emergency] as [string, string]] : []),
         ...(a.insurerName ? [['Insurer', a.insurerName] as [string, string]] : []),
