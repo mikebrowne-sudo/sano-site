@@ -135,30 +135,93 @@ export async function getContractorSetupBundle(contractorId: string): Promise<{
   }
 }
 
-/** Token read (secure link, service-role). Returns the setup + contractor basics
- *  + schedules the contractor can review. */
+/** A contractor-safe view of a schedule: ONLY the commercial terms the
+ *  contractor needs to review. Excludes Sano-internal fields (cost_centre,
+ *  payment_reference, created_by/approved_by, insurance_override_ref, effective/
+ *  supersession metadata). */
+export interface ContractorSafeSchedule {
+  id: string
+  name: string
+  serviceType: string | null
+  serviceAddress: string | null
+  classification: 'residential' | 'commercial' | null
+  frequency: string | null
+  term: 'ongoing' | 'fixed' | null
+  paymentMethod: ServiceSchedule['paymentMethod']
+  paymentBasis: ServiceSchedule['paymentBasis']
+  rateBasis: ServiceSchedule['rateBasis']
+  agreedAmount: number | null
+}
+
+/** Setups the contractor may still act on. A superseded / expired / signed /
+ *  active (completed) setup no longer serves data through the token. Closed /
+ *  revoked statuses (signed, active, expired, superseded, or an unknown/cleared
+ *  value) are deliberately excluded. */
+export const TOKEN_OPEN_STATUSES = new Set([
+  'draft', 'ready_to_send', 'awaiting_contractor', 'contractor_submitted',
+  'sano_review_required', 'changes_requested', 'ready_to_sign',
+])
+
+/** The exact contractor-safe schedule field set exposed through the token. Used
+ *  by tests to assert no Sano-internal field (cost centre, payment reference,
+ *  created_by, insurance override, effective/supersession metadata) leaks. */
+export const CONTRACTOR_SAFE_SCHEDULE_FIELDS = [
+  'id', 'name', 'serviceType', 'serviceAddress', 'classification', 'frequency',
+  'term', 'paymentMethod', 'paymentBasis', 'rateBasis', 'agreedAmount',
+] as const
+
+/**
+ * Token read (secure link, service-role). Returns ONLY contractor-safe data:
+ * contractor basics, and a whitelisted view of their own non-superseded
+ * schedules. Never returns the setup's proposed_changes / contractor_note /
+ * review metadata, never touches insurance, and refuses closed/revoked setups.
+ */
 export async function getSetupByToken(token: string): Promise<{
-  setup: ContractorSetup
-  contractor: { id: string; fullName: string | null; email: string | null; businessStructure: string | null }
-  schedules: ServiceSchedule[]
+  contractor: { fullName: string | null; businessStructure: string | null }
+  schedules: ContractorSafeSchedule[]
 } | null> {
+  if (!token || token.length < 16) return null // reject trivially short/empty tokens
   const svc = getServiceSupabase()
-  const { data: setup } = await svc.from('contractor_setup').select('*').eq('token', token).maybeSingle()
+  const { data: setup } = await svc
+    .from('contractor_setup')
+    .select('contractor_id, status')
+    .eq('token', token)
+    .maybeSingle()
   if (!setup) return null
-  const contractorId = (setup as Record<string, unknown>).contractor_id as string
+  if (!TOKEN_OPEN_STATUSES.has((setup.status as string) ?? '')) return null // closed/revoked → gone
+
+  const contractorId = setup.contractor_id as string
   const [{ data: c }, { data: schedules }] = await Promise.all([
-    svc.from('contractors').select('id, full_name, email, business_structure').eq('id', contractorId).maybeSingle(),
-    svc.from('contractor_service_schedules').select('*').eq('contractor_id', contractorId).neq('status', 'superseded').order('created_at', { ascending: true }),
+    // Only the contractor's own name + structure — NOT email, notes, tax, bank, etc.
+    svc.from('contractors').select('full_name, business_structure').eq('id', contractorId).maybeSingle(),
+    // Explicit column list (no select('*')) — only contractor-facing commercial terms.
+    svc.from('contractor_service_schedules')
+      .select('id, name, service_type, service_address, classification, frequency, term, payment_method, payment_basis, rate_basis, agreed_amount')
+      .eq('contractor_id', contractorId)
+      .neq('status', 'superseded')
+      .order('created_at', { ascending: true }),
   ])
   return {
-    setup: mapSetup(setup as Record<string, unknown>),
     contractor: {
-      id: contractorId,
       fullName: (c?.full_name as string | null) ?? null,
-      email: (c?.email as string | null) ?? null,
       businessStructure: (c?.business_structure as string | null) ?? null,
     },
-    schedules: (schedules ?? []).map((s) => mapSchedule(s as Record<string, unknown>)),
+    schedules: (schedules ?? []).map((s) => {
+      const r = s as Record<string, unknown>
+      return {
+        id: r.id as string,
+        name: (r.name as string | null) ?? '',
+        serviceType: (r.service_type as string | null) ?? null,
+        serviceAddress: (r.service_address as string | null) ?? null,
+        classification: (r.classification as 'residential' | 'commercial' | null) ?? null,
+        frequency: (r.frequency as string | null) ?? null,
+        term: (r.term as 'ongoing' | 'fixed' | null) ?? null,
+        paymentMethod: (r.payment_method as ServiceSchedule['paymentMethod']) ?? null,
+        paymentBasis: (r.payment_basis as ServiceSchedule['paymentBasis']) ?? null,
+        rateBasis: (r.rate_basis as ServiceSchedule['rateBasis']) ?? null,
+        agreedAmount: r.agreed_amount == null ? null : Number(r.agreed_amount),
+      }
+    }),
   }
 }
 

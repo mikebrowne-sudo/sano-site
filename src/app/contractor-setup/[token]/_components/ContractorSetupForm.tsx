@@ -5,17 +5,18 @@ import { useRouter } from 'next/navigation'
 import { Check, Flag } from 'lucide-react'
 import { formatCurrency } from '@/lib/format'
 import { submitIdentityStructure, flagScheduleTerm, confirmSchedules } from '../_actions'
-import type { ServiceSchedule } from '@/lib/contractor-setup-data'
+import type { ContractorSafeSchedule } from '@/lib/contractor-setup-data'
 
 type Structure = 'sole_trader' | 'company' | 'partnership' | 'trust' | 'other'
 
 /** Contractor-facing setup: confirm identity + contracting structure (with only
  *  the fields relevant to the chosen structure) and review the service schedules.
- *  Rates/customer terms are read-only — a disagreement is flagged back to Sano. */
+ *  Rates/customer terms are read-only — a disagreement is flagged back to Sano.
+ *  Receives only a contractor-SAFE view (no email, notes, cost centre, etc.). */
 export function ContractorSetupForm({ token, contractor, schedules }: {
   token: string
-  contractor: { fullName: string | null; email: string | null; businessStructure: string | null }
-  schedules: ServiceSchedule[]
+  contractor: { fullName: string | null; businessStructure: string | null }
+  schedules: ContractorSafeSchedule[]
 }) {
   const router = useRouter()
   const [structure, setStructure] = useState<Structure>((contractor.businessStructure as Structure) || 'sole_trader')
@@ -140,7 +141,7 @@ export function ContractorSetupForm({ token, contractor, schedules }: {
   )
 }
 
-function ScheduleReview({ token, schedule }: { token: string; schedule: ServiceSchedule }) {
+function ScheduleReview({ token, schedule }: { token: string; schedule: ContractorSafeSchedule }) {
   const router = useRouter()
   const [flagging, setFlagging] = useState(false)
   const [note, setNote] = useState('')

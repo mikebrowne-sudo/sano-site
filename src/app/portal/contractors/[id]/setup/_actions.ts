@@ -12,6 +12,7 @@ import { isAdminUser } from '@/lib/is-admin'
 import { revalidatePath } from 'next/cache'
 import { sendAgreementLinkEmail } from '@/lib/resend'
 import { SETUP_SECTIONS, DEFERRED_SECTIONS, type SectionState, type SetupSection, type SectionStatusMap } from '@/lib/contractor-setup-status'
+import { CONTRACTOR_PROPOSABLE_SET } from '@/lib/contractor-setup-allowlist'
 
 function revalidate(contractorId: string) {
   revalidatePath(`/portal/contractors/${contractorId}/setup`)
@@ -271,15 +272,11 @@ export async function acceptProposedChange(
   const change = proposed[field]
   if (!change) return { error: 'No such proposed change.' }
 
-  // Whitelist of PR-1-acceptable contractor columns (no tax/GST money fields).
-  const ALLOWED: Record<string, string> = {
-    full_name: 'full_name', preferred_name: 'preferred_name', phone: 'phone',
-    address: 'address', business_structure: 'business_structure',
-    legal_name: 'legal_name', nzbn: 'nzbn', company_number: 'company_number',
-    bank_account_name: 'bank_account_name',
+  // Same allowlist the contractor could propose against (no tax/GST money fields).
+  if (!CONTRACTOR_PROPOSABLE_SET.has(field)) {
+    return { error: 'This field is accepted through its dedicated tax/GST/banking workflow, not here.' }
   }
-  const col = ALLOWED[field]
-  if (!col) return { error: 'This field is accepted through its dedicated tax/GST/banking workflow, not here.' }
+  const col = field
 
   const before = { [col]: change.old }
   const { error } = await supabase.from('contractors').update({ [col]: change.new }).eq('id', contractorId)

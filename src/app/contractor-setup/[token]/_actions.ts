@@ -9,6 +9,7 @@
 
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { revalidatePath } from 'next/cache'
+import { CONTRACTOR_PROPOSABLE_SET } from '@/lib/contractor-setup-allowlist'
 
 interface IdentityStructureInput {
   token: string
@@ -24,10 +25,26 @@ interface IdentityStructureInput {
   bankAccountName?: string
 }
 
-const CRITICAL_FIELDS: Record<string, string> = {
-  full_name: 'full_name', preferred_name: 'preferred_name', phone: 'phone', address: 'address',
-  business_structure: 'business_structure', legal_name: 'legal_name', nzbn: 'nzbn',
-  company_number: 'company_number', bank_account_name: 'bank_account_name',
+// Statuses in which a token may still submit. A signed/active/expired/superseded
+// setup (or one whose status was cleared to revoke it) accepts nothing further.
+const TOKEN_WRITABLE_STATUSES = new Set([
+  'draft', 'ready_to_send', 'awaiting_contractor', 'contractor_submitted',
+  'sano_review_required', 'changes_requested', 'ready_to_sign',
+])
+
+/** Resolve a writable setup by token, or a reason it's refused. Guards token
+ *  length (anti-enumeration), existence, and status (revoked/closed → refused).
+ *  Server-only read (service-role); the row never leaves this module — only the
+ *  narrowed fields each action explicitly uses are written back. */
+async function writableSetup(svc: ReturnType<typeof getServiceSupabase>, token: string) {
+  if (!token || token.length < 16) return { error: 'This link is not valid.' as const }
+  const { data } = await svc.from('contractor_setup').select('*').eq('token', token).maybeSingle()
+  if (!data) return { error: 'This link is not valid.' as const }
+  const setup = data as Record<string, unknown>
+  if (!TOKEN_WRITABLE_STATUSES.has((setup.status as string) ?? '')) {
+    return { error: 'This setup is no longer open for changes.' as const }
+  }
+  return { setup }
 }
 
 /**
@@ -42,8 +59,9 @@ export async function submitIdentityStructure(input: IdentityStructureInput): Pr
   if (!input.businessStructure) return { error: 'Select your contracting structure.' }
 
   const svc = getServiceSupabase()
-  const { data: setup } = await svc.from('contractor_setup').select('id, contractor_id, section_status, proposed_changes').eq('token', input.token).maybeSingle()
-  if (!setup) return { error: 'This link is not valid.' }
+  const guard = await writableSetup(svc, input.token)
+  if ('error' in guard) return { error: guard.error }
+  const setup = guard.setup
   const contractorId = setup.contractor_id as string
 
   const { data: c } = await svc.from('contractors')
@@ -65,7 +83,7 @@ export async function submitIdentityStructure(input: IdentityStructureInput): Pr
   }
   const proposed = { ...((setup.proposed_changes as Record<string, { old: unknown; new: unknown }>) ?? {}) }
   for (const [field, value] of Object.entries(submitted)) {
-    if (!CRITICAL_FIELDS[field]) continue
+    if (!CONTRACTOR_PROPOSABLE_SET.has(field)) continue
     const current = (c as Record<string, unknown>)[field] ?? null
     if ((current ?? null) !== (value ?? null)) proposed[field] = { old: current ?? null, new: value }
   }
@@ -99,8 +117,9 @@ export async function flagScheduleTerm(token: string, scheduleName: string, note
   if (!note?.trim()) return { error: 'Add a short note describing what looks wrong.' }
 
   const svc = getServiceSupabase()
-  const { data: setup } = await svc.from('contractor_setup').select('id, contractor_note, section_status').eq('token', token).maybeSingle()
-  if (!setup) return { error: 'This link is not valid.' }
+  const guard = await writableSetup(svc, token)
+  if ('error' in guard) return { error: guard.error }
+  const setup = guard.setup
 
   const prior = (setup.contractor_note as string | null) ?? ''
   const stamped = `${prior ? prior + '\n' : ''}[${scheduleName}] ${note.trim()}`
@@ -123,8 +142,9 @@ export async function flagScheduleTerm(token: string, scheduleName: string, note
 export async function confirmSchedules(token: string): Promise<{ ok?: true; error?: string }> {
   if (!token) return { error: 'Invalid link.' }
   const svc = getServiceSupabase()
-  const { data: setup } = await svc.from('contractor_setup').select('id, section_status').eq('token', token).maybeSingle()
-  if (!setup) return { error: 'This link is not valid.' }
+  const guard = await writableSetup(svc, token)
+  if ('error' in guard) return { error: guard.error }
+  const setup = guard.setup
   const sectionStatus = { ...((setup.section_status as Record<string, string>) ?? {}) }
   sectionStatus.service_schedules = 'awaiting_sano_review'
   const { error } = await svc.from('contractor_setup').update({ section_status: sectionStatus, updated_at: new Date().toISOString() }).eq('id', setup.id)
