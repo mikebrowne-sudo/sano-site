@@ -112,7 +112,7 @@ export default async function ContractorTaxPage({ params }: { params: { id: stri
                   <table className="w-full text-[13px]"><tbody>
                     <PreviewRow k="Gross ex-GST" v={formatCurrency(p.calc.grossExGst ?? 0)} />
                     <PreviewRow k="GST" v={formatCurrency(p.calc.gst ?? 0)} />
-                    {p.calc.whtRate ? <PreviewRow k={`Withholding @ ${Math.round((p.calc.whtRate) * 100)}%`} v={`− ${formatCurrency(p.calc.whtAmount ?? 0)}`} /> : null}
+                    {p.calc.withholdingRate ? <PreviewRow k={`Withholding @ ${Math.round((p.calc.withholdingRate) * 100)}%`} v={`− ${formatCurrency(p.calc.withholdingAmount ?? 0)}`} /> : null}
                     <PreviewRow k="Net to contractor" v={formatCurrency(p.calc.netBank ?? 0)} bold />
                     <PreviewRow k="Total cost to Sano" v={formatCurrency(p.calc.sanoCost ?? 0)} />
                   </tbody></table>

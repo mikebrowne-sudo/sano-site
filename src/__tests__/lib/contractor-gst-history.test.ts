@@ -57,7 +57,7 @@ describe('gstWindowForDate — tri-state (registered / not_registered / unresolv
   })
   it('resolves the registered window for the date', () => {
     const h = [row({ id: 'r', gstRegistered: true, gstNumber: '135-712-264', effectiveDate: '2026-04-01' })]
-    expect(gstWindowForDate(h, '2026-06-01')).toEqual({ resolution: 'registered', gstRegistered: true, gstNumber: '135-712-264', effectiveDate: '2026-04-01', endDate: null })
+    expect(gstWindowForDate(h, '2026-06-01')).toEqual({ resolution: 'registered', gstHistoryId: 'r', gstRegistered: true, gstNumber: '135-712-264', effectiveDate: '2026-04-01', endDate: null })
   })
   it('a verified NOT-registered row resolves to not_registered from its effective date', () => {
     const h = [row({ id: 'n', gstRegistered: false, gstNumber: null, effectiveDate: '2026-04-01' })]

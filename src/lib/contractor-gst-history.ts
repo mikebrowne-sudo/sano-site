@@ -89,6 +89,8 @@ export interface ResolvedGstWindow {
    *  caller must NOT assume not-registered (do not apply GST, but flag for
    *  review). 'not_registered'/'registered' are explicit verified statuses. */
   resolution: GstResolution
+  /** The verified GST history row that resolved (id), or null when unresolved. */
+  gstHistoryId: string | null
   gstRegistered: boolean
   gstNumber: string | null
   effectiveDate: string | null
@@ -107,10 +109,11 @@ export interface ResolvedGstWindow {
 export function gstWindowForDate(history: GstHistoryRecord[], dateIso: string): ResolvedGstWindow {
   const picked = selectGstStatusForDate(history, dateIso)
   if (!picked) {
-    return { resolution: 'unresolved', gstRegistered: false, gstNumber: null, effectiveDate: null, endDate: null }
+    return { resolution: 'unresolved', gstHistoryId: null, gstRegistered: false, gstNumber: null, effectiveDate: null, endDate: null }
   }
   return {
     resolution: picked.gstRegistered ? 'registered' : 'not_registered',
+    gstHistoryId: picked.id,
     gstRegistered: picked.gstRegistered,
     gstNumber: picked.gstNumber,
     effectiveDate: picked.effectiveDate,

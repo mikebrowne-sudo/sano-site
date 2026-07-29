@@ -33,7 +33,7 @@ export async function getContractorPaymentPreviews(
 
   const [{ data: schedules }, { data: decls }, { data: gst }] = await Promise.all([
     svc.from('contractor_service_schedules')
-      .select('id, name, agreed_amount, payment_basis, rate_basis, tax_treatment, status')
+      .select('id, name, agreed_amount, payment_method, payment_basis, rate_basis, tax_treatment, status, effective_from, updated_at')
       .eq('contractor_id', contractorId).in('status', ['draft', 'active']).order('created_at', { ascending: true }),
     svc.from('contractor_tax_declarations')
       .select('id, status, declaration_type, withholding_rate, effective_date, expiry_date')
@@ -61,6 +61,9 @@ export async function getContractorPaymentPreviews(
     const rateBasis = (s.rate_basis as RateBasis | null) ?? null
     const calc = (agreedAmount != null && paymentBasis && rateBasis)
       ? computeContractorPayment({
+          scheduleId: s.id as string,
+          scheduleVersionKey: `${(s.effective_from as string | null) ?? ''}|${(s.updated_at as string | null) ?? ''}`,
+          paymentMethod: (s.payment_method as string | null) ?? null,
           agreedAmount, paymentBasis, rateBasis,
           taxTreatment: (s.tax_treatment ?? null) as ScheduleTaxTreatment,
           taxDeclarations, gstHistory, supplyDateIso: supply,
