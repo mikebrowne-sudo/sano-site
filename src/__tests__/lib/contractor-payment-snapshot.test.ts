@@ -65,8 +65,8 @@ describe('migration + action safeguards (source-level)', () => {
   const sql = readFileSync(join(process.cwd(), 'docs/db/2026-08-02-contractor-payment-tax-snapshots.sql'), 'utf8')
   const action = readFileSync(join(process.cwd(), 'src/app/portal/contractors/[id]/tax/_snapshot-actions.ts'), 'utf8')
 
-  it('DB hard gate: approved requires calc_status = ok', () => {
-    expect(sql).toMatch(/cpts_approved_requires_ok[\s\S]*status <> 'approved' or calc_status = 'ok'/)
+  it('DB hard gate: approved requires calc_status = ok (+ approval metadata)', () => {
+    expect(sql).toMatch(/cpts_approved_requires_ok[\s\S]*status <> 'approved' or \(calc_status = 'ok'/)
   })
   it('approved snapshots are immutable (trigger blocks fact updates)', () => {
     expect(sql).toMatch(/cpts_immutable_approved/)
@@ -92,5 +92,61 @@ describe('migration + action safeguards (source-level)', () => {
     // no bulk backfill of existing invoices.
     expect(action).not.toContain('contractor_invoices')
     expect(sql).not.toMatch(/insert into public\.contractor_payment_tax_snapshots\b[\s\S]*select/i) // no backfill INSERT..SELECT
+  })
+
+  // ── Review round 2: complete freeze, delete-block, approval metadata ──────
+  it('the immutability trigger freezes ALL canonical + identity + metadata fields', () => {
+    const fn = sql.slice(sql.indexOf('cpts_block_approved_fact_updates'), sql.indexOf('cpts_immutable_approved before update'))
+    for (const f of [
+      'snapshot_number', 'contractor_id', 'service_schedule_id', 'schedule_version_key', 'calc_status',
+      'calc_reason', 'calc_version', 'rounding_method', 'supply_date', 'payment_method', 'payment_basis',
+      'rate_basis', 'agreed_amount', 'tax_treatment', 'gst_resolution', 'gst_history_id', 'tax_declaration_id',
+      'declaration_type', 'withholding_rate', 'gross_ex_gst', 'gst_amount', 'gross_incl_gst',
+      'withholding_amount', 'net_bank', 'sano_cost', 'recoverable_gst', 'approved_at', 'approved_by',
+      'created_by', 'created_at',
+    ]) {
+      expect(fn).toContain(`new.${f}`)
+      expect(fn).toContain(`old.${f}`)
+    }
+    // The four lifecycle fields are NOT in the frozen comparison.
+    for (const lf of ['status', 'superseded_at', 'superseded_by_id', 'correction_reason']) {
+      expect(fn).not.toContain(`new.${lf},`)
+    }
+  })
+
+  it('a DELETE trigger blocks removing approved/superseded/void snapshots', () => {
+    expect(sql).toMatch(/cpts_block_delete_final/)
+    expect(sql).toMatch(/status in \('approved','superseded','void'\)[\s\S]*cannot be deleted/)
+    expect(sql).toMatch(/cpts_block_delete before delete/)
+  })
+
+  it('approval requires calc_status ok AND approved_at AND approved_by', () => {
+    expect(sql).toMatch(/status <> 'approved' or \(calc_status = 'ok' and approved_at is not null and approved_by is not null\)/)
+  })
+
+  it('lifecycle constraints: superseded needs meta; no self-supersession', () => {
+    expect(sql).toMatch(/status <> 'superseded' or \(superseded_at is not null and superseded_by_id is not null\)/)
+    expect(sql).toMatch(/superseded_by_id is null or superseded_by_id <> id/)
+    expect(sql).toMatch(/supersedes_id is null or supersedes_id <> id/)
+  })
+
+  it('cross-row: a correction must belong to the same contractor (trigger)', () => {
+    expect(sql).toMatch(/cpts_same_contractor_supersession/)
+    expect(sql).toMatch(/same contractor as the snapshot it supersedes/)
+  })
+
+  it('source refs are ON DELETE RESTRICT — approved snapshots never lose audit refs', () => {
+    expect(sql).toMatch(/service_schedule_id\s+uuid references public\.contractor_service_schedules\(id\) on delete restrict/)
+    expect(sql).toMatch(/gst_history_id\s+uuid references public\.contractor_gst_history\(id\) on delete restrict/)
+    expect(sql).toMatch(/tax_declaration_id\s+uuid references public\.contractor_tax_declarations\(id\) on delete restrict/)
+  })
+
+  it('only a draft (never approved) can be deleted via the app action', () => {
+    expect(action).toMatch(/Only a draft snapshot that was never approved can be deleted/)
+    expect(action).toMatch(/\.eq\('status',\s*'draft'\)/)
+  })
+
+  it('correction requires a reason', () => {
+    expect(action).toMatch(/A correction reason is required/)
   })
 })

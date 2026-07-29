@@ -84,6 +84,26 @@ export async function createPaymentSnapshot(
   return { ok: true, id: data.id as string }
 }
 
+/** Delete a DRAFT snapshot that was never approved. Admin-gated. Approved/
+ *  superseded/void rows are never deletable (the DB trigger also blocks it). */
+export async function deleteDraftSnapshot(snapshotId: string): Promise<{ ok?: true; error?: string }> {
+  const { supabase, user } = await admin()
+  if (!user) return { error: 'Admin only.' }
+  const { data: snap } = await supabase.from('contractor_payment_tax_snapshots').select('id, contractor_id, status, approved_at').eq('id', snapshotId).maybeSingle()
+  if (!snap) return { error: 'Snapshot not found.' }
+  if (snap.status !== 'draft' || snap.approved_at != null) {
+    return { error: 'Only a draft snapshot that was never approved can be deleted.' }
+  }
+  const { error } = await supabase.from('contractor_payment_tax_snapshots').delete().eq('id', snapshotId).eq('status', 'draft')
+  if (error) return { error: error.message }
+  await supabase.from('audit_log').insert({
+    actor_id: user.id, actor_role: 'admin', action: 'contractor_payment_snapshot.draft_deleted',
+    entity_table: 'contractor_payment_tax_snapshots', entity_id: snapshotId, before: { status: 'draft' }, after: null,
+  })
+  revalidate(snap.contractor_id as string)
+  return { ok: true }
+}
+
 /** Approve a draft snapshot → payable. HARD GATE: only calc_status='ok'. */
 export async function approvePaymentSnapshot(snapshotId: string): Promise<{ ok?: true; error?: string }> {
   const { supabase, user } = await admin()
