@@ -39,8 +39,8 @@ describe('verify supersedes the prior verified atomically + syncs the cache', ()
     const sync = dataLib.slice(dataLib.indexOf('export async function syncGstCache'), dataLib.indexOf('export async function refreshGstCacheIfStale'))
     expect(sync).toMatch(/selectGstStatusForDate/)
   })
-  it('completeness guard on verify (effective for registered, signature, wording)', () => {
-    expect(staffAction).toMatch(/Set an effective date before verifying a registered/)
+  it('completeness guard on verify (effective date for every verified status, signature, wording)', () => {
+    expect(staffAction).toMatch(/Set an effective date before verifying this GST status/)
     expect(staffAction).toMatch(/must be signed/)
   })
 })
@@ -71,10 +71,10 @@ describe('no turnover inference; never applied before effective date', () => {
       expect(src).not.toMatch(/turnover\s*[><=]/i) // no turnover comparison
     }
   })
-  it('the GST window resolver applies "not registered" before the effective date', () => {
+  it('the GST window resolver is unresolved-aware (never silently not-registered)', () => {
     const gstLib = readFileSync(join(process.cwd(), 'src/lib/contractor-gst-history.ts'), 'utf8')
-    expect(gstLib).toMatch(/effectiveDate <= dateIso/)
-    expect(gstLib).toMatch(/gstRegistered: false/) // null/none → not registered
+    expect(gstLib).toMatch(/effectiveDate > dateIso/) // future-effective not in force
+    expect(gstLib).toMatch(/resolution:\s*'unresolved'/) // tri-state, not silent no-GST
   })
 })
 
@@ -116,6 +116,22 @@ describe('migration: immutable, split indexes, consistency constraints', () => {
   })
   it('registered-number CHECK requires a GST number when registered', () => {
     expect(sql).toMatch(/gst_registered = false or \(gst_number is not null/)
+  })
+
+  it('EVERY verified row requires an effective date (no registered-only exception)', () => {
+    // The completeness CHECK must require effective_date unconditionally for
+    // verified rows — the old "(gst_registered = false or effective_date...)"
+    // exception is gone.
+    expect(sql).not.toMatch(/gst_registered = false or effective_date is not null/)
+    const chk = sql.slice(sql.indexOf('cgh_verified_complete_chk'))
+    expect(chk).toMatch(/effective_date is not null/)
+  })
+
+  it('the app verify guards require an effective date for every verified status', () => {
+    expect(staffAction).toMatch(/A verified GST status needs an effective date/)
+    expect(staffAction).toMatch(/Set an effective date before verifying this GST status/)
+    // no registered-only carve-out left in the guards.
+    expect(staffAction).not.toMatch(/verified registered status needs an effective date/)
   })
   it('the backfill is commented out (opt-in)', () => {
     expect(sql).toMatch(/-- insert into public\.contractor_gst_history/)

@@ -43,7 +43,8 @@ export async function recordGstStatus(input: GstStaffInput): Promise<{ ok?: true
 
   const err = validateGstHistory(input)
   if (err) return { error: err }
-  if (input.verifyNow && input.gstRegistered && !input.effectiveDate) return { error: 'A verified registered status needs an effective date.' }
+  // EVERY verified GST status is effective-dated (incl. "not registered").
+  if (input.verifyNow && !input.effectiveDate) return { error: 'A verified GST status needs an effective date (the date this status applies from).' }
   if (input.verifyNow && !input.signedName?.trim()) return { error: 'A verified GST status must be signed.' }
 
   const nowIso = new Date().toISOString()
@@ -118,8 +119,8 @@ export async function setGstStatus(gstId: string, status: 'verified' | 'rejected
     return { ok: true }
   }
 
-  // Verify: completeness guard.
-  if (g.gst_registered && !g.effective_date) return { error: 'Set an effective date before verifying a registered GST status.' }
+  // Verify: completeness guard — EVERY verified status is effective-dated.
+  if (!g.effective_date) return { error: 'Set an effective date before verifying this GST status (the date it applies from).' }
   if (!g.signed_name || !g.signed_at) return { error: 'A verified GST status must be signed.' }
   if (!g.declaration_text || !g.declaration_version) return { error: 'The GST declaration wording/version is missing.' }
 

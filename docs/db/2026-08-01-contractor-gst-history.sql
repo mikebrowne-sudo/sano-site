@@ -71,7 +71,10 @@ do $$ begin
         signed_name is not null and signed_at is not null and
         declaration_text is not null and declaration_version is not null and
         verified_at is not null and verified_by is not null and
-        (gst_registered = false or effective_date is not null)
+        -- EVERY verified row is effective-dated (incl. a verified "not registered"
+        -- status — it means "not registered FROM this effective date"). A verified
+        -- status with no effective date is meaningless in an effective-dated history.
+        effective_date is not null
       )
     );
   end if;

@@ -45,10 +45,10 @@ export default async function ContractorGstPage({ params }: { params: { id: stri
         <p className="text-[11px] font-semibold uppercase tracking-wide text-sage-500 mb-1">Applicable today ({fmtDate(todayIso)})</p>
         {applicableToday ? (
           <p className="text-sm text-sage-800">
-            {applicableToday.gstRegistered ? <>Registered · {applicableToday.gstNumber ?? '—'} · from {fmtDate(applicableToday.effectiveDate)}{applicableToday.endDate ? ` to ${fmtDate(applicableToday.endDate)}` : ''}</> : 'Not registered'}
+            {applicableToday.gstRegistered ? <>Registered · {applicableToday.gstNumber ?? '—'} · from {fmtDate(applicableToday.effectiveDate)}{applicableToday.endDate ? ` to ${fmtDate(applicableToday.endDate)}` : ''}</> : <>Not registered · from {fmtDate(applicableToday.effectiveDate)}</>}
           </p>
         ) : (
-          <p className="text-sm text-sage-500">No verified GST status applies today — treated as not registered (no GST).</p>
+          <p className="text-sm text-amber-700">Unresolved — no verified GST status covers today. GST is not applied, but this needs a verified declaration (absence of a record is not a confirmed &ldquo;not registered&rdquo;).</p>
         )}
         <p className="text-[11px] text-sage-400 mt-1">Payment calculations (a later PR) resolve the GST status by supply date, not the newest row.</p>
       </div>

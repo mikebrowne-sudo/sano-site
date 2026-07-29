@@ -47,29 +47,71 @@ describe('selectGstStatusForDate — date-based, not newest', () => {
   })
 })
 
-describe('gstWindowForDate', () => {
-  it('null/none applicable → not registered (never inferred)', () => {
-    expect(gstWindowForDate([], '2026-06-01')).toEqual({ gstRegistered: false, gstNumber: null, effectiveDate: null, endDate: null })
+describe('gstWindowForDate — tri-state (registered / not_registered / unresolved)', () => {
+  it('NO applicable verified history → UNRESOLVED (never silently not registered)', () => {
+    expect(gstWindowForDate([], '2026-06-01').resolution).toBe('unresolved')
+  })
+  it('a supply BEFORE the first verified row → UNRESOLVED (not silently not registered)', () => {
+    const h = [row({ id: 'r', gstRegistered: true, gstNumber: '1', effectiveDate: '2026-04-01' })]
+    expect(gstWindowForDate(h, '2026-01-01').resolution).toBe('unresolved')
   })
   it('resolves the registered window for the date', () => {
     const h = [row({ id: 'r', gstRegistered: true, gstNumber: '135-712-264', effectiveDate: '2026-04-01' })]
-    expect(gstWindowForDate(h, '2026-06-01')).toEqual({ gstRegistered: true, gstNumber: '135-712-264', effectiveDate: '2026-04-01', endDate: null })
+    expect(gstWindowForDate(h, '2026-06-01')).toEqual({ resolution: 'registered', gstRegistered: true, gstNumber: '135-712-264', effectiveDate: '2026-04-01', endDate: null })
   })
-  it('a supply before the effective date → not registered (no GST before verified effective date)', () => {
+  it('a verified NOT-registered row resolves to not_registered from its effective date', () => {
+    const h = [row({ id: 'n', gstRegistered: false, gstNumber: null, effectiveDate: '2026-04-01' })]
+    expect(gstWindowForDate(h, '2026-06-01').resolution).toBe('not_registered')
+    // …but does NOT apply before its effective date → unresolved.
+    expect(gstWindowForDate(h, '2026-03-01').resolution).toBe('unresolved')
+  })
+  it('a supply before the registration effective date → unresolved (no GST before verified effective date)', () => {
     const h = [row({ id: 'r', gstRegistered: true, gstNumber: '1', effectiveDate: '2026-08-01' })]
-    expect(gstWindowForDate(h, '2026-07-31').gstRegistered).toBe(false)
+    expect(gstWindowForDate(h, '2026-07-31').resolution).toBe('unresolved')
   })
-
-  it('a supply AFTER a verified cessation (end date) is not GST', () => {
+  it('a supply AFTER a verified cessation (end date) resolves not registered via a later not-registered row', () => {
+    // Registered Jan–Jun, then an effective-dated not-registered row from Jul.
+    const h = [
+      row({ id: 'reg', gstRegistered: true, gstNumber: '1', effectiveDate: '2026-01-01', endDate: '2026-06-30' }),
+      row({ id: 'dereg', gstRegistered: false, gstNumber: null, effectiveDate: '2026-07-01' }),
+    ]
+    expect(gstWindowForDate(h, '2026-05-01').resolution).toBe('registered')
+    expect(gstWindowForDate(h, '2026-07-15').resolution).toBe('not_registered')
+  })
+  it('a registered window with an end_date and no successor → unresolved after the end date', () => {
     const ceased = [row({ id: 'c', gstRegistered: true, gstNumber: '1', effectiveDate: '2026-01-01', endDate: '2026-06-30' })]
-    expect(gstWindowForDate(ceased, '2026-05-01').gstRegistered).toBe(true)   // during registration
-    expect(gstWindowForDate(ceased, '2026-07-01').gstRegistered).toBe(false)  // after cessation → no GST
+    expect(gstWindowForDate(ceased, '2026-05-01').resolution).toBe('registered')
+    expect(gstWindowForDate(ceased, '2026-07-01').resolution).toBe('unresolved') // no GST, but flagged — not confirmed not-registered
   })
-
-  it('registration-pending (a submitted registered row) does not apply until verified', () => {
+  it('registration-pending (a submitted row) does not apply until verified → unresolved', () => {
     const pending = [row({ id: 'p', status: 'submitted', gstRegistered: true, gstNumber: '1', effectiveDate: '2026-01-01' })]
-    // Not verified → no window applies → treated as not registered.
-    expect(gstWindowForDate(pending, '2026-06-01').gstRegistered).toBe(false)
+    expect(gstWindowForDate(pending, '2026-06-01').resolution).toBe('unresolved')
+  })
+  it('a verified row with NO effective date is ignored (defensive; the DB CHECK forbids it)', () => {
+    const bad = [row({ id: 'x', gstRegistered: false, gstNumber: null, effectiveDate: null })]
+    expect(gstWindowForDate(bad, '2026-06-01').resolution).toBe('unresolved')
+  })
+})
+
+describe('overlapping verified windows resolve deterministically (latest effective wins)', () => {
+  it('when two verified rows both cover the date, the later-effective one wins', () => {
+    const h = [
+      row({ id: 'a', gstRegistered: true, gstNumber: 'OLD', effectiveDate: '2026-01-01', endDate: '2026-12-31' }),
+      row({ id: 'b', gstRegistered: false, gstNumber: null, effectiveDate: '2026-06-01' }), // later status change
+    ]
+    // On 2026-08-01 both technically "apply"; the latest effective (b) wins.
+    const r = gstWindowForDate(h, '2026-08-01')
+    expect(r.resolution).toBe('not_registered')
+    // Before the overlap the earlier registered row applies.
+    expect(gstWindowForDate(h, '2026-03-01').resolution).toBe('registered')
+  })
+  it('same effective date → deterministic (stable tie-break, never throws)', () => {
+    const h = [
+      row({ id: 'aaa', gstRegistered: true, gstNumber: '1', effectiveDate: '2026-05-01' }),
+      row({ id: 'bbb', gstRegistered: false, gstNumber: null, effectiveDate: '2026-05-01' }),
+    ]
+    // Deterministic: same call always returns the same row.
+    expect(gstWindowForDate(h, '2026-06-01')).toEqual(gstWindowForDate(h, '2026-06-01'))
   })
 })
 

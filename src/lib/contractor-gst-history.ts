@@ -54,43 +54,63 @@ export interface GstHistoryRecord {
 
 /**
  * The verified GST status that applies on a given date — date-based, NOT newest.
- * Among verified rows, pick the registration window covering the date:
- *   - registered rows: effective_date <= date AND (no end OR date <= end);
- *   - a verified NOT-registered row applies from its effective_date (or always,
- *     if it has none) as an explicit "not registered" statement.
- * Latest-effective wins. A future-effective registration does not apply before
- * its effective date. Returns null when nothing verified covers the date.
+ * EVERY verified row is effective-dated (enforced by cgh_verified_complete_chk);
+ * a row without an effective date is ignored defensively.
+ *   - registered rows apply when   effective_date <= date AND (no end OR date <= end);
+ *   - not-registered rows apply when effective_date <= date (a "not registered
+ *     FROM this date" statement — it does NOT apply before its effective date).
+ * The applicable row is the one with the LATEST effective_date on/before the date
+ * (deterministic even if windows overlap — the most recent status change wins).
+ * Returns null when NO verified row's effective date is on/before the date — i.e.
+ * a supply before the first verified row is UNRESOLVED, not silently "not
+ * registered".
  */
 export function selectGstStatusForDate<T extends GstHistoryRecord>(history: T[], dateIso: string): T | null {
   const applicable = history.filter((h) => {
-    if (h.status !== 'verified') return false
-    if (h.gstRegistered) {
-      return !!h.effectiveDate && h.effectiveDate <= dateIso && (!h.endDate || dateIso <= h.endDate)
-    }
-    // verified not-registered: applies on/after its effective date (or always).
-    return !h.effectiveDate || h.effectiveDate <= dateIso
+    if (h.status !== 'verified' || !h.effectiveDate) return false
+    if (h.effectiveDate > dateIso) return false // future-effective — not yet in force
+    if (h.gstRegistered && h.endDate && dateIso > h.endDate) return false // past a registered window's end
+    return true
   })
   if (applicable.length === 0) return null
+  // Latest effective date wins; deterministic tie-break by later end date then id.
   return applicable.sort((a, b) => {
-    const ae = a.effectiveDate ?? '0000-00-00'
-    const be = b.effectiveDate ?? '0000-00-00'
-    return ae < be ? 1 : ae > be ? -1 : 0
+    if (a.effectiveDate! !== b.effectiveDate!) return a.effectiveDate! < b.effectiveDate! ? 1 : -1
+    const ae = a.endDate ?? '9999-12-31'; const be = b.endDate ?? '9999-12-31'
+    if (ae !== be) return ae < be ? 1 : -1
+    return a.id < b.id ? 1 : -1
   })[0]
 }
 
+export type GstResolution = 'registered' | 'not_registered' | 'unresolved'
+
 export interface ResolvedGstWindow {
+  /** Tri-state: 'unresolved' means no verified status covers the date — the
+   *  caller must NOT assume not-registered (do not apply GST, but flag for
+   *  review). 'not_registered'/'registered' are explicit verified statuses. */
+  resolution: GstResolution
   gstRegistered: boolean
   gstNumber: string | null
   effectiveDate: string | null
   endDate: string | null
 }
 
-/** Shape the applicable record for resolveContractorPaymentGst. Null history →
- *  not registered (no GST) — never inferred otherwise. */
+/**
+ * Resolve the GST window for a supply date. Explicitly tri-state:
+ *   - a verified registered row covering the date → 'registered';
+ *   - a verified not-registered row in force → 'not_registered';
+ *   - NO verified row on/before the date → 'unresolved' (absence of evidence is
+ *     NOT the same as verified not-registered — never silently assume no-GST).
+ * GST resolution downstream should treat 'unresolved' as "no GST applied, but
+ * flagged", never as a confirmed not-registered.
+ */
 export function gstWindowForDate(history: GstHistoryRecord[], dateIso: string): ResolvedGstWindow {
   const picked = selectGstStatusForDate(history, dateIso)
-  if (!picked) return { gstRegistered: false, gstNumber: null, effectiveDate: null, endDate: null }
+  if (!picked) {
+    return { resolution: 'unresolved', gstRegistered: false, gstNumber: null, effectiveDate: null, endDate: null }
+  }
   return {
+    resolution: picked.gstRegistered ? 'registered' : 'not_registered',
     gstRegistered: picked.gstRegistered,
     gstNumber: picked.gstNumber,
     effectiveDate: picked.effectiveDate,
