@@ -6,7 +6,7 @@
 // internal document refs).
 
 import { getServiceSupabase } from './supabase-service'
-import type { DeclarationRecord } from './contractor-tax-declaration'
+import { selectDeclarationForDate, type DeclarationRecord } from './contractor-tax-declaration'
 
 export interface FullDeclaration extends DeclarationRecord {
   declarationNumber: string | null
@@ -66,6 +66,18 @@ function mapFull(r: Record<string, unknown>): FullDeclaration {
 export function currentDeclarationRecord(d: FullDeclaration | null): DeclarationRecord | null {
   if (!d) return null
   return { id: d.id, status: d.status, declarationType: d.declarationType, withholdingRate: d.withholdingRate, expiryDate: d.expiryDate, effectiveDate: d.effectiveDate }
+}
+
+/**
+ * The declaration APPLICABLE on a date (date-based, not newest). Picks the
+ * verified declaration whose effective window covers `dateIso` from the full
+ * history — so a future-effective replacement doesn't apply early and a
+ * historical date resolves the declaration that was in force then. Returns the
+ * gate-shaped record, or null.
+ */
+export function applicableDeclarationRecord(history: FullDeclaration[], dateIso: string): DeclarationRecord | null {
+  const picked = selectDeclarationForDate(history, dateIso)
+  return picked ? currentDeclarationRecord(picked) : null
 }
 
 /** Staff read: current declaration + full history for a contractor. */

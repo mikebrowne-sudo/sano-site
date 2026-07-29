@@ -67,12 +67,66 @@ create table if not exists public.contractor_tax_declarations (
   created_at            timestamptz not null default now()
 );
 
+-- ── Consistency + verified-completeness CHECK constraints ───────────────────
+-- Added via ALTER (idempotent guard) so re-runs don't error on existing objects.
+do $$ begin
+  -- withholding_rate is a proportion in [0,1) when present.
+  if not exists (select 1 from pg_constraint where conname='ctd_rate_range_chk') then
+    alter table public.contractor_tax_declarations add constraint ctd_rate_range_chk
+      check (withholding_rate is null or (withholding_rate >= 0 and withholding_rate < 1));
+  end if;
+  -- Exemption: no withholding rate required (must be null); a rate-bearing type
+  -- must carry a rate. Prescribed is reserved (rate optional).
+  if not exists (select 1 from pg_constraint where conname='ctd_type_rate_chk') then
+    alter table public.contractor_tax_declarations add constraint ctd_type_rate_chk check (
+      (declaration_type = 'exemption' and withholding_rate is null)
+      or (declaration_type in ('ir330c_standard','contractor_chosen','tailored_rate') and withholding_rate is not null)
+      or (declaration_type = 'prescribed')
+    );
+  end if;
+  -- expiry not before effective (when both present).
+  if not exists (select 1 from pg_constraint where conname='ctd_expiry_after_effective_chk') then
+    alter table public.contractor_tax_declarations add constraint ctd_expiry_after_effective_chk
+      check (expiry_date is null or effective_date is null or expiry_date >= effective_date);
+  end if;
+  -- tailored rate requires a tailored-rate certificate ref.
+  if not exists (select 1 from pg_constraint where conname='ctd_tailored_cert_chk') then
+    alter table public.contractor_tax_declarations add constraint ctd_tailored_cert_chk
+      check (declaration_type <> 'tailored_rate' or (tailored_rate_certificate_ref is not null and length(btrim(tailored_rate_certificate_ref)) > 0));
+  end if;
+  -- exemption requires an exemption certificate ref.
+  if not exists (select 1 from pg_constraint where conname='ctd_exemption_cert_chk') then
+    alter table public.contractor_tax_declarations add constraint ctd_exemption_cert_chk
+      check (declaration_type <> 'exemption' or (exemption_certificate_ref is not null and length(btrim(exemption_certificate_ref)) > 0));
+  end if;
+  -- A VERIFIED declaration must be complete: effective_date, signed_name/at,
+  -- declaration_text/version, verified_at/by all present. (Submitted/rejected/
+  -- superseded rows are not held to this — a draft submission may be partial.)
+  if not exists (select 1 from pg_constraint where conname='ctd_verified_complete_chk') then
+    alter table public.contractor_tax_declarations add constraint ctd_verified_complete_chk check (
+      status <> 'verified' or (
+        effective_date is not null and
+        signed_name is not null and signed_at is not null and
+        declaration_text is not null and declaration_version is not null and
+        verified_at is not null and verified_by is not null
+      )
+    );
+  end if;
+end $$;
+
 create index if not exists ctd_contractor_idx on public.contractor_tax_declarations (contractor_id);
 create index if not exists ctd_status_idx on public.contractor_tax_declarations (status);
--- At most ONE current (non-superseded, non-rejected) declaration per contractor.
-create unique index if not exists ctd_one_current_per_contractor
+-- SEPARATE one-of rules so a VERIFIED declaration and a PENDING replacement can
+-- coexist (the replacement is reviewed without disturbing the live verified one):
+--   • at most ONE submitted (pending) declaration per contractor;
+--   • at most ONE verified declaration that is the CURRENT (not yet superseded)
+--     one per contractor. Superseded/rejected rows are unconstrained (history).
+create unique index if not exists ctd_one_submitted_per_contractor
   on public.contractor_tax_declarations (contractor_id)
-  where status in ('submitted','verified');
+  where status = 'submitted';
+create unique index if not exists ctd_one_current_verified_per_contractor
+  on public.contractor_tax_declarations (contractor_id)
+  where status = 'verified' and superseded_at is null;
 
 comment on table public.contractor_tax_declarations is
   'Immutable, superseding contractor IR330C / tailored-rate / exemption declarations. Facts are append-only (see trigger); a correction creates a new row and supersedes the prior current one — a verified declaration is never overwritten. One current (submitted/verified) declaration per contractor. Independent of per-schedule tax_treatment. review_notes + verified_* are staff-only (never exposed via the token route). contracting_ird_number is sensitive and is not rendered in the general agreement PDF.';
@@ -139,8 +193,13 @@ where table_schema='public' and table_name='contractor_tax_declarations';   -- 1
 
 select indexname from pg_indexes
 where schemaname='public' and tablename='contractor_tax_declarations'
-  and indexname in ('ctd_contractor_idx','ctd_status_idx','ctd_one_current_per_contractor')
-order by indexname;   -- 3 rows
+  and indexname in ('ctd_contractor_idx','ctd_status_idx','ctd_one_submitted_per_contractor','ctd_one_current_verified_per_contractor')
+order by indexname;   -- 4 rows
+
+select conname from pg_constraint where conrelid = 'public.contractor_tax_declarations'::regclass
+  and conname in ('ctd_rate_range_chk','ctd_type_rate_chk','ctd_expiry_after_effective_chk',
+    'ctd_tailored_cert_chk','ctd_exemption_cert_chk','ctd_verified_complete_chk')
+order by conname;   -- 6 rows
 
 select tgname from pg_trigger where tgrelid = 'public.contractor_tax_declarations'::regclass
   and tgname = 'ctd_immutable_facts';   -- 1 row

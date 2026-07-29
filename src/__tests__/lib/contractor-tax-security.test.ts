@@ -78,9 +78,10 @@ describe('immutable + superseding declaration model (staff action contract)', ()
     expect(staffAction).toMatch(/\.eq\('status',\s*'submitted'\)/)
   })
 
-  it('verification actions are audited with old and new status', () => {
-    expect(staffAction).toMatch(/before:\s*\{\s*status:\s*'submitted'\s*\}/)
-    expect(staffAction).toMatch(/contractor_tax_declaration\.\$\{status\}/)
+  it('verification actions are audited with old and new status (explicit verified/rejected)', () => {
+    expect(staffAction).toMatch(/before:\s*\{\s*status:\s*'submitted'/)
+    expect(staffAction).toMatch(/action:\s*'contractor_tax_declaration\.verified'/)
+    expect(staffAction).toMatch(/action:\s*'contractor_tax_declaration\.rejected'/)
   })
 
   it('setScheduleTaxTreatment is admin-gated and scoped to the contractor', () => {

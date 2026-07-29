@@ -62,14 +62,35 @@ export async function recordDeclaration(input: DeclarationStaffInput): Promise<{
   const rateErr = validateDeclarationRate(input as DeclarationInput)
   if (rateErr) return { error: rateErr }
 
+  // Verified-completeness guard (mirrors the DB CHECK): a verify-now record must
+  // carry an effective date + signature; text/version/verified_by are set below.
+  if (input.verifyNow) {
+    if (!input.effectiveDate) return { error: 'A verified declaration needs an effective date.' }
+    if (!input.signedName?.trim()) return { error: 'A verified declaration must be signed (enter the signatory name).' }
+  }
+
   const nowIso = new Date().toISOString()
-  // Supersede the existing current row first (keeps the one-current index happy).
-  const { data: current } = await supabase
+  // A VERIFIED declaration and a PENDING replacement may coexist. So:
+  //  - a pending (submit-only) record replaces only a prior SUBMITTED row (never
+  //    the live verified one — that stays valid through review);
+  //  - a verify-now record supersedes the prior CURRENT VERIFIED row atomically.
+  // The one-submitted / one-current-verified partial indexes enforce this.
+  const { data: priorSubmitted } = await supabase
     .from('contractor_tax_declarations')
-    .select('id')
-    .eq('contractor_id', input.contractorId)
-    .in('status', ['submitted', 'verified'])
-    .maybeSingle()
+    .select('id').eq('contractor_id', input.contractorId).eq('status', 'submitted').maybeSingle()
+  const { data: priorVerified } = await supabase
+    .from('contractor_tax_declarations')
+    .select('id').eq('contractor_id', input.contractorId).eq('status', 'verified').is('superseded_at', null).maybeSingle()
+
+  // Which prior row (if any) this new row supersedes: verify-now → the verified
+  // current; submit-only → any pending submitted it replaces.
+  const supersedesId = input.verifyNow ? (priorVerified?.id ?? null) : (priorSubmitted?.id ?? null)
+  // A pending submit must first clear any existing pending row (only one allowed).
+  if (!input.verifyNow && priorSubmitted?.id) {
+    await supabase.from('contractor_tax_declarations')
+      .update({ status: 'superseded', superseded_at: nowIso, superseded_by_id: null })
+      .eq('id', priorSubmitted.id)
+  }
 
   const { data: inserted, error: insErr } = await supabase
     .from('contractor_tax_declarations')
@@ -97,29 +118,31 @@ export async function recordDeclaration(input: DeclarationStaffInput): Promise<{
       status: input.verifyNow ? 'verified' : 'submitted',
       verified_at: input.verifyNow ? nowIso : null,
       verified_by: input.verifyNow ? user.id : null,
-      supersedes_id: current?.id ?? null,
+      supersedes_id: supersedesId,
       created_by: user.id,
     })
     .select('id')
     .single()
   if (insErr) {
-    if ((insErr as { code?: string }).code === '23505') return { error: 'There is already a current declaration — supersede it first.' }
+    if ((insErr as { code?: string }).code === '23505') return { error: 'There is already a current declaration of that kind — supersede it first.' }
     return { error: insErr.message }
   }
 
   await supabase.from('contractor_tax_declarations').update({ declaration_number: `CTD-${String(inserted.id).slice(0, 4).toUpperCase()}` }).eq('id', inserted.id)
 
-  if (current?.id) {
+  // verify-now atomically supersedes the prior VERIFIED current row (both pointers).
+  if (input.verifyNow && priorVerified?.id) {
     await supabase
       .from('contractor_tax_declarations')
       .update({ status: 'superseded', superseded_at: nowIso, superseded_by_id: inserted.id })
-      .eq('id', current.id)
+      .eq('id', priorVerified.id)
+      .eq('status', 'verified')
   }
 
   await supabase.from('audit_log').insert({
     actor_id: user.id, actor_role: 'admin', action: 'contractor_tax_declaration.recorded',
     entity_table: 'contractor_tax_declarations', entity_id: inserted.id,
-    before: current?.id ? { superseded: current.id } : null,
+    before: supersedesId ? { superseded: supersedesId } : null,
     after: { type: input.declarationType, verified: !!input.verifyNow },
   })
   revalidate(input.contractorId)
@@ -137,29 +160,66 @@ export async function setDeclarationStatus(
 
   const { data: d } = await supabase
     .from('contractor_tax_declarations')
-    .select('id, contractor_id, status')
+    .select('id, contractor_id, status, effective_date, signed_name, signed_at, declaration_text, declaration_version, supersedes_id')
     .eq('id', declarationId)
     .maybeSingle()
   if (!d) return { error: 'Declaration not found.' }
   if (d.status !== 'submitted') return { error: `Only a submitted declaration can be ${status}. This one is ${d.status}.` }
 
   const nowIso = new Date().toISOString()
-  const { error } = await supabase
+
+  // Rejecting a replacement leaves the existing verified declaration untouched.
+  if (status === 'rejected') {
+    const { error } = await supabase
+      .from('contractor_tax_declarations')
+      .update({ status: 'rejected', review_notes: reviewNotes || null })
+      .eq('id', declarationId).eq('status', 'submitted')
+    if (error) return { error: error.message }
+    await supabase.from('audit_log').insert({
+      actor_id: user.id, actor_role: 'admin', action: 'contractor_tax_declaration.rejected',
+      entity_table: 'contractor_tax_declarations', entity_id: declarationId,
+      before: { status: 'submitted' }, after: { status: 'rejected', review_notes: reviewNotes || null },
+    })
+    revalidate(d.contractor_id as string)
+    return { ok: true }
+  }
+
+  // Verifying: app-level completeness guard (mirrors the DB CHECK) — a verified
+  // declaration must carry an effective date + signature + declaration wording.
+  if (!d.effective_date) return { error: 'Set an effective date before verifying this declaration.' }
+  if (!d.signed_name || !d.signed_at) return { error: 'A verified declaration must be signed.' }
+  if (!d.declaration_text || !d.declaration_version) return { error: 'The declaration wording/version is missing.' }
+
+  // Atomically supersede the prior CURRENT VERIFIED row (if any) as this one
+  // becomes verified. Both pointers populated: new.supersedes_id (may already be
+  // set from submission) and old.superseded_by_id.
+  const { data: priorVerified } = await supabase
+    .from('contractor_tax_declarations')
+    .select('id').eq('contractor_id', d.contractor_id as string).eq('status', 'verified').is('superseded_at', null).maybeSingle()
+
+  const { error: vErr } = await supabase
     .from('contractor_tax_declarations')
     .update({
-      status,
-      verified_at: status === 'verified' ? nowIso : null,
-      verified_by: status === 'verified' ? user.id : null,
-      review_notes: reviewNotes || null,
+      status: 'verified', verified_at: nowIso, verified_by: user.id, review_notes: reviewNotes || null,
+      // Ensure the back-pointer reflects the row actually superseded now.
+      supersedes_id: priorVerified?.id ?? (d.supersedes_id as string | null) ?? null,
     })
-    .eq('id', declarationId)
-    .eq('status', 'submitted') // guard against a concurrent change
-  if (error) return { error: error.message }
+    .eq('id', declarationId).eq('status', 'submitted')
+  if (vErr) return { error: vErr.message }
+
+  if (priorVerified?.id) {
+    const { error: supErr } = await supabase
+      .from('contractor_tax_declarations')
+      .update({ status: 'superseded', superseded_at: nowIso, superseded_by_id: declarationId })
+      .eq('id', priorVerified.id).eq('status', 'verified')
+    if (supErr) return { error: `Verified, but superseding the prior declaration failed: ${supErr.message}` }
+  }
 
   await supabase.from('audit_log').insert({
-    actor_id: user.id, actor_role: 'admin', action: `contractor_tax_declaration.${status}`,
+    actor_id: user.id, actor_role: 'admin', action: 'contractor_tax_declaration.verified',
     entity_table: 'contractor_tax_declarations', entity_id: declarationId,
-    before: { status: 'submitted' }, after: { status, review_notes: reviewNotes || null },
+    before: { status: 'submitted', prior_verified: priorVerified?.id ?? null },
+    after: { status: 'verified', superseded: priorVerified?.id ?? null },
   })
   revalidate(d.contractor_id as string)
   return { ok: true }

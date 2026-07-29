@@ -122,6 +122,34 @@ export function declarationTaxState(d: DeclarationRecord | null, todayIso: strin
   return { satisfiesGate: true, isExemption, rate: isExemption ? 0 : d.withholdingRate, reason: isExemption ? 'Verified exemption — zero withholding.' : 'Verified tax declaration.' }
 }
 
+/**
+ * Select the VERIFIED declaration that applies on a given supply/payment date —
+ * date-based, NOT "newest row wins". Among verified declarations (current or
+ * historically superseded), pick the one whose effective window covers the date:
+ *   - effective_date <= supplyDate, AND
+ *   - (no expiry OR supplyDate <= expiry), AND
+ *   - it is the LATEST-effective such row (a future-effective replacement does
+ *     not apply before its effective date; the prior one stays applicable).
+ * A verified row with no effective_date is ignored (the DB CHECK forbids it, but
+ * we stay defensive). Returns null when none applies on that date.
+ */
+export function selectDeclarationForDate<T extends { status: DeclarationStatus; effectiveDate: string | null; expiryDate: string | null; declarationType: DeclarationType }>(
+  declarations: T[],
+  supplyDateIso: string,
+): T | null {
+  const applicable = declarations.filter((d) =>
+    d.status === 'verified' &&
+    !!d.effectiveDate && d.effectiveDate <= supplyDateIso &&
+    (!d.expiryDate || supplyDateIso <= d.expiryDate),
+  )
+  if (applicable.length === 0) return null
+  // Latest effective date wins; ties broken by later expiry (defensive).
+  return applicable.sort((a, b) =>
+    (a.effectiveDate! < b.effectiveDate! ? 1 : a.effectiveDate! > b.effectiveDate! ? -1 : 0) ||
+    ((a.expiryDate ?? '9999') < (b.expiryDate ?? '9999') ? 1 : -1),
+  )[0]
+}
+
 /** Format a decimal rate as a percentage for display (0.20 → "20%"). */
 export function formatRatePct(rate: number | null): string {
   if (rate == null) return '—'

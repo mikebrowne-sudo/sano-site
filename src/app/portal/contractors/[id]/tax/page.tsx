@@ -4,7 +4,7 @@ import { ArrowLeft, ShieldCheck, AlertTriangle } from 'lucide-react'
 import clsx from 'clsx'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
-import { getContractorDeclarations, currentDeclarationRecord, type FullDeclaration } from '@/lib/contractor-tax-declaration-data'
+import { getContractorDeclarations, applicableDeclarationRecord, type FullDeclaration } from '@/lib/contractor-tax-declaration-data'
 import { getContractorSetupBundle } from '@/lib/contractor-setup-data'
 import { resolveContractorTaxGate, type ScheduleTaxTreatment } from '@/lib/contractor-tax-gate'
 import { formatRatePct } from '@/lib/contractor-tax-declaration'
@@ -31,21 +31,26 @@ export default async function ContractorTaxPage({ params }: { params: { id: stri
   const { data: contractor } = await supabase.from('contractors').select('id, full_name, ird_number, legal_name, business_structure').eq('id', params.id).maybeSingle()
   if (!contractor) notFound()
 
-  const { current, history } = await getContractorDeclarations(params.id)
+  const { history } = await getContractorDeclarations(params.id)
   const { schedules } = await getContractorSetupBundle(params.id)
   const todayIso = new Date().toISOString().slice(0, 10)
   const gate = resolveContractorTaxGate(
     schedules.map((s) => ({ id: s.id, name: s.name, taxTreatment: (s.taxTreatment ?? null) as ScheduleTaxTreatment })),
-    currentDeclarationRecord(current),
+    applicableDeclarationRecord(history, todayIso), // date-based (future-effective/expired handled)
     todayIso,
   )
+  // A verified declaration and a pending replacement may coexist.
+  const pendingReplacement = history.find((d) => d.status === 'submitted') ?? null
+  const verifiedCurrent = history.find((d) => d.status === 'verified' && !d.supersededAt) ?? null
 
-  // Mismatch flags between the declaration and the contractor profile.
+  // Mismatch flags between the latest declaration and the contractor profile
+  // (prefer the pending replacement's declared identity, else the verified one).
+  const latestDeclared = pendingReplacement ?? verifiedCurrent
   const mismatches: string[] = []
-  if (current?.contractingIrdNumber && contractor.ird_number && current.contractingIrdNumber !== contractor.ird_number) {
+  if (latestDeclared?.contractingIrdNumber && contractor.ird_number && latestDeclared.contractingIrdNumber !== contractor.ird_number) {
     mismatches.push('Declared IRD number differs from the contractor profile.')
   }
-  if (current?.contractingLegalName && contractor.legal_name && current.contractingLegalName !== contractor.legal_name) {
+  if (latestDeclared?.contractingLegalName && contractor.legal_name && latestDeclared.contractingLegalName !== contractor.legal_name) {
     mismatches.push('Declared legal name differs from the contractor profile.')
   }
 
@@ -82,30 +87,36 @@ export default async function ContractorTaxPage({ params }: { params: { id: stri
         </div>
       )}
 
-      {/* Current declaration */}
+      {/* Current verified declaration */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-sage-800">Current declaration</h2>
+          <h2 className="text-lg font-semibold text-sage-800">Current verified declaration</h2>
           <RecordDeclaration contractorId={params.id} />
         </div>
-        {current ? (
-          <>
-            <DeclarationDetail d={current} />
-            {current.status === 'submitted' && (
-              <div className="mt-4 pt-4 border-t border-sage-50"><VerifyReject declarationId={current.id} /></div>
-            )}
-          </>
+        {verifiedCurrent ? (
+          <DeclarationDetail d={verifiedCurrent} />
         ) : (
-          <p className="text-sm text-sage-400">No current declaration. Record one, or the contractor can submit via their secure link.</p>
+          <p className="text-sm text-sage-400">No verified declaration. Record one, or the contractor can submit via their secure link.</p>
         )}
       </div>
 
+      {/* Pending replacement — coexists with the verified one; verifying it
+          atomically supersedes the current verified declaration. */}
+      {pendingReplacement && (
+        <div className="bg-white rounded-2xl border border-amber-200 shadow-sm p-5 mb-6">
+          <h2 className="text-lg font-semibold text-sage-800 mb-1">Pending replacement — awaiting review</h2>
+          <p className="text-[11px] text-sage-400 mb-3">The current verified declaration stays valid until you verify this replacement. Rejecting it leaves the verified declaration unchanged.</p>
+          <DeclarationDetail d={pendingReplacement} />
+          <div className="mt-4 pt-4 border-t border-sage-50"><VerifyReject declarationId={pendingReplacement.id} /></div>
+        </div>
+      )}
+
       {/* History */}
-      {history.filter((d) => d.id !== current?.id).length > 0 && (
+      {history.filter((d) => d.id !== verifiedCurrent?.id && d.id !== pendingReplacement?.id).length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h2 className="text-lg font-semibold text-sage-800 mb-3">Prior declarations</h2>
           <ul className="divide-y divide-sage-50">
-            {history.filter((d) => d.id !== current?.id).map((d) => (
+            {history.filter((d) => d.id !== verifiedCurrent?.id && d.id !== pendingReplacement?.id).map((d) => (
               <li key={d.id} className="py-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-sage-700"><span className="font-mono text-xs">{d.declarationNumber}</span> · {d.declarationType.replace(/_/g, ' ')} · {formatRatePct(d.withholdingRate)}</span>

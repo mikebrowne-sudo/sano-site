@@ -52,12 +52,20 @@ export async function submitContractorDeclaration(input: ContractorDeclarationIn
   const contractorId = setup.contractor_id as string
 
   const nowIso = new Date().toISOString()
-  const { data: current } = await svc
+  // A contractor submission is a PENDING replacement — it must NOT disturb the
+  // live verified declaration (that stays valid through review). It only clears a
+  // prior PENDING submitted row (only one allowed).
+  const { data: priorSubmitted } = await svc
     .from('contractor_tax_declarations')
     .select('id')
     .eq('contractor_id', contractorId)
-    .in('status', ['submitted', 'verified'])
+    .eq('status', 'submitted')
     .maybeSingle()
+  if (priorSubmitted?.id) {
+    await svc.from('contractor_tax_declarations')
+      .update({ status: 'superseded', superseded_at: nowIso, superseded_by_id: null })
+      .eq('id', priorSubmitted.id)
+  }
 
   const { data: inserted, error: insErr } = await svc
     .from('contractor_tax_declarations')
@@ -80,7 +88,7 @@ export async function submitContractorDeclaration(input: ContractorDeclarationIn
       declaration_version: CONTRACTOR_DECLARATION_VERSION,
       source: 'contractor_submitted',
       status: 'submitted', // ALWAYS pending — never verified by the contractor
-      supersedes_id: current?.id ?? null,
+      supersedes_id: priorSubmitted?.id ?? null,
     })
     .select('id')
     .single()
@@ -90,9 +98,6 @@ export async function submitContractorDeclaration(input: ContractorDeclarationIn
   }
 
   await svc.from('contractor_tax_declarations').update({ declaration_number: `CTD-${String(inserted.id).slice(0, 4).toUpperCase()}` }).eq('id', inserted.id)
-  if (current?.id) {
-    await svc.from('contractor_tax_declarations').update({ status: 'superseded', superseded_at: nowIso, superseded_by_id: inserted.id }).eq('id', current.id)
-  }
 
   // Reflect into the setup section status (staff review required); never verified.
   const { data: s2 } = await svc.from('contractor_setup').select('section_status').eq('contractor_id', contractorId).maybeSingle()

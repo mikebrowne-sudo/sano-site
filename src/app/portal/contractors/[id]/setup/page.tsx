@@ -4,7 +4,7 @@ import { ArrowLeft, ClipboardList, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { getContractorSetupBundle } from '@/lib/contractor-setup-data'
-import { getContractorDeclarations, currentDeclarationRecord } from '@/lib/contractor-tax-declaration-data'
+import { getContractorDeclarations, applicableDeclarationRecord } from '@/lib/contractor-tax-declaration-data'
 import { resolveContractorTaxGate, type ScheduleTaxTreatment } from '@/lib/contractor-tax-gate'
 import {
   SETUP_SECTIONS, sectionLabel, sectionState, computeReadiness, type SectionStatusMap,
@@ -33,11 +33,11 @@ export default async function ContractorSetupPage({ params }: { params: { id: st
   // PR 4: the REAL per-schedule tax gate. Each schedule is judged on its own
   // tax_treatment against the contractor's current verified declaration — a
   // verified IR330C does NOT make every schedule schedular.
-  const { current: currentDeclaration } = await getContractorDeclarations(params.id)
+  const { history: declHistory } = await getContractorDeclarations(params.id)
   const todayIso = new Date().toISOString().slice(0, 10)
   const taxGate = resolveContractorTaxGate(
     schedules.map((s) => ({ id: s.id, name: s.name, taxTreatment: (s.taxTreatment ?? null) as ScheduleTaxTreatment })),
-    currentDeclarationRecord(currentDeclaration),
+    applicableDeclarationRecord(declHistory, todayIso), // date-based, not newest
     todayIso,
   )
   const schedular = schedules.some((s) => s.taxTreatment === 'schedular_payment')
