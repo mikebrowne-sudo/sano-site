@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { revalidatePath } from 'next/cache'
 import { sendAgreementLinkEmail } from '@/lib/resend'
+import { buildAgreementScheduleSnapshot } from '@/lib/agreement-schedule-snapshot'
 
 export async function createEmploymentAgreement(input: {
   agreementType: 'casual_employee' | 'permanent_employee' | 'contractor'
@@ -130,11 +131,23 @@ export async function sendAgreementLink(input: { agreementId: string; email: str
 
   const { data: a } = await supabase
     .from('employment_agreements')
-    .select('id, token, person_label, agreement_type, employee_full_name, contractor_id, status')
+    .select('id, token, person_label, agreement_type, employee_full_name, contractor_id, status, service_schedules_snapshot')
     .eq('id', input.agreementId)
     .maybeSingle()
   if (!a) return { error: 'Agreement not found.' }
   if (a.status === 'signed') return { error: 'This agreement is already signed.' }
+
+  // Freeze the contractor's active service schedules onto the agreement at send
+  // time so the presented Schedule A/B/… blocks are stable (a later schedule edit
+  // supersedes — it must not mutate what was sent). Contractors only; re-sending
+  // re-snapshots (still unsigned). No tax math — display terms only.
+  if (a.agreement_type === 'contractor' && a.contractor_id) {
+    const blocks = await buildAgreementScheduleSnapshot(supabase, a.contractor_id as string)
+    await supabase
+      .from('employment_agreements')
+      .update({ service_schedules_snapshot: blocks, service_schedules_snapshot_at: new Date().toISOString() })
+      .eq('id', input.agreementId)
+  }
 
   // Greet by the worker's real name — prefer the linked contractor record, then
   // the agreement's captured name, then a non-generic label; never "Contractor".

@@ -4,6 +4,7 @@ import { ArrowLeft, Link2, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { EmploymentAgreementDocument, agreementViewFromRow } from '@/components/EmploymentAgreementDocument'
+import { buildAgreementScheduleSnapshot } from '@/lib/agreement-schedule-snapshot'
 import { CopyLinkButton } from './_components/CopyLinkButton'
 import { SendLinkForm } from './_components/SendLinkForm'
 
@@ -20,6 +21,14 @@ export default async function AgreementDetailPage({ params }: { params: { id: st
   const origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://sano.nz'
   const link = `${origin}/agreement/${a.token}`
   const signed = a.status === 'signed'
+
+  // Staff preview of a contractor DRAFT: show the schedules that WOULD be frozen
+  // on send (live), unless a snapshot already exists (sent/signed → the frozen
+  // set wins). Never recomputes a signed agreement.
+  const view = agreementViewFromRow(a)
+  if (a.agreement_type === 'contractor' && a.contractor_id && !a.service_schedules_snapshot) {
+    view.scheduleBlocks = await buildAgreementScheduleSnapshot(supabase, a.contractor_id as string)
+  }
 
   return (
     <div className="max-w-3xl">
@@ -62,7 +71,7 @@ export default async function AgreementDetailPage({ params }: { params: { id: st
         </div>
       )}
 
-      <EmploymentAgreementDocument a={agreementViewFromRow(a)} wrapper="share-page" />
+      <EmploymentAgreementDocument a={view} wrapper="share-page" />
     </div>
   )
 }
