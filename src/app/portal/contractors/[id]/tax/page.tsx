@@ -8,6 +8,8 @@ import { getContractorDeclarations, applicableDeclarationRecord, type FullDeclar
 import { getContractorSetupBundle } from '@/lib/contractor-setup-data'
 import { resolveContractorTaxGate, type ScheduleTaxTreatment } from '@/lib/contractor-tax-gate'
 import { formatRatePct } from '@/lib/contractor-tax-declaration'
+import { getContractorPaymentPreviews } from '@/lib/contractor-payment-preview'
+import { formatCurrency } from '@/lib/format'
 import { VerifyReject, RecordDeclaration, ScheduleTaxClassifier } from './_components/TaxDeclarationControls'
 
 export const dynamic = 'force-dynamic'
@@ -39,6 +41,8 @@ export default async function ContractorTaxPage({ params }: { params: { id: stri
     applicableDeclarationRecord(history, todayIso), // date-based (future-effective/expired handled)
     todayIso,
   )
+  // Read-only payment previews (writes nothing) — gross/GST/withholding/net as at today.
+  const previews = await getContractorPaymentPreviews(params.id, todayIso)
   // A verified declaration and a pending replacement may coexist.
   const pendingReplacement = history.find((d) => d.status === 'submitted') ?? null
   const verifiedCurrent = history.find((d) => d.status === 'verified' && !d.supersededAt) ?? null
@@ -77,13 +81,45 @@ export default async function ContractorTaxPage({ params }: { params: { id: stri
           ))}
           {gate.schedules.length === 0 && <li className="text-sage-400">No service schedules to classify yet.</li>}
         </ul>
-        <p className="text-[11px] text-sage-400 mt-2">A verified IR330C does not make every schedule schedular — classify each schedule independently. PR 4 gates payment-readiness only; no tax is calculated or deducted yet.</p>
+        <p className="text-[11px] text-sage-400 mt-2">A verified IR330C does not make every schedule schedular — classify each schedule independently.</p>
       </div>
 
       {mismatches.length > 0 && (
         <div className="rounded-lg bg-amber-50 border border-amber-100 px-4 py-3 mb-6 text-sm text-amber-800">
           <p className="font-medium mb-1">Mismatches with the contractor profile:</p>
           <ul className="list-disc list-inside text-xs">{mismatches.map((m, i) => <li key={i}>{m}</li>)}</ul>
+        </div>
+      )}
+
+      {/* Payment preview (read-only). Gross / GST / withholding / net as at today,
+          resolved from the verified tax + GST history. Writes nothing — a later PR
+          persists these onto invoices/remittances. */}
+      {previews.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+          <h2 className="text-lg font-semibold text-sage-800 mb-1">Payment preview <span className="text-[11px] font-normal text-sage-400">(as at {fmtDate(todayIso)} · preview only, nothing is charged or deducted)</span></h2>
+          <ul className="mt-3 space-y-3">
+            {previews.map((p) => (
+              <li key={p.scheduleId} className="border border-sage-100 rounded-xl overflow-hidden">
+                <div className="bg-sage-50 px-4 py-2 border-b border-sage-100 flex items-center justify-between">
+                  <span className="font-medium text-sage-800 text-[13px]">{p.name}</span>
+                  <span className="text-[11px] text-sage-500">{p.paymentBasis === 'guaranteed_net' ? 'guaranteed net' : 'gross fee'} · {p.rateBasis === 'gst_inclusive' ? 'GST incl' : 'GST excl'}{p.agreedAmount != null ? ` · ${formatCurrency(p.agreedAmount)}` : ''}</span>
+                </div>
+                {!p.calc ? (
+                  <p className="px-4 py-3 text-[13px] text-sage-400">No amount set — nothing to preview.</p>
+                ) : p.calc.status !== 'ok' ? (
+                  <p className="px-4 py-3 text-[13px] text-amber-700">{p.calc.reason}{p.calc.netBank != null ? ` (contractor receives ${formatCurrency(p.calc.netBank)})` : ''}</p>
+                ) : (
+                  <table className="w-full text-[13px]"><tbody>
+                    <PreviewRow k="Gross ex-GST" v={formatCurrency(p.calc.grossExGst ?? 0)} />
+                    <PreviewRow k="GST" v={formatCurrency(p.calc.gst ?? 0)} />
+                    {p.calc.withholdingRate ? <PreviewRow k={`Withholding @ ${Math.round((p.calc.withholdingRate) * 100)}%`} v={`− ${formatCurrency(p.calc.withholdingAmount ?? 0)}`} /> : null}
+                    <PreviewRow k="Net to contractor" v={formatCurrency(p.calc.netBank ?? 0)} bold />
+                    <PreviewRow k="Total cost to Sano" v={formatCurrency(p.calc.sanoCost ?? 0)} />
+                  </tbody></table>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -166,4 +202,13 @@ function DeclarationDetail({ d }: { d: FullDeclaration }) {
 
 function Badge({ status }: { status: string }) {
   return <span className={clsx('inline-block px-2 py-0.5 rounded-full text-xs font-medium capitalize', STATUS_TONE[status] ?? STATUS_TONE.submitted)}>{status}</span>
+}
+
+function PreviewRow({ k, v, bold }: { k: string; v: string; bold?: boolean }) {
+  return (
+    <tr className="border-b border-sage-50 last:border-0">
+      <td className="py-1.5 px-4 text-sage-500 w-3/5">{k}</td>
+      <td className={clsx('py-1.5 px-4 text-right tabular-nums', bold ? 'font-bold text-sage-800' : 'text-sage-700')}>{v}</td>
+    </tr>
+  )
 }
