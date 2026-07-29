@@ -40,6 +40,9 @@ export interface AgreementView {
   contractorCompanyNumber?: string | null
   authorisedSignatoryName?: string | null
   authorisedSignatoryCapacity?: string | null
+  authorityConfirmed?: boolean | null
+  authorityDeclarationText?: string | null
+  authorityConfirmedAt?: string | null
   insurerName: string | null
   insuranceCover: string | null
   insuranceExpiry: string | null
@@ -99,6 +102,9 @@ export function agreementViewFromRow(a: any): AgreementView {
     contractorCompanyNumber: a.contractor_company_number ?? null,
     authorisedSignatoryName: a.authorised_signatory_name ?? null,
     authorisedSignatoryCapacity: a.authorised_signatory_capacity ?? null,
+    authorityConfirmed: a.authority_confirmed ?? null,
+    authorityDeclarationText: a.authority_declaration_text ?? null,
+    authorityConfirmedAt: a.authority_confirmed_at ?? null,
     insurerName: a.insurer_name ?? null,
     insuranceCover: a.insurance_cover ?? null,
     insuranceExpiry: a.insurance_expiry ?? null,
@@ -393,6 +399,13 @@ export function EmploymentAgreementDocument({
                   {' · '}{fmtDate(a.signedAt)}
                 </p>
                 <p className="text-[11px] text-emerald-600 mt-1">Electronically signed — by typing their name the {isContractor && a.authorisedSignatoryName ? 'authorised signatory' : signerLabel} confirmed they had read, understood, and agreed to this Agreement{isContractor && a.contractorLegalName ? ' on behalf of the entity named above' : ''}.</p>
+                {/* Frozen authority-to-bind declaration (entities). Shows the exact
+                    wording confirmed at signing. Never re-derived — read from the row. */}
+                {isContractor && a.authorityConfirmed && a.authorityDeclarationText ? (
+                  <p className="text-[11px] text-emerald-700 mt-2 pt-2 border-t border-emerald-200">
+                    Authority to bind: “{a.authorityDeclarationText}” — confirmed{a.authorityConfirmedAt ? ` ${fmtDate(a.authorityConfirmedAt)}` : ''}.
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </div>

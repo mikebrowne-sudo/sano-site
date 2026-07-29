@@ -1,5 +1,6 @@
 import {
   structureFieldRules, validateStructureSubmission, entityDisplayLines,
+  requiresAuthorityDeclaration, AUTHORITY_TO_BIND_DECLARATION,
   type StructureSubmission,
 } from '@/lib/contractor-structure-fields'
 
@@ -60,14 +61,48 @@ describe('validateStructureSubmission', () => {
       structure: 'company', fullName: 'Jane Cleaner', legalName: 'Moi-Ra Ltd', companyNumber: '123',
       signatoryName: 'Jane Cleaner', signatoryCapacity: 'Director', signedName: 'Someone Else',
     }
-    expect(validateStructureSubmission(full)).toMatch(/match the authorised signatory/)
-    expect(validateStructureSubmission({ ...full, signedName: 'Jane Cleaner' })).toBeNull()
+    expect(validateStructureSubmission({ ...full, authorityConfirmed: true })).toMatch(/match the authorised signatory/)
+    expect(validateStructureSubmission({ ...full, signedName: 'Jane Cleaner', authorityConfirmed: true })).toBeNull()
   })
 
   it('trust: legal name + signatory required', () => {
     const t: StructureSubmission = { structure: 'trust', fullName: 'Jane Trustee', signedName: 'Jane Trustee' }
     expect(validateStructureSubmission(t)).toMatch(/Trust name is required/)
-    expect(validateStructureSubmission({ ...t, legalName: 'Cleaner Family Trust', signatoryName: 'Jane Trustee', signatoryCapacity: 'Trustee' })).toBeNull()
+    expect(validateStructureSubmission({ ...t, legalName: 'Cleaner Family Trust', signatoryName: 'Jane Trustee', signatoryCapacity: 'Trustee', authorityConfirmed: true })).toBeNull()
+  })
+})
+
+describe('authority-to-bind declaration', () => {
+  it('required for company, partnership, trust, other — NOT for sole trader', () => {
+    expect(requiresAuthorityDeclaration('sole_trader')).toBe(false)
+    for (const s of ['company', 'partnership', 'trust', 'other'] as const) {
+      expect(requiresAuthorityDeclaration(s)).toBe(true)
+    }
+  })
+
+  const entityBase = (structure: 'company' | 'partnership' | 'trust'): StructureSubmission => ({
+    structure, fullName: 'Jane Signatory', signedName: 'Jane Signatory',
+    legalName: 'Acme Entity', companyNumber: structure === 'company' ? '123' : null,
+    signatoryName: 'Jane Signatory', signatoryCapacity: structure === 'trust' ? 'Trustee' : structure === 'partnership' ? 'Partner' : 'Director',
+  })
+
+  it('company cannot sign without confirming authority', () => {
+    expect(validateStructureSubmission(entityBase('company'))).toMatch(/authorised to sign on behalf/)
+    expect(validateStructureSubmission({ ...entityBase('company'), authorityConfirmed: true })).toBeNull()
+  })
+  it('partnership cannot sign without confirming authority', () => {
+    expect(validateStructureSubmission(entityBase('partnership'))).toMatch(/authorised to sign on behalf/)
+    expect(validateStructureSubmission({ ...entityBase('partnership'), authorityConfirmed: true })).toBeNull()
+  })
+  it('trust cannot sign without confirming authority', () => {
+    expect(validateStructureSubmission(entityBase('trust'))).toMatch(/authorised to sign on behalf/)
+    expect(validateStructureSubmission({ ...entityBase('trust'), authorityConfirmed: true })).toBeNull()
+  })
+  it('sole trader is never asked for the declaration (passes without it)', () => {
+    expect(validateStructureSubmission({ structure: 'sole_trader', fullName: 'Sole Person', signedName: 'Sole Person' })).toBeNull()
+  })
+  it('the declaration wording is the exact required sentence', () => {
+    expect(AUTHORITY_TO_BIND_DECLARATION).toBe('I confirm that I am authorised to enter into and sign this agreement on behalf of the contracting entity.')
   })
 })
 

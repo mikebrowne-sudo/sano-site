@@ -8,6 +8,21 @@
 
 export type ContractingStructure = 'sole_trader' | 'company' | 'partnership' | 'trust' | 'other'
 
+/** The exact authority-to-bind declaration an ENTITY signatory must confirm, and
+ *  its version. Snapshotted onto the agreement at sign (text + version + when) so
+ *  the signed record reflects precisely what was agreed. Bump the version if the
+ *  wording ever changes. Not shown to a sole trader. */
+export const AUTHORITY_TO_BIND_DECLARATION =
+  'I confirm that I am authorised to enter into and sign this agreement on behalf of the contracting entity.'
+export const AUTHORITY_TO_BIND_VERSION = 'authority-to-bind-2026-v1'
+
+/** Does this structure require the authority-to-bind declaration? Entities only
+ *  (company / partnership / trust). 'other' also requires it (it is an entity);
+ *  sole trader never does. */
+export function requiresAuthorityDeclaration(structure: ContractingStructure): boolean {
+  return structure !== 'sole_trader'
+}
+
 export const CONTRACTING_STRUCTURES: { value: ContractingStructure; label: string }[] = [
   { value: 'sole_trader', label: 'Sole trader' },
   { value: 'company', label: 'Company' },
@@ -60,6 +75,9 @@ export interface StructureSubmission {
   nzbn?: string | null
   signatoryName?: string | null
   signatoryCapacity?: string | null
+  /** Entity signatory's active confirmation of authority to bind the entity.
+   *  Mandatory for company/partnership/trust; ignored for a sole trader. */
+  authorityConfirmed?: boolean
   /** The typed e-signature. */
   signedName: string
 }
@@ -86,6 +104,10 @@ export function validateStructureSubmission(s: StructureSubmission): string | nu
     if (rules.signatory.required) {
       if (!(s.signatoryName ?? '').trim()) return 'The authorised signatory’s name is required.'
       if (!(s.signatoryCapacity ?? '').trim()) return 'The signatory’s capacity (e.g. Director, Trustee, Partner) is required.'
+    }
+    // Authority-to-bind declaration is mandatory for every entity structure.
+    if (requiresAuthorityDeclaration(s.structure) && s.authorityConfirmed !== true) {
+      return 'Please confirm you are authorised to sign on behalf of the contracting entity.'
     }
     // The signature must match whoever is signing on the entity's behalf.
     const signatory = (s.signatoryName ?? s.fullName ?? '').trim().toLowerCase()

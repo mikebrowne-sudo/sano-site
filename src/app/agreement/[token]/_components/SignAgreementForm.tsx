@@ -14,7 +14,7 @@ import { signEmploymentAgreement } from '../_actions'
 import { AgreementDocumentsUpload, type UploadedDoc } from './AgreementDocumentsUpload'
 import { IrdFormsPanel } from './IrdFormsPanel'
 import { BUSINESS_STRUCTURES } from '@/lib/business-structure'
-import { structureFieldRules, type ContractingStructure } from '@/lib/contractor-structure-fields'
+import { structureFieldRules, requiresAuthorityDeclaration, AUTHORITY_TO_BIND_DECLARATION, type ContractingStructure } from '@/lib/contractor-structure-fields'
 import { TAX_CODES, KS_EMPLOYEE_RATES } from '@/lib/nz-paye'
 import { IR330_DECLARATION_TEXT } from '@/lib/tax-declaration'
 import { EmploymentAgreementDocument, type AgreementView } from '@/components/EmploymentAgreementDocument'
@@ -85,6 +85,9 @@ export function SignAgreementForm({
   const [businessStructure, setBusinessStructure] = useState('')
   const [gstRegistered, setGstRegistered] = useState(false)
   const [agreed, setAgreed] = useState(false)
+  // Authority-to-bind declaration (entities only). Deliberately NOT persisted to
+  // localStorage — re-confirmed each session, like the IR330 acknowledgement.
+  const [authorityConfirmed, setAuthorityConfirmed] = useState(false)
   // IR330 tax-code declaration acknowledgement — deliberately NOT persisted to
   // localStorage, so returning to the wizard requires re-confirming.
   const [ir330Ack, setIr330Ack] = useState(false)
@@ -145,6 +148,9 @@ export function SignAgreementForm({
       if (rules.companyNumber.required && !f.companyNumber.trim()) return 'Please enter the company number.'
       if (rules.signatory.required && !f.signatoryName.trim()) return 'Please enter the authorised signatory’s name.'
       if (rules.signatory.required && !f.signatoryCapacity.trim()) return 'Please enter the signatory’s capacity.'
+      if (requiresAuthorityDeclaration(businessStructure as ContractingStructure) && !authorityConfirmed) {
+        return 'Please confirm you are authorised to sign on behalf of the contracting entity.'
+      }
     }
     if (s === 2 && !isContractor) {
       if (!f.taxCode.trim()) return 'Please choose your tax code.'
@@ -191,6 +197,7 @@ export function SignAgreementForm({
         tradingName: f.tradingName, gstNumber: f.gstNumber,
         businessStructure, legalName: f.legalName, nzbn: f.nzbn, companyNumber: f.companyNumber, gstRegistered,
         signatoryName: f.signatoryName, signatoryCapacity: f.signatoryCapacity,
+        authorityConfirmed,
         insurerName: f.insurerName, insuranceCover: f.insuranceCover, insuranceExpiry: f.insuranceExpiry,
         signedName: f.signedName,
       })
@@ -303,6 +310,10 @@ export function SignAgreementForm({
                   <Field label="Authorised signatory (your full name)" value={f.signatoryName} onChange={set('signatoryName')} />
                   <Field label="Capacity (e.g. Director, Trustee, Partner)" value={f.signatoryCapacity} onChange={set('signatoryCapacity')} />
                 </div>
+                <label className="flex items-start gap-2 mt-3 text-[13px] text-sage-700">
+                  <input type="checkbox" checked={authorityConfirmed} onChange={(e) => setAuthorityConfirmed(e.target.checked)} className="mt-0.5 rounded border-sage-300" />
+                  <span>{AUTHORITY_TO_BIND_DECLARATION}</span>
+                </label>
               </div>
             )}
             <div className="mt-5">

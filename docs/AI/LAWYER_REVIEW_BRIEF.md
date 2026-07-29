@@ -97,9 +97,17 @@ trader still signs personally. The e-signature must match the signatory's name.
 entity-specific wording (e.g. an authorised-signing / entity-liability clause for a
 company or trust) is left to you.
 
-**Please confirm:** capturing the authorised signatory + capacity and showing the
-entity identity on the signed agreement is appropriate, and advise whether any
-structure-specific clause wording should be added.
+For company/partnership/trust signatories, the signer must also actively tick an
+**authority-to-bind declaration**: *"I confirm that I am authorised to enter into
+and sign this agreement on behalf of the contracting entity."* This is mandatory
+for entities (not shown to a sole trader), enforced server-side, and the exact
+wording + version + timestamp are frozen onto the signed agreement and shown in the
+signing record. It is a **declaration by the signatory, not a Sano-verified fact**
+(a separate staff verification workflow is reserved for later).
+
+**Please confirm:** capturing the authorised signatory + capacity + authority-to-bind
+declaration and showing the entity identity on the signed agreement is appropriate,
+and advise whether any structure-specific clause wording should be added.
 
 ---
 

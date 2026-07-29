@@ -43,6 +43,41 @@ describe('entity/signatory snapshot is frozen (read from the agreement row, writ
   })
 })
 
+describe('authority-to-bind declaration is snapshotted + frozen + rendered', () => {
+  it('the sign action persists the authority declaration snapshot (confirmed, text, version, at)', () => {
+    for (const col of ['authority_confirmed:', 'authority_declaration_text:', 'authority_declaration_version:', 'authority_confirmed_at:']) {
+      expect(signAction.includes(col)).toBe(true)
+    }
+  })
+
+  it('the authority snapshot is only written for an entity (isContractorEntity gate)', () => {
+    // Each authority_* assignment must be guarded by isContractorEntity.
+    const lines = signAction.split('\n').filter((l) => /authority_(confirmed|declaration)/.test(l) && l.includes(':'))
+    expect(lines.length).toBeGreaterThanOrEqual(4)
+    for (const l of lines) expect(l).toContain('isContractorEntity')
+  })
+
+  it('the document renders the frozen declaration from the agreement row (a.authority*)', () => {
+    expect(doc.includes('a.authority_confirmed')).toBe(true)
+    expect(doc.includes('a.authority_declaration_text')).toBe(true)
+    // Rendered value comes from the mapped view field, not a re-derived constant.
+    expect(doc).toMatch(/authorityDeclarationText/)
+  })
+
+  it('no portal/staff action writes the authority columns (cannot be changed after signing)', () => {
+    const portal = readFileSync(join(process.cwd(), 'src/app/portal/agreements/_actions.ts'), 'utf8')
+    for (const col of ['authority_confirmed', 'authority_declaration_text', 'authority_confirmed_at']) {
+      expect(portal.includes(col)).toBe(false)
+    }
+  })
+
+  it('the future staff-verify columns are NOT written in PR 3 (authority declared, not verified)', () => {
+    // authority_verified_* must not be set by the sign action — they are reserved.
+    expect(signAction.includes('authority_verified_at:')).toBe(false)
+    expect(signAction.includes('authority_verified_by:')).toBe(false)
+  })
+})
+
 describe('IRD number is not rendered in the signed PDF/document', () => {
   it('the document does not render a Contractor IRD row', () => {
     expect(doc).not.toContain("'Contractor IRD No.'")
