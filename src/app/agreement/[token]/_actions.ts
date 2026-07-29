@@ -19,6 +19,7 @@ import { deriveInitialTaxReview } from '@/lib/tax-review'
 import { autoAssignInductionModules } from '@/lib/induction-modules'
 import { recordTaxDeclaration, validateTaxDeclaration } from '@/lib/tax-declaration'
 import { buildAgreementScheduleSnapshot } from '@/lib/agreement-schedule-snapshot'
+import { evaluateSendGuard } from '@/lib/agreement-send-guard'
 
 export interface SignAgreementInput {
   token: string
@@ -63,7 +64,7 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
   const svc = getServiceSupabase()
   const { data: agreement } = await svc
     .from('employment_agreements')
-    .select('id, status, agreement_type, position, hourly_rate, start_date, contractor_id, employee_id, is_test, service_schedules_snapshot, selected_service_schedule_ids')
+    .select('id, status, agreement_type, position, hourly_rate, start_date, contractor_id, employee_id, is_test, service_schedules_snapshot, selected_service_schedule_ids, no_service_schedules, no_service_schedules_reason')
     .eq('token', input.token)
     .maybeSingle()
   if (!agreement) return { error: 'Agreement not found.' }
@@ -93,6 +94,21 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
   let scheduleSnapshot: unknown | undefined
   if (isContractor && agreement.contractor_id && !agreement.service_schedules_snapshot) {
     const selected = (agreement.selected_service_schedule_ids as string[] | null) ?? []
+    // Same send-guard at sign time: an agreement reaching signing without a
+    // snapshot must still have either a selection or the explicit no-schedule
+    // exception — never a silent legacy-rate fallback.
+    const { count: eligibleCount } = await svc
+      .from('contractor_service_schedules')
+      .select('id', { count: 'exact', head: true })
+      .eq('contractor_id', agreement.contractor_id as string)
+      .in('status', ['draft', 'active'])
+    const guard = evaluateSendGuard({
+      eligibleCount: eligibleCount ?? 0,
+      selectedCount: selected.length,
+      noScheduleException: !!agreement.no_service_schedules,
+      noScheduleReason: (agreement.no_service_schedules_reason as string | null) ?? null,
+    })
+    if (!guard.ok) return { error: guard.error }
     scheduleSnapshot = await buildAgreementScheduleSnapshot(svc, agreement.contractor_id as string, selected)
   }
 

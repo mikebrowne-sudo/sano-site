@@ -75,7 +75,13 @@ export default async function AgreementDetailPage({ params }: { params: { id: st
       )}
 
       {!signed && a.agreement_type === 'contractor' && a.contractor_id && (
-        <ScheduleSelector agreementId={a.id as string} eligible={eligible} selectedIds={selectedIds} />
+        <ScheduleSelector
+          agreementId={a.id as string}
+          eligible={eligible}
+          selectedIds={selectedIds}
+          noSchedules={!!a.no_service_schedules}
+          noScheduleReason={(a.no_service_schedules_reason as string | null) ?? null}
+        />
       )}
 
       {!signed && (

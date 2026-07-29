@@ -41,9 +41,11 @@ export interface AgreementView {
   agreementVersion: string | null
   issuedAt: string | null
   /** Contractor service schedules presented on this agreement (Schedule A/B/…).
-   *  Absent/empty for employees, or a contractor with no schedules (falls back
-   *  to the single agreed-rate row). Display terms only. */
+   *  Absent/empty for employees. Display terms only. */
   scheduleBlocks?: AgreementScheduleBlock[]
+  /** Explicit staff choice that this contractor agreement has NO service schedule.
+   *  When true the document states so plainly instead of showing an agreed rate. */
+  noSchedules?: boolean
 }
 
 /** Map an employment_agreements DB row to the document view. */
@@ -96,6 +98,7 @@ export function agreementViewFromRow(a: any): AgreementView {
     scheduleBlocks: Array.isArray(a.service_schedules_snapshot)
       ? (a.service_schedules_snapshot as AgreementScheduleBlock[])
       : [],
+    noSchedules: !!a.no_service_schedules,
   }
 }
 
@@ -148,16 +151,20 @@ export function EmploymentAgreementDocument({
 
   const emergency = emergencyLine(a)
 
-  // When per-schedule blocks are present, each schedule carries its own pay
-  // terms below, so the single "Agreed rate" summary row is omitted to avoid
-  // implying one universal rate.
+  // Contractor rate/schedule presentation:
+  //  - schedule blocks present → each schedule carries its own terms below; omit
+  //    the single "Agreed rate" row (no universal rate implied).
+  //  - explicit no-schedule exception → omit the rate row too; a plain statement
+  //    below says no schedules are attached (never a misleading universal rate).
+  //  - genuine legacy (no blocks, no exception) → keep the legacy agreed-rate row.
   const scheduleBlocks = a.scheduleBlocks ?? []
   const hasSchedules = isContractor && scheduleBlocks.length > 0
+  const noSchedulesStated = isContractor && !hasSchedules && !!a.noSchedules
   const rows: [string, string][] = isContractor
     ? [
         ['Engagement', 'Independent Contractor'],
         ['Commencement date', fmtDate(a.startDate)],
-        ...(hasSchedules
+        ...(hasSchedules || noSchedulesStated
           ? []
           : [['Agreed rate', a.hourlyRate != null ? `$${Number(a.hourlyRate).toFixed(2)} per hour (inclusive of GST)` : '—'] as [string, string]]),
         ['Contractor GST No.', a.contractorGstNumber || '—'],
@@ -317,6 +324,16 @@ export function EmploymentAgreementDocument({
                     </div>
                   )
                 })}
+              </section>
+            )}
+
+            {/* Explicit no-service-schedule statement (contractor). Shown instead
+                of a schedules section / rate row so nothing implies a universal rate. */}
+            {noSchedulesStated && (
+              <section className="mb-7">
+                <div className="rounded-xl border border-sage-100 bg-sage-50/50 px-4 py-3">
+                  <p className="text-[13px] text-sage-700">No service schedules are attached to this agreement. Work and payment terms will be set out in a separate service schedule before any work is performed.</p>
+                </div>
               </section>
             )}
 
