@@ -1,0 +1,23 @@
+import { notFound } from 'next/navigation'
+import { getSetupByToken } from '@/lib/contractor-setup-data'
+import { ContractorSetupForm } from './_components/ContractorSetupForm'
+
+export const dynamic = 'force-dynamic'
+
+export default async function ContractorSetupTokenPage({ params }: { params: { token: string } }) {
+  const bundle = await getSetupByToken(params.token)
+  if (!bundle) notFound()
+
+  return (
+    <div className="min-h-screen bg-sage-50/40">
+      <div className="max-w-3xl mx-auto px-4 py-10">
+        <div className="mb-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-sage-500">Sano contractor setup</p>
+          <h1 className="text-3xl font-bold text-sage-800 tracking-tight mt-1">Welcome{bundle.contractor.fullName ? `, ${bundle.contractor.fullName.split(' ')[0]}` : ''}</h1>
+          <p className="text-sm text-sage-500 mt-1">Confirm your details and check your work arrangements below. This secure link is just for you — you can come back to it later.</p>
+        </div>
+        <ContractorSetupForm token={params.token} contractor={bundle.contractor} schedules={bundle.schedules} />
+      </div>
+    </div>
+  )
+}
