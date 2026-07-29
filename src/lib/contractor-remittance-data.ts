@@ -22,6 +22,14 @@ export interface RemittanceBatchLine {
   // (see _actions-remittance-batch). Null for fixed-price / legacy lines.
   hours: number | null
   amount: number
+  // Frozen schedular tax breakdown (PR 9). Non-null only when the line was
+  // frozen from an approved payment tax snapshot; null/absent for ordinary lines
+  // and all pre-PR-9 remittances. Read-only passthrough of the persisted figures.
+  grossExGst?: number | null
+  gstAmount?: number | null
+  whtRate?: number | null
+  whtAmount?: number | null
+  netPaid?: number | null
 }
 
 export interface RemittanceBatch {
@@ -55,7 +63,7 @@ interface Header {
 async function build(svc: SupabaseClient, h: Header): Promise<RemittanceBatch> {
   const { data: itemsRaw } = await svc
     .from('contractor_remittance_items')
-    .select('kind, contractor_name, job_number, job_address, note, label, hours, amount, sort, contractor_invoices ( job_id, service_date, gst_supply_date, jobs ( completed_at ) )')
+    .select('kind, contractor_name, job_number, job_address, note, label, hours, amount, gross_ex_gst, gst_amount, wht_rate, wht_amount, net_paid, sort, contractor_invoices ( job_id, service_date, gst_supply_date, jobs ( completed_at ) )')
     .eq('remittance_id', h.id)
     .order('sort', { ascending: true })
 
@@ -83,6 +91,11 @@ async function build(svc: SupabaseClient, h: Header): Promise<RemittanceBatch> {
       label: (it.label as string | null) ?? null,
       hours: (it.hours as number | null) ?? null,
       amount: (it.amount as number) ?? 0,
+      grossExGst: (it.gross_ex_gst as number | null) ?? null,
+      gstAmount: (it.gst_amount as number | null) ?? null,
+      whtRate: (it.wht_rate as number | null) ?? null,
+      whtAmount: (it.wht_amount as number | null) ?? null,
+      netPaid: (it.net_paid as number | null) ?? null,
     }
   })
   const total = Math.round(lines.reduce((s, l) => s + l.amount, 0) * 100) / 100

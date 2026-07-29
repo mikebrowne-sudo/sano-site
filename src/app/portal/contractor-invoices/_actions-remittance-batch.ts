@@ -16,6 +16,9 @@ import { isAdminUser } from '@/lib/is-admin'
 import { getWorkerPayableHours } from '@/lib/job-cost'
 import { reconcileRemittanceHours } from '@/lib/remittance-hours'
 import { seedRemittanceNote } from '@/lib/remittance-address'
+import { resolveContractorServiceDate } from '@/lib/contractor-service-date'
+import { toNzCalendarDate } from '@/lib/contractor-statement-period'
+import { resolveRemittanceLineTax, type ApprovedSnapshotForRemittance } from '@/lib/contractor-remittance-tax'
 import { revalidatePath } from 'next/cache'
 
 export interface RemittanceAdjustmentInput {
@@ -44,8 +47,10 @@ interface CIRow {
   pay_hours: number | null
   site_label: string | null
   period_label: string | null
+  service_date: string | null
+  gst_supply_date: string | null
   contractors: { full_name: string | null } | null
-  jobs: { job_number: string | null; address: string | null } | null
+  jobs: { job_number: string | null; address: string | null; completed_at: string | null } | null
 }
 
 interface WorkerRow {
@@ -74,7 +79,7 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
   const { data: ciRaw, error: ciErr } = ciIds.length > 0
     ? await supabase
         .from('contractor_invoices')
-        .select('id, amount, notes:notes, contractor_id, job_id, payment_type, pay_basis, pay_hours, site_label, period_label, contractors ( full_name ), jobs ( job_number, address )')
+        .select('id, amount, notes:notes, contractor_id, job_id, payment_type, pay_basis, pay_hours, site_label, period_label, service_date, gst_supply_date, contractors ( full_name ), jobs ( job_number, address, completed_at )')
         .in('id', ciIds)
     : { data: [] as unknown[], error: null }
   if (ciErr) return { error: `Could not load invoices: ${ciErr.message}` }
@@ -117,6 +122,47 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
     return reconcileRemittanceHours(payable, w.pay_rate, ci.amount ?? 0)
   }
 
+  // Freeze the per-line tax breakdown (PR 9) from the APPROVED payment tax
+  // snapshot, when one unambiguously matches the line's contractor + supply
+  // date. Ordinary/non-schedular lines with no approved snapshot stay
+  // amount-only (all tax columns null) — unchanged from today. Ambiguous
+  // matches (>1 approved snapshot for the same contractor + supply date) are
+  // NEVER guessed: the line stays unfrozen. Figures are copied, never recomputed.
+  const ciContractorIds = Array.from(new Set(cis.map((c) => c.contractor_id).filter((x): x is string => !!x)))
+  let approvedSnapshots: ApprovedSnapshotForRemittance[] = []
+  if (ciContractorIds.length > 0) {
+    const { data: snapRaw } = await supabase
+      .from('contractor_payment_tax_snapshots')
+      .select('id, contractor_id, status, calc_status, supply_date, gross_ex_gst, gst_amount, withholding_rate, withholding_amount, net_bank, tax_declaration_id')
+      .eq('status', 'approved')
+      .eq('calc_status', 'ok')
+      .in('contractor_id', ciContractorIds)
+    approvedSnapshots = ((snapRaw ?? []) as Array<Record<string, unknown>>).map((s) => ({
+      id: s.id as string,
+      contractorId: s.contractor_id as string,
+      status: s.status as string,
+      calcStatus: s.calc_status as string,
+      supplyDate: s.supply_date as string,
+      grossExGst: s.gross_ex_gst == null ? null : Number(s.gross_ex_gst),
+      gstAmount: s.gst_amount == null ? null : Number(s.gst_amount),
+      withholdingRate: s.withholding_rate == null ? null : Number(s.withholding_rate),
+      withholdingAmount: s.withholding_amount == null ? null : Number(s.withholding_amount),
+      netBank: s.net_bank == null ? null : Number(s.net_bank),
+      taxDeclarationId: (s.tax_declaration_id as string | null) ?? null,
+    }))
+  }
+
+  function frozenTaxFor(ci: CIRow & { notes: string | null }) {
+    const supplyDate = resolveContractorServiceDate({
+      job_id: ci.job_id,
+      job_completed_at_nz: toNzCalendarDate(ci.jobs?.completed_at ?? null),
+      service_date: ci.service_date,
+      gst_supply_date: ci.gst_supply_date,
+    }).date
+    const r = resolveRemittanceLineTax(ci.contractor_id, supplyDate, approvedSnapshots)
+    return r.kind === 'frozen' ? r.tax : null
+  }
+
   // Create unpaid by default; only stamp paid_at when explicitly marking paid.
   const markPaid = input.markPaid === true
 
@@ -148,6 +194,7 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
       const isFixed = ci.payment_type === 'fixed_contract'
       const fixedPrimary = isFixed ? (ci.site_label?.trim() || null) : null
       const fixedDetail = isFixed ? (ci.period_label?.trim() || null) : null
+      const tax = frozenTaxFor(ci)
       return {
         remittance_id: header.id,
         kind: 'invoice',
@@ -161,6 +208,15 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
         hours: isFixed ? null : snapshotHours(ci),
         amount: ci.amount ?? 0,
         sort: sort++,
+        // Frozen tax breakdown (PR 9) — null on ordinary/non-schedular lines.
+        contractor_payment_snapshot_id: tax?.contractor_payment_snapshot_id ?? null,
+        gross_ex_gst: tax?.gross_ex_gst ?? null,
+        gst_amount: tax?.gst_amount ?? null,
+        wht_rate: tax?.wht_rate ?? null,
+        wht_amount: tax?.wht_amount ?? null,
+        net_paid: tax?.net_paid ?? null,
+        tax_declaration_id: tax?.tax_declaration_id ?? null,
+        supply_date: tax?.supply_date ?? null,
       }
     }),
     ...adjustments.map((a) => ({
@@ -176,6 +232,14 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
       hours: null,
       amount: Math.round(a.amount * 100) / 100,
       sort: sort++,
+      contractor_payment_snapshot_id: null,
+      gross_ex_gst: null,
+      gst_amount: null,
+      wht_rate: null,
+      wht_amount: null,
+      net_paid: null,
+      tax_declaration_id: null,
+      supply_date: null,
     })),
   ]
   const { error: iErr } = await supabase.from('contractor_remittance_items').insert(items)

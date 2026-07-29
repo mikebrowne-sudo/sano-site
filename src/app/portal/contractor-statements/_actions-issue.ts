@@ -18,6 +18,7 @@ import { Resend } from 'resend'
 import { resolveContractorServiceDate } from '@/lib/contractor-service-date'
 import { toNzCalendarDate } from '@/lib/contractor-statement-period'
 import { resolveSupplierIdentity, buildIssuedSnapshot, type SnapshotLineInput, type IssuedSnapshot } from '@/lib/contractor-statement-snapshot'
+import { resolveRemittanceLineTax, type ApprovedSnapshotForRemittance } from '@/lib/contractor-remittance-tax'
 
 const DEFAULT_REVIEW_DAYS = 5
 
@@ -170,6 +171,29 @@ export async function issueContractorStatement(input: { id: string; review_due_a
     for (const w of (jw ?? []) as Array<{ job_id: string; pay_rate: number | null }>) rateByJob.set(w.job_id, w.pay_rate)
   }
 
+  // Frozen schedular tax breakdown (PR 9): freeze from the contractor's APPROVED
+  // payment tax snapshots, matched by supply date. Non-schedular lines stay
+  // amount-only. Figures are copied from the snapshot, never recomputed.
+  const { data: snapRaw } = await supabase
+    .from('contractor_payment_tax_snapshots')
+    .select('id, contractor_id, status, calc_status, supply_date, gross_ex_gst, gst_amount, withholding_rate, withholding_amount, net_bank, tax_declaration_id')
+    .eq('status', 'approved')
+    .eq('calc_status', 'ok')
+    .eq('contractor_id', stmt.contractor_id)
+  const approvedSnapshots: ApprovedSnapshotForRemittance[] = ((snapRaw ?? []) as Array<Record<string, unknown>>).map((s) => ({
+    id: s.id as string,
+    contractorId: s.contractor_id as string,
+    status: s.status as string,
+    calcStatus: s.calc_status as string,
+    supplyDate: s.supply_date as string,
+    grossExGst: s.gross_ex_gst == null ? null : Number(s.gross_ex_gst),
+    gstAmount: s.gst_amount == null ? null : Number(s.gst_amount),
+    withholdingRate: s.withholding_rate == null ? null : Number(s.withholding_rate),
+    withholdingAmount: s.withholding_amount == null ? null : Number(s.withholding_amount),
+    netBank: s.net_bank == null ? null : Number(s.net_bank),
+    taxDeclarationId: (s.tax_declaration_id as string | null) ?? null,
+  }))
+
   const lines: SnapshotLineInput[] = cis.map((ci) => {
     const service = resolveContractorServiceDate({
       job_id: ci.job_id,
@@ -177,6 +201,8 @@ export async function issueContractorStatement(input: { id: string; review_due_a
       service_date: ci.service_date,
       gst_supply_date: ci.gst_supply_date,
     }).date
+    const taxR = resolveRemittanceLineTax(ci.contractor_id, service, approvedSnapshots)
+    const tax = taxR.kind === 'frozen' ? taxR.tax : null
     return {
       contractor_invoice_id: ci.id,
       invoice_number: ci.invoice_number,
@@ -190,6 +216,12 @@ export async function issueContractorStatement(input: { id: string; review_due_a
       amount: Number(ci.amount),
       gst_status: ci.gst_status,
       gst_amount: ci.gst_amount == null ? null : Number(ci.gst_amount),
+      contractor_payment_snapshot_id: tax?.contractor_payment_snapshot_id ?? null,
+      gross_ex_gst: tax?.gross_ex_gst ?? null,
+      wht_rate: tax?.wht_rate ?? null,
+      wht_amount: tax?.wht_amount ?? null,
+      net_paid: tax?.net_paid ?? null,
+      tax_declaration_id: tax?.tax_declaration_id ?? null,
     }
   })
 
@@ -230,6 +262,7 @@ export async function issueContractorStatement(input: { id: string; review_due_a
       review_due_at: reviewDueAt,
       subtotal: snapshot.subtotal,
       gst_total: snapshot.gst_total,
+      wht_total: snapshot.wht_total,
       total_payable: snapshot.total_payable,
     },
   })
