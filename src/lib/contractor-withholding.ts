@@ -36,7 +36,8 @@ export function withholdingPeriod(payday: string): IrdPeriod {
 }
 
 /** Map an approved snapshot + payday to the frozen withholding-line row (the
- *  ird_liability_id + contractor_id are supplied by the caller). */
+ *  withholding_period_id + contractor_id are supplied by the caller). The frozen
+ *  figures must match the snapshot exactly (the DB trigger enforces it too). */
 export function snapshotToWithholdingRow(s: ApprovedSnapshotForWithholding, payday: string): Record<string, unknown> {
   return {
     contractor_id: s.contractorId,

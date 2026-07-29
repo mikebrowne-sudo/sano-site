@@ -77,4 +77,81 @@ describe('migration + action safeguards (source-level)', () => {
   it('no money movement / bank write in the withholding actions', () => {
     for (const t of ['bank_transactions', 'stripe', 'payout']) expect(action).not.toContain(t)
   })
+
+  // §1 — DB-level snapshot enforcement + exact frozen agreement.
+  it('§1 a DB trigger re-validates the snapshot on insert (approved/ok/schedular/wht>0/contractor)', () => {
+    expect(sql).toMatch(/create or replace function public\.cwl_validate_snapshot/)
+    expect(sql).toMatch(/snapshot must be approved/)
+    expect(sql).toMatch(/snapshot calc must be ok/)
+    expect(sql).toMatch(/snapshot must be schedular_payment/)
+    expect(sql).toMatch(/snapshot has no withholding/)
+    expect(sql).toMatch(/contractor mismatch with snapshot/)
+    expect(sql).toMatch(/cwl_validate_snapshot_trg before insert/)
+  })
+  it('§1 the line figures must match the snapshot exactly (no recalculation)', () => {
+    expect(sql).toMatch(/line figures must match the snapshot exactly/)
+    // The exact-match check covers all six frozen figures.
+    for (const col of ['supply_date', 'withholding_rate', 'gross_ex_gst', 'withholding_amount', 'net_bank', 'calc_version']) {
+      expect(sql).toMatch(new RegExp(`s\\.${col} is distinct from new\\.${col}`))
+    }
+  })
+
+  // §2 — filing / correction lifecycle constraints + triggers.
+  it('§2 not_filed forbids filing metadata; filed/accepted require it', () => {
+    expect(sql).toMatch(/cwl_not_filed_no_meta[\s\S]*filed_at is null and filed_by is null/)
+    expect(sql).toMatch(/cwl_filed_requires_meta[\s\S]*filed_at is not null and filed_by is not null/)
+  })
+  it('§2 filing_reference is optional for filed but required before accepted', () => {
+    expect(sql).toMatch(/cwl_accepted_requires_reference[\s\S]*filing_status <> 'accepted' or \(filing_reference is not null/)
+    expect(action).toMatch(/A filing reference is required before marking a filing accepted/)
+  })
+  it('§2 accepted cannot revert to not_filed (DB-enforced; action type cannot target it)', () => {
+    expect(sql).toMatch(/an accepted filing cannot revert to not_filed/)
+    // The server action's filingStatus type excludes 'not_filed', so it can never request the revert.
+    expect(action).toMatch(/filingStatus: 'filed' \| 'accepted' \| 'correction_required'/)
+  })
+  it('§2 filing metadata cannot be cleared once filed/accepted', () => {
+    expect(sql).toMatch(/filing metadata cannot be cleared once filed/)
+  })
+  it('§2 supersession/void require their metadata; self-supersession blocked', () => {
+    expect(sql).toMatch(/cwl_superseded_requires_meta[\s\S]*superseded_at is not null and superseded_by_id is not null and correction_reason is not null/)
+    expect(sql).toMatch(/cwl_void_requires_reason[\s\S]*status <> 'void' or correction_reason is not null/)
+    expect(sql).toMatch(/cwl_no_self_supersede check \(superseded_by_id is null or superseded_by_id <> id\)/)
+    expect(sql).toMatch(/cwl_no_self_supersedes check \(supersedes_id is null or supersedes_id <> id\)/)
+  })
+  it('§2 a superseding correction must belong to the same contractor + lineage refs RESTRICT', () => {
+    expect(sql).toMatch(/cwl_same_contractor[\s\S]*same contractor/)
+    expect(sql).toMatch(/supersedes_id\s+uuid references public\.contractor_withholding_lines\(id\) on delete restrict/)
+    expect(sql).toMatch(/superseded_by_id\s+uuid references public\.contractor_withholding_lines\(id\) on delete restrict/)
+  })
+  it('§2 only dedicated server actions transition filing status', () => {
+    expect(action).toMatch(/export async function setWithholdingFilingStatus/)
+  })
+
+  // §3 — recorded payments immutable + reversible.
+  it('§3 recorded payments are immutable + cannot be deleted', () => {
+    expect(sql).toMatch(/cwp_block_fact_updates[\s\S]*a recorded payment is immutable/)
+    expect(sql).toMatch(/cwp_block_delete[\s\S]*cannot be deleted — reverse them instead/)
+  })
+  it('§3 a reversal requires a reason and preserves the original (status active|reversed)', () => {
+    expect(sql).toMatch(/status\s+text not null default 'active' check \(status in \('active','reversed'\)\)/)
+    expect(sql).toMatch(/cwp_reversed_requires_reason[\s\S]*reversed_at is not null and reversal_reason is not null/)
+    expect(sql).toMatch(/reverses_id\s+uuid references public\.contractor_withholding_payments\(id\) on delete restrict/)
+    expect(action).toMatch(/export async function reverseWithholdingPayment/)
+    expect(action).toMatch(/A reversal reason is required/)
+  })
+  it('§3 the action reverses (never edits/deletes) and can record a corrective payment', () => {
+    expect(action).toMatch(/status: 'reversed'[\s\S]*reversed_at[\s\S]*reversal_reason/)
+    expect(action).toMatch(/reverses_id: input\.paymentId/)
+    // No .delete() on the payments table anywhere in the actions.
+    expect(action).not.toMatch(/contractor_withholding_payments'\)[\s\S]{0,40}\.delete\(/)
+  })
+
+  // §4 — liability-period isolation from the PAYE/GST ledger.
+  it('§4 contractor withholding uses its OWN period table, never ird_liabilities', () => {
+    expect(sql).toMatch(/create table if not exists public\.contractor_withholding_periods/)
+    // The actions never QUERY ird_liabilities (only a comment may name it for contrast).
+    expect(action).not.toMatch(/\.from\('ird_liabilities'\)/)
+    expect(sql).toMatch(/withholding_period_id uuid not null references public\.contractor_withholding_periods\(id\) on delete restrict/)
+  })
 })

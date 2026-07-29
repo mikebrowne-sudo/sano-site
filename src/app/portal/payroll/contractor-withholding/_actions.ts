@@ -18,14 +18,16 @@ async function admin() {
 }
 const revalidate = () => revalidatePath('/portal/payroll/contractor-withholding')
 
-/** Ensure the ird_liabilities period row for a payday exists; return its id. */
+/** Ensure the CONTRACTOR-withholding period row for a payday exists; return its
+ *  id. Uses the isolated contractor_withholding_periods (never ird_liabilities),
+ *  so contractor withholding can't attach to a PAYE/GST period. */
 async function ensurePeriod(supabase: ReturnType<typeof createClient>, payday: string): Promise<string | null> {
   const p = withholdingPeriod(payday)
-  await supabase.from('ird_liabilities').upsert(
+  await supabase.from('contractor_withholding_periods').upsert(
     { period_key: p.periodKey, period_start: p.periodStart, period_end: p.periodEnd, due_date: p.dueDate },
     { onConflict: 'period_key', ignoreDuplicates: true },
   )
-  const { data } = await supabase.from('ird_liabilities').select('id').eq('period_key', p.periodKey).maybeSingle()
+  const { data } = await supabase.from('contractor_withholding_periods').select('id').eq('period_key', p.periodKey).maybeSingle()
   return (data?.id as string) ?? null
 }
 
@@ -57,11 +59,11 @@ export async function createWithholdingLine(snapshotId: string, payday: string):
   if (err) return { error: err }
 
   const periodId = await ensurePeriod(supabase, payday)
-  if (!periodId) return { error: 'Could not resolve the IRD period.' }
+  if (!periodId) return { error: 'Could not resolve the withholding period.' }
 
   const { data: line, error: insErr } = await supabase
     .from('contractor_withholding_lines')
-    .insert({ ...snapshotToWithholdingRow(source, payday), ird_liability_id: periodId, created_by: user.id })
+    .insert({ ...snapshotToWithholdingRow(source, payday), withholding_period_id: periodId, created_by: user.id })
     .select('id').single()
   if (insErr) {
     if ((insErr as { code?: string }).code === '23505') return { error: 'A withholding line already exists for this snapshot.' }
@@ -86,13 +88,23 @@ export async function setWithholdingFilingStatus(
 ): Promise<{ ok?: true; error?: string }> {
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
-  const { data: line } = await supabase.from('contractor_withholding_lines').select('id, status, filing_status').eq('id', lineId).maybeSingle()
+  const { data: line } = await supabase.from('contractor_withholding_lines').select('id, status, filing_status, filed_at').eq('id', lineId).maybeSingle()
   if (!line) return { error: 'Line not found.' }
   if (line.status !== 'active') return { error: 'This line is no longer current.' }
 
+  // accepted is terminal — this action can never target not_filed (see type), so the
+  // only revert risk is DB-side, where cwl_block_fact_updates blocks it. Here we only
+  // guard the forward transitions.
+  if (filingStatus === 'accepted' && !(filingReference ?? '').trim()) return { error: 'A filing reference is required before marking a filing accepted.' }
+
   const nowIso = new Date().toISOString()
-  const patch: Record<string, unknown> = { filing_status: filingStatus, filing_reference: filingReference || null }
-  if (filingStatus === 'filed') { patch.filed_at = nowIso; patch.filed_by = user.id }
+  // filed_at/by are set for filed AND accepted, and preserved once set.
+  const patch: Record<string, unknown> = { filing_status: filingStatus }
+  if (filingReference != null) patch.filing_reference = filingReference || null
+  const alreadyFiled = (line as { filed_at?: string | null }).filed_at != null
+  if ((filingStatus === 'filed' || filingStatus === 'accepted' || filingStatus === 'correction_required') && !alreadyFiled) {
+    patch.filed_at = nowIso; patch.filed_by = user.id
+  }
   const { error } = await supabase.from('contractor_withholding_lines').update(patch).eq('id', lineId)
   if (error) return { error: error.message }
   await supabase.from('audit_log').insert({
@@ -107,19 +119,57 @@ export async function setWithholdingFilingStatus(
 /** Record an EXISTING IRD payment for a period (records, never initiates). */
 export async function recordWithholdingPayment(input: {
   periodId: string; paymentDate: string; amount: number; irdReference?: string | null; notes?: string | null
-}): Promise<{ ok?: true; error?: string }> {
+}): Promise<{ ok?: true; id?: string; error?: string }> {
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
   if (!(input.amount > 0)) return { error: 'The payment amount must be greater than zero.' }
-  const { error } = await supabase.from('contractor_withholding_payments').insert({
-    ird_liability_id: input.periodId, payment_date: input.paymentDate, amount: input.amount,
+  const { data, error } = await supabase.from('contractor_withholding_payments').insert({
+    withholding_period_id: input.periodId, payment_date: input.paymentDate, amount: input.amount,
     ird_reference: input.irdReference || null, notes: input.notes || null, recorded_by: user.id,
-  })
+  }).select('id').single()
   if (error) return { error: error.message }
   await supabase.from('audit_log').insert({
     actor_id: user.id, actor_role: 'admin', action: 'contractor_withholding.payment_recorded',
-    entity_table: 'contractor_withholding_payments', entity_id: input.periodId,
+    entity_table: 'contractor_withholding_payments', entity_id: data.id,
     before: null, after: { amount: input.amount, date: input.paymentDate },
+  })
+  revalidate()
+  return { ok: true, id: data.id as string }
+}
+
+/**
+ * Reverse a recorded payment (never edit/delete). Marks the original reversed
+ * (with a reason) and, if a corrective amount is given, records a NEW payment that
+ * references the reversed one. Both records are retained. Records only — no bank
+ * payment is initiated.
+ */
+export async function reverseWithholdingPayment(input: {
+  paymentId: string; reason: string; correction?: { paymentDate: string; amount: number; irdReference?: string | null } | null
+}): Promise<{ ok?: true; error?: string }> {
+  const { supabase, user } = await admin()
+  if (!user) return { error: 'Admin only.' }
+  if (!input.reason?.trim()) return { error: 'A reversal reason is required.' }
+  const { data: p } = await supabase.from('contractor_withholding_payments').select('id, withholding_period_id, status').eq('id', input.paymentId).maybeSingle()
+  if (!p) return { error: 'Payment not found.' }
+  if (p.status !== 'active') return { error: 'This payment is already reversed.' }
+
+  const nowIso = new Date().toISOString()
+  const { error: revErr } = await supabase.from('contractor_withholding_payments')
+    .update({ status: 'reversed', reversed_at: nowIso, reversed_by: user.id, reversal_reason: input.reason.trim() })
+    .eq('id', input.paymentId).eq('status', 'active')
+  if (revErr) return { error: revErr.message }
+
+  if (input.correction && input.correction.amount > 0) {
+    await supabase.from('contractor_withholding_payments').insert({
+      withholding_period_id: p.withholding_period_id, payment_date: input.correction.paymentDate,
+      amount: input.correction.amount, ird_reference: input.correction.irdReference || null,
+      reverses_id: input.paymentId, recorded_by: user.id,
+    })
+  }
+  await supabase.from('audit_log').insert({
+    actor_id: user.id, actor_role: 'admin', action: 'contractor_withholding.payment_reversed',
+    entity_table: 'contractor_withholding_payments', entity_id: input.paymentId,
+    before: { status: 'active' }, after: { status: 'reversed', reason: input.reason.trim() },
   })
   revalidate()
   return { ok: true }
