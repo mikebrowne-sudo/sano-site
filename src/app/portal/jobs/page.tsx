@@ -17,7 +17,9 @@ import { parsePerParam } from '../_components/rows-per-page'
 import { getJobAttention } from '@/lib/attention-rules'
 import { getJobStatus } from '@/lib/job-status'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
+import clsx from 'clsx'
 import { isAdminUser } from '@/lib/is-admin'
+import { loadJobMargins } from '@/lib/job-margin'
 
 // Phase 4C — tabs sourced from list-config. Parser stays here so the
 // URL `?tab=` query coerces against the same allowed set.
@@ -80,6 +82,8 @@ export default async function JobsPage({
   searchParams: { view?: string; contractor?: string; sort?: string; q?: string; tab?: string; show_archived?: string; page?: string; per?: string }
 }) {
   const supabase = createClient()
+  // Fetched early so the admin-only Margin column can gate its computation.
+  const { data: { user } } = await supabase.auth.getUser()
 
   const view = searchParams.view ?? ''
   const contractorFilter = searchParams.contractor ?? ''
@@ -140,7 +144,7 @@ export default async function JobsPage({
 
   let query = supabase
     .from('jobs')
-    .select('id, job_number, title, address, status, scheduled_date, scheduled_time, assigned_to, contractor_id, quote_id, invoice_id, job_price, completed_at, started_at, created_at, is_test, deleted_at, clients ( name, company_name ), source_quote:quotes!quote_id ( id, quote_number ), linked_invoice:invoices!invoice_id ( id, invoice_number, status )', { count: 'exact' })
+    .select('id, job_number, title, address, status, scheduled_date, scheduled_time, assigned_to, contractor_id, quote_id, invoice_id, job_price, allowed_hours, completed_at, started_at, created_at, is_test, deleted_at, clients ( name, company_name ), source_quote:quotes!quote_id ( id, quote_number ), linked_invoice:invoices!invoice_id ( id, invoice_number, status )', { count: 'exact' })
 
   // Live record rule: deleted_at IS NULL AND is_test = false unless
   // the operator has explicitly enabled show-archived/test.
@@ -278,6 +282,8 @@ export default async function JobsPage({
       status: j.status ?? 'draft',
       displayStatus,
       jobPrice: (j as { job_price?: number | null }).job_price ?? null,
+      allowedHours: (j as { allowed_hours?: number | null }).allowed_hours ?? null,
+      margin: null as import('@/lib/job-margin').JobMargin | null,
       scheduled_date: j.scheduled_date,
       scheduledTime: j.scheduled_time as string | null,
       isTest: !!(j as { is_test?: boolean }).is_test,
@@ -309,6 +315,17 @@ export default async function JobsPage({
     rows = flagged.slice(from, to + 1)
   }
 
+  // Job margin (admin-only, display-only): compute for the PAGINATED rows only —
+  // one batched job_workers query, never the whole table. price − labour − ACC
+  // via the canonical calculateVariance (same figure as the job detail page).
+  if (isAdminUser(user)) {
+    const margins = await loadJobMargins(
+      supabase,
+      rows.map((r) => ({ id: r.id as string, jobPrice: r.jobPrice, allowedHours: r.allowedHours })),
+    )
+    rows = rows.map((r) => ({ ...r, margin: margins.get(r.id as string) ?? null }))
+  }
+
   // Phase 5A — strict single-line cell renderers.
   // No inner anchors (the row-href Link in <PortalListTable> handles
   // navigation), no pill chrome on linked records, no content that
@@ -330,6 +347,11 @@ export default async function JobsPage({
       case 'address':        return row.address ? <span className="block max-w-[220px] truncate" title={row.address}>{row.address}</span> : <span className="text-sage-400">—</span>
       case 'value':          return row.jobPrice != null
                                   ? <span className="font-medium text-sage-800 whitespace-nowrap tabular-nums">{fmtCurrency(row.jobPrice)}</span>
+                                  : <span className="text-sage-400">—</span>
+      case 'margin':         return row.margin && row.margin.jobPrice > 0
+                                  ? <span className={clsx('whitespace-nowrap tabular-nums font-medium', row.margin.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600')}>
+                                      {fmtCurrency(row.margin.grossProfit)}<span className="text-sage-400 font-normal ml-1">({row.margin.marginPercent}%)</span>
+                                    </span>
                                   : <span className="text-sage-400">—</span>
       case 'assigned_to':    return row.assigned_to
                                   ? <span className="whitespace-nowrap">{row.assigned_to}</span>
@@ -360,13 +382,16 @@ export default async function JobsPage({
   }
 
   function alignFor(key: string): 'left' | 'right' {
-    return key === 'value' ? 'right' : 'left'
+    return key === 'value' || key === 'margin' ? 'right' : 'left'
   }
 
   // Resolve the visible-fields list against the registry order so
   // columns render in a predictable order regardless of save order.
+  // The Margin column is admin-only: even if its display-settings flag is on,
+  // it is hidden for non-admins (and its value was never computed for them).
+  const isAdminForCols = isAdminUser(user)
   const orderedVisible = JOB_FIELDS
-    .filter((f) => f.contexts.includes('list') && visible.has(f.key))
+    .filter((f) => f.contexts.includes('list') && visible.has(f.key) && (f.key !== 'margin' || isAdminForCols))
     .map((f) => f.key)
 
   // Mobile card uses primary + secondary explicitly.
@@ -383,6 +408,7 @@ export default async function JobsPage({
       case 'company':        return row.company
       case 'address':        return row.address || '—'
       case 'value':          return row.jobPrice != null ? fmtCurrency(row.jobPrice) : '—'
+      case 'margin':         return row.margin && row.margin.jobPrice > 0 ? `${fmtCurrency(row.margin.grossProfit)} (${row.margin.marginPercent}%)` : '—'
       case 'assigned_to':    return row.assigned_to || 'Unassigned'
       case 'status':         return row.displayStatus
       case 'scheduled_date': return fmtDate(row.scheduled_date)
@@ -409,7 +435,6 @@ export default async function JobsPage({
   // Phase 4C — admin gate is needed for any future adminOnly actions
   // declared in the config. None on jobs today, but the filter keeps
   // the rendering symmetric with invoices.
-  const { data: { user } } = await supabase.auth.getUser()
   const isAdmin = isAdminUser(user)
   const headerActions = JOBS_LIST_CONFIG.actions
     .filter((a) => !a.adminOnly || isAdmin)
