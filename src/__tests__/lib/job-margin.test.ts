@@ -115,11 +115,35 @@ describe('surfaces are gated + read-only (source-level)', () => {
       expect(reportLib).not.toContain(w)
     }
   })
-  it('review-flagged jobs float to the top + link to the job to fix it', () => {
-    // Sort puts needsCostReview first.
+  it('review-flagged jobs float to the top by default + link to the job to fix it', () => {
+    // Default sort puts needsCostReview first.
     expect(reportLib).toMatch(/if \(a\.needsCostReview !== b\.needsCostReview\) return a\.needsCostReview \? -1 : 1/)
     // The report row links a flagged job to its detail page (the fix screen).
     expect(reportPage).toMatch(/needsCostReview \? \([\s\S]{0,200}\/portal\/jobs\/\$\{r\.id\}/)
     expect(reportPage).toMatch(/No contractor|No hours\/rate/)
+  })
+
+  it('supports invoiced / customer / margin-sort filters (builder + CSV honour them)', () => {
+    // Invoiced status → SQL on invoice_id.
+    expect(reportLib).toMatch(/invoiced === 'invoiced'[\s\S]{0,80}\.not\('invoice_id', 'is', null\)/)
+    expect(reportLib).toMatch(/\.is\('invoice_id', null\)/)
+    // Customer filter → client_id.
+    expect(reportLib).toMatch(/opts\.customerId[\s\S]{0,40}\.eq\('client_id', opts\.customerId\)/)
+    // Margin sort desc/asc bypasses the review-pin.
+    expect(reportLib).toMatch(/sort === 'margin_desc'[\s\S]{0,60}b\.marginPercent - a\.marginPercent/)
+    expect(reportLib).toMatch(/sort === 'margin_asc'[\s\S]{0,60}a\.marginPercent - b\.marginPercent/)
+    // Customer dropdown built from a query NOT narrowed by the customer filter.
+    expect(reportLib).toMatch(/Customer dropdown options/)
+    expect(reportLib).toMatch(/const customers = Array\.from\(custMap/)
+    // CSV route reads the same filter params.
+    const csv = readFileSync(join(process.cwd(), 'src/app/api/finance/job-margins-csv/route.ts'), 'utf8')
+    expect(csv).toMatch(/invoiced/)
+    expect(csv).toMatch(/customer/)
+    expect(csv).toMatch(/sort/)
+  })
+
+  it('the period filter preserves other query params (merge, not replace)', () => {
+    const pf = readFileSync(join(process.cwd(), 'src/app/portal/finance/_components/PeriodFilter.tsx'), 'utf8')
+    expect(pf).toMatch(/new URLSearchParams\(searchParams\?\.toString\(\)/)
   })
 })
