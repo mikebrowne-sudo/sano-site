@@ -3,6 +3,7 @@
 // (schedule edits supersede, never overwrite). Server-side; no tax math.
 
 import { buildScheduleBlocks, type AgreementScheduleBlock, type ScheduleForBlock } from './agreement-schedule-blocks'
+import { getContractorSetupBundle, contractorSafeInsuranceSnapshot, type ContractorSafeInsurance } from './contractor-setup-data'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
@@ -64,4 +65,26 @@ export async function buildAgreementScheduleSnapshot(
 
   // Build in the STAFF-SELECTED order, eligibility enforced by buildScheduleBlocks.
   return buildScheduleBlocks(forBlocks, selected)
+}
+
+/**
+ * Compute the LIVE draft view augmentation (schedule blocks + contractor-safe
+ * insurance) for an unsigned contractor agreement, so the on-screen preview AND
+ * the draft PDF/print render identically. Used by BOTH the portal detail page and
+ * the portal print route — never the public sign page (which reads the frozen
+ * snapshot only). Returns null augmentation for non-contractor rows or once a
+ * snapshot has been frozen (sent/signed → the frozen values win).
+ */
+export async function liveDraftAgreementView(
+  supabase: SupabaseClient,
+  row: { agreement_type?: string | null; contractor_id?: string | null; service_schedules_snapshot?: unknown; selected_service_schedule_ids?: string[] | null },
+): Promise<{ scheduleBlocks?: AgreementScheduleBlock[]; insuranceArrangement?: ContractorSafeInsurance | null }> {
+  if (row.agreement_type !== 'contractor' || !row.contractor_id) return {}
+  if (row.service_schedules_snapshot) return {} // already frozen — caller keeps frozen values
+  const selectedIds = row.selected_service_schedule_ids ?? []
+  const [scheduleBlocks, bundle] = await Promise.all([
+    buildAgreementScheduleSnapshot(supabase, row.contractor_id, selectedIds),
+    getContractorSetupBundle(row.contractor_id),
+  ])
+  return { scheduleBlocks, insuranceArrangement: contractorSafeInsuranceSnapshot(bundle.insuranceDefault) }
 }

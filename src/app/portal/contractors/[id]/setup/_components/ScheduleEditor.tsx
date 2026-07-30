@@ -18,18 +18,21 @@ const METHODS: { v: PaymentMethod; l: string }[] = [
  *  verified withholding rate come from the contractor's (later-PR) tax status;
  *  in PR 1 the rate is passed as null when schedular, so the preview shows
  *  "pending" and never guesses. */
-export function ScheduleEditor({ contractorId, schedular, whtRate, existing }: {
+export function ScheduleEditor({ contractorId, schedular, whtRate, existing, clients = [] }: {
   contractorId: string
   schedular: boolean
   whtRate: number | null
   existing?: ServiceSchedule
+  /** Selectable customers/clients for the Customer field. Empty is tolerated
+   *  (the field just shows "— None —"). */
+  clients?: { id: string; name: string }[]
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [f, setF] = useState<ScheduleInput>(() => existing ? {
-    id: existing.id, name: existing.name, serviceAddress: existing.serviceAddress, classification: existing.classification,
+    id: existing.id, name: existing.name, customerClientId: existing.customerClientId, serviceAddress: existing.serviceAddress, classification: existing.classification,
     serviceType: existing.serviceType, workDescription: existing.workDescription, startDate: existing.startDate,
     term: existing.term, frequency: existing.frequency, expectedUnits: existing.expectedUnits,
     paymentMethod: existing.paymentMethod, paymentBasis: existing.paymentBasis, rateBasis: existing.rateBasis,
@@ -82,6 +85,12 @@ export function ScheduleEditor({ contractorId, schedular, whtRate, existing }: {
       <div className="grid sm:grid-cols-2 gap-3">
         <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Arrangement name *</span>
           <input className={input} value={f.name ?? ''} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Pukekohe Golf Club commercial cleaning" /></label>
+        <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Customer</span>
+          <select className={input} value={f.customerClientId ?? ''} onChange={(e) => set('customerClientId', e.target.value || null)}>
+            <option value="">— None —</option>
+            {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <span className="text-[10px] text-sage-400">The client this arrangement is for (e.g. Pukekohe Golf Club). Appears on the agreement schedule block.</span></label>
         <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Service type</span>
           <input className={input} value={f.serviceType ?? ''} onChange={(e) => set('serviceType', e.target.value)} placeholder="commercial cleaning" /></label>
         <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Classification</span>

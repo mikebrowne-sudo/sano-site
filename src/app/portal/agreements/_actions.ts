@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { sendAgreementLinkEmail } from '@/lib/resend'
 import { buildAgreementScheduleSnapshot } from '@/lib/agreement-schedule-snapshot'
 import { evaluateSendGuard } from '@/lib/agreement-send-guard'
+import { getContractorSetupBundle, contractorSafeInsuranceSnapshot } from '@/lib/contractor-setup-data'
 
 export async function createEmploymentAgreement(input: {
   agreementType: 'casual_employee' | 'permanent_employee' | 'contractor'
@@ -164,10 +165,25 @@ export async function sendAgreementLink(input: { agreementId: string; email: str
     })
     if (!guard.ok) return { error: guard.error }
 
+    // Resolve the effective (contractor_default) insurance arrangement. A
+    // pending_review arrangement BLOCKS send — we never freeze a guessed
+    // insurance clause onto a signed agreement. Only contractor-safe fields
+    // (mode/minCover/requiredType) are frozen; no insurer/policy/limit/notes.
+    const { insuranceDefault } = await getContractorSetupBundle(a.contractor_id as string)
+    if (insuranceDefault?.mode === 'pending_review') {
+      return { error: 'The contractor’s insurance arrangement is pending review. Resolve it (own required / covered by Sano / not required) before sending the agreement.' }
+    }
+    const insuranceSnapshot = contractorSafeInsuranceSnapshot(insuranceDefault)
+
     const blocks = await buildAgreementScheduleSnapshot(supabase, a.contractor_id as string, selected)
     await supabase
       .from('employment_agreements')
-      .update({ service_schedules_snapshot: blocks, service_schedules_snapshot_at: new Date().toISOString() })
+      .update({
+        service_schedules_snapshot: blocks,
+        service_schedules_snapshot_at: new Date().toISOString(),
+        insurance_arrangement_snapshot: insuranceSnapshot,
+        insurance_arrangement_snapshot_at: new Date().toISOString(),
+      })
       .eq('id', input.agreementId)
   }
 

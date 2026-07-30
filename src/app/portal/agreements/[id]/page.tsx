@@ -4,7 +4,7 @@ import { ArrowLeft, Link2, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { EmploymentAgreementDocument, agreementViewFromRow } from '@/components/EmploymentAgreementDocument'
-import { buildAgreementScheduleSnapshot } from '@/lib/agreement-schedule-snapshot'
+import { liveDraftAgreementView } from '@/lib/agreement-schedule-snapshot'
 import { CopyLinkButton } from './_components/CopyLinkButton'
 import { SendLinkForm } from './_components/SendLinkForm'
 import { ScheduleSelector, type EligibleSchedule } from './_components/ScheduleSelector'
@@ -23,14 +23,14 @@ export default async function AgreementDetailPage({ params }: { params: { id: st
   const link = `${origin}/agreement/${a.token}`
   const signed = a.status === 'signed'
 
-  // Staff preview of a contractor DRAFT: show ONLY the SELECTED schedules (live),
-  // unless a snapshot already exists (sent/signed → the frozen set wins). Never
-  // recomputes a signed agreement.
+  // Staff preview of a contractor DRAFT: show ONLY the SELECTED schedules + the
+  // live insurance arrangement, unless a snapshot already exists (sent/signed →
+  // the frozen set wins). Shared with the print/PDF route so preview == PDF.
   const selectedIds = (a.selected_service_schedule_ids as string[] | null) ?? []
   const view = agreementViewFromRow(a)
-  if (a.agreement_type === 'contractor' && a.contractor_id && !a.service_schedules_snapshot) {
-    view.scheduleBlocks = await buildAgreementScheduleSnapshot(supabase, a.contractor_id as string, selectedIds)
-  }
+  const live = await liveDraftAgreementView(supabase, a)
+  if (live.scheduleBlocks) view.scheduleBlocks = live.scheduleBlocks
+  if (live.insuranceArrangement !== undefined && !a.service_schedules_snapshot) view.insuranceArrangement = live.insuranceArrangement
 
   // Eligible schedules for the selection UI (unsigned contractor agreements only).
   let eligible: EligibleSchedule[] = []

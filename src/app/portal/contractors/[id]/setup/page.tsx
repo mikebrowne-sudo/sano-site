@@ -30,6 +30,13 @@ export default async function ContractorSetupPage({ params }: { params: { id: st
   if (!contractor) notFound()
 
   const { setup, schedules, insuranceDefault, insuranceOverrides } = await getContractorSetupBundle(params.id)
+  // Clients for the schedule Customer field (e.g. Pukekohe Golf Club).
+  const { data: clientRows } = await supabase
+    .from('clients')
+    .select('id, name')
+    .eq('is_archived', false)
+    .order('name', { ascending: true })
+  const clients = (clientRows ?? []).map((c) => ({ id: c.id as string, name: (c.name as string | null) ?? '' }))
   // PR 4: the REAL per-schedule tax gate. Each schedule is judged on its own
   // tax_treatment against the contractor's current verified declaration — a
   // verified IR330C does NOT make every schedule schedular.
@@ -101,12 +108,12 @@ export default async function ContractorSetupPage({ params }: { params: { id: st
                         {sch.agreedAmount != null && ` · ${formatCurrency(sch.agreedAmount)}`}
                       </div>
                     </div>
-                    <ScheduleEditor contractorId={params.id} schedular={schedular} whtRate={null} existing={sch} />
+                    <ScheduleEditor contractorId={params.id} schedular={schedular} whtRate={null} existing={sch} clients={clients} />
                   </li>
                 ))}
               </ul>
             )}
-            <ScheduleEditor contractorId={params.id} schedular={schedular} whtRate={null} />
+            <ScheduleEditor contractorId={params.id} schedular={schedular} whtRate={null} clients={clients} />
           </Panel>
 
           {/* Insurance */}
