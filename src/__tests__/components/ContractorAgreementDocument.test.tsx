@@ -1,12 +1,13 @@
 import { render, screen } from '@testing-library/react'
-import { EmploymentAgreementDocument, type AgreementView } from '@/components/EmploymentAgreementDocument'
+import { EmploymentAgreementDocument, agreementViewFromRow, type AgreementView } from '@/components/EmploymentAgreementDocument'
 import type { AgreementScheduleBlock } from '@/lib/agreement-schedule-blocks'
 
 const block = (o: Partial<AgreementScheduleBlock> & { id: string; label: string; name: string }): AgreementScheduleBlock => ({
   versionKey: null, effectiveFrom: null, customer: null, classification: null, serviceType: null,
   serviceAddress: null, startDate: null, frequency: null, term: null, paymentMethod: null,
   paymentBasis: null, rateBasis: null, agreedAmount: null, noticePeriod: null, priceReviewDate: null,
-  closureTreatment: null, additionalWorkApproval: null, equipmentProducts: null, ...o,
+  closureTreatment: null, additionalWorkApproval: null, equipmentProducts: null,
+  equipmentArrangement: null, productArrangement: null, ...o,
 })
 
 const view = (o: Partial<AgreementView> = {}): AgreementView => ({
@@ -95,5 +96,42 @@ describe('Contractor agreement document — Myrtle-shaped', () => {
     const t = text()
     expect(t).not.toContain('SHOULD-NOT-SHOW')   // legacy insurer row suppressed for covered_by_sano
     expect(t).not.toContain('SECRET-LIMIT')
+  })
+
+  it('renders the equipment + cleaning-product arrangement per schedule (labelled)', () => {
+    render(<EmploymentAgreementDocument wrapper="print-overlay" a={view({ scheduleBlocks: [
+      block({ id: 'e', label: 'Schedule A', name: 'Pukekohe', paymentMethod: 'fixed_monthly', paymentBasis: 'guaranteed_net', rateBasis: 'gst_exclusive', agreedAmount: 1500,
+        equipmentArrangement: 'contractor_supplied', productArrangement: 'sano_supplied' }),
+    ] })} />)
+    const t = text()
+    expect(t).toMatch(/Equipment/)
+    expect(t).toContain('Contractor supplied')  // equipment
+    expect(t).toContain('Sano supplied')        // products
+    expect(t).toMatch(/Cleaning products/)
+  })
+
+  it('omits equipment/product rows when not stated on the schedule', () => {
+    render(<EmploymentAgreementDocument wrapper="print-overlay" a={view({ scheduleBlocks: [RESIDENTIAL] })} />)
+    // RESIDENTIAL leaves both arrangements null → no supplied-by rows.
+    expect(text()).not.toContain('Contractor supplied')
+  })
+
+  it('clause 6.1 defers to the schedule (does not assume the contractor supplies everything)', () => {
+    render(<EmploymentAgreementDocument wrapper="print-overlay" a={view({ scheduleBlocks: [PUKEKOHE] })} />)
+    expect(text()).toMatch(/stated in the applicable service schedule or job confirmation/)
+    expect(text()).not.toMatch(/the Contractor will supply, at their own cost, the equipment/)
+  })
+
+  it('renders the linked customer from a FROZEN snapshot (agreementViewFromRow path)', () => {
+    // Simulate a sent/frozen agreement: the row carries service_schedules_snapshot.
+    const frozen = agreementViewFromRow({
+      agreement_type: 'contractor', start_date: '2026-08-01', hourly_rate: null,
+      service_schedules_snapshot: [PUKEKOHE],
+      insurance_arrangement_snapshot: { mode: 'covered_by_sano' },
+    })
+    render(<EmploymentAgreementDocument wrapper="print-overlay" a={frozen} />)
+    expect(screen.getByText('Pukekohe Golf Club')).toBeInTheDocument()
+    // frozen insurance drives clause 9 too
+    expect(text()).toMatch(/included under the Principal’s insurance arrangement/)
   })
 })

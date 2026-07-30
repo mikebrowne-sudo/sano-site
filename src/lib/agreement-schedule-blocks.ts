@@ -35,6 +35,9 @@ export interface AgreementScheduleBlock {
   closureTreatment: string | null
   additionalWorkApproval: string | null
   equipmentProducts: string | null
+  /** Who supplies equipment / cleaning products (option codes; labelled on render). */
+  equipmentArrangement: string | null
+  productArrangement: string | null
   /** INTERNAL: the tax classification that applied when this schedule was
    *  accepted. Preserved on the agreement snapshot for internal traceability —
    *  NOT rendered on the general signed PDF. */
@@ -64,6 +67,8 @@ export interface ScheduleForBlock {
   closureTreatment?: string | null
   additionalWorkApproval?: string | null
   equipmentProducts?: string | null
+  equipmentArrangement?: string | null
+  productArrangement?: string | null
   taxTreatment?: string | null
   status?: string
 }
@@ -120,6 +125,8 @@ export function buildScheduleBlocks(schedules: ScheduleForBlock[], selectedIds?:
       closureTreatment: s.closureTreatment ?? null,
       additionalWorkApproval: s.additionalWorkApproval ?? null,
       equipmentProducts: s.equipmentProducts ?? null,
+      equipmentArrangement: s.equipmentArrangement ?? null,
+      productArrangement: s.productArrangement ?? null,
       taxTreatment: s.taxTreatment ?? null,
     }))
 }
@@ -137,6 +144,17 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
 function money(n: number | null): string {
   if (n == null) return '—'
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
+}
+
+/** Human label for an equipment/product supply option code (null when unset). */
+export function supplyLabel(v: string | null | undefined): string | null {
+  switch (v) {
+    case 'contractor_supplied': return 'Contractor supplied'
+    case 'sano_supplied': return 'Sano supplied'
+    case 'client_supplied': return 'Client supplied'
+    case 'as_agreed': return 'As agreed per job'
+    default: return null
+  }
 }
 
 /**

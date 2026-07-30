@@ -7,7 +7,7 @@
 import { QUOTE_INVOICE_CSS } from './document/QuoteInvoiceCss'
 import { EMPLOYER, agreementTitle, agreementSections, type AgreementType } from '@/lib/employment-agreement-content'
 import { kiwiSaverStatusStatement } from '@/lib/payroll/kiwisaver'
-import { schedulePayLine, type AgreementScheduleBlock } from '@/lib/agreement-schedule-blocks'
+import { schedulePayLine, supplyLabel, type AgreementScheduleBlock } from '@/lib/agreement-schedule-blocks'
 import { entityDisplayLines } from '@/lib/contractor-structure-fields'
 
 export interface AgreementView {
@@ -356,6 +356,8 @@ export function EmploymentAgreementDocument({
                     ['Payment', schedulePayLine(b)],
                     ...(b.additionalWorkApproval ? [['Additional work', b.additionalWorkApproval] as [string, string]] : []),
                     ...(b.closureTreatment ? [['Cancellation / closure', b.closureTreatment] as [string, string]] : []),
+                    ...(supplyLabel(b.equipmentArrangement) ? [['Equipment', supplyLabel(b.equipmentArrangement)!] as [string, string]] : []),
+                    ...(supplyLabel(b.productArrangement) ? [['Cleaning products', supplyLabel(b.productArrangement)!] as [string, string]] : []),
                     ...(b.equipmentProducts ? [['Equipment & products', b.equipmentProducts] as [string, string]] : []),
                     ...(b.noticePeriod ? [['Notice period', b.noticePeriod] as [string, string]] : []),
                     ...(b.priceReviewDate ? [['Price review', fmtDate(b.priceReviewDate)] as [string, string]] : []),

@@ -40,6 +40,46 @@ describe('clause 5.1 — GST defers to the schedule', () => {
   })
 })
 
+describe('clause 5.2 — recurring-invoicing wording', () => {
+  it('covers per-job AND recurring-interval invoicing, with lawful withholding', () => {
+    const c5 = clause({}, '5.')
+    expect(c5).toMatch(/for recurring Services, at the invoicing interval stated in the applicable service schedule/)
+    expect(c5).toMatch(/following completion of each job/)          // still works for one-off + hourly
+    expect(c5).toMatch(/within 20 working days of receipt/)
+    expect(c5).toMatch(/subject to any withholding deductions required by law/)
+  })
+})
+
+describe('clause 6.1 — equipment defers to the schedule', () => {
+  it('no longer assumes the contractor supplies everything', () => {
+    const c6 = clause({}, '6.')
+    expect(c6).toMatch(/stated in the applicable service schedule or job confirmation/)
+    expect(c6).not.toMatch(/the Contractor will supply, at their own cost, the equipment/)
+    expect(c6).toMatch(/must be safe, fit for purpose/)
+  })
+})
+
+describe('clause 16.2 — insurance termination ground varies by arrangement', () => {
+  it('own_required: "fails to maintain the insurance required under clause 9"', () => {
+    const c16 = clause({ insuranceMode: 'own_required' }, '16.')
+    expect(c16).toMatch(/fails to maintain the insurance required under clause 9/)
+    expect(c16).not.toMatch(/fails to maintain adequate insurance/)
+  })
+  it('covered_by_sano: compliance/reporting ground, not own-cover maintenance', () => {
+    const c16 = clause({ insuranceMode: 'covered_by_sano' }, '16.')
+    expect(c16).toMatch(/materially fails to comply with the applicable insurance conditions or reporting obligations under clause 9/)
+    expect(c16).not.toMatch(/fails to maintain the insurance required/)
+    expect(c16).not.toMatch(/fails to maintain adequate insurance/)
+  })
+  it('not_required: NO insurance-maintenance termination ground at all', () => {
+    const c16 = clause({ insuranceMode: 'not_required' }, '16.')
+    expect(c16).not.toMatch(/insurance/i)
+    // the other grounds still present
+    expect(c16).toMatch(/materially breaches this Agreement/)
+    expect(c16).toMatch(/becomes insolvent/)
+  })
+})
+
 describe('clause 9 — insurance reflects the arrangement', () => {
   it('covered_by_sano: not required to hold own cover; no "does not extend to you"', () => {
     const c9 = clause({ insuranceMode: 'covered_by_sano' }, '9.')
@@ -128,5 +168,19 @@ describe('send-time wiring + draft parity (source-level)', () => {
   it('migration adds the insurance snapshot column (jsonb, additive)', () => {
     expect(migration).toMatch(/add column if not exists insurance_arrangement_snapshot jsonb/)
     expect(migration).toMatch(/contractor-facing fields ONLY|CONTRACTOR-FACING FIELDS ONLY/i)
+  })
+
+  it('the frozen snapshot resolves the linked customer NAME (not inferred from the arrangement name)', () => {
+    const snapBuilder = readFileSync(join(process.cwd(), 'src/lib/agreement-schedule-snapshot.ts'), 'utf8')
+    // Resolves customer_client_id → clients.name into the frozen block's `customer`.
+    expect(snapBuilder).toMatch(/customer_client_id/)
+    expect(snapBuilder).toMatch(/from\('clients'\)\.select\('id, name'\)/)
+    expect(snapBuilder).toMatch(/customerName:/)
+  })
+
+  it('the equipment/product migration adds two structured columns (Mike-run)', () => {
+    const eq = readFileSync(join(process.cwd(), 'docs/db/2026-08-06-schedule-equipment-product-arrangement.sql'), 'utf8')
+    expect(eq).toMatch(/add column if not exists equipment_arrangement text/)
+    expect(eq).toMatch(/add column if not exists product_arrangement text/)
   })
 })

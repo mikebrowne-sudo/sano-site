@@ -332,9 +332,40 @@ function feesSection(): AgreementSection {
     title: '5. Fees and Payment',
     body: [
       '5.1 The Principal will pay the Contractor the fee and on the basis stated in the applicable service schedule or job confirmation. Each schedule will state whether the fee is GST-inclusive or GST-exclusive. GST is payable only where the Contractor is registered for GST and GST is required to be charged on the relevant supply.',
-      '5.2 The Contractor must submit a valid tax invoice following completion of each job, or at agreed intervals. The Principal will pay a valid invoice within 20 working days of receipt.',
+      '5.2 The Contractor must submit a valid invoice following completion of each job or, for recurring Services, at the invoicing interval stated in the applicable service schedule or otherwise agreed in writing. The Principal will pay a valid invoice within 20 working days of receipt, subject to any withholding deductions required by law.',
       '5.3 The Contractor is responsible for their own income tax, GST, ACC levies, business registrations, vehicle costs and other business obligations. Where the payments are schedular payments under the Income Tax Act 2007, the Contractor must provide a completed IR330C (or a valid exemption or special tax rate certificate) before payment, and the Principal will deduct and account for withholding tax where required by law. Without a completed IR330C, the Principal may be required to deduct tax at the no-notification rate.',
       '5.4 The Contractor is responsible for any KiwiSaver contributions applicable to them as a self-employed person, and for obtaining any licences, permits or work rights required to provide the Services.',
+    ],
+  }
+}
+
+/** Clause 6 (Equipment) — 6.1 defers to the applicable schedule / job confirmation. */
+function equipmentSection(): AgreementSection {
+  return {
+    title: '6. Equipment and Supplies',
+    body: [
+      '6.1 The equipment, tools and cleaning products to be supplied by each party are stated in the applicable service schedule or job confirmation. Any equipment supplied by the Contractor must be safe, fit for purpose and maintained in good working order.',
+      '6.2 The Contractor is responsible for compliance with all health and safety and product-handling requirements relating to the equipment and products they use.',
+    ],
+  }
+}
+
+/** Clause 16 (Term and Termination) — 16.2's insurance ground varies by the
+ *  recorded arrangement. covered_by_sano → compliance/reporting; own_required →
+ *  the clause-9 cover; not_required → no insurance-maintenance ground at all. */
+function terminationSection(mode: InsuranceMode | null | undefined): AgreementSection {
+  const insuranceGround =
+    mode === 'covered_by_sano'
+      ? 'materially fails to comply with the applicable insurance conditions or reporting obligations under clause 9; '
+      : mode === 'not_required'
+        ? ''
+        : 'fails to maintain the insurance required under clause 9; '
+  return {
+    title: '16. Term and Termination',
+    body: [
+      '16.1 This Agreement commences on the date set out above and continues until terminated. Either party may terminate on 10 working days’ written notice.',
+      `16.2 The Principal may terminate immediately by written notice if the Contractor: materially breaches this Agreement and (where capable of remedy) fails to remedy it within 5 working days; ${insuranceGround}engages in theft, dishonesty, violence, a serious health and safety breach, deliberate property damage, a serious privacy breach or unauthorised entry; engages in conduct that has caused, or is reasonably likely to cause, material damage to the Principal’s reputation; is convicted of a relevant offence; or becomes insolvent.`,
+      '16.3 On termination the Contractor must return any Principal or client property. Termination does not affect the Principal’s obligation to pay for Services properly completed before termination. The confidentiality, security and non-solicitation obligations continue.',
     ],
   }
 }
@@ -376,7 +407,9 @@ export function buildContractorSections(opts: AgreementClauseOptions = {}): Agre
   return CONTRACTOR_AGREEMENT_SECTIONS.map((s) => {
     if (s.title.startsWith('2. ')) return availabilitySection(!!opts.hasOngoingSchedule)
     if (s.title.startsWith('5. ')) return feesSection()
+    if (s.title.startsWith('6. ')) return equipmentSection()
     if (s.title.startsWith('9. ')) return insuranceSection(opts.insuranceMode, opts.insuranceMinCover)
+    if (s.title.startsWith('16. ')) return terminationSection(opts.insuranceMode)
     return s
   })
 }

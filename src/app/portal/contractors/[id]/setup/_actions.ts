@@ -104,6 +104,10 @@ export interface ScheduleInput {
   priceReviewDate?: string | null
   paymentReference?: string | null
   costCentre?: string | null
+  /** Who supplies equipment / cleaning products for this arrangement. UI option
+   *  set: contractor_supplied | sano_supplied | client_supplied | as_agreed. */
+  equipmentArrangement?: string | null
+  productArrangement?: string | null
   status?: 'draft' | 'active' | 'paused' | 'ended'
   effectiveFrom?: string | null
 }
@@ -140,6 +144,8 @@ export async function upsertServiceSchedule(contractorId: string, input: Schedul
     price_review_date: input.priceReviewDate || null,
     payment_reference: input.paymentReference || null,
     cost_centre: input.costCentre || null,
+    equipment_arrangement: input.equipmentArrangement || null,
+    product_arrangement: input.productArrangement || null,
     status: input.status || 'draft',
     effective_from: input.effectiveFrom || null,
     updated_at: new Date().toISOString(),
