@@ -32,6 +32,9 @@ export interface ServiceSchedule {
   priceReviewDate: string | null
   paymentReference: string | null
   costCentre: string | null
+  /** Who supplies equipment / cleaning products for this arrangement. */
+  equipmentArrangement: string | null
+  productArrangement: string | null
   status: 'draft' | 'active' | 'paused' | 'ended' | 'superseded'
   effectiveFrom: string | null
   createdAt: string | null
@@ -99,6 +102,8 @@ function mapSchedule(r: Record<string, unknown>): ServiceSchedule {
     priceReviewDate: (r.price_review_date as string | null) ?? null,
     paymentReference: (r.payment_reference as string | null) ?? null,
     costCentre: (r.cost_centre as string | null) ?? null,
+    equipmentArrangement: (r.equipment_arrangement as string | null) ?? null,
+    productArrangement: (r.product_arrangement as string | null) ?? null,
     status: (r.status as ServiceSchedule['status']) ?? 'draft',
     effectiveFrom: (r.effective_from as string | null) ?? null,
     createdAt: (r.created_at as string | null) ?? null,

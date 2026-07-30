@@ -14,6 +14,14 @@ const METHODS: { v: PaymentMethod; l: string }[] = [
   { v: 'fixed_monthly', l: 'Fixed monthly' }, { v: 'project', l: 'Project amount' }, { v: 'custom', l: 'Custom' },
 ]
 
+/** Who supplies equipment / cleaning products (shared option set). */
+const SUPPLY_OPTIONS: { v: string; l: string }[] = [
+  { v: 'contractor_supplied', l: 'Contractor supplied' },
+  { v: 'sano_supplied', l: 'Sano supplied' },
+  { v: 'client_supplied', l: 'Client supplied' },
+  { v: 'as_agreed', l: 'As agreed per job' },
+]
+
 /** Add/edit a service schedule with a live payment preview. `schedular` and the
  *  verified withholding rate come from the contractor's (later-PR) tax status;
  *  in PR 1 the rate is passed as null when schedular, so the preview shows
@@ -37,7 +45,9 @@ export function ScheduleEditor({ contractorId, schedular, whtRate, existing, cli
     term: existing.term, frequency: existing.frequency, expectedUnits: existing.expectedUnits,
     paymentMethod: existing.paymentMethod, paymentBasis: existing.paymentBasis, rateBasis: existing.rateBasis,
     agreedAmount: existing.agreedAmount, paymentFrequency: existing.paymentFrequency, noticePeriod: existing.noticePeriod,
-    paymentReference: existing.paymentReference, costCentre: existing.costCentre, status: existing.status as ScheduleInput['status'],
+    paymentReference: existing.paymentReference, costCentre: existing.costCentre,
+    equipmentArrangement: existing.equipmentArrangement, productArrangement: existing.productArrangement,
+    status: existing.status as ScheduleInput['status'],
   } : { name: '', paymentBasis: 'gross_fee', rateBasis: 'gst_exclusive', classification: 'commercial' })
 
   const preview = previewSchedulePayment({
@@ -102,7 +112,13 @@ export function ScheduleEditor({ contractorId, schedular, whtRate, existing, cli
           <select className={input} value={f.term ?? ''} onChange={(e) => set('term', e.target.value as ScheduleInput['term'])}>
             <option value="">—</option><option value="ongoing">Ongoing</option><option value="fixed">Fixed term</option></select></label>
         <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Frequency</span>
-          <input className={input} value={f.frequency ?? ''} onChange={(e) => set('frequency', e.target.value)} placeholder="e.g. weekly, monthly" /></label>
+          <input className={input} value={f.frequency ?? ''} onChange={(e) => set('frequency', e.target.value)} placeholder="e.g. weekly, monthly, 3 cleans per week" /></label>
+        <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Equipment supplied by</span>
+          <select className={input} value={f.equipmentArrangement ?? ''} onChange={(e) => set('equipmentArrangement', e.target.value || null)}>
+            <option value="">—</option>{SUPPLY_OPTIONS.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}</select></label>
+        <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Cleaning products supplied by</span>
+          <select className={input} value={f.productArrangement ?? ''} onChange={(e) => set('productArrangement', e.target.value || null)}>
+            <option value="">—</option>{SUPPLY_OPTIONS.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}</select></label>
       </div>
 
       <div className="border-t border-sage-100 pt-4 grid sm:grid-cols-3 gap-3">
