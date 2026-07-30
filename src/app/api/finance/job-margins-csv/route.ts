@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase-server'
 import { isFinanceEmail } from '@/lib/is-admin'
 import { buildCsv, csvResponse, fmtCsvDate } from '@/lib/csv'
 import { resolvePeriod } from '@/app/portal/finance/_lib/periods'
-import { buildJobMarginReport } from '@/app/portal/finance/_lib/job-margins'
+import { buildJobMarginReport, type InvoicedFilter, type MarginSort } from '@/app/portal/finance/_lib/job-margins'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,7 +18,13 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url)
   const { from, to } = resolvePeriod(url.searchParams.get('period') ?? 'ytd', url.searchParams.get('from') ?? undefined, url.searchParams.get('to') ?? undefined)
-  const { rows, totals } = await buildJobMarginReport(supabase, { from, to })
+  const invRaw = url.searchParams.get('invoiced')
+  const invoiced: InvoicedFilter = invRaw === 'invoiced' || invRaw === 'not_invoiced' ? invRaw : 'all'
+  const sortRaw = url.searchParams.get('sort')
+  const sort: MarginSort = sortRaw === 'margin_desc' || sortRaw === 'margin_asc' ? sortRaw : 'default'
+  const { rows, totals } = await buildJobMarginReport(supabase, {
+    from, to, invoiced, sort, customerId: url.searchParams.get('customer') || null,
+  })
 
   const csv = buildCsv(
     ['Job', 'Title', 'Customer', 'Completed', 'Price', 'Labour cost', 'Gross profit', 'Margin %', 'Needs review'],

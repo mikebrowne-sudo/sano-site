@@ -6,7 +6,8 @@ import { notFound } from 'next/navigation'
 import { isFinanceUser } from '@/lib/is-admin'
 import { PeriodFilter } from '../_components/PeriodFilter'
 import { resolvePeriod } from '../_lib/periods'
-import { buildJobMarginReport } from '../_lib/job-margins'
+import { buildJobMarginReport, type InvoicedFilter, type MarginSort } from '../_lib/job-margins'
+import { MarginFilters } from './_components/MarginFilters'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,7 +23,7 @@ function fmtDate(iso: string | null) {
 export default async function JobMarginsPage({
   searchParams,
 }: {
-  searchParams: { period?: string; from?: string; to?: string }
+  searchParams: { period?: string; from?: string; to?: string; invoiced?: string; customer?: string; sort?: string }
 }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -30,9 +31,20 @@ export default async function JobMarginsPage({
 
   const periodKey = searchParams.period ?? 'ytd'
   const { from, to } = resolvePeriod(periodKey, searchParams.from, searchParams.to)
-  const { rows, totals } = await buildJobMarginReport(supabase, { from, to })
+  const invoiced: InvoicedFilter = searchParams.invoiced === 'invoiced' || searchParams.invoiced === 'not_invoiced' ? searchParams.invoiced : 'all'
+  const sort: MarginSort = searchParams.sort === 'margin_desc' || searchParams.sort === 'margin_asc' ? searchParams.sort : 'default'
+  const customerId = searchParams.customer || null
 
-  const q = new URLSearchParams({ period: periodKey, ...(searchParams.from ? { from: searchParams.from } : {}), ...(searchParams.to ? { to: searchParams.to } : {}) }).toString()
+  const { rows, totals, customers } = await buildJobMarginReport(supabase, { from, to, invoiced, customerId, sort })
+
+  const q = new URLSearchParams({
+    period: periodKey,
+    ...(searchParams.from ? { from: searchParams.from } : {}),
+    ...(searchParams.to ? { to: searchParams.to } : {}),
+    ...(invoiced !== 'all' ? { invoiced } : {}),
+    ...(customerId ? { customer: customerId } : {}),
+    ...(sort !== 'default' ? { sort } : {}),
+  }).toString()
 
   return (
     <div className="max-w-6xl">
@@ -47,6 +59,7 @@ export default async function JobMarginsPage({
       </p>
 
       <PeriodFilter current={periodKey} customFrom={searchParams.from} customTo={searchParams.to} basePath="/portal/finance/job-margins" />
+      <MarginFilters invoiced={invoiced} customerId={customerId} sort={sort} customers={customers} />
 
       {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 my-6 max-w-4xl">

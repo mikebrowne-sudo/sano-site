@@ -1,21 +1,33 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { getPeriods } from '../_lib/periods'
 import clsx from 'clsx'
 
 export function PeriodFilter({ current, customFrom, customTo, basePath = '/portal/finance' }: { current: string; customFrom?: string; customTo?: string; basePath?: string }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Preserve any OTHER filters already in the URL (invoiced / customer / sort on
+  // the job-margins report); only replace the period-related params.
+  function push(next: Record<string, string | null>) {
+    const params = new URLSearchParams(searchParams?.toString() ?? '')
+    for (const [k, v] of Object.entries(next)) {
+      if (v == null) params.delete(k)
+      else params.set(k, v)
+    }
+    router.push(`${basePath}?${params.toString()}`)
+  }
   const periods = getPeriods()
 
   function select(key: string) {
-    router.push(`${basePath}?period=${key}`)
+    push({ period: key, from: null, to: null })
   }
 
   function handleCustom() {
     const from = customFrom || new Date().toISOString().slice(0, 10)
     const to = customTo || new Date().toISOString().slice(0, 10)
-    router.push(`${basePath}?period=custom&from=${from}&to=${to}`)
+    push({ period: 'custom', from, to })
   }
 
   return (
@@ -46,7 +58,7 @@ export function PeriodFilter({ current, customFrom, customTo, basePath = '/porta
         <form className="flex items-center gap-2 ml-2" onSubmit={(e) => {
           e.preventDefault()
           const fd = new FormData(e.currentTarget)
-          router.push(`${basePath}?period=custom&from=${fd.get('from')}&to=${fd.get('to')}`)
+          push({ period: 'custom', from: String(fd.get('from') ?? ''), to: String(fd.get('to') ?? '') })
         }}>
           <input name="from" type="date" defaultValue={customFrom} className="rounded-lg border border-sage-200 px-3 py-2 text-sm" />
           <span className="text-sage-400">–</span>
