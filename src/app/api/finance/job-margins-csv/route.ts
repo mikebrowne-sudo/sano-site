@@ -1,0 +1,34 @@
+// Job-margins CSV export (finance-only, READ-ONLY). Same rows as the on-screen
+// report: completed jobs with labour-based gross margin. Optional ?from=&to=.
+
+import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase-server'
+import { isFinanceEmail } from '@/lib/is-admin'
+import { buildCsv, csvResponse, fmtCsvDate } from '@/lib/csv'
+import { resolvePeriod } from '@/app/portal/finance/_lib/periods'
+import { buildJobMarginReport } from '@/app/portal/finance/_lib/job-margins'
+
+export const dynamic = 'force-dynamic'
+
+export async function GET(request: Request) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!isFinanceEmail(user.email)) return NextResponse.json({ error: 'Admin only' }, { status: 403 })
+
+  const url = new URL(request.url)
+  const { from, to } = resolvePeriod(url.searchParams.get('period') ?? 'ytd', url.searchParams.get('from') ?? undefined, url.searchParams.get('to') ?? undefined)
+  const { rows, totals } = await buildJobMarginReport(supabase, { from, to })
+
+  const csv = buildCsv(
+    ['Job', 'Title', 'Customer', 'Completed', 'Price', 'Labour cost', 'Gross profit', 'Margin %'],
+    [
+      ...rows.map((r) => [
+        r.jobNumber ?? '', r.title ?? '', r.client ?? '', fmtCsvDate(r.completedAt),
+        r.jobPrice.toFixed(2), r.labourCost.toFixed(2), r.grossProfit.toFixed(2), String(r.marginPercent),
+      ]),
+      ['TOTAL', `${totals.jobs} jobs`, '', '', totals.price.toFixed(2), totals.labourCost.toFixed(2), totals.grossProfit.toFixed(2), String(totals.marginPercent)],
+    ],
+  )
+  return csvResponse(csv, 'sano-job-margins.csv')
+}
