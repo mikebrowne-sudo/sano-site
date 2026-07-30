@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs'
+import { join } from 'path'
 import {
   validateGstHistory, selectGstStatusForDate, gstWindowForDate,
   type GstHistoryRecord, type GstStatus,
@@ -16,8 +18,33 @@ describe('validateGstHistory — never infers from turnover', () => {
   it('end date cannot precede effective date', () => {
     expect(validateGstHistory({ gstRegistered: true, gstNumber: '1', effectiveDate: '2026-06-01', endDate: '2026-01-01' })).toMatch(/end date cannot be before/)
   })
-  it('not registered needs nothing (no turnover reasoning)', () => {
+  it('not registered needs nothing at the shape level (no turnover reasoning)', () => {
+    // validateGstHistory is shape validation only. The "verified needs an
+    // effective date" rule (for BOTH statuses) is enforced by the record/verify
+    // ACTIONS (recordGstStatus verify guard + setGstStatus verify guard), and by
+    // the DB cgh_verified_complete_chk — see the action source assertions below.
     expect(validateGstHistory({ gstRegistered: false })).toBeNull()
+  })
+})
+
+describe('a verified GST status requires an effective date for BOTH statuses (action + DB guards)', () => {
+  const action = readFileSync(join(process.cwd(), 'src/app/portal/contractors/[id]/gst/_actions.ts'), 'utf8')
+  const migration = readFileSync(join(process.cwd(), 'docs/db/2026-08-01-contractor-gst-history.sql'), 'utf8')
+
+  it('recordGstStatus blocks a verify with no effective date (registered OR not)', () => {
+    // The guard is unconditional on gstRegistered — it fires for both.
+    expect(action).toMatch(/if \(input\.verifyNow && !input\.effectiveDate\) return \{ error: 'A verified GST status needs an effective date/)
+    // The effective date is passed through regardless of registered (not discarded).
+    expect(action).toMatch(/effective_date: input\.effectiveDate \|\| null/)
+  })
+
+  it('setGstStatus blocks verifying a submitted row with no effective date', () => {
+    expect(action).toMatch(/if \(!g\.effective_date\) return \{ error: 'Set an effective date before verifying/)
+  })
+
+  it('the DB enforces every verified row is effective-dated (cgh_verified_complete_chk)', () => {
+    expect(migration).toMatch(/cgh_verified_complete_chk/)
+    expect(migration).toMatch(/effective_date/)
   })
 })
 

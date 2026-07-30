@@ -52,11 +52,25 @@ export function RecordGst({ contractorId }: { contractorId: string }) {
 
   function save() {
     setErr(null)
+    // Client-side guards mirror the server: a VERIFIED status (registered OR
+    // not) needs an effective date; a registered status needs a GST number.
+    // Never default the date — surface a clear message instead.
+    if (verifyNow && !effective) {
+      setErr('An effective date is required to verify this GST status (the date it applies from).')
+      return
+    }
+    if (verifyNow && registered && !number.trim()) {
+      setErr('A GST number is required for a registered contractor.')
+      return
+    }
     startTransition(async () => {
       const res = await recordGstStatus({
         contractorId, gstRegistered: registered,
         gstNumber: registered ? (number || null) : null,
-        effectiveDate: registered ? (effective || null) : null,
+        // Effective date applies to BOTH registered and not-registered (a
+        // "not registered FROM this date" statement is still effective-dated).
+        effectiveDate: effective || null,
+        // End date is a registered-window concept only.
         endDate: registered ? (endDate || null) : null,
         signedName: signedName || null, verifyNow,
       })
@@ -75,13 +89,22 @@ export function RecordGst({ contractorId }: { contractorId: string }) {
         <label className="flex items-center gap-2"><input type="radio" checked={registered} onChange={() => setRegistered(true)} /> GST registered</label>
         <label className="flex items-center gap-2"><input type="radio" checked={!registered} onChange={() => setRegistered(false)} /> Not registered</label>
       </div>
-      {registered && (
-        <div className="grid sm:grid-cols-3 gap-3">
-          <label className="flex flex-col gap-1"><span className="text-[11px] text-sage-500">GST number</span><input className={input} value={number} onChange={(e) => setNumber(e.target.value)} /></label>
-          <label className="flex flex-col gap-1"><span className="text-[11px] text-sage-500">Effective date</span><input type="date" className={input} value={effective} onChange={(e) => setEffective(e.target.value)} /></label>
+      {/* Effective date applies to BOTH statuses — it is the date this GST
+          status (registered OR not registered) applies from. Required to verify.
+          GST number + end date are registered-only. */}
+      <div className="grid sm:grid-cols-3 gap-3">
+        {registered && (
+          <label className="flex flex-col gap-1"><span className="text-[11px] text-sage-500">GST number{verifyNow ? ' *' : ''}</span><input className={input} value={number} onChange={(e) => setNumber(e.target.value)} placeholder="e.g. 123-456-789" /></label>
+        )}
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] text-sage-500">Effective from{verifyNow ? ' *' : ''}</span>
+          <input type="date" className={input} value={effective} onChange={(e) => setEffective(e.target.value)} required={verifyNow} />
+          <span className="text-[10px] text-sage-400">The date this status applies from. Not set automatically.</span>
+        </label>
+        {registered && (
           <label className="flex flex-col gap-1"><span className="text-[11px] text-sage-500">End date (optional)</span><input type="date" className={input} value={endDate} onChange={(e) => setEndDate(e.target.value)} /></label>
-        </div>
-      )}
+        )}
+      </div>
       <label className="flex flex-col gap-1 max-w-xs"><span className="text-[11px] text-sage-500">Signed name</span><input className={input} value={signedName} onChange={(e) => setSignedName(e.target.value)} /></label>
       <label className="flex items-center gap-2 text-sm text-sage-700"><input type="checkbox" checked={verifyNow} onChange={(e) => setVerifyNow(e.target.checked)} /> Verify now (evidence sighted)</label>
       {err && <p className="text-xs text-red-600">{err}</p>}
