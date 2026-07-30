@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import Link from 'next/link'
-import { ArrowLeft, Info } from 'lucide-react'
+import { ArrowLeft, Info, AlertTriangle } from 'lucide-react'
 import clsx from 'clsx'
 import { notFound } from 'next/navigation'
 import { isFinanceUser } from '@/lib/is-admin'
@@ -49,17 +49,25 @@ export default async function JobMarginsPage({
       <PeriodFilter current={periodKey} customFrom={searchParams.from} customTo={searchParams.to} basePath="/portal/finance/job-margins" />
 
       {/* Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 my-6 max-w-3xl">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 my-6 max-w-4xl">
         <Stat label="Jobs" value={String(totals.jobs)} />
         <Stat label="Total price" value={fmt(totals.price)} />
         <Stat label="Labour cost" value={fmt(totals.labourCost)} />
         <Stat label="Gross profit" value={fmt(totals.grossProfit)} sub={`${totals.marginPercent}% blended`} tone={totals.grossProfit >= 0 ? 'good' : 'bad'} />
+        <Stat label="Need review" value={String(totals.needsReview)} tone={totals.needsReview > 0 ? 'warn' : undefined} />
       </div>
 
       <div className="mb-4 rounded-lg border border-sage-100 bg-sage-50/60 px-4 py-3 text-xs text-sage-600 flex gap-2 max-w-3xl">
         <Info size={15} className="shrink-0 mt-0.5" />
-        <span>Labour-based gross margin. Contractor cost + ACC only — client price is the job&apos;s recorded value. A job with no recorded worker cost shows the full price as margin until pay is set.</span>
+        <span>Labour-based gross margin. Contractor cost + ACC only — client price is the job&apos;s recorded value. A <strong>100%</strong> margin usually means <strong>no worker cost is recorded yet</strong> — click the row to open the job and assign a contractor / set hours.</span>
       </div>
+
+      {totals.needsReview > 0 && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-center gap-2 max-w-3xl">
+          <AlertTriangle size={16} className="shrink-0" />
+          <span><strong>{totals.needsReview}</strong> job{totals.needsReview === 1 ? '' : 's'} show 100% because no labour cost is recorded. They&apos;re listed first — click one to fix it on the job page.</span>
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center text-sage-400 shadow-sm">No completed jobs with a price in this period.</div>
@@ -75,14 +83,14 @@ export default async function JobMarginsPage({
                   <th className="px-4 py-3 font-medium text-right">Price</th>
                   <th className="px-4 py-3 font-medium text-right">Labour</th>
                   <th className="px-4 py-3 font-medium text-right">Gross profit</th>
-                  <th className="px-4 py-3 font-medium text-right">Margin</th>
+                  <th className="px-4 py-3 font-medium text-right">Margin / status</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id} className="border-b border-gray-50 last:border-0">
+                  <tr key={r.id} className={clsx('border-b border-gray-50 last:border-0 hover:bg-sage-50/50 transition-colors', r.needsCostReview && 'bg-amber-50/40')}>
                     <td className="px-4 py-2.5 whitespace-nowrap">
-                      <Link href={`/portal/jobs/${r.id}`} className="font-medium text-sage-700 hover:text-sage-900">{r.jobNumber ?? '—'}</Link>
+                      <Link href={`/portal/jobs/${r.id}`} className="font-medium text-sage-700 hover:text-sage-900 hover:underline">{r.jobNumber ?? '—'}</Link>
                       {r.title && <span className="block max-w-[220px] truncate text-xs text-sage-400">{r.title}</span>}
                     </td>
                     <td className="px-4 py-2.5 text-sage-600 max-w-[200px] truncate">{r.client ?? '—'}</td>
@@ -90,7 +98,15 @@ export default async function JobMarginsPage({
                     <td className="px-4 py-2.5 text-right text-sage-700">{fmt(r.jobPrice)}</td>
                     <td className="px-4 py-2.5 text-right text-sage-500">{fmt(r.labourCost)}</td>
                     <td className={clsx('px-4 py-2.5 text-right font-medium', r.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600')}>{fmt(r.grossProfit)}</td>
-                    <td className={clsx('px-4 py-2.5 text-right font-semibold', r.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600')}>{r.marginPercent}%</td>
+                    <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                      {r.needsCostReview ? (
+                        <Link href={`/portal/jobs/${r.id}`} className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-xs font-medium hover:bg-amber-200">
+                          <AlertTriangle size={11} /> {r.workerCount === 0 ? 'No contractor' : 'No hours/rate'} — fix
+                        </Link>
+                      ) : (
+                        <span className={clsx('font-semibold', r.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600')}>{r.marginPercent}%</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -111,10 +127,10 @@ export default async function JobMarginsPage({
   )
 }
 
-function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: 'good' | 'bad' }) {
+function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: 'good' | 'bad' | 'warn' }) {
   return (
     <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-      <div className={clsx('text-2xl font-bold tabular-nums', tone === 'good' ? 'text-emerald-700' : tone === 'bad' ? 'text-red-600' : 'text-sage-800')}>{value}</div>
+      <div className={clsx('text-2xl font-bold tabular-nums', tone === 'good' ? 'text-emerald-700' : tone === 'bad' ? 'text-red-600' : tone === 'warn' ? 'text-amber-700' : 'text-sage-800')}>{value}</div>
       <div className="text-xs text-sage-500 mt-0.5">{label}{sub ? <span className="text-sage-400"> · {sub}</span> : ''}</div>
     </div>
   )

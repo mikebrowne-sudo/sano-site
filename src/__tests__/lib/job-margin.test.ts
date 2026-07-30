@@ -21,11 +21,32 @@ describe('computeJobMargin — labour-based gross margin', () => {
     expect(m.marginPercent).toBe(Math.round((m.grossProfit / 400) * 100))
   })
 
-  it('a job with no workers is 100% margin (full price, no cost)', () => {
+  it('a job with no workers is 100% margin (full price, no cost) and flagged for review', () => {
     const m = computeJobMargin(500, null, [])
     expect(m.labourCost).toBe(0)
     expect(m.grossProfit).toBe(500)
     expect(m.marginPercent).toBe(100)
+    expect(m.needsCostReview).toBe(true)   // 100% only because no cost recorded
+    expect(m.workerCount).toBe(0)
+  })
+
+  it('needsCostReview is FALSE once labour cost is recorded', () => {
+    const m = computeJobMargin(400, 4, [worker()])
+    expect(m.labourCost).toBeGreaterThan(0)
+    expect(m.needsCostReview).toBe(false)
+    expect(m.workerCount).toBe(1)
+  })
+
+  it('a $0 / no-price job is never flagged (no margin to review)', () => {
+    expect(computeJobMargin(0, null, []).needsCostReview).toBe(false)
+    expect(computeJobMargin(null, null, []).needsCostReview).toBe(false)
+  })
+
+  it('an assigned worker with a zero rate still counts as no-cost review (worker present)', () => {
+    const m = computeJobMargin(300, 4, [worker({ pay_rate: null, hourly_rate: null })])
+    expect(m.labourCost).toBe(0)
+    expect(m.needsCostReview).toBe(true)
+    expect(m.workerCount).toBe(1)   // distinguishes "no hours/rate" from "no contractor"
   })
 
   it('a loss-making job reports negative profit + margin', () => {
@@ -93,5 +114,12 @@ describe('surfaces are gated + read-only (source-level)', () => {
     for (const w of ['.insert(', '.update(', '.delete(', '.upsert(', '.rpc(']) {
       expect(reportLib).not.toContain(w)
     }
+  })
+  it('review-flagged jobs float to the top + link to the job to fix it', () => {
+    // Sort puts needsCostReview first.
+    expect(reportLib).toMatch(/if \(a\.needsCostReview !== b\.needsCostReview\) return a\.needsCostReview \? -1 : 1/)
+    // The report row links a flagged job to its detail page (the fix screen).
+    expect(reportPage).toMatch(/needsCostReview \? \([\s\S]{0,200}\/portal\/jobs\/\$\{r\.id\}/)
+    expect(reportPage).toMatch(/No contractor|No hours\/rate/)
   })
 })

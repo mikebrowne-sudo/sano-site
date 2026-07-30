@@ -15,6 +15,10 @@ export interface JobMarginRow {
   labourCost: number
   grossProfit: number
   marginPercent: number
+  /** No labour cost recorded — needs review (assign a contractor / set hours). */
+  needsCostReview: boolean
+  /** Number of workers assigned (0 = none) — sharpens the review reason. */
+  workerCount: number
 }
 
 export interface JobMarginReport {
@@ -26,6 +30,8 @@ export interface JobMarginReport {
     grossProfit: number
     /** Blended margin % across all listed jobs (profit / price). */
     marginPercent: number
+    /** How many listed jobs need cost review (no labour recorded). */
+    needsReview: number
   }
 }
 
@@ -63,9 +69,10 @@ export async function buildJobMarginReport(
 
   const rows: JobMarginRow[] = jobs.map((j) => {
     const client = (j.clients ?? null) as { name?: string | null; company_name?: string | null } | null
+    const priceVal = (j.job_price as number | null) ?? 0
     const m: JobMargin = margins.get(j.id as string) ?? {
-      jobPrice: (j.job_price as number | null) ?? 0, labourCost: 0, accCost: 0,
-      grossProfit: (j.job_price as number | null) ?? 0, marginPercent: 100, hasAdjustment: false,
+      jobPrice: priceVal, labourCost: 0, accCost: 0, grossProfit: priceVal, marginPercent: 100,
+      hasAdjustment: false, needsCostReview: priceVal > 0, workerCount: 0,
     }
     return {
       id: j.id as string,
@@ -77,10 +84,17 @@ export async function buildJobMarginReport(
       labourCost: m.labourCost,
       grossProfit: m.grossProfit,
       marginPercent: m.marginPercent,
+      needsCostReview: m.needsCostReview,
+      workerCount: m.workerCount,
     }
   })
 
-  rows.sort((a, b) => a.marginPercent - b.marginPercent)
+  // Jobs needing cost review float to the top (they're what to action first);
+  // within each group, thinnest / loss-making margin first.
+  rows.sort((a, b) => {
+    if (a.needsCostReview !== b.needsCostReview) return a.needsCostReview ? -1 : 1
+    return a.marginPercent - b.marginPercent
+  })
 
   const price = round2(rows.reduce((s, r) => s + r.jobPrice, 0))
   const labourCost = round2(rows.reduce((s, r) => s + r.labourCost, 0))
@@ -93,6 +107,7 @@ export async function buildJobMarginReport(
       labourCost,
       grossProfit,
       marginPercent: price > 0 ? Math.round((grossProfit / price) * 100) : 0,
+      needsReview: rows.filter((r) => r.needsCostReview).length,
     },
   }
 }
