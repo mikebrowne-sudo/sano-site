@@ -125,6 +125,25 @@ function mapSetup(r: Record<string, unknown>): ContractorSetup {
 /** Staff read: the setup + schedules + insurance for a contractor. Returns the
  *  CURRENT contractor-default arrangement plus any CURRENT per-schedule overrides
  *  (superseded history is not loaded here). */
+/** The ONLY insurance fields an agreement may show a contractor: the mode, and
+ *  (for own_required) the minimum cover + required type. Never insurer, policy
+ *  number, cover limit, confirmed_by or internal notes. Returns null when there
+ *  is no arrangement. Pure — used at draft render and frozen at send. */
+export interface ContractorSafeInsurance {
+  mode: 'own_required' | 'covered_by_sano' | 'not_required' | 'pending_review'
+  minCover: number | null
+  requiredType: string | null
+}
+export function contractorSafeInsuranceSnapshot(a: InsuranceArrangement | null | undefined): ContractorSafeInsurance | null {
+  if (!a) return null
+  return {
+    mode: a.mode,
+    // Cover/type are only meaningful (and only shown) for own_required.
+    minCover: a.mode === 'own_required' ? a.minCover : null,
+    requiredType: a.mode === 'own_required' ? a.requiredType : null,
+  }
+}
+
 export async function getContractorSetupBundle(contractorId: string): Promise<{
   setup: ContractorSetup | null
   schedules: ServiceSchedule[]

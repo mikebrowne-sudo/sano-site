@@ -1,0 +1,99 @@
+import { render, screen } from '@testing-library/react'
+import { EmploymentAgreementDocument, type AgreementView } from '@/components/EmploymentAgreementDocument'
+import type { AgreementScheduleBlock } from '@/lib/agreement-schedule-blocks'
+
+const block = (o: Partial<AgreementScheduleBlock> & { id: string; label: string; name: string }): AgreementScheduleBlock => ({
+  versionKey: null, effectiveFrom: null, customer: null, classification: null, serviceType: null,
+  serviceAddress: null, startDate: null, frequency: null, term: null, paymentMethod: null,
+  paymentBasis: null, rateBasis: null, agreedAmount: null, noticePeriod: null, priceReviewDate: null,
+  closureTreatment: null, additionalWorkApproval: null, equipmentProducts: null, ...o,
+})
+
+const view = (o: Partial<AgreementView> = {}): AgreementView => ({
+  type: 'contractor', employmentType: null, position: null, hourlyRate: 30, startDate: '2026-08-01',
+  agreedHours: null, placeOfWork: null, payFrequency: null, noticePeriod: null,
+  employeeFullName: 'Myrtle McGoon', employeeAddress: null, employeeEmail: null, employeePhone: null,
+  dateOfBirth: null, employeeIrdNumber: null, taxCode: null, kiwisaverChoice: null, kiwisaverStatus: null,
+  emergencyName: null, emergencyPhone: null, emergencyRelationship: null,
+  contractorTradingName: null, contractorGstNumber: null, contractorBusinessStructure: 'sole_trader',
+  contractorLegalName: null, contractorNzbn: null, contractorCompanyNumber: null,
+  authorisedSignatoryName: null, authorisedSignatoryCapacity: null, authorityConfirmed: null,
+  authorityDeclarationText: null, authorityConfirmedAt: null,
+  insurerName: null, insuranceCover: null, insuranceExpiry: null, signedName: null, signedAt: null,
+  agreementVersion: null, issuedAt: null, scheduleBlocks: [], noSchedules: false, insuranceArrangement: null, ...o,
+})
+
+const PUKEKOHE = block({
+  id: 's-a', label: 'Schedule A', name: 'Pukekohe Golf Club commercial cleaning',
+  customer: 'Pukekohe Golf Club', classification: 'commercial', term: 'ongoing',
+  paymentMethod: 'fixed_monthly', paymentBasis: 'guaranteed_net', rateBasis: 'gst_exclusive', agreedAmount: 1500,
+  frequency: '3 cleans per week',
+})
+const RESIDENTIAL = block({
+  id: 's-b', label: 'Schedule B', name: 'Residential cleaning',
+  classification: 'residential', paymentMethod: 'hourly', rateBasis: 'gst_exclusive', agreedAmount: 30,
+})
+
+function text() { return (document.body.textContent ?? '') }
+
+describe('Contractor agreement document — Myrtle-shaped', () => {
+  it('renders the linked customer, both schedules, and their correct payment terms', () => {
+    render(<EmploymentAgreementDocument wrapper="print-overlay" a={view({ scheduleBlocks: [PUKEKOHE, RESIDENTIAL], insuranceArrangement: { mode: 'covered_by_sano' } })} />)
+    expect(screen.getByText('Pukekohe Golf Club')).toBeInTheDocument()             // linked customer appears
+    expect(screen.getByText('3 cleans per week')).toBeInTheDocument()
+    // guaranteed net, GST-exclusive, monthly
+    expect(text()).toMatch(/Guaranteed net payment of \$1,500\.00 per month \(GST exclusive\)/)
+    // hourly, GST-exclusive
+    expect(text()).toMatch(/\$30\.00 per hour \(GST exclusive\)/)
+  })
+
+  it('a GST-inclusive schedule renders "(GST inclusive)"', () => {
+    render(<EmploymentAgreementDocument wrapper="print-overlay" a={view({ scheduleBlocks: [block({ id: 'x', label: 'Schedule A', name: 'X', paymentMethod: 'hourly', rateBasis: 'gst_inclusive', agreedAmount: 40 })] })} />)
+    expect(text()).toMatch(/\$40\.00 per hour \(GST inclusive\)/)
+  })
+
+  it('a non-GST-registered contractor is NOT described as charging GST (clause 5.1 defers)', () => {
+    render(<EmploymentAgreementDocument wrapper="print-overlay" a={view({ scheduleBlocks: [PUKEKOHE], contractorGstNumber: null })} />)
+    const t = text()
+    expect(t).not.toMatch(/The agreed rate is inclusive of GST/)
+    expect(t).toMatch(/GST is payable only where the Contractor is registered for GST/)
+  })
+
+  it('omits the legacy "Agreed rate $X per hour (inclusive of GST)" row when schedules are selected', () => {
+    render(<EmploymentAgreementDocument wrapper="print-overlay" a={view({ hourlyRate: 30, scheduleBlocks: [RESIDENTIAL] })} />)
+    const t = text()
+    expect(t).not.toMatch(/Agreed rate/)
+    expect(t).not.toMatch(/30\.00 per hour \(inclusive of GST\)/) // no global inclusive-GST row
+  })
+
+  it('covered_by_sano renders the covered clause + suppresses own-insurance requirement', () => {
+    render(<EmploymentAgreementDocument wrapper="print-overlay" a={view({ scheduleBlocks: [PUKEKOHE], insuranceArrangement: { mode: 'covered_by_sano' } })} />)
+    const t = text()
+    expect(t).toMatch(/included under the Principal’s insurance arrangement/)
+    expect(t).not.toMatch(/does not extend to the Contractor/)
+    expect(t).not.toMatch(/minimum requirement is/)
+  })
+
+  it('own_required renders the own-insurance clause', () => {
+    render(<EmploymentAgreementDocument wrapper="print-overlay" a={view({ scheduleBlocks: [RESIDENTIAL], insuranceArrangement: { mode: 'own_required', minCover: 1000000 } })} />)
+    expect(text()).toMatch(/must hold and maintain current public liability insurance/)
+  })
+
+  it('not_required renders the neutral clause', () => {
+    render(<EmploymentAgreementDocument wrapper="print-overlay" a={view({ scheduleBlocks: [RESIDENTIAL], insuranceArrangement: { mode: 'not_required' } })} />)
+    expect(text()).toMatch(/not currently required/)
+  })
+
+  it('ongoing schedule removes the "no guaranteed or regular work" contradiction in the document', () => {
+    render(<EmploymentAgreementDocument wrapper="print-overlay" a={view({ scheduleBlocks: [PUKEKOHE] })} />)
+    expect(text()).not.toMatch(/no guaranteed or regular work/)
+    expect(text()).toMatch(/set out in the service schedules attached/)
+  })
+
+  it('does not expose insurer / policy / limit anywhere in the rendered agreement', () => {
+    render(<EmploymentAgreementDocument wrapper="print-overlay" a={view({ scheduleBlocks: [PUKEKOHE], insuranceArrangement: { mode: 'covered_by_sano' }, insurerName: 'SHOULD-NOT-SHOW', insuranceCover: 'SECRET-LIMIT' })} />)
+    const t = text()
+    expect(t).not.toContain('SHOULD-NOT-SHOW')   // legacy insurer row suppressed for covered_by_sano
+    expect(t).not.toContain('SECRET-LIMIT')
+  })
+})

@@ -56,6 +56,14 @@ export interface AgreementView {
   /** Explicit staff choice that this contractor agreement has NO service schedule.
    *  When true the document states so plainly instead of showing an agreed rate. */
   noSchedules?: boolean
+  /** The effective contractor insurance arrangement driving clause 9. Contractor-
+   *  facing fields ONLY (mode + minCover/requiredType) — never insurer, policy
+   *  numbers, limits or internal notes. Frozen at send; injected live for drafts. */
+  insuranceArrangement?: {
+    mode: 'own_required' | 'covered_by_sano' | 'not_required' | 'pending_review'
+    minCover?: number | null
+    requiredType?: string | null
+  } | null
 }
 
 /** Map an employment_agreements DB row to the document view. */
@@ -118,6 +126,9 @@ export function agreementViewFromRow(a: any): AgreementView {
       ? (a.service_schedules_snapshot as AgreementScheduleBlock[])
       : [],
     noSchedules: !!a.no_service_schedules,
+    // Frozen insurance snapshot when present (sent/signed); else null and the
+    // caller may inject a live value for a draft. Contractor-safe fields only.
+    insuranceArrangement: a.insurance_arrangement_snapshot ?? null,
   }
 }
 
@@ -191,6 +202,11 @@ export function EmploymentAgreementDocument({
   const scheduleBlocks = a.scheduleBlocks ?? []
   const hasSchedules = isContractor && scheduleBlocks.length > 0
   const noSchedulesStated = isContractor && !hasSchedules && !!a.noSchedules
+  const insuranceMode = a.insuranceArrangement?.mode ?? null
+  // Suppress legacy free-text insurer rows when the recorded arrangement means the
+  // contractor doesn't hold their own cover (clause 9 states the real position).
+  const insuranceRowsAllowed = insuranceMode == null || insuranceMode === 'own_required'
+  const hasOngoingSchedule = scheduleBlocks.some((b) => b.term === 'ongoing')
   const rows: [string, string][] = isContractor
     ? [
         ['Engagement', 'Independent Contractor'],
@@ -206,9 +222,13 @@ export function EmploymentAgreementDocument({
         // legal contracting identity, not unnecessary tax identifiers.
         ['Date of birth', fmtDate(a.dateOfBirth)],
         ...(emergency ? [['Emergency contact', emergency] as [string, string]] : []),
-        ...(a.insurerName ? [['Insurer', a.insurerName] as [string, string]] : []),
-        ...(a.insuranceCover ? [['Insurance cover', a.insuranceCover] as [string, string]] : []),
-        ...(a.insuranceExpiry ? [['Insurance expiry', fmtDate(a.insuranceExpiry)] as [string, string]] : []),
+        // Legacy free-text insurer/cover rows show ONLY when the contractor holds
+        // their own cover (own_required) or no arrangement mode is recorded. When
+        // the recorded arrangement is covered_by_sano or not_required, clause 9
+        // states the position and these rows are suppressed (no insurer detail).
+        ...(insuranceRowsAllowed && a.insurerName ? [['Insurer', a.insurerName] as [string, string]] : []),
+        ...(insuranceRowsAllowed && a.insuranceCover ? [['Insurance cover', a.insuranceCover] as [string, string]] : []),
+        ...(insuranceRowsAllowed && a.insuranceExpiry ? [['Insurance expiry', fmtDate(a.insuranceExpiry)] as [string, string]] : []),
       ]
     : isPermanent
     ? [
@@ -374,7 +394,11 @@ export function EmploymentAgreementDocument({
 
             {/* Clauses */}
             <section className="space-y-5">
-              {agreementSections(a.type).map((s) => (
+              {agreementSections(a.type, {
+                hasOngoingSchedule,
+                insuranceMode,
+                insuranceMinCover: a.insuranceArrangement?.minCover ?? null,
+              }).map((s) => (
                 <div key={s.title}>
                   <h2 className="font-semibold text-sage-800 mb-1.5 text-[15px]">{s.title}</h2>
                   <div className="space-y-1.5">
