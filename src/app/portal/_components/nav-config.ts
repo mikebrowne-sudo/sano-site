@@ -70,6 +70,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/portal/expenses',            label: 'Expenses',             icon: Wallet2, finance: true },
       { href: '/portal/finance/profit-loss', label: 'P&L statement',        icon: Scale, finance: true },
+      { href: '/portal/finance/job-margins', label: 'Job margins',          icon: BarChart3, finance: true },
       { href: '/portal/finance/reconcile',   label: 'Bank reconciliation',  icon: Landmark, finance: true },
       { href: '/portal/finance',             label: 'Profit / reports',     icon: DollarSign, finance: true },
       { href: '/portal/contractor-invoices', label: 'Contractor invoices',  icon: FileInput, finance: true },
