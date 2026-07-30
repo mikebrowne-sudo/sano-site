@@ -349,9 +349,11 @@ export default async function JobsPage({
                                   ? <span className="font-medium text-sage-800 whitespace-nowrap tabular-nums">{fmtCurrency(row.jobPrice)}</span>
                                   : <span className="text-sage-400">—</span>
       case 'margin':         return row.margin && row.margin.jobPrice > 0
-                                  ? <span className={clsx('whitespace-nowrap tabular-nums font-medium', row.margin.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600')}>
-                                      {fmtCurrency(row.margin.grossProfit)}<span className="text-sage-400 font-normal ml-1">({row.margin.marginPercent}%)</span>
-                                    </span>
+                                  ? (row.margin.needsCostReview
+                                      ? <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-xs font-medium whitespace-nowrap" title="No labour cost recorded — set hours/rate on the job">no cost yet</span>
+                                      : <span className={clsx('whitespace-nowrap tabular-nums font-medium', row.margin.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600')}>
+                                          {fmtCurrency(row.margin.grossProfit)}<span className="text-sage-400 font-normal ml-1">({row.margin.marginPercent}%)</span>
+                                        </span>)
                                   : <span className="text-sage-400">—</span>
       case 'assigned_to':    return row.assigned_to
                                   ? <span className="whitespace-nowrap">{row.assigned_to}</span>

@@ -23,6 +23,12 @@ export interface JobMargin {
   marginPercent: number
   /** True when there are approved extra hours (actual differs from estimate). */
   hasAdjustment: boolean
+  /** True when the job has a price but NO labour cost recorded — the margin is
+   *  100% only because no contractor/hours/rate are set. A "review" flag, not an
+   *  assertion of error (a genuinely zero-cost job is legitimately 100%). */
+  needsCostReview: boolean
+  /** Number of workers assigned to the job (0 = nobody assigned). */
+  workerCount: number
 }
 
 /**
@@ -40,6 +46,9 @@ export function computeJobMargin(
   const v = calculateVariance(price, allowedHours, workers)
   const hasAdjustment = workers.some((w) => w.extra_hours_status === 'approved' && (w.extra_hours ?? 0) !== 0)
   const basis = hasAdjustment ? v.actual : v.estimated
+  // A priced job with zero recorded labour cost is "review": the 100% is only
+  // because no contractor / hours / rate are set (or it is genuinely zero-cost).
+  const needsCostReview = price > 0 && basis.totalLabourCost === 0
   return {
     jobPrice: price,
     labourCost: basis.totalLabourCost,
@@ -47,6 +56,8 @@ export function computeJobMargin(
     grossProfit: basis.grossProfit,
     marginPercent: basis.marginPercent,
     hasAdjustment,
+    needsCostReview,
+    workerCount: workers.length,
   }
 }
 

@@ -21,13 +21,14 @@ export async function GET(request: Request) {
   const { rows, totals } = await buildJobMarginReport(supabase, { from, to })
 
   const csv = buildCsv(
-    ['Job', 'Title', 'Customer', 'Completed', 'Price', 'Labour cost', 'Gross profit', 'Margin %'],
+    ['Job', 'Title', 'Customer', 'Completed', 'Price', 'Labour cost', 'Gross profit', 'Margin %', 'Needs review'],
     [
       ...rows.map((r) => [
         r.jobNumber ?? '', r.title ?? '', r.client ?? '', fmtCsvDate(r.completedAt),
         r.jobPrice.toFixed(2), r.labourCost.toFixed(2), r.grossProfit.toFixed(2), String(r.marginPercent),
+        r.needsCostReview ? (r.workerCount === 0 ? 'No contractor assigned' : 'No hours/rate set') : '',
       ]),
-      ['TOTAL', `${totals.jobs} jobs`, '', '', totals.price.toFixed(2), totals.labourCost.toFixed(2), totals.grossProfit.toFixed(2), String(totals.marginPercent)],
+      ['TOTAL', `${totals.jobs} jobs`, '', '', totals.price.toFixed(2), totals.labourCost.toFixed(2), totals.grossProfit.toFixed(2), String(totals.marginPercent), `${totals.needsReview} need review`],
     ],
   )
   return csvResponse(csv, 'sano-job-margins.csv')
