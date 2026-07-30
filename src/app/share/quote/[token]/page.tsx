@@ -53,7 +53,7 @@ export default async function PublicQuotePage({
     .from('quotes')
     .select(`
       id, quote_number, status, accepted_at, date_issued, valid_until, created_at,
-      property_category, type_of_clean, frequency, scope_size,
+      property_category, type_of_clean, service_type_code, frequency, scope_size,
       generated_scope,
       structured_scope,
       service_address, scheduled_clean_date, notes,

@@ -40,6 +40,10 @@ export interface QuoteDocumentInput {
   created_at?: string | null
   property_category?: string | null
   type_of_clean?: string | null
+  /** The structured service-type code (quotes.service_type_code). Used only to
+   *  apply the Residential Housekeeping "per week" price label; all other types
+   *  render unchanged. */
+  service_type_code?: string | null
   frequency?: string | null
   scope_size?: string | null
   generated_scope?: string | null
@@ -199,13 +203,30 @@ export function QuoteDocument({
   const mainLineTitle = structuredScope?.title?.trim() || pricingLabel
   const scopeForDoc = structuredScope ?? undefined
 
+  // Residential Housekeeping only: the manual fixed price is a WEEKLY amount, so
+  // the main service line shows "$X.XX per week". This is a display suffix on the
+  // already-formatted line amount — the stored price, GST and totals are all
+  // computed numerically from quote.base_price and are completely unaffected. No
+  // other quote type, and no invoice, is touched.
+  const isHousekeeping = quote.service_type_code === 'residential_housekeeping'
+  const perWeek = (formatted: string) => (isHousekeeping ? `${formatted} per week` : formatted)
+
+  // Housekeeping: surface the per-week basis as a clear customer note, prepended
+  // to any staff note (deduped so it isn't doubled on re-render). Other types use
+  // the staff note verbatim.
+  const PER_WEEK_NOTE = 'All prices shown are per week.'
+  const staffNote = (quote.notes ?? '').trim()
+  const housekeepingNotes = isHousekeeping
+    ? (staffNote.includes(PER_WEEK_NOTE) ? staffNote : [PER_WEEK_NOTE, staffNote].filter(Boolean).join('\n\n'))
+    : quote.notes
+
   const lineItems: DocumentLineItem[] = []
   if ((quote.base_price ?? 0) > 0) {
     lineItems.push({
       description: mainLineTitle,
       subBlocks: primarySubBlocks.length > 0 ? primarySubBlocks : undefined,
       structuredScope: scopeForDoc,
-      amount: fmt(quote.base_price ?? 0),
+      amount: perWeek(fmt(quote.base_price ?? 0)),
     })
   } else if (primarySubBlocks.length > 0 || scopeForDoc) {
     lineItems.push({
@@ -253,7 +274,7 @@ export function QuoteDocument({
       toParty={toParty}
       lineItems={lineItems}
       amountLabel={amountLabel}
-      notes={quote.notes}
+      notes={housekeepingNotes}
       totals={{
         subtotalExGstDisplay: fmt(subtotalExGst),
         gstDisplay: fmt(gstAmount),
