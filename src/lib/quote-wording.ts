@@ -41,6 +41,14 @@ export const SERVICE_TYPES_BY_CATEGORY: Record<ServiceCategory, { value: string;
     // manual override pricing (staff enter the price). Selecting it loads the
     // standard structured scope (see lib/full-property-reset-scope).
     { value: 'full_property_reset', label: 'Full Property Reset' },
+    // Residential Housekeeping — a flexible, structured-scope housekeeping
+    // service (broader than a standard clean: laundry, linen, tidying,
+    // rotational tasks). Like Full Property Reset it is a structured-scope,
+    // manual-priced service — deliberately NOT in service_multipliers or
+    // SERVICE_VOCAB, and NOT recurring. The "weekly" nature is communicated in
+    // the editable scope wording only. Selecting it loads the default
+    // housekeeping scope (see lib/full-property-reset-scope).
+    { value: 'residential_housekeeping', label: 'Residential Housekeeping' },
   ],
   property_management: [
     { value: 'routine',        label: 'Routine Clean' },

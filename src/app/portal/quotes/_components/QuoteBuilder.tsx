@@ -17,11 +17,14 @@ import {
 } from '@/lib/quote-wording'
 import {
   type StructuredScope,
-  buildDefaultResetScope,
+  buildDefaultScopeFor,
+  isStructuredScopeType,
 } from '@/lib/full-property-reset-scope'
 import { StructuredScopeEditor } from './StructuredScopeEditor'
 
-/** Service-type code that triggers the structured Full Property Reset scope. */
+/** Service-type code that triggers the structured Full Property Reset scope.
+ *  (Kept for existing imports; new branching uses isStructuredScopeType, which
+ *  also covers Residential Housekeeping.) */
 export const FULL_RESET_CODE = 'full_property_reset'
 
 export interface QuoteBuilderState {
@@ -93,14 +96,14 @@ export function QuoteBuilder({
   )
 
   const showFrequency = supportsRecurring(category, s.service_type_code || null)
-  const isFullReset = s.service_type_code === FULL_RESET_CODE
+  const isStructured = isStructuredScopeType(s.service_type_code)
 
   // ── Live regeneration ──────────────────────────────────────
   useEffect(() => {
     if (s.description_edited) return
-    // Full Property Reset uses the structured scope, not the free-text
-    // generator — never overwrite it here.
-    if (s.service_type_code === FULL_RESET_CODE) return
+    // Structured-scope services (Full Property Reset, Residential Housekeeping)
+    // use the structured scope, not the free-text generator — never overwrite it.
+    if (isStructuredScopeType(s.service_type_code)) return
     const generated = generateQuoteScope({
       service_category: category,
       service_type_code: s.service_type_code || null,
@@ -162,13 +165,18 @@ export function QuoteBuilder({
       service_type_code: code,
       frequency: recurring ? (s.service_category === 'commercial' ? 'x_per_week' : 'weekly') : 'one_off',
     }
-    // Full Property Reset: load the standard structured scope the first time
-    // it's selected. Never clobber an existing structured_scope (preserves
-    // edits if the operator toggles away and back). Selecting a different
-    // service type leaves structured_scope in place but unused — only the
-    // free-text generated_scope renders for non-reset types.
-    if (code === FULL_RESET_CODE && !s.structured_scope) {
-      next.structured_scope = buildDefaultResetScope()
+    // Structured-scope services (Full Property Reset, Residential Housekeeping):
+    // load that type's default scope the first time it's selected. Preserve an
+    // existing scope so toggling away and back keeps edits — but when switching
+    // FROM one structured type TO a different one, load the new type's default
+    // (a reset scope must not linger under a housekeeping quote). Non-structured
+    // types leave structured_scope in place but unused (only free-text renders).
+    if (isStructuredScopeType(code)) {
+      const switchingStructuredType =
+        isStructuredScopeType(s.service_type_code) && s.service_type_code !== code
+      if (!s.structured_scope || switchingStructuredType) {
+        next.structured_scope = buildDefaultScopeFor(code)
+      }
     }
     patch(next)
   }
@@ -401,18 +409,19 @@ export function QuoteBuilder({
         </Block>
       )}
 
-      {/* ── Full Property Reset: structured scope editor ─── */}
-      {category && isFullReset && s.structured_scope && (
-        <Block title="Full Property Reset scope">
+      {/* ── Structured scope editor (Full Property Reset / Housekeeping) ─── */}
+      {category && isStructured && s.structured_scope && (
+        <Block title="Service scope">
           <StructuredScopeEditor
             value={s.structured_scope}
             onChange={(next) => patch({ structured_scope: next })}
+            serviceTypeCode={s.service_type_code}
           />
         </Block>
       )}
 
       {/* ── Generated scope (preview / editable) ─────────── */}
-      {category && !isFullReset && (
+      {category && !isStructured && (
         <Block title="Generated scope">
           {s.description_edited ? (
             <div className="mb-2 flex items-center justify-between">
