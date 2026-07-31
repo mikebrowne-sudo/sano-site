@@ -4,12 +4,17 @@ import { isAccountantEmail, isAdminEmail } from '@/lib/is-admin'
 
 // Portal route prefixes a read-only accountant (finance) login may access.
 // Everything else under /portal is redirected to the finance area for them.
+// Includes the Pay + Reports hubs and the pay/finance surfaces they front.
 const FINANCE_PREFIXES = [
   '/portal/finance',
   '/portal/expenses',
   '/portal/invoices',
   '/portal/contractor-invoices',
+  '/portal/contractor-statements',
   '/portal/payroll',
+  '/portal/mileage',
+  '/portal/pay',
+  '/portal/reports',
 ]
 
 export async function middleware(request: NextRequest) {

@@ -9,10 +9,8 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard, FileText, Receipt, Briefcase, RefreshCw, Users,
-  HardHat, BookOpen, DollarSign, FileInput, Wallet, Bell, Settings,
-  Calendar, UserCog, ArchiveRestore,
-  Wallet2, UserPlus, Scale, Landmark, BarChart3, KeyRound,
-  Target, Megaphone, Car, Banknote, FileSignature, Star, Layers,
+  HardHat, BookOpen, DollarSign, Wallet, Bell, Settings,
+  Wallet2, UserPlus, BarChart3, Megaphone, FileSignature,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -29,66 +27,55 @@ export interface NavGroup {
   items: NavItem[]
 }
 
+// Restructured for clarity (Nov 2026): fewer top-level items, fat groups become
+// hub pages. No route is removed — every former tab is still reachable from its
+// hub or its parent (Calendar under Jobs; Accountant access / Archive under
+// Settings). The sidebar carries the daily set; ⌘K reaches everything.
+//
+// The hub pages: /portal/pay (contractor + employee pay + records),
+// /portal/reports (P&L, job margins, reconcile, tax, expenses),
+// /portal/marketing (leads, campaigns, reviews).
 export const NAV_GROUPS: NavGroup[] = [
   {
-    heading: 'Core operations',
+    heading: 'Operations',
     items: [
       { href: '/portal',                label: 'Dashboard', icon: LayoutDashboard, exact: true },
-      { href: '/portal/jobs',           label: 'Jobs',      icon: Briefcase },
-      { href: '/portal/jobs/calendar',  label: 'Calendar',  icon: Calendar },
+      { href: '/portal/jobs',           label: 'Jobs',      icon: Briefcase },   // Calendar lives inside Jobs
       { href: '/portal/recurring-jobs', label: 'Recurring', icon: RefreshCw },
     ],
   },
   {
     heading: 'Sales & clients',
     items: [
-      { href: '/portal/leads',                 label: 'Leads',           icon: Target },
-      { href: '/portal/campaigns',             label: 'Campaigns',       icon: Megaphone },
-      { href: '/portal/clients',               label: 'Clients',         icon: Users },
-      { href: '/portal/reviews',               label: 'Reviews',         icon: Star },
-      { href: '/portal/quotes',                label: 'Quotes',          icon: FileText },
-      { href: '/portal/invoices',              label: 'Invoices',        icon: Receipt, finance: true },
-      // Phase 2 cleanup — legacy /portal/commercial-calculator hidden
-      // from nav. Route still exists for any deep-linked bookmarks but
-      // the residential + commercial quote flows have superseded it.
-      // { href: '/portal/commercial-calculator', label: 'Commercial calc', icon: Calculator },
+      { href: '/portal/clients',   label: 'Clients',            icon: Users },
+      { href: '/portal/quotes',    label: 'Quotes',             icon: FileText },
+      { href: '/portal/invoices',  label: 'Invoices',           icon: Receipt, finance: true },
+      { href: '/portal/marketing', label: 'Leads & marketing',  icon: Megaphone }, // hub: leads, campaigns, reviews
     ],
   },
   {
-    heading: 'Workforce',
+    heading: 'People',
     items: [
-      { href: '/portal/applicants',  label: 'Applicants',             icon: UserPlus },
-      { href: '/portal/contractors', label: 'Workforce',              icon: HardHat },
-      // Employees now live under Workforce (contractors, worker_type='employee').
-      // The legacy /portal/employees page redirects there.
-      { href: '/portal/staff',       label: 'Staff',                  icon: UserCog },
-      { href: '/portal/training',    label: 'Training & compliance',  icon: BookOpen },
+      { href: '/portal/contractors', label: 'Workforce',   icon: HardHat },  // staff + contractors
+      { href: '/portal/applicants',  label: 'Applicants',  icon: UserPlus },
+      { href: '/portal/training',    label: 'Training',    icon: BookOpen },
     ],
   },
   {
-    heading: 'Finance',
+    heading: 'Money',
     items: [
-      { href: '/portal/expenses',            label: 'Expenses',             icon: Wallet2, finance: true },
-      { href: '/portal/finance/profit-loss', label: 'P&L statement',        icon: Scale, finance: true },
-      { href: '/portal/finance/job-margins', label: 'Job margins',          icon: BarChart3, finance: true },
-      { href: '/portal/finance/reconcile',   label: 'Bank reconciliation',  icon: Landmark, finance: true },
-      { href: '/portal/finance',             label: 'Profit / reports',     icon: DollarSign, finance: true },
-      { href: '/portal/contractor-invoices', label: 'Contractor invoices',  icon: FileInput, finance: true },
-      { href: '/portal/contractor-statements', label: 'Contractor statements', icon: Layers, finance: true },
-      { href: '/portal/payroll',             label: 'Payroll',              icon: Wallet, finance: true },
-      { href: '/portal/payroll/employee',    label: 'Employee pay',         icon: Banknote, finance: true },
-      { href: '/portal/mileage',             label: 'Mileage logbook',      icon: Car, finance: true },
+      { href: '/portal/pay',      label: 'Pay',      icon: Wallet, finance: true },     // hub: pay run, invoices, statements, employee pay, mileage
+      { href: '/portal/reports',  label: 'Reports',  icon: DollarSign, finance: true }, // hub: P&L, job margins, reconcile, tax, expenses
+      { href: '/portal/expenses', label: 'Expenses', icon: Wallet2, finance: true },
     ],
   },
   {
     heading: 'System',
     items: [
-      { href: '/portal/analytics',        label: 'Website analytics', icon: BarChart3 },
-      { href: '/portal/settings',         label: 'Settings',        icon: Settings },
-      { href: '/portal/settings/accountants', label: 'Accountant access', icon: KeyRound },
-      { href: '/portal/agreements', label: 'Employment agreements', icon: FileSignature },
-      { href: '/portal/settings/archive', label: 'Archived records', icon: ArchiveRestore },
-      { href: '/portal/alerts',           label: 'Alerts',          icon: Bell },
+      { href: '/portal/settings',   label: 'Settings',    icon: Settings },  // Accountant access + Archive live inside Settings
+      { href: '/portal/agreements', label: 'Agreements',  icon: FileSignature },
+      { href: '/portal/alerts',     label: 'Alerts',      icon: Bell },
+      { href: '/portal/analytics',  label: 'Analytics',   icon: BarChart3 },
     ],
   },
 ]
@@ -96,35 +83,35 @@ export const NAV_GROUPS: NavGroup[] = [
 /** Match logic used by the active-state highlight. Exact routes (the
  *  portal root) match by equality; everything else matches by prefix so
  *  detail/nested pages keep their parent highlighted. */
+// A hub highlights on its own route AND on every route it now fronts, so the
+// relocated pages keep their hub lit in the sidebar.
+const HUB_PREFIXES: Record<string, string[]> = {
+  // Pay hub fronts contractor pay + employee pay + records.
+  '/portal/pay': [
+    '/portal/pay', '/portal/contractor-invoices', '/portal/contractor-statements',
+    '/portal/payroll', '/portal/mileage',
+  ],
+  // Reports hub fronts the finance reports.
+  '/portal/reports': ['/portal/reports', '/portal/finance'],
+  // Marketing hub fronts leads / campaigns / reviews.
+  '/portal/marketing': ['/portal/marketing', '/portal/leads', '/portal/campaigns', '/portal/reviews'],
+}
+
 export function isNavActive(pathname: string, item: NavItem): boolean {
   if (item.placeholder) return false
   if (item.exact) return pathname === item.href
-  // Calendar is nested inside /portal/jobs — keep Calendar highlighted
-  // when on /portal/jobs/calendar rather than Jobs.
+
+  // Hubs: active on any of the routes they now front.
+  const hubPrefixes = HUB_PREFIXES[item.href]
+  if (hubPrefixes) return hubPrefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+
+  // Jobs now includes the Calendar view (folded in) — highlight on both.
   if (item.href === '/portal/jobs') {
-    return pathname === '/portal/jobs' ||
-      (pathname.startsWith('/portal/jobs/') && !pathname.startsWith('/portal/jobs/calendar'))
+    return pathname === '/portal/jobs' || pathname.startsWith('/portal/jobs/')
   }
-  // Archive is nested inside Settings — avoid double-highlight.
+  // Settings fronts its own sub-pages (Accountant access, Archive live inside it).
   if (item.href === '/portal/settings') {
-    return pathname === '/portal/settings' ||
-      (pathname.startsWith('/portal/settings/')
-        && !pathname.startsWith('/portal/settings/archive')
-        && !pathname.startsWith('/portal/settings/accountants'))
-  }
-  // P&L statement and Bank reconciliation are nested under /portal/finance —
-  // keep "Profit / reports" from also lighting up when on those pages.
-  // Employee pay is nested under /portal/payroll — keep Payroll from also
-  // lighting up when on it.
-  if (item.href === '/portal/payroll') {
-    return pathname === '/portal/payroll' ||
-      (pathname.startsWith('/portal/payroll/') && !pathname.startsWith('/portal/payroll/employee'))
-  }
-  if (item.href === '/portal/finance') {
-    return pathname === '/portal/finance' ||
-      (pathname.startsWith('/portal/finance/')
-        && !pathname.startsWith('/portal/finance/profit-loss')
-        && !pathname.startsWith('/portal/finance/reconcile'))
+    return pathname === '/portal/settings' || pathname.startsWith('/portal/settings/')
   }
   return pathname.startsWith(item.href)
 }

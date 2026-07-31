@@ -158,6 +158,20 @@ export default async function SettingsPage() {
               </div>
             </div>
           </Link>
+          <Link
+            href="/portal/settings/accountants"
+            className="block bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4 hover:border-sage-200 hover:shadow-sm transition-all"
+          >
+            <div className="flex items-start gap-3">
+              <KeyRound size={20} className="text-sage-500 mt-0.5" />
+              <div>
+                <div className="text-sage-800 font-semibold text-sm">Accountant access</div>
+                <div className="text-sage-600 text-xs mt-1">
+                  Grant a read-only accountant login that only sees the finance area. Admin-only.
+                </div>
+              </div>
+            </div>
+          </Link>
         </>
       )}
     </div>

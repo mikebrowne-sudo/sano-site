@@ -36,7 +36,31 @@ interface NavItem {
   group: string
 }
 
-// Flattened, navigable portal destinations (non-placeholder nav items).
+// Destinations that live INSIDE a hub (Pay / Reports / Marketing) rather than in
+// the sidebar — added here so ⌘K still jumps straight to them by name. Keeps the
+// sidebar lean while search reaches everything.
+const HUB_DESTINATIONS: { href: string; label: string; group: string }[] = [
+  { href: '/portal/contractor-invoices/pay-run', label: 'Pay run', group: 'Pay' },
+  { href: '/portal/contractor-invoices/pending-approvals', label: 'Pending approvals', group: 'Pay' },
+  { href: '/portal/contractor-invoices', label: 'Contractor invoices', group: 'Pay' },
+  { href: '/portal/contractor-invoices/remittances', label: 'Remittances', group: 'Pay' },
+  { href: '/portal/contractor-statements', label: 'Contractor statements', group: 'Pay' },
+  { href: '/portal/payroll/employee', label: 'Employee pay', group: 'Pay' },
+  { href: '/portal/mileage', label: 'Mileage logbook', group: 'Pay' },
+  { href: '/portal/finance/profit-loss', label: 'P&L statement', group: 'Reports' },
+  { href: '/portal/finance/job-margins', label: 'Job margins', group: 'Reports' },
+  { href: '/portal/finance/reconcile', label: 'Bank reconciliation', group: 'Reports' },
+  { href: '/portal/finance/contractor-tax-remediation', label: 'Contractor tax remediation', group: 'Reports' },
+  { href: '/portal/leads', label: 'Leads', group: 'Marketing' },
+  { href: '/portal/campaigns', label: 'Campaigns', group: 'Marketing' },
+  { href: '/portal/reviews', label: 'Reviews', group: 'Marketing' },
+  { href: '/portal/jobs/calendar', label: 'Calendar', group: 'Operations' },
+  { href: '/portal/staff', label: 'Staff', group: 'People' },
+  { href: '/portal/settings/accountants', label: 'Accountant access', group: 'System' },
+  { href: '/portal/settings/archive', label: 'Archived records', group: 'System' },
+]
+
+// Flattened, navigable portal destinations: sidebar nav items + hub children.
 function useNavItems(): NavItem[] {
   return useMemo(() => {
     const out: NavItem[] = []
@@ -45,6 +69,13 @@ function useNavItems(): NavItem[] {
         if (item.placeholder) continue
         out.push({ href: item.href, label: item.label, icon: item.icon, group: group.heading })
       }
+    }
+    // Hub children — same icon as a generic destination (reuse the first nav icon
+    // so ⌘K rows stay visually consistent without importing more icons).
+    const fallbackIcon = out[0]?.icon
+    for (const d of HUB_DESTINATIONS) {
+      if (out.some((o) => o.href === d.href)) continue
+      out.push({ href: d.href, label: d.label, icon: fallbackIcon, group: d.group })
     }
     return out
   }, [])
