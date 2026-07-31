@@ -14,6 +14,8 @@ export interface MonthPoint {
   income: number     // money in (paid invoices) that month
   expenses: number   // money out (all expenses) that month
   net: number        // income − expenses
+  /** True for the current, still-in-progress month (its figures are partial). */
+  partial: boolean
 }
 
 export interface DashboardFinance {
@@ -87,15 +89,18 @@ export async function buildDashboardFinance(
     expenseDate: (e.expense_date as string | null) ?? null,
   }))
 
+  const currentKey = monthKey(ty, tm)
   const points: MonthPoint[] = months.map(({ y, m }) => {
     const { from, to } = monthBounds(y, m)
     const pl = buildProfitLoss({ income, expenses, from, to })
+    const key = monthKey(y, m)
     return {
-      month: monthKey(y, m),
+      month: key,
       label: MONTH_LABELS[m - 1],
       income: pl.moneyIn,
       expenses: pl.moneyOut,
       net: Math.round((pl.moneyIn - pl.moneyOut) * 100) / 100,
+      partial: key === currentKey,   // the trailing month is still in progress
     }
   })
 

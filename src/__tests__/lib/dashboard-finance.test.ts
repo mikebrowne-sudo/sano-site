@@ -28,6 +28,11 @@ describe('dashboard finance — reuses the P&L, bounded query, correct window', 
     expect(src).toMatch(/lastMonthNet !== 0/)   // no divide-by-zero on the % change
   })
 
+  it('flags the current (trailing) month as partial for the chart', () => {
+    expect(src).toMatch(/partial: key === currentKey/)
+    expect(src).toMatch(/const currentKey = monthKey\(ty, tm\)/)
+  })
+
   it('walks the month window back correctly across a year boundary', () => {
     // Mirror the source's walk-back to assert the window it builds for a
     // Feb-2027 "today" with 12 months lands on Mar 2026 → Feb 2027.
