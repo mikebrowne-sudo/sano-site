@@ -142,6 +142,10 @@ async function loadPlan(
       undatedCount: split.undated.length,
     }
   })
+  // Only surface contractors who actually have something in this run — either
+  // eligible jobs to pay, or an undated amount worth flagging. Contractors with
+  // nothing pending (including inactive ones) never appear as $0 "payees".
+  .filter((g) => g.ciCount > 0 || g.undatedCount > 0)
 }
 
 /** Dry-run: one row per company-group with its payee, reference, and a per-invoice breakdown. */
