@@ -74,13 +74,12 @@ export default async function SavedRemittancesPage() {
                       <td className="py-3 px-4 text-sage-500 max-w-[180px] truncate" title={b.reference ?? ''}>{b.reference || '—'}</td>
                       <td className="py-3 px-4 text-right font-semibold text-sage-800">{formatCurrency(b.total)}</td>
                       <td className="py-3 px-4">
-                        {b.paymentConfirmed ? (
-                          <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium" title="Matched to an outgoing bank payment">
-                            <CheckCircle2 size={12} /> Confirmed
-                          </span>
-                        ) : b.paidAt ? (
-                          <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium" title="Marked paid but not yet matched to a bank payment — reconcile on Finance → Outgoing reconciliation">
-                            <Clock size={12} /> Paid, unconfirmed
+                        {b.paidAt ? (
+                          <span
+                            className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium"
+                            title={b.paymentConfirmed ? 'Matched to an outgoing bank payment' : 'Marked paid — confirmed against the bank when the statement is reconciled'}
+                          >
+                            <CheckCircle2 size={12} /> Paid
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">
