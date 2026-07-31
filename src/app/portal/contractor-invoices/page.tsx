@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser, isFinanceUser } from '@/lib/is-admin'
-import { Receipt, Plus, Search, AlertTriangle, FileText, FolderOpen, ClipboardCheck } from 'lucide-react'
+import { Receipt, Plus, Search, AlertTriangle, FileText, FolderOpen, ClipboardCheck, CalendarClock } from 'lucide-react'
 import clsx from 'clsx'
 
 export const dynamic = 'force-dynamic'
@@ -172,7 +172,10 @@ export default async function ContractorInvoicesPage({ searchParams }: { searchP
             <Link href="/portal/contractor-invoices/remittances" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
               <FolderOpen size={16} /> Saved remittances
             </Link>
-            <Link href="/portal/contractor-invoices/remittances/new-by-contractor" className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors">
+            <Link href="/portal/contractor-invoices/pay-run" className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors">
+              <CalendarClock size={16} /> Pay run
+            </Link>
+            <Link href="/portal/contractor-invoices/remittances/new-by-contractor" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
               <FileText size={16} /> Pay contractors
             </Link>
             <Link href="/portal/contractor-invoices/remittances/new" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
