@@ -1,4 +1,4 @@
-import { payPeriodForDate } from '@/lib/contractor-pay-period'
+import { payPeriodForDate, payPeriodForKey, previousPayPeriod, recentPayPeriods } from '@/lib/contractor-pay-period'
 
 describe('payPeriodForDate — pay-run schedule', () => {
   it('first half (1st–15th) is paid the 30th of the same month', () => {
@@ -62,5 +62,43 @@ describe('payPeriodForDate — pay-run schedule', () => {
 
   it('throws on an unparseable input', () => {
     expect(() => payPeriodForDate('not-a-date')).toThrow()
+  })
+})
+
+describe('payPeriodForKey — round-trips a period selection', () => {
+  it('resolves a period from its start-date key', () => {
+    expect(payPeriodForKey('2026-07-16')?.label).toBe('16–31 July 2026')
+    expect(payPeriodForKey('2026-07-01')?.label).toBe('1–15 July 2026')
+  })
+  it('returns null for a bad/missing key', () => {
+    expect(payPeriodForKey(null)).toBeNull()
+    expect(payPeriodForKey('nope')).toBeNull()
+  })
+})
+
+describe('previousPayPeriod — steps back one half-month', () => {
+  it('from 16–EOM back to 1–15 of the same month', () => {
+    expect(previousPayPeriod('2026-07-20').label).toBe('1–15 July 2026')
+  })
+  it('from 1–15 back to 16–EOM of the previous month', () => {
+    expect(previousPayPeriod('2026-07-05').label).toBe('16–30 June 2026')
+  })
+  it('crosses the year boundary (Jan 1–15 → 16–31 Dec prev year)', () => {
+    expect(previousPayPeriod('2026-01-10').label).toBe('16–31 December 2025')
+  })
+})
+
+describe('recentPayPeriods — newest first, contiguous', () => {
+  it('lists N periods starting from the one containing today', () => {
+    const ps = recentPayPeriods('2026-07-20', 4)
+    expect(ps.map((p) => p.label)).toEqual([
+      '16–31 July 2026', '1–15 July 2026', '16–30 June 2026', '1–15 June 2026',
+    ])
+  })
+  it('each carries the correct pay date (30th / 15th-next)', () => {
+    const [current] = recentPayPeriods('2026-07-05', 1)   // 1–15 July → paid 30 July
+    expect(current.payDate).toBe('2026-07-30')
+    const [second] = recentPayPeriods('2026-07-20', 1)    // 16–31 July → paid 15 Aug
+    expect(second.payDate).toBe('2026-08-15')
   })
 })
