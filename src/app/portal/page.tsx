@@ -12,6 +12,7 @@ import Link from 'next/link'
 import {
   FileText, ArrowRight, DollarSign,
   AlertTriangle, Bell, CalendarDays, MapPin, UserRound, Wallet,
+  TrendingUp, TrendingDown, Briefcase, BarChart3,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { isAdminUser, isAccountantUser } from '@/lib/is-admin'
@@ -24,6 +25,9 @@ import { loadPendingKs10Submissions, type PendingKs10 } from '@/lib/kiwisaver-ks
 import { loadStaffTaskCounts } from './_lib/staff-tasks-data'
 import { buildStaffTasks } from '@/lib/staff-tasks'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
+import { buildDashboardFinance } from './_lib/dashboard-finance'
+import { loadJobMargins } from '@/lib/job-margin'
+import { GrowthChart } from './_components/GrowthChart'
 
 // Whole-dollar currency for headline KPIs (cents are noise at a glance).
 const money0 = (n: number) =>
@@ -76,6 +80,30 @@ export default async function PortalDashboard() {
   ])
 
   const staffTasks = buildStaffTasks(taskCounts)
+
+  // ── Business health: 12-month money-in/out series (reuses the P&L defs) +
+  //    this-month operational stats. Admin-only page, so no extra gate needed.
+  const finance = await buildDashboardFinance(supabase, today, 12)
+
+  // Jobs completed this month + their average margin (ties into Job margins).
+  const { data: completedThisMonth } = await supabase
+    .from('jobs')
+    .select('id, job_price, allowed_hours')
+    .is('deleted_at', null).eq('is_test', false)
+    .in('status', ['completed', 'invoiced'])
+    .gte('completed_at', monthStart)
+    .gt('job_price', 0)
+  const monthJobs = (completedThisMonth ?? []) as Array<{ id: string; job_price: number | null; allowed_hours: number | null }>
+  const jobsThisMonth = monthJobs.length
+  let avgMarginPct: number | null = null
+  if (monthJobs.length > 0) {
+    const margins = await loadJobMargins(supabase, monthJobs.map((j) => ({ id: j.id, jobPrice: j.job_price, allowedHours: j.allowed_hours })))
+    const withPrice = monthJobs.filter((j) => (j.job_price ?? 0) > 0)
+    if (withPrice.length > 0) {
+      const sum = withPrice.reduce((s, j) => s + (margins.get(j.id)?.marginPercent ?? 0), 0)
+      avgMarginPct = Math.round(sum / withPrice.length)
+    }
+  }
 
   const { data: kiwisaver } = await supabase
     .from('kiwisaver_optout')
@@ -162,22 +190,7 @@ export default async function PortalDashboard() {
         </div>
       </header>
 
-      {/* ── KiwiSaver opt-out reminder (new-employee onboarding) ── */}
-      <KiwiSaverReminder
-        personLabel="Carol"
-        startDate={(kiwisaver?.start_date as string | null) ?? null}
-        optOutFiled={!!kiwisaver?.opt_out_filed}
-      />
-
-      {/* ── KS10 opt-outs awaiting submission to IRD ── */}
-      {pendingKs10.length > 0 && (
-        <div className="mt-2"><Ks10IrdAlert pending={pendingKs10} /></div>
-      )}
-
-      {/* ── To-do checklist (staff action centre) ──────── */}
-      <StaffTodoChecklist tasks={staffTasks} />
-
-      {/* ── Attention strip ────────────────────────────── */}
+      {/* ── Attention strip (thin, up top) ─────────────── */}
       {alerts.length > 0 && (
         <div className="bg-white border border-amber-200 rounded-xl px-5 py-3 shadow-sm">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
@@ -211,9 +224,51 @@ export default async function PortalDashboard() {
         </div>
       )}
 
-      {/* ── Primary KPIs ───────────────────────────────── */}
+      {/* ── Business health hero (net position + 12-mo growth) ── */}
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500">Money in vs out — last 12 months</h2>
+            <Link href="/portal/reports" className="inline-flex items-center gap-1 text-xs text-sage-500 hover:text-sage-700 font-medium">Reports <ArrowRight size={11} /></Link>
+          </div>
+          <GrowthChart points={finance.months} />
+        </div>
+
+        <div className="bg-sage-800 text-white rounded-2xl shadow-sm p-6 flex flex-col justify-between">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sage-300">Net position</div>
+            <div className="text-[10px] text-sage-400 mb-3">money in − money out · 12 mo</div>
+            <div className={clsx('text-4xl font-bold tracking-tight tabular-nums', finance.netPosition >= 0 ? 'text-white' : 'text-rose-300')}>
+              {money0(finance.netPosition)}
+            </div>
+          </div>
+          <div className="mt-5 pt-4 border-t border-sage-700/60 space-y-2.5">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-sage-300">This month net</span>
+              <span className={clsx('inline-flex items-center gap-1 font-semibold tabular-nums', finance.thisMonthNet >= 0 ? 'text-emerald-300' : 'text-rose-300')}>
+                {finance.thisMonthNet >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                {money0(finance.thisMonthNet)}
+              </span>
+            </div>
+            {finance.netChangePct != null && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-sage-300">vs last month</span>
+                <span className={clsx('font-semibold tabular-nums', finance.netChangePct >= 0 ? 'text-emerald-300' : 'text-rose-300')}>
+                  {finance.netChangePct >= 0 ? '+' : ''}{finance.netChangePct}%
+                </span>
+              </div>
+            )}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-sage-300">Received this month</span>
+              <span className="font-semibold tabular-nums text-white">{money0(finance.thisMonthIncome)}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Primary KPIs (6) ───────────────────────────── */}
       <section>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <KpiCard
             icon={Wallet}
             label="Outstanding"
@@ -236,7 +291,7 @@ export default async function PortalDashboard() {
             value={money0(receivedThisMonth)}
             hint="this month"
             accent="emerald"
-            href="/portal/finance"
+            href="/portal/reports"
           />
           <KpiCard
             icon={FileText}
@@ -244,6 +299,21 @@ export default async function PortalDashboard() {
             value={totalQuotes ?? 0}
             hint="in pipeline"
             href="/portal/quotes"
+          />
+          <KpiCard
+            icon={Briefcase}
+            label="Jobs (mo.)"
+            value={jobsThisMonth}
+            hint="completed this month"
+            href="/portal/jobs?tab=completed"
+          />
+          <KpiCard
+            icon={BarChart3}
+            label="Avg margin (mo.)"
+            value={avgMarginPct == null ? '—' : `${avgMarginPct}%`}
+            hint="completed jobs"
+            accent={avgMarginPct != null && avgMarginPct < 0 ? 'red' : 'emerald'}
+            href="/portal/reports"
           />
         </div>
       </section>
@@ -382,6 +452,18 @@ export default async function PortalDashboard() {
             ))}
           </ActivityPanel>
         </div>
+      </section>
+
+      {/* ── To-do & reminders (down the page — visual content leads) ── */}
+      <section className="space-y-4">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500 px-1">To do &amp; reminders</h2>
+        <KiwiSaverReminder
+          personLabel="Carol"
+          startDate={(kiwisaver?.start_date as string | null) ?? null}
+          optOutFiled={!!kiwisaver?.opt_out_filed}
+        />
+        {pendingKs10.length > 0 && <Ks10IrdAlert pending={pendingKs10} />}
+        <StaffTodoChecklist tasks={staffTasks} />
       </section>
     </div>
   )
