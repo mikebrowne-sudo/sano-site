@@ -14,6 +14,8 @@ import { revalidatePath } from 'next/cache'
 import { buildRemittanceReference, groupContractorsForRemittance, type RemittanceContractor } from '@/lib/remittance-reference'
 import { createContractorRemittance } from '../_actions-remittance-batch'
 import { splitByPeriod, sumInvoices, round2, type EligibleInvoice, type PeriodFilter } from '@/lib/remittance-period'
+import { resolveContractorServiceDate } from '@/lib/contractor-service-date'
+import { toNzCalendarDate } from '@/lib/contractor-statement-period'
 
 export interface Period { period_start?: string; period_end?: string }
 
@@ -50,7 +52,10 @@ interface EligibleCi {
   pay_hours: number | null
   gst_amount: number | null
   service_date: string | null
+  gst_supply_date: string | null
+  job_id: string | null
   invoice_number: string | null
+  jobs: { completed_at: string | null } | null
 }
 
 async function loadPlan(
@@ -67,13 +72,17 @@ async function loadPlan(
     .select('id, full_name, company_name, gst_number')
     .in('id', ids)
 
-  // Approved, not-yet-remitted pay for these contractors.
+  // Approved, not-yet-remitted pay for these contractors. Join the job so a
+  // job-derived CI (which has no explicit service_date) resolves its effective
+  // date from job.completed_at — the same rule the statement/remittance pipeline
+  // uses. Without this, every job-based payable is "undated" and a period run
+  // silently excludes it.
   const { data: ciRaw } = await supabase
     .from('contractor_invoices')
-    .select('id, contractor_id, amount, pay_hours, gst_amount, service_date, invoice_number')
+    .select('id, contractor_id, amount, pay_hours, gst_amount, service_date, gst_supply_date, job_id, invoice_number, jobs ( completed_at )')
     .in('contractor_id', ids)
     .eq('status', 'approved')
-  const cis = (ciRaw ?? []) as EligibleCi[]
+  const cis = (ciRaw ?? []) as unknown as EligibleCi[]
 
   const { data: remitted } = await supabase
     .from('contractor_remittance_items')
@@ -90,7 +99,14 @@ async function loadPlan(
       amount: Number(c.amount ?? 0),
       hours: c.pay_hours == null ? null : Number(c.pay_hours),
       gstAmount: c.gst_amount == null ? null : Number(c.gst_amount),
-      serviceDate: c.service_date,
+      // Effective service date: explicit service_date → job completed_at → GST
+      // supply date. Job-based CIs have no service_date, so resolve it here.
+      serviceDate: resolveContractorServiceDate({
+        job_id: c.job_id,
+        job_completed_at_nz: toNzCalendarDate(c.jobs?.completed_at ?? null),
+        service_date: c.service_date,
+        gst_supply_date: c.gst_supply_date,
+      }).date,
       invoiceNumber: c.invoice_number ?? '',
     }))
 
