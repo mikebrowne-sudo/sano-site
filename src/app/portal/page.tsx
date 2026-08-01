@@ -67,7 +67,11 @@ export default async function PortalDashboard() {
     supabase.from('quotes').select('id, quote_number, status, created_at, clients ( name )').is('deleted_at', null).eq('is_test', false).eq('is_latest_version', true).order('created_at', { ascending: false }).limit(5),
     supabase.from('invoices').select('id, invoice_number, status, due_date, created_at, clients ( name )').is('deleted_at', null).eq('is_test', false).order('created_at', { ascending: false }).limit(5),
     supabase.from('jobs').select('id, job_number, title, status, scheduled_date, contractors ( full_name )').is('deleted_at', null).eq('is_test', false).order('created_at', { ascending: false }).limit(5),
-    supabase.from('quotes').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('is_latest_version', true),
+    // "Active quotes" = the genuinely open pipeline only: drafts not yet sent +
+    // quotes sent and awaiting a decision. Accepted (won — usually already a job)
+    // and declined are NOT pipeline, so they're excluded. Without this the count
+    // balloons with won/dead quotes (e.g. 126 total vs ~27 actually open).
+    supabase.from('quotes').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('is_latest_version', true).in('status', ['draft', 'sent']),
     supabase.from('invoices').select('id, due_date, base_price, discount, invoice_items ( price )').is('deleted_at', null).eq('is_test', false).eq('status', 'sent'),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).is('contractor_id', null).neq('status', 'completed').neq('status', 'invoiced'),
@@ -297,7 +301,7 @@ export default async function PortalDashboard() {
             icon={FileText}
             label="Active quotes"
             value={totalQuotes ?? 0}
-            hint="in pipeline"
+            hint="draft or sent"
             href="/portal/quotes"
           />
           <KpiCard

@@ -65,6 +65,12 @@ describe('dashboard page — visual-first, admin-only, to-dos moved down', () =>
       expect(page).toMatch(new RegExp(`label="${label}"`))
     }
   })
+
+  it('"Active quotes" counts only the open pipeline (draft + sent), not won/dead quotes', () => {
+    // Regression: the count previously included every latest-version quote
+    // regardless of status (accepted/declined too), ballooning to ~126.
+    expect(page).toMatch(/\.in\('status', \['draft', 'sent'\]\)/)
+  })
   it('avg margin reuses the job-margin engine (consistent with Job margins page)', () => {
     expect(page).toMatch(/loadJobMargins/)
     expect(page).toMatch(/marginPercent/)
