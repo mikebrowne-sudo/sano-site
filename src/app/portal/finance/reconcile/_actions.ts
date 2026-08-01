@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { parseAsbCsv } from '@/lib/asb-import'
+import { saveBankBalanceFromImport } from '@/lib/bank-balance'
 import {
   validateAllocation,
   isFullyAllocated,
@@ -21,6 +22,10 @@ export interface ImportResponse {
   fromDate?: string | null
   toDate?: string | null
   skipped?: number
+  /** ASB ledger balance captured from this CSV, and whether it updated the stored figure. */
+  bankBalance?: number | null
+  bankBalanceDate?: string | null
+  bankBalanceUpdated?: boolean
 }
 
 /**
@@ -72,6 +77,24 @@ export async function importTransactions(csvText: string): Promise<ImportRespons
       if (error) return { ok: false, error: error.message }
     }
 
+    // Capture ASB's stated ledger balance for the dashboard. Monotonic: an
+    // older statement never overwrites a newer balance. Non-fatal if it can't
+    // save — the transactions are already in.
+    let bankBalance: number | null = null
+    let bankBalanceDate: string | null = null
+    let bankBalanceUpdated = false
+    if (parsed.ledgerBalance != null && parsed.ledgerBalanceDate) {
+      const res = await saveBankBalanceFromImport(
+        supabase,
+        { amount: parsed.ledgerBalance, asAt: parsed.ledgerBalanceDate },
+        user?.id ?? null,
+      )
+      bankBalance = res.effective.amount
+      bankBalanceDate = res.effective.asAt
+      bankBalanceUpdated = res.updated
+      if (res.updated) revalidatePath('/portal')
+    }
+
     revalidatePath('/portal/finance/reconcile')
     return {
       ok: true,
@@ -81,6 +104,9 @@ export async function importTransactions(csvText: string): Promise<ImportRespons
       fromDate: parsed.fromDate,
       toDate: parsed.toDate,
       skipped: parsed.skipped,
+      bankBalance,
+      bankBalanceDate,
+      bankBalanceUpdated,
     }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Unexpected error importing the file.' }

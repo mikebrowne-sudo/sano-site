@@ -77,6 +77,14 @@ export function Uploader() {
           Imported {result.newCount} new transaction{result.newCount !== 1 ? 's' : ''}
           {result.dupCount ? `, skipped ${result.dupCount} already-imported` : ''}
           {result.account ? ` · ${result.account}` : ''}.
+          {result.bankBalance != null && result.bankBalanceDate && (
+            <>
+              {' '}
+              {result.bankBalanceUpdated
+                ? `Dashboard bank balance updated to $${result.bankBalance.toLocaleString('en-NZ', { minimumFractionDigits: 2 })} (as at ${result.bankBalanceDate}).`
+                : `Statement balance ($${result.bankBalance.toLocaleString('en-NZ', { minimumFractionDigits: 2 })}) is older than the current dashboard figure — kept the newer one.`}
+            </>
+          )}
         </p>
       )}
     </div>
