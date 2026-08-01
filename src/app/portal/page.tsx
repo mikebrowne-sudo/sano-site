@@ -12,7 +12,7 @@ import Link from 'next/link'
 import {
   FileText, ArrowRight, DollarSign,
   AlertTriangle, Bell, CalendarDays, MapPin, UserRound, Wallet,
-  TrendingUp, TrendingDown, Briefcase, BarChart3,
+  TrendingUp, TrendingDown, Briefcase, BarChart3, Landmark, TrendingUp as ProjIcon,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { isAdminUser, isAccountantUser } from '@/lib/is-admin'
@@ -26,6 +26,7 @@ import { loadStaffTaskCounts } from './_lib/staff-tasks-data'
 import { buildStaffTasks } from '@/lib/staff-tasks'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 import { buildDashboardFinance } from './_lib/dashboard-finance'
+import { getBankBalance } from '@/lib/bank-balance'
 import { loadJobMargins } from '@/lib/job-margin'
 import { GrowthChart } from './_components/GrowthChart'
 
@@ -88,6 +89,11 @@ export default async function PortalDashboard() {
   // ── Business health: 12-month money-in/out series (reuses the P&L defs) +
   //    this-month operational stats. Admin-only page, so no extra gate needed.
   const finance = await buildDashboardFinance(supabase, today, 12)
+
+  // Bank balance = ASB's stated ledger balance, captured from the last CSV
+  // imported into reconciliation (no live feed). Null until a statement with a
+  // balance line has been imported.
+  const bankBalance = await getBankBalance(supabase)
 
   // Jobs completed this month + their average margin (ties into Job margins).
   const { data: completedThisMonth } = await supabase
@@ -267,6 +273,51 @@ export default async function PortalDashboard() {
               <span className="font-semibold tabular-nums text-white">{money0(finance.thisMonthIncome)}</span>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ── Cash position: bank balance + projected with outstanding ── */}
+      <section className="grid gap-4 sm:grid-cols-2">
+        {/* Bank balance — ASB's stated figure from the last imported statement */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500">
+            <Landmark size={14} className="text-sage-400" /> Bank balance
+          </div>
+          {bankBalance ? (
+            <>
+              <div className="mt-2 text-3xl font-bold tracking-tight tabular-nums text-sage-800">{money0(bankBalance.amount)}</div>
+              <div className="mt-1 text-xs text-sage-400">
+                as at {new Date(bankBalance.asAt + 'T00:00:00').toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })} · from your last ASB import
+              </div>
+            </>
+          ) : (
+            <div className="mt-2">
+              <div className="text-lg font-semibold text-sage-400">Not set yet</div>
+              <Link href="/portal/finance/reconcile" className="mt-1 inline-flex items-center gap-1 text-xs text-sage-500 hover:text-sage-700 font-medium">
+                Import an ASB statement to set it <ArrowRight size={11} />
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Projected — bank balance plus money owed on sent (unpaid) invoices */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500">
+            <ProjIcon size={14} className="text-emerald-500" /> Projected
+          </div>
+          {bankBalance ? (
+            <>
+              <div className="mt-2 text-3xl font-bold tracking-tight tabular-nums text-sage-800">{money0(bankBalance.amount + outstandingRevenue)}</div>
+              <div className="mt-1 text-xs text-sage-400 tabular-nums">
+                {money0(bankBalance.amount)} balance + {money0(outstandingRevenue)} owed on {outstandingCount} sent invoice{outstandingCount === 1 ? '' : 's'}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mt-2 text-3xl font-bold tracking-tight tabular-nums text-sage-800">{money0(outstandingRevenue)}</div>
+              <div className="mt-1 text-xs text-sage-400 tabular-nums">owed on {outstandingCount} sent invoice{outstandingCount === 1 ? '' : 's'} · set a bank balance to project</div>
+            </>
+          )}
         </div>
       </section>
 

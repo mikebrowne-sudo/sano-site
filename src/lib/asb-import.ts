@@ -37,6 +37,9 @@ export interface ParsedAsb {
   account: string | null
   fromDate: string | null // ISO
   toDate: string | null // ISO
+  /** ASB's stated account balance from the CSV preamble ("Ledger Balance : X as of YYYYMMDD"). */
+  ledgerBalance: number | null
+  ledgerBalanceDate: string | null // ISO — the "as of" date of that balance
   transactions: BankTxn[]
   skipped: number // non-empty data lines we could not parse
 }
@@ -131,6 +134,8 @@ export function parseAsbCsv(text: string): ParsedAsb {
   let account: string | null = null
   let fromDate: string | null = null
   let toDate: string | null = null
+  let ledgerBalance: number | null = null
+  let ledgerBalanceDate: string | null = null
   let headerIdx = -1
 
   for (let i = 0; i < lines.length; i++) {
@@ -145,13 +150,24 @@ export function parseAsbCsv(text: string): ParsedAsb {
     if (fromM) fromDate = parseAsbDate(fromM[1])
     const toM = first.match(/^To date\s+(\d{8})/i)
     if (toM) toDate = parseAsbDate(toM[1])
+    // "Ledger Balance : 6790.45 as of 20260623" — ASB's own stated account
+    // balance. This is the truthful source for the dashboard bank balance (the
+    // per-transaction rows carry no running balance).
+    const balM = first.match(/Ledger Balance\s*:\s*(-?[0-9,]+(?:\.\d+)?)\s+as of\s+(\d{8})/i)
+    if (balM) {
+      const amt = Number(balM[1].replace(/,/g, ''))
+      if (Number.isFinite(amt)) {
+        ledgerBalance = amt
+        ledgerBalanceDate = parseAsbDate(balM[2])
+      }
+    }
   }
 
   const transactions: BankTxn[] = []
   let skipped = 0
 
   if (headerIdx === -1) {
-    return { account, fromDate, toDate, transactions, skipped }
+    return { account, fromDate, toDate, ledgerBalance, ledgerBalanceDate, transactions, skipped }
   }
 
   for (let i = headerIdx + 1; i < lines.length; i++) {
@@ -181,5 +197,5 @@ export function parseAsbCsv(text: string): ParsedAsb {
     })
   }
 
-  return { account, fromDate, toDate, transactions, skipped }
+  return { account, fromDate, toDate, ledgerBalance, ledgerBalanceDate, transactions, skipped }
 }
