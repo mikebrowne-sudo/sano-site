@@ -9,20 +9,25 @@ import {
   LEAD_STATUSES,
   LEAD_STATUS_LABELS,
   LEAD_STATUS_BADGE,
+  QUALITY_RANKS,
   QUALITY_RANK_BADGE,
   type LeadStatus,
+  type QualityRank,
   type SalesLead,
 } from '@/lib/campaigns/constants'
 
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; status?: string }
+  searchParams: { q?: string; status?: string; rank?: string }
 }) {
   const supabase = createClient()
   const q = searchParams.q?.trim() ?? ''
   const statusFilter = LEAD_STATUSES.includes(searchParams.status as LeadStatus)
     ? (searchParams.status as LeadStatus)
+    : null
+  const rankFilter = QUALITY_RANKS.includes(searchParams.rank as QualityRank)
+    ? (searchParams.rank as QualityRank)
     : null
 
   let query = supabase
@@ -30,9 +35,12 @@ export default async function LeadsPage({
     .select('id, company, industry, contact_name, contact_role, email, quality_rank, status, next_follow_up')
     .order('quality_rank')
     .order('company')
-    .limit(200)
+    // High cap so no rank is silently truncated. With A→B→C ordering a low
+    // limit hid all C (and some B) leads once the list grew past it.
+    .limit(1000)
 
   if (statusFilter) query = query.eq('status', statusFilter)
+  if (rankFilter) query = query.eq('quality_rank', rankFilter)
   if (q) query = query.ilike('company', `%${q}%`)
 
   const { data: leads, error } = await query
@@ -101,15 +109,39 @@ export default async function LeadsPage({
     },
   ]
 
+  // Build a /portal/leads URL preserving the other active filters.
+  const buildHref = (next: { status?: LeadStatus | null; rank?: QualityRank | null }) => {
+    const params = new URLSearchParams()
+    const status = next.status !== undefined ? next.status : statusFilter
+    const rank = next.rank !== undefined ? next.rank : rankFilter
+    if (status) params.set('status', status)
+    if (rank) params.set('rank', rank)
+    if (q) params.set('q', q)
+    const qs = params.toString()
+    return `/portal/leads${qs ? `?${qs}` : ''}`
+  }
+
   const statusTab = (value: LeadStatus | null, label: string) => {
-    const href = value
-      ? `/portal/leads?status=${value}${q ? `&q=${encodeURIComponent(q)}` : ''}`
-      : `/portal/leads${q ? `?q=${encodeURIComponent(q)}` : ''}`
     const active = statusFilter === value
     return (
       <Link
         key={label}
-        href={href}
+        href={buildHref({ status: value })}
+        className={`text-xs font-semibold rounded-full px-3 py-1.5 transition-colors ${
+          active ? 'bg-sage-700 text-white' : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
+        }`}
+      >
+        {label}
+      </Link>
+    )
+  }
+
+  const rankTab = (value: QualityRank | null, label: string) => {
+    const active = rankFilter === value
+    return (
+      <Link
+        key={`rank-${label}`}
+        href={buildHref({ rank: value })}
         className={`text-xs font-semibold rounded-full px-3 py-1.5 transition-colors ${
           active ? 'bg-sage-700 text-white' : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
         }`}
@@ -133,11 +165,19 @@ export default async function LeadsPage({
         />
       }
       filters={
-        <div className="flex items-center gap-2 flex-wrap">
-          {statusTab(null, 'All')}
-          {(['new', 'contacted', 'responded', 'meeting', 'quoted', 'won'] as LeadStatus[]).map((s) =>
-            statusTab(s, LEAD_STATUS_LABELS[s])
-          )}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {statusTab(null, 'All')}
+            {(['new', 'contacted', 'responded', 'meeting', 'quoted', 'won'] as LeadStatus[]).map((s) =>
+              statusTab(s, LEAD_STATUS_LABELS[s])
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] uppercase tracking-wide text-sage-400 mr-1">Grade</span>
+            {rankTab(null, 'All grades')}
+            {QUALITY_RANKS.map((r) => rankTab(r, `${r} grade`))}
+            <span className="text-xs text-sage-400 ml-1">{rows.length} shown</span>
+          </div>
         </div>
       }
       emptyState={
