@@ -130,6 +130,7 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
         isAdmin={isAdmin}
         payment={{
           status: run.status, netTotal: totalNet, label: paymentLabel, paidAt: (run.paid_at as string | null) ?? null,
+          totalPaid, mileageTotal: totalReimb,
           bankAccount: singleBank,
           paymentDate: (run as { payment_date?: string | null }).payment_date ?? null,
           paymentReference: (run as { payment_reference?: string | null }).payment_reference ?? null,

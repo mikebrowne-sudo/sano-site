@@ -33,12 +33,14 @@ interface LineData {
   esct: number | null
   employerKsNet: number | null
   net: number
+  /** Non-taxable mileage reimbursement paid with this line (excluded from PAYE). */
+  mileageReimbursement: number
 }
 
 async function loadLineData(client: AnyClient, lineId: string): Promise<LineData | null> {
   const { data: line } = await client
     .from('pay_run_lines')
-    .select('id, pay_run_id, contractor_id, hours_worked, hourly_rate, gross_pay, paye, kiwisaver_employee, kiwisaver_employer, kiwisaver_employer_net, esct, net_pay')
+    .select('id, pay_run_id, contractor_id, hours_worked, hourly_rate, gross_pay, paye, kiwisaver_employee, kiwisaver_employer, kiwisaver_employer_net, esct, net_pay, mileage_reimbursement')
     .eq('id', lineId).maybeSingle()
   if (!line) return null
   const { data: run } = await client
@@ -65,6 +67,7 @@ async function loadLineData(client: AnyClient, lineId: string): Promise<LineData
     employerKsGross: Number(line.kiwisaver_employer ?? 0),
     esct: line.esct == null ? null : Number(line.esct), employerKsNet: line.kiwisaver_employer_net == null ? null : Number(line.kiwisaver_employer_net),
     net: Number(line.net_pay ?? 0),
+    mileageReimbursement: Number((line as { mileage_reimbursement?: number }).mileage_reimbursement ?? 0),
   }
 }
 
@@ -77,6 +80,7 @@ function snapshotFrom(d: LineData, meta: { reference: string; version: number; g
     hours: d.hours, rate: d.rate, gross: d.gross, paye: d.paye,
     employeeKsRate: d.employeeKsRate, employeeKsAmount: d.employeeKs, net: d.net,
     employerKsRate: d.employerKsRate, employerKsGross: d.employerKsGross, esct: d.esct, employerKsNet: d.employerKsNet,
+    mileageReimbursement: d.mileageReimbursement,
     termsSnapshot: d.termsSnapshot,
   })
 }

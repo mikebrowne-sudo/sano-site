@@ -93,11 +93,29 @@ export function PayslipDocument({ snapshot, preview = false, reviewCopy = false 
             </table>
           </div>
 
-          {/* Net pay */}
+          {/* Non-taxable reimbursements (e.g. mileage) — paid on top of net wages,
+              never taxed. Only shown when present. */}
+          {s.reimbursements && s.reimbursements.total > 0 && (
+            <div className="ps-section">
+              <h2 className="ps-h">Reimbursements (non-taxable)</h2>
+              <table className="ps-t">
+                <tbody>
+                  <tr><td>Mileage reimbursement</td><td className="r">{money(s.reimbursements.mileage)}</td></tr>
+                  <tr className="total"><td>Total reimbursements</td><td className="r">{money(s.reimbursements.total)}</td></tr>
+                </tbody>
+              </table>
+              <p className="ps-note">Mileage is a reimbursement of business travel costs — it is not income, so no PAYE, ACC or KiwiSaver applies.</p>
+            </div>
+          )}
+
+          {/* Net pay / total paid */}
           <div className="ps-net">
-            <span className="lbl">Net pay</span>
-            <span className="val">{money(s.deductions.net)}</span>
+            <span className="lbl">{s.reimbursements && s.reimbursements.total > 0 ? 'Total paid (net wages + reimbursements)' : 'Net pay'}</span>
+            <span className="val">{money(s.totalPaid ?? s.deductions.net)}</span>
           </div>
+          {s.reimbursements && s.reimbursements.total > 0 && (
+            <p className="ps-note" style={{ marginTop: '2mm' }}>Net wages {money(s.deductions.net)} + reimbursements {money(s.reimbursements.total)}.</p>
+          )}
 
           {/* Payment details */}
           <div className="ps-section">

@@ -22,6 +22,8 @@ export interface PayRunWorkflowProps {
   isAdmin: boolean
   payment: {
     status: string; netTotal: number; label: string; paidAt: string | null
+    // Total actually paid = wages net + non-taxable mileage reimbursement.
+    totalPaid: number; mileageTotal: number
     bankAccount: string | null
     paymentDate: string | null; paymentReference: string | null; paymentMethod: string | null
   }
@@ -68,16 +70,20 @@ export function PayRunWorkflowPanel(p: PayRunWorkflowProps) {
 
           {draft && (
             <>
-              <p className="mt-2 text-sage-800 font-semibold">Draft — {money(p.payment.netTotal)} net</p>
-              <p className="text-xs text-sage-500 mt-0.5">Review the figures + readiness, then approve to freeze them.</p>
+              <p className="mt-2 text-sage-800 font-semibold">Draft — {money(p.payment.totalPaid)} to pay</p>
+              <p className="text-xs text-sage-500 mt-0.5">
+                {p.payment.mileageTotal > 0
+                  ? `${money(p.payment.netTotal)} wages + ${money(p.payment.mileageTotal)} mileage. Review the figures + readiness, then approve.`
+                  : 'Review the figures + readiness, then approve to freeze them.'}
+              </p>
               {p.isAdmin && <button className={`${btn} mt-2`} disabled={isPending} onClick={() => run(() => approvePayRun(p.runId))}>Approve pay run</button>}
             </>
           )}
 
           {approved && (
             <>
-              <p className="mt-2 text-sage-800 font-semibold">Pay {p.payment.label} {money(p.payment.netTotal)}</p>
-              <p className="text-xs text-sage-500 mt-0.5">{p.payment.bankAccount ? `To ${p.payment.bankAccount}` : 'No bank account on file'} · figures frozen.</p>
+              <p className="mt-2 text-sage-800 font-semibold">Pay {p.payment.label} {money(p.payment.totalPaid)}</p>
+              <p className="text-xs text-sage-500 mt-0.5">{p.payment.mileageTotal > 0 ? `${money(p.payment.netTotal)} wages + ${money(p.payment.mileageTotal)} mileage · ` : ''}{p.payment.bankAccount ? `to ${p.payment.bankAccount}` : 'no bank account on file'} · figures frozen.</p>
               {p.isAdmin && !recording && <button className={`${btn} mt-2`} onClick={() => setRecording(true)}>Record payment</button>}
               {p.isAdmin && recording && (
                 <div className="mt-2 grid grid-cols-2 gap-2">
@@ -93,8 +99,8 @@ export function PayRunWorkflowPanel(p: PayRunWorkflowProps) {
 
           {paid && (
             <>
-              <p className="mt-2 text-sage-800 font-semibold">{money(p.payment.netTotal)} paid to {p.payment.label}</p>
-              <p className="text-xs text-sage-500 mt-0.5">On {fmtDate(p.payment.paymentDate ?? p.payment.paidAt)} · {p.payment.paymentMethod ?? '—'} · ref {p.payment.paymentReference ?? '—'}</p>
+              <p className="mt-2 text-sage-800 font-semibold">{money(p.payment.totalPaid)} paid to {p.payment.label}</p>
+              <p className="text-xs text-sage-500 mt-0.5">{p.payment.mileageTotal > 0 ? `${money(p.payment.netTotal)} wages + ${money(p.payment.mileageTotal)} mileage · ` : ''}On {fmtDate(p.payment.paymentDate ?? p.payment.paidAt)} · {p.payment.paymentMethod ?? '—'} · ref {p.payment.paymentReference ?? '—'}</p>
             </>
           )}
         </div>
