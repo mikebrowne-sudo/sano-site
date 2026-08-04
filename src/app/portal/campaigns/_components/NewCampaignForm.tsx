@@ -25,10 +25,10 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
   const [fromEmail, setFromEmail] = useState('carol@sano.nz')
   const [signatureName, setSignatureName] = useState('Carol Browne')
   const [replyTo, setReplyTo] = useState('carol@sano.nz')
-  // Carol's hosted signature banner. Default OFF — the campaign is meant to read
-  // as a genuine personal email; the banner works against that for cold sends.
+  // Carol's hosted signature banner — the same one her real Outlook emails use,
+  // so a campaign send matches her normal sign-off. Default ON.
   const CAROL_BANNER = 'https://sano.nz/email/email-banner-carol.jpg'
-  const [useBanner, setUseBanner] = useState(false)
+  const [useBanner, setUseBanner] = useState(true)
   // Sender warm-up: drip N/day instead of blasting. 0 = send all at once.
   const [dailyCap, setDailyCap] = useState('15')
   const [selected, setSelected] = useState<Set<string>>(new Set(leads.map((l) => l.id)))

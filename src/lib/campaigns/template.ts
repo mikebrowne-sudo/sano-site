@@ -94,11 +94,12 @@ function assembleEmail(opts: {
   const htmlParas = paragraphs.map((p) => `<p style="margin:0 0 14px 0;">${esc(p)}</p>`).join('\n      ')
   const roleHtml = sender.roleLine ? `<p style="margin:0 0 4px 0;color:#5c6b64;">${esc(sender.roleLine)}</p>\n      ` : ''
 
-  // Signature: banner image when explicitly provided; otherwise Carol's plain
-  // text block with an untracked sano.nz link.
+  // Signature: banner image when provided (same banner Carol's real Outlook
+  // emails use — linked to sano.nz, left-aligned, no rounding), otherwise the
+  // plain text block with an untracked sano.nz link.
   const signatureHtml = sender.bannerUrl
-    ? `<a href="https://sano.nz" style="display:block;text-decoration:none;">
-        <img src="${esc(sender.bannerUrl)}" alt="${esc(sender.name)} — Sano | sano.nz" width="560" style="display:block;width:100%;max-width:560px;height:auto;border:0;margin:6px 0 0;" />
+    ? `<a href="https://sano.nz" style="display:inline-block;text-decoration:none;">
+        <img src="${esc(sender.bannerUrl)}" alt="${esc(sender.name)} — Sano | sano.nz" width="560" style="display:block;width:100%;max-width:560px;height:auto;border:0;margin:8px 0 0;" />
       </a>`
     : `<p style="margin:0 0 4px 0;">${esc(sender.name)}</p>
       ${roleHtml}<p style="margin:0 0 4px 0;color:#5c6b64;">Sano | Clean spaces - Healthy living</p>
@@ -107,10 +108,13 @@ function assembleEmail(opts: {
       </p>
       <p style="margin:0;color:#5c6b64;">Auckland, New Zealand</p>`
 
+  // Left-aligned, full-width, no centered card — reads like a personal email
+  // Carol typed in Outlook/Gmail, not a marketing template. A generous max-width
+  // keeps long lines readable without floating a narrow column in the middle.
   const html = `<!DOCTYPE html>
 <html lang="en">
   <body style="margin:0;padding:0;background:#ffffff;">
-    <div style="max-width:560px;margin:0 auto;padding:24px 20px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#333d38;">
+    <div style="max-width:640px;margin:0;padding:16px;text-align:left;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#222222;">
       ${htmlParas}
       ${signatureHtml}
       <img src="${openPixel}" width="1" height="1" alt="" style="display:block;border:0;" />
