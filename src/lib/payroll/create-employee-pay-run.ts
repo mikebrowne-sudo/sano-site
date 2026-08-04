@@ -19,6 +19,10 @@ export interface CreatePayRunInput {
   pay_date: string
   pay_frequency: 'weekly' | 'fortnightly'
   notes?: string | null
+  /** Mileage catch-up: pay ONLY the period's approved mileage (0 hours, 0 wages,
+   *  0 PAYE/KiwiSaver). Used to release mileage that predates the normal cycle
+   *  without double-paying wages. Mileage is non-taxable, so nothing is withheld. */
+  mileage_only?: boolean
 }
 
 /** A pay-run line that needs staff review before finalising (never a silent
@@ -94,6 +98,30 @@ export async function createEmployeePayRun(
     const warnings: PayRunWarning[] = []
 
     const lines = employees.map((emp) => {
+      const mileageAmt = Math.round((mileageByContractor.get(emp.id) ?? 0) * 100) / 100
+
+      // Mileage catch-up: pay only the period's mileage. Zero wages/PAYE/KiwiSaver
+      // (mileage is a non-taxable reimbursement, so nothing is withheld).
+      if (input.mileage_only) {
+        return {
+          pay_run_id: data.id,
+          contractor_id: emp.id,
+          hours_worked: 0,
+          hourly_rate: 0,
+          gross_pay: 0,
+          holiday_pay: 0,
+          paye: 0,
+          student_loan: 0,
+          kiwisaver_employee: 0,
+          kiwisaver_employer: 0,
+          esct: 0,
+          kiwisaver_employer_net: 0,
+          net_pay: 0,
+          mileage_reimbursement: mileageAmt,
+          tax_code: emp.tax_code || 'M',
+        }
+      }
+
       const isPaygo = emp.holiday_pay_method === 'pay_as_you_go_8_percent'
       const rate = isPaygo ? (emp.loaded_hourly_rate ?? emp.hourly_rate ?? 0) : (emp.hourly_rate ?? 0)
       const hours = emp.standard_hours ?? 0
@@ -135,7 +163,7 @@ export async function createEmployeePayRun(
         esct: preview.employerEsct,
         kiwisaver_employer_net: preview.employerKiwisaverNet,
         net_pay: preview.netPay,
-        mileage_reimbursement: Math.round((mileageByContractor.get(emp.id) ?? 0) * 100) / 100,
+        mileage_reimbursement: mileageAmt,
         tax_code: emp.tax_code || 'M',
       }
     })
