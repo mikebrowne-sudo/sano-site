@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { renderCommercialIntro, listUnsubscribeHeader } from '@/lib/campaigns/template'
 import { sendCampaignBatch } from '@/lib/campaigns/send-batch'
 import { checkSenderReadiness } from '@/lib/campaigns/sender-readiness'
+import { isAdminUser } from '@/lib/is-admin'
 
 function siteUrl(): string {
   return process.env.NEXT_PUBLIC_SITE_URL || 'https://sano.nz'
@@ -175,14 +176,21 @@ export async function sendTestEmailAction(input: { campaignId: string; to: strin
     .single()
   if (error || !campaign) return { error: 'Campaign not found.' }
 
+  // Render exactly as a real send would: a sample company, {company} interpolated
+  // into the subject (the real send does this in send-batch — the test must match
+  // or {company} shows literally), a named greeting so you see the "Hi <name>,"
+  // variant, and the banner defaulting to Carol's if the campaign has one.
+  const sampleCompany = 'Acme Property Group'
   const rendered = renderCommercialIntro({
-    lead: { company: 'Your Company Ltd', contact_name: 'there' },
+    lead: { company: sampleCompany, contact_name: 'Jane Smith' },
     token: 'test-preview', // harmless — tracking endpoints ignore unknown tokens
     siteUrl: siteUrl(),
-    subject: campaign.subject,
+    subject: (campaign.subject || 'Cleaning at {company}').replace(/\{company\}/gi, sampleCompany),
     sender: {
       name: (campaign as { signature_name?: string | null }).signature_name || campaign.from_name,
-      bannerUrl: (campaign as { signature_banner_url?: string | null }).signature_banner_url || null,
+      bannerUrl:
+        (campaign as { signature_banner_url?: string | null }).signature_banner_url ||
+        'https://sano.nz/email/email-banner-carol.jpg',
     },
   })
   const fromEmail = (campaign as { from_email?: string | null }).from_email || 'noreply@sano.nz'
@@ -199,4 +207,41 @@ export async function sendTestEmailAction(input: { campaignId: string; to: strin
   })
   if (sendErr) return { error: `Test send failed: ${sendErr.message}` }
   return { ok: true }
+}
+
+/**
+ * Delete a campaign (admin only — Michael or Carol). Recipients cascade-delete
+ * via the FK. To avoid nuking real send history by accident, a campaign that has
+ * actually sent email is blocked unless `force: true` is passed (the UI asks a
+ * second, sterner confirmation for those). Draft / test campaigns delete freely.
+ */
+export async function deleteCampaignAction(campaignId: string, opts?: { force?: boolean }) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
+
+  const { data: campaign, error: cErr } = await supabase
+    .from('sales_campaigns')
+    .select('id, name, status')
+    .eq('id', campaignId)
+    .single()
+  if (cErr || !campaign) return { error: 'Campaign not found.' }
+
+  // How many recipients were actually emailed? A campaign with real sends is
+  // protected behind the force flag so test/draft cleanup can't wipe live history.
+  const { count: sentCount } = await supabase
+    .from('sales_campaign_recipients')
+    .select('id', { count: 'exact', head: true })
+    .eq('campaign_id', campaignId)
+    .not('sent_at', 'is', null)
+
+  if ((sentCount ?? 0) > 0 && !opts?.force) {
+    return { error: `This campaign has already emailed ${sentCount} recipient${sentCount === 1 ? '' : 's'}. Deleting removes that send history. Confirm again to force-delete.`, needsForce: true }
+  }
+
+  const { error: delErr } = await supabase.from('sales_campaigns').delete().eq('id', campaignId)
+  if (delErr) return { error: `Delete failed: ${delErr.message}` }
+
+  revalidatePath('/portal/campaigns')
+  return { success: true }
 }

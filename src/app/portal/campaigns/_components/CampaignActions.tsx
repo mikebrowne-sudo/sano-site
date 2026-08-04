@@ -3,8 +3,8 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
-import { Send, MailCheck, FlaskConical } from 'lucide-react'
-import { sendCampaignAction, markRespondedAction, sendTestEmailAction } from '../_actions'
+import { Send, MailCheck, FlaskConical, Trash2 } from 'lucide-react'
+import { sendCampaignAction, markRespondedAction, sendTestEmailAction, deleteCampaignAction } from '../_actions'
 
 /** Send one test email to yourself before the real send — verifies it arrives
  *  from the right sender, the signature looks right, and it isn't going to spam. */
@@ -116,6 +116,90 @@ export function SendCampaignButton({
       )}
       {result && <span className="text-sm text-green-700 font-medium">{result}</span>}
       {error && <span className="text-sm text-red-600">{error}</span>}
+    </div>
+  )
+}
+
+/**
+ * Delete a campaign (admin only — the parent gates rendering on isAdmin). Two
+ * stages: click → confirm; if the campaign has real sends the action returns
+ * needsForce and we ask a sterner second confirmation before force-deleting.
+ * `onDeleted` lets the caller redirect (detail page) or just refresh (list).
+ */
+export function DeleteCampaignButton({
+  campaignId,
+  redirectTo,
+  variant = 'row',
+}: {
+  campaignId: string
+  /** Where to go after a successful delete (e.g. the list). Omit to just refresh. */
+  redirectTo?: string
+  variant?: 'row' | 'full'
+}) {
+  const router = useRouter()
+  const [stage, setStage] = useState<'idle' | 'confirm' | 'force'>('idle')
+  const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  function doDelete(force: boolean) {
+    setError(null)
+    startTransition(async () => {
+      const res = await deleteCampaignAction(campaignId, { force })
+      if (res?.success) {
+        setStage('idle')
+        if (redirectTo) router.push(redirectTo)
+        else router.refresh()
+      } else if (res?.needsForce) {
+        setStage('force')
+      } else {
+        setError(res?.error || 'Delete failed.')
+      }
+    })
+  }
+
+  if (stage === 'idle') {
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setStage('confirm') }}
+        className={clsx(
+          'inline-flex items-center gap-1 text-sage-400 hover:text-red-600 transition-colors',
+          variant === 'full' ? 'text-sm font-medium' : 'text-[11px]'
+        )}
+        title="Delete campaign (admin only)"
+      >
+        <Trash2 size={variant === 'full' ? 15 : 13} />
+        {variant === 'full' && 'Delete campaign'}
+      </button>
+    )
+  }
+
+  const forcing = stage === 'force'
+  return (
+    <div
+      className="inline-flex items-center gap-2 flex-wrap"
+      onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
+    >
+      <span className={clsx('text-[11px]', forcing ? 'text-red-700 font-semibold' : 'text-sage-600')}>
+        {forcing ? 'This has real sends — really delete?' : 'Delete?'}
+      </span>
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={() => doDelete(forcing)}
+        className={clsx('inline-flex items-center gap-1 bg-red-600 text-white font-medium px-2.5 py-1 rounded-md text-[11px]', isPending ? 'opacity-60' : 'hover:bg-red-700')}
+      >
+        {isPending ? 'Deleting…' : forcing ? 'Force delete' : 'Yes, delete'}
+      </button>
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={() => { setStage('idle'); setError(null) }}
+        className="text-[11px] text-sage-500 hover:text-sage-700"
+      >
+        Cancel
+      </button>
+      {error && <span className="text-[11px] text-red-600 w-full">{error}</span>}
     </div>
   )
 }
