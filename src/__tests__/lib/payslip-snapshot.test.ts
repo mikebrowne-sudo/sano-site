@@ -58,4 +58,26 @@ describe('buildPayslipSnapshot — Carol official', () => {
     const preview = buildPayslipSnapshot({ ...carol, paid: false })
     expect(preview.payment).toEqual({ paid: false, paymentDate: null, paymentMethod: null, paymentReference: null })
   })
+
+  it('reimbursements are non-taxable — excluded from gross/PAYE, added to total paid', () => {
+    const withMileage = buildPayslipSnapshot({ ...carol, mileageReimbursement: 30.48 })
+    // Untouched: gross, PAYE, KiwiSaver, net wages.
+    expect(withMileage.earnings.gross).toBe(600)
+    expect(withMileage.deductions.paye).toBe(94.5)
+    expect(withMileage.deductions.net).toBe(484.5)
+    // Added on top.
+    expect(withMileage.reimbursements).toEqual({ mileage: 30.48, total: 30.48 })
+    expect(withMileage.totalPaid).toBe(514.98) // 484.5 + 30.48
+  })
+
+  it('mileage-only run: $0 wages, mileage is the whole payment', () => {
+    const mileageOnly = buildPayslipSnapshot({
+      ...carol, hours: 0, rate: 0, gross: 0, paye: 0, employeeKsAmount: 0, net: 0,
+      employerKsGross: 0, esct: 0, employerKsNet: 0, mileageReimbursement: 180,
+    })
+    expect(mileageOnly.earnings.gross).toBe(0)
+    expect(mileageOnly.deductions.net).toBe(0)
+    expect(mileageOnly.reimbursements.total).toBe(180)
+    expect(mileageOnly.totalPaid).toBe(180)
+  })
 })
