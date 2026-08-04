@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { renderCommercialIntro, listUnsubscribeHeader } from '@/lib/campaigns/template'
+import { sendCampaignBatch } from '@/lib/campaigns/send-batch'
 
 function siteUrl(): string {
   return process.env.NEXT_PUBLIC_SITE_URL || 'https://sano.nz'
@@ -19,6 +20,7 @@ export async function createCampaignAction(input: {
   signatureName?: string
   signatureBannerUrl?: string
   replyTo?: string
+  dailySendCap?: number
   leadIds: string[]
 }) {
   if (!input.name.trim()) return { error: 'Campaign needs a name.' }
@@ -36,6 +38,7 @@ export async function createCampaignAction(input: {
       ...(input.fromEmail?.trim() ? { from_email: input.fromEmail.trim() } : {}),
       ...(input.signatureName?.trim() ? { signature_name: input.signatureName.trim() } : {}),
       ...(input.signatureBannerUrl?.trim() ? { signature_banner_url: input.signatureBannerUrl.trim() } : {}),
+      ...(typeof input.dailySendCap === 'number' ? { daily_send_cap: Math.max(0, Math.floor(input.dailySendCap)) } : {}),
       ...(input.replyTo?.trim() ? { reply_to: input.replyTo.trim() } : {}),
     })
     .select('id')
@@ -65,96 +68,37 @@ export async function sendCampaignAction(campaignId: string) {
 
   const { data: campaign, error: cErr } = await supabase
     .from('sales_campaigns')
-    .select('id, name, subject, from_name, from_email, signature_name, signature_banner_url, reply_to, status')
+    .select('id, status, daily_send_cap')
     .eq('id', campaignId)
     .single()
   if (cErr || !campaign) return { error: 'Campaign not found.' }
   if (campaign.status === 'sending') return { error: 'Campaign is already sending.' }
 
-  const { data: recipients, error: rErr } = await supabase
-    .from('sales_campaign_recipients')
-    .select('id, token, status, lead:sales_leads(id, company, contact_name, email, status, unsubscribed_at)')
-    .eq('campaign_id', campaignId)
-    .eq('status', 'pending')
-  if (rErr) return { error: `Failed to load recipients: ${rErr.message}` }
-  if (!recipients || recipients.length === 0) return { error: 'No pending recipients.' }
+  // A daily cap (e.g. 15) sends only today's batch and leaves the rest pending
+  // for the daily drip cron. No cap = send everything now.
+  const cap = Number((campaign as { daily_send_cap?: number | null }).daily_send_cap ?? 0)
+  const limit = cap > 0 ? cap : Infinity
 
   await supabase.from('sales_campaigns').update({ status: 'sending' }).eq('id', campaignId)
 
-  const resend = new Resend(process.env.RESEND_API_KEY)
-  let sent = 0
-  let failed = 0
-  let skipped = 0
-
-  for (const r of recipients) {
-    // Supabase join can type as array; normalise.
-    const lead = Array.isArray(r.lead) ? r.lead[0] : r.lead
-    if (!lead || !lead.email || lead.unsubscribed_at || lead.status === 'do_not_contact') {
-      await supabase
-        .from('sales_campaign_recipients')
-        .update({ status: 'skipped', error: 'No email or opted out' })
-        .eq('id', r.id)
-      skipped++
-      continue
-    }
-
-    const rendered = renderCommercialIntro({
-      lead: { company: lead.company, contact_name: lead.contact_name },
-      token: r.token,
-      siteUrl: siteUrl(),
-      subject: campaign.subject,
-      // Signature = the campaign's signature name (falls back to from_name),
-      // with the banner image when set.
-      sender: {
-        name: (campaign as { signature_name?: string | null }).signature_name || campaign.from_name,
-        bannerUrl: (campaign as { signature_banner_url?: string | null }).signature_banner_url || null,
-      },
-    })
-
-    // From-address: the campaign's from_email (e.g. carol@sano.nz) or the safe
-    // default. The domain must be verified in Resend or the send will bounce.
-    const fromEmail = (campaign as { from_email?: string | null }).from_email || 'noreply@sano.nz'
-
-    const { error: sendErr } = await resend.emails.send({
-      from: `${campaign.from_name} <${fromEmail}>`,
-      to: lead.email,
-      replyTo: campaign.reply_to,
-      subject: rendered.subject,
-      html: rendered.html,
-      text: rendered.text,
-      headers: listUnsubscribeHeader(campaign.reply_to),
-    })
-
-    if (sendErr) {
-      await supabase
-        .from('sales_campaign_recipients')
-        .update({ status: 'failed', error: sendErr.message })
-        .eq('id', r.id)
-      failed++
-    } else {
-      await supabase
-        .from('sales_campaign_recipients')
-        .update({ status: 'sent', sent_at: new Date().toISOString(), error: null })
-        .eq('id', r.id)
-      // First touch moves a fresh lead to `contacted`.
-      await supabase
-        .from('sales_leads')
-        .update({ status: 'contacted', updated_at: new Date().toISOString() })
-        .eq('id', lead.id)
-        .eq('status', 'new')
-      sent++
-    }
+  const { result, error } = await sendCampaignBatch(supabase, campaignId, { limit })
+  if (error) {
+    await supabase.from('sales_campaigns').update({ status: 'draft' }).eq('id', campaignId)
+    return { error }
   }
 
+  // Drip campaigns with more still pending stay 'sending' (the cron continues);
+  // otherwise the campaign is fully sent.
+  const done = (result?.remaining ?? 0) <= 0
   await supabase
     .from('sales_campaigns')
-    .update({ status: 'sent', sent_at: new Date().toISOString() })
+    .update(done ? { status: 'sent', sent_at: new Date().toISOString() } : { status: 'sending', last_batch_at: new Date().toISOString() })
     .eq('id', campaignId)
 
   revalidatePath(`/portal/campaigns/${campaignId}`)
   revalidatePath('/portal/campaigns')
   revalidatePath('/portal/leads')
-  return { success: true, sent, failed, skipped }
+  return { success: true, sent: result?.sent ?? 0, failed: result?.failed ?? 0, skipped: result?.skipped ?? 0, remaining: result?.remaining ?? 0 }
 }
 
 /** Manual response marking (reply detection is manual by design for now). */
