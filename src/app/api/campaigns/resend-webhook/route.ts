@@ -184,10 +184,21 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Only act when this reply actually transitions the recipient to responded —
+  // the .is('responded_at', null) filter means a duplicate forward (e.g. the
+  // Apps Script re-sending) updates zero rows, so we skip the activity insert and
+  // don't create duplicate log rows. This keeps the forwarder path idempotent
+  // even though it carries no svix-id for the dedup ledger.
+  let firstResponse = false
   if (recipientId) {
-    await supabase.from('sales_campaign_recipients').update({ responded_at: nowIso }).eq('id', recipientId).is('responded_at', null)
+    const { data: updated } = await supabase
+      .from('sales_campaign_recipients')
+      .update({ responded_at: nowIso })
+      .eq('id', recipientId).is('responded_at', null)
+      .select('id')
+    firstResponse = (updated?.length ?? 0) > 0
   }
-  if (leadId) {
+  if (leadId && firstResponse) {
     await supabase.from('sales_leads').update({ status: 'responded', updated_at: nowIso }).eq('id', leadId).in('status', ['new', 'contacted'])
     await supabase.from('sales_lead_activities').insert({ lead_id: leadId, kind: 'email', body: 'Reply received (auto-detected)' })
   }
