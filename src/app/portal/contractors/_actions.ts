@@ -341,6 +341,21 @@ export async function uploadDocument(formData: FormData) {
     return { error: `Failed to save document record: ${dbErr.message}` }
   }
 
+  // Upload = "mark as done" for the completed statutory forms. Uploading the
+  // form is the evidence, so it flips the matching received/filed flag in one
+  // step (staff can still change it manually on the profile).
+  //   • IR330 / IR330C  → ir330_received = true (clears the ND-45% warning)
+  //   • KS10 opt-out     → record the opt-out as filed
+  const type = documentType || 'other'
+  if (type === 'ir330' || type === 'ir330c') {
+    await supabase.from('contractors').update({ ir330_received: true }).eq('id', contractorId)
+  } else if (type === 'ks10_optout') {
+    await supabase
+      .from('contractors')
+      .update({ kiwisaver_optout_filed: true, kiwisaver_ks10_received_date: new Date().toISOString().slice(0, 10) })
+      .eq('id', contractorId)
+  }
+
   revalidatePath(`/portal/contractors/${contractorId}`)
   return { success: true }
 }
