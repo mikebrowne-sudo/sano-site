@@ -106,7 +106,9 @@ describe('reachability — nothing removed (source-level)', () => {
     expect(settings).toMatch(/Accountant access/)
   })
   it('the Pay hub links every former pay tab', () => {
-    for (const p of ['/portal/contractor-invoices/pay-run', '/portal/contractor-invoices', '/portal/contractor-statements', '/portal/payroll/employee', '/portal/mileage']) {
+    // 'Employee pay' now points at the full payroll system (/portal/payroll);
+    // the old /portal/payroll/employee helper redirects there.
+    for (const p of ['/portal/contractor-invoices/pay-run', '/portal/contractor-invoices', '/portal/contractor-statements', '/portal/payroll', '/portal/mileage']) {
       expect(payHub).toContain(p)
     }
   })

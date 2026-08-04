@@ -21,7 +21,7 @@ export default async function PayHubPage() {
           cards: [
             { href: '/portal/contractor-invoices/pay-run', title: 'Pay run', desc: 'Bundle a fortnight’s authorised jobs into remittances.', icon: CalendarClock },
             { href: '/portal/contractor-invoices/pending-approvals', title: 'Pending approvals', desc: 'Completed jobs awaiting pay authorisation.', icon: ClipboardCheck },
-            { href: '/portal/payroll/employee', title: 'Employee pay', desc: 'Salaried staff — Carol and future employees.', icon: Banknote },
+            { href: '/portal/payroll', title: 'Employee pay', desc: 'Salaried staff — Carol and future employees.', icon: Banknote },
           ],
         },
         {
