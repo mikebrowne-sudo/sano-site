@@ -60,7 +60,15 @@ export async function createEmployeePayRun(
     // 23505 = unique violation → the double-pay guard: one employee run per
     // cycle per period. A manual run and the cron can't both pay the same week.
     if (error?.code === '23505') {
-      return { duplicate: true, error: `A ${input.pay_frequency} pay run already exists for this period.` }
+      // Unique on (pay_frequency, pay_period_end). A catch-up sharing an end
+      // date with an existing run trips this — tell the operator to change the
+      // period end, not that "the weekly run exists".
+      return {
+        duplicate: true,
+        error: input.mileage_only
+          ? 'A run already ends on this date. For a mileage catch-up, set the period to the mileage dates (e.g. 1–31 Jul) so it doesn’t clash with a weekly run.'
+          : `A ${input.pay_frequency} pay run already exists for this period.`,
+      }
     }
     return { error: `Failed to create: ${error?.message}` }
   }

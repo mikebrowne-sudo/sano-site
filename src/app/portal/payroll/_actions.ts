@@ -17,6 +17,32 @@ export async function createPayRun(input: { pay_period_start: string; pay_period
   redirect(`/portal/payroll/${res.id}`)
 }
 
+/** Live preview: approved, unpaid mileage for active employees dated within a
+ *  period — so the New Pay Run form can show what a (catch-up) run will pay
+ *  before it's created. */
+export async function previewPeriodMileage(input: { from: string; to: string }): Promise<{ total: number; count: number; error?: string }> {
+  if (!input.from || !input.to) return { total: 0, count: 0 }
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!isAdminUser(user)) return { total: 0, count: 0, error: 'Admin only.' }
+
+  const { data: emps } = await supabase
+    .from('contractors').select('id').eq('status', 'active').neq('worker_type', 'contractor')
+  const ids = (emps ?? []).map((e) => e.id as string)
+  if (ids.length === 0) return { total: 0, count: 0 }
+
+  const { data: logs } = await supabase
+    .from('mileage_logs')
+    .select('reimbursement_amount')
+    .in('contractor_id', ids)
+    .eq('status', 'approved')
+    .is('pay_run_id', null)
+    .gte('log_date', input.from)
+    .lte('log_date', input.to)
+  const total = Math.round((logs ?? []).reduce((s, l) => s + Number((l as { reimbursement_amount: number }).reimbursement_amount ?? 0), 0) * 100) / 100
+  return { total, count: (logs ?? []).length }
+}
+
 /**
  * APPROVE a draft pay run (draft → approved). Freezes the calculation: the
  * figures + terms snapshot are now immutable (enforced by canModifyPayRun / the

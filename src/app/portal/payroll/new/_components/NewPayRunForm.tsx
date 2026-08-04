@@ -1,9 +1,10 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
+import clsx from 'clsx'
 import { ArrowRight, UserRound, Users, Info } from 'lucide-react'
-import { createPayRun } from '../../_actions'
+import { createPayRun, previewPeriodMileage } from '../../_actions'
 
 export interface PayrollEmployee {
   id: string
@@ -43,6 +44,18 @@ export function NewPayRunForm({ employees }: { employees: PayrollEmployee[] }) {
     () => employees.filter((e) => e.payFrequency === frequency),
     [employees, frequency],
   )
+
+  // Live mileage preview for the chosen period (mileage-catch-up mode) — shows
+  // what will actually be paid before creating, so the dates are obviously right.
+  const [mileagePreview, setMileagePreview] = useState<{ total: number; count: number } | null>(null)
+  useEffect(() => {
+    if (!mileageOnly || !start || !end) { setMileagePreview(null); return }
+    let cancelled = false
+    previewPeriodMileage({ from: start, to: end }).then((r) => {
+      if (!cancelled && !r.error) setMileagePreview({ total: r.total, count: r.count })
+    })
+    return () => { cancelled = true }
+  }, [mileageOnly, start, end])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -105,6 +118,13 @@ export function NewPayRunForm({ employees }: { employees: PayrollEmployee[] }) {
             ? 'No wages or PAYE — this run pays only the approved mileage dated within the period below. Set the period to cover the mileage you’re catching up.'
             : 'All active employees on this cycle are paid together. Approved mileage for the period is added automatically as a non-taxable reimbursement.'}
         </p>
+        {mileageOnly && mileagePreview && (
+          <p className={clsx('mt-2 text-sm font-medium tabular-nums', mileagePreview.total > 0 ? 'text-emerald-700' : 'text-amber-700')}>
+            {mileagePreview.total > 0
+              ? `This period will pay ${money(mileagePreview.total)} of mileage (${mileagePreview.count} log${mileagePreview.count === 1 ? '' : 's'}).`
+              : 'No approved, unpaid mileage in this period — adjust the dates to cover the mileage you’re catching up.'}
+          </p>
+        )}
       </div>
 
       {/* Subcontractors are NOT paid here — separate flow. */}
