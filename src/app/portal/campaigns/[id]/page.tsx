@@ -5,19 +5,22 @@ import { ArrowLeft, Eye, MousePointerClick, MailCheck, Send as SendIcon } from '
 import { renderCommercialIntro, hasUsableFullName } from '@/lib/campaigns/template'
 import { checkSenderReadiness } from '@/lib/campaigns/sender-readiness'
 import { QUALITY_RANK_BADGE, type QualityRank } from '@/lib/campaigns/constants'
-import { SendCampaignButton, MarkRepliedButton, TestSendBox } from '../_components/CampaignActions'
+import { SendCampaignButton, MarkRepliedButton, TestSendBox, DeleteCampaignButton } from '../_components/CampaignActions'
+import { isAdminUser } from '@/lib/is-admin'
 
 export default async function CampaignDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
 
-  const [{ data: campaign }, { data: recipients }] = await Promise.all([
+  const [{ data: campaign }, { data: recipients }, { data: { user } }] = await Promise.all([
     supabase.from('sales_campaigns').select('*').eq('id', params.id).single(),
     supabase
       .from('sales_campaign_recipients')
       .select('id, status, sent_at, opened_at, first_clicked_at, click_count, responded_at, error, subject_variant, bounced_at, followup_sent_at, lead:sales_leads(id, company, contact_name, email, quality_rank)')
       .eq('campaign_id', params.id)
       .order('created_at'),
+    supabase.auth.getUser(),
   ])
+  const isAdmin = isAdminUser(user)
 
   if (!campaign) notFound()
 
@@ -87,7 +90,10 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
             )}
           </p>
         </div>
-        <SendCampaignButton campaignId={campaign.id} pendingCount={pending} />
+        <div className="flex items-center gap-4 flex-wrap">
+          <SendCampaignButton campaignId={campaign.id} pendingCount={pending} />
+          {isAdmin && <DeleteCampaignButton campaignId={campaign.id} redirectTo="/portal/campaigns" variant="full" />}
+        </div>
       </div>
 
       {/* Sender readiness — SPF/DKIM/alignment before launch */}
