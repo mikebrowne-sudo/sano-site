@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
 import { ArrowLeft, Eye, MousePointerClick, MailCheck, Send as SendIcon } from 'lucide-react'
 import { renderCommercialIntro, hasUsableFullName } from '@/lib/campaigns/template'
+import { checkSenderReadiness } from '@/lib/campaigns/sender-readiness'
 import { QUALITY_RANK_BADGE, type QualityRank } from '@/lib/campaigns/constants'
 import { SendCampaignButton, MarkRepliedButton, TestSendBox } from '../_components/CampaignActions'
 
@@ -13,7 +14,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
     supabase.from('sales_campaigns').select('*').eq('id', params.id).single(),
     supabase
       .from('sales_campaign_recipients')
-      .select('id, status, sent_at, opened_at, first_clicked_at, click_count, responded_at, error, lead:sales_leads(id, company, contact_name, email, quality_rank)')
+      .select('id, status, sent_at, opened_at, first_clicked_at, click_count, responded_at, error, subject_variant, bounced_at, followup_sent_at, lead:sales_leads(id, company, contact_name, email, quality_rank)')
       .eq('campaign_id', params.id)
       .order('created_at'),
   ])
@@ -31,6 +32,19 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
   const clicked = recs.filter((r) => r.first_clicked_at).length
   const replied = recs.filter((r) => r.responded_at).length
   const pct = (n: number) => (sent > 0 ? `${Math.round((n / sent) * 100)}%` : '—')
+
+  // Sender-readiness (SPF/DKIM/alignment) for the campaign's from-address.
+  const readiness = await checkSenderReadiness((campaign.from_email as string | null) || 'noreply@sano.nz')
+
+  // A/B subject reporting: delivery / reply rate per variant.
+  const abStats = ['A', 'B'].map((v) => {
+    const inV = recs.filter((r) => (r as { subject_variant?: string | null }).subject_variant === v)
+    const sentV = inV.filter((r) => r.status === 'sent').length
+    const repliedV = inV.filter((r) => r.responded_at).length
+    const bouncedV = inV.filter((r) => (r as { bounced_at?: string | null }).bounced_at).length
+    return { v, total: inV.length, sent: sentV, replied: repliedV, bounced: bouncedV, replyPct: sentV > 0 ? Math.round((repliedV / sentV) * 100) : 0 }
+  }).filter((s) => s.total > 0)
+  const followupsSent = recs.filter((r) => (r as { followup_sent_at?: string | null }).followup_sent_at).length
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://sano.nz'
   const senderName = (campaign.signature_name as string | null) || (campaign.from_name as string | null) || 'Carol Browne'
@@ -76,10 +90,44 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
         <SendCampaignButton campaignId={campaign.id} pendingCount={pending} />
       </div>
 
+      {/* Sender readiness — SPF/DKIM/alignment before launch */}
+      {pending > 0 && (
+        <div className={`mb-6 rounded-xl border p-4 ${readiness.ready ? 'border-emerald-200 bg-emerald-50/60' : 'border-red-200 bg-red-50'}`}>
+          <p className={`text-sm font-semibold ${readiness.ready ? 'text-emerald-800' : 'text-red-800'}`}>
+            {readiness.ready ? 'Sender authentication verified' : 'Sender not verified — do not launch yet'}
+          </p>
+          <ul className="mt-2 space-y-1">
+            {readiness.checks.map((c) => (
+              <li key={c.label} className="text-[12px] flex items-start gap-1.5">
+                <span className={c.ok ? 'text-emerald-600' : 'text-red-600'}>{c.ok ? '✓' : '✕'}</span>
+                <span className="text-sage-700"><span className="font-medium">{c.label}:</span> {c.detail}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-sage-500 mt-2">{readiness.note}</p>
+        </div>
+      )}
+
       {/* Test send — verify deliverability + look before the real send */}
       {pending > 0 && (
         <div className="mb-8 max-w-md">
           <TestSendBox campaignId={campaign.id} />
+        </div>
+      )}
+
+      {/* A/B subject results */}
+      {abStats.length > 1 && (
+        <div className="mb-8 bg-white border border-sage-100 rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-sage-500 uppercase tracking-wide mb-3">Subject A/B results</h2>
+          <div className="grid grid-cols-2 gap-4">
+            {abStats.map((s) => (
+              <div key={s.v} className="rounded-lg border border-sage-100 p-3">
+                <p className="text-xs font-semibold text-sage-700 mb-1">Subject {s.v}</p>
+                <p className="text-sm text-sage-600 tabular-nums">{s.sent} sent · {s.replied} replied ({s.replyPct}%){s.bounced ? ` · ${s.bounced} bounced` : ''}</p>
+              </div>
+            ))}
+          </div>
+          {followupsSent > 0 && <p className="text-[11px] text-sage-400 mt-2">{followupsSent} follow-up{followupsSent === 1 ? '' : 's'} sent.</p>}
         </div>
       )}
 

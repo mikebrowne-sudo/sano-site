@@ -1,4 +1,28 @@
-import { renderCommercialIntro, listUnsubscribeHeader, hasUsableFullName } from '@/lib/campaigns/template'
+import { renderCommercialIntro, renderCommercialFollowup, listUnsubscribeHeader, hasUsableFullName } from '@/lib/campaigns/template'
+
+describe('renderCommercialFollowup — one light nudge, threaded, same name split', () => {
+  const base = { lead: { company: 'Acme Ltd', contact_name: 'Jane Smith', email: 'jane@acme.co.nz' }, token: 't', siteUrl: 'https://sano.nz', originalSubject: 'Cleaning at Acme Ltd', sender: { name: 'Carol Browne' } }
+
+  it('named: greets by name, "follow up ... in case it was missed", keeps the "someone else" line, threads as Re:', () => {
+    const e = renderCommercialFollowup(base)
+    expect(e.variant).toBe('named')
+    expect(e.subject).toBe('Re: Cleaning at Acme Ltd')
+    expect(e.text).toContain('Hi Jane,')
+    expect(e.text).toContain('follow up on my email below')
+    expect(e.text).toContain("someone else I'd be better speaking with")
+  })
+
+  it('team: "Hi team" + drops the "someone else" sentence', () => {
+    const e = renderCommercialFollowup({ ...base, lead: { company: 'Acme Ltd', contact_name: null, email: 'info@acme.co.nz' } })
+    expect(e.variant).toBe('team')
+    expect(e.text).toContain('Hi team,')
+    expect(e.text).not.toContain('someone else')
+  })
+
+  it('does not double up "Re:" when the original already has it', () => {
+    expect(renderCommercialFollowup({ ...base, originalSubject: 'Re: Cleaning at Acme Ltd' }).subject).toBe('Re: Cleaning at Acme Ltd')
+  })
+})
 
 describe('hasUsableFullName — strict name validation (no mail-merge greetings)', () => {
   it('accepts a real first + last name', () => {
@@ -40,8 +64,11 @@ describe('commercial intro — Carol-voiced, sender-parameterised', () => {
     expect(email.text.toLowerCase()).toContain("won't follow up")
   })
 
-  it('has one tracked link + the open pixel, no pricing or forbidden phrases', () => {
-    expect(email.html).toContain('/api/campaigns/track/click/tok123')
+  it('uses a PLAIN sano.nz link (no tracked/redirect link) + the open pixel, no pricing or forbidden phrases', () => {
+    // Per spec: no tracked/redirected click link — it makes a personal email
+    // read as a campaign. Only the open pixel remains, and a plain sano.nz link.
+    expect(email.html).not.toContain('/api/campaigns/track/click/')
+    expect(email.html).toContain('href="https://sano.nz"')
     expect(email.html).toContain('/api/campaigns/track/open/tok123')
     for (const banned of ['premium', 'eco-friendly', 'industry-leading', '$']) {
       expect(email.text.toLowerCase()).not.toContain(banned)

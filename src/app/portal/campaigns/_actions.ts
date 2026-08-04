@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { renderCommercialIntro, listUnsubscribeHeader } from '@/lib/campaigns/template'
 import { sendCampaignBatch } from '@/lib/campaigns/send-batch'
+import { checkSenderReadiness } from '@/lib/campaigns/sender-readiness'
 
 function siteUrl(): string {
   return process.env.NEXT_PUBLIC_SITE_URL || 'https://sano.nz'
@@ -14,6 +15,8 @@ function siteUrl(): string {
 export async function createCampaignAction(input: {
   name: string
   subject: string
+  subjectA?: string
+  subjectB?: string
   description?: string
   fromName?: string
   fromEmail?: string
@@ -27,11 +30,16 @@ export async function createCampaignAction(input: {
   if (input.leadIds.length === 0) return { error: 'Pick at least one lead.' }
 
   const supabase = createClient()
+  const subjectA = input.subjectA?.trim() || input.subject.trim() || 'Cleaning at {company}'
+  const subjectB = input.subjectB?.trim() || null
+
   const { data: campaign, error } = await supabase
     .from('sales_campaigns')
     .insert({
       name: input.name.trim(),
-      subject: input.subject.trim() || 'Cleaning enquiry',
+      subject: subjectA,
+      subject_a: subjectA,
+      subject_b: subjectB,
       description: input.description || null,
       // Sender identity (columns default sensibly when omitted).
       ...(input.fromName?.trim() ? { from_name: input.fromName.trim() } : {}),
@@ -48,7 +56,18 @@ export async function createCampaignAction(input: {
     return { error: `Failed to create campaign: ${error?.message}` }
   }
 
-  const rows = input.leadIds.map((lead_id) => ({ campaign_id: campaign.id, lead_id }))
+  // Assign the A/B subject bucket evenly + randomly at add-time (never changed
+  // after sending). When there's no B subject, everyone is 'A'. Even split via a
+  // shuffled index so quality isn't correlated with the bucket.
+  const ids = [...input.leadIds]
+  if (subjectB) {
+    for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[ids[i], ids[j]] = [ids[j], ids[i]] }
+  }
+  const rows = ids.map((lead_id, idx) => ({
+    campaign_id: campaign.id,
+    lead_id,
+    subject_variant: subjectB ? (idx % 2 === 0 ? 'A' : 'B') : 'A',
+  }))
   const { error: recErr } = await supabase.from('sales_campaign_recipients').insert(rows)
   if (recErr) {
     return { error: `Campaign created but recipients failed: ${recErr.message}` }
@@ -63,16 +82,25 @@ export async function createCampaignAction(input: {
  * `failed` and continues; leads that unsubscribed / lost their email since
  * being added are marked `skipped`.
  */
-export async function sendCampaignAction(campaignId: string) {
+export async function sendCampaignAction(campaignId: string, opts?: { overrideReadiness?: boolean }) {
   const supabase = createClient()
 
   const { data: campaign, error: cErr } = await supabase
     .from('sales_campaigns')
-    .select('id, status, daily_send_cap')
+    .select('id, status, daily_send_cap, from_email')
     .eq('id', campaignId)
     .single()
   if (cErr || !campaign) return { error: 'Campaign not found.' }
   if (campaign.status === 'sending') return { error: 'Campaign is already sending.' }
+
+  // Sender-readiness gate: block launch if the sending domain isn't
+  // SPF/DKIM-verified + aligned, unless explicitly overridden.
+  if (!opts?.overrideReadiness) {
+    const readiness = await checkSenderReadiness((campaign as { from_email?: string | null }).from_email || 'noreply@sano.nz')
+    if (!readiness.ready) {
+      return { error: `Sender not verified: ${readiness.checks.find((c) => !c.ok)?.detail ?? 'authentication unconfirmed'}. Fix DNS/verification or override to send anyway.`, blockedByReadiness: true }
+    }
+  }
 
   // A daily cap (e.g. 15) sends only today's batch and leaves the rest pending
   // for the daily drip cron. No cap = send everything now.
