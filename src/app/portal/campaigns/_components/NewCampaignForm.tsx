@@ -16,8 +16,13 @@ type EligibleLead = Pick<
 
 export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
   const [name, setName] = useState('')
-  const [subject, setSubject] = useState('Quick question about office cleaning at {company}')
+  const [subject, setSubject] = useState('Cleaning at {company}')
   const [description, setDescription] = useState('')
+  // Sender identity — defaults to Carol so the email reads as coming from her.
+  const [fromName, setFromName] = useState('Carol Browne')
+  const [fromEmail, setFromEmail] = useState('carol@sano.nz')
+  const [signatureName, setSignatureName] = useState('Carol Browne')
+  const [replyTo, setReplyTo] = useState('carol@sano.nz')
   const [selected, setSelected] = useState<Set<string>>(new Set(leads.map((l) => l.id)))
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -48,6 +53,10 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
         name,
         subject,
         description: description || undefined,
+        fromName: fromName.trim() || undefined,
+        fromEmail: fromEmail.trim() || undefined,
+        signatureName: signatureName.trim() || undefined,
+        replyTo: replyTo.trim() || undefined,
         leadIds: Array.from(selected),
       })
       if (res?.error) setError(res.error)
@@ -89,6 +98,31 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
               placeholder="Optional — what is this campaign testing?"
               className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 text-sm"
             />
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold text-sage-800 mb-1">Sender</h2>
+        <p className="text-[12px] text-sage-500 mb-4">Who the email comes from. Defaults to Carol so it reads as a personal note from her.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label className="block">
+            <span className="block text-sm font-semibold text-sage-800 mb-1.5">From name</span>
+            <input value={fromName} onChange={(e) => setFromName(e.target.value)} className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
+          </label>
+          <label className="block">
+            <span className="block text-sm font-semibold text-sage-800 mb-1.5">From email</span>
+            <input value={fromEmail} onChange={(e) => setFromEmail(e.target.value)} className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
+            <span className="block text-[11px] text-amber-700 mt-1.5">Must be a verified sender in Resend, or the send will bounce.</span>
+          </label>
+          <label className="block">
+            <span className="block text-sm font-semibold text-sage-800 mb-1.5">Signature name</span>
+            <input value={signatureName} onChange={(e) => setSignatureName(e.target.value)} className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
+          </label>
+          <label className="block">
+            <span className="block text-sm font-semibold text-sage-800 mb-1.5">Reply-to</span>
+            <input value={replyTo} onChange={(e) => setReplyTo(e.target.value)} className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
+            <span className="block text-[11px] text-sage-500 mt-1.5">Where replies (including &ldquo;no thanks&rdquo;) land.</span>
           </label>
         </div>
       </section>

@@ -20,6 +20,17 @@ export interface TemplateLead {
   contact_name: string | null
 }
 
+/** Sender identity shown in the email body + signature. Lets a campaign send as
+ *  Carol (or anyone) rather than a hardcoded name. */
+export interface TemplateSender {
+  /** Full name in the sign-off, e.g. "Carol Browne". */
+  name: string
+  /** Optional role/line under the name, e.g. omitted when the name stands alone. */
+  roleLine?: string | null
+}
+
+const DEFAULT_SENDER: TemplateSender = { name: 'Michael Browne' }
+
 export interface RenderedEmail {
   subject: string
   html: string
@@ -44,29 +55,38 @@ export function renderCommercialIntro(opts: {
   siteUrl: string
   /** Subject override from the campaign row. */
   subject?: string
+  /** Who the email is from — drives the sign-off. Defaults to Michael Browne. */
+  sender?: TemplateSender
 }): RenderedEmail {
   const { lead, token, siteUrl } = opts
   const name = firstName(lead.contact_name)
   const company = lead.company
+  const sender = opts.sender ?? DEFAULT_SENDER
+  const senderFirst = sender.name.trim().split(/\s+/)[0] || 'Carol'
 
-  const subject = opts.subject || `Quick question about office cleaning at ${company}`
+  const subject = opts.subject || `Cleaning at ${company}`
 
   const trackedSiteLink = `${siteUrl}/api/campaigns/track/click/${token}?to=${encodeURIComponent(
     `${siteUrl}/services/commercial-cleaning`
   )}`
   const openPixel = `${siteUrl}/api/campaigns/track/open/${token}`
 
+  // Carol-voiced cold intro. Reads as a genuine one-to-one email; opt-out is the
+  // "let me know and I won't follow up" line, backed by the List-Unsubscribe
+  // header + a reply-to that reaches the sender. NZ English, no pricing, no
+  // forbidden phrases.
   const paragraphs = [
     `Hi ${name},`,
-    `I'll keep this short. I run Sano, an Auckland cleaning company, and over the last while we've been taking on more commercial work: offices and professional practices that want the place consistently sharp without having to chase their cleaners.`,
-    `If ${company} is happy with its current arrangement, no worries at all. But if the cleaning has become one of those quietly annoying things (details getting missed, different faces every week, standards drifting), I'd genuinely like the chance to quote it. Our teams are background-checked and insured, and we stand behind the work with a satisfaction guarantee.`,
-    `A quick walkthrough is usually all it takes: fifteen minutes, and you'll have a clear, practical quote to weigh up whenever the timing suits.`,
-    `Two honest notes to finish. If you're not the right person for this, sorry for the interruption, and if you can point me at whoever looks after the office I'd really appreciate it. And if you'd simply rather not hear from me, reply "no thanks" and that's the last email you'll get from us.`,
-    `Cheers,`,
+    `I hope you don't mind me reaching out.`,
+    `I'm ${senderFirst} and I run Sano. We're an Auckland cleaning company, and I wanted to see whether there might be an opportunity to provide a quote for the cleaning at ${company}, either now or when you next review your cleaning arrangements.`,
+    `Would you happen to be the right person to speak with? If not, I'd really appreciate you pointing me in the direction of whoever looks after that side of the business.`,
+    `If you're already well sorted in this space, feel free to let me know and I won't follow up again.`,
+    `Kind regards,`,
   ]
 
   const signatureText = [
-    `Michael Browne`,
+    sender.name,
+    ...(sender.roleLine ? [sender.roleLine] : []),
     `Sano | Clean spaces - Healthy living`,
     `sano.nz | 0800 726 686`,
     `Auckland, New Zealand`,
@@ -76,21 +96,21 @@ export function renderCommercialIntro(opts: {
     ...paragraphs,
     '',
     ...signatureText,
-    '',
-    `More on our commercial cleaning: ${siteUrl}/services/commercial-cleaning`,
   ].join('\n\n').replace(/\n\n\n+/g, '\n\n')
 
   const htmlParas = paragraphs
     .map((p) => `<p style="margin:0 0 14px 0;">${esc(p)}</p>`)
     .join('\n      ')
 
+  const roleHtml = sender.roleLine ? `<p style="margin:0 0 4px 0;color:#5c6b64;">${esc(sender.roleLine)}</p>\n      ` : ''
+
   const html = `<!DOCTYPE html>
 <html lang="en">
   <body style="margin:0;padding:0;background:#ffffff;">
     <div style="max-width:560px;margin:0 auto;padding:24px 20px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#333d38;">
       ${htmlParas}
-      <p style="margin:0 0 4px 0;">Michael Browne</p>
-      <p style="margin:0 0 4px 0;color:#5c6b64;">Sano | Clean spaces - Healthy living</p>
+      <p style="margin:0 0 4px 0;">${esc(sender.name)}</p>
+      ${roleHtml}<p style="margin:0 0 4px 0;color:#5c6b64;">Sano | Clean spaces - Healthy living</p>
       <p style="margin:0 0 4px 0;color:#5c6b64;">
         <a href="${trackedSiteLink}" style="color:#076653;">sano.nz</a> | 0800 726 686
       </p>

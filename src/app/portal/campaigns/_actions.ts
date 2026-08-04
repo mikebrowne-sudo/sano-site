@@ -14,6 +14,10 @@ export async function createCampaignAction(input: {
   name: string
   subject: string
   description?: string
+  fromName?: string
+  fromEmail?: string
+  signatureName?: string
+  replyTo?: string
   leadIds: string[]
 }) {
   if (!input.name.trim()) return { error: 'Campaign needs a name.' }
@@ -24,8 +28,13 @@ export async function createCampaignAction(input: {
     .from('sales_campaigns')
     .insert({
       name: input.name.trim(),
-      subject: input.subject.trim() || 'Quick question about office cleaning',
+      subject: input.subject.trim() || 'Cleaning enquiry',
       description: input.description || null,
+      // Sender identity (columns default sensibly when omitted).
+      ...(input.fromName?.trim() ? { from_name: input.fromName.trim() } : {}),
+      ...(input.fromEmail?.trim() ? { from_email: input.fromEmail.trim() } : {}),
+      ...(input.signatureName?.trim() ? { signature_name: input.signatureName.trim() } : {}),
+      ...(input.replyTo?.trim() ? { reply_to: input.replyTo.trim() } : {}),
     })
     .select('id')
     .single()
@@ -54,7 +63,7 @@ export async function sendCampaignAction(campaignId: string) {
 
   const { data: campaign, error: cErr } = await supabase
     .from('sales_campaigns')
-    .select('id, name, subject, from_name, reply_to, status')
+    .select('id, name, subject, from_name, from_email, signature_name, reply_to, status')
     .eq('id', campaignId)
     .single()
   if (cErr || !campaign) return { error: 'Campaign not found.' }
@@ -92,10 +101,16 @@ export async function sendCampaignAction(campaignId: string) {
       token: r.token,
       siteUrl: siteUrl(),
       subject: campaign.subject,
+      // Signature = the campaign's signature name (falls back to from_name).
+      sender: { name: (campaign as { signature_name?: string | null }).signature_name || campaign.from_name },
     })
 
+    // From-address: the campaign's from_email (e.g. carol@sano.nz) or the safe
+    // default. The domain must be verified in Resend or the send will bounce.
+    const fromEmail = (campaign as { from_email?: string | null }).from_email || 'noreply@sano.nz'
+
     const { error: sendErr } = await resend.emails.send({
-      from: `${campaign.from_name} <noreply@sano.nz>`,
+      from: `${campaign.from_name} <${fromEmail}>`,
       to: lead.email,
       replyTo: campaign.reply_to,
       subject: rendered.subject,
