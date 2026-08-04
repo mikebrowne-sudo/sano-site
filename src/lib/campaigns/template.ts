@@ -18,6 +18,8 @@
 export interface TemplateLead {
   company: string
   contact_name: string | null
+  /** Recipient email — used to detect a generic/shared inbox for the greeting. */
+  email?: string | null
 }
 
 /** Sender identity shown in the email body + signature. Lets a campaign send as
@@ -39,12 +41,26 @@ export interface RenderedEmail {
   subject: string
   html: string
   text: string
+  /** Which template variant was selected — 'named' or 'team' — for audit. */
+  variant: 'named' | 'team'
 }
 
 function firstName(contactName: string | null): string {
   if (!contactName) return 'there'
   const first = contactName.trim().split(/\s+/)[0]
   return first || 'there'
+}
+
+/** A name is only usable for a personal greeting when it's a proper first +
+ *  last name — not a bare first name, an inbox word, or junk. First-name-only
+ *  ("Paul") reads as mail-merge, so those fall back to the team greeting. */
+export function hasUsableFullName(contactName: string | null | undefined): boolean {
+  if (!contactName) return false
+  const parts = contactName.trim().split(/\s+/).filter(Boolean)
+  if (parts.length < 2) return false
+  // each part looks like a name (letters, hyphen, apostrophe), not "there"/"info"
+  const junk = /^(there|team|info|office|admin|reception|enquiries|sales|accounts|hello|contact|manager|owner)$/i
+  return parts.every((p) => /^[A-Za-zĀ-ſ'’.-]{2,}$/.test(p)) && !parts.some((p) => junk.test(p))
 }
 
 function esc(s: string): string {
@@ -63,7 +79,6 @@ export function renderCommercialIntro(opts: {
   sender?: TemplateSender
 }): RenderedEmail {
   const { lead, token, siteUrl } = opts
-  const name = firstName(lead.contact_name)
   const company = lead.company
   const sender = opts.sender ?? DEFAULT_SENDER
   const senderFirst = sender.name.trim().split(/\s+/)[0] || 'Carol'
@@ -75,15 +90,30 @@ export function renderCommercialIntro(opts: {
   )}`
   const openPixel = `${siteUrl}/api/campaigns/track/open/${token}`
 
-  // Carol-voiced cold intro. Reads as a genuine one-to-one email; opt-out is the
-  // "let me know and I won't follow up" line, backed by the List-Unsubscribe
-  // header + a reply-to that reaches the sender. NZ English, no pricing, no
-  // forbidden phrases.
+  // Two templates, selected on the ONE thing that changes whether the email
+  // sounds personal or automated: do we have a reliable full name?
+  //   named  → greet by first name, ask if they're the right person
+  //   team   → "Hi team" (fits info@/office@/reception@), just ask to be pointed
+  //            to whoever looks after it (the "are you the right person?" line
+  //            makes no sense to a shared inbox, so it's dropped)
+  // Everything else in the copy is identical, so both stay on-message.
+  const named = hasUsableFullName(lead.contact_name)
+  const greetName = named ? firstName(lead.contact_name) : 'team'
+
+  // Carol-voiced cold intro. Opt-out is the "let me know and I won't follow up"
+  // line, backed by the List-Unsubscribe header + reply-to that reaches the
+  // sender. NZ English, no pricing, no forbidden phrases.
+  const intro = `I'm ${senderFirst} and I run Sano. We're an Auckland cleaning company, and I wanted to see whether there might be an opportunity to provide a quote for the cleaning at ${company}, either now or when you next review your cleaning arrangements.`
+
+  const askLine = named
+    ? `Would you happen to be the right person to speak with? If not, I'd really appreciate you pointing me in the direction of whoever looks after that side of the business.`
+    : `I'd really appreciate it if you could point me in the direction of whoever looks after that side of the business.`
+
   const paragraphs = [
-    `Hi ${name},`,
+    `Hi ${greetName},`,
     `I hope you don't mind me reaching out.`,
-    `I'm ${senderFirst} and I run Sano. We're an Auckland cleaning company, and I wanted to see whether there might be an opportunity to provide a quote for the cleaning at ${company}, either now or when you next review your cleaning arrangements.`,
-    `Would you happen to be the right person to speak with? If not, I'd really appreciate you pointing me in the direction of whoever looks after that side of the business.`,
+    intro,
+    askLine,
     `If you're already well sorted in this space, feel free to let me know and I won't follow up again.`,
     `Kind regards,`,
   ]
@@ -132,7 +162,7 @@ export function renderCommercialIntro(opts: {
   </body>
 </html>`
 
-  return { subject, html, text }
+  return { subject, html, text, variant: named ? 'named' : 'team' }
 }
 
 /** Belt-and-braces unsubscribe header alongside the human reply-to-opt-out. */
