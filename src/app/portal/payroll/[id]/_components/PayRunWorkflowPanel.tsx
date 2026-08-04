@@ -115,7 +115,7 @@ export function PayRunWorkflowPanel(p: PayRunWorkflowProps) {
           )}
           {p.isAdmin && (
             <div className="flex flex-wrap gap-2 mt-2">
-              {!p.emp.registered && <button className={btn} disabled={isPending} onClick={() => run(() => markEmpRegistered({ runId: p.runId, registered: true }))}>Mark EMP registered</button>}
+              {!p.emp.registered && <button className={btn} disabled={isPending} onClick={() => run(() => markEmpRegistered({ runId: p.runId, registered: true, note: 'IRD 149-353-356-EMP005 · registered as employer from 27 Jul 2026' }))}>Mark EMP registered</button>}
               {p.emp.registered && p.filing.status !== 'submitted' && p.filing.status !== 'accepted' && <button className={btn} disabled={isPending} onClick={() => run(() => markFilingSubmitted({ runId: p.runId }))}>Mark submitted</button>}
               {p.filing.status === 'submitted' && <button className={btn} disabled={isPending} onClick={() => run(() => markFilingAccepted({ runId: p.runId }))}>Mark accepted</button>}
             </div>
