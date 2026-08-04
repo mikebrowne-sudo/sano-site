@@ -22,14 +22,37 @@ export interface RecurringRow {
   next_invoice_date: string | null
   contractor_id: string | null
   contractor_monthly_pay: number | null
+  /** When true, the invoice sent on `invoice_send_day` bills for the PREVIOUS
+   *  calendar month (e.g. Pukekohe: sent the 7th of Sep for August's work). */
+  bill_in_arrears: boolean | null
 }
 
 export const REC_COLS =
-  'id, client_id, monthly_value, title, description, address, status, invoice_auto_send, invoice_send_day, next_invoice_date, contractor_id, contractor_monthly_pay'
+  'id, client_id, monthly_value, title, description, address, status, invoice_auto_send, invoice_send_day, next_invoice_date, contractor_id, contractor_monthly_pay, bill_in_arrears'
 
 /** Month label for a billing date, e.g. "2026-07-31" → "July 2026". */
 export function billingPeriodLabel(billDate: string): string {
   return new Date(billDate + 'T00:00:00Z').toLocaleDateString('en-NZ', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+}
+
+/**
+ * Service period a recurring invoice covers. When `arrears` is true the invoice
+ * is billed in the FOLLOWING month for the completed month (Pukekohe: sent on
+ * the 7th of Sep for August's work) — so the covered month is billDate − 1
+ * month. Returns both a label ("August 2026") and the calendar-month bounds.
+ */
+export function serviceMonth(billDate: string, arrears: boolean): { label: string; start: string; end: string } {
+  const d = new Date(billDate + 'T00:00:00Z')
+  const y = d.getUTCFullYear()
+  const m = d.getUTCMonth() - (arrears ? 1 : 0) // 0-based; may go to -1
+  const first = new Date(Date.UTC(y, m, 1))
+  const last = new Date(Date.UTC(y, m + 1, 0)) // day 0 of next month = last day
+  const iso = (x: Date) => x.toISOString().slice(0, 10)
+  return {
+    label: first.toLocaleDateString('en-NZ', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+    start: iso(first),
+    end: iso(last),
+  }
 }
 
 /**
@@ -45,7 +68,9 @@ export async function ensureContractorPayable(
 ): Promise<{ created?: boolean; skipped?: string; error?: string }> {
   if (!rec.contractor_id || !(Number(rec.contractor_monthly_pay) > 0)) return { skipped: 'no contractor pay' }
   const siteLabel = rec.title?.trim() || 'Recurring contract'
-  const periodLabel = billingPeriodLabel(billDate)
+  // Period label follows the service month — the PREVIOUS month when billing in
+  // arrears — so the contractor's payable lines up with the month worked.
+  const periodLabel = serviceMonth(billDate, !!rec.bill_in_arrears).label
 
   const { data: existing } = await supabase
     .from('contractor_invoices')
@@ -125,9 +150,15 @@ export async function generateFor(supabase: SupabaseClient, rec: RecurringRow): 
     const dueDate = computeInvoiceDueDate({
       payment_type: paymentType,
       payment_terms: (client?.payment_terms as string | null) ?? null,
-      date_issued: billDate, // issued on the billing date → deterministic 20th-of-next-month etc.
+      date_issued: billDate, // issued on the billing date → deterministic 20th-of-month etc.
       service_date: billDate,
     })
+
+    // Service period the invoice covers (previous month when billing in arrears),
+    // spelled out on the invoice so the customer sees exactly which month it's for.
+    const period = serviceMonth(billDate, !!rec.bill_in_arrears)
+    const baseDesc = rec.title?.trim() || rec.description?.trim() || 'Monthly cleaning contract'
+    const serviceDescription = `${baseDesc} — ${period.label} (service period 1–${period.end.slice(8, 10)} ${period.label.split(' ')[0]})`
 
     const { data: invoice, error } = await supabase
       .from('invoices')
@@ -137,7 +168,7 @@ export async function generateFor(supabase: SupabaseClient, rec: RecurringRow): 
         service_address: rec.address || null,
         scheduled_clean_date: billDate,
         base_price: rec.monthly_value,
-        service_description: rec.title?.trim() || rec.description?.trim() || 'Monthly cleaning contract',
+        service_description: serviceDescription,
         payment_type: paymentType,
         due_date: dueDate,
       })
