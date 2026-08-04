@@ -72,18 +72,23 @@ export async function createEmployeePayRun(
   if (employees?.length) {
     // Approved, unreimbursed mileage in this period → non-taxable reimbursement
     // per employee (kept out of gross/PAYE/ACC/KiwiSaver; settled at completion).
+    // pay_run_id IS NULL excludes mileage already consumed by an earlier run —
+    // so we must stamp these logs with this run's id below, or the same mileage
+    // would be re-pulled (and re-paid) on every subsequent run.
     const { data: mileage } = await supabase
       .from('mileage_logs')
-      .select('contractor_id, reimbursement_amount')
+      .select('id, contractor_id, reimbursement_amount')
       .in('contractor_id', employees.map((e) => e.id))
       .eq('status', 'approved')
       .is('pay_run_id', null)
       .gte('log_date', input.pay_period_start)
       .lte('log_date', input.pay_period_end)
     const mileageByContractor = new Map<string, number>()
+    const consumedMileageLogIds: string[] = []
     for (const m of mileage ?? []) {
       const cid = m.contractor_id as string
       mileageByContractor.set(cid, (mileageByContractor.get(cid) ?? 0) + Number(m.reimbursement_amount ?? 0))
+      consumedMileageLogIds.push(m.id as string)
     }
 
     const warnings: PayRunWarning[] = []
@@ -136,6 +141,15 @@ export async function createEmployeePayRun(
     })
 
     await supabase.from('pay_run_lines').insert(lines)
+
+    // Stamp the mileage logs this run consumed with its id, so they are not
+    // re-pulled (and re-paid) on the next run. The delete-draft flow un-stamps
+    // (sets pay_run_id back to null) if this run is discarded. Best-effort: a
+    // stamping failure must not roll back an otherwise-created run, but it is the
+    // guard against double-paying mileage — see the audit's double-pay concern.
+    if (consumedMileageLogIds.length) {
+      await supabase.from('mileage_logs').update({ pay_run_id: data.id }).in('id', consumedMileageLogIds)
+    }
 
     // Stamp the effective pay-terms snapshot when the run covers exactly one
     // employee (the advance-weekly norm), so the run is reproducible and PR C's
