@@ -23,6 +23,9 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
   const [fromEmail, setFromEmail] = useState('carol@sano.nz')
   const [signatureName, setSignatureName] = useState('Carol Browne')
   const [replyTo, setReplyTo] = useState('carol@sano.nz')
+  // Carol's hosted signature banner. On = image signature; off = plain text.
+  const CAROL_BANNER = 'https://sano.nz/email/email-banner-carol.jpg'
+  const [useBanner, setUseBanner] = useState(true)
   const [selected, setSelected] = useState<Set<string>>(new Set(leads.map((l) => l.id)))
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -56,6 +59,7 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
         fromName: fromName.trim() || undefined,
         fromEmail: fromEmail.trim() || undefined,
         signatureName: signatureName.trim() || undefined,
+        signatureBannerUrl: useBanner ? CAROL_BANNER : undefined,
         replyTo: replyTo.trim() || undefined,
         leadIds: Array.from(selected),
       })
@@ -125,6 +129,13 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
             <span className="block text-[11px] text-sage-500 mt-1.5">Where replies (including &ldquo;no thanks&rdquo;) land.</span>
           </label>
         </div>
+        <label className="flex items-start gap-2.5 mt-4 rounded-lg border border-sage-200 px-3 py-2.5 cursor-pointer">
+          <input type="checkbox" checked={useBanner} onChange={(e) => setUseBanner(e.target.checked)} className="mt-0.5" />
+          <span className="text-sm">
+            <span className="font-medium text-sage-800">Use Carol&rsquo;s image signature banner</span>
+            <span className="block text-[12px] text-amber-700">Heads-up: on cold email, image signatures are often blocked on first contact and can raise spam scores. Untick to use a plain-text signature (safer for cold outreach). Always send a test to yourself and check it doesn&rsquo;t land in spam.</span>
+          </span>
+        </label>
       </section>
 
       <section>
