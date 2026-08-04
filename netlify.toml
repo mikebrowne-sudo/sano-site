@@ -34,3 +34,9 @@
 # netlify/functions/weekly-payroll.mts.
 [functions."weekly-payroll"]
   schedule = "0 21 * * 0"
+
+# Campaign drip — daily sender warm-up. Sends each active campaign's next batch
+# (up to its daily cap, best leads first). Schedule mirrors
+# netlify/functions/campaign-drip.mts (0 20 UTC = 08:00 NZST).
+[functions."campaign-drip"]
+  schedule = "0 20 * * *"

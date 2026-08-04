@@ -26,6 +26,8 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
   // Carol's hosted signature banner. On = image signature; off = plain text.
   const CAROL_BANNER = 'https://sano.nz/email/email-banner-carol.jpg'
   const [useBanner, setUseBanner] = useState(true)
+  // Sender warm-up: drip N/day instead of blasting. 0 = send all at once.
+  const [dailyCap, setDailyCap] = useState('15')
   const [selected, setSelected] = useState<Set<string>>(new Set(leads.map((l) => l.id)))
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -61,6 +63,7 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
         signatureName: signatureName.trim() || undefined,
         signatureBannerUrl: useBanner ? CAROL_BANNER : undefined,
         replyTo: replyTo.trim() || undefined,
+        dailySendCap: Number(dailyCap) > 0 ? Number(dailyCap) : 0,
         leadIds: Array.from(selected),
       })
       if (res?.error) setError(res.error)
@@ -136,6 +139,17 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
             <span className="block text-[12px] text-amber-700">Heads-up: on cold email, image signatures are often blocked on first contact and can raise spam scores. Untick to use a plain-text signature (safer for cold outreach). Always send a test to yourself and check it doesn&rsquo;t land in spam.</span>
           </span>
         </label>
+
+        <div className="mt-4">
+          <span className="block text-sm font-semibold text-sage-800 mb-1.5">Sending pace (warm-up)</span>
+          <div className="flex items-center gap-2">
+            <input type="number" min="0" value={dailyCap} onChange={(e) => setDailyCap(e.target.value)} className="w-24 rounded-lg border border-sage-200 px-3 py-2.5 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
+            <span className="text-sm text-sage-600">emails per day</span>
+          </div>
+          <span className="block text-[12px] text-sage-500 mt-1.5">
+            Drips the campaign out (best leads first) to build sender reputation and stay out of spam. 10–15/day is a safe warm-up. Set 0 to send everything at once (not recommended for a fresh sending address).
+          </span>
+        </div>
       </section>
 
       <section>
