@@ -179,3 +179,43 @@ export async function markRespondedAction(recipientId: string) {
   revalidatePath(`/portal/leads/${rec.lead_id}`)
   return { success: true }
 }
+
+/**
+ * Send ONE test email to a chosen address, rendered exactly as the campaign will
+ * send it (sender identity + signature), using a sample company. Never touches a
+ * lead or the recipient list — for verifying deliverability + how it looks.
+ */
+export async function sendTestEmailAction(input: { campaignId: string; to: string }): Promise<{ ok?: true; error?: string }> {
+  const to = input.to?.trim()
+  if (!to || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return { error: 'Enter a valid email address to test to.' }
+
+  const supabase = createClient()
+  const { data: campaign, error } = await supabase
+    .from('sales_campaigns')
+    .select('subject, from_name, from_email, signature_name, reply_to')
+    .eq('id', input.campaignId)
+    .single()
+  if (error || !campaign) return { error: 'Campaign not found.' }
+
+  const rendered = renderCommercialIntro({
+    lead: { company: 'Your Company Ltd', contact_name: 'there' },
+    token: 'test-preview', // harmless — tracking endpoints ignore unknown tokens
+    siteUrl: siteUrl(),
+    subject: campaign.subject,
+    sender: { name: (campaign as { signature_name?: string | null }).signature_name || campaign.from_name },
+  })
+  const fromEmail = (campaign as { from_email?: string | null }).from_email || 'noreply@sano.nz'
+
+  const resend = new Resend(process.env.RESEND_API_KEY)
+  const { error: sendErr } = await resend.emails.send({
+    from: `${campaign.from_name} <${fromEmail}>`,
+    to,
+    replyTo: campaign.reply_to,
+    subject: `[TEST] ${rendered.subject}`,
+    html: rendered.html,
+    text: rendered.text,
+    headers: listUnsubscribeHeader(campaign.reply_to),
+  })
+  if (sendErr) return { error: `Test send failed: ${sendErr.message}` }
+  return { ok: true }
+}
