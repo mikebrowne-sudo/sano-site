@@ -29,6 +29,7 @@ function advanceWeek(ref: Date): { start: string; end: string; payDate: string }
 
 export function NewPayRunForm({ employees }: { employees: PayrollEmployee[] }) {
   const [frequency, setFrequency] = useState<'weekly' | 'fortnightly'>('weekly')
+  const [mileageOnly, setMileageOnly] = useState(false)
   const initial = advanceWeek(new Date())
   const [start, setStart] = useState(initial.start)
   const [end, setEnd] = useState(initial.end)
@@ -47,7 +48,7 @@ export function NewPayRunForm({ employees }: { employees: PayrollEmployee[] }) {
     e.preventDefault()
     setError(null)
     startTransition(async () => {
-      const result = await createPayRun({ pay_period_start: start, pay_period_end: end, pay_date: payDate, pay_frequency: frequency, notes: notes.trim() || undefined })
+      const result = await createPayRun({ pay_period_start: start, pay_period_end: end, pay_date: payDate, pay_frequency: frequency, notes: notes.trim() || undefined, mileage_only: mileageOnly })
       if (result?.error) setError(result.error)
     })
   }
@@ -64,11 +65,21 @@ export function NewPayRunForm({ employees }: { employees: PayrollEmployee[] }) {
         </select>
       </label>
 
+      {/* Mileage catch-up: release mileage that predates the normal cycle,
+          without paying wages. Zero wages/PAYE — just the period's reimbursement. */}
+      <label className="flex items-start gap-2.5 rounded-lg border border-sage-200 px-3 py-2.5 cursor-pointer">
+        <input type="checkbox" checked={mileageOnly} onChange={(e) => setMileageOnly(e.target.checked)} className="mt-0.5" />
+        <span className="text-sm">
+          <span className="font-medium text-sage-800">Mileage catch-up (no wages)</span>
+          <span className="block text-[12px] text-sage-500">Pay only this period&rsquo;s approved mileage — 0 hours, no PAYE. Use for a one-off catch-up of older mileage; set the period to cover those dates.</span>
+        </span>
+      </label>
+
       {/* Who's in this run — the employees on the chosen cycle. Makes it obvious
           who gets paid (previously invisible), and that contractors are elsewhere. */}
       <div className="rounded-xl border border-sage-200 bg-sage-50/50 p-4">
         <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-sage-500 mb-2">
-          <Users size={13} /> Employees in this {frequency} run
+          <Users size={13} /> {mileageOnly ? `Mileage catch-up — ${frequency} employees` : `Employees in this ${frequency} run`}
         </div>
         {included.length === 0 ? (
           <p className="text-sm text-sage-500">No active employees on the {frequency} cycle.</p>
@@ -82,7 +93,7 @@ export function NewPayRunForm({ employees }: { employees: PayrollEmployee[] }) {
                     <UserRound size={14} className="text-sage-400" /> {e.name}
                   </span>
                   <span className="text-sage-500 tabular-nums">
-                    {e.standardHours ?? 0}h × {money(e.hourlyRate ?? 0)}{gross > 0 ? ` = ${money(gross)}` : ''}
+                    {mileageOnly ? 'mileage in period only' : <>{e.standardHours ?? 0}h × {money(e.hourlyRate ?? 0)}{gross > 0 ? ` = ${money(gross)}` : ''}</>}
                   </span>
                 </li>
               )
@@ -90,7 +101,9 @@ export function NewPayRunForm({ employees }: { employees: PayrollEmployee[] }) {
           </ul>
         )}
         <p className="mt-3 text-[12px] text-sage-500 leading-snug">
-          All active employees on this cycle are paid together. Approved mileage for the period is added automatically as a non-taxable reimbursement.
+          {mileageOnly
+            ? 'No wages or PAYE — this run pays only the approved mileage dated within the period below. Set the period to cover the mileage you’re catching up.'
+            : 'All active employees on this cycle are paid together. Approved mileage for the period is added automatically as a non-taxable reimbursement.'}
         </p>
       </div>
 
@@ -128,7 +141,11 @@ export function NewPayRunForm({ employees }: { employees: PayrollEmployee[] }) {
 
       {error && <p className="text-red-600 text-sm bg-red-50 rounded-lg px-4 py-3">{error}</p>}
       <button type="submit" disabled={isPending || included.length === 0} className="bg-sage-500 text-white font-semibold px-6 py-3 rounded-lg hover:bg-sage-700 transition-colors disabled:opacity-50">
-        {isPending ? 'Creating…' : included.length === 1 ? `Create pay run for ${included[0].name}` : `Create pay run (${included.length} employees)`}
+        {isPending
+          ? 'Creating…'
+          : mileageOnly
+            ? `Create mileage catch-up${included.length === 1 ? ` for ${included[0].name}` : ` (${included.length} employees)`}`
+            : included.length === 1 ? `Create pay run for ${included[0].name}` : `Create pay run (${included.length} employees)`}
       </button>
     </form>
   )
