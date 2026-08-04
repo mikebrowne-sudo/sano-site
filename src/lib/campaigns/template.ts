@@ -98,8 +98,8 @@ function assembleEmail(opts: {
   // emails use — linked to sano.nz, left-aligned, no rounding), otherwise the
   // plain text block with an untracked sano.nz link.
   const signatureHtml = sender.bannerUrl
-    ? `<a href="https://sano.nz" style="display:inline-block;text-decoration:none;">
-        <img src="${esc(sender.bannerUrl)}" alt="${esc(sender.name)} — Sano | sano.nz" width="560" style="display:block;width:100%;max-width:560px;height:auto;border:0;margin:8px 0 0;" />
+    ? `<a href="https://sano.nz" style="display:block;text-decoration:none;">
+        <img src="${esc(sender.bannerUrl)}" alt="${esc(sender.name)} — Sano | sano.nz" width="608" style="display:block;width:100%;max-width:608px;height:auto;border:0;margin:8px 0 0;" />
       </a>`
     : `<p style="margin:0 0 4px 0;">${esc(sender.name)}</p>
       ${roleHtml}<p style="margin:0 0 4px 0;color:#5c6b64;">Sano | Clean spaces - Healthy living</p>
