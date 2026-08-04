@@ -13,27 +13,30 @@ const CSS = `
   * { box-sizing: border-box; }
   .ps { font-family: 'Poppins','Outfit','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; color: var(--ink); background: var(--bg); }
   @page { size: A4 portrait; margin: 0; }
-  .ps-page { width: 210mm; min-height: 297mm; margin: 0 auto; background:#fff; padding: 18mm 16mm; position: relative; }
-  .ps-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom: 2px solid var(--green); padding-bottom: 10mm; }
-  .ps-logo { height: 15mm; }
-  .ps-org { font-size: 10pt; color: var(--muted); margin-top: 2mm; line-height:1.5; }
-  .ps-title { font-size: 20pt; font-weight: 700; color: var(--green); letter-spacing: -0.5px; }
-  .ps-meta { text-align:right; font-size: 9.5pt; color: var(--muted); line-height: 1.7; }
+  /* Tighter margins + a flex column so the footer sits at the base of ONE page. */
+  .ps-page { width: 210mm; min-height: 297mm; margin: 0 auto; background:#fff; padding: 12mm 14mm 14mm; position: relative; display:flex; flex-direction:column; }
+  .ps-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom: 1.5px solid var(--green); padding-bottom: 5mm; }
+  .ps-logo { height: 12mm; }
+  .ps-org { font-size: 8.5pt; color: var(--muted); margin-top: 1.5mm; line-height:1.4; }
+  .ps-title { font-size: 17pt; font-weight: 700; color: var(--green); letter-spacing: -0.5px; }
+  .ps-meta { text-align:right; font-size: 9pt; color: var(--muted); line-height: 1.55; }
   .ps-meta strong { color: var(--ink); }
-  .ps-status { display:inline-block; font-size: 8.5pt; font-weight:600; border-radius: 999px; padding: 1mm 3mm; }
+  .ps-status { display:inline-block; font-size: 8pt; font-weight:600; border-radius: 999px; padding: 0.6mm 2.5mm; }
   .ps-status.paid { background:#e7f4ee; color:#1f6b4d; } .ps-status.preview { background:#fbf1dc; color:#8a6d1f; }
-  .ps-section { margin-top: 9mm; }
-  .ps-h { font-size: 11pt; font-weight:600; color: var(--green); margin: 0 0 3mm; }
-  table.ps-t { width:100%; border-collapse: collapse; font-size: 10pt; }
-  .ps-t th { text-align:left; color: var(--muted); font-weight:500; font-size: 8.5pt; text-transform:uppercase; letter-spacing:.4px; padding: 0 0 2mm; border-bottom:1px solid var(--line); }
-  .ps-t td { padding: 2.4mm 0; border-bottom:1px solid var(--line); }
-  .ps-t td.r, .ps-t th.r { text-align:right; }
-  .ps-t tr.total td { font-weight:700; border-bottom:none; border-top: 1.5px solid var(--ink); }
-  .ps-net { margin-top: 9mm; background:#f4f8f6; border:1px solid var(--line); border-radius: 4mm; padding: 6mm 7mm; display:flex; justify-content:space-between; align-items:center; }
-  .ps-net .lbl { font-size: 11pt; color: var(--muted); } .ps-net .val { font-size: 22pt; font-weight:800; color: var(--green); }
-  .ps-note { font-size: 8.5pt; color: var(--muted); font-style: italic; margin-top: 2.5mm; }
-  .ps-foot { position:absolute; bottom: 12mm; left:16mm; right:16mm; border-top:1px solid var(--line); padding-top: 4mm; font-size: 8pt; color: var(--muted); display:flex; justify-content:space-between; gap: 6mm; }
-  .ps-watermark { position:absolute; top: 120mm; left:0; right:0; text-align:center; font-size: 60pt; font-weight:800; color: rgba(138,109,31,0.08); transform: rotate(-20deg); letter-spacing: 8px; }
+  /* Two-column grid so earnings/deductions and payment/employer sit side by side. */
+  .ps-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 5mm 10mm; margin-top: 5mm; }
+  .ps-section { margin-top: 5mm; }
+  .ps-section.span { grid-column: 1 / -1; }
+  .ps-h { font-size: 9.5pt; font-weight:600; color: var(--green); margin: 0 0 1.5mm; text-transform:uppercase; letter-spacing:.4px; }
+  table.ps-t { width:100%; border-collapse: collapse; font-size: 9.5pt; }
+  .ps-t td { padding: 1.5mm 0; border-bottom:1px solid var(--line); }
+  .ps-t td.r { text-align:right; font-variant-numeric: tabular-nums; }
+  .ps-t tr.total td { font-weight:700; border-bottom:none; border-top: 1.2px solid var(--ink); padding-top: 1.8mm; }
+  .ps-net { margin-top: 5mm; background:#f4f8f6; border:1px solid var(--line); border-radius: 3mm; padding: 4mm 6mm; display:flex; justify-content:space-between; align-items:center; }
+  .ps-net .lbl { font-size: 10pt; color: var(--muted); } .ps-net .val { font-size: 20pt; font-weight:800; color: var(--green); font-variant-numeric: tabular-nums; }
+  .ps-note { font-size: 8pt; color: var(--muted); font-style: italic; margin-top: 1.5mm; }
+  .ps-foot { margin-top:auto; border-top:1px solid var(--line); padding-top: 3mm; font-size: 7.5pt; color: var(--muted); display:flex; justify-content:space-between; gap: 6mm; }
+  .ps-watermark { position:absolute; top: 120mm; left:0; right:0; text-align:center; font-size: 54pt; font-weight:800; color: rgba(138,109,31,0.07); transform: rotate(-20deg); letter-spacing: 8px; pointer-events:none; }
 `
 
 export function PayslipDocument({ snapshot, preview = false, reviewCopy = false }: { snapshot: PayslipSnapshot; preview?: boolean; reviewCopy?: boolean }) {
@@ -66,82 +69,83 @@ export function PayslipDocument({ snapshot, preview = false, reviewCopy = false 
             </div>
           </div>
 
-          {/* Earnings */}
-          <div className="ps-section">
-            <h2 className="ps-h">Earnings</h2>
-            <table className="ps-t">
-              <thead><tr><th>Description</th><th className="r">Hours</th><th className="r">Rate</th><th className="r">Amount</th></tr></thead>
-              <tbody>
-                {s.earnings.lines.map((l, i) => (
-                  <tr key={i}><td>{l.description}</td><td className="r">{l.hours != null ? l.hours.toFixed(2) : '—'}</td><td className="r">{l.rate != null ? money(l.rate) : '—'}</td><td className="r">{money(l.amount)}</td></tr>
-                ))}
-                <tr className="total"><td>Gross earnings</td><td className="r"></td><td className="r"></td><td className="r">{money(s.earnings.gross)}</td></tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* Employee deductions */}
-          <div className="ps-section">
-            <h2 className="ps-h">Employee deductions</h2>
-            <table className="ps-t">
-              <thead><tr><th>Description</th><th className="r">Amount</th></tr></thead>
-              <tbody>
-                <tr><td>PAYE (includes ACC earner levy)</td><td className="r">{money(s.deductions.paye)}</td></tr>
-                <tr><td>Employee KiwiSaver ({s.deductions.employeeKsRate}%)</td><td className="r">{money(s.deductions.employeeKsAmount)}</td></tr>
-                <tr className="total"><td>Total deductions</td><td className="r">{money(s.deductions.total)}</td></tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* Non-taxable reimbursements (e.g. mileage) — paid on top of net wages,
-              never taxed. Only shown when present. */}
-          {s.reimbursements && s.reimbursements.total > 0 && (
-            <div className="ps-section">
-              <h2 className="ps-h">Reimbursements (non-taxable)</h2>
+          {/* Body — two compact columns so the whole payslip fits one page. */}
+          <div className="ps-grid">
+            {/* Earnings */}
+            <div>
+              <h2 className="ps-h">Earnings</h2>
               <table className="ps-t">
                 <tbody>
-                  <tr><td>Mileage reimbursement</td><td className="r">{money(s.reimbursements.mileage)}</td></tr>
-                  <tr className="total"><td>Total reimbursements</td><td className="r">{money(s.reimbursements.total)}</td></tr>
+                  {s.earnings.lines.map((l, i) => (
+                    <tr key={i}><td>{l.description}{l.hours != null && l.rate != null ? ` — ${l.hours.toFixed(2)}h × ${money(l.rate)}` : ''}</td><td className="r">{money(l.amount)}</td></tr>
+                  ))}
+                  <tr className="total"><td>Gross earnings</td><td className="r">{money(s.earnings.gross)}</td></tr>
                 </tbody>
               </table>
-              <p className="ps-note">Mileage is a reimbursement of business travel costs — it is not income, so no PAYE, ACC or KiwiSaver applies.</p>
             </div>
-          )}
 
-          {/* Net pay / total paid */}
+            {/* Employee deductions */}
+            <div>
+              <h2 className="ps-h">Deductions</h2>
+              <table className="ps-t">
+                <tbody>
+                  <tr><td>PAYE (incl. ACC levy)</td><td className="r">{money(s.deductions.paye)}</td></tr>
+                  <tr><td>Employee KiwiSaver ({s.deductions.employeeKsRate}%)</td><td className="r">{money(s.deductions.employeeKsAmount)}</td></tr>
+                  <tr className="total"><td>Total deductions</td><td className="r">{money(s.deductions.total)}</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Non-taxable reimbursements (mileage) — only when present */}
+            {s.reimbursements && s.reimbursements.total > 0 && (
+              <div>
+                <h2 className="ps-h">Reimbursements (non-taxable)</h2>
+                <table className="ps-t">
+                  <tbody>
+                    <tr><td>Mileage</td><td className="r">{money(s.reimbursements.mileage)}</td></tr>
+                    <tr className="total"><td>Total reimbursements</td><td className="r">{money(s.reimbursements.total)}</td></tr>
+                  </tbody>
+                </table>
+                <p className="ps-note">Business travel reimbursement — not income, so no PAYE, ACC or KiwiSaver.</p>
+              </div>
+            )}
+
+            {/* Employer contributions — SEPARATE */}
+            <div>
+              <h2 className="ps-h">Employer contributions</h2>
+              <table className="ps-t">
+                <tbody>
+                  <tr><td>Gross KiwiSaver ({s.employerContributions.ksRate}%)</td><td className="r">{money(s.employerContributions.ksGross)}</td></tr>
+                  {s.employerContributions.esct != null && <tr><td>Less ESCT</td><td className="r">{money(s.employerContributions.esct)}</td></tr>}
+                  {s.employerContributions.ksNet != null && <tr className="total"><td>Net employer KiwiSaver</td><td className="r">{money(s.employerContributions.ksNet)}</td></tr>}
+                </tbody>
+              </table>
+              <p className="ps-note">Paid on top of wages — not deducted from net pay.</p>
+            </div>
+          </div>
+
+          {/* Net pay / total paid — full width */}
           <div className="ps-net">
-            <span className="lbl">{s.reimbursements && s.reimbursements.total > 0 ? 'Total paid (net wages + reimbursements)' : 'Net pay'}</span>
+            <span className="lbl">
+              {s.reimbursements && s.reimbursements.total > 0 ? 'Total paid' : 'Net pay'}
+              {s.reimbursements && s.reimbursements.total > 0 && (
+                <span style={{ fontSize: '8pt', display: 'block' }}>net wages {money(s.deductions.net)} + reimbursements {money(s.reimbursements.total)}</span>
+              )}
+            </span>
             <span className="val">{money(s.totalPaid ?? s.deductions.net)}</span>
           </div>
-          {s.reimbursements && s.reimbursements.total > 0 && (
-            <p className="ps-note" style={{ marginTop: '2mm' }}>Net wages {money(s.deductions.net)} + reimbursements {money(s.reimbursements.total)}.</p>
-          )}
 
-          {/* Payment details */}
+          {/* Payment details — compact single row */}
           <div className="ps-section">
             <h2 className="ps-h">Payment</h2>
             <table className="ps-t">
               <tbody>
-                <tr><td>Payment status</td><td className="r">{paid ? 'Paid' : 'Not yet paid'}</td></tr>
-                {paid && <tr><td>Payment date</td><td className="r">{fmtDate(s.payment.paymentDate)}</td></tr>}
-                {paid && <tr><td>Method</td><td className="r">{s.payment.paymentMethod ?? '—'}</td></tr>}
-                {paid && <tr><td>Reference</td><td className="r">{s.payment.paymentReference ?? '—'}</td></tr>}
+                <tr><td>Status</td><td className="r">{paid ? 'Paid' : 'Not yet paid'}</td></tr>
+                {paid && <tr><td>Date</td><td className="r">{fmtDate(s.payment.paymentDate)}</td></tr>}
+                {paid && <tr><td>Method · reference</td><td className="r">{s.payment.paymentMethod ?? '—'} · {s.payment.paymentReference ?? '—'}</td></tr>}
                 {s.employee.maskedBankAccount && <tr><td>Paid to</td><td className="r">{s.employee.maskedBankAccount}</td></tr>}
               </tbody>
             </table>
-          </div>
-
-          {/* Employer contributions — SEPARATE */}
-          <div className="ps-section">
-            <h2 className="ps-h">Employer contributions</h2>
-            <table className="ps-t">
-              <tbody>
-                <tr><td>Gross employer KiwiSaver ({s.employerContributions.ksRate}%)</td><td className="r">{money(s.employerContributions.ksGross)}</td></tr>
-                {s.employerContributions.esct != null && <tr><td>Less ESCT</td><td className="r">{money(s.employerContributions.esct)}</td></tr>}
-                {s.employerContributions.ksNet != null && <tr className="total"><td>Net employer KiwiSaver contribution</td><td className="r">{money(s.employerContributions.ksNet)}</td></tr>}
-              </tbody>
-            </table>
-            <p className="ps-note">Employer contributions are paid in addition to gross wages and are not deducted from your net pay.</p>
           </div>
 
           {/* Footer */}
