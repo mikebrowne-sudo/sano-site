@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase-server'
 import { ArrowLeft, Eye, MousePointerClick, MailCheck, Send as SendIcon } from 'lucide-react'
 import { renderCommercialIntro } from '@/lib/campaigns/template'
 import { QUALITY_RANK_BADGE, type QualityRank } from '@/lib/campaigns/constants'
-import { SendCampaignButton, MarkRepliedButton } from '../_components/CampaignActions'
+import { SendCampaignButton, MarkRepliedButton, TestSendBox } from '../_components/CampaignActions'
 
 export default async function CampaignDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -62,6 +62,13 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
         </div>
         <SendCampaignButton campaignId={campaign.id} pendingCount={pending} />
       </div>
+
+      {/* Test send — verify deliverability + look before the real send */}
+      {pending > 0 && (
+        <div className="mb-8 max-w-md">
+          <TestSendBox campaignId={campaign.id} />
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
