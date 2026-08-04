@@ -28,6 +28,8 @@ interface ContractorInput {
   pay_frequency?: string
   standard_hours?: number
   holiday_pay_method?: string
+  /** Reason when overriding the agreed holiday-pay method after onboarding (audited). */
+  holiday_pay_method_override_reason?: string
   ird_number?: string
   tax_code?: string
   ir330_received?: boolean
@@ -293,6 +295,22 @@ export async function updateContractor(id: string, input: ContractorInput) {
 
   if (error) {
     return { error: `Failed to update contractor: ${error.message}` }
+  }
+
+  // Audit an override of the agreed (onboarding) holiday-pay method.
+  if (input.holiday_pay_method_override_reason?.trim()) {
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('audit_log').insert({
+      actor_id: user?.id ?? null,
+      actor_role: 'admin',
+      action: 'holiday_pay_method.override',
+      entity_table: 'contractors',
+      entity_id: id,
+      after: {
+        holiday_pay_method: input.holiday_pay_method,
+        reason: input.holiday_pay_method_override_reason.trim(),
+      },
+    })
   }
 
   revalidatePath(`/portal/contractors/${id}`)

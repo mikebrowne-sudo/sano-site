@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 import { DollarSign, Plus, ClipboardCheck } from 'lucide-react'
 import clsx from 'clsx'
 import { isAdminEmail } from '@/lib/is-admin'
+import { QuickPayWeek } from './_components/QuickPayWeek'
 
 function fmtDate(iso: string | null) {
   if (!iso) return '—'
@@ -21,6 +22,18 @@ export default async function PayrollPage({ searchParams }: { searchParams?: { d
     .select('id, pay_period_start, pay_period_end, pay_date, status, created_at')
     .or('kind.is.null,kind.eq.employee')
     .order('pay_date', { ascending: false })
+
+  // Active weekly employees → the one-click "Pay this week" card. (Fortnightly
+  // employees like Radhika get the standard New Pay Run flow.)
+  const { data: weeklyEmps } = await supabase
+    .from('contractors')
+    .select('full_name')
+    .eq('status', 'active')
+    .neq('worker_type', 'contractor')
+    .eq('pay_frequency', 'weekly')
+    .order('full_name')
+  const weeklyNames = (weeklyEmps ?? []).map((e) => (e.full_name as string) ?? '—')
+  const lastPaid = (runs ?? []).find((r) => r.status === 'completed')?.pay_date ?? null
 
   if (error) {
     return (
@@ -46,6 +59,13 @@ export default async function PayrollPage({ searchParams }: { searchParams?: { d
           )}
         </div>
       </div>
+
+      {/* One-click weekly pay — the fast path for routine weekly employees. */}
+      {isAdmin && weeklyNames.length > 0 && (
+        <div className="mb-8">
+          <QuickPayWeek frequency="weekly" employeeNames={weeklyNames} lastPaidDate={lastPaid} />
+        </div>
+      )}
 
       {/* Stage F — contractor pay approvals now live in the canonical
           payables flow. This card points at the new worklist; the old

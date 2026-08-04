@@ -146,6 +146,12 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
   const [payFrequency, setPayFrequency] = useState(contractor?.pay_frequency ?? 'fortnightly')
   const [standardHours, setStandardHours] = useState(contractor?.standard_hours != null ? String(contractor.standard_hours) : '')
   const [holidayPayMethod, setHolidayPayMethod] = useState(contractor?.holiday_pay_method ?? 'accrue_leave')
+  // Holiday-pay method is the "agreement at the start" — locked once the
+  // employee exists. Changing it later needs an explicit override + reason.
+  const holidayMethodWasSet = !!contractor?.id && !!contractor?.holiday_pay_method
+  const [holidayOverride, setHolidayOverride] = useState(false)
+  const [holidayOverrideReason, setHolidayOverrideReason] = useState('')
+  const holidayLocked = holidayMethodWasSet && !holidayOverride
   const [irdNumber, setIrdNumber] = useState(contractor?.ird_number ?? '')
   const [taxCode, setTaxCode] = useState(contractor?.tax_code ?? 'M')
   const [ir330Received, setIr330Received] = useState(contractor?.ir330_received ?? false)
@@ -225,6 +231,10 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
     e.preventDefault()
     setError(null)
     if (!fullName.trim()) { setError('Legal name is required.'); return }
+    // Overriding the agreed holiday-pay method requires a reason.
+    if (isEmployee && holidayOverride && !holidayOverrideReason.trim()) {
+      setError('Enter a reason for changing the agreed holiday-pay method.'); return
+    }
 
     const input = {
       full_name: fullName.trim(),
@@ -244,6 +254,9 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
         pay_frequency: payFrequency || undefined,
         standard_hours: toNum(standardHours),
         holiday_pay_method: holidayPayMethod || undefined,
+        ...(holidayOverride && holidayOverrideReason.trim()
+          ? { holiday_pay_method_override_reason: holidayOverrideReason.trim() }
+          : {}),
         ird_number: irdNumber.trim() || undefined,
         tax_code: taxCode || 'M',
         ir330_received: ir330Received,
@@ -454,9 +467,32 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
           <div className="mt-4">
             <span className="block text-sm font-semibold text-sage-800 mb-1.5">Holiday pay method</span>
             <div className="flex gap-2">
-              <Btn active={holidayPayMethod === 'accrue_leave'} onClick={() => setHolidayPayMethod('accrue_leave')} color="sage">Accrue leave</Btn>
-              {isCasual && <Btn active={holidayPayMethod === 'pay_as_you_go_8_percent'} onClick={() => setHolidayPayMethod('pay_as_you_go_8_percent')} color="sage">Pay as you go (8%)</Btn>}
+              <Btn active={holidayPayMethod === 'accrue_leave'} onClick={() => !holidayLocked && setHolidayPayMethod('accrue_leave')} color="sage" disabled={holidayLocked}>Accrue leave</Btn>
+              {/* 8% pay-as-you-go is only for casual workers AND only offered at
+                  setup (the agreement at the start). Locked afterwards. */}
+              {isCasual && (
+                <Btn active={holidayPayMethod === 'pay_as_you_go_8_percent'} onClick={() => !holidayLocked && setHolidayPayMethod('pay_as_you_go_8_percent')} color="sage" disabled={holidayLocked}>Pay as you go (8%)</Btn>
+              )}
             </div>
+
+            {holidayLocked && (
+              <div className="mt-2 flex items-start gap-2 text-xs text-sage-500">
+                <span>Set at onboarding — the agreed treatment. </span>
+                <button type="button" onClick={() => setHolidayOverride(true)} className="text-amber-700 font-medium underline">Override</button>
+              </div>
+            )}
+            {holidayOverride && (
+              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <label className="block text-xs font-semibold text-amber-800 mb-1">Reason for changing the agreed holiday-pay method <span className="text-red-500">*</span></label>
+                <input
+                  value={holidayOverrideReason}
+                  onChange={(e) => setHolidayOverrideReason(e.target.value)}
+                  placeholder="e.g. corrected to match signed variation dated…"
+                  className="w-full rounded-md border border-amber-300 px-3 py-2 text-sm text-sage-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <p className="text-[11px] text-amber-700 mt-1">Recorded on the audit log. Don&rsquo;t change this unless the employment agreement actually changed.</p>
+              </div>
+            )}
             {!isCasual && holidayPayMethod === 'pay_as_you_go_8_percent' && (
               <p className="text-amber-600 text-xs mt-1">Pay-as-you-go is only for casual workers. Switching to accrue leave.</p>
             )}
@@ -688,9 +724,10 @@ function Field({ label, required, className, value, onChange, ...rest }: { label
   )
 }
 
-function Btn({ active, onClick, color, children }: { active: boolean; onClick: () => void; color: string; children: React.ReactNode }) {
+function Btn({ active, onClick, color, children, disabled }: { active: boolean; onClick: () => void; color: string; children: React.ReactNode; disabled?: boolean }) {
   return (
-    <button type="button" onClick={onClick} className={clsx('px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize',
+    <button type="button" onClick={onClick} disabled={disabled} className={clsx('px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize',
+      disabled && 'opacity-50 cursor-not-allowed',
       active
         ? color === 'emerald' ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
         : color === 'gray' ? 'bg-gray-200 text-gray-700 border border-gray-300'
