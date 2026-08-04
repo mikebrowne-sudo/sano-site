@@ -99,7 +99,7 @@ function assembleEmail(opts: {
   // plain text block with an untracked sano.nz link.
   const signatureHtml = sender.bannerUrl
     ? `<a href="https://sano.nz" style="display:block;text-decoration:none;">
-        <img src="${esc(sender.bannerUrl)}" alt="${esc(sender.name)} — Sano | sano.nz" width="608" style="display:block;width:100%;max-width:608px;height:auto;border:0;margin:8px 0 0;" />
+        <img src="${esc(sender.bannerUrl)}" alt="${esc(sender.name)} — Sano | sano.nz" width="850" style="display:block;width:100%;max-width:850px;height:auto;border:0;margin:8px 0 0;" />
       </a>`
     : `<p style="margin:0 0 4px 0;">${esc(sender.name)}</p>
       ${roleHtml}<p style="margin:0 0 4px 0;color:#5c6b64;">Sano | Clean spaces - Healthy living</p>
@@ -114,7 +114,7 @@ function assembleEmail(opts: {
   const html = `<!DOCTYPE html>
 <html lang="en">
   <body style="margin:0;padding:0;background:#ffffff;">
-    <div style="max-width:640px;margin:0;padding:16px;text-align:left;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#222222;">
+    <div style="max-width:850px;margin:0;padding:16px;text-align:left;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#222222;">
       ${htmlParas}
       ${signatureHtml}
       <img src="${openPixel}" width="1" height="1" alt="" style="display:block;border:0;" />
