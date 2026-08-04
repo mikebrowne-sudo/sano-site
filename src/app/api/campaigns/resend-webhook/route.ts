@@ -18,7 +18,18 @@
 // page — set as RESEND_WEBHOOK_SECRET. We verify the RAW body against that
 // signature. A forwarder without a Svix signature can instead present a shared
 // bearer token in `x-forwarder-secret` (RESEND_FORWARDER_SECRET) for the inbound
-// reply path. Idempotent: setting responded_at / bounced_at twice is harmless.
+// reply path.
+//
+// Idempotency: Svix delivers at-least-once (retries on timeout), so the same
+// event can arrive twice. We dedup on the svix-id header — insert it into
+// webhook_events first; a duplicate hits the primary-key conflict and we return
+// early WITHOUT re-applying the update. Events with no svix-id (forwarded
+// replies) fall back to naturally-idempotent guarded updates.
+//
+// Handled events: email.delivered, email.bounced, email.complained,
+// email.failed, email.suppressed. Complaints, hard bounces, failures and
+// suppressions flip the lead to do_not_contact so no future campaign emails it
+// (the send batch skips do_not_contact / unsubscribed leads).
 
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
@@ -81,19 +92,65 @@ export async function POST(request: NextRequest) {
   const data = (body.data ?? body) as Record<string, unknown>
   const nowIso = new Date().toISOString()
 
-  // ── 1. Delivery / bounce / complaint events, matched by Message-ID ──────────
+  // Idempotency: dedup on the Svix event id. Insert-first — a duplicate hits the
+  // primary key and we return early without re-applying the side effect. Only
+  // signed events carry a svix-id (forwarded replies don't; those updates are
+  // guarded to be naturally idempotent).
+  if (svixId) {
+    const { error: dupErr } = await supabase
+      .from('webhook_events')
+      .insert({ svix_id: svixId, source: 'resend', event_type: type || null })
+    if (dupErr) {
+      // 23505 = unique_violation → already processed this exact event.
+      if ((dupErr as { code?: string }).code === '23505') {
+        return NextResponse.json({ ok: true, duplicate: true })
+      }
+      return NextResponse.json({ error: `idempotency store failed: ${dupErr.message}` }, { status: 500 })
+    }
+  }
+
+  // Flip a recipient's lead to do_not_contact so no future campaign emails it.
+  // The send batch skips leads with status='do_not_contact' or unsubscribed_at.
+  async function suppressLead(messageId: string, reason: string) {
+    const { data: rec } = await supabase
+      .from('sales_campaign_recipients').select('lead_id').eq('message_id', messageId).maybeSingle()
+    if (rec?.lead_id) {
+      await supabase.from('sales_leads')
+        .update({ status: 'do_not_contact', unsubscribed_at: nowIso, updated_at: nowIso })
+        .eq('id', rec.lead_id).neq('status', 'do_not_contact')
+      await supabase.from('sales_lead_activities')
+        .insert({ lead_id: rec.lead_id, kind: 'email', body: `Suppressed — ${reason}` })
+    }
+  }
+
+  // ── 1. Delivery / bounce / complaint / failure / suppression events ─────────
+  // Matched to a recipient by the email's Message-ID (stored on send).
   const eventMsgId = (data.email_id as string) || (data.message_id as string) || (data.id as string) || null
   if (type.startsWith('email.') && eventMsgId) {
     if (type === 'email.delivered') {
       await supabase.from('sales_campaign_recipients').update({ delivered_at: nowIso }).eq('message_id', eventMsgId)
     } else if (type === 'email.bounced') {
       await supabase.from('sales_campaign_recipients').update({ bounced_at: nowIso }).eq('message_id', eventMsgId)
+      // Hard/permanent bounce = dead mailbox → do not contact. A soft/transient
+      // bounce (mailbox full, temporary) is recorded but NOT permanently
+      // suppressed — a later send may succeed.
+      const bounce = (data.bounce ?? {}) as { type?: string; subType?: string }
+      const bounceType = String(bounce.type ?? data.bounce_type ?? '').toLowerCase()
+      const isTransient = bounceType === 'transient' || bounceType === 'soft'
+      if (!isTransient) await suppressLead(eventMsgId, `hard bounce${bounceType ? ` (${bounceType})` : ''}`)
     } else if (type === 'email.complained') {
-      // A spam complaint = do not contact.
-      const { data: rec } = await supabase.from('sales_campaign_recipients').select('lead_id').eq('message_id', eventMsgId).maybeSingle()
-      if (rec?.lead_id) {
-        await supabase.from('sales_leads').update({ status: 'do_not_contact', unsubscribed_at: nowIso }).eq('id', rec.lead_id)
-      }
+      await supabase.from('sales_campaign_recipients').update({ complained_at: nowIso }).eq('message_id', eventMsgId)
+      await suppressLead(eventMsgId, 'spam complaint')
+    } else if (type === 'email.failed') {
+      await supabase.from('sales_campaign_recipients').update({ failed_at: nowIso }).eq('message_id', eventMsgId)
+      await suppressLead(eventMsgId, 'permanent send failure')
+    } else if (type === 'email.suppressed') {
+      await supabase.from('sales_campaign_recipients').update({ suppressed_at: nowIso }).eq('message_id', eventMsgId)
+      await suppressLead(eventMsgId, 'on Resend suppression list')
+    } else {
+      // Unhandled email.* event (e.g. email.sent, email.opened, email.clicked) —
+      // acknowledged (and deduped) but no state change.
+      return NextResponse.json({ ok: true, ignored: type })
     }
     return NextResponse.json({ ok: true, handled: type })
   }
