@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { ChevronDown, Trash2, UploadCloud, FileText, X } from 'lucide-react'
 import { createExpense, updateExpense, deleteExpense } from '../_actions'
 import { uploadExpenseReceipt, removeExpenseReceipt } from '../_actions-receipt'
-import { EXPENSE_CATEGORIES, isAccountantConfirmCategory } from '@/lib/expense-categories'
+import { SELECTABLE_EXPENSE_CATEGORIES, isAccountantConfirmCategory } from '@/lib/expense-categories'
 import { RECEIPT_ACCEPT, RECEIPT_MAX_BYTES, isAllowedReceiptType, receiptIsPdf } from '@/lib/expense-receipts'
 import type { VendorSuggestion } from '../_data'
 
@@ -156,7 +156,7 @@ export function ExpenseForm({
             <span className="block text-sm font-semibold text-sage-800 mb-1.5">Category <span className="text-red-500">*</span></span>
             <div className="relative">
               <select value={category} onChange={(e) => { setCategory(e.target.value); setCategoryTouched(true) }} className={`${inputCls} appearance-none pr-10 bg-white`}>
-                {EXPENSE_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                {SELECTABLE_EXPENSE_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
               <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-sage-400 pointer-events-none" />
             </div>

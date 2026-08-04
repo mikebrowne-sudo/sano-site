@@ -12,7 +12,7 @@ import Link from 'next/link'
 import {
   FileText, ArrowRight, DollarSign,
   AlertTriangle, Bell, CalendarDays, MapPin, UserRound, Wallet,
-  TrendingUp, TrendingDown, Briefcase, BarChart3, Landmark, TrendingUp as ProjIcon,
+  TrendingUp, TrendingDown, Briefcase, BarChart3, Landmark, TrendingUp as ProjIcon, PiggyBank,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { isAdminUser, isAccountantUser } from '@/lib/is-admin'
@@ -27,6 +27,7 @@ import { buildStaffTasks } from '@/lib/staff-tasks'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 import { buildDashboardFinance } from './_lib/dashboard-finance'
 import { getBankBalance } from '@/lib/bank-balance'
+import { buildCashPosition } from '@/lib/cash-position'
 import { loadJobMargins } from '@/lib/job-margin'
 import { GrowthChart } from './_components/GrowthChart'
 
@@ -94,6 +95,11 @@ export default async function PortalDashboard() {
   // imported into reconciliation (no live feed). Null until a statement with a
   // balance line has been imported.
   const bankBalance = await getBankBalance(supabase)
+
+  // Cash position = total company cash − genuine owner capital introduced.
+  // Distinct from the P&L "net position" (an operating result). Owner capital
+  // is only the owner_capital rows — NOT loans or expense reimbursements.
+  const cashPosition = await buildCashPosition(supabase)
 
   // Jobs completed this month + their average margin (ties into Job margins).
   const { data: completedThisMonth } = await supabase
@@ -276,8 +282,8 @@ export default async function PortalDashboard() {
         </div>
       </section>
 
-      {/* ── Cash position: bank balance + projected with outstanding ── */}
-      <section className="grid gap-4 sm:grid-cols-2">
+      {/* ── Cash position: bank balance + projected + net-of-owner-funding ── */}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* Bank balance — ASB's stated figure from the last imported statement */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500">
@@ -316,6 +322,28 @@ export default async function PortalDashboard() {
             <>
               <div className="mt-2 text-3xl font-bold tracking-tight tabular-nums text-sage-800">{money0(outstandingRevenue)}</div>
               <div className="mt-1 text-xs text-sage-400 tabular-nums">owed on {outstandingCount} sent invoice{outstandingCount === 1 ? '' : 's'} · set a bank balance to project</div>
+            </>
+          )}
+        </div>
+
+        {/* Net cash position — total company cash less genuine owner capital.
+            NOT the P&L net position; owner capital excludes loans/reimbursements. */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500">
+            <PiggyBank size={14} className="text-emerald-500" /> Net cash position
+          </div>
+          {cashPosition.hasBalance ? (
+            <>
+              <div className="mt-2 text-3xl font-bold tracking-tight tabular-nums text-sage-800">{money0(cashPosition.netOfOwnerFunding)}</div>
+              <div className="mt-1 text-xs text-sage-400 tabular-nums">
+                {money0(cashPosition.totalCash)} cash − {money0(cashPosition.ownerCapital)} owner capital
+              </div>
+              <div className="mt-0.5 text-[11px] text-sage-400">above genuine owner funding</div>
+            </>
+          ) : (
+            <>
+              <div className="mt-2 text-lg font-semibold text-sage-400">Not set yet</div>
+              <div className="mt-1 text-[11px] text-sage-400">set a bank balance to show cash net of owner funding</div>
             </>
           )}
         </div>
