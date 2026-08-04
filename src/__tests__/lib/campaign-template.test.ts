@@ -1,4 +1,18 @@
-import { renderCommercialIntro, listUnsubscribeHeader } from '@/lib/campaigns/template'
+import { renderCommercialIntro, listUnsubscribeHeader, hasUsableFullName } from '@/lib/campaigns/template'
+
+describe('hasUsableFullName — strict name validation (no mail-merge greetings)', () => {
+  it('accepts a real first + last name', () => {
+    expect(hasUsableFullName('Yvonne Wood')).toBe(true)
+    expect(hasUsableFullName('Paul Tuffin')).toBe(true)
+    expect(hasUsableFullName("O'Brien Smith")).toBe(true)
+  })
+  it('rejects first-name-only, placeholders, inbox words, blanks', () => {
+    for (const n of ['Paul', 'Simon', 'there', 'team', 'Office Manager X'.replace(/ X$/, ''), '', null, undefined, 'info', 'Reception Team']) {
+      // 'info'/'Reception Team' contain junk tokens → rejected
+      expect(hasUsableFullName(n as string | null)).toBe(false)
+    }
+  })
+})
 
 const base = {
   lead: { company: 'Acme Ltd', contact_name: 'Jane Smith' },
@@ -43,9 +57,33 @@ describe('commercial intro — Carol-voiced, sender-parameterised', () => {
     expect(listUnsubscribeHeader('carol@sano.nz')['List-Unsubscribe']).toBe('<mailto:carol@sano.nz?subject=unsubscribe>')
   })
 
-  it('greets "there" when no contact name', () => {
-    const e = renderCommercialIntro({ ...base, lead: { company: 'Acme Ltd', contact_name: null } })
-    expect(e.text).toContain('Hi there,')
+  it('named variant: greets by first name + asks if they are the right person', () => {
+    const e = renderCommercialIntro({ ...base, lead: { company: 'Acme Ltd', contact_name: 'Jane Smith', email: 'jane@acme.co.nz' } })
+    expect(e.variant).toBe('named')
+    expect(e.text).toContain('Hi Jane,')
+    expect(e.text).toContain('Would you happen to be the right person')
+  })
+
+  it('team variant: no reliable name → "Hi team", drops the "right person" question', () => {
+    const e = renderCommercialIntro({ ...base, lead: { company: 'Acme Ltd', contact_name: null, email: 'info@acme.co.nz' } })
+    expect(e.variant).toBe('team')
+    expect(e.text).toContain('Hi team,')
+    expect(e.text).not.toContain('right person')
+    expect(e.text).toContain('point me in the direction of whoever looks after')
+  })
+
+  it('first-name-only falls back to the team greeting (never "Hi Paul,")', () => {
+    const e = renderCommercialIntro({ ...base, lead: { company: 'Acme Ltd', contact_name: 'Paul', email: 'paul@acme.co.nz' } })
+    expect(e.variant).toBe('team')
+    expect(e.text).toContain('Hi team,')
+  })
+
+  it('never produces "Hi there", "Hi null" or a blank greeting', () => {
+    for (const cn of [null, '', 'there', 'null', undefined]) {
+      const e = renderCommercialIntro({ ...base, lead: { company: 'Acme Ltd', contact_name: cn as string | null } })
+      expect(e.text).toContain('Hi team,')
+      expect(e.text).not.toMatch(/Hi (there|null|,)/)
+    }
   })
 
   it('uses a banner image in HTML when bannerUrl is set (alt still names the sender); text keeps the readable sig', () => {

@@ -72,7 +72,7 @@ export async function sendCampaignBatch(
     }
 
     const rendered = renderCommercialIntro({
-      lead: { company: lead.company, contact_name: lead.contact_name },
+      lead: { company: lead.company, contact_name: lead.contact_name, email: lead.email },
       token: r.token,
       siteUrl: siteUrl(),
       subject: campaign.subject,
@@ -97,7 +97,11 @@ export async function sendCampaignBatch(
       await supabase.from('sales_campaign_recipients').update({ status: 'failed', error: sendErr.message }).eq('id', r.id)
       failed++
     } else {
-      await supabase.from('sales_campaign_recipients').update({ status: 'sent', sent_at: new Date().toISOString(), error: null }).eq('id', r.id)
+      // Record what was actually sent (audit): subject, variant, from-address.
+      await supabase.from('sales_campaign_recipients').update({
+        status: 'sent', sent_at: new Date().toISOString(), error: null,
+        sent_subject: rendered.subject, sent_variant: rendered.variant, sent_from: fromEmail,
+      }).eq('id', r.id)
       await supabase.from('sales_leads').update({ status: 'contacted', updated_at: new Date().toISOString() }).eq('id', lead.id).eq('status', 'new')
       sent++
     }
