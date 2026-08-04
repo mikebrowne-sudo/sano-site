@@ -45,7 +45,7 @@ const HUB_DESTINATIONS: { href: string; label: string; group: string }[] = [
   { href: '/portal/contractor-invoices', label: 'Contractor invoices', group: 'Pay' },
   { href: '/portal/contractor-invoices/remittances', label: 'Remittances', group: 'Pay' },
   { href: '/portal/contractor-statements', label: 'Contractor statements', group: 'Pay' },
-  { href: '/portal/payroll/employee', label: 'Employee pay', group: 'Pay' },
+  { href: '/portal/payroll', label: 'Employee pay', group: 'Pay' },
   { href: '/portal/mileage', label: 'Mileage logbook', group: 'Pay' },
   { href: '/portal/finance/profit-loss', label: 'P&L statement', group: 'Reports' },
   { href: '/portal/finance/job-margins', label: 'Job margins', group: 'Reports' },
