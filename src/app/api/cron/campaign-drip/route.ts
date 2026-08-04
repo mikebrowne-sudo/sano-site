@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase-service'
-import { sendCampaignBatch } from '@/lib/campaigns/send-batch'
+import { sendCampaignBatch, sendFollowupBatch, isCampaignSendDay } from '@/lib/campaigns/send-batch'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,35 +26,52 @@ async function runDrip(request: NextRequest) {
   }
 
   const supabase = getServiceSupabase()
-  const nowIso = new Date().toISOString()
+  const now = new Date()
+  const nowIso = now.toISOString()
 
-  // Active drip campaigns: still sending, with a daily cap set.
+  // Campaign email only goes out Mon–Thu (NZ). On Fri/Sat/Sun the cron no-ops.
+  if (!isCampaignSendDay(now)) {
+    return NextResponse.json({ ok: true, skipped: 'not a campaign send day (Mon–Thu only)' })
+  }
+
+  // Campaigns with anything left to do: still 'sending' (intro drip) OR 'sent'
+  // (intro done, but follow-ups may be due). Only capped campaigns drip.
   const { data: campaigns, error } = await supabase
     .from('sales_campaigns')
-    .select('id, name, daily_send_cap, last_batch_at')
-    .eq('status', 'sending')
+    .select('id, name, status, daily_send_cap, last_batch_at')
+    .in('status', ['sending', 'sent'])
     .gt('daily_send_cap', 0)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const summary: Array<Record<string, unknown>> = []
 
   for (const c of campaigns ?? []) {
-    // One batch per calendar day.
-    if (sameNzDay((c as { last_batch_at?: string | null }).last_batch_at ?? null, nowIso)) {
-      summary.push({ campaign: c.name, skipped: 'already sent a batch today' })
-      continue
-    }
     const cap = Number((c as { daily_send_cap?: number | null }).daily_send_cap ?? 0)
-    const { result, error: sErr } = await sendCampaignBatch(supabase, c.id as string, { limit: cap })
-    if (sErr) { summary.push({ campaign: c.name, error: sErr }); continue }
+    const alreadyToday = sameNzDay((c as { last_batch_at?: string | null }).last_batch_at ?? null, nowIso)
+    const row: Record<string, unknown> = { campaign: c.name }
 
-    const done = (result?.remaining ?? 0) <= 0
-    await supabase
-      .from('sales_campaigns')
-      .update(done ? { status: 'sent', sent_at: nowIso, last_batch_at: nowIso } : { last_batch_at: nowIso })
-      .eq('id', c.id)
+    // 1) Intro drip (only while still 'sending', one batch/day).
+    if (c.status === 'sending' && !alreadyToday) {
+      const { result, error: sErr } = await sendCampaignBatch(supabase, c.id as string, { limit: cap })
+      if (sErr) { row.introError = sErr }
+      else {
+        const done = (result?.remaining ?? 0) <= 0
+        await supabase.from('sales_campaigns')
+          .update(done ? { status: 'sent', sent_at: nowIso, last_batch_at: nowIso } : { last_batch_at: nowIso })
+          .eq('id', c.id)
+        row.intro = { sent: result?.sent, remaining: result?.remaining, done }
+      }
+    } else if (c.status === 'sending' && alreadyToday) {
+      row.intro = 'already sent a batch today'
+    }
 
-    summary.push({ campaign: c.name, sent: result?.sent, failed: result?.failed, skipped: result?.skipped, remaining: result?.remaining, done })
+    // 2) Follow-ups (one each, 5+ business days after intro, delivered/no-reply).
+    //    Shares the same daily cap so total daily volume stays warm-up-safe.
+    const { result: fu, error: fErr } = await sendFollowupBatch(supabase, c.id as string, { limit: cap, now })
+    if (fErr) row.followupError = fErr
+    else if ((fu?.sent ?? 0) > 0 || (fu?.remaining ?? 0) > 0) row.followup = { sent: fu?.sent, remaining: fu?.remaining }
+
+    summary.push(row)
   }
 
   return NextResponse.json({ ok: true, ran: (campaigns ?? []).length, summary })

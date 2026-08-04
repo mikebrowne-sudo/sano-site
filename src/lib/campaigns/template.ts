@@ -67,56 +67,20 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-export function renderCommercialIntro(opts: {
-  lead: TemplateLead
-  /** Recipient tracking token (sales_campaign_recipients.token). */
+/** Assemble the final HTML + text from a set of body paragraphs. Shared by the
+ *  intro and the follow-up so they look identical. The website link in the
+ *  signature is a PLAIN https://sano.nz (NOT tracked/redirected) — a tracked
+ *  link adds a redirect domain and makes a personal email read as a campaign. */
+function assembleEmail(opts: {
+  paragraphs: string[]
+  sender: TemplateSender
   token: string
-  /** Absolute site origin, e.g. https://sano.nz */
   siteUrl: string
-  /** Subject override from the campaign row. */
-  subject?: string
-  /** Who the email is from — drives the sign-off. Defaults to Michael Browne. */
-  sender?: TemplateSender
+  subject: string
+  variant: 'named' | 'team'
 }): RenderedEmail {
-  const { lead, token, siteUrl } = opts
-  const company = lead.company
-  const sender = opts.sender ?? DEFAULT_SENDER
-  const senderFirst = sender.name.trim().split(/\s+/)[0] || 'Carol'
-
-  const subject = opts.subject || `Cleaning at ${company}`
-
-  const trackedSiteLink = `${siteUrl}/api/campaigns/track/click/${token}?to=${encodeURIComponent(
-    `${siteUrl}/services/commercial-cleaning`
-  )}`
+  const { paragraphs, sender, token, siteUrl, subject, variant } = opts
   const openPixel = `${siteUrl}/api/campaigns/track/open/${token}`
-
-  // Two templates, selected on the ONE thing that changes whether the email
-  // sounds personal or automated: do we have a reliable full name?
-  //   named  → greet by first name, ask if they're the right person
-  //   team   → "Hi team" (fits info@/office@/reception@), just ask to be pointed
-  //            to whoever looks after it (the "are you the right person?" line
-  //            makes no sense to a shared inbox, so it's dropped)
-  // Everything else in the copy is identical, so both stay on-message.
-  const named = hasUsableFullName(lead.contact_name)
-  const greetName = named ? firstName(lead.contact_name) : 'team'
-
-  // Carol-voiced cold intro. Opt-out is the "let me know and I won't follow up"
-  // line, backed by the List-Unsubscribe header + reply-to that reaches the
-  // sender. NZ English, no pricing, no forbidden phrases.
-  const intro = `I'm ${senderFirst} and I run Sano. We're an Auckland cleaning company, and I wanted to see whether there might be an opportunity to provide a quote for the cleaning at ${company}, either now or when you next review your cleaning arrangements.`
-
-  const askLine = named
-    ? `Would you happen to be the right person to speak with? If not, I'd really appreciate you pointing me in the direction of whoever looks after that side of the business.`
-    : `I'd really appreciate it if you could point me in the direction of whoever looks after that side of the business.`
-
-  const paragraphs = [
-    `Hi ${greetName},`,
-    `I hope you don't mind me reaching out.`,
-    intro,
-    askLine,
-    `If you're already well sorted in this space, feel free to let me know and I won't follow up again.`,
-    `Kind regards,`,
-  ]
 
   const signatureText = [
     sender.name,
@@ -125,29 +89,21 @@ export function renderCommercialIntro(opts: {
     `sano.nz | 0800 726 686`,
     `Auckland, New Zealand`,
   ]
+  const text = [...paragraphs, '', ...signatureText].join('\n\n').replace(/\n\n\n+/g, '\n\n')
 
-  const text = [
-    ...paragraphs,
-    '',
-    ...signatureText,
-  ].join('\n\n').replace(/\n\n\n+/g, '\n\n')
-
-  const htmlParas = paragraphs
-    .map((p) => `<p style="margin:0 0 14px 0;">${esc(p)}</p>`)
-    .join('\n      ')
-
+  const htmlParas = paragraphs.map((p) => `<p style="margin:0 0 14px 0;">${esc(p)}</p>`).join('\n      ')
   const roleHtml = sender.roleLine ? `<p style="margin:0 0 4px 0;color:#5c6b64;">${esc(sender.roleLine)}</p>\n      ` : ''
 
-  // Signature: a banner image when the sender has one (alt text still names Carol
-  // so a blocked image shows something readable), else the plain text block.
+  // Signature: banner image when explicitly provided; otherwise Carol's plain
+  // text block with an untracked sano.nz link.
   const signatureHtml = sender.bannerUrl
-    ? `<a href="${trackedSiteLink}" style="display:block;text-decoration:none;">
+    ? `<a href="https://sano.nz" style="display:block;text-decoration:none;">
         <img src="${esc(sender.bannerUrl)}" alt="${esc(sender.name)} — Sano | sano.nz" width="560" style="display:block;width:100%;max-width:560px;height:auto;border:0;margin:6px 0 0;" />
       </a>`
     : `<p style="margin:0 0 4px 0;">${esc(sender.name)}</p>
       ${roleHtml}<p style="margin:0 0 4px 0;color:#5c6b64;">Sano | Clean spaces - Healthy living</p>
       <p style="margin:0 0 4px 0;color:#5c6b64;">
-        <a href="${trackedSiteLink}" style="color:#076653;">sano.nz</a> | 0800 726 686
+        <a href="https://sano.nz" style="color:#076653;">sano.nz</a> | 0800 726 686
       </p>
       <p style="margin:0;color:#5c6b64;">Auckland, New Zealand</p>`
 
@@ -162,7 +118,74 @@ export function renderCommercialIntro(opts: {
   </body>
 </html>`
 
-  return { subject, html, text, variant: named ? 'named' : 'team' }
+  return { subject, html, text, variant }
+}
+
+export function renderCommercialIntro(opts: {
+  lead: TemplateLead
+  token: string
+  siteUrl: string
+  subject?: string
+  sender?: TemplateSender
+}): RenderedEmail {
+  const { lead, token, siteUrl } = opts
+  const company = lead.company
+  const sender = opts.sender ?? DEFAULT_SENDER
+  const senderFirst = sender.name.trim().split(/\s+/)[0] || 'Carol'
+  const subject = opts.subject || `Cleaning at ${company}`
+
+  // Two templates, selected on the ONE thing that changes whether the email
+  // sounds personal or automated: do we have a reliable full name?
+  //   named  → greet by first name, ask if they're the right person
+  //   team   → "Hi team", just ask to be pointed to whoever looks after it
+  const named = hasUsableFullName(lead.contact_name)
+  const greetName = named ? firstName(lead.contact_name) : 'team'
+
+  const intro = `I'm ${senderFirst} and I run Sano. We're an Auckland cleaning company, and I wanted to see whether there might be an opportunity to provide a quote for the cleaning at ${company}, either now or when you next review your cleaning arrangements.`
+  const askLine = named
+    ? `Would you happen to be the right person to speak with? If not, I'd really appreciate you pointing me in the direction of whoever looks after that side of the business.`
+    : `I'd really appreciate it if you could point me in the direction of whoever looks after that side of the business.`
+
+  return assembleEmail({
+    paragraphs: [
+      `Hi ${greetName},`,
+      `I hope you don't mind me reaching out.`,
+      intro,
+      askLine,
+      `If you're already well sorted in this space, feel free to let me know and I won't follow up again.`,
+      `Kind regards,`,
+    ],
+    sender, token, siteUrl, subject, variant: named ? 'named' : 'team',
+  })
+}
+
+/** One light follow-up to a non-replier, ~5 business days after the intro. Same
+ *  named/team split. Subject prefixed "Re:" so it threads as a follow-up. */
+export function renderCommercialFollowup(opts: {
+  lead: TemplateLead
+  token: string
+  siteUrl: string
+  /** The original subject sent to this lead — the follow-up re-uses it as "Re: ...". */
+  originalSubject: string
+  sender?: TemplateSender
+}): RenderedEmail {
+  const { lead, token, siteUrl, originalSubject } = opts
+  const company = lead.company
+  const sender = opts.sender ?? DEFAULT_SENDER
+  const named = hasUsableFullName(lead.contact_name)
+  const greetName = named ? firstName(lead.contact_name) : 'team'
+  const subject = /^re:/i.test(originalSubject) ? originalSubject : `Re: ${originalSubject}`
+
+  const paragraphs = [
+    `Hi ${greetName},`,
+    `I just wanted to follow up on my email below in case it was missed.`,
+    `I'd appreciate the opportunity to provide a quote for the cleaning at ${company}, either now or when you next review your arrangements.`,
+    // Named leads get the "someone else?" line; team inboxes don't.
+    ...(named ? [`If there's someone else I'd be better speaking with, I'd really appreciate you pointing me in the right direction.`] : []),
+    `Kind regards,`,
+  ]
+
+  return assembleEmail({ paragraphs, sender, token, siteUrl, subject, variant: named ? 'named' : 'team' })
 }
 
 /** Belt-and-braces unsubscribe header alongside the human reply-to-opt-out. */

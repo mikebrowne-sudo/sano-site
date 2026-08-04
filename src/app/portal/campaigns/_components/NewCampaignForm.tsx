@@ -16,16 +16,19 @@ type EligibleLead = Pick<
 
 export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
   const [name, setName] = useState('')
-  const [subject, setSubject] = useState('Cleaning at {company}')
+  // A/B subject test — two subjects, evenly + randomly split across recipients.
+  const [subjectA, setSubjectA] = useState('Cleaning at {company}')
+  const [subjectB, setSubjectB] = useState('A quick question about cleaning at {company}')
   const [description, setDescription] = useState('')
   // Sender identity — defaults to Carol so the email reads as coming from her.
   const [fromName, setFromName] = useState('Carol Browne')
   const [fromEmail, setFromEmail] = useState('carol@sano.nz')
   const [signatureName, setSignatureName] = useState('Carol Browne')
   const [replyTo, setReplyTo] = useState('carol@sano.nz')
-  // Carol's hosted signature banner. On = image signature; off = plain text.
+  // Carol's hosted signature banner. Default OFF — the campaign is meant to read
+  // as a genuine personal email; the banner works against that for cold sends.
   const CAROL_BANNER = 'https://sano.nz/email/email-banner-carol.jpg'
-  const [useBanner, setUseBanner] = useState(true)
+  const [useBanner, setUseBanner] = useState(false)
   // Sender warm-up: drip N/day instead of blasting. 0 = send all at once.
   const [dailyCap, setDailyCap] = useState('15')
   const [selected, setSelected] = useState<Set<string>>(new Set(leads.map((l) => l.id)))
@@ -56,7 +59,9 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
     startTransition(async () => {
       const res = await createCampaignAction({
         name,
-        subject,
+        subject: subjectA,
+        subjectA: subjectA.trim() || undefined,
+        subjectB: subjectB.trim() || undefined,
         description: description || undefined,
         fromName: fromName.trim() || undefined,
         fromEmail: fromEmail.trim() || undefined,
@@ -86,17 +91,19 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
               className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 text-sm"
             />
           </label>
-          <label className="block">
-            <span className="block text-sm font-semibold text-sage-800 mb-1.5">Subject line</span>
-            <input
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500 text-sm"
-            />
-            <span className="block text-[11px] text-sage-500 mt-1.5">
-              {'{company}'} is replaced per lead. Keep it plain and human — it outperforms clever.
-            </span>
-          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="block">
+              <span className="block text-sm font-semibold text-sage-800 mb-1.5">Subject A</span>
+              <input value={subjectA} onChange={(e) => setSubjectA(e.target.value)} className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500 text-sm" />
+            </label>
+            <label className="block">
+              <span className="block text-sm font-semibold text-sage-800 mb-1.5">Subject B (A/B test)</span>
+              <input value={subjectB} onChange={(e) => setSubjectB(e.target.value)} placeholder="Leave blank to use only Subject A" className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500 text-sm" />
+            </label>
+          </div>
+          <span className="block text-[11px] text-sage-500 mt-1.5">
+            {'{company}'} is replaced per lead. If Subject B is set, recipients are split evenly + randomly between A and B, and results are reported per subject.
+          </span>
           <label className="block">
             <span className="block text-sm font-semibold text-sage-800 mb-1.5">Internal description</span>
             <input
