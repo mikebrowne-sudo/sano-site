@@ -27,6 +27,10 @@ export interface TemplateSender {
   name: string
   /** Optional role/line under the name, e.g. omitted when the name stands alone. */
   roleLine?: string | null
+  /** Absolute URL to a signature banner image. When set, the HTML email shows
+   *  this image as the signature (linked to sano.nz) instead of the text block.
+   *  The text/plain part always keeps the readable text signature. */
+  bannerUrl?: string | null
 }
 
 const DEFAULT_SENDER: TemplateSender = { name: 'Michael Browne' }
@@ -104,17 +108,25 @@ export function renderCommercialIntro(opts: {
 
   const roleHtml = sender.roleLine ? `<p style="margin:0 0 4px 0;color:#5c6b64;">${esc(sender.roleLine)}</p>\n      ` : ''
 
+  // Signature: a banner image when the sender has one (alt text still names Carol
+  // so a blocked image shows something readable), else the plain text block.
+  const signatureHtml = sender.bannerUrl
+    ? `<a href="${trackedSiteLink}" style="display:block;text-decoration:none;">
+        <img src="${esc(sender.bannerUrl)}" alt="${esc(sender.name)} — Sano | sano.nz" width="560" style="display:block;width:100%;max-width:560px;height:auto;border:0;margin:6px 0 0;" />
+      </a>`
+    : `<p style="margin:0 0 4px 0;">${esc(sender.name)}</p>
+      ${roleHtml}<p style="margin:0 0 4px 0;color:#5c6b64;">Sano | Clean spaces - Healthy living</p>
+      <p style="margin:0 0 4px 0;color:#5c6b64;">
+        <a href="${trackedSiteLink}" style="color:#076653;">sano.nz</a> | 0800 726 686
+      </p>
+      <p style="margin:0;color:#5c6b64;">Auckland, New Zealand</p>`
+
   const html = `<!DOCTYPE html>
 <html lang="en">
   <body style="margin:0;padding:0;background:#ffffff;">
     <div style="max-width:560px;margin:0 auto;padding:24px 20px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#333d38;">
       ${htmlParas}
-      <p style="margin:0 0 4px 0;">${esc(sender.name)}</p>
-      ${roleHtml}<p style="margin:0 0 4px 0;color:#5c6b64;">Sano | Clean spaces - Healthy living</p>
-      <p style="margin:0 0 4px 0;color:#5c6b64;">
-        <a href="${trackedSiteLink}" style="color:#076653;">sano.nz</a> | 0800 726 686
-      </p>
-      <p style="margin:0;color:#5c6b64;">Auckland, New Zealand</p>
+      ${signatureHtml}
       <img src="${openPixel}" width="1" height="1" alt="" style="display:block;border:0;" />
     </div>
   </body>

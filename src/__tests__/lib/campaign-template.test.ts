@@ -47,4 +47,13 @@ describe('commercial intro — Carol-voiced, sender-parameterised', () => {
     const e = renderCommercialIntro({ ...base, lead: { company: 'Acme Ltd', contact_name: null } })
     expect(e.text).toContain('Hi there,')
   })
+
+  it('uses a banner image in HTML when bannerUrl is set (alt still names the sender); text keeps the readable sig', () => {
+    const e = renderCommercialIntro({ ...base, sender: { name: 'Carol Browne', bannerUrl: 'https://sano.nz/email/email-banner-carol.jpg' } })
+    expect(e.html).toContain('email-banner-carol.jpg')
+    expect(e.html).toContain('alt="Carol Browne — Sano | sano.nz"')
+    // text/plain can't show images, so it still carries the readable signature.
+    expect(e.text).toContain('Carol Browne')
+    expect(e.text).toContain('0800 726 686')
+  })
 })

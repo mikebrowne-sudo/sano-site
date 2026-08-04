@@ -17,6 +17,7 @@ export async function createCampaignAction(input: {
   fromName?: string
   fromEmail?: string
   signatureName?: string
+  signatureBannerUrl?: string
   replyTo?: string
   leadIds: string[]
 }) {
@@ -34,6 +35,7 @@ export async function createCampaignAction(input: {
       ...(input.fromName?.trim() ? { from_name: input.fromName.trim() } : {}),
       ...(input.fromEmail?.trim() ? { from_email: input.fromEmail.trim() } : {}),
       ...(input.signatureName?.trim() ? { signature_name: input.signatureName.trim() } : {}),
+      ...(input.signatureBannerUrl?.trim() ? { signature_banner_url: input.signatureBannerUrl.trim() } : {}),
       ...(input.replyTo?.trim() ? { reply_to: input.replyTo.trim() } : {}),
     })
     .select('id')
@@ -63,7 +65,7 @@ export async function sendCampaignAction(campaignId: string) {
 
   const { data: campaign, error: cErr } = await supabase
     .from('sales_campaigns')
-    .select('id, name, subject, from_name, from_email, signature_name, reply_to, status')
+    .select('id, name, subject, from_name, from_email, signature_name, signature_banner_url, reply_to, status')
     .eq('id', campaignId)
     .single()
   if (cErr || !campaign) return { error: 'Campaign not found.' }
@@ -101,8 +103,12 @@ export async function sendCampaignAction(campaignId: string) {
       token: r.token,
       siteUrl: siteUrl(),
       subject: campaign.subject,
-      // Signature = the campaign's signature name (falls back to from_name).
-      sender: { name: (campaign as { signature_name?: string | null }).signature_name || campaign.from_name },
+      // Signature = the campaign's signature name (falls back to from_name),
+      // with the banner image when set.
+      sender: {
+        name: (campaign as { signature_name?: string | null }).signature_name || campaign.from_name,
+        bannerUrl: (campaign as { signature_banner_url?: string | null }).signature_banner_url || null,
+      },
     })
 
     // From-address: the campaign's from_email (e.g. carol@sano.nz) or the safe
@@ -192,7 +198,7 @@ export async function sendTestEmailAction(input: { campaignId: string; to: strin
   const supabase = createClient()
   const { data: campaign, error } = await supabase
     .from('sales_campaigns')
-    .select('subject, from_name, from_email, signature_name, reply_to')
+    .select('subject, from_name, from_email, signature_name, signature_banner_url, reply_to')
     .eq('id', input.campaignId)
     .single()
   if (error || !campaign) return { error: 'Campaign not found.' }
@@ -202,7 +208,10 @@ export async function sendTestEmailAction(input: { campaignId: string; to: strin
     token: 'test-preview', // harmless — tracking endpoints ignore unknown tokens
     siteUrl: siteUrl(),
     subject: campaign.subject,
-    sender: { name: (campaign as { signature_name?: string | null }).signature_name || campaign.from_name },
+    sender: {
+      name: (campaign as { signature_name?: string | null }).signature_name || campaign.from_name,
+      bannerUrl: (campaign as { signature_banner_url?: string | null }).signature_banner_url || null,
+    },
   })
   const fromEmail = (campaign as { from_email?: string | null }).from_email || 'noreply@sano.nz'
 
