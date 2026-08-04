@@ -13,11 +13,15 @@
 //      the auto follow-up. This is the reply detection that covers Carol's mailbox
 //      once replies are routed here.
 //
-// Auth: a shared secret in the `x-webhook-secret` header (RESEND_WEBHOOK_SECRET),
-// so only Resend / our forwarder can post. Idempotent: setting responded_at /
-// bounced_at twice is harmless.
+// Auth: Resend signs webhooks with Svix (svix-id / svix-timestamp /
+// svix-signature headers) using a signing secret from the webhook's details
+// page — set as RESEND_WEBHOOK_SECRET. We verify the RAW body against that
+// signature. A forwarder without a Svix signature can instead present a shared
+// bearer token in `x-forwarder-secret` (RESEND_FORWARDER_SECRET) for the inbound
+// reply path. Idempotent: setting responded_at / bounced_at twice is harmless.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { Resend } from 'resend'
 import { getServiceSupabase } from '@/lib/supabase-service'
 
 export const dynamic = 'force-dynamic'
@@ -36,13 +40,41 @@ function refIds(v: unknown): string[] {
 }
 
 export async function POST(request: NextRequest) {
-  const secret = process.env.RESEND_WEBHOOK_SECRET
-  if (secret && request.headers.get('x-webhook-secret') !== secret) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Raw body is required for signature verification (any reserialisation breaks it).
+  const raw = await request.text()
+
+  const svixId = request.headers.get('svix-id')
+  const forwarderSecret = process.env.RESEND_FORWARDER_SECRET
+  let authed = false
+
+  if (svixId) {
+    // Resend/Svix-signed webhook (delivery/bounce/complaint events).
+    const signingSecret = process.env.RESEND_WEBHOOK_SECRET
+    if (!signingSecret) return NextResponse.json({ error: 'RESEND_WEBHOOK_SECRET not configured' }, { status: 500 })
+    try {
+      new Resend(process.env.RESEND_API_KEY).webhooks.verify({
+        payload: raw,
+        // The SDK's Headers type is { id, timestamp, signature } from the svix-* headers.
+        headers: {
+          id: svixId,
+          timestamp: request.headers.get('svix-timestamp') ?? '',
+          signature: request.headers.get('svix-signature') ?? '',
+        } as unknown as Parameters<Resend['webhooks']['verify']>[0]['headers'],
+        webhookSecret: signingSecret,
+      })
+      authed = true
+    } catch {
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    }
+  } else if (forwarderSecret && request.headers.get('x-forwarder-secret') === forwarderSecret) {
+    // A mail-forwarding rule posting inbound replies (no Svix signature).
+    authed = true
   }
 
+  if (!authed) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   let body: Record<string, unknown>
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'bad json' }, { status: 400 }) }
+  try { body = JSON.parse(raw) } catch { return NextResponse.json({ error: 'bad json' }, { status: 400 }) }
 
   const supabase = getServiceSupabase()
   const type = String(body.type ?? '')
