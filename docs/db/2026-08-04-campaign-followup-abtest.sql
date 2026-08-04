@@ -20,11 +20,18 @@ begin;
 alter table public.sales_campaign_recipients
   add column if not exists subject_variant text,          -- 'A' | 'B' (assigned at add-time)
   add column if not exists sent_body text,                -- exact rendered HTML sent
+  add column if not exists sent_text text,                -- exact rendered plain-text sent
+  add column if not exists message_id text,               -- intro's email Message-ID (for threading)
   add column if not exists delivered_at timestamptz,      -- Resend delivered webhook (or send success)
   add column if not exists bounced_at timestamptz,        -- Resend bounce webhook
   add column if not exists followup_sent_at timestamptz,  -- single follow-up timestamp
   add column if not exists followup_subject text,
   add column if not exists followup_variant text;
+
+comment on column public.sales_campaign_recipients.message_id is
+  'The intro email''s Message-ID, used to thread the follow-up (In-Reply-To / References).';
+comment on column public.sales_campaign_recipients.sent_text is
+  'Exact rendered plain-text body sent (audit snapshot, alongside sent_body HTML).';
 
 comment on column public.sales_campaign_recipients.subject_variant is
   'A/B subject bucket, assigned when the recipient is added and never changed after sending.';

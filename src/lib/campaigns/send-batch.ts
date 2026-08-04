@@ -116,7 +116,7 @@ export async function sendCampaignBatch(
     })
     const fromEmail = (campaign as { from_email?: string | null }).from_email || 'noreply@sano.nz'
 
-    const { error: sendErr } = await resend.emails.send({
+    const { data: sendData, error: sendErr } = await resend.emails.send({
       from: `${campaign.from_name} <${fromEmail}>`,
       to: lead.email,
       replyTo: campaign.reply_to,
@@ -130,15 +130,16 @@ export async function sendCampaignBatch(
       await supabase.from('sales_campaign_recipients').update({ status: 'failed', error: sendErr.message }).eq('id', r.id)
       failed++
     } else {
-      // Record exactly what was sent (audit): subject, variant, from-address,
-      // and the full rendered HTML. delivered_at is set on send success (Resend
-      // bounce/delivery webhooks can refine it later); follow-up uses this, not
-      // opens.
+      // Record exactly what was sent (audit): subject, variant, from-address, and
+      // BOTH the rendered HTML and plain-text. Capture the Message-ID for threading
+      // the follow-up. delivered_at set on send success (webhooks refine later);
+      // follow-up uses delivered, not opens.
       const nowIso = new Date().toISOString()
       await supabase.from('sales_campaign_recipients').update({
         status: 'sent', sent_at: nowIso, delivered_at: nowIso, error: null,
         sent_subject: rendered.subject, sent_variant: rendered.variant, sent_from: fromEmail,
-        sent_body: rendered.html,
+        sent_body: rendered.html, sent_text: rendered.text,
+        message_id: (sendData as { id?: string } | null)?.id ?? null,
       }).eq('id', r.id)
       await supabase.from('sales_leads').update({ status: 'contacted', updated_at: new Date().toISOString() }).eq('id', lead.id).eq('status', 'new')
       sent++
@@ -177,7 +178,7 @@ export async function sendFollowupBatch(
 
   const { data: rowsRaw, error: rErr } = await supabase
     .from('sales_campaign_recipients')
-    .select('id, token, sent_at, sent_subject, delivered_at, bounced_at, responded_at, followup_sent_at, lead:sales_leads(id, company, contact_name, email, status, unsubscribed_at)')
+    .select('id, token, sent_at, sent_subject, message_id, delivered_at, bounced_at, responded_at, followup_sent_at, lead:sales_leads(id, company, contact_name, email, status, unsubscribed_at)')
     .eq('campaign_id', campaignId)
     .eq('status', 'sent')
     .is('responded_at', null)
@@ -198,6 +199,21 @@ export async function sendFollowupBatch(
 
   for (const r of batch) {
     const lead = r.lead
+
+    // Belt-and-braces: re-read THIS recipient immediately before sending, so a
+    // reply / opt-out / bounce / already-sent that landed since the batch query
+    // still stops the follow-up (no stale-list nudge).
+    const { data: fresh } = await supabase
+      .from('sales_campaign_recipients')
+      .select('responded_at, followup_sent_at, bounced_at, lead:sales_leads(status, unsubscribed_at)')
+      .eq('id', r.id)
+      .single()
+    const freshLead = fresh ? (Array.isArray(fresh.lead) ? fresh.lead[0] : fresh.lead) : null
+    if (!fresh || fresh.responded_at || fresh.followup_sent_at || fresh.bounced_at
+      || !freshLead || freshLead.unsubscribed_at || freshLead.status === 'do_not_contact') {
+      continue
+    }
+
     const rendered = renderCommercialFollowup({
       lead: { company: lead.company, contact_name: lead.contact_name, email: lead.email },
       token: r.token,
@@ -210,6 +226,13 @@ export async function sendFollowupBatch(
     })
     const fromEmail = (campaign as { from_email?: string | null }).from_email || 'noreply@sano.nz'
 
+    // Thread under the original: In-Reply-To + References point at the intro's
+    // Message-ID (Resend builds the RFC id as <{id}@…>; use the stored id).
+    const originalMsgId = (r as { message_id?: string | null }).message_id
+    const threadHeaders: Record<string, string> = originalMsgId
+      ? { 'In-Reply-To': `<${originalMsgId}>`, 'References': `<${originalMsgId}>` }
+      : {}
+
     const { error: sendErr } = await resend.emails.send({
       from: `${campaign.from_name} <${fromEmail}>`,
       to: lead.email,
@@ -217,7 +240,7 @@ export async function sendFollowupBatch(
       subject: rendered.subject,
       html: rendered.html,
       text: rendered.text,
-      headers: listUnsubscribeHeader(campaign.reply_to),
+      headers: { ...listUnsubscribeHeader(campaign.reply_to), ...threadHeaders },
     })
 
     if (sendErr) { failed++; continue }
