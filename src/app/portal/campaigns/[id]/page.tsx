@@ -5,7 +5,9 @@ import { ArrowLeft, Eye, MousePointerClick, MailCheck, Send as SendIcon } from '
 import { renderCommercialIntro, hasUsableFullName } from '@/lib/campaigns/template'
 import { checkSenderReadiness } from '@/lib/campaigns/sender-readiness'
 import { QUALITY_RANK_BADGE, type QualityRank } from '@/lib/campaigns/constants'
-import { SendCampaignButton, MarkRepliedButton, TestSendBox, DeleteCampaignButton } from '../_components/CampaignActions'
+import { SendCampaignButton, MarkRepliedButton, OptOutButton, TestSendBox, DeleteCampaignButton, FollowupToggle } from '../_components/CampaignActions'
+import { NameReviewPanel } from '../_components/NameReviewPanel'
+import { reviewCampaignCompanyNames } from '../_actions'
 import { isAdminUser } from '@/lib/is-admin'
 
 export default async function CampaignDetailPage({ params }: { params: { id: string } }) {
@@ -39,6 +41,10 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
   // Sender-readiness (SPF/DKIM/alignment) for the campaign's from-address.
   const readiness = await checkSenderReadiness((campaign.from_email as string | null) || 'noreply@sano.nz')
 
+  // Company-name quality review of pending recipients (pre-launch gate).
+  const nameReview = await reviewCampaignCompanyNames(supabase, params.id)
+  const followupsEnabled = !!(campaign as { followups_enabled?: boolean }).followups_enabled
+
   // A/B subject reporting: delivery / reply rate per variant.
   const abStats = ['A', 'B'].map((v) => {
     const inV = recs.filter((r) => (r as { subject_variant?: string | null }).subject_variant === v)
@@ -51,6 +57,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://sano.nz'
   const senderName = (campaign.signature_name as string | null) || (campaign.from_name as string | null) || 'Carol Browne'
+  const senderEmail = (campaign.reply_to as string | null) || (campaign.from_email as string | null) || null
   const bannerUrl = (campaign.signature_banner_url as string | null) || null
 
   // How the two templates split across THIS campaign's recipients — so you can
@@ -62,12 +69,12 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
   const previewNamed = renderCommercialIntro({
     lead: { company: 'Acme Legal', contact_name: 'Jane Smith', email: 'jane.smith@acmelegal.co.nz' },
     token: 'preview', siteUrl, subject: campaign.subject,
-    sender: { name: senderName, bannerUrl },
+    sender: { name: senderName, email: senderEmail, bannerUrl },
   })
   const previewTeam = renderCommercialIntro({
     lead: { company: 'Northside Accounting', contact_name: null, email: 'info@northside.co.nz' },
     token: 'preview', siteUrl, subject: campaign.subject,
-    sender: { name: senderName, bannerUrl },
+    sender: { name: senderName, email: senderEmail, bannerUrl },
   })
 
   return (
@@ -114,12 +121,22 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
         </div>
       )}
 
+      {/* Company-name quality review — blocks launch on unsafe interpolation */}
+      {pending > 0 && (
+        <NameReviewPanel campaignId={campaign.id} flagged={nameReview.flagged} blocking={nameReview.blocking} />
+      )}
+
       {/* Test send — verify deliverability + look before the real send */}
       {pending > 0 && (
         <div className="mb-8 max-w-md">
           <TestSendBox campaignId={campaign.id} />
         </div>
       )}
+
+      {/* Automatic follow-up toggle (defaults OFF) */}
+      <div className="mb-8 max-w-md">
+        <FollowupToggle campaignId={campaign.id} enabled={followupsEnabled} />
+      </div>
 
       {/* A/B subject results */}
       {abStats.length > 1 && (
@@ -196,7 +213,12 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
                     </div>
                   </td>
                   <td className="px-5 py-3 text-right">
-                    {r.status === 'sent' && !r.responded_at && <MarkRepliedButton recipientId={r.id} />}
+                    {r.status === 'sent' && !r.responded_at && (
+                      <span className="inline-flex items-center gap-3">
+                        <MarkRepliedButton recipientId={r.id} />
+                        <OptOutButton recipientId={r.id} />
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

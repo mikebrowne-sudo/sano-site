@@ -1,0 +1,143 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import clsx from 'clsx'
+import { AlertTriangle, Check, X, Pencil } from 'lucide-react'
+import {
+  fixLeadCompanyNameAction,
+  approveRecipientNameAction,
+  excludeRecipientAction,
+  type FlaggedRecipient,
+} from '../_actions'
+
+/**
+ * Pre-launch company-name review. Lists every PENDING recipient whose company
+ * name is flagged as unsafe to interpolate, and lets the operator fix the name,
+ * exclude the recipient, or explicitly approve it. Launch is blocked while any
+ * unapproved flagged name remains (enforced server-side in sendCampaignAction).
+ */
+export function NameReviewPanel({
+  campaignId,
+  flagged,
+  blocking,
+}: {
+  campaignId: string
+  flagged: FlaggedRecipient[]
+  blocking: number
+}) {
+  if (flagged.length === 0) {
+    return (
+      <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+        <p className="text-sm font-semibold text-emerald-800 flex items-center gap-2">
+          <Check size={15} /> Company names all clean
+        </p>
+        <p className="text-[12px] text-emerald-700 mt-1">
+          Every recipient’s company name is safe to use in the subject and body.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4">
+      <p className="text-sm font-semibold text-amber-900 flex items-center gap-2">
+        <AlertTriangle size={15} />
+        {blocking > 0
+          ? `${blocking} company name${blocking === 1 ? '' : 's'} need${blocking === 1 ? 's' : ''} attention before launch`
+          : 'All flagged names approved — ready to launch'}
+      </p>
+      <p className="text-[12px] text-amber-800 mt-1 mb-3">
+        These company names would be interpolated into the email. Fix, exclude, or approve each one.
+        {blocking > 0 && ' Sending is blocked until none remain unresolved.'}
+      </p>
+      <ul className="space-y-2">
+        {flagged.map((f) => (
+          <NameRow key={f.recipientId} campaignId={campaignId} f={f} />
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function NameRow({ campaignId, f }: { campaignId: string; f: FlaggedRecipient }) {
+  const router = useRouter()
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(f.company ?? '')
+  const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  function run(fn: () => Promise<{ error?: string; success?: boolean }>) {
+    setError(null)
+    startTransition(async () => {
+      const res = await fn()
+      if (res?.error) setError(res.error)
+      else { setEditing(false); router.refresh() }
+    })
+  }
+
+  return (
+    <li className={clsx('rounded-lg border bg-white p-3', f.approved ? 'border-emerald-200' : 'border-amber-200')}>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          {editing ? (
+            <div className="flex items-center gap-2">
+              <input
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                className="rounded-md border border-sage-300 px-2.5 py-1.5 text-sm text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500 w-72 max-w-full"
+                placeholder="Corrected company name"
+              />
+              <button
+                type="button" disabled={isPending || !value.trim()}
+                onClick={() => run(() => fixLeadCompanyNameAction({ leadId: f.leadId, campaignId, company: value }))}
+                className="text-[12px] font-semibold text-white bg-sage-700 hover:bg-sage-600 px-2.5 py-1.5 rounded-md disabled:opacity-60"
+              >
+                Save
+              </button>
+              <button type="button" onClick={() => { setEditing(false); setValue(f.company ?? '') }} className="text-[12px] text-sage-500 hover:text-sage-700">Cancel</button>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm font-medium text-sage-800 truncate max-w-[420px]">
+                {f.company || <span className="italic text-amber-700">(blank)</span>}
+                {f.approved && <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">approved</span>}
+              </p>
+              <ul className="mt-1 text-[11px] text-amber-800 list-disc pl-4">
+                {f.issues.map((it, i) => <li key={i}>{it}</li>)}
+              </ul>
+            </>
+          )}
+        </div>
+        {!editing && (
+          <div className="flex items-center gap-2 flex-none">
+            <button
+              type="button" disabled={isPending}
+              onClick={() => setEditing(true)}
+              className="inline-flex items-center gap-1 text-[12px] font-medium text-sage-700 hover:text-sage-900"
+            >
+              <Pencil size={12} /> Fix
+            </button>
+            <button
+              type="button" disabled={isPending}
+              onClick={() => run(() => excludeRecipientAction({ recipientId: f.recipientId, campaignId }))}
+              className="inline-flex items-center gap-1 text-[12px] font-medium text-red-600 hover:text-red-700"
+            >
+              <X size={12} /> Exclude
+            </button>
+            {!f.approved && (
+              <button
+                type="button" disabled={isPending}
+                onClick={() => run(() => approveRecipientNameAction({ recipientId: f.recipientId, campaignId }))}
+                className="inline-flex items-center gap-1 text-[12px] font-medium text-emerald-700 hover:text-emerald-800"
+              >
+                <Check size={12} /> Approve
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      {error && <p className="text-[11px] text-red-600 mt-2">{error}</p>}
+    </li>
+  )
+}

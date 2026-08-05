@@ -29,13 +29,17 @@ export interface TemplateSender {
   name: string
   /** Optional role/line under the name, e.g. omitted when the name stands alone. */
   roleLine?: string | null
+  /** Reply email shown in the text signature (the address replies go to). The
+   *  HTML banner is an image and carries branding visually; the text/plain part
+   *  spells out the contact details for completeness. */
+  email?: string | null
   /** Absolute URL to a signature banner image. When set, the HTML email shows
    *  this image as the signature (linked to sano.nz) instead of the text block.
    *  The text/plain part always keeps the readable text signature. */
   bannerUrl?: string | null
 }
 
-const DEFAULT_SENDER: TemplateSender = { name: 'Michael Browne' }
+const DEFAULT_SENDER: TemplateSender = { name: 'Michael Browne', email: 'hello@sano.nz' }
 
 export interface RenderedEmail {
   subject: string
@@ -74,18 +78,24 @@ function esc(s: string): string {
 function assembleEmail(opts: {
   paragraphs: string[]
   sender: TemplateSender
-  token: string
-  siteUrl: string
+  /** Kept for call-site compatibility; no longer used (open pixel removed). */
+  token?: string
+  /** Kept for call-site compatibility; no longer used (open pixel removed). */
+  siteUrl?: string
   subject: string
   variant: 'named' | 'team'
 }): RenderedEmail {
-  const { paragraphs, sender, token, siteUrl, subject, variant } = opts
-  const openPixel = `${siteUrl}/api/campaigns/track/open/${token}`
+  const { paragraphs, sender, subject, variant } = opts
+  // No open-tracking pixel: opens are unreliable (Apple/Gmail pre-fetch) and we
+  // don't use them for follow-up decisions. The useful measures — delivery,
+  // bounce, reply, and outcome — come from the webhook + recipient state, not
+  // from a pixel. Delivery/bounce/reply tracking is unaffected by this.
 
   const signatureText = [
     sender.name,
     ...(sender.roleLine ? [sender.roleLine] : []),
     `Sano | Clean spaces - Healthy living`,
+    ...(sender.email ? [sender.email] : []),
     `sano.nz | 0800 726 686`,
     `Auckland, New Zealand`,
   ]
@@ -117,7 +127,6 @@ function assembleEmail(opts: {
     <div style="max-width:850px;margin:0;padding:16px;text-align:left;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#222222;">
       ${htmlParas}
       ${signatureHtml}
-      <img src="${openPixel}" width="1" height="1" alt="" style="display:block;border:0;" />
     </div>
   </body>
 </html>`

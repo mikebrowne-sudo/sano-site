@@ -3,8 +3,8 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
-import { Send, MailCheck, FlaskConical, Trash2 } from 'lucide-react'
-import { sendCampaignAction, markRespondedAction, sendTestEmailAction, deleteCampaignAction } from '../_actions'
+import { Send, MailCheck, FlaskConical, Trash2, Ban } from 'lucide-react'
+import { sendCampaignAction, markRespondedAction, markOptedOutAction, sendTestEmailAction, deleteCampaignAction, setFollowupsEnabledAction } from '../_actions'
 
 /** Send one test email to yourself before the real send — verifies it arrives
  *  from the right sender, the signature looks right, and it isn't going to spam. */
@@ -204,6 +204,50 @@ export function DeleteCampaignButton({
   )
 }
 
+/** Per-campaign follow-up toggle. Follow-ups default OFF; the drip cron only
+ *  sends them when this is on. */
+export function FollowupToggle({ campaignId, enabled }: { campaignId: string; enabled: boolean }) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  function toggle() {
+    setError(null)
+    startTransition(async () => {
+      const res = await setFollowupsEnabledAction({ campaignId, enabled: !enabled })
+      if (res?.error) setError(res.error)
+      else router.refresh()
+    })
+  }
+
+  return (
+    <div className="rounded-lg border border-sage-200 bg-white p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-sage-800">Automatic follow-up</p>
+          <p className="text-[12px] text-sage-500 mt-0.5">
+            {enabled
+              ? 'ON — one follow-up ~5 business days after the intro, to delivered non-repliers only.'
+              : 'OFF — no follow-ups will be sent for this campaign.'}
+          </p>
+        </div>
+        <button
+          type="button" onClick={toggle} disabled={isPending}
+          className={clsx(
+            'relative inline-flex h-6 w-11 flex-none items-center rounded-full transition-colors',
+            enabled ? 'bg-sage-600' : 'bg-gray-300', isPending && 'opacity-60',
+          )}
+          aria-pressed={enabled}
+          aria-label="Toggle automatic follow-up"
+        >
+          <span className={clsx('inline-block h-5 w-5 transform rounded-full bg-white transition-transform', enabled ? 'translate-x-5' : 'translate-x-0.5')} />
+        </button>
+      </div>
+      {error && <p className="text-[11px] text-red-600 mt-2">{error}</p>}
+    </div>
+  )
+}
+
 export function MarkRepliedButton({ recipientId }: { recipientId: string }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -227,5 +271,37 @@ export function MarkRepliedButton({ recipientId }: { recipientId: string }) {
       <MailCheck size={12} />
       {isPending ? '…' : 'Mark replied'}
     </button>
+  )
+}
+
+/** Mark a recipient as opted out → suppresses the lead from ALL future campaigns. */
+export function OptOutButton({ recipientId }: { recipientId: string }) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [confirming, setConfirming] = useState(false)
+
+  if (!confirming) {
+    return (
+      <button
+        type="button" disabled={isPending}
+        onClick={() => setConfirming(true)}
+        className={clsx('inline-flex items-center gap-1 text-[11px] font-semibold text-sage-500 hover:text-red-600 transition-colors', isPending && 'opacity-60')}
+        title="Opt this lead out — suppresses them from all future campaigns"
+      >
+        <Ban size={12} /> Opt out
+      </button>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <button
+        type="button" disabled={isPending}
+        onClick={() => startTransition(async () => { await markOptedOutAction(recipientId); router.refresh() })}
+        className="text-[11px] font-semibold text-white bg-red-600 hover:bg-red-700 px-2 py-0.5 rounded disabled:opacity-60"
+      >
+        {isPending ? '…' : 'Confirm opt-out'}
+      </button>
+      <button type="button" onClick={() => setConfirming(false)} className="text-[11px] text-sage-500 hover:text-sage-700">Cancel</button>
+    </span>
   )
 }

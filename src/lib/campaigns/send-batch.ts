@@ -6,6 +6,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { renderCommercialIntro, renderCommercialFollowup, listUnsubscribeHeader } from '@/lib/campaigns/template'
+import { isCompanyNameClean } from '@/lib/campaigns/company-name-quality'
 
 const RANK_ORDER: Record<string, number> = { A: 0, B: 1, C: 2 }
 
@@ -68,7 +69,7 @@ export async function sendCampaignBatch(
   // Pending recipients + grade (best-first) + their assigned A/B subject bucket.
   const { data: recipientsRaw, error: rErr } = await supabase
     .from('sales_campaign_recipients')
-    .select('id, token, status, subject_variant, lead:sales_leads(id, company, contact_name, email, status, unsubscribed_at, quality_rank)')
+    .select('id, token, status, subject_variant, company_name_approved, lead:sales_leads(id, company, contact_name, email, status, unsubscribed_at, quality_rank)')
     .eq('campaign_id', campaignId)
     .eq('status', 'pending')
   if (rErr) return { error: `Failed to load recipients: ${rErr.message}` }
@@ -99,6 +100,14 @@ export async function sendCampaignBatch(
       continue
     }
 
+    // Belt-and-braces name safety (also covers the daily cron, not just the
+    // initial launch gate): never interpolate a flagged company name that hasn't
+    // been explicitly approved. Leave it pending so it can be fixed/approved.
+    if (!(r as { company_name_approved?: boolean }).company_name_approved && !isCompanyNameClean(lead.company)) {
+      skipped++
+      continue
+    }
+
     // Subject for this recipient = their assigned A/B bucket (stable, set at
     // add-time), with {company} interpolated. Falls back to A.
     const rawSubject = ((r as { subject_variant?: string | null }).subject_variant === 'B' && subjectB ? subjectB : subjectA)
@@ -111,6 +120,7 @@ export async function sendCampaignBatch(
       subject: rawSubject,
       sender: {
         name: (campaign as { signature_name?: string | null }).signature_name || campaign.from_name,
+        email: campaign.reply_to || (campaign as { from_email?: string | null }).from_email || null,
         bannerUrl: (campaign as { signature_banner_url?: string | null }).signature_banner_url || null,
       },
     })
@@ -221,6 +231,7 @@ export async function sendFollowupBatch(
       originalSubject: (r.sent_subject as string) || `Cleaning at ${lead.company}`,
       sender: {
         name: (campaign as { signature_name?: string | null }).signature_name || campaign.from_name,
+        email: campaign.reply_to || (campaign as { from_email?: string | null }).from_email || null,
         bannerUrl: (campaign as { signature_banner_url?: string | null }).signature_banner_url || null,
       },
     })

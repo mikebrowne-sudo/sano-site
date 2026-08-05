@@ -38,7 +38,7 @@ async function runDrip(request: NextRequest) {
   // (intro done, but follow-ups may be due). Only capped campaigns drip.
   const { data: campaigns, error } = await supabase
     .from('sales_campaigns')
-    .select('id, name, status, daily_send_cap, last_batch_at')
+    .select('id, name, status, daily_send_cap, last_batch_at, followups_enabled')
     .in('status', ['sending', 'sent'])
     .gt('daily_send_cap', 0)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -67,9 +67,15 @@ async function runDrip(request: NextRequest) {
 
     // 2) Follow-ups (one each, 5+ business days after intro, delivered/no-reply).
     //    Shares the same daily cap so total daily volume stays warm-up-safe.
-    const { result: fu, error: fErr } = await sendFollowupBatch(supabase, c.id as string, { limit: cap, now })
-    if (fErr) row.followupError = fErr
-    else if ((fu?.sent ?? 0) > 0 || (fu?.remaining ?? 0) > 0) row.followup = { sent: fu?.sent, remaining: fu?.remaining }
+    //    ONLY when this specific campaign has follow-ups explicitly enabled —
+    //    defaults off, so no campaign ever auto-follows-up without opt-in.
+    if (!(c as { followups_enabled?: boolean }).followups_enabled) {
+      row.followup = 'disabled for this campaign'
+    } else {
+      const { result: fu, error: fErr } = await sendFollowupBatch(supabase, c.id as string, { limit: cap, now })
+      if (fErr) row.followupError = fErr
+      else if ((fu?.sent ?? 0) > 0 || (fu?.remaining ?? 0) > 0) row.followup = { sent: fu?.sent, remaining: fu?.remaining }
+    }
 
     summary.push(row)
   }
