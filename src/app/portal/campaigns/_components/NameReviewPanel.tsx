@@ -30,10 +30,10 @@ export function NameReviewPanel({
     return (
       <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
         <p className="text-sm font-semibold text-emerald-800 flex items-center gap-2">
-          <Check size={15} /> Company names all clean
+          <Check size={15} /> Email business names all clean
         </p>
         <p className="text-[12px] text-emerald-700 mt-1">
-          Every recipient’s company name is safe to use in the subject and body.
+          Every recipient has a clean email business name for the subject and body.
         </p>
       </div>
     )
@@ -44,11 +44,12 @@ export function NameReviewPanel({
       <p className="text-sm font-semibold text-amber-900 flex items-center gap-2">
         <AlertTriangle size={15} />
         {blocking > 0
-          ? `${blocking} company name${blocking === 1 ? '' : 's'} need${blocking === 1 ? 's' : ''} attention before launch`
+          ? `${blocking} email business name${blocking === 1 ? '' : 's'} need${blocking === 1 ? 's' : ''} attention before launch`
           : 'All flagged names approved — ready to launch'}
       </p>
       <p className="text-[12px] text-amber-800 mt-1 mb-3">
-        These company names would be interpolated into the email. Fix, exclude, or approve each one.
+        The <strong>email business name</strong> is what gets inserted into the subject and body
+        (the CRM company name is never changed). Fix, exclude, or approve each one.
         {blocking > 0 && ' Sending is blocked until none remain unresolved.'}
       </p>
       <ul className="space-y-2">
@@ -63,7 +64,8 @@ export function NameReviewPanel({
 function NameRow({ campaignId, f }: { campaignId: string; f: FlaggedRecipient }) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(f.company ?? '')
+  // Edit the email business name; seed from the existing one, else the CRM name.
+  const [value, setValue] = useState(f.emailBusinessName ?? f.company ?? '')
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -82,25 +84,32 @@ function NameRow({ campaignId, f }: { campaignId: string; f: FlaggedRecipient })
         <div className="min-w-0">
           {editing ? (
             <div className="flex items-center gap-2">
-              <input
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                className="rounded-md border border-sage-300 px-2.5 py-1.5 text-sm text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500 w-72 max-w-full"
-                placeholder="Corrected company name"
-              />
-              <button
-                type="button" disabled={isPending || !value.trim()}
-                onClick={() => run(() => fixLeadCompanyNameAction({ leadId: f.leadId, campaignId, company: value }))}
-                className="text-[12px] font-semibold text-white bg-sage-700 hover:bg-sage-600 px-2.5 py-1.5 rounded-md disabled:opacity-60"
-              >
-                Save
-              </button>
-              <button type="button" onClick={() => { setEditing(false); setValue(f.company ?? '') }} className="text-[12px] text-sage-500 hover:text-sage-700">Cancel</button>
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] uppercase tracking-wide text-sage-400">CRM: {f.company || '(blank)'}</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    className="rounded-md border border-sage-300 px-2.5 py-1.5 text-sm text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500 w-72 max-w-full"
+                    placeholder="Email business name (used in the email)"
+                  />
+                  <button
+                    type="button" disabled={isPending || !value.trim()}
+                    onClick={() => run(() => fixLeadCompanyNameAction({ leadId: f.leadId, campaignId, company: value }))}
+                    className="text-[12px] font-semibold text-white bg-sage-700 hover:bg-sage-600 px-2.5 py-1.5 rounded-md disabled:opacity-60"
+                  >
+                    Save
+                  </button>
+                  <button type="button" onClick={() => { setEditing(false); setValue(f.emailBusinessName ?? f.company ?? '') }} className="text-[12px] text-sage-500 hover:text-sage-700">Cancel</button>
+                </div>
+              </div>
             </div>
           ) : (
             <>
+              <p className="text-[10px] uppercase tracking-wide text-sage-400">CRM: {f.company || '(blank)'}</p>
               <p className="text-sm font-medium text-sage-800 truncate max-w-[420px]">
-                {f.company || <span className="italic text-amber-700">(blank)</span>}
+                <span className="text-sage-400 font-normal">Email name: </span>
+                {f.emailBusinessName || <span className="italic text-amber-700">(blank)</span>}
                 {f.approved && <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">approved</span>}
               </p>
               <ul className="mt-1 text-[11px] text-amber-800 list-disc pl-4">

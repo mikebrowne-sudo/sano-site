@@ -65,15 +65,17 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
   const namedCount = recs.filter((r) => hasUsableFullName(r.lead?.contact_name)).length
   const teamCount = recs.length - namedCount
 
-  // Preview BOTH variants with realistic sample leads.
+  // Preview BOTH variants with realistic sample email business names, with
+  // {company} interpolated into the subject exactly as a real send would.
+  const previewSubject = (sample: string) => ((campaign.subject as string) || 'Cleaning at {company}').replace(/\{company\}/gi, sample)
   const previewNamed = renderCommercialIntro({
     lead: { company: 'Acme Legal', contact_name: 'Jane Smith', email: 'jane.smith@acmelegal.co.nz' },
-    token: 'preview', siteUrl, subject: campaign.subject,
+    token: 'preview', siteUrl, subject: previewSubject('Acme Legal'),
     sender: { name: senderName, email: senderEmail, bannerUrl },
   })
   const previewTeam = renderCommercialIntro({
     lead: { company: 'Northside Accounting', contact_name: null, email: 'info@northside.co.nz' },
-    token: 'preview', siteUrl, subject: campaign.subject,
+    token: 'preview', siteUrl, subject: previewSubject('Northside Accounting'),
     sender: { name: senderName, email: senderEmail, bannerUrl },
   })
 
