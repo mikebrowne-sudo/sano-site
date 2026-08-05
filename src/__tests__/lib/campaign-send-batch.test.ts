@@ -12,7 +12,7 @@ jest.mock('resend', () => ({
 
 import { sendCampaignBatch } from '@/lib/campaigns/send-batch'
 
-function fakeSupabase(pending: Array<{ id: string; rank: string; company: string; email: string; approved?: boolean }>) {
+function fakeSupabase(pending: Array<{ id: string; rank: string; company: string; email: string; approved?: boolean; emailName?: string }>) {
   const updates: Array<{ table: string; patch: Record<string, unknown>; id?: string }> = []
   const client = {
     from(table: string) {
@@ -22,7 +22,7 @@ function fakeSupabase(pending: Array<{ id: string; rank: string; company: string
       if (table === 'sales_campaign_recipients') {
         return {
           select: () => ({ eq: () => ({ eq: async () => ({
-            data: pending.map((p) => ({ id: p.id, token: 't-' + p.id, status: 'pending', company_name_approved: !!p.approved, lead: { id: 'l-' + p.id, company: p.company, contact_name: 'X', email: p.email, status: 'new', unsubscribed_at: null, quality_rank: p.rank } })),
+            data: pending.map((p) => ({ id: p.id, token: 't-' + p.id, status: 'pending', company_name_approved: !!p.approved, lead: { id: 'l-' + p.id, company: p.company, email_business_name: p.emailName ?? p.company, contact_name: 'X', email: p.email, status: 'new', unsubscribed_at: null, quality_rank: p.rank } })),
             error: null,
           }) }) }),
           update: (patch: Record<string, unknown>) => ({ eq: (_c: string, id: string) => { updates.push({ table, patch, id }); return Promise.resolve({ error: null }) } }),
@@ -61,20 +61,28 @@ describe('sendCampaignBatch — A→B→C order + daily limit', () => {
     expect(result).toMatchObject({ sent: 2, remaining: 0 })
   })
 
-  it('skips a recipient whose flagged company name is NOT approved (never interpolated)', async () => {
+  it('skips a recipient whose flagged email business name is NOT approved (never interpolated)', async () => {
     const { client, updates } = fakeSupabase([
-      { id: '1', rank: 'A', company: 'Good Company Ltd', email: 'a@x.co' },
-      { id: '2', rank: 'A', company: 'Bentleys — Nick den Heijer CONFIRMED as Director', email: 'b@x.co' }, // flagged, not approved
+      { id: '1', rank: 'A', company: 'Good Co Ltd', email: 'a@x.co', emailName: 'Good Co' },
+      { id: '2', rank: 'A', company: 'Bentleys Ltd', email: 'b@x.co', emailName: 'Bentleys — Nick den Heijer CONFIRMED' }, // flagged email name, not approved
     ])
     const { result } = await sendCampaignBatch(client, 'c1', { limit: Infinity })
     expect(result).toMatchObject({ sent: 1, skipped: 1 })
     const sentIds = updates.filter((u) => u.table === 'sales_campaign_recipients' && u.patch.status === 'sent').map((u) => u.id)
-    expect(sentIds).toEqual(['1']) // only the clean name was sent
+    expect(sentIds).toEqual(['1']) // only the clean email name was sent
   })
 
-  it('sends a flagged name once it has been explicitly approved', async () => {
+  it('skips a recipient whose email business name is BLANK (unresolved)', async () => {
     const { client } = fakeSupabase([
-      { id: '2', rank: 'A', company: 'ACME SHOUTING LTD', email: 'b@x.co', approved: true }, // flagged (all-caps) but approved
+      { id: '1', rank: 'A', company: 'Acme Ltd', email: 'a@x.co', emailName: '' }, // blank email name → block
+    ])
+    const { result } = await sendCampaignBatch(client, 'c1', { limit: Infinity })
+    expect(result).toMatchObject({ sent: 0, skipped: 1 })
+  })
+
+  it('sends a flagged email name once it has been explicitly approved', async () => {
+    const { client } = fakeSupabase([
+      { id: '2', rank: 'A', company: 'Acme Ltd', email: 'b@x.co', emailName: 'ACME SHOUTING', approved: true }, // flagged (all-caps) but approved
     ])
     const { result } = await sendCampaignBatch(client, 'c1', { limit: Infinity })
     expect(result).toMatchObject({ sent: 1, skipped: 0 })

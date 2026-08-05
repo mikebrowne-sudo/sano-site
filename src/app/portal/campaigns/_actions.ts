@@ -105,16 +105,16 @@ export async function sendCampaignAction(campaignId: string, opts?: { overrideRe
     }
   }
 
-  // Company-name quality gate: the intro interpolates each lead's company into
-  // the subject + body, so a flagged/unsafe name (research note, contact name,
-  // email, junk) would go out looking like a broken mail-merge. Block launch
-  // while ANY pending recipient has a flagged name that hasn't been explicitly
-  // approved. Correcting the lead, excluding the recipient, or approving the row
-  // clears it. Not overridable by the readiness flag — this is its own gate.
+  // Email-business-name gate: the intro interpolates each lead's EMAIL BUSINESS
+  // NAME into the subject + body, so a blank/unsafe name would go out looking
+  // like a broken mail-merge. Block launch while ANY pending recipient has a
+  // flagged email business name that hasn't been explicitly approved. Fixing the
+  // email name, excluding the recipient, or approving the row clears it. Not
+  // overridable by the readiness flag — this is its own gate.
   const nameReview = await reviewCampaignCompanyNames(supabase, campaignId)
   if (nameReview.blocking > 0) {
     return {
-      error: `${nameReview.blocking} recipient${nameReview.blocking === 1 ? ' has a' : 's have'} company name flagged as unsafe to send. Fix, exclude, or approve each flagged name below before launching.`,
+      error: `${nameReview.blocking} recipient${nameReview.blocking === 1 ? ' has an' : 's have'} email business name that is blank or unsafe to send. Fix, exclude, or approve each one below before launching.`,
       blockedByNames: true,
       flaggedCount: nameReview.blocking,
     }
@@ -298,21 +298,27 @@ export async function deleteCampaignAction(campaignId: string, opts?: { force?: 
   return { success: true }
 }
 
-// ── Company-name review (pre-launch safety) ──────────────────────────────────
+// ── Email-business-name review (pre-launch safety) ───────────────────────────
+// Reviews the campaign-facing `email_business_name` (the value actually
+// interpolated into the subject + body), NOT the CRM `company`. `company` is
+// shown read-only for context and is never altered.
 
 export interface FlaggedRecipient {
   recipientId: string
   leadId: string
+  /** The CRM company name (read-only context). */
   company: string | null
+  /** The campaign-facing email business name (editable; interpolated value). */
+  emailBusinessName: string | null
   issues: string[]
   approved: boolean
 }
 
 /**
- * Review the company names of a campaign's PENDING recipients. Returns every
- * flagged recipient (issues + whether it's been approved) and the count of
- * still-blocking rows (flagged AND not approved). Used both by the launch gate
- * and the review UI.
+ * Review the email business names of a campaign's PENDING recipients. A row is
+ * flagged when its `email_business_name` is blank/unresolved OR fails the safety
+ * check. Returns every flagged recipient + the count of still-blocking rows
+ * (flagged AND not approved). Used by both the launch gate and the review UI.
  */
 export async function reviewCampaignCompanyNames(
   supabase: SupabaseClient,
@@ -320,7 +326,7 @@ export async function reviewCampaignCompanyNames(
 ): Promise<{ flagged: FlaggedRecipient[]; blocking: number }> {
   const { data: rows } = await supabase
     .from('sales_campaign_recipients')
-    .select('id, company_name_approved, lead:sales_leads(id, company)')
+    .select('id, company_name_approved, lead:sales_leads(id, company, email_business_name)')
     .eq('campaign_id', campaignId)
     .eq('status', 'pending')
 
@@ -328,12 +334,19 @@ export async function reviewCampaignCompanyNames(
   for (const r of rows ?? []) {
     const lead = Array.isArray(r.lead) ? r.lead[0] : r.lead
     const company = (lead?.company as string | null) ?? null
-    const issues = reviewCompanyName(company)
+    const emailName = ((lead?.email_business_name as string | null) ?? '').trim()
+
+    // Blank/unresolved email name → block. Otherwise run the safety check on it.
+    const issues = !emailName
+      ? [{ flag: 'blank' as const, detail: 'Email business name is blank — set a clean name before sending.' }]
+      : reviewCompanyName(emailName)
+
     if (issues.length > 0) {
       flagged.push({
         recipientId: r.id as string,
         leadId: (lead?.id as string) ?? '',
         company,
+        emailBusinessName: emailName || null,
         issues: issues.map((i) => i.detail),
         approved: !!(r as { company_name_approved?: boolean }).company_name_approved,
       })
@@ -356,17 +369,23 @@ export async function setFollowupsEnabledAction(input: { campaignId: string; ena
   return { success: true }
 }
 
-/** Fix a lead's company name in place (clears the flag when the new value is clean). */
+/**
+ * Set a lead's EMAIL BUSINESS NAME (the campaign-facing clean name). Never
+ * touches the CRM `company` field. Clears the flag when the new value is clean.
+ */
 export async function fixLeadCompanyNameAction(input: { leadId: string; campaignId: string; company: string }) {
   const supabase = createClient()
-  const company = input.company.trim()
-  if (!company) return { error: 'Company name cannot be blank.' }
+  const emailName = input.company.trim()
+  if (!emailName) return { error: 'Email business name cannot be blank.' }
 
-  const { error } = await supabase.from('sales_leads').update({ company, updated_at: new Date().toISOString() }).eq('id', input.leadId)
+  const { error } = await supabase
+    .from('sales_leads')
+    .update({ email_business_name: emailName, updated_at: new Date().toISOString() })
+    .eq('id', input.leadId)
   if (error) return { error: `Failed to update: ${error.message}` }
 
   revalidatePath(`/portal/campaigns/${input.campaignId}`)
-  return { success: true, stillFlagged: reviewCompanyName(company).length > 0 }
+  return { success: true, stillFlagged: reviewCompanyName(emailName).length > 0 }
 }
 
 /** Explicitly approve a flagged company name for this recipient (name is odd but fine). */

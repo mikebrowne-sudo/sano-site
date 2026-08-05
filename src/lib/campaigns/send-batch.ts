@@ -69,7 +69,7 @@ export async function sendCampaignBatch(
   // Pending recipients + grade (best-first) + their assigned A/B subject bucket.
   const { data: recipientsRaw, error: rErr } = await supabase
     .from('sales_campaign_recipients')
-    .select('id, token, status, subject_variant, company_name_approved, lead:sales_leads(id, company, contact_name, email, status, unsubscribed_at, quality_rank)')
+    .select('id, token, status, subject_variant, company_name_approved, lead:sales_leads(id, company, email_business_name, contact_name, email, status, unsubscribed_at, quality_rank)')
     .eq('campaign_id', campaignId)
     .eq('status', 'pending')
   if (rErr) return { error: `Failed to load recipients: ${rErr.message}` }
@@ -100,21 +100,24 @@ export async function sendCampaignBatch(
       continue
     }
 
-    // Belt-and-braces name safety (also covers the daily cron, not just the
-    // initial launch gate): never interpolate a flagged company name that hasn't
-    // been explicitly approved. Leave it pending so it can be fixed/approved.
-    if (!(r as { company_name_approved?: boolean }).company_name_approved && !isCompanyNameClean(lead.company)) {
+    // The interpolated business name is the campaign-facing `email_business_name`
+    // (NOT the CRM `company`). Belt-and-braces name safety (covers the daily cron,
+    // not just the launch gate): skip any lead whose email business name is
+    // blank/unsafe and not explicitly approved. Leave it pending to fix/approve.
+    const emailName = (lead.email_business_name ?? '').trim()
+    const approved = !!(r as { company_name_approved?: boolean }).company_name_approved
+    if (!approved && (!emailName || !isCompanyNameClean(emailName))) {
       skipped++
       continue
     }
 
     // Subject for this recipient = their assigned A/B bucket (stable, set at
-    // add-time), with {company} interpolated. Falls back to A.
+    // add-time), with {company} interpolated from the email business name.
     const rawSubject = ((r as { subject_variant?: string | null }).subject_variant === 'B' && subjectB ? subjectB : subjectA)
-      .replace(/\{company\}/gi, lead.company)
+      .replace(/\{company\}/gi, emailName)
 
     const rendered = renderCommercialIntro({
-      lead: { company: lead.company, contact_name: lead.contact_name, email: lead.email },
+      lead: { company: emailName, contact_name: lead.contact_name, email: lead.email },
       token: r.token,
       siteUrl: siteUrl(),
       subject: rawSubject,
@@ -188,7 +191,7 @@ export async function sendFollowupBatch(
 
   const { data: rowsRaw, error: rErr } = await supabase
     .from('sales_campaign_recipients')
-    .select('id, token, sent_at, sent_subject, message_id, delivered_at, bounced_at, responded_at, followup_sent_at, lead:sales_leads(id, company, contact_name, email, status, unsubscribed_at)')
+    .select('id, token, sent_at, sent_subject, message_id, delivered_at, bounced_at, responded_at, followup_sent_at, lead:sales_leads(id, company, email_business_name, contact_name, email, status, unsubscribed_at)')
     .eq('campaign_id', campaignId)
     .eq('status', 'sent')
     .is('responded_at', null)
@@ -224,11 +227,12 @@ export async function sendFollowupBatch(
       continue
     }
 
+    const followupName = (lead.email_business_name ?? '').trim() || lead.company
     const rendered = renderCommercialFollowup({
-      lead: { company: lead.company, contact_name: lead.contact_name, email: lead.email },
+      lead: { company: followupName, contact_name: lead.contact_name, email: lead.email },
       token: r.token,
       siteUrl: siteUrl(),
-      originalSubject: (r.sent_subject as string) || `Cleaning at ${lead.company}`,
+      originalSubject: (r.sent_subject as string) || `Cleaning at ${followupName}`,
       sender: {
         name: (campaign as { signature_name?: string | null }).signature_name || campaign.from_name,
         email: campaign.reply_to || (campaign as { from_email?: string | null }).from_email || null,
