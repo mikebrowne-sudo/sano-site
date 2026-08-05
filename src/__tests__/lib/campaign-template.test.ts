@@ -64,15 +64,25 @@ describe('commercial intro — Carol-voiced, sender-parameterised', () => {
     expect(email.text.toLowerCase()).toContain("won't follow up")
   })
 
-  it('uses a PLAIN sano.nz link (no tracked/redirect link) + the open pixel, no pricing or forbidden phrases', () => {
-    // Per spec: no tracked/redirected click link — it makes a personal email
-    // read as a campaign. Only the open pixel remains, and a plain sano.nz link.
+  it('uses a PLAIN sano.nz link and NO open-tracking pixel, no pricing or forbidden phrases', () => {
+    // Per spec: no tracked/redirected click link AND no open-tracking pixel — we
+    // don't use opens for follow-up decisions, and both make a personal email
+    // read as a campaign. Only a plain sano.nz link remains.
     expect(email.html).not.toContain('/api/campaigns/track/click/')
+    expect(email.html).not.toContain('/api/campaigns/track/open/')
+    expect(email.html).not.toContain('width="1"') // the 1x1 pixel is gone
     expect(email.html).toContain('href="https://sano.nz"')
-    expect(email.html).toContain('/api/campaigns/track/open/tok123')
     for (const banned of ['premium', 'eco-friendly', 'industry-leading', '$']) {
       expect(email.text.toLowerCase()).not.toContain(banned)
     }
+  })
+
+  it('text signature includes the reply email when provided (Carol’s contact details)', () => {
+    const e = renderCommercialIntro({ ...base, sender: { name: 'Carol Browne', email: 'carol@sano.nz' } })
+    expect(e.text).toContain('Carol Browne')
+    expect(e.text).toContain('carol@sano.nz')
+    expect(e.text).toContain('0800 726 686')
+    expect(e.text).toContain('sano.nz')
   })
 
   it('falls back to Michael Browne when no sender is given', () => {

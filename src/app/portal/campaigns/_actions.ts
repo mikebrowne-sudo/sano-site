@@ -8,6 +8,8 @@ import { renderCommercialIntro, listUnsubscribeHeader } from '@/lib/campaigns/te
 import { sendCampaignBatch } from '@/lib/campaigns/send-batch'
 import { checkSenderReadiness } from '@/lib/campaigns/sender-readiness'
 import { isAdminUser } from '@/lib/is-admin'
+import { reviewCompanyName } from '@/lib/campaigns/company-name-quality'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 function siteUrl(): string {
   return process.env.NEXT_PUBLIC_SITE_URL || 'https://sano.nz'
@@ -103,6 +105,21 @@ export async function sendCampaignAction(campaignId: string, opts?: { overrideRe
     }
   }
 
+  // Company-name quality gate: the intro interpolates each lead's company into
+  // the subject + body, so a flagged/unsafe name (research note, contact name,
+  // email, junk) would go out looking like a broken mail-merge. Block launch
+  // while ANY pending recipient has a flagged name that hasn't been explicitly
+  // approved. Correcting the lead, excluding the recipient, or approving the row
+  // clears it. Not overridable by the readiness flag — this is its own gate.
+  const nameReview = await reviewCampaignCompanyNames(supabase, campaignId)
+  if (nameReview.blocking > 0) {
+    return {
+      error: `${nameReview.blocking} recipient${nameReview.blocking === 1 ? ' has a' : 's have'} company name flagged as unsafe to send. Fix, exclude, or approve each flagged name below before launching.`,
+      blockedByNames: true,
+      flaggedCount: nameReview.blocking,
+    }
+  }
+
   // A daily cap (e.g. 15) sends only today's batch and leaves the rest pending
   // for the daily drip cron. No cap = send everything now.
   const cap = Number((campaign as { daily_send_cap?: number | null }).daily_send_cap ?? 0)
@@ -160,6 +177,40 @@ export async function markRespondedAction(recipientId: string) {
 }
 
 /**
+ * Mark a recipient as opted out. Immediately suppresses the lead from ALL future
+ * commercial campaigns: sets the lead to do_not_contact + unsubscribed_at, which
+ * every send path (sendCampaignBatch / sendFollowupBatch) skips. Also stamps
+ * responded_at so this campaign's follow-up won't fire either.
+ */
+export async function markOptedOutAction(recipientId: string) {
+  const supabase = createClient()
+
+  const nowIso = new Date().toISOString()
+  const { data: rec, error } = await supabase
+    .from('sales_campaign_recipients')
+    .update({ responded_at: nowIso })
+    .eq('id', recipientId)
+    .select('lead_id, campaign_id')
+    .single()
+  if (error || !rec) return { error: `Failed to mark opted out: ${error?.message}` }
+
+  await supabase
+    .from('sales_leads')
+    .update({ status: 'do_not_contact', unsubscribed_at: nowIso, updated_at: nowIso })
+    .eq('id', rec.lead_id)
+
+  await supabase.from('sales_lead_activities').insert({
+    lead_id: rec.lead_id,
+    kind: 'email',
+    body: 'Opted out of campaign email — suppressed from future campaigns',
+  })
+
+  revalidatePath(`/portal/campaigns/${rec.campaign_id}`)
+  revalidatePath(`/portal/leads/${rec.lead_id}`)
+  return { success: true }
+}
+
+/**
  * Send ONE test email to a chosen address, rendered exactly as the campaign will
  * send it (sender identity + signature), using a sample company. Never touches a
  * lead or the recipient list — for verifying deliverability + how it looks.
@@ -188,6 +239,7 @@ export async function sendTestEmailAction(input: { campaignId: string; to: strin
     subject: (campaign.subject || 'Cleaning at {company}').replace(/\{company\}/gi, sampleCompany),
     sender: {
       name: (campaign as { signature_name?: string | null }).signature_name || campaign.from_name,
+      email: campaign.reply_to || (campaign as { from_email?: string | null }).from_email || null,
       bannerUrl:
         (campaign as { signature_banner_url?: string | null }).signature_banner_url ||
         'https://sano.nz/email/email-banner-carol.jpg',
@@ -243,5 +295,101 @@ export async function deleteCampaignAction(campaignId: string, opts?: { force?: 
   if (delErr) return { error: `Delete failed: ${delErr.message}` }
 
   revalidatePath('/portal/campaigns')
+  return { success: true }
+}
+
+// ── Company-name review (pre-launch safety) ──────────────────────────────────
+
+export interface FlaggedRecipient {
+  recipientId: string
+  leadId: string
+  company: string | null
+  issues: string[]
+  approved: boolean
+}
+
+/**
+ * Review the company names of a campaign's PENDING recipients. Returns every
+ * flagged recipient (issues + whether it's been approved) and the count of
+ * still-blocking rows (flagged AND not approved). Used both by the launch gate
+ * and the review UI.
+ */
+export async function reviewCampaignCompanyNames(
+  supabase: SupabaseClient,
+  campaignId: string,
+): Promise<{ flagged: FlaggedRecipient[]; blocking: number }> {
+  const { data: rows } = await supabase
+    .from('sales_campaign_recipients')
+    .select('id, company_name_approved, lead:sales_leads(id, company)')
+    .eq('campaign_id', campaignId)
+    .eq('status', 'pending')
+
+  const flagged: FlaggedRecipient[] = []
+  for (const r of rows ?? []) {
+    const lead = Array.isArray(r.lead) ? r.lead[0] : r.lead
+    const company = (lead?.company as string | null) ?? null
+    const issues = reviewCompanyName(company)
+    if (issues.length > 0) {
+      flagged.push({
+        recipientId: r.id as string,
+        leadId: (lead?.id as string) ?? '',
+        company,
+        issues: issues.map((i) => i.detail),
+        approved: !!(r as { company_name_approved?: boolean }).company_name_approved,
+      })
+    }
+  }
+  const blocking = flagged.filter((f) => !f.approved).length
+  return { flagged, blocking }
+}
+
+/** Toggle per-campaign automatic follow-ups (defaults OFF; the drip cron only
+ *  sends follow-ups when this is explicitly enabled). */
+export async function setFollowupsEnabledAction(input: { campaignId: string; enabled: boolean }) {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('sales_campaigns')
+    .update({ followups_enabled: input.enabled })
+    .eq('id', input.campaignId)
+  if (error) return { error: `Failed to update follow-up setting: ${error.message}` }
+  revalidatePath(`/portal/campaigns/${input.campaignId}`)
+  return { success: true }
+}
+
+/** Fix a lead's company name in place (clears the flag when the new value is clean). */
+export async function fixLeadCompanyNameAction(input: { leadId: string; campaignId: string; company: string }) {
+  const supabase = createClient()
+  const company = input.company.trim()
+  if (!company) return { error: 'Company name cannot be blank.' }
+
+  const { error } = await supabase.from('sales_leads').update({ company, updated_at: new Date().toISOString() }).eq('id', input.leadId)
+  if (error) return { error: `Failed to update: ${error.message}` }
+
+  revalidatePath(`/portal/campaigns/${input.campaignId}`)
+  return { success: true, stillFlagged: reviewCompanyName(company).length > 0 }
+}
+
+/** Explicitly approve a flagged company name for this recipient (name is odd but fine). */
+export async function approveRecipientNameAction(input: { recipientId: string; campaignId: string }) {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('sales_campaign_recipients')
+    .update({ company_name_approved: true })
+    .eq('id', input.recipientId)
+  if (error) return { error: `Failed to approve: ${error.message}` }
+  revalidatePath(`/portal/campaigns/${input.campaignId}`)
+  return { success: true }
+}
+
+/** Exclude a recipient from the campaign (marks skipped so it never sends). */
+export async function excludeRecipientAction(input: { recipientId: string; campaignId: string }) {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('sales_campaign_recipients')
+    .update({ status: 'skipped', error: 'Excluded during company-name review' })
+    .eq('id', input.recipientId)
+    .eq('status', 'pending')
+  if (error) return { error: `Failed to exclude: ${error.message}` }
+  revalidatePath(`/portal/campaigns/${input.campaignId}`)
   return { success: true }
 }
