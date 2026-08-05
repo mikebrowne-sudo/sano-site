@@ -140,15 +140,15 @@ export function renderCommercialIntro(opts: {
 
   // Two templates, selected on the ONE thing that changes whether the email
   // sounds personal or automated: do we have a reliable full name?
-  //   named  → greet by first name, ask if they're the right person
-  //   team   → "Hi team", just ask to be pointed to whoever looks after it
+  //   named  → greet by first name, soft ask to be pointed to the best person
+  //   team   → "Hi team", ask someone in the team to point to the best person
   const named = hasUsableFullName(lead.contact_name)
   const greetName = named ? firstName(lead.contact_name) : 'team'
 
   const intro = `I'm ${senderFirst} and I run Sano. We're an Auckland cleaning company, and I wanted to see whether there might be an opportunity to provide a quote for the cleaning at ${company}, either now or when you next review your cleaning arrangements.`
   const askLine = named
-    ? `Would you happen to be the right person to speak with? If not, I'd really appreciate you pointing me in the direction of whoever looks after that side of the business.`
-    : `I'd really appreciate it if you could point me in the direction of whoever looks after that side of the business.`
+    ? `If this isn't something you look after, I'd really appreciate you pointing me towards the best person to speak with.`
+    : `If someone in the team could point me towards the best person to speak with about this, I'd really appreciate it.`
 
   return assembleEmail({
     paragraphs: [
