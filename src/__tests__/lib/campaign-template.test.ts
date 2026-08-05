@@ -84,19 +84,26 @@ describe('commercial intro — Carol-voiced, sender-parameterised', () => {
     expect(listUnsubscribeHeader('carol@sano.nz')['List-Unsubscribe']).toBe('<mailto:carol@sano.nz?subject=unsubscribe>')
   })
 
-  it('named variant: greets by first name + asks if they are the right person', () => {
+  it('named variant: greets by first name + uses the named ask-line', () => {
     const e = renderCommercialIntro({ ...base, lead: { company: 'Acme Ltd', contact_name: 'Jane Smith', email: 'jane@acme.co.nz' } })
     expect(e.variant).toBe('named')
     expect(e.text).toContain('Hi Jane,')
-    expect(e.text).toContain('Would you happen to be the right person')
+    expect(e.text).toContain("If this isn't something you look after, I'd really appreciate you pointing me towards the best person to speak with.")
+    // Both HTML and plain-text carry the same ask-line (esc() doesn't touch apostrophes).
+    expect(e.html).toContain("If this isn't something you look after, I'd really appreciate you pointing me towards the best person to speak with.")
+    // Old salesy phrasing is gone.
+    expect(e.text).not.toContain('right person to speak with?')
+    expect(e.text).not.toContain('Would you happen to be')
   })
 
-  it('team variant: no reliable name → "Hi team", drops the "right person" question', () => {
+  it('team variant: no reliable name → "Hi team" + the team ask-line', () => {
     const e = renderCommercialIntro({ ...base, lead: { company: 'Acme Ltd', contact_name: null, email: 'info@acme.co.nz' } })
     expect(e.variant).toBe('team')
     expect(e.text).toContain('Hi team,')
-    expect(e.text).not.toContain('right person')
-    expect(e.text).toContain('point me in the direction of whoever looks after')
+    expect(e.text).toContain('If someone in the team could point me towards the best person to speak with about this, I\'d really appreciate it.')
+    expect(e.html).toContain('If someone in the team could point me towards the best person')
+    // Team version must not carry the named "if this isn't something you look after" opener.
+    expect(e.text).not.toContain("If this isn't something you look after")
   })
 
   it('first-name-only falls back to the team greeting (never "Hi Paul,")', () => {
