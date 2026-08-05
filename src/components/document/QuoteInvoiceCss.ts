@@ -690,6 +690,89 @@ export const QUOTE_INVOICE_CSS = `
   .doc-grand-total,
   .doc-footer { break-inside: avoid; page-break-inside: avoid; }
 
+  /* ====================== MOBILE (screen only) ======================
+     SCREEN-ONLY responsive layout for phones. The document is designed
+     as an A4 card with generous fixed paddings and multi-column grids;
+     on a narrow phone that reads as a squished, compressed page (cramped
+     header, shrunken logo, amount column fighting for width). This block
+     reflows it: tighter paddings, stacked party/totals/footer columns,
+     a right-sized logo, and the amount moved beneath the description.
+     It lives OUTSIDE @media print and is overridden by the print block
+     below, so the A4 PDF output is entirely unaffected. */
+  @media screen and (max-width: 640px) {
+    .share-page,
+    .print-overlay { padding: 16px 12px 56px; font-size: 13.5px; }
+
+    .doc { border-radius: 14px; }
+
+    /* Header — stack the logo above the identity block, both left-aligned,
+       so neither is squeezed. Reduced side padding. */
+    .doc-header { padding: 26px 22px 22px; }
+    .doc-header-row {
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+    .doc-logo-img { height: 44px; }
+    .doc-identity { text-align: left; }
+    .doc-type { font-size: 30px; }
+    .doc-meta-grid {
+      justify-content: start;
+      margin-top: 14px;
+    }
+    .doc-meta-grid dt,
+    .doc-meta-grid dd { text-align: left; }
+
+    /* Body / terms / footer — match the header's tighter side padding. */
+    .doc-body { padding: 26px 22px 4px; }
+
+    /* Parties — stack From above To. */
+    .doc-parties {
+      grid-template-columns: 1fr;
+      gap: 24px;
+      padding-bottom: 24px;
+    }
+
+    /* Items — drop the fixed 150px amount column. Put No. + title on the
+       first row and the amount on its own right-aligned line beneath, so
+       nothing is compressed or clipped. */
+    .doc-items-section { padding-top: 24px; }
+    .doc-items-head {
+      grid-template-columns: 30px 1fr;
+      column-gap: 12px;
+    }
+    .doc-items-head .col-amt { display: none; } /* label redundant once stacked */
+    .doc-item-row {
+      grid-template-columns: 30px 1fr;
+      column-gap: 12px;
+    }
+    .doc-item-row .col-amt {
+      grid-column: 2;
+      margin-top: 6px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .doc-item-detail { padding-left: 0; margin-top: 12px; }
+
+    /* Totals — stack notes above the totals column, full width. */
+    .doc-totals-wrap {
+      grid-template-columns: 1fr;
+      gap: 24px;
+      margin: 24px 22px 0;
+    }
+    .doc-grand-total { padding: 18px 20px; }
+    .doc-grand-total .val { font-size: 23px; }
+
+    /* Terms + footer — tighter padding, footer stacks. */
+    .doc-terms { padding: 20px 22px 22px; margin-top: 28px; }
+    .doc-footer {
+      grid-template-columns: 1fr;
+      gap: 14px;
+      padding: 22px;
+    }
+    .doc-footer-contacts { gap: 14px 20px; }
+    .doc-footer-thanks { white-space: normal; }
+  }
+
   /* ====================== PRINT ====================== */
   @page { size: A4; margin: 0; }
 
