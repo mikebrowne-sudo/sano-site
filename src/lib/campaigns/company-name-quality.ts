@@ -85,10 +85,15 @@ export function reviewCompanyName(raw: string | null | undefined): CompanyNameIs
   }
 
   // 8. All-caps (SHOUTING) multi-letter entry — reads wrong in a personal email.
-  //    Allow short acronyms (e.g. "BNZ", "ASB", "NZTA") and mixed-case names.
-  const letters = value.replace(/[^A-Za-z]/g, '')
-  if (letters.length >= 6 && value === value.toUpperCase() && /[A-Z]/.test(value)) {
-    issues.push({ flag: 'all_caps', detail: 'Entirely uppercase — will read as shouting in the email.' })
+  //    Legitimate acronym-style brands (e.g. "BNZ", "NZMA", "CM-NZ", "DVA+MORE",
+  //    "RCP") are NOT flagged: an all-caps value of 2–10 chars made only of
+  //    letters/digits/spaces/+/-/& is a real short brand, not shouting. Longer
+  //    all-caps phrases (a shouted full name) are still flagged.
+  if (value === value.toUpperCase() && /[A-Z]/.test(value)) {
+    const isShortAcronymBrand = value.length >= 2 && value.length <= 10 && /^[A-Z0-9 +\-&]+$/.test(value)
+    if (!isShortAcronymBrand) {
+      issues.push({ flag: 'all_caps', detail: 'Entirely uppercase — will read as shouting in the email.' })
+    }
   }
 
   // 9. Suspicious digits / internal notes. A trailing/standalone number or a

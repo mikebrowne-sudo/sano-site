@@ -72,10 +72,15 @@ describe('reviewCompanyName — flags unsafe values', () => {
     expect(flags('Acme Acme Ltd')).toContain('duplicate_word')
   })
 
-  it('flags all-uppercase entries', () => {
+  it('flags long all-uppercase phrases but NOT short acronym brands', () => {
+    // long shouted phrase → flagged
     expect(flags('ACME CLEANING SERVICES')).toContain('all_caps')
-    // short acronyms are NOT flagged
-    expect(flags('ASB')).not.toContain('all_caps')
+    // legitimate acronym-style brands (2–10 chars, letters/digits/space/+/-/&) → NOT flagged
+    for (const brand of ['ASB', 'BNZ', 'INNOWAY', 'BUPE', 'RCP', 'TAPAC', 'ASACE', 'CM-NZ', 'DVA+MORE', 'DFK ORB360', 'EMA', 'MFA', 'NZMA', 'BPM', 'DMFM', 'LDE', 'MEC', 'NXP']) {
+      expect(flags(brand)).not.toContain('all_caps')
+    }
+    // 11+ chars all-caps is still flagged even without spaces
+    expect(flags('ABCDEFGHIJK')).toContain('all_caps')
   })
 
   it('flags suspicious digits / internal references', () => {
