@@ -8,6 +8,8 @@ import { liveDraftAgreementView } from '@/lib/agreement-schedule-snapshot'
 import { CopyLinkButton } from './_components/CopyLinkButton'
 import { SendLinkForm } from './_components/SendLinkForm'
 import { ScheduleSelector, type EligibleSchedule } from './_components/ScheduleSelector'
+import { VoidAgreementButton } from './_components/VoidAgreementButton'
+import { formatDate } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
@@ -84,12 +86,26 @@ export default async function AgreementDetailPage({ params }: { params: { id: st
         />
       )}
 
+      {a.status === 'voided' && (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 mb-6 text-sm text-gray-600">
+          This agreement is <strong>voided</strong>{a.voided_at ? ` (${formatDate(a.voided_at)})` : ''} — its link can no longer be signed. Send a new link below to re-activate it with the current terms.
+        </div>
+      )}
+
       {!signed && (
         <div className="rounded-xl border border-sage-200 bg-white p-5 mb-6">
-          <p className="flex items-center gap-2 text-sm font-semibold text-sage-800 mb-2"><Link2 size={15} className="text-sage-500" /> Send this link to {a.person_label || 'the employee'}</p>
+          <p className="flex items-center gap-2 text-sm font-semibold text-sage-800 mb-1"><Link2 size={15} className="text-sage-500" /> Send this link to {a.person_label || 'the employee'}</p>
+          <p className="text-[11px] mb-2">
+            {a.status === 'voided'
+              ? <span className="text-gray-500">Voided — sending re-activates it.</span>
+              : a.last_sent_at
+                ? <span className="text-amber-600">Last sent {formatDate(a.last_sent_at)} · awaiting signature.</span>
+                : <span className="text-sage-400">Not sent yet.</span>}
+          </p>
           <CopyLinkButton url={link} />
-          <p className="text-[11px] text-sage-400 mt-2">They open it, fill their details, and e-sign. You&apos;ll see the signed copy here.</p>
+          <p className="text-[11px] text-sage-400 mt-2">They open it, fill their details, and e-sign. You&apos;ll see the signed copy here. Editing the schedule updates this draft automatically — re-send to give them the latest version.</p>
           {!a.is_test && <SendLinkForm agreementId={a.id as string} defaultEmail={(a.employee_email as string | null) ?? ''} />}
+          {a.status !== 'voided' && <VoidAgreementButton agreementId={a.id as string} />}
         </div>
       )}
 

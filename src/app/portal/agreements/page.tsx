@@ -3,7 +3,7 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileSignature, CheckCircle2, Clock } from 'lucide-react'
+import { ArrowLeft, FileSignature, CheckCircle2, Clock, Ban, FileEdit } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { CreateAgreementForm } from './_components/CreateAgreementForm'
@@ -19,7 +19,7 @@ export default async function AgreementsPage() {
   const [{ data: agreements }, { data: contractors }, { data: employees }] = await Promise.all([
     supabase
       .from('employment_agreements')
-      .select('id, person_label, position, status, signed_at, created_at, agreement_type, is_test')
+      .select('id, person_label, position, status, signed_at, created_at, agreement_type, is_test, last_sent_at, voided_at')
       .order('created_at', { ascending: false }),
     supabase.from('contractors').select('id, full_name, email').eq('worker_type', 'contractor').eq('status', 'active').order('full_name'),
     // Employees are contractors rows (worker_type='employee') — the legacy
@@ -57,15 +57,26 @@ export default async function AgreementsPage() {
                   <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-sage-100 text-sage-600 font-medium">{a.agreement_type === 'contractor' ? 'Contractor' : a.agreement_type === 'permanent_employee' ? 'Permanent employee' : 'Casual employee'}</span>
                   {a.is_test && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold uppercase tracking-wide">Test</span>}
                 </div>
-                <div className="text-[11px] text-sage-500">created {formatDate(a.created_at)}</div>
+                <div className="text-[11px] text-sage-500">
+                  created {formatDate(a.created_at)}
+                  {a.last_sent_at && a.status !== 'signed' && <> · sent {formatDate(a.last_sent_at)}</>}
+                </div>
               </div>
               {a.status === 'signed' ? (
                 <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">
                   <CheckCircle2 size={12} /> Signed {a.signed_at ? formatDate(a.signed_at) : ''}
                 </span>
-              ) : (
+              ) : a.status === 'voided' ? (
+                <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">
+                  <Ban size={12} /> Voided
+                </span>
+              ) : a.last_sent_at ? (
                 <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">
                   <Clock size={12} /> Awaiting signature
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-sage-100 text-sage-500 font-medium">
+                  <FileEdit size={12} /> Draft — not sent
                 </span>
               )}
             </Link>
