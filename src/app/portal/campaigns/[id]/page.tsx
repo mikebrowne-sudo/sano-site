@@ -8,6 +8,7 @@ import { QUALITY_RANK_BADGE, type QualityRank } from '@/lib/campaigns/constants'
 import { SendCampaignButton, MarkRepliedButton, OptOutButton, TestSendBox, DeleteCampaignButton, FollowupToggle, PauseResumeButton } from '../_components/CampaignActions'
 import { NameReviewPanel } from '../_components/NameReviewPanel'
 import { PreLaunchSummary } from '../_components/PreLaunchSummary'
+import { RecipientPreview } from '../_components/RecipientPreview'
 import { reviewCampaignCompanyNames } from '../_actions'
 import { estimateCompletion } from '@/lib/campaigns/send-batch'
 import { isAdminUser } from '@/lib/is-admin'
@@ -212,17 +213,14 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
               {recs.map((r) => (
                 <tr key={r.id} className="hover:bg-[#fafcfa]">
                   <td className="px-5 py-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-start gap-2">
                       {r.lead && (
-                        <span className={`inline-block text-[10px] font-bold rounded px-1.5 py-0.5 ${QUALITY_RANK_BADGE[(r.lead.quality_rank ?? 'C') as QualityRank]}`}>
+                        <span className={`inline-block text-[10px] font-bold rounded px-1.5 py-0.5 mt-0.5 ${QUALITY_RANK_BADGE[(r.lead.quality_rank ?? 'C') as QualityRank]}`}>
                           {r.lead.quality_rank}
                         </span>
                       )}
-                      <Link href={`/portal/leads/${r.lead?.id}`} className="font-medium text-sage-800 hover:underline">
-                        {r.lead?.company ?? '—'}
-                      </Link>
+                      <RecipientPreview recipientId={r.id} company={r.lead?.company ?? '—'} email={r.lead?.email ?? null} />
                     </div>
-                    <p className="text-[11px] text-sage-400 mt-0.5">{r.lead?.email}</p>
                   </td>
                   <td className="px-3 py-3">
                     <span className={

@@ -437,6 +437,80 @@ export async function reviewCampaignCompanyNames(
   return { flagged, blocking }
 }
 
+/**
+ * Render exactly what WILL be sent to one recipient — subject (with the email
+ * business name interpolated), which variant (named / team), the plain-text
+ * body, and whether it's currently blocked (blank/unsafe email name). Read-only;
+ * sends nothing. Powers the click-to-preview on the recipients list.
+ */
+export async function previewRecipientAction(recipientId: string): Promise<{
+  error?: string
+  company?: string | null
+  emailBusinessName?: string | null
+  toEmail?: string | null
+  subject?: string
+  text?: string
+  variant?: 'named' | 'team'
+  blocked?: boolean
+  blockReason?: string | null
+}> {
+  const supabase = createClient()
+
+  const { data: rec, error } = await supabase
+    .from('sales_campaign_recipients')
+    .select('id, subject_variant, company_name_approved, campaign_id, lead:sales_leads(company, email_business_name, contact_name, email)')
+    .eq('id', recipientId)
+    .single()
+  if (error || !rec) return { error: 'Recipient not found.' }
+  const lead = Array.isArray(rec.lead) ? rec.lead[0] : rec.lead
+
+  const { data: campaign } = await supabase
+    .from('sales_campaigns')
+    .select('subject, subject_a, subject_b, from_name, signature_name, signature_banner_url, reply_to, from_email')
+    .eq('id', rec.campaign_id)
+    .single()
+  if (!campaign) return { error: 'Campaign not found.' }
+
+  const emailName = ((lead?.email_business_name as string | null) ?? '').trim()
+  const approved = !!(rec as { company_name_approved?: boolean }).company_name_approved
+
+  // Is this recipient currently blocked from sending?
+  let blockReason: string | null = null
+  if (!emailName) blockReason = 'Email business name is blank.'
+  else if (!approved) {
+    const issues = reviewCompanyName(emailName)
+    if (issues.length > 0) blockReason = issues[0].detail
+  }
+
+  const subjectA = (campaign as { subject_a?: string | null }).subject_a || campaign.subject
+  const subjectB = (campaign as { subject_b?: string | null }).subject_b || null
+  const rawSubject = ((rec as { subject_variant?: string | null }).subject_variant === 'B' && subjectB ? subjectB : subjectA)
+    .replace(/\{company\}/gi, emailName || (lead?.company as string) || 'your business')
+
+  const rendered = renderCommercialIntro({
+    lead: { company: emailName || (lead?.company as string) || 'your business', contact_name: lead?.contact_name ?? null, email: lead?.email ?? null },
+    token: 'preview',
+    siteUrl: siteUrl(),
+    subject: rawSubject,
+    sender: {
+      name: (campaign as { signature_name?: string | null }).signature_name || campaign.from_name,
+      email: campaign.reply_to || (campaign as { from_email?: string | null }).from_email || null,
+      bannerUrl: (campaign as { signature_banner_url?: string | null }).signature_banner_url || null,
+    },
+  })
+
+  return {
+    company: (lead?.company as string) ?? null,
+    emailBusinessName: emailName || null,
+    toEmail: (lead?.email as string) ?? null,
+    subject: rendered.subject,
+    text: rendered.text,
+    variant: rendered.variant,
+    blocked: !!blockReason,
+    blockReason,
+  }
+}
+
 /** Toggle per-campaign automatic follow-ups (defaults OFF; the drip cron only
  *  sends follow-ups when this is explicitly enabled). */
 export async function setFollowupsEnabledAction(input: { campaignId: string; enabled: boolean }) {
