@@ -9,6 +9,8 @@ import { SendCampaignButton, MarkRepliedButton, OptOutButton, TestSendBox, Delet
 import { NameReviewPanel } from '../_components/NameReviewPanel'
 import { PreLaunchSummary } from '../_components/PreLaunchSummary'
 import { RecipientPreview } from '../_components/RecipientPreview'
+import { EditScheduleCard } from '../_components/EditScheduleCard'
+import { SentContactsCard, type SentContact } from '../_components/SentContactsCard'
 import { reviewCampaignCompanyNames } from '../_actions'
 import { estimateCompletion } from '@/lib/campaigns/send-batch'
 import { isAdminUser } from '@/lib/is-admin'
@@ -57,6 +59,18 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
   const est = estimateCompletion({ recipients: pending, dailyCap, sendingDays, startDate, now: new Date() })
   const fmtNzDate = (ymd: string | null) =>
     ymd ? new Date(`${ymd}T00:00:00+12:00`).toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : null
+
+  // Everyone actually emailed, newest first — for the "emails sent" card.
+  const sentContacts: SentContact[] = recs
+    .filter((r) => r.status === 'sent')
+    .sort((a, b) => String(b.sent_at ?? '').localeCompare(String(a.sent_at ?? '')))
+    .map((r) => ({
+      company: r.lead?.company ?? '—',
+      email: r.lead?.email ?? null,
+      sentAtDisplay: r.sent_at ? new Date(r.sent_at as string).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : null,
+      replied: !!r.responded_at,
+      bounced: !!(r as { bounced_at?: string | null }).bounced_at,
+    }))
 
   // A/B subject reporting: delivery / reply rate per variant.
   const abStats = ['A', 'B'].map((v) => {
@@ -169,6 +183,16 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
       <div className="mb-8 max-w-md">
         <FollowupToggle campaignId={campaign.id} enabled={followupsEnabled} />
       </div>
+
+      {/* Edit schedule (name / start / time / days / cap). Recipient list stays locked. */}
+      <EditScheduleCard
+        campaignId={campaign.id}
+        status={campaign.status as string}
+        initial={{ name: campaign.name as string, startDate: startDate, sendTimeNz, sendingDays, dailyCap }}
+      />
+
+      {/* Emails sent — click to see everyone emailed */}
+      <SentContactsCard contacts={sentContacts} />
 
       {/* A/B subject results */}
       {abStats.length > 1 && (

@@ -1,10 +1,14 @@
-// Netlify Scheduled Function — daily campaign drip (sender warm-up).
+// Netlify Scheduled Function — campaign drip (sender warm-up).
 //
 // Thin wrapper around /api/cron/campaign-drip. The route does the work; this
 // only gives Netlify a cron entry. Schedule is also declared in netlify.toml.
 //
-// Schedule: 0 20 UTC daily = 08:00 NZST / 09:00 NZDT — a bit before the daily
-// notifications cron, and a business-hours-ish send time.
+// Schedule: HOURLY (top of each hour). The route sends AT MOST one batch per
+// NZ day per campaign (guarded by last_batch_at), but each campaign has its own
+// send time (e.g. 12:45pm) — so the cron must run frequently enough to catch
+// that window once it passes. A once-a-day 08:00 run meant any send time after
+// 08:00 never fired. Hourly = the batch goes out within the hour of the chosen
+// send time; the same-day guard still prevents any double-send.
 
 export default async () => {
   const baseUrl = process.env.URL ?? process.env.DEPLOY_URL
@@ -26,5 +30,5 @@ export default async () => {
 }
 
 export const config = {
-  schedule: '0 20 * * *',
+  schedule: '0 * * * *',
 }
