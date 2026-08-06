@@ -29,8 +29,17 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
   // so a campaign send matches her normal sign-off. Default ON.
   const CAROL_BANNER = 'https://sano.nz/email/email-banner-carol.jpg'
   const [useBanner, setUseBanner] = useState(true)
-  // Sender warm-up: drip N/day instead of blasting. 0 = send all at once.
+  // Sender warm-up: drip N/day instead of blasting.
   const [dailyCap, setDailyCap] = useState('15')
+  const [allowUnlimited, setAllowUnlimited] = useState(false)
+  // Scheduling.
+  const [startDate, setStartDate] = useState('') // '' = as soon as armed
+  const [sendTimeNz, setSendTimeNz] = useState('08:30')
+  const WEEKDAYS = [
+    { d: 1, label: 'Mon' }, { d: 2, label: 'Tue' }, { d: 3, label: 'Wed' },
+    { d: 4, label: 'Thu' }, { d: 5, label: 'Fri' }, { d: 6, label: 'Sat' }, { d: 7, label: 'Sun' },
+  ]
+  const [sendingDays, setSendingDays] = useState<Set<number>>(new Set([1, 2, 3, 4]))
   const [selected, setSelected] = useState<Set<string>>(new Set(leads.map((l) => l.id)))
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -51,11 +60,25 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
     })
   }
 
+  const capNum = Number(dailyCap)
+  const capOverWarn = capNum > 20
+  const capIsZero = !(capNum > 0)
+
+  // The predominant grade selected → the lead-group label locked at creation.
+  const leadGroupLabel = useMemo(() => {
+    const active = (['A', 'B', 'C'] as const).filter((g) => counts[g] > 0)
+    if (active.length === 1) return `${active[0]}-grade leads`
+    if (active.length > 1) return `${active.join('/')}-grade leads`
+    return 'Selected leads'
+  }, [counts])
+
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     if (!name.trim()) { setError('Give the campaign a name.'); return }
     if (selected.size === 0) { setError('Pick at least one lead.'); return }
+    if (sendingDays.size === 0) { setError('Pick at least one sending day.'); return }
+    if (capIsZero && !allowUnlimited) { setError('A daily cap of 0 sends everything at once. Set a cap (default 15) or tick “send everything” to confirm.'); return }
     startTransition(async () => {
       const res = await createCampaignAction({
         name,
@@ -68,7 +91,12 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
         signatureName: signatureName.trim() || undefined,
         signatureBannerUrl: useBanner ? CAROL_BANNER : undefined,
         replyTo: replyTo.trim() || undefined,
-        dailySendCap: Number(dailyCap) > 0 ? Number(dailyCap) : 0,
+        dailySendCap: capIsZero ? 0 : capNum,
+        allowUnlimited: capIsZero ? allowUnlimited : undefined,
+        leadGroup: leadGroupLabel,
+        startDate: startDate || null,
+        sendTimeNz,
+        sendingDays: Array.from(sendingDays).sort(),
         leadIds: Array.from(selected),
       })
       if (res?.error) setError(res.error)
@@ -150,12 +178,58 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
         <div className="mt-4">
           <span className="block text-sm font-semibold text-sage-800 mb-1.5">Sending pace (warm-up)</span>
           <div className="flex items-center gap-2">
-            <input type="number" min="0" value={dailyCap} onChange={(e) => setDailyCap(e.target.value)} className="w-24 rounded-lg border border-sage-200 px-3 py-2.5 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
+            <input type="number" min="1" value={dailyCap} onChange={(e) => setDailyCap(e.target.value)} className="w-24 rounded-lg border border-sage-200 px-3 py-2.5 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
             <span className="text-sm text-sage-600">emails per day</span>
           </div>
           <span className="block text-[12px] text-sage-500 mt-1.5">
-            Drips the campaign out (best leads first) to build sender reputation and stay out of spam. 10–15/day is a safe warm-up. Set 0 to send everything at once (not recommended for a fresh sending address).
+            Drips the campaign out (best leads first) to build sender reputation and stay out of spam. 10–15/day is a safe warm-up.
           </span>
+          {capOverWarn && (
+            <p className="mt-2 text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              ⚠️ {capNum}/day is above 20 — high volume from a fresh sending address risks spam-foldering. Keep it ≤20 unless the domain is well warmed up.
+            </p>
+          )}
+          {capIsZero && (
+            <label className="mt-2 flex items-start gap-2 text-[12px] text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2 cursor-pointer">
+              <input type="checkbox" checked={allowUnlimited} onChange={(e) => setAllowUnlimited(e.target.checked)} className="mt-0.5" />
+              <span><strong>Send everything at once (no daily cap).</strong> Not recommended for a cold campaign — it can flatten your sender reputation. Tick to confirm you really want no cap.</span>
+            </label>
+          )}
+        </div>
+
+        {/* Scheduling */}
+        <div className="mt-6 space-y-4 border-t border-sage-100 pt-6">
+          <h3 className="text-sm font-semibold text-sage-800">Schedule</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="block">
+              <span className="block text-sm font-semibold text-sage-800 mb-1.5">Start date</span>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full rounded-lg border border-sage-200 px-3 py-2.5 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
+              <span className="block text-[12px] text-sage-500 mt-1">First sending day (NZ). Leave blank to begin as soon as it’s armed.</span>
+            </label>
+            <label className="block">
+              <span className="block text-sm font-semibold text-sage-800 mb-1.5">Send time (NZ)</span>
+              <input type="time" value={sendTimeNz} onChange={(e) => setSendTimeNz(e.target.value)} className="w-full rounded-lg border border-sage-200 px-3 py-2.5 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
+              <span className="block text-[12px] text-sage-500 mt-1">One daily batch at/after this Auckland time. Default 08:30.</span>
+            </label>
+          </div>
+          <div>
+            <span className="block text-sm font-semibold text-sage-800 mb-1.5">Sending days</span>
+            <div className="flex flex-wrap gap-2">
+              {WEEKDAYS.map(({ d, label }) => {
+                const on = sendingDays.has(d)
+                return (
+                  <button
+                    type="button" key={d}
+                    onClick={() => setSendingDays((prev) => { const n = new Set(prev); if (n.has(d)) n.delete(d); else n.add(d); return n })}
+                    className={clsx('px-3 py-1.5 rounded-md text-sm font-medium border', on ? 'bg-sage-600 text-white border-sage-600' : 'bg-white text-sage-600 border-sage-200 hover:border-sage-300')}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+            <span className="block text-[12px] text-sage-500 mt-1.5">Default Mon–Thu. Fri/Sat/Sun off — weekends and Fridays get lower engagement.</span>
+          </div>
         </div>
       </section>
 
