@@ -190,6 +190,59 @@ export async function sendCampaignAction(campaignId: string, opts?: { overrideRe
   return { success: true, sent: result?.sent ?? 0, failed: result?.failed ?? 0, skipped: result?.skipped ?? 0, remaining: result?.remaining ?? 0 }
 }
 
+/**
+ * Edit a campaign's schedule / settings after creation. Only the drip controls
+ * are editable (name, start date, send time, sending days, daily cap) — the
+ * recipient list stays locked and already-sent rows are untouched. Allowed while
+ * the campaign is draft / scheduled / paused / sending (not once fully sent).
+ */
+export async function updateCampaignScheduleAction(input: {
+  campaignId: string
+  name?: string
+  startDate?: string | null
+  sendTimeNz?: string
+  sendingDays?: number[]
+  dailySendCap?: number
+  allowUnlimited?: boolean
+}) {
+  const supabase = createClient()
+  const { data: c } = await supabase.from('sales_campaigns').select('status').eq('id', input.campaignId).single()
+  if (!c) return { error: 'Campaign not found.' }
+  if (c.status === 'sent') return { error: 'This campaign is fully sent — nothing left to reschedule.' }
+
+  const patch: Record<string, unknown> = {}
+  if (typeof input.name === 'string') {
+    if (!input.name.trim()) return { error: 'Name cannot be blank.' }
+    patch.name = input.name.trim()
+  }
+  if (input.startDate !== undefined) patch.start_date = input.startDate || null
+  if (typeof input.sendTimeNz === 'string') {
+    if (!/^\d{1,2}:\d{2}$/.test(input.sendTimeNz)) return { error: 'Send time must be HH:MM.' }
+    patch.send_time_nz = input.sendTimeNz
+  }
+  if (input.sendingDays) {
+    const days = input.sendingDays.filter((d) => d >= 1 && d <= 7)
+    if (days.length === 0) return { error: 'Pick at least one sending day.' }
+    patch.sending_days = days
+  }
+  if (typeof input.dailySendCap === 'number') {
+    let cap = Math.floor(input.dailySendCap)
+    if (cap <= 0) {
+      if (!input.allowUnlimited) return { error: 'A daily cap of 0 (send everything) needs explicit confirmation.' }
+      cap = 0
+    }
+    patch.daily_send_cap = cap
+  }
+
+  if (Object.keys(patch).length === 0) return { error: 'No changes to save.' }
+
+  const { error } = await supabase.from('sales_campaigns').update(patch).eq('id', input.campaignId)
+  if (error) return { error: `Failed to update: ${error.message}` }
+  revalidatePath(`/portal/campaigns/${input.campaignId}`)
+  revalidatePath('/portal/campaigns')
+  return { success: true }
+}
+
 /** Pause a campaign — immediately prevents any pending sends (intro + follow-up).
  *  Already-sent recipients are untouched. */
 export async function pauseCampaignAction(campaignId: string) {
