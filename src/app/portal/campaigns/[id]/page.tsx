@@ -5,9 +5,11 @@ import { ArrowLeft, Eye, MousePointerClick, MailCheck, Send as SendIcon } from '
 import { renderCommercialIntro, hasUsableFullName } from '@/lib/campaigns/template'
 import { checkSenderReadiness } from '@/lib/campaigns/sender-readiness'
 import { QUALITY_RANK_BADGE, type QualityRank } from '@/lib/campaigns/constants'
-import { SendCampaignButton, MarkRepliedButton, OptOutButton, TestSendBox, DeleteCampaignButton, FollowupToggle } from '../_components/CampaignActions'
+import { SendCampaignButton, MarkRepliedButton, OptOutButton, TestSendBox, DeleteCampaignButton, FollowupToggle, PauseResumeButton } from '../_components/CampaignActions'
 import { NameReviewPanel } from '../_components/NameReviewPanel'
+import { PreLaunchSummary } from '../_components/PreLaunchSummary'
 import { reviewCampaignCompanyNames } from '../_actions'
+import { estimateCompletion } from '@/lib/campaigns/send-batch'
 import { isAdminUser } from '@/lib/is-admin'
 
 export default async function CampaignDetailPage({ params }: { params: { id: string } }) {
@@ -44,6 +46,16 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
   // Company-name quality review of pending recipients (pre-launch gate).
   const nameReview = await reviewCampaignCompanyNames(supabase, params.id)
   const followupsEnabled = !!(campaign as { followups_enabled?: boolean }).followups_enabled
+
+  // Scheduling + pre-launch estimate.
+  const sendingDays = ((campaign as { sending_days?: number[] | null }).sending_days ?? [1, 2, 3, 4])
+  const dailyCap = Number((campaign as { daily_send_cap?: number | null }).daily_send_cap ?? 15)
+  const startDate = (campaign as { start_date?: string | null }).start_date ?? null
+  const sendTimeNz = (campaign as { send_time_nz?: string | null }).send_time_nz ?? '08:30'
+  const leadGroup = (campaign as { lead_group?: string | null }).lead_group ?? null
+  const est = estimateCompletion({ recipients: pending, dailyCap, sendingDays, startDate, now: new Date() })
+  const fmtNzDate = (ymd: string | null) =>
+    ymd ? new Date(`${ymd}T00:00:00+12:00`).toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : null
 
   // A/B subject reporting: delivery / reply rate per variant.
   const abStats = ['A', 'B'].map((v) => {
@@ -101,6 +113,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
         </div>
         <div className="flex items-center gap-4 flex-wrap">
           <SendCampaignButton campaignId={campaign.id} pendingCount={pending} />
+          <PauseResumeButton campaignId={campaign.id} status={campaign.status as string} />
           {isAdmin && <DeleteCampaignButton campaignId={campaign.id} redirectTo="/portal/campaigns" variant="full" />}
         </div>
       </div>
@@ -121,6 +134,22 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
           </ul>
           <p className="text-[11px] text-sage-500 mt-2">{readiness.note}</p>
         </div>
+      )}
+
+      {/* Pre-launch plain-English summary */}
+      {pending > 0 && (
+        <PreLaunchSummary
+          name={campaign.name as string}
+          recipients={pending}
+          leadGroup={leadGroup}
+          startDateDisplay={fmtNzDate(startDate) ?? 'as soon as armed'}
+          sendTimeNz={sendTimeNz}
+          sendingDays={sendingDays}
+          dailyCap={dailyCap}
+          followupsEnabled={followupsEnabled}
+          sendingDaysNeeded={est.sendingDaysNeeded}
+          completionDisplay={fmtNzDate(est.completionYmd)}
+        />
       )}
 
       {/* Company-name quality review — blocks launch on unsafe interpolation */}

@@ -3,8 +3,8 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
-import { Send, MailCheck, FlaskConical, Trash2, Ban } from 'lucide-react'
-import { sendCampaignAction, markRespondedAction, markOptedOutAction, sendTestEmailAction, deleteCampaignAction, setFollowupsEnabledAction } from '../_actions'
+import { Send, MailCheck, FlaskConical, Trash2, Ban, Pause, Play } from 'lucide-react'
+import { sendCampaignAction, markRespondedAction, markOptedOutAction, sendTestEmailAction, deleteCampaignAction, setFollowupsEnabledAction, pauseCampaignAction, resumeCampaignAction } from '../_actions'
 
 /** Send one test email to yourself before the real send — verifies it arrives
  *  from the right sender, the signature looks right, and it isn't going to spam. */
@@ -63,8 +63,12 @@ export function SendCampaignButton({
       const res = await sendCampaignAction(campaignId)
       if (res?.error) {
         setError(res.error)
+      } else if ((res as { armed?: boolean }).armed) {
+        setResult('Campaign armed — it will begin at the scheduled send window.')
+        setConfirming(false)
+        router.refresh()
       } else {
-        setResult(`Sent ${res.sent}, skipped ${res.skipped}, failed ${res.failed}.`)
+        setResult(`Launched. Sent ${res.sent}, skipped ${res.skipped}, failed ${res.failed}.`)
         setConfirming(false)
         router.refresh()
       }
@@ -86,12 +90,12 @@ export function SendCampaignButton({
           )}
         >
           <Send size={15} />
-          Send to {pendingCount} recipient{pendingCount === 1 ? '' : 's'}
+          Launch campaign ({pendingCount} recipient{pendingCount === 1 ? '' : 's'})
         </button>
       ) : (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm text-sage-700 font-medium">
-            Really send {pendingCount} email{pendingCount === 1 ? '' : 's'} now?
+            Arm this campaign to send {pendingCount} email{pendingCount === 1 ? '' : 's'} on its schedule?
           </span>
           <button
             type="button"
@@ -200,6 +204,50 @@ export function DeleteCampaignButton({
         Cancel
       </button>
       {error && <span className="text-[11px] text-red-600 w-full">{error}</span>}
+    </div>
+  )
+}
+
+/** Pause / resume a scheduled or sending campaign. Pause halts all pending
+ *  sends immediately; resume continues from the next eligible window. */
+export function PauseResumeButton({ campaignId, status }: { campaignId: string; status: string }) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  const canPause = status === 'scheduled' || status === 'sending'
+  const canResume = status === 'paused'
+  if (!canPause && !canResume) return null
+
+  function act(fn: () => Promise<{ error?: string; success?: boolean }>) {
+    setError(null)
+    startTransition(async () => {
+      const res = await fn()
+      if (res?.error) setError(res.error)
+      else router.refresh()
+    })
+  }
+
+  return (
+    <div className="inline-flex flex-col items-start gap-1">
+      {canPause ? (
+        <button
+          type="button" disabled={isPending}
+          onClick={() => act(() => pauseCampaignAction(campaignId))}
+          className={clsx('inline-flex items-center gap-2 border border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 font-medium px-4 py-2 rounded-lg text-sm', isPending && 'opacity-60')}
+        >
+          <Pause size={15} /> Pause campaign
+        </button>
+      ) : (
+        <button
+          type="button" disabled={isPending}
+          onClick={() => act(() => resumeCampaignAction(campaignId))}
+          className={clsx('inline-flex items-center gap-2 bg-sage-700 hover:bg-sage-600 text-white font-medium px-4 py-2 rounded-lg text-sm', isPending && 'opacity-60')}
+        >
+          <Play size={15} /> Resume campaign
+        </button>
+      )}
+      {error && <span className="text-[11px] text-red-600">{error}</span>}
     </div>
   )
 }

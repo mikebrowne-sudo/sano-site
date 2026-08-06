@@ -19,10 +19,58 @@ export function nzWeekday(d: Date): number {
   const wd = new Date(d.toLocaleString('en-US', { timeZone: 'Pacific/Auckland' })).getDay()
   return wd === 0 ? 7 : wd
 }
-/** True on Mon–Thu (1–4) NZ time — the only days campaign email goes out. */
-export function isCampaignSendDay(d: Date): boolean {
-  const wd = nzWeekday(d)
-  return wd >= 1 && wd <= 4
+/** Default sending days: Mon–Thu (ISO 1–4). Fri/Sat/Sun off. */
+export const DEFAULT_SENDING_DAYS = [1, 2, 3, 4]
+/** True on Mon–Thu (1–4) NZ time — the default campaign send-day rule. */
+export function isCampaignSendDay(d: Date, sendingDays: number[] = DEFAULT_SENDING_DAYS): boolean {
+  return sendingDays.includes(nzWeekday(d))
+}
+/** The Auckland-local Y-M-D + HH:MM for a moment, for start-date / send-time checks. */
+export function nzParts(d: Date): { ymd: string; minutes: number } {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+  const parts = Object.fromEntries(fmt.formatToParts(d).map((p) => [p.type, p.value]))
+  const hh = parts.hour === '24' ? '00' : parts.hour
+  return { ymd: `${parts.year}-${parts.month}-${parts.day}`, minutes: Number(hh) * 60 + Number(parts.minute) }
+}
+/** Parse "HH:MM" → minutes since midnight (defaults to 08:30 on bad input). */
+export function sendTimeMinutes(hhmm: string | null | undefined): number {
+  const m = /^(\d{1,2}):(\d{2})$/.exec((hhmm ?? '').trim())
+  if (!m) return 8 * 60 + 30
+  return Math.min(23, Number(m[1])) * 60 + Math.min(59, Number(m[2]))
+}
+
+export interface CampaignSchedule {
+  status: string
+  startDate?: string | null       // 'YYYY-MM-DD' (NZ) or null
+  sendTimeNz?: string | null      // 'HH:MM' (NZ)
+  sendingDays?: number[] | null   // ISO 1..7
+  pausedAt?: string | null
+}
+
+/**
+ * Is this campaign due to send a batch *now*? True only when:
+ *   - not paused, and status is armed ('scheduled' or 'sending')
+ *   - now (NZ) is on/after the start date
+ *   - today (NZ) is one of the sending days
+ *   - the NZ local time is at/after the send time
+ * A start date of "today" whose send window has passed simply becomes eligible
+ * once the clock reaches the send time (or the next eligible day if it's already
+ * a non-sending day).
+ */
+export function isCampaignDueNow(s: CampaignSchedule, now: Date): boolean {
+  if (s.pausedAt) return false
+  if (s.status !== 'scheduled' && s.status !== 'sending') return false
+
+  const days = s.sendingDays && s.sendingDays.length ? s.sendingDays : DEFAULT_SENDING_DAYS
+  if (!isCampaignSendDay(now, days)) return false
+
+  const { ymd, minutes } = nzParts(now)
+  if (s.startDate && ymd < s.startDate) return false           // not started yet
+  if (minutes < sendTimeMinutes(s.sendTimeNz)) return false    // before today's send window
+  return true
 }
 /** Count business days (Mon–Fri) strictly after `from`, up to `to`. */
 export function businessDaysBetween(fromIso: string, to: Date): number {
@@ -37,6 +85,39 @@ export function businessDaysBetween(fromIso: string, to: Date): number {
     if (wd >= 1 && wd <= 5) count++
   }
   return count
+}
+
+/**
+ * Estimate how many sending days a drip will take and when it completes, given
+ * the recipient count, daily cap, sending days, and a start date. Counts only
+ * eligible sending days (NZ), starting from max(startDate, today).
+ */
+export function estimateCompletion(opts: {
+  recipients: number
+  dailyCap: number
+  sendingDays: number[]
+  startDate?: string | null
+  now: Date
+}): { sendingDaysNeeded: number; completionYmd: string | null } {
+  const { recipients, dailyCap, sendingDays, startDate, now } = opts
+  const days = sendingDays && sendingDays.length ? sendingDays : DEFAULT_SENDING_DAYS
+  if (recipients <= 0 || dailyCap <= 0) return { sendingDaysNeeded: 0, completionYmd: null }
+
+  const batches = Math.ceil(recipients / dailyCap)
+  // Walk forward from the later of today / startDate, counting eligible days.
+  const todayYmd = nzParts(now).ymd
+  const beginYmd = startDate && startDate > todayYmd ? startDate : todayYmd
+  const cur = new Date(`${beginYmd}T00:00:00+12:00`) // NZ-ish; only date matters
+  let counted = 0
+  let lastYmd = beginYmd
+  // Guard against an empty sending-days set (would loop forever).
+  if (!days.length) return { sendingDaysNeeded: batches, completionYmd: null }
+  for (let guard = 0; counted < batches && guard < 3650; guard++) {
+    const wd = nzWeekday(cur)
+    if (days.includes(wd)) { counted++; lastYmd = nzParts(cur).ymd; if (counted >= batches) break }
+    cur.setUTCDate(cur.getUTCDate() + 1)
+  }
+  return { sendingDaysNeeded: batches, completionYmd: lastYmd }
 }
 
 export interface SendBatchResult {

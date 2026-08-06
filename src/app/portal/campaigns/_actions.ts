@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { renderCommercialIntro, listUnsubscribeHeader } from '@/lib/campaigns/template'
-import { sendCampaignBatch } from '@/lib/campaigns/send-batch'
+import { sendCampaignBatch, isCampaignDueNow } from '@/lib/campaigns/send-batch'
 import { checkSenderReadiness } from '@/lib/campaigns/sender-readiness'
 import { isAdminUser } from '@/lib/is-admin'
 import { reviewCompanyName } from '@/lib/campaigns/company-name-quality'
@@ -28,6 +28,12 @@ export async function createCampaignAction(input: {
   replyTo?: string
   dailySendCap?: number
   leadIds: string[]
+  // Scheduling.
+  leadGroup?: string          // human label of the selected group (e.g. "A-grade")
+  startDate?: string | null   // 'YYYY-MM-DD' NZ; null = as soon as armed
+  sendTimeNz?: string         // 'HH:MM' NZ; default 08:30
+  sendingDays?: number[]      // ISO 1..7; default Mon–Thu
+  allowUnlimited?: boolean    // explicit confirmation required for cap 0 (unlimited)
 }) {
   if (!input.name.trim()) return { error: 'Campaign needs a name.' }
   if (input.leadIds.length === 0) return { error: 'Pick at least one lead.' }
@@ -35,6 +41,19 @@ export async function createCampaignAction(input: {
   const supabase = createClient()
   const subjectA = input.subjectA?.trim() || input.subject.trim() || 'Cleaning at {company}'
   const subjectB = input.subjectB?.trim() || null
+
+  // Daily cap: a cold campaign must NOT accidentally send everything. 0 means
+  // "unlimited" ONLY with explicit confirmation; otherwise floor at 1 and
+  // default to 15.
+  let cap = typeof input.dailySendCap === 'number' ? Math.floor(input.dailySendCap) : 15
+  if (cap <= 0) {
+    if (!input.allowUnlimited) return { error: 'A daily cap of 0 (send everything at once) needs explicit confirmation — set a cap (default 15) or confirm unlimited.' }
+    cap = 0 // explicit unlimited
+  }
+
+  const sendingDays = (input.sendingDays && input.sendingDays.length ? input.sendingDays : [1, 2, 3, 4])
+    .filter((d) => d >= 1 && d <= 7)
+  const sendTimeNz = /^\d{1,2}:\d{2}$/.test(input.sendTimeNz ?? '') ? input.sendTimeNz : '08:30'
 
   const { data: campaign, error } = await supabase
     .from('sales_campaigns')
@@ -44,12 +63,18 @@ export async function createCampaignAction(input: {
       subject_a: subjectA,
       subject_b: subjectB,
       description: input.description || null,
+      daily_send_cap: cap,
+      // Scheduling — recipients locked at creation so CRM changes don't drift.
+      lead_group: input.leadGroup?.trim() || null,
+      recipients_locked: true,
+      start_date: input.startDate || null,
+      send_time_nz: sendTimeNz,
+      sending_days: sendingDays,
       // Sender identity (columns default sensibly when omitted).
       ...(input.fromName?.trim() ? { from_name: input.fromName.trim() } : {}),
       ...(input.fromEmail?.trim() ? { from_email: input.fromEmail.trim() } : {}),
       ...(input.signatureName?.trim() ? { signature_name: input.signatureName.trim() } : {}),
       ...(input.signatureBannerUrl?.trim() ? { signature_banner_url: input.signatureBannerUrl.trim() } : {}),
-      ...(typeof input.dailySendCap === 'number' ? { daily_send_cap: Math.max(0, Math.floor(input.dailySendCap)) } : {}),
       ...(input.replyTo?.trim() ? { reply_to: input.replyTo.trim() } : {}),
     })
     .select('id')
@@ -90,11 +115,12 @@ export async function sendCampaignAction(campaignId: string, opts?: { overrideRe
 
   const { data: campaign, error: cErr } = await supabase
     .from('sales_campaigns')
-    .select('id, status, daily_send_cap, from_email')
+    .select('id, status, daily_send_cap, from_email, start_date, send_time_nz, sending_days, paused_at')
     .eq('id', campaignId)
     .single()
   if (cErr || !campaign) return { error: 'Campaign not found.' }
   if (campaign.status === 'sending') return { error: 'Campaign is already sending.' }
+  if (campaign.status === 'sent') return { error: 'Campaign already fully sent.' }
 
   // Sender-readiness gate: block launch if the sending domain isn't
   // SPF/DKIM-verified + aligned, unless explicitly overridden.
@@ -120,12 +146,31 @@ export async function sendCampaignAction(campaignId: string, opts?: { overrideRe
     }
   }
 
-  // A daily cap (e.g. 15) sends only today's batch and leaves the rest pending
-  // for the daily drip cron. No cap = send everything now.
+  // Launching ARMS the campaign (status 'scheduled'); the drip cron sends at the
+  // scheduled window. If it's already due right now (start date reached, a
+  // sending day, past the send time), send today's first batch immediately for a
+  // responsive UX; otherwise it simply waits for the next eligible window.
+  const now = new Date()
+  const schedule = {
+    status: 'scheduled',
+    startDate: (campaign as { start_date?: string | null }).start_date ?? null,
+    sendTimeNz: (campaign as { send_time_nz?: string | null }).send_time_nz ?? null,
+    sendingDays: (campaign as { sending_days?: number[] | null }).sending_days ?? null,
+    pausedAt: (campaign as { paused_at?: string | null }).paused_at ?? null,
+  }
+
+  await supabase.from('sales_campaigns').update({ status: 'scheduled', paused_at: null }).eq('id', campaignId)
+
+  if (!isCampaignDueNow(schedule, now)) {
+    // Armed for a future window — nothing sends now.
+    revalidatePath(`/portal/campaigns/${campaignId}`)
+    revalidatePath('/portal/campaigns')
+    return { success: true, armed: true, sent: 0, remaining: null }
+  }
+
+  // Due now — send the first batch. Cap 0 = explicit unlimited (send everything).
   const cap = Number((campaign as { daily_send_cap?: number | null }).daily_send_cap ?? 0)
   const limit = cap > 0 ? cap : Infinity
-
-  await supabase.from('sales_campaigns').update({ status: 'sending' }).eq('id', campaignId)
 
   const { result, error } = await sendCampaignBatch(supabase, campaignId, { limit })
   if (error) {
@@ -133,18 +178,54 @@ export async function sendCampaignAction(campaignId: string, opts?: { overrideRe
     return { error }
   }
 
-  // Drip campaigns with more still pending stay 'sending' (the cron continues);
-  // otherwise the campaign is fully sent.
   const done = (result?.remaining ?? 0) <= 0
   await supabase
     .from('sales_campaigns')
-    .update(done ? { status: 'sent', sent_at: new Date().toISOString() } : { status: 'sending', last_batch_at: new Date().toISOString() })
+    .update(done ? { status: 'sent', sent_at: now.toISOString() } : { status: 'sending', last_batch_at: now.toISOString() })
     .eq('id', campaignId)
 
   revalidatePath(`/portal/campaigns/${campaignId}`)
   revalidatePath('/portal/campaigns')
   revalidatePath('/portal/leads')
   return { success: true, sent: result?.sent ?? 0, failed: result?.failed ?? 0, skipped: result?.skipped ?? 0, remaining: result?.remaining ?? 0 }
+}
+
+/** Pause a campaign — immediately prevents any pending sends (intro + follow-up).
+ *  Already-sent recipients are untouched. */
+export async function pauseCampaignAction(campaignId: string) {
+  const supabase = createClient()
+  const { data: c } = await supabase.from('sales_campaigns').select('status').eq('id', campaignId).single()
+  if (!c) return { error: 'Campaign not found.' }
+  if (!['scheduled', 'sending'].includes(c.status as string)) return { error: `Only a scheduled or sending campaign can be paused (this one is ${c.status}).` }
+
+  const { error } = await supabase
+    .from('sales_campaigns')
+    .update({ status: 'paused', paused_at: new Date().toISOString() })
+    .eq('id', campaignId)
+  if (error) return { error: `Failed to pause: ${error.message}` }
+  revalidatePath(`/portal/campaigns/${campaignId}`)
+  revalidatePath('/portal/campaigns')
+  return { success: true }
+}
+
+/** Resume a paused campaign — continues from the next eligible scheduled window.
+ *  Never resends anyone already sent (the drip only picks up 'pending' rows). */
+export async function resumeCampaignAction(campaignId: string) {
+  const supabase = createClient()
+  const { data: c } = await supabase.from('sales_campaigns').select('status').eq('id', campaignId).single()
+  if (!c) return { error: 'Campaign not found.' }
+  if (c.status !== 'paused') return { error: `Only a paused campaign can be resumed (this one is ${c.status}).` }
+
+  // Back to 'scheduled' so the cron re-evaluates the window and continues from
+  // the next eligible send. 'pending' recipients resume; 'sent' stay sent.
+  const { error } = await supabase
+    .from('sales_campaigns')
+    .update({ status: 'scheduled', paused_at: null })
+    .eq('id', campaignId)
+  if (error) return { error: `Failed to resume: ${error.message}` }
+  revalidatePath(`/portal/campaigns/${campaignId}`)
+  revalidatePath('/portal/campaigns')
+  return { success: true }
 }
 
 /** Manual response marking (reply detection is manual by design for now). */

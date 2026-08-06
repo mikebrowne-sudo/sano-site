@@ -10,7 +10,9 @@ import { DeleteCampaignButton } from './_components/CampaignActions'
 
 const STATUS_BADGE: Record<string, string> = {
   draft: 'bg-sage-100 text-sage-700',
+  scheduled: 'bg-blue-100 text-blue-700',
   sending: 'bg-amber-100 text-amber-700',
+  paused: 'bg-orange-100 text-orange-700',
   sent: 'bg-green-100 text-green-700',
   archived: 'bg-gray-200 text-gray-600',
 }
