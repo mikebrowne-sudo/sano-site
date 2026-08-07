@@ -212,9 +212,38 @@ export async function sendAgreementLink(input: { agreementId: string; email: str
     return { error: `Couldn’t send: ${e instanceof Error ? e.message : 'email failed'}` }
   }
 
-  // Remember the address we sent to (fills employee_email if it was blank).
-  await supabase.from('employment_agreements').update({ employee_email: email }).eq('id', input.agreementId)
+  // Remember the address we sent to (fills employee_email if it was blank) and
+  // stamp when the link was last emailed. Re-sending after a void re-activates it.
+  await supabase
+    .from('employment_agreements')
+    .update({ employee_email: email, last_sent_at: new Date().toISOString(), voided_at: null, ...(a.status === 'voided' ? { status: 'sent' } : {}) })
+    .eq('id', input.agreementId)
   revalidatePath(`/portal/agreements/${input.agreementId}`)
+  revalidatePath('/portal/agreements')
+  return { ok: true }
+}
+
+/**
+ * Void / pull a sent-but-unsigned agreement so its link can no longer be signed
+ * (e.g. the terms changed). Admin only. A signed agreement can't be voided.
+ * Re-sending the link later un-voids it.
+ */
+export async function voidAgreement(agreementId: string): Promise<{ ok?: true; error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
+
+  const { data: a } = await supabase.from('employment_agreements').select('status').eq('id', agreementId).maybeSingle()
+  if (!a) return { error: 'Agreement not found.' }
+  if (a.status === 'signed') return { error: 'A signed agreement can’t be voided.' }
+
+  const { error } = await supabase
+    .from('employment_agreements')
+    .update({ status: 'voided', voided_at: new Date().toISOString() })
+    .eq('id', agreementId)
+  if (error) return { error: `Couldn’t void: ${error.message}` }
+  revalidatePath(`/portal/agreements/${agreementId}`)
+  revalidatePath('/portal/agreements')
   return { ok: true }
 }
 

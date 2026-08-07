@@ -14,6 +14,17 @@ export default async function PublicAgreementPage({ params }: { params: { token:
   const svc = getServiceSupabase()
   const { data: a } = await svc.from('employment_agreements').select('*').eq('token', params.token).maybeSingle()
   if (!a) notFound()
+
+  // A voided/pulled agreement can no longer be signed — show a clear notice
+  // instead of the signable form (staff will send an updated copy).
+  if (a.status === 'voided') {
+    return (
+      <main className="mx-auto max-w-lg px-6 py-20 text-center">
+        <h1 className="text-2xl font-bold text-sage-800 mb-2">This agreement is no longer available</h1>
+        <p className="text-sage-600">This copy has been withdrawn. If you’re expecting an agreement from Sano, an updated version will be sent to you. Please contact us if you have any questions.</p>
+      </main>
+    )
+  }
   const signed = a.status === 'signed'
 
   // Documents the contractor has already uploaded on this agreement (Phase 3).
