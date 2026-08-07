@@ -7,6 +7,7 @@ import { ArrowLeft, FileSignature, CheckCircle2, Clock, Ban, FileEdit } from 'lu
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { CreateAgreementForm } from './_components/CreateAgreementForm'
+import { DeleteAgreementButton } from './_components/DeleteAgreementButton'
 import { formatDate } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
@@ -50,8 +51,8 @@ export default async function AgreementsPage() {
       ) : (
         <div className="rounded-2xl border border-gray-100 bg-white overflow-hidden divide-y divide-sage-50">
           {agreements.map((a) => (
-            <Link key={a.id} href={`/portal/agreements/${a.id}`} className="flex items-center justify-between px-5 py-3.5 hover:bg-sage-50/60">
-              <div>
+            <div key={a.id} className="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-sage-50/60">
+              <Link href={`/portal/agreements/${a.id}`} className="min-w-0 flex-1">
                 <div className="text-sm font-medium text-sage-800">
                   {a.person_label || 'Employee'}
                   <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-sage-100 text-sage-600 font-medium">{a.agreement_type === 'contractor' ? 'Contractor' : a.agreement_type === 'permanent_employee' ? 'Permanent employee' : 'Casual employee'}</span>
@@ -61,25 +62,28 @@ export default async function AgreementsPage() {
                   created {formatDate(a.created_at)}
                   {a.last_sent_at && a.status !== 'signed' && <> · sent {formatDate(a.last_sent_at)}</>}
                 </div>
+              </Link>
+              <div className="flex items-center gap-3 flex-none">
+                {a.status === 'signed' ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">
+                    <CheckCircle2 size={12} /> Signed {a.signed_at ? formatDate(a.signed_at) : ''}
+                  </span>
+                ) : a.status === 'voided' ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">
+                    <Ban size={12} /> Voided
+                  </span>
+                ) : a.last_sent_at ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">
+                    <Clock size={12} /> Awaiting signature
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-sage-100 text-sage-500 font-medium">
+                    <FileEdit size={12} /> Draft — not sent
+                  </span>
+                )}
+                {a.status !== 'signed' && <DeleteAgreementButton agreementId={a.id as string} />}
               </div>
-              {a.status === 'signed' ? (
-                <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">
-                  <CheckCircle2 size={12} /> Signed {a.signed_at ? formatDate(a.signed_at) : ''}
-                </span>
-              ) : a.status === 'voided' ? (
-                <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">
-                  <Ban size={12} /> Voided
-                </span>
-              ) : a.last_sent_at ? (
-                <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">
-                  <Clock size={12} /> Awaiting signature
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-sage-100 text-sage-500 font-medium">
-                  <FileEdit size={12} /> Draft — not sent
-                </span>
-              )}
-            </Link>
+            </div>
           ))}
         </div>
       )}

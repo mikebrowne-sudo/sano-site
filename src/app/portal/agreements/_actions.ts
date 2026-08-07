@@ -354,6 +354,13 @@ export async function deleteEmploymentAgreement(id: string): Promise<{ ok?: true
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
   if (!isAdminUser(user)) return { error: 'Admin only.' }
+
+  // Never delete a SIGNED agreement — it's a legal record. Void it instead if
+  // it needs to be retired. Drafts / sent / voided / test rows delete freely.
+  const { data: a } = await supabase.from('employment_agreements').select('status').eq('id', id).maybeSingle()
+  if (!a) return { error: 'Agreement not found.' }
+  if (a.status === 'signed') return { error: 'A signed agreement can’t be deleted — it’s a record. Void it if it needs retiring.' }
+
   const { error } = await supabase.from('employment_agreements').delete().eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/portal/agreements')
