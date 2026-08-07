@@ -43,6 +43,8 @@ export default async function PortalDashboard() {
   if (isAccountantUser(user) && !isAdminUser(user)) redirect('/portal/finance')
   const today = new Date().toISOString().slice(0, 10)
   const monthStart = today.slice(0, 8) + '01' // first of the current month
+  const in30 = new Date(); in30.setDate(in30.getDate() + 30)
+  const in30Str = in30.toISOString().slice(0, 10)
   const todayLabel = new Date().toLocaleDateString('en-NZ', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
@@ -61,6 +63,8 @@ export default async function PortalDashboard() {
     { data: paidThisMonth },
     { data: todaySchedule },
     taskCounts,
+    { count: salesFollowUpsDue },
+    { count: salesRenewalsSoon },
   ] = await Promise.all([
     // Phase 5.5.13 — every dashboard query honours the live-record
     // rule: deleted_at IS NULL AND is_test = false. Test / archived
@@ -83,6 +87,14 @@ export default async function PortalDashboard() {
     supabase.from('invoices').select('id, base_price, discount, invoice_items ( price )').is('deleted_at', null).eq('is_test', false).eq('status', 'paid').gte('date_paid', monthStart),
     supabase.from('jobs').select('id, job_number, title, address, scheduled_time, status, clients ( name ), contractors ( full_name )').is('deleted_at', null).eq('is_test', false).eq('scheduled_date', today).neq('status', 'completed').neq('status', 'invoiced').order('scheduled_time', { ascending: true }).limit(12),
     loadStaffTaskCounts(supabase),
+    // Sales follow-ups due (today or earlier, not closed).
+    supabase.from('sales_leads').select('*', { count: 'exact', head: true })
+      .not('next_follow_up', 'is', null).lte('next_follow_up', today)
+      .not('status', 'in', '(won,lost,do_not_contact)'),
+    // Renewals within the next 30 days (not lost/DNC).
+    supabase.from('sales_leads').select('*', { count: 'exact', head: true })
+      .not('renewal_date', 'is', null).lte('renewal_date', in30Str)
+      .not('status', 'in', '(lost,do_not_contact)'),
   ])
 
   const staffTasks = buildStaffTasks(taskCounts)
@@ -173,6 +185,20 @@ export default async function PortalDashboard() {
   if ((overdueTraining ?? 0) > 0) {
     alerts.push({
       label: `${overdueTraining} overdue training item${overdueTraining !== 1 ? 's' : ''}`,
+      href: '/portal/alerts',
+      tone: 'amber',
+    })
+  }
+  if ((salesFollowUpsDue ?? 0) > 0) {
+    alerts.push({
+      label: `${salesFollowUpsDue} sales follow-up${salesFollowUpsDue !== 1 ? 's' : ''} due`,
+      href: '/portal/alerts',
+      tone: 'amber',
+    })
+  }
+  if ((salesRenewalsSoon ?? 0) > 0) {
+    alerts.push({
+      label: `${salesRenewalsSoon} renewal${salesRenewalsSoon !== 1 ? 's' : ''} coming up`,
       href: '/portal/alerts',
       tone: 'amber',
     })
