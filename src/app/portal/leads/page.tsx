@@ -5,6 +5,7 @@ import { PortalPageHeader } from '../_components/PortalPageHeader'
 import { buttonClasses } from '../_components/Button'
 import { EmptyState } from '../_components/EmptyState'
 import { PortalListTable, type ListColumnDef } from '../_components/PortalListTable'
+import { LeadSearchBox } from './_components/LeadSearchBox'
 import {
   LEAD_STATUSES,
   LEAD_STATUS_LABELS,
@@ -41,7 +42,8 @@ export default async function LeadsPage({
 
   if (statusFilter) query = query.eq('status', statusFilter)
   if (rankFilter) query = query.eq('quality_rank', rankFilter)
-  if (q) query = query.ilike('company', `%${q}%`)
+  // Search company, contact name, or email.
+  if (q) query = query.or(`company.ilike.%${q}%,contact_name.ilike.%${q}%,email.ilike.%${q}%`)
 
   const { data: leads, error } = await query
 
@@ -166,6 +168,7 @@ export default async function LeadsPage({
       }
       filters={
         <div className="space-y-2">
+          <LeadSearchBox />
           <div className="flex items-center gap-2 flex-wrap">
             {statusTab(null, 'All')}
             {(['new', 'contacted', 'responded', 'meeting', 'quoted', 'won'] as LeadStatus[]).map((s) =>

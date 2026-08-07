@@ -12,7 +12,8 @@ import {
   QUALITY_RANK_LABELS,
   type SalesLead,
 } from '@/lib/campaigns/constants'
-import { StatusSelect, FollowUpPicker, AddNoteForm } from '../_components/LeadControls'
+import { AddNoteForm } from '../_components/LeadControls'
+import { LeadQuickLog } from '../_components/LeadQuickLog'
 
 const KIND_ICON = {
   note: StickyNote,
@@ -158,20 +159,13 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         </div>
 
         <div className="space-y-8">
-          {/* Quick controls */}
-          <section className="bg-white border border-sage-100 rounded-xl p-6">
-            <h2 className="text-sm font-semibold text-sage-500 uppercase tracking-wide mb-4">Pipeline</h2>
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs font-semibold text-sage-800 mb-1.5">Status</p>
-                <StatusSelect leadId={l.id} current={l.status} />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-sage-800 mb-1.5">Next follow-up</p>
-                <FollowUpPicker leadId={l.id} current={l.next_follow_up} />
-              </div>
-            </div>
-          </section>
+          {/* One-box log: note + status + follow-up + renewal, saved together */}
+          <LeadQuickLog
+            leadId={l.id}
+            currentStatus={l.status}
+            currentFollowUp={l.next_follow_up}
+            currentRenewal={(l as { renewal_date?: string | null }).renewal_date ?? null}
+          />
 
           {/* Timeline */}
           <section className="bg-white border border-sage-100 rounded-xl p-6">
