@@ -23,6 +23,7 @@ import { QuoteStatusMessage } from './_components/QuoteStatusMessage'
 import { QuoteActionBar } from './_components/QuoteActionBar'
 import { QuoteNextStepPanel } from './_components/QuoteNextStepPanel'
 import { QuoteLinkedRecords } from './_components/QuoteLinkedRecords'
+import { EmailAcceptBlock } from './_components/EmailAcceptBlock'
 import { BackToTopButton } from './_components/BackToTopButton'
 import { isAdminUser } from '@/lib/is-admin'
 import { LockBanner } from '../../_components/LockBanner'
@@ -441,6 +442,11 @@ export default async function QuoteDetailPage({
         accountsEmail={quote.accounts_email ?? ''}
         clientReference={quote.client_reference ?? ''}
       />
+
+      {/* Copy-paste email accept-block (for sending from your own inbox). */}
+      <div className="mt-6">
+        <EmailAcceptBlock shareUrl={shareUrl} quoteNumber={displayNumber} clientName={currentClient?.name ?? null} />
+      </div>
 
       {/* Phase 5B — read-only audit timeline (includes amendment events). */}
       <AuditTimelinePanel
