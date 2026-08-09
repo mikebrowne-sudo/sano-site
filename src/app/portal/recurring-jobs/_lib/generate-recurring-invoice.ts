@@ -8,6 +8,8 @@ import { advanceOneMonth, isInvoiceDue } from '@/lib/recurring-invoice'
 import { computeInvoiceDueDate } from '@/lib/invoice-dates'
 import { resolveContractorGstSnapshot } from '@/lib/contractor-gst-snapshot'
 import { sendRecurringInvoiceEmail } from './send-recurring-invoice'
+import { computeRecurringAmount } from './per-visit-billing'
+import { formatCurrency } from '@/lib/format'
 
 export interface RecurringRow {
   id: string
@@ -25,10 +27,15 @@ export interface RecurringRow {
   /** When true, the invoice sent on `invoice_send_day` bills for the PREVIOUS
    *  calendar month (e.g. Pukekohe: sent the 7th of Sep for August's work). */
   bill_in_arrears: boolean | null
+  /** 'fixed' (flat monthly_value) or 'per_visit' (rate × service days that month).
+   *  Optional so pre-existing callers default to fixed. */
+  billing_mode?: string | null
+  per_visit_rate?: number | null
+  service_days_of_week?: number[] | null
 }
 
 export const REC_COLS =
-  'id, client_id, monthly_value, title, description, address, status, invoice_auto_send, invoice_send_day, next_invoice_date, contractor_id, contractor_monthly_pay, bill_in_arrears'
+  'id, client_id, monthly_value, title, description, address, status, invoice_auto_send, invoice_send_day, next_invoice_date, contractor_id, contractor_monthly_pay, bill_in_arrears, billing_mode, per_visit_rate, service_days_of_week'
 
 /** Month label for a billing date, e.g. "2026-07-31" → "July 2026". */
 export function billingPeriodLabel(billDate: string): string {
@@ -126,7 +133,13 @@ export interface RecurringInvoiceResult {
 
 export async function generateFor(supabase: SupabaseClient, rec: RecurringRow): Promise<RecurringInvoiceResult> {
   if (!rec.client_id) return { skipped: 'no client' }
-  if (!(Number(rec.monthly_value) > 0)) return { skipped: 'no monthly value' }
+  const isPerVisit = rec.billing_mode === 'per_visit'
+  if (isPerVisit) {
+    if (!(Number(rec.per_visit_rate) > 0)) return { skipped: 'no per-visit rate' }
+    if (!(rec.service_days_of_week && rec.service_days_of_week.length > 0)) return { skipped: 'no service days set' }
+  } else if (!(Number(rec.monthly_value) > 0)) {
+    return { skipped: 'no monthly value' }
+  }
   const billDate = rec.next_invoice_date
   if (!billDate) return { skipped: 'no next invoice date set' }
   const sendDay = rec.invoice_send_day ?? Number(billDate.slice(8, 10))
@@ -158,7 +171,16 @@ export async function generateFor(supabase: SupabaseClient, rec: RecurringRow): 
     // spelled out on the invoice so the customer sees exactly which month it's for.
     const period = serviceMonth(billDate, !!rec.bill_in_arrears)
     const baseDesc = rec.title?.trim() || rec.description?.trim() || 'Monthly cleaning contract'
-    const serviceDescription = `${baseDesc} — ${period.label} (service period 1–${period.end.slice(8, 10)} ${period.label.split(' ')[0]})`
+
+    // Amount: fixed monthly_value, OR per_visit_rate × service days in the period.
+    const { amount, visits } = computeRecurringAmount(
+      { billingMode: rec.billing_mode, monthlyValue: rec.monthly_value, perVisitRate: rec.per_visit_rate, serviceDaysOfWeek: rec.service_days_of_week },
+      period,
+    )
+    const monthWord = period.label.split(' ')[0]
+    const serviceDescription = isPerVisit
+      ? `${baseDesc} — ${period.label} (${visits} visit${visits === 1 ? '' : 's'} @ ${formatCurrency(Number(rec.per_visit_rate) || 0)} per visit)`
+      : `${baseDesc} — ${period.label} (service period 1–${period.end.slice(8, 10)} ${monthWord})`
 
     const { data: invoice, error } = await supabase
       .from('invoices')
@@ -167,7 +189,7 @@ export async function generateFor(supabase: SupabaseClient, rec: RecurringRow): 
         recurring_job_id: rec.id,
         service_address: rec.address || null,
         scheduled_clean_date: billDate,
-        base_price: rec.monthly_value,
+        base_price: amount,
         service_description: serviceDescription,
         payment_type: paymentType,
         due_date: dueDate,
