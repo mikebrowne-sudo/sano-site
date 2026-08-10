@@ -172,10 +172,25 @@ export async function buildIncomeProjection(
   // 2. Upcoming recurring-contract invoices. Each active recurring job raises an
   //    invoice per month around its send day; project its amount into each month
   //    in range (fixed = monthly_value, per-visit = rate × service days).
-  const { data: recurring } = await supabase
-    .from('recurring_jobs')
-    .select('monthly_value, billing_mode, per_visit_rate, service_days_of_week, invoice_send_day, next_invoice_date, status')
-    .eq('status', 'active')
+  //    Resilient to the per-visit migration not being applied yet: if those
+  //    columns don't exist, fall back to monthly_value only (still projects
+  //    fixed recurring like Pukekohe).
+  let recurring: Array<Record<string, unknown>> | null = null
+  {
+    const full = await supabase
+      .from('recurring_jobs')
+      .select('monthly_value, billing_mode, per_visit_rate, service_days_of_week, status')
+      .eq('status', 'active')
+    if (!full.error) {
+      recurring = full.data as Array<Record<string, unknown>>
+    } else {
+      const basic = await supabase
+        .from('recurring_jobs')
+        .select('monthly_value, status')
+        .eq('status', 'active')
+      recurring = (basic.data as Array<Record<string, unknown>>) ?? null
+    }
+  }
   for (const r of (recurring ?? []) as Array<Record<string, unknown>>) {
     for (const { y, m } of months) {
       const key = monthKey(y, m)
