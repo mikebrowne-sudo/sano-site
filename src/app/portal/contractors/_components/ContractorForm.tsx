@@ -44,6 +44,14 @@ export interface ContractorData {
   worker_type?: string | null
   employment_type?: string | null
   notes?: string | null
+  // Personal & emergency contact
+  preferred_name?: string | null
+  address?: string | null
+  date_of_birth?: string | null
+  emergency_contact_name?: string | null
+  emergency_contact_phone?: string | null
+  emergency_contact_relationship?: string | null
+  id_sighted?: boolean | null
   // Payroll (employee)
   start_date?: string | null
   end_date?: string | null
@@ -124,6 +132,13 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
   const [fullName, setFullName] = useState(contractor?.full_name ?? '')
   const [email, setEmail] = useState(contractor?.email ?? '')
   const [phone, setPhone] = useState(contractor?.phone ?? '')
+  const [preferredName, setPreferredName] = useState(contractor?.preferred_name ?? '')
+  const [address, setAddress] = useState(contractor?.address ?? '')
+  const [dateOfBirth, setDateOfBirth] = useState(contractor?.date_of_birth ?? '')
+  const [emergencyName, setEmergencyName] = useState(contractor?.emergency_contact_name ?? '')
+  const [emergencyPhone, setEmergencyPhone] = useState(contractor?.emergency_contact_phone ?? '')
+  const [emergencyRelationship, setEmergencyRelationship] = useState(contractor?.emergency_contact_relationship ?? '')
+  const [idSighted, setIdSighted] = useState(contractor?.id_sighted ?? false)
   const [status, setStatus] = useState(contractor?.status ?? 'active')
   // Phase 5.3 — worker_type is now {contractor, employee}; employment_type
   // (casual / part_time / full_time) carries the prior sub-classification
@@ -240,6 +255,13 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
       full_name: fullName.trim(),
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
+      preferred_name: preferredName.trim() || null,
+      address: address.trim() || null,
+      date_of_birth: dateOfBirth || null,
+      emergency_contact_name: emergencyName.trim() || null,
+      emergency_contact_phone: emergencyPhone.trim() || null,
+      emergency_contact_relationship: emergencyRelationship.trim() || null,
+      id_sighted: idSighted,
       hourly_rate: isEmployee ? toNum(baseHourlyRate) : toNum(hourlyRate),
       base_hourly_rate: isEmployee ? toNum(baseHourlyRate) : undefined,
       holiday_pay_percent: isEmployee && holidayPayMethod === 'pay_as_you_go_8_percent' ? toNum(holidayPayPercent) : undefined,
@@ -326,9 +348,25 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
       <Section title="Profile">
         <Field label="Legal name" required value={fullName} onChange={setFullName} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+          <Field label="Preferred name" value={preferredName} onChange={setPreferredName} placeholder="What they go by" />
           <Field label="Email" type="email" value={email} onChange={setEmail} />
           <Field label="Phone" type="tel" value={phone} onChange={setPhone} />
+          <Field label="Date of birth" type="date" value={dateOfBirth} onChange={setDateOfBirth} />
         </div>
+        <Field label="Address" value={address} onChange={setAddress} placeholder="Home address" className="mt-4" />
+      </Section>
+
+      {/* ── Personal & emergency contact (shared) ───────── */}
+      <Section title="Personal &amp; emergency contact">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Field label="Emergency contact name" value={emergencyName} onChange={setEmergencyName} placeholder="Who to call" />
+          <Field label="Emergency contact phone" type="tel" value={emergencyPhone} onChange={setEmergencyPhone} />
+          <Field label="Relationship" value={emergencyRelationship} onChange={setEmergencyRelationship} placeholder="e.g. Partner, Parent" />
+        </div>
+        <label className="flex items-center gap-2 mt-4 text-sm text-sage-700">
+          <input type="checkbox" checked={idSighted} onChange={(e) => setIdSighted(e.target.checked)} className="rounded border-sage-300" />
+          <span>Photo ID sighted</span>
+        </label>
       </Section>
 
       {/* ── Status & Worker type (shared) ───────────────── */}

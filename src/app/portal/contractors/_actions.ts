@@ -14,6 +14,13 @@ interface ContractorInput {
   full_name: string
   email?: string
   phone?: string
+  preferred_name?: string | null
+  address?: string | null
+  date_of_birth?: string | null
+  emergency_contact_name?: string | null
+  emergency_contact_phone?: string | null
+  emergency_contact_relationship?: string | null
+  id_sighted?: boolean | null
   hourly_rate?: number
   base_hourly_rate?: number
   loaded_hourly_rate?: number
@@ -84,6 +91,20 @@ interface ContractorInput {
   // Portal access (Phase 2)
   invite_sent_at?: string
   portal_access_active?: boolean
+}
+
+/** Personal + emergency-contact fields — shared by create + update so staff can
+ *  enter/correct info a worker may have supplied at signing (or never did). */
+function personalFields(input: ContractorInput) {
+  return {
+    preferred_name: input.preferred_name?.trim() || null,
+    address: input.address?.trim() || null,
+    date_of_birth: input.date_of_birth || null,
+    emergency_contact_name: input.emergency_contact_name?.trim() || null,
+    emergency_contact_phone: input.emergency_contact_phone?.trim() || null,
+    emergency_contact_relationship: input.emergency_contact_relationship?.trim() || null,
+    id_sighted: input.id_sighted ?? false,
+  }
 }
 
 function payrollFields(input: ContractorInput) {
@@ -212,6 +233,7 @@ export async function createContractor(input: ContractorInput) {
       invite_sent_at: input.invite_sent_at || null,
       portal_access_active: input.portal_access_active ?? false,
       ...payrollFields(input),
+      ...personalFields(input),
     })
     .select('id')
     .single()
@@ -290,6 +312,7 @@ export async function updateContractor(id: string, input: ContractorInput) {
       invite_sent_at: input.invite_sent_at || null,
       portal_access_active: input.portal_access_active ?? false,
       ...payrollFields(input),
+      ...personalFields(input),
     })
     .eq('id', id)
 
