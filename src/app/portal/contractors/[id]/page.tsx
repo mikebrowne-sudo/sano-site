@@ -490,6 +490,16 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
           </Section>
         )}
 
+        {/* Bank account — employees (captured at agreement signing; pay goes here) */}
+        {workerType === 'employee' && (contractor.bank_account_number || contractor.bank_account_name) && (
+          <Section title="Bank account">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div><span className="text-sage-500">Account name</span><p className="text-sage-800 font-medium">{contractor.bank_account_name || '—'}</p></div>
+              <div><span className="text-sage-500">Account number</span><p className="text-sage-800 font-medium">{contractor.bank_account_number || '—'}</p></div>
+            </div>
+          </Section>
+        )}
+
         {/* Employment — employees only */}
         {workerType !== 'contractor' && (
           <Section title="Employment">

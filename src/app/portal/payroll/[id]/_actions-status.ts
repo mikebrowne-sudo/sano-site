@@ -70,12 +70,30 @@ export async function markEmpRegistered(input: { runId: string; registered: bool
   const g = await adminGate()
   if (g.error) return { error: g.error }
   const svc = getServiceSupabase()
-  // workforce_settings is a single-row settings table.
-  const { data: row } = await svc.from('workforce_settings').select('id').limit(1).maybeSingle()
-  const patch = { emp_registered: input.registered, emp_note: input.note?.trim() || null }
-  const { error } = row
-    ? await svc.from('workforce_settings').update(patch).eq('id', (row as { id: string }).id)
-    : await svc.from('workforce_settings').insert(patch)
+  // workforce_settings is a key/value table: `key` (PK, NOT NULL) + `value`
+  // (jsonb, NOT NULL), with emp_registered / emp_note added as flat columns. The
+  // 'default' row's `value` holds OTHER real settings (onboarding gates,
+  // required-items lists), so preserve it — only default to {} if the row is new.
+  // (The earlier code selected/updated a non-existent `id` column, so it never
+  // matched and its insert omitted `key`, throwing "null value in column key".)
+  const { data: existing } = await svc
+    .from('workforce_settings')
+    .select('value')
+    .eq('key', 'default')
+    .maybeSingle()
+  const preservedValue = (existing as { value?: unknown } | null)?.value ?? {}
+
+  const { error } = await svc.from('workforce_settings').upsert(
+    {
+      key: 'default',
+      value: preservedValue,
+      emp_registered: input.registered,
+      emp_note: input.note?.trim() || null,
+      updated_at: new Date().toISOString(),
+      updated_by: g.userId,
+    },
+    { onConflict: 'key' },
+  )
   if (error) return { error: error.message }
   await audit('emp_registration_updated', input.runId, input.registered ? 'EMP registration marked active.' : 'EMP registration marked pending.', g.userId)
   revalidatePath(`/portal/payroll/${input.runId}`)
