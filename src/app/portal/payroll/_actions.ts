@@ -156,6 +156,36 @@ export async function approvePayRun(payRunId: string) {
 }
 
 /**
+ * Delete a DRAFT pay run. Only drafts can be deleted — an approved or paid run is
+ * a financial record and must never be removed. Deleting a draft:
+ *   1. un-stamps any mileage it consumed (pay_run_id → null) so it's re-usable,
+ *   2. removes its pay_run_lines, then
+ *   3. removes the run itself.
+ * Admin only.
+ */
+export async function deleteDraftPayRun(payRunId: string): Promise<{ success?: true; error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !isAdminUser(user)) return { error: 'Admin only.' }
+
+  const { data: run } = await supabase.from('pay_runs').select('status').eq('id', payRunId).single()
+  if (!run) return { error: 'Pay run not found.' }
+  if (run.status !== 'draft') return { error: `Only a draft pay run can be deleted (this one is ${run.status}). Approved/paid runs are financial records.` }
+
+  // Release any mileage this draft had consumed so it flows into the next run.
+  await supabase.from('mileage_logs').update({ pay_run_id: null }).eq('pay_run_id', payRunId)
+  // Remove lines then the run.
+  await supabase.from('pay_run_lines').delete().eq('pay_run_id', payRunId)
+  const { error } = await supabase.from('pay_runs').delete().eq('id', payRunId)
+  if (error) return { error: error.message }
+
+  try { await supabase.from('audit_log').insert({ entity_table: 'pay_runs', entity_id: payRunId, action: 'pay_run_deleted', detail: 'Draft pay run deleted; mileage released.', performed_by: user.id }) } catch { /* audit shape varies */ }
+
+  revalidatePath('/portal/payroll')
+  return { success: true }
+}
+
+/**
  * Mark an approved run PAID (approved → paid) — RECORDS an existing bank
  * transfer; it never initiates a payment. Adds only employee-payment metadata.
  * Does NOT imply payday filing or IRD remittance is done (markPaidPatch carries

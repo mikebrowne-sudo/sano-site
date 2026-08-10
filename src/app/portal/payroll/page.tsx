@@ -4,6 +4,7 @@ import { DollarSign, Plus, ClipboardCheck } from 'lucide-react'
 import clsx from 'clsx'
 import { isAdminEmail } from '@/lib/is-admin'
 import { QuickPayWeek } from './_components/QuickPayWeek'
+import { DeleteDraftPayRunButton } from './_components/DeleteDraftPayRunButton'
 
 function fmtDate(iso: string | null) {
   if (!iso) return '—'
@@ -110,6 +111,7 @@ export default async function PayrollPage({ searchParams }: { searchParams?: { d
                 <th className="px-5 py-3 font-semibold">Period</th>
                 <th className="px-5 py-3 font-semibold">Pay date</th>
                 <th className="px-5 py-3 font-semibold">Status</th>
+                <th className="px-5 py-3 font-semibold"></th>
               </tr>
             </thead>
             <tbody>
@@ -118,6 +120,7 @@ export default async function PayrollPage({ searchParams }: { searchParams?: { d
                   <td className="p-0"><Link href={`/portal/payroll/${r.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors font-medium text-sage-800">{fmtDate(r.pay_period_start)} – {fmtDate(r.pay_period_end)}</Link></td>
                   <td className="p-0"><Link href={`/portal/payroll/${r.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-600">{fmtDate(r.pay_date)}</Link></td>
                   <td className="p-0"><Link href={`/portal/payroll/${r.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors"><span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', r.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-700')}>{r.status}</span></Link></td>
+                  <td className="px-5 py-3 text-right">{isAdmin && r.status === 'draft' && <DeleteDraftPayRunButton payRunId={r.id as string} />}</td>
                 </tr>
               ))}
             </tbody>
