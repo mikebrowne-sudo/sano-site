@@ -449,6 +449,16 @@ export function ContractorForm({ contractor }: { contractor?: ContractorData }) 
       )}
 
       {isEmployee && (
+        <Section title="Bank account" badge="Employee only">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Bank account name" value={bankAccountName} onChange={setBankAccountName} placeholder="Account holder" />
+            <Field label="Bank account number" value={bankAccountNumber} onChange={setBankAccountNumber} placeholder="e.g. 12-3456-7890123-00" />
+          </div>
+          <p className="text-[12px] text-sage-500 mt-2">Where this employee&rsquo;s pay is deposited. Captured at agreement signing; edit here if needed.</p>
+        </Section>
+      )}
+
+      {isEmployee && (
         <Section title="Employment" badge="Employee only">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Start date" type="date" value={startDate} onChange={setStartDate} />

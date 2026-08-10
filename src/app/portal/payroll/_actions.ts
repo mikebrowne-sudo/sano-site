@@ -20,6 +20,76 @@ export async function createPayRun(input: { pay_period_start: string; pay_period
 /** Live preview: approved, unpaid mileage for active employees dated within a
  *  period — so the New Pay Run form can show what a (catch-up) run will pay
  *  before it's created. */
+export interface UnapprovedMileageEntry {
+  id: string
+  logDate: string
+  personLabel: string | null
+  distanceKm: number | null
+  amount: number
+}
+
+/**
+ * List DRAFT (unapproved) mileage in a period so it can be approved (and thus
+ * included in the run) or left as draft (deferred) before creating a pay run.
+ * These are exactly the logs the pay-run query skips (it requires status
+ * 'approved'), which is why mileage silently dropped out.
+ */
+export async function previewUnapprovedMileage(input: { from: string; to: string }): Promise<{ entries: UnapprovedMileageEntry[]; error?: string }> {
+  if (!input.from || !input.to) return { entries: [] }
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!isAdminUser(user)) return { entries: [], error: 'Admin only.' }
+
+  const { data: emps } = await supabase
+    .from('contractors').select('id, full_name, preferred_name').eq('status', 'active').neq('worker_type', 'contractor')
+  const nameById = new Map((emps ?? []).map((e) => [e.id as string, ((e as { preferred_name?: string | null }).preferred_name || (e as { full_name?: string | null }).full_name || null)]))
+  const ids = (emps ?? []).map((e) => e.id as string)
+  if (ids.length === 0) return { entries: [] }
+
+  const { data: logs, error } = await supabase
+    .from('mileage_logs')
+    .select('id, log_date, contractor_id, person_label, distance_km, reimbursement_amount')
+    .in('contractor_id', ids)
+    .eq('status', 'draft')
+    .is('pay_run_id', null)
+    .gte('log_date', input.from)
+    .lte('log_date', input.to)
+    .order('log_date')
+  if (error) return { entries: [], error: error.message }
+
+  const entries: UnapprovedMileageEntry[] = (logs ?? []).map((l) => ({
+    id: l.id as string,
+    logDate: l.log_date as string,
+    personLabel: nameById.get(l.contractor_id as string) ?? (l.person_label as string | null),
+    distanceKm: (l.distance_km as number | null) ?? null,
+    amount: Number((l.reimbursement_amount as number | null) ?? 0),
+  }))
+  return { entries }
+}
+
+/**
+ * Approve specific draft mileage logs (draft → approved) so they flow into the
+ * pay run. Admin only. Deferring is simply NOT approving — a draft log is left
+ * as-is and reappears in the next run's prompt.
+ */
+export async function bulkApproveMileage(input: { ids: string[] }): Promise<{ ok?: true; approved?: number; error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
+  if (!input.ids.length) return { ok: true, approved: 0 }
+
+  const { data, error } = await supabase
+    .from('mileage_logs')
+    .update({ status: 'approved', approved_by: user!.id, approved_at: new Date().toISOString() })
+    .in('id', input.ids)
+    .eq('status', 'draft')
+    .select('id')
+  if (error) return { error: error.message }
+  revalidatePath('/portal/payroll/new')
+  revalidatePath('/portal/mileage')
+  return { ok: true, approved: (data ?? []).length }
+}
+
 export async function previewPeriodMileage(input: { from: string; to: string }): Promise<{ total: number; count: number; error?: string }> {
   if (!input.from || !input.to) return { total: 0, count: 0 }
   const supabase = createClient()

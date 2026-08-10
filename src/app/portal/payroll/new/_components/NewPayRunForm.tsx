@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import clsx from 'clsx'
-import { ArrowRight, UserRound, Users, Info } from 'lucide-react'
-import { createPayRun, previewPeriodMileage } from '../../_actions'
+import { ArrowRight, UserRound, Users, Info, AlertTriangle, Check } from 'lucide-react'
+import { createPayRun, previewPeriodMileage, previewUnapprovedMileage, bulkApproveMileage, type UnapprovedMileageEntry } from '../../_actions'
 
 export interface PayrollEmployee {
   id: string
@@ -56,6 +56,22 @@ export function NewPayRunForm({ employees }: { employees: PayrollEmployee[] }) {
     })
     return () => { cancelled = true }
   }, [mileageOnly, start, end])
+
+  // Unapproved (draft) mileage in the period — the reason mileage silently
+  // dropped out of pay runs (the run only pays 'approved' logs). Surfaced here so
+  // you can Approve & include, or leave it (defer) to reappear next run.
+  const [unapproved, setUnapproved] = useState<UnapprovedMileageEntry[]>([])
+  const [mileageBusy, setMileageBusy] = useState(false)
+  function refreshUnapproved() {
+    if (!start || !end) { setUnapproved([]); return }
+    previewUnapprovedMileage({ from: start, to: end }).then((r) => { if (!r.error) setUnapproved(r.entries) })
+  }
+  useEffect(() => { refreshUnapproved() }, [start, end]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function approveMileage(ids: string[]) {
+    setMileageBusy(true)
+    bulkApproveMileage({ ids }).then(() => { refreshUnapproved(); setMileageBusy(false) })
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -126,6 +142,42 @@ export function NewPayRunForm({ employees }: { employees: PayrollEmployee[] }) {
           </p>
         )}
       </div>
+
+      {/* Unapproved mileage in this period — approve to include, or leave (defer). */}
+      {unapproved.length > 0 && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <p className="text-sm font-semibold text-amber-900 inline-flex items-center gap-1.5">
+              <AlertTriangle size={15} /> {unapproved.length} unapproved mileage {unapproved.length === 1 ? 'entry' : 'entries'} in this period
+            </p>
+            <button
+              type="button" disabled={mileageBusy}
+              onClick={() => approveMileage(unapproved.map((u) => u.id))}
+              className={clsx('inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-semibold px-2.5 py-1.5 rounded-md', mileageBusy && 'opacity-60')}
+            >
+              <Check size={13} /> Approve all &amp; include
+            </button>
+          </div>
+          <p className="text-[12px] text-amber-800 mb-2">
+            These won&rsquo;t be paid in this run unless approved. Approve to include them; leave any you want to <strong>defer</strong> — they&rsquo;ll reappear next run.
+          </p>
+          <ul className="space-y-1.5">
+            {unapproved.map((u) => (
+              <li key={u.id} className="flex items-center justify-between gap-3 rounded-md bg-white border border-amber-200 px-3 py-2 text-sm">
+                <span className="min-w-0">
+                  <span className="font-medium text-sage-800">{u.personLabel || 'Employee'}</span>
+                  <span className="text-sage-500"> · {u.logDate}{u.distanceKm != null ? ` · ${u.distanceKm}km` : ''}</span>
+                </span>
+                <span className="inline-flex items-center gap-3 flex-none">
+                  <span className="tabular-nums font-medium text-sage-800">{money(u.amount)}</span>
+                  <button type="button" disabled={mileageBusy} onClick={() => approveMileage([u.id])} className="text-[12px] font-semibold text-emerald-700 hover:text-emerald-800">Approve</button>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-amber-700 mt-2">Deferring just leaves an entry unapproved — no action needed; it shows up again next time.</p>
+        </div>
+      )}
 
       {/* Subcontractors are NOT paid here — separate flow. */}
       <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 flex items-start gap-2.5">
