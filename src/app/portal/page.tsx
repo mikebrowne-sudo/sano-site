@@ -25,7 +25,7 @@ import { loadPendingKs10Submissions, type PendingKs10 } from '@/lib/kiwisaver-ks
 import { loadStaffTaskCounts } from './_lib/staff-tasks-data'
 import { buildStaffTasks } from '@/lib/staff-tasks'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
-import { buildDashboardFinance } from './_lib/dashboard-finance'
+import { buildDashboardFinance, buildIncomeProjection } from './_lib/dashboard-finance'
 import { getBankBalance } from '@/lib/bank-balance'
 import { buildCashPosition } from '@/lib/cash-position'
 import { loadJobMargins } from '@/lib/job-margin'
@@ -102,6 +102,7 @@ export default async function PortalDashboard() {
   // ── Business health: 12-month money-in/out series (reuses the P&L defs) +
   //    this-month operational stats. Admin-only page, so no extra gate needed.
   const finance = await buildDashboardFinance(supabase, today, 12)
+  const projection = await buildIncomeProjection(supabase, today, 3)
 
   // Bank balance = ASB's stated ledger balance, captured from the last CSV
   // imported into reconciliation (no live feed). Null until a statement with a
@@ -270,10 +271,10 @@ export default async function PortalDashboard() {
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <div className="flex items-center justify-between mb-1">
-            <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500">Money in vs out — last 12 months</h2>
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500">Money in vs out — last 12 months + projected</h2>
             <Link href="/portal/reports" className="inline-flex items-center gap-1 text-xs text-sage-500 hover:text-sage-700 font-medium">Reports <ArrowRight size={11} /></Link>
           </div>
-          <GrowthChart points={finance.months} />
+          <GrowthChart points={finance.months} projection={projection} />
         </div>
 
         <div className="bg-sage-800 text-white rounded-2xl shadow-sm p-6 flex flex-col justify-between">
