@@ -293,7 +293,7 @@ export async function startContractorOnboarding(input: {
   // Read applicant
   const { data: applicant, error: appErr } = await supabase
     .from('applicants')
-    .select('id, status, first_name, last_name, email, phone, suburb, application_type, converted_contractor_id, trial_required')
+    .select('id, status, first_name, last_name, email, phone, suburb, application_type, converted_contractor_id, trial_required, date_of_birth, has_vehicle')
     .eq('id', input.applicantId)
     .maybeSingle()
   if (appErr) return { error: appErr.message }
@@ -366,6 +366,10 @@ export async function startContractorOnboarding(input: {
       email: lcEmail,
       phone: a.phone.trim(),
       suburb: a.suburb?.trim() || null,
+      // Carry over the personal details the applicant already provided (were
+      // previously stranded on the applicant record).
+      date_of_birth: (a as { date_of_birth?: string | null }).date_of_birth ?? null,
+      has_vehicle: (a as { has_vehicle?: boolean | null }).has_vehicle ?? null,
       worker_type: workerType,
       employment_type: employmentType,
       status: 'onboarding',
