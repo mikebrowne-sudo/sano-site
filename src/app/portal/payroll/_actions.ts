@@ -10,7 +10,7 @@ import { Resend } from 'resend'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 
-export async function createPayRun(input: { pay_period_start: string; pay_period_end: string; pay_date: string; pay_frequency: 'weekly' | 'fortnightly'; notes?: string; mileage_only?: boolean }) {
+export async function createPayRun(input: { pay_period_start: string; pay_period_end: string; pay_date: string; pay_frequency: 'weekly' | 'fortnightly'; notes?: string; mileage_only?: boolean; mileage_from_prior_week?: boolean }) {
   // The manual run shares its logic with the weekly auto-draft cron.
   const res = await createEmployeePayRun(createClient(), input)
   if (res.error) return { error: res.error }

@@ -31,6 +31,9 @@ function advanceWeek(ref: Date): { start: string; end: string; payDate: string }
 export function NewPayRunForm({ employees }: { employees: PayrollEmployee[] }) {
   const [frequency, setFrequency] = useState<'weekly' | 'fortnightly'>('weekly')
   const [mileageOnly, setMileageOnly] = useState(false)
+  // Wages paid in advance, mileage reimbursed in arrears → pull the prior cycle's
+  // mileage into this run. Default ON to match Sano's pay pattern.
+  const [mileagePriorWeek, setMileagePriorWeek] = useState(true)
   const initial = advanceWeek(new Date())
   const [start, setStart] = useState(initial.start)
   const [end, setEnd] = useState(initial.end)
@@ -60,13 +63,23 @@ export function NewPayRunForm({ employees }: { employees: PayrollEmployee[] }) {
   // Unapproved (draft) mileage in the period — the reason mileage silently
   // dropped out of pay runs (the run only pays 'approved' logs). Surfaced here so
   // you can Approve & include, or leave it (defer) to reappear next run.
+  // The window mileage is drawn from: the run's own period, or the prior cycle
+  // when paying wages in advance (shift back 7 days weekly / 14 fortnightly).
+  const shiftDays = mileageOnly ? 0 : (mileagePriorWeek ? (frequency === 'fortnightly' ? 14 : 7) : 0)
+  const shiftIso = (ymd: string, days: number) => {
+    if (!ymd) return ymd
+    const d = new Date(`${ymd}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - days); return d.toISOString().slice(0, 10)
+  }
+  const mileageFrom = shiftIso(start, shiftDays)
+  const mileageTo = shiftIso(end, shiftDays)
+
   const [unapproved, setUnapproved] = useState<UnapprovedMileageEntry[]>([])
   const [mileageBusy, setMileageBusy] = useState(false)
   function refreshUnapproved() {
-    if (!start || !end) { setUnapproved([]); return }
-    previewUnapprovedMileage({ from: start, to: end }).then((r) => { if (!r.error) setUnapproved(r.entries) })
+    if (!mileageFrom || !mileageTo) { setUnapproved([]); return }
+    previewUnapprovedMileage({ from: mileageFrom, to: mileageTo }).then((r) => { if (!r.error) setUnapproved(r.entries) })
   }
-  useEffect(() => { refreshUnapproved() }, [start, end]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { refreshUnapproved() }, [mileageFrom, mileageTo]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function approveMileage(ids: string[]) {
     setMileageBusy(true)
@@ -77,7 +90,7 @@ export function NewPayRunForm({ employees }: { employees: PayrollEmployee[] }) {
     e.preventDefault()
     setError(null)
     startTransition(async () => {
-      const result = await createPayRun({ pay_period_start: start, pay_period_end: end, pay_date: payDate, pay_frequency: frequency, notes: notes.trim() || undefined, mileage_only: mileageOnly })
+      const result = await createPayRun({ pay_period_start: start, pay_period_end: end, pay_date: payDate, pay_frequency: frequency, notes: notes.trim() || undefined, mileage_only: mileageOnly, mileage_from_prior_week: !mileageOnly && mileagePriorWeek })
       if (result?.error) setError(result.error)
     })
   }
@@ -103,6 +116,19 @@ export function NewPayRunForm({ employees }: { employees: PayrollEmployee[] }) {
           <span className="block text-[12px] text-sage-500">Pay only this period&rsquo;s approved mileage — 0 hours, no PAYE. Use for a one-off catch-up of older mileage; set the period to cover those dates.</span>
         </span>
       </label>
+
+      {/* Advance wages → mileage is for the prior week. Default on. */}
+      {!mileageOnly && (
+        <label className="flex items-start gap-2.5 rounded-lg border border-sage-200 px-3 py-2.5 cursor-pointer">
+          <input type="checkbox" checked={mileagePriorWeek} onChange={(e) => setMileagePriorWeek(e.target.checked)} className="mt-0.5" />
+          <span className="text-sm">
+            <span className="font-medium text-sage-800">Include previous {frequency === 'fortnightly' ? 'fortnight' : 'week'}&rsquo;s mileage</span>
+            <span className="block text-[12px] text-sage-500">
+              You pay wages in advance but mileage is for driving already done. On, this run pulls approved mileage dated <strong>{mileageFrom || '—'} to {mileageTo || '—'}</strong> (the {frequency === 'fortnightly' ? 'fortnight' : 'week'} before this run&rsquo;s period).
+            </span>
+          </span>
+        </label>
+      )}
 
       {/* Who's in this run — the employees on the chosen cycle. Makes it obvious
           who gets paid (previously invisible), and that contractors are elsewhere. */}
