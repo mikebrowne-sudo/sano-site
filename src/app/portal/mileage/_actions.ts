@@ -134,6 +134,29 @@ export async function approveMileageLog(id: string): Promise<{ ok?: true; error?
   return { ok: true }
 }
 
+/**
+ * Assign an orphaned mileage log (contractor_id null) to an employee, so it can
+ * flow into their pay run. Fixes legacy logs created before mileage was linked
+ * to a contractor — no SQL needed. Admin only.
+ */
+export async function assignMileageToEmployee(input: { id: string; contractorId: string }): Promise<{ ok?: true; error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
+  if (!input.contractorId) return { error: 'Pick a person to assign this to.' }
+
+  const { error } = await supabase
+    .from('mileage_logs')
+    .update({ contractor_id: input.contractorId })
+    .eq('id', input.id)
+    .is('pay_run_id', null) // never re-assign a log already consumed by a pay run
+  if (error) return { error: `Couldn’t assign: ${error.message}` }
+
+  revalidatePath('/portal/mileage')
+  return { ok: true }
+}
+
 export async function deleteMileageLog(id: string): Promise<{ ok?: true; error?: string }> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
