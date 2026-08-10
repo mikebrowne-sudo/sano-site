@@ -23,6 +23,11 @@ export interface CreatePayRunInput {
    *  0 PAYE/KiwiSaver). Used to release mileage that predates the normal cycle
    *  without double-paying wages. Mileage is non-taxable, so nothing is withheld. */
   mileage_only?: boolean
+  /** Wages are paid in ADVANCE but mileage is reimbursed in ARREARS. When true,
+   *  the run pulls mileage from the PERIOD BEFORE its wage period (one cycle
+   *  earlier) instead of its own period — so an advance wage run for 10–16 Aug
+   *  sweeps in the previous week's (3–9 Aug) approved mileage. */
+  mileage_from_prior_week?: boolean
 }
 
 /** A pay-run line that needs staff review before finalising (never a silent
@@ -87,14 +92,27 @@ export async function createEmployeePayRun(
     // pay_run_id IS NULL excludes mileage already consumed by an earlier run —
     // so we must stamp these logs with this run's id below, or the same mileage
     // would be re-pulled (and re-paid) on every subsequent run.
+    // Mileage window: normally the run's own period, but when wages are paid in
+    // advance the mileage is for the PRIOR cycle — shift the window back one
+    // cycle (7 days weekly, 14 fortnightly) so it lines up with driving already
+    // done. Uses UTC date maths; date-only so no TZ drift.
+    const shiftDays = input.mileage_from_prior_week ? (input.pay_frequency === 'fortnightly' ? 14 : 7) : 0
+    const shiftIso = (ymd: string, days: number) => {
+      const d = new Date(`${ymd}T00:00:00Z`)
+      d.setUTCDate(d.getUTCDate() - days)
+      return d.toISOString().slice(0, 10)
+    }
+    const mileageFrom = shiftIso(input.pay_period_start, shiftDays)
+    const mileageTo = shiftIso(input.pay_period_end, shiftDays)
+
     const { data: mileage } = await supabase
       .from('mileage_logs')
       .select('id, contractor_id, reimbursement_amount')
       .in('contractor_id', employees.map((e) => e.id))
       .eq('status', 'approved')
       .is('pay_run_id', null)
-      .gte('log_date', input.pay_period_start)
-      .lte('log_date', input.pay_period_end)
+      .gte('log_date', mileageFrom)
+      .lte('log_date', mileageTo)
     const mileageByContractor = new Map<string, number>()
     const consumedMileageLogIds: string[] = []
     for (const m of mileage ?? []) {

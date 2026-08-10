@@ -18,9 +18,17 @@ describe('mileage-only pay run zeros wages but keeps mileage', () => {
     expect(src).toMatch(/if \(input\.mileage_only\) \{[\s\S]{0,600}mileage_reimbursement: mileageAmt/)
   })
 
-  it('still filters mileage to the period (so the catch-up period controls what is paid)', () => {
-    expect(src).toMatch(/\.gte\('log_date', input\.pay_period_start\)/)
-    expect(src).toMatch(/\.lte\('log_date', input\.pay_period_end\)/)
+  it('filters mileage to a period window (from/to)', () => {
+    expect(src).toMatch(/\.gte\('log_date', mileageFrom\)/)
+    expect(src).toMatch(/\.lte\('log_date', mileageTo\)/)
+  })
+  it('mileage-only mode does NOT shift the window (catch-up period controls it)', () => {
+    // shiftDays is 0 unless mileage_from_prior_week is set; mileage_only never shifts.
+    expect(src).toMatch(/input\.mileage_from_prior_week \? \(input\.pay_frequency === 'fortnightly' \? 14 : 7\) : 0/)
+  })
+  it('advance-pay mode shifts mileage back one cycle (prior week/fortnight)', () => {
+    expect(src).toMatch(/mileageFrom = shiftIso\(input\.pay_period_start, shiftDays\)/)
+    expect(src).toMatch(/mileageTo = shiftIso\(input\.pay_period_end, shiftDays\)/)
   })
 })
 
