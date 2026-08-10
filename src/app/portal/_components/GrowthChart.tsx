@@ -10,13 +10,14 @@
 // Inline SVG — no chart library. Theme-aware via sage tokens.
 
 import { useState, useId } from 'react'
-import type { MonthPoint } from '../_lib/dashboard-finance'
+import type { MonthPoint, ProjectedMonth } from '../_lib/dashboard-finance'
 
 const money0 = (n: number) => new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD', maximumFractionDigits: 0 }).format(n)
 const moneyFull = (n: number) => new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
 
 const IN = '#10b981'   // emerald — money in
 const OUT = '#fb7185'  // rose — money out
+const PROJ = '#0ea5e9' // sky — projected income (expected, not yet received)
 
 /** Monotone-cubic smoothing that never overshoots past the data points (so a
  *  flat/rising series can't dip below zero on the curve). Returns an SVG path. */
@@ -37,7 +38,7 @@ function smoothPath(pts: { x: number; y: number }[]): string {
   return d
 }
 
-export function GrowthChart({ points }: { points: MonthPoint[] }) {
+export function GrowthChart({ points, projection = [] }: { points: MonthPoint[]; projection?: ProjectedMonth[] }) {
   const [hover, setHover] = useState<number | null>(null)
   const uid = useId().replace(/:/g, '')
 
@@ -45,13 +46,22 @@ export function GrowthChart({ points }: { points: MonthPoint[] }) {
     return <div className="h-44 rounded-xl bg-sage-50/50 border border-dashed border-sage-200 grid place-items-center text-sm text-sage-500">The trend builds as months of income and expenses are recorded.</div>
   }
 
+  // The projection's first entry is the current month (shared with history); the
+  // rest are future months that extend the x-axis. Drop the shared first one.
+  const futureProj = projection.slice(1)
+  const totalCols = points.length + futureProj.length
+
   // Real aspect ratio — the SVG keeps its shape (preserveAspectRatio default).
   const W = 680, H = 200, padL = 8, padR = 8, padTop = 16, padBottom = 26
   const innerW = W - padL - padR
   const innerH = H - padTop - padBottom
-  const max = Math.max(...points.flatMap((p) => [p.income, p.expenses]), 1)
+  const max = Math.max(
+    ...points.flatMap((p) => [p.income, p.expenses]),
+    ...projection.map((p) => p.projected),
+    1,
+  )
 
-  const x = (i: number) => padL + (i / (points.length - 1)) * innerW
+  const x = (i: number) => padL + (i / (totalCols - 1)) * innerW
   const y = (v: number) => padTop + innerH - (v / max) * innerH
   const baseY = padTop + innerH
 
@@ -72,6 +82,15 @@ export function GrowthChart({ points }: { points: MonthPoint[] }) {
   const solidInPts = inPts.slice(0, solidTo + 1)
   const solidOutPts = outPts.slice(0, solidTo + 1)
 
+  // Projected income line: starts at the last historical income point (so it
+  // joins the solid history), then extends through the future projected months.
+  const projPts = futureProj.length
+    ? [
+        { x: x(lastIdx), y: y(points[lastIdx].income) },
+        ...futureProj.map((p, k) => ({ x: x(points.length + k), y: y(p.projected) })),
+      ]
+    : []
+
   const hp = hover != null ? points[hover] : null
   const leftPct = hover != null ? (x(hover) / W) * 100 : 0
   const tipLeft = Math.min(86, Math.max(14, leftPct))
@@ -90,6 +109,9 @@ export function GrowthChart({ points }: { points: MonthPoint[] }) {
         <span className="inline-flex items-center gap-1.5 text-sage-600"><span className="h-2.5 w-2.5 rounded-full" style={{ background: IN }} /> Money in</span>
         <span className="inline-flex items-center gap-1.5 text-sage-600"><span className="h-2.5 w-2.5 rounded-full" style={{ background: OUT }} /> Money out</span>
         <span className="inline-flex items-center gap-1.5 text-sage-500"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-500/20 ring-1 ring-emerald-500/40" /> Profit</span>
+        {futureProj.length > 0 && (
+          <span className="inline-flex items-center gap-1.5 text-sage-600"><span className="h-2.5 w-2.5 rounded-full" style={{ background: PROJ }} /> Projected in</span>
+        )}
         <span className="ml-auto text-sage-400 tabular-nums">peak {money0(max)}</span>
       </div>
 
@@ -123,9 +145,22 @@ export function GrowthChart({ points }: { points: MonthPoint[] }) {
             </>
           )}
 
-          {/* month ticks */}
+          {/* projected income — dashed sky line extending past "now" */}
+          {projPts.length > 1 && (
+            <>
+              <path d={smoothPath(projPts)} fill="none" stroke={PROJ} strokeWidth="2.5" strokeDasharray="5 4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+              {futureProj.map((p, k) => (
+                <circle key={k} cx={x(points.length + k)} cy={y(p.projected)} r="2.5" fill={PROJ} />
+              ))}
+            </>
+          )}
+
+          {/* month ticks (history + future projected months) */}
           {points.map((p, i) => (i % labelStep === 0 || i === lastIdx) && (
             <text key={i} x={x(i)} y={H - 8} textAnchor="middle" className="fill-sage-400" style={{ fontSize: 10 }}>{p.label}{p.partial ? '*' : ''}</text>
+          ))}
+          {futureProj.map((p, k) => (
+            <text key={`fp-${k}`} x={x(points.length + k)} y={H - 8} textAnchor="middle" className="fill-sky-500" style={{ fontSize: 10 }}>{p.label}</text>
           ))}
 
           {hover != null && (

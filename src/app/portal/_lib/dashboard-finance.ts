@@ -5,6 +5,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildProfitLoss, type PLIncomeRow, type PLExpenseRow } from '@/app/portal/finance/_lib/profit-loss'
+import { computeRecurringAmount } from '@/app/portal/recurring-jobs/_lib/per-visit-billing'
 
 export interface MonthPoint {
   /** Month key 'YYYY-MM'. */
@@ -113,4 +114,91 @@ export async function buildDashboardFinance(
     : null
 
   return { months: points, netPosition, thisMonthNet, lastMonthNet, thisMonthIncome, netChangePct }
+}
+
+export interface ProjectedMonth {
+  month: string      // 'YYYY-MM'
+  label: string      // 'Sep'
+  /** Expected income landing in this month (unpaid sent invoices due + upcoming recurring). */
+  projected: number
+}
+
+/**
+ * Forward income projection for the next `count` months (default 3), grounded in
+ * real commitments in the system — NOT a statistical forecast:
+ *   • Unpaid SENT invoices, bucketed by their DUE month.
+ *   • Upcoming recurring-contract invoices (their scheduled next dates + amount),
+ *     including per-visit contracts (rate × service days that month).
+ * Returns the current month + the next `count` so the dashed line joins the solid
+ * history at "now". Read-only.
+ */
+export async function buildIncomeProjection(
+  supabase: SupabaseClient,
+  today: string,
+  count = 3,
+): Promise<ProjectedMonth[]> {
+  const [ty, tm] = today.slice(0, 7).split('-').map(Number)
+
+  // Month list: current month → +count.
+  const months: { y: number; m: number }[] = []
+  let cy = ty, cm = tm
+  for (let i = 0; i <= count; i++) {
+    months.push({ y: cy, m: cm })
+    cm += 1
+    if (cm === 13) { cm = 1; cy += 1 }
+  }
+  const rangeStart = monthBounds(months[0].y, months[0].m).from
+  const rangeEnd = monthBounds(months[months.length - 1].y, months[months.length - 1].m).to
+
+  const totals: Record<string, number> = {}
+  for (const { y, m } of months) totals[monthKey(y, m)] = 0
+
+  // 1. Unpaid sent invoices, by DUE month.
+  const { data: sentInv } = await supabase
+    .from('invoices')
+    .select('base_price, discount, due_date, invoice_items ( price )')
+    .eq('status', 'sent')
+    .is('deleted_at', null)
+    .not('due_date', 'is', null)
+    .gte('due_date', rangeStart).lte('due_date', rangeEnd)
+  for (const i of (sentInv ?? []) as Array<Record<string, unknown>>) {
+    const key = String(i.due_date).slice(0, 7)
+    if (!(key in totals)) continue
+    const items = (i.invoice_items ?? []) as Array<{ price: number | null }>
+    const itemsTotal = items.reduce((s, it) => s + (it.price ?? 0), 0)
+    totals[key] += ((i.base_price as number | null) ?? 0) + itemsTotal - ((i.discount as number | null) ?? 0)
+  }
+
+  // 2. Upcoming recurring-contract invoices. Each active recurring job raises an
+  //    invoice per month around its send day; project its amount into each month
+  //    in range (fixed = monthly_value, per-visit = rate × service days).
+  const { data: recurring } = await supabase
+    .from('recurring_jobs')
+    .select('monthly_value, billing_mode, per_visit_rate, service_days_of_week, invoice_send_day, next_invoice_date, status')
+    .eq('status', 'active')
+  for (const r of (recurring ?? []) as Array<Record<string, unknown>>) {
+    for (const { y, m } of months) {
+      const key = monthKey(y, m)
+      // Don't double-count the current month if its invoice for this period was
+      // already raised (it'd show as a sent invoice above). Project from next month on.
+      if (key === monthKey(ty, tm)) continue
+      const { from, to } = monthBounds(y, m)
+      const { amount } = computeRecurringAmount(
+        {
+          billingMode: r.billing_mode as string | null,
+          monthlyValue: r.monthly_value as number | null,
+          perVisitRate: r.per_visit_rate as number | null,
+          serviceDaysOfWeek: r.service_days_of_week as number[] | null,
+        },
+        { start: from, end: to },
+      )
+      totals[key] += amount
+    }
+  }
+
+  return months.map(({ y, m }) => ({
+    month: monthKey(y, m),
+    label: MONTH_LABELS[m - 1],
+    projected: Math.round(totals[monthKey(y, m)] * 100) / 100,
+  }))
 }
