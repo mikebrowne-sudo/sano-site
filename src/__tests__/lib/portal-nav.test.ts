@@ -28,7 +28,7 @@ describe('portal nav — restructured shape', () => {
       '/portal/finance', '/portal/contractor-invoices', '/portal/contractor-statements',
       '/portal/payroll', '/portal/payroll/employee', '/portal/mileage',
       '/portal/leads', '/portal/campaigns', '/portal/reviews',
-      '/portal/jobs/calendar', '/portal/settings/accountants', '/portal/settings/archive',
+      '/portal/settings/accountants', '/portal/settings/archive',
     ]) {
       expect(hrefs).not.toContain(gone)
     }
@@ -54,9 +54,14 @@ describe('isNavActive — hubs light up on the routes they front', () => {
       expect(isNavActive(p, item('/portal/marketing'))).toBe(true)
     }
   })
-  it('Jobs stays lit on the folded-in Calendar view', () => {
-    expect(isNavActive('/portal/jobs/calendar', item('/portal/jobs'))).toBe(true)
+  it('Calendar is its own item; Jobs and Calendar highlight distinctly', () => {
+    // On the calendar page: Calendar lit, Jobs NOT.
+    expect(isNavActive('/portal/jobs/calendar', item('/portal/jobs/calendar'))).toBe(true)
+    expect(isNavActive('/portal/jobs/calendar', item('/portal/jobs'))).toBe(false)
+    // On a jobs page: Jobs lit, Calendar NOT.
     expect(isNavActive('/portal/jobs', item('/portal/jobs'))).toBe(true)
+    expect(isNavActive('/portal/jobs/123', item('/portal/jobs'))).toBe(true)
+    expect(isNavActive('/portal/jobs', item('/portal/jobs/calendar'))).toBe(false)
   })
   it('Settings stays lit on its sub-pages (accountants / archive folded in)', () => {
     expect(isNavActive('/portal/settings/accountants', item('/portal/settings'))).toBe(true)
