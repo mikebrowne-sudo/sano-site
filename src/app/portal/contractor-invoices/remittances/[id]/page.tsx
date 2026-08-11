@@ -3,7 +3,7 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ExternalLink, Printer, Download, CheckCircle2, Pencil } from 'lucide-react'
+import { ExternalLink, Printer, Download, CheckCircle2, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { getRemittanceBatchById } from '@/lib/contractor-remittance-data'
@@ -13,6 +13,7 @@ import { SendRemittanceButton } from '@/components/SendRemittanceButton'
 import { VoidControl } from '../../_components/VoidControl'
 import { RemittancePaidControl } from '../../_components/RemittancePaidControl'
 import { formatCurrency, formatDateTime } from '@/lib/format'
+import { BackLink } from '../../../_components/BackLink'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,9 +27,7 @@ export default async function RemittanceBatchViewPage({ params }: { params: { id
 
   return (
     <div className="max-w-4xl mx-auto">
-      <Link href="/portal/contractor-invoices" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 mb-4">
-        <ArrowLeft size={14} /> Back to contractor invoices
-      </Link>
+      <BackLink fallbackHref="/portal/contractor-invoices" label="Back to contractor invoices" />
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>

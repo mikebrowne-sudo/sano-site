@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Link2, Download } from 'lucide-react'
+import { Link2, Download } from 'lucide-react'
+import { BackLink } from '../../_components/BackLink'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { EmploymentAgreementDocument, agreementViewFromRow } from '@/components/EmploymentAgreementDocument'
@@ -56,9 +57,7 @@ export default async function AgreementDetailPage({ params }: { params: { id: st
   return (
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-4">
-        <Link href="/portal/agreements" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800">
-          <ArrowLeft size={14} /> Employment agreements
-        </Link>
+        <BackLink fallbackHref="/portal/agreements" label="Employment agreements" />
         <a
           href={`/api/agreements/${a.id}/pdf`}
           target="_blank"

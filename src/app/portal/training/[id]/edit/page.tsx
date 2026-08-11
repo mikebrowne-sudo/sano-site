@@ -1,8 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { ModuleForm } from '../../_components/ModuleForm'
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { BackLink } from '../../../_components/BackLink'
 
 export default async function EditModulePage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -17,7 +16,7 @@ export default async function EditModulePage({ params }: { params: { id: string 
 
   return (
     <div>
-      <Link href={`/portal/training/${params.id}`} className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"><ArrowLeft size={14} /> Back to module</Link>
+      <BackLink fallbackHref={`/portal/training/${params.id}`} label="Back to module" />
       <h1 className="text-2xl font-bold text-sage-800 mb-8">Edit {mod.title}</h1>
       <ModuleForm module={mod} />
     </div>

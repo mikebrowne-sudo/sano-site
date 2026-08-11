@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
-import { ArrowLeft, Pencil } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import clsx from 'clsx'
 import {
   InviteActions,
@@ -11,6 +11,7 @@ import {
   STATUS_LABEL,
   STATUS_BADGE,
 } from '../_components/InviteActions'
+import { BackLink } from '../../_components/BackLink'
 
 function fmtDate(iso: string | null) {
   if (!iso) return '—'
@@ -62,12 +63,7 @@ export default async function StaffDetailPage({ params }: { params: { id: string
 
   return (
     <div className="max-w-3xl">
-      <Link
-        href="/portal/staff"
-        className="inline-flex items-center gap-1 text-sm text-sage-600 hover:text-sage-800 mb-4"
-      >
-        <ArrowLeft size={14} /> All staff
-      </Link>
+      <BackLink fallbackHref="/portal/staff" label="All staff" />
 
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
