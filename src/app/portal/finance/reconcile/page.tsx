@@ -169,7 +169,7 @@ export default async function ReconcilePage() {
         <Td className="text-right">
           {canEdit && d.status === 'not_recorded' && (
             <Link
-              href={`/portal/expenses/new?amount=${Math.abs(d.txn.amount)}&date=${d.txn.date}&ref=${encodeURIComponent(d.txn.memo || d.txn.payee)}`}
+              href={`/portal/expenses/new?amount=${Math.abs(d.txn.amount)}&date=${d.txn.date}&ref=${encodeURIComponent(d.txn.memo || d.txn.payee)}&returnTo=${encodeURIComponent('/portal/finance/reconcile')}`}
               className="text-sage-600 hover:text-sage-800 underline whitespace-nowrap"
             >Add expense →</Link>
           )}
