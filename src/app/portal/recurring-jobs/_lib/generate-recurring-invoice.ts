@@ -32,10 +32,13 @@ export interface RecurringRow {
   billing_mode?: string | null
   per_visit_rate?: number | null
   service_days_of_week?: number[] | null
+  /** Optional per-job contractor pay rate — overrides the contractor's profile
+   *  rate when set. Null = use their normal rate. */
+  contractor_rate_override?: number | null
 }
 
 export const REC_COLS =
-  'id, client_id, monthly_value, title, description, address, status, invoice_auto_send, invoice_send_day, next_invoice_date, contractor_id, contractor_monthly_pay, bill_in_arrears, billing_mode, per_visit_rate, service_days_of_week'
+  'id, client_id, monthly_value, title, description, address, status, invoice_auto_send, invoice_send_day, next_invoice_date, contractor_id, contractor_monthly_pay, bill_in_arrears, billing_mode, per_visit_rate, service_days_of_week, contractor_rate_override'
 
 /** Month label for a billing date, e.g. "2026-07-31" → "July 2026". */
 export function billingPeriodLabel(billDate: string): string {

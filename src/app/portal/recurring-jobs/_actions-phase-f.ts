@@ -200,7 +200,7 @@ export async function generateUpcomingRecurringJobs(input: {
 
   const { data: rec, error: readErr } = await supabase
     .from('recurring_jobs')
-    .select('id, client_id, title, description, address, scheduled_time, duration_estimate, contractor_id, contractor_pay_type, assigned_to, frequency, start_date, end_date, next_due_date, status, scope_snapshot')
+    .select('id, client_id, title, description, address, scheduled_time, duration_estimate, contractor_id, contractor_pay_type, assigned_to, frequency, start_date, end_date, next_due_date, status, scope_snapshot, contractor_rate_override')
     .eq('id', recurringJobId)
     .single()
   if (readErr || !rec) return { error: 'Recurring contract not found.' }
@@ -215,12 +215,18 @@ export async function generateUpcomingRecurringJobs(input: {
   const payType: RecurringPayType = (rec.contractor_pay_type as RecurringPayType) === 'fixed' ? 'fixed' : 'hourly'
   let contractorRate: number | null = null
   if (rec.contractor_id) {
-    const { data: c } = await supabase
-      .from('contractors')
-      .select('hourly_rate')
-      .eq('id', rec.contractor_id)
-      .single()
-    contractorRate = (c?.hourly_rate as number | null) ?? null
+    // Per-job override wins over the contractor's profile rate when set.
+    const overrideRate = (rec as { contractor_rate_override?: number | null }).contractor_rate_override
+    if (overrideRate != null) {
+      contractorRate = Number(overrideRate)
+    } else {
+      const { data: c } = await supabase
+        .from('contractors')
+        .select('hourly_rate')
+        .eq('id', rec.contractor_id)
+        .single()
+      contractorRate = (c?.hourly_rate as number | null) ?? null
+    }
   }
   const horizon = addDaysIso(todayIso(), weeks * 7)
   const stopAt = rec.end_date && rec.end_date < horizon ? rec.end_date : horizon
