@@ -6,7 +6,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
-import { ArrowLeft } from 'lucide-react'
+import { BackLink } from '../../_components/BackLink'
 import { ApplicantStatusForm } from './_components/ApplicantStatusForm'
 import { ApplicantNotesForm } from './_components/ApplicantNotesForm'
 import { ApplicantStageActions } from './_components/ApplicantStageActions'
@@ -119,12 +119,7 @@ export default async function ApplicantDetailPage({
 
   return (
     <div className="max-w-4xl">
-      <Link
-        href="/portal/applicants"
-        className="inline-flex items-center gap-1 text-sm text-sage-600 hover:text-sage-800 mb-4"
-      >
-        <ArrowLeft size={14} /> All applicants
-      </Link>
+      <BackLink fallbackHref="/portal/applicants" label="All applicants" />
 
       <div className="flex items-start justify-between mb-4 gap-4 flex-wrap">
         <div>

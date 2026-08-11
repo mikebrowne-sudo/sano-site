@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft, CornerDownRight } from 'lucide-react'
+import { CornerDownRight } from 'lucide-react'
+import { BackLink } from '../../_components/BackLink'
 import { getStatementDetail } from '@/lib/contractor-statement-data'
 import { periodLabel } from '@/lib/contractor-statement-period'
 import type { IssuedSnapshot } from '@/lib/contractor-statement-snapshot'
@@ -54,9 +54,7 @@ export default async function StatementDetailPage({ params }: { params: { id: st
 
   return (
     <div>
-      <Link href="/portal/contractor-statements" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4">
-        <ArrowLeft size={14} /> Back to statements
-      </Link>
+      <BackLink fallbackHref="/portal/contractor-statements" label="Back to statements" />
 
       <IssuePanel
         statementId={params.id}

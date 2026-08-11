@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Pencil } from 'lucide-react'
+import { Pencil } from 'lucide-react'
+import { BackLink } from '../../_components/BackLink'
 import { GenerateJobButton } from './_components/GenerateJobButton'
 import { GenerateUpcomingButton } from './_components/GenerateUpcomingButton'
 import { RemindersPanel, type ReminderRow } from './_components/RemindersPanel'
@@ -56,9 +57,7 @@ export default async function RecurringJobDetailPage({ params }: { params: { id:
 
   return (
     <div>
-      <Link href="/portal/recurring-jobs" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4">
-        <ArrowLeft size={14} /> Back to recurring jobs
-      </Link>
+      <BackLink fallbackHref="/portal/recurring-jobs" label="Back to recurring jobs" />
 
       <div className="flex items-center justify-between mb-8">
         <div>

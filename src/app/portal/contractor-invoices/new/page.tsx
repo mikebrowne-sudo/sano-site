@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { CIForm } from '../_components/CIForm'
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { BackLink } from '../../_components/BackLink'
 
 export default async function NewContractorInvoicePage() {
   const supabase = createClient()
@@ -18,7 +17,7 @@ export default async function NewContractorInvoicePage() {
 
   return (
     <div>
-      <Link href="/portal/contractor-invoices" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"><ArrowLeft size={14} /> Back</Link>
+      <BackLink fallbackHref="/portal/contractor-invoices" />
       <h1 className="text-2xl font-bold text-sage-800 mb-8">New Contractor Invoice</h1>
       <CIForm contractors={contractors ?? []} jobs={jobs ?? []} />
     </div>

@@ -3,10 +3,9 @@
 // jobs with a uniform KRITIKAPAYROLLDDMMYY reference. Admin-only.
 
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
+import { BackLink } from '../../../_components/BackLink'
 import { ContractorRemittanceBuilder, type ContractorRow } from './_components/ContractorRemittanceBuilder'
 
 export const dynamic = 'force-dynamic'
@@ -48,9 +47,7 @@ export default async function NewByContractorPage() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      <Link href="/portal/contractor-invoices" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 mb-4">
-        <ArrowLeft size={14} /> Back to contractor invoices
-      </Link>
+      <BackLink fallbackHref="/portal/contractor-invoices" label="Back to contractor invoices" />
       <h1 className="text-3xl font-bold text-sage-800 tracking-tight mb-1">Remittance by contractor</h1>
       <p className="text-sm text-sage-500 mb-6">Select who you&rsquo;re paying. Each contractor (a couple sharing a company is combined) gets one remittance covering their unpaid jobs, with a uniform reference. Nothing is sent — this creates the remittances to review.</p>
 
