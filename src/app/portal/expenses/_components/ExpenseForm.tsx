@@ -25,10 +25,13 @@ export function ExpenseForm({
   expense,
   vendorSuggestions = [],
   receiptUrl = null,
+  returnTo = '/portal/expenses',
 }: {
   expense?: ExpenseData
   vendorSuggestions?: VendorSuggestion[]
   receiptUrl?: string | null
+  /** Where to go after saving — the origin the user came from (e.g. reconcile). */
+  returnTo?: string
 }) {
   const isEdit = !!expense?.id
 
@@ -123,7 +126,7 @@ export function ExpenseForm({
         }
       }
 
-      window.location.href = '/portal/expenses'
+      window.location.href = returnTo
     })
   }
 

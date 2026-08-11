@@ -1,15 +1,14 @@
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { ExpenseForm, type ExpenseData } from '../_components/ExpenseForm'
 import { getVendorSuggestions } from '../_data'
+import { BackLink } from '../../_components/BackLink'
 
 export default async function NewExpensePage({
   searchParams,
 }: {
-  searchParams: { amount?: string; date?: string; ref?: string; vendor?: string }
+  searchParams: { amount?: string; date?: string; ref?: string; vendor?: string; returnTo?: string }
 }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -33,11 +32,17 @@ export default async function NewExpensePage({
       }
     : undefined
 
+  // Where to return after Back / save — the caller's origin (e.g. reconcile) or
+  // the expenses list by default. Only allow same-site relative paths.
+  const returnTo = searchParams.returnTo && searchParams.returnTo.startsWith('/portal/')
+    ? searchParams.returnTo
+    : '/portal/expenses'
+
   return (
     <div>
-      <Link href="/portal/expenses" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"><ArrowLeft size={14} /> Back</Link>
+      <BackLink fallbackHref={returnTo} />
       <h1 className="text-2xl font-bold text-sage-800 mb-8">Add expense</h1>
-      <ExpenseForm expense={prefill} vendorSuggestions={vendorSuggestions} />
+      <ExpenseForm expense={prefill} vendorSuggestions={vendorSuggestions} returnTo={returnTo} />
     </div>
   )
 }
