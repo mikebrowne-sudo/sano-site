@@ -22,6 +22,10 @@ export default function EmailSignatureMichael() {
   style={{
     display: 'block',
     width: '1000px',
+    // Lets the banner scale DOWN on a narrow window / phone instead of
+    // overflowing. Without it a client that honours the fixed width renders
+    // it oversized (the file is ~1665px native) and it blows out the body.
+    maxWidth: '100%',
     height: 'auto',
     border: 0,
     margin: 0,
