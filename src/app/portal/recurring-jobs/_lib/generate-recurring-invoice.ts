@@ -35,10 +35,14 @@ export interface RecurringRow {
   /** Optional per-job contractor pay rate — overrides the contractor's profile
    *  rate when set. Null = use their normal rate. */
   contractor_rate_override?: number | null
+  /** Contractor payable mode: 'fixed' (flat contractor_monthly_pay) or
+   *  'per_visit' (contractor_per_visit_rate × service days that month). */
+  contractor_pay_mode?: string | null
+  contractor_per_visit_rate?: number | null
 }
 
 export const REC_COLS =
-  'id, client_id, monthly_value, title, description, address, status, invoice_auto_send, invoice_send_day, next_invoice_date, contractor_id, contractor_monthly_pay, bill_in_arrears, billing_mode, per_visit_rate, service_days_of_week, contractor_rate_override'
+  'id, client_id, monthly_value, title, description, address, status, invoice_auto_send, invoice_send_day, next_invoice_date, contractor_id, contractor_monthly_pay, bill_in_arrears, billing_mode, per_visit_rate, service_days_of_week, contractor_rate_override, contractor_pay_mode, contractor_per_visit_rate'
 
 /** Month label for a billing date, e.g. "2026-07-31" → "July 2026". */
 export function billingPeriodLabel(billDate: string): string {
@@ -76,11 +80,19 @@ export async function ensureContractorPayable(
   rec: RecurringRow,
   billDate: string,
 ): Promise<{ created?: boolean; skipped?: string; error?: string }> {
-  if (!rec.contractor_id || !(Number(rec.contractor_monthly_pay) > 0)) return { skipped: 'no contractor pay' }
+  if (!rec.contractor_id) return { skipped: 'no contractor' }
+  const perVisitPay = rec.contractor_pay_mode === 'per_visit'
+  if (perVisitPay) {
+    if (!(Number(rec.contractor_per_visit_rate) > 0)) return { skipped: 'no contractor per-visit rate' }
+    if (!(rec.service_days_of_week && rec.service_days_of_week.length > 0)) return { skipped: 'no service days for per-visit pay' }
+  } else if (!(Number(rec.contractor_monthly_pay) > 0)) {
+    return { skipped: 'no contractor pay' }
+  }
   const siteLabel = rec.title?.trim() || 'Recurring contract'
   // Period label follows the service month — the PREVIOUS month when billing in
   // arrears — so the contractor's payable lines up with the month worked.
-  const periodLabel = serviceMonth(billDate, !!rec.bill_in_arrears).label
+  const period = serviceMonth(billDate, !!rec.bill_in_arrears)
+  const periodLabel = period.label
 
   const { data: existing } = await supabase
     .from('contractor_invoices')
@@ -94,7 +106,13 @@ export async function ensureContractorPayable(
     .maybeSingle()
   if (existing) return { skipped: 'payable already exists for this period' }
 
-  const amount = Number(rec.contractor_monthly_pay)
+  // Fixed = flat monthly pay; per-visit = rate × service days in the period.
+  const amount = perVisitPay
+    ? computeRecurringAmount(
+        { billingMode: 'per_visit', perVisitRate: rec.contractor_per_visit_rate, serviceDaysOfWeek: rec.service_days_of_week },
+        { start: period.start, end: period.end },
+      ).amount
+    : Number(rec.contractor_monthly_pay)
   const { fields: gstFields } = await resolveContractorGstSnapshot(supabase, rec.contractor_id, amount, billDate)
 
   const { data: ci, error } = await supabase
