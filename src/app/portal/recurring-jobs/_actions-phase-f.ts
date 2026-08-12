@@ -115,6 +115,18 @@ export async function createRecurringJobFromQuote(quoteId: string): Promise<{ er
 
   const monthlyValue = quote.base_price ?? null
 
+  // Carry the quote's service days into the recurring job's ISO weekday set, so
+  // per-visit billing / contractor pay can be switched on without re-entering
+  // them. commercial_quote_details.service_days is a text[] like ['mon','tue'].
+  const DAY_TO_ISO: Record<string, number> = {
+    mon: 1, monday: 1, tue: 2, tues: 2, tuesday: 2, wed: 3, weds: 3, wednesday: 3,
+    thu: 4, thur: 4, thurs: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6, sun: 7, sunday: 7,
+  }
+  const rawDays = (commercialDetails?.service_days as string[] | null) ?? null
+  const serviceDaysOfWeek = Array.isArray(rawDays)
+    ? Array.from(new Set(rawDays.map((d) => DAY_TO_ISO[String(d).trim().toLowerCase()]).filter((n): n is number => !!n))).sort()
+    : []
+
   const title = quote.quote_number
     ? `${isCommercial ? 'Commercial contract' : 'Recurring service'} — ${quote.quote_number}`
     : (isCommercial ? 'Commercial contract' : 'Recurring service')
@@ -137,6 +149,11 @@ export async function createRecurringJobFromQuote(quoteId: string): Promise<{ er
       contract_term_months: termMonths,
       notice_period_days: noticeDays,
       monthly_value: monthlyValue,
+      // Seed the per-visit weekday set from the quote's service days so billing
+      // or contractor pay can be switched to per-visit without re-entering them.
+      // billing_mode stays 'fixed' (the quote's price is a monthly figure) —
+      // staff switch it deliberately if this contract bills per clean.
+      service_days_of_week: serviceDaysOfWeek.length > 0 ? serviceDaysOfWeek : null,
       scope_snapshot: scopeSnapshot,
       status: 'active',
       renewal_status: 'not_started',
