@@ -32,6 +32,8 @@ interface RecurringJobInput {
   per_visit_rate?: number
   service_days_of_week?: number[]
   contractor_rate_override?: number
+  contractor_pay_mode?: string
+  contractor_per_visit_rate?: number
 }
 
 function calcNextDueDate(startDate: string, frequency: string, after?: string | null): string | null {
@@ -86,6 +88,8 @@ export async function createRecurringJob(input: RecurringJobInput) {
       per_visit_rate: input.per_visit_rate ?? null,
       service_days_of_week: input.service_days_of_week ?? null,
       contractor_rate_override: input.contractor_rate_override ?? null,
+      contractor_pay_mode: input.contractor_pay_mode ?? 'fixed',
+      contractor_per_visit_rate: input.contractor_per_visit_rate ?? null,
       next_invoice_date: input.invoice_send_day
         ? computeNextInvoiceDate(input.start_date, input.invoice_send_day)
         : null,
@@ -144,6 +148,8 @@ export async function updateRecurringJob(id: string, input: RecurringJobInput) {
       per_visit_rate: input.per_visit_rate ?? null,
       service_days_of_week: input.service_days_of_week ?? null,
       contractor_rate_override: input.contractor_rate_override ?? null,
+      contractor_pay_mode: input.contractor_pay_mode ?? 'fixed',
+      contractor_per_visit_rate: input.contractor_per_visit_rate ?? null,
       // Keep an existing schedule; only (re)seed when a day is set and none exists.
       next_invoice_date: input.invoice_send_day
         ? (current?.next_invoice_date ?? computeNextInvoiceDate(new Date().toISOString().slice(0, 10), input.invoice_send_day))
