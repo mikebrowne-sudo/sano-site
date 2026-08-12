@@ -31,6 +31,7 @@ interface RecurringJobData {
   billing_mode?: string | null
   per_visit_rate?: number | null
   service_days_of_week?: number[] | null
+  contractor_rate_override?: number | null
 }
 
 function toNum(v: string) {
@@ -59,6 +60,7 @@ export function RecurringJobForm({
   const [contractorPayType, setContractorPayType] = useState(recurringJob?.contractor_pay_type ?? 'hourly')
   const [assignedTo, setAssignedTo] = useState(recurringJob?.assigned_to ?? '')
   const [contractorPrice, setContractorPrice] = useState(recurringJob?.contractor_price != null ? String(recurringJob.contractor_price) : '')
+  const [contractorRateOverride, setContractorRateOverride] = useState(recurringJob?.contractor_rate_override != null ? String(recurringJob.contractor_rate_override) : '')
   const [frequency, setFrequency] = useState(recurringJob?.frequency ?? 'weekly')
   const [startDate, setStartDate] = useState(recurringJob?.start_date ?? '')
   const [endDate, setEndDate] = useState(recurringJob?.end_date ?? '')
@@ -98,6 +100,7 @@ export function RecurringJobForm({
       contractor_pay_type: contractorPayType || 'hourly',
       assigned_to: assignedTo.trim() || undefined,
       contractor_price: toNum(contractorPrice),
+      contractor_rate_override: toNum(contractorRateOverride),
       frequency,
       start_date: startDate,
       end_date: endDate || undefined,
@@ -169,9 +172,15 @@ export function RecurringJobForm({
           <Field label="Contractor price ($)" type="number" step="0.01" min="0" value={contractorPrice} onChange={setContractorPrice} />
         </div>
         {contractorId && (
-          <div className="mt-4 max-w-xs">
-            <Select label="Contractor pay basis" value={contractorPayType} onChange={setContractorPayType} options={[{ value: 'hourly', label: 'Hourly / allocated hours' }, { value: 'fixed', label: 'Fixed per occurrence' }]} />
-          </div>
+          <>
+            <div className="mt-4 max-w-xs">
+              <Select label="Contractor pay basis" value={contractorPayType} onChange={setContractorPayType} options={[{ value: 'hourly', label: 'Hourly / allocated hours' }, { value: 'fixed', label: 'Fixed per occurrence' }]} />
+            </div>
+            <div className="mt-4 max-w-xs">
+              <Field label="Contractor rate override ($/hr)" type="number" step="0.01" min="0" value={contractorRateOverride} onChange={setContractorRateOverride} placeholder="Leave blank = their normal rate" />
+              <p className="text-[12px] text-sage-500 mt-1">Only set this if this job pays a different rate than the contractor&rsquo;s usual one. Blank uses their profile rate.</p>
+            </div>
+          </>
         )}
       </Section>
 

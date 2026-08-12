@@ -31,6 +31,7 @@ interface RecurringJobInput {
   billing_mode?: string
   per_visit_rate?: number
   service_days_of_week?: number[]
+  contractor_rate_override?: number
 }
 
 function calcNextDueDate(startDate: string, frequency: string, after?: string | null): string | null {
@@ -84,6 +85,7 @@ export async function createRecurringJob(input: RecurringJobInput) {
       billing_mode: input.billing_mode ?? 'fixed',
       per_visit_rate: input.per_visit_rate ?? null,
       service_days_of_week: input.service_days_of_week ?? null,
+      contractor_rate_override: input.contractor_rate_override ?? null,
       next_invoice_date: input.invoice_send_day
         ? computeNextInvoiceDate(input.start_date, input.invoice_send_day)
         : null,
@@ -141,6 +143,7 @@ export async function updateRecurringJob(id: string, input: RecurringJobInput) {
       billing_mode: input.billing_mode ?? 'fixed',
       per_visit_rate: input.per_visit_rate ?? null,
       service_days_of_week: input.service_days_of_week ?? null,
+      contractor_rate_override: input.contractor_rate_override ?? null,
       // Keep an existing schedule; only (re)seed when a day is set and none exists.
       next_invoice_date: input.invoice_send_day
         ? (current?.next_invoice_date ?? computeNextInvoiceDate(new Date().toISOString().slice(0, 10), input.invoice_send_day))
@@ -231,10 +234,12 @@ export async function generateNextJob(recurringId: string) {
       .select('hourly_rate')
       .eq('id', rec.contractor_id)
       .single()
+    // Per-job override wins over the contractor's profile rate when set.
+    const overrideRate = (rec as { contractor_rate_override?: number | null }).contractor_rate_override
     const workerRow = buildRecurringWorkerRow({
       jobId: newJob.id as string,
       contractorId: rec.contractor_id as string,
-      contractorRate: (c?.hourly_rate as number | null) ?? null,
+      contractorRate: (overrideRate != null ? Number(overrideRate) : (c?.hourly_rate as number | null)) ?? null,
       allowedHours: resolveAllowedHours(null, rec.duration_estimate as string | null),
       payType: (rec.contractor_pay_type as RecurringPayType) === 'fixed' ? 'fixed' : 'hourly',
     })
