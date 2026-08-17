@@ -14,6 +14,7 @@ import { revalidatePath } from 'next/cache'
 import { buildRemittanceReference, groupContractorsForRemittance, type RemittanceContractor } from '@/lib/remittance-reference'
 import { createContractorRemittance } from '../_actions-remittance-batch'
 import { splitByPeriod, sumInvoices, round2, type EligibleInvoice, type PeriodFilter } from '@/lib/remittance-period'
+import { resolvePayeeBankAccount, type PayeeBankResolution } from '@/lib/bank-account'
 import { resolveContractorServiceDate } from '@/lib/contractor-service-date'
 import { toNzCalendarDate } from '@/lib/contractor-statement-period'
 
@@ -53,6 +54,12 @@ export interface GroupPlan {
   lines: PlanLine[]
   /** Undated (null service_date) invoices excluded when a period filter is set. */
   undatedCount: number
+  /**
+   * The bank account this payee should be paid on, resolved across everyone in
+   * the group. Display + verification only — remittances deliberately store no
+   * bank details, and this never picks a winner when members disagree.
+   */
+  bank: PayeeBankResolution
 }
 
 interface EligibleCi {
@@ -79,7 +86,7 @@ async function loadPlan(
 
   const { data: contractors } = await supabase
     .from('contractors')
-    .select('id, full_name, company_name, gst_number')
+    .select('id, full_name, company_name, gst_number, bank_account_name, bank_account_number')
     .in('id', ids)
 
   // Approved, not-yet-remitted pay for these contractors. Join the job so a
@@ -172,6 +179,21 @@ async function loadPlan(
           workersOnJob: c.workersOnJob ?? 1,
         })),
       undatedCount: split.undated.length,
+      // Resolved across every member of the group — a formatting-only
+      // difference normalises away, a genuine difference reports 'conflict'
+      // rather than silently choosing one account.
+      bank: resolvePayeeBankAccount(
+        g.contractorIds.map((cid) => {
+          const c = (contractors ?? []).find((x) => x.id === cid) as
+            { full_name?: string | null; bank_account_name?: string | null; bank_account_number?: string | null } | undefined
+          return {
+            contractorId: cid,
+            contractorName: c?.full_name ?? null,
+            accountName: c?.bank_account_name ?? null,
+            accountNumber: c?.bank_account_number ?? null,
+          }
+        }),
+      ),
     }
   })
   // Only surface contractors who actually have something in this run — either
