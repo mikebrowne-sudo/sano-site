@@ -14,7 +14,7 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
-import { recentPayPeriods, payPeriodForKey, payPeriodForDate } from '@/lib/contractor-pay-period'
+import { recentPayPeriods, payPeriodForKey } from '@/lib/contractor-pay-period'
 import { loadApprovalRows, awaitingAuthorisation } from '@/lib/contractor-pay-approvals-data'
 import { previewRemittancesForContractors } from '../remittances/_actions-by-contractor'
 import { PayRunView } from './_components/PayRunView'
@@ -28,21 +28,36 @@ export default async function PayRunPage({ searchParams }: { searchParams: { per
 
   const today = new Date().toISOString().slice(0, 10)
   const periods = recentPayPeriods(today, 6)
-  const period = payPeriodForKey(searchParams.period) ?? periods[0] ?? payPeriodForDate(today)
 
-  // "Ready to pay" — authorised, unremitted CIs grouped by contractor for jobs
-  // whose service date falls in the period. Reuses the by-contractor planner.
+  // DEFAULT = "everything owed" (?period absent or 'all'). A period is an
+  // OPTIONAL filter, not a gate.
+  //
+  // Why: filtering by service date hid real money. A payable whose date can't be
+  // resolved (no job completed_at, no service_date, no gst_supply_date) matches
+  // NO period, so it was unpayable from this screen and invisible on every
+  // selection. Payables from different months also can't appear together, so a
+  // period-first screen shows "one contractor" while several are owed. The job
+  // here is "who do I owe?" — that question isn't period-scoped.
+  const showAll = !searchParams.period || searchParams.period === 'all'
+  const period = showAll ? null : (payPeriodForKey(searchParams.period) ?? null)
+
+  // "Ready to pay" — authorised, unremitted CIs grouped by contractor.
+  // splitByPeriod treats an empty filter as a no-op and returns everything
+  // (undated included), so passing {} is the honest "all owed" query.
   const allContractorIds = (await supabase.from('contractors').select('id')).data?.map((c) => c.id as string) ?? []
+  const payDate = period?.payDate ?? today
   const plan = await previewRemittancesForContractors(
     allContractorIds,
-    period.payDate,
-    { from: period.periodStart, to: period.periodEnd },
+    payDate,
+    period ? { from: period.periodStart, to: period.periodEnd } : {},
   )
 
-  // "Awaiting authorisation" — completed jobs in the period with no approved
-  // payable yet. Approvable inline; approving creates the CI which then appears
-  // in the ready-to-pay block on refresh.
-  const approvalRows = await loadApprovalRows(supabase, { from: period.periodStart, to: period.periodEnd })
+  // "Awaiting authorisation" — completed jobs with no approved payable yet.
+  // Unfiltered in all-owed mode so nothing sits unapproved out of view.
+  const approvalRows = await loadApprovalRows(
+    supabase,
+    period ? { from: period.periodStart, to: period.periodEnd } : {},
+  )
   const awaiting = awaitingAuthorisation(approvalRows)
 
   return (
@@ -52,17 +67,18 @@ export default async function PayRunPage({ searchParams }: { searchParams: { per
       </Link>
       <h1 className="text-3xl font-bold text-sage-800 tracking-tight mb-1">Pay run</h1>
       <p className="text-sm text-sage-500 mb-6 max-w-2xl">
-        Pick the pay period, check nothing is still awaiting authorisation, then bundle everyone&rsquo;s authorised
-        jobs into remittances. 1st–15th is paid on the 30th; 16th–end of month is paid on the 15th of the next month.
+        Everything currently owed to contractors. Check nothing is awaiting authorisation, then
+        bundle it into remittances. Narrow to a single pay period only if you need to —
+        1st–15th is paid on the 30th; 16th–end of month is paid on the 15th of the next month.
       </p>
 
       <PayRunView
         periods={periods.map((p) => ({ key: p.periodStart, label: p.label, payDateLabel: p.payDateLabel }))}
-        selectedKey={period.periodStart}
-        periodStart={period.periodStart}
-        periodEnd={period.periodEnd}
-        payDate={period.payDate}
-        payDateLabel={period.payDateLabel}
+        selectedKey={period ? period.periodStart : 'all'}
+        periodStart={period?.periodStart ?? null}
+        periodEnd={period?.periodEnd ?? null}
+        payDate={payDate}
+        payDateLabel={period?.payDateLabel ?? 'All outstanding'}
         groups={plan.groups ?? []}
         grandTotal={plan.grand_total ?? 0}
         planError={plan.error ?? null}
