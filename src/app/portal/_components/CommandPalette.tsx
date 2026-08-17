@@ -40,10 +40,10 @@ interface NavItem {
 // the sidebar — added here so ⌘K still jumps straight to them by name. Keeps the
 // sidebar lean while search reaches everything.
 const HUB_DESTINATIONS: { href: string; label: string; group: string }[] = [
-  { href: '/portal/contractor-invoices/pay-run', label: 'Pay run', group: 'Pay' },
+  { href: '/portal/contractor-invoices/pay-run', label: 'Contractor pay', group: 'Pay' },
+  { href: '/portal/contractor-invoices/remittances', label: 'Payment history', group: 'Pay' },
   { href: '/portal/contractor-invoices/pending-approvals', label: 'Pending approvals', group: 'Pay' },
   { href: '/portal/contractor-invoices', label: 'Contractor invoices', group: 'Pay' },
-  { href: '/portal/contractor-invoices/remittances', label: 'Remittances', group: 'Pay' },
   { href: '/portal/contractor-statements', label: 'Contractor statements (historical)', group: 'Pay' },
   { href: '/portal/payroll', label: 'Employee pay', group: 'Pay' },
   { href: '/portal/mileage', label: 'Mileage logbook', group: 'Pay' },
