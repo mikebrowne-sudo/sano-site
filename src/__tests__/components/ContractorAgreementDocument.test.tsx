@@ -122,6 +122,26 @@ describe('Contractor agreement document — Myrtle-shaped', () => {
     expect(text()).not.toMatch(/the Contractor will supply, at their own cost, the equipment/)
   })
 
+  it('clause 17.2 uses the covered_by_sano wording (no "the Contractor’s insurance")', () => {
+    render(<EmploymentAgreementDocument wrapper="print-overlay" a={view({ scheduleBlocks: [PUKEKOHE], insuranceArrangement: { mode: 'covered_by_sano' } })} />)
+    const t = text()
+    expect(t).toMatch(/loss covered under the applicable insurance arrangement/)
+    expect(t).not.toMatch(/amount recoverable under the Contractor’s insurance/)
+  })
+
+  it('clause 17.2 from a FROZEN snapshot uses the frozen mode — a later insurance change cannot alter it', () => {
+    // A sent agreement froze covered_by_sano; even if the contractor's live setup
+    // later flips to own_required, the frozen snapshot drives the clause.
+    const frozen = agreementViewFromRow({
+      agreement_type: 'contractor', start_date: '2026-08-01', hourly_rate: null,
+      service_schedules_snapshot: [RESIDENTIAL],
+      insurance_arrangement_snapshot: { mode: 'covered_by_sano' },
+    })
+    render(<EmploymentAgreementDocument wrapper="print-overlay" a={frozen} />)
+    expect(text()).toMatch(/loss covered under the applicable insurance arrangement/)
+    expect(text()).not.toMatch(/amount recoverable under the Contractor’s insurance/)
+  })
+
   it('renders the linked customer from a FROZEN snapshot (agreementViewFromRow path)', () => {
     // Simulate a sent/frozen agreement: the row carries service_schedules_snapshot.
     const frozen = agreementViewFromRow({
