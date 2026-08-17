@@ -3,7 +3,8 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ExternalLink, Printer, Download, CheckCircle2, Pencil } from 'lucide-react'
+import { ExternalLink, Printer, Download, CheckCircle2, Pencil, Landmark } from 'lucide-react'
+import clsx from 'clsx'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { getRemittanceBatchById } from '@/lib/contractor-remittance-data'
@@ -12,7 +13,7 @@ import { PrintButton } from '@/components/PrintButton'
 import { SendRemittanceButton } from '@/components/SendRemittanceButton'
 import { VoidControl } from '../../_components/VoidControl'
 import { RemittancePaidControl } from '../../_components/RemittancePaidControl'
-import { formatCurrency, formatDateTime } from '@/lib/format'
+import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
 import { BackLink } from '../../../_components/BackLink'
 
 export const dynamic = 'force-dynamic'
@@ -71,6 +72,40 @@ export default async function RemittanceBatchViewPage({ params }: { params: { id
       <div className="mb-5">
         <RemittancePaidControl id={data.id} paidAt={data.paidAt} paymentDate={data.paymentDate} />
       </div>
+
+      {/* Bank confirmation — a DIFFERENT fact from "paid". Read-only here;
+          matching happens only in /portal/finance/reconcile-out. */}
+      {data.paidAt && (
+        <div className={clsx(
+          'mb-5 rounded-xl border px-4 py-3 text-sm flex flex-wrap items-center justify-between gap-2',
+          data.paymentConfirmed ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+            : data.allocatedTotal > 0 ? 'border-amber-200 bg-amber-50 text-amber-800'
+            : 'border-sage-200 bg-sage-50 text-sage-700',
+        )}>
+          <span className="flex items-center gap-2">
+            <Landmark size={14} className="shrink-0" />
+            {data.paymentConfirmed ? (
+              <span>
+                <span className="font-semibold">Bank confirmed</span>
+                {data.paymentConfirmedAt && <> on {formatDate(data.paymentConfirmedAt)}</>} — matched to outgoing bank payment{data.allocatedTotal > 0 && <> ({formatCurrency(data.allocatedTotal)})</>}.
+              </span>
+            ) : data.allocatedTotal > 0 ? (
+              <span>
+                <span className="font-semibold">Partly confirmed</span> — {formatCurrency(data.allocatedTotal)} of {formatCurrency(data.total)} matched to the bank.
+              </span>
+            ) : (
+              <span>
+                <span className="font-semibold">Awaiting bank confirmation.</span> Marked paid, not yet matched to an outgoing bank payment.
+              </span>
+            )}
+          </span>
+          {!data.paymentConfirmed && (
+            <Link href="/portal/finance/reconcile-out" className="underline font-medium whitespace-nowrap">
+              Reconcile payment →
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Reversal — void this batch (reverts its payables to approved so
           they can be corrected). Use only when no money has left the bank. */}
