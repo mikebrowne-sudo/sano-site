@@ -16,7 +16,8 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { PortalPageHeader } from '../../_components/PortalPageHeader'
+import { buttonClasses } from '../../_components/Button'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { recentPayPeriods, payPeriodForKey } from '@/lib/contractor-pay-period'
@@ -73,26 +74,18 @@ export default async function PayRunPage({ searchParams }: { searchParams: { per
   const awaitingPayment = await loadAwaitingPayment(supabase)
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <Link href="/portal/contractor-invoices" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 mb-4">
-        <ArrowLeft size={14} /> Contractor invoices
-      </Link>
-      {/* Current | History — the two halves of the contractor pay workspace. */}
-      <nav className="flex items-center gap-1 mb-5 text-sm">
-        <span className="px-3 py-1.5 rounded-lg bg-sage-100 text-sage-800 font-semibold">Current pay</span>
-        <Link
-          href="/portal/contractor-invoices/remittances"
-          className="px-3 py-1.5 rounded-lg text-sage-600 hover:bg-sage-50 hover:text-sage-800 transition-colors"
-        >
-          Payment history
-        </Link>
-      </nav>
-
-      <h1 className="text-3xl font-bold text-sage-800 tracking-tight mb-1">Contractor pay</h1>
-      <p className="text-sm text-sage-500 mb-6 max-w-2xl">
-        Everything currently owed to contractors, and anything still waiting on approval.
-        Approve what&rsquo;s outstanding, review who&rsquo;s owed what, then run the payment.
-      </p>
+    <div className="max-w-5xl">
+      <PortalPageHeader
+        backHref="/portal/pay"
+        backLabel="Back to pay"
+        title="Contractor pay"
+        subtitle="Awaiting payment · Ready to pay · Awaiting approval"
+        actions={
+          <Link href="/portal/contractor-invoices/remittances" className={buttonClasses({ variant: 'secondary' })}>
+            Payment history
+          </Link>
+        }
+      />
 
       <PayRunView
         periods={periods.map((p) => ({ key: p.periodStart, label: p.label, payDateLabel: p.payDateLabel }))}

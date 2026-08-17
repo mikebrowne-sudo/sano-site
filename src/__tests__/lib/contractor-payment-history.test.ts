@@ -97,6 +97,6 @@ describe('payment history screen (source-level)', () => {
 
   it('links back to Current pay', () => {
     expect(page).toMatch(/\/portal\/contractor-invoices\/pay-run/)
-    expect(page).toMatch(/Current pay/)
+    expect(page).toMatch(/Back to contractor pay/)
   })
 })

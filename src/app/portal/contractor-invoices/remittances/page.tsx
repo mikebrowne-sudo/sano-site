@@ -27,6 +27,8 @@ import Link from 'next/link'
 import { FileText, Plus, Search, Wallet, Landmark, ArrowRight } from 'lucide-react'
 import clsx from 'clsx'
 import { createClient } from '@/lib/supabase-server'
+import { PortalPageHeader } from '../../_components/PortalPageHeader'
+import { buttonClasses } from '../../_components/Button'
 import { isAdminUser } from '@/lib/is-admin'
 import { listRemittanceBatches, type PaymentState } from '@/lib/contractor-remittance-data'
 import { SendRemittanceButton } from '@/components/SendRemittanceButton'
@@ -82,28 +84,17 @@ export default async function ContractorPaymentHistoryPage({ searchParams }: { s
 
   return (
     <div className="max-w-6xl mx-auto">
-      {/* Current | History — the two halves of the contractor pay workspace. */}
-      <nav className="flex items-center gap-1 mb-5 text-sm">
-        <Link
-          href="/portal/contractor-invoices/pay-run"
-          className="px-3 py-1.5 rounded-lg text-sage-600 hover:bg-sage-50 hover:text-sage-800 transition-colors"
-        >
-          Current pay
-        </Link>
-        <span className="px-3 py-1.5 rounded-lg bg-sage-100 text-sage-800 font-semibold">Payment history</span>
-      </nav>
-
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-sage-800 tracking-tight">Payment history</h1>
-          <p className="text-sm text-sage-500 mt-0.5">
-            What we&rsquo;ve paid contractors, and whether the bank confirms it.
-          </p>
-        </div>
-        <Link href="/portal/contractor-invoices/remittances/new" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
-          <Plus size={16} /> New remittance
-        </Link>
-      </div>
+      <PortalPageHeader
+        backHref="/portal/contractor-invoices/pay-run"
+        backLabel="Back to contractor pay"
+        title="Payment history"
+        subtitle="Every contractor remittance — what we've paid, and whether the bank confirms it."
+        actions={
+          <Link href="/portal/contractor-invoices/remittances/new" className={buttonClasses({ variant: 'secondary' })}>
+            <Plus size={16} /> New remittance
+          </Link>
+        }
+      />
 
       {/* Summary — reflects the current filter so the numbers match the list. */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
