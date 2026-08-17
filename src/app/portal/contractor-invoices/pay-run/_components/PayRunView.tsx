@@ -14,8 +14,9 @@ export function PayRunView({
 }: {
   periods: { key: string; label: string; payDateLabel: string }[]
   selectedKey: string
-  periodStart: string
-  periodEnd: string
+  /** null in all-owed mode — the period filter is off. */
+  periodStart: string | null
+  periodEnd: string | null
   payDate: string
   payDateLabel: string
   groups: GroupPlan[]
@@ -29,6 +30,8 @@ export function PayRunView({
   const [err, setErr] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
+  const showingAll = selectedKey === 'all'
+
   function changePeriod(key: string) {
     router.push(`/portal/contractor-invoices/pay-run?period=${key}`)
   }
@@ -40,7 +43,9 @@ export function PayRunView({
         contractorIds: groups.flatMap((g) => g.contractorIds),
         paymentDate: payDate,
         markPaid,
-        period: { from: periodStart, to: periodEnd },
+        // Must mirror the filter used to BUILD this plan, or the server would
+        // bundle a different set than the one shown. Empty = everything owed.
+        period: periodStart && periodEnd ? { from: periodStart, to: periodEnd } : {},
       })
       if (res.error) { setErr(res.error); return }
       setResult(`Created ${res.created} remittance${res.created === 1 ? '' : 's'}${res.skipped ? `, ${res.skipped} skipped` : ''}${res.failed ? `, ${res.failed} failed` : ''}.`)
@@ -52,27 +57,46 @@ export function PayRunView({
 
   return (
     <div className="space-y-6">
-      {/* Period selector */}
+      {/* Period filter — OPTIONAL. Defaults to everything owed, because a
+          period-scoped view hides undated payables entirely and splits one
+          contractor's outstanding work across several selections. */}
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[11px] uppercase tracking-wide text-sage-400">Pay period</label>
+        <label className="text-[11px] uppercase tracking-wide text-sage-400">Show</label>
         <select value={selectedKey} onChange={(e) => changePeriod(e.target.value)} className="rounded-lg border border-sage-200 px-3 py-2 text-sm bg-white text-sage-700">
-          {periods.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+          <option value="all">Everything owed</option>
+          {periods.map((p) => <option key={p.key} value={p.key}>Period · {p.label}</option>)}
         </select>
         <span className="text-sm font-medium text-sage-600">{payDateLabel}</span>
+        {!showingAll && (
+          <button
+            type="button"
+            onClick={() => changePeriod('all')}
+            className="text-xs text-sage-500 underline hover:text-sage-700"
+          >
+            Clear filter
+          </button>
+        )}
       </div>
+
+      {!showingAll && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Filtered to one pay period. Payables dated outside it — and any with no
+          service date at all — are hidden. Switch to <strong>Everything owed</strong> to see the full amount outstanding.
+        </p>
+      )}
 
       {/* ── Awaiting authorisation (do this FIRST) ─────────────────────── */}
       <section className={clsx('rounded-2xl border p-5', awaiting.length > 0 ? 'border-amber-200 bg-amber-50/50' : 'border-emerald-100 bg-emerald-50/40')}>
         <h2 className={clsx('flex items-center gap-2 font-semibold mb-1', awaiting.length > 0 ? 'text-amber-800' : 'text-emerald-800')}>
           {awaiting.length > 0 ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
           {awaiting.length > 0
-            ? `${awaiting.length} job${awaiting.length === 1 ? '' : 's'} completed this period awaiting authorisation`
-            : 'Nothing awaiting authorisation for this period'}
+            ? `${awaiting.length} completed job${awaiting.length === 1 ? '' : 's'} awaiting authorisation${showingAll ? '' : ' this period'}`
+            : `Nothing awaiting authorisation${showingAll ? '' : ' for this period'}`}
         </h2>
         <p className="text-[13px] text-sage-500 mb-3">
           {awaiting.length > 0
             ? 'Approve these first so they’re included in the pay run — approving creates the payable and it moves into “ready to pay”.'
-            : 'Every completed job in this period has an approved payable.'}
+            : `Every completed job${showingAll ? '' : ' in this period'} has an approved payable.`}
         </p>
         {awaiting.length > 0 && (
           <PendingApprovalsList rows={awaiting} contractors={Array.from(new Map(awaiting.map((r) => [r.contractorId, r.contractorName])).entries()).map(([id, name]) => ({ id, name }))} />
@@ -89,12 +113,20 @@ export function PayRunView({
         {planError ? (
           <p className="text-sm text-red-600">{planError}</p>
         ) : groups.length === 0 ? (
-          <p className="text-sm text-sage-400">No authorised, unpaid jobs in this period yet.{awaiting.length > 0 ? ' Approve the jobs above to add them here.' : ''}</p>
+          <p className="text-sm text-sage-400">
+            {showingAll
+              ? 'Nothing is currently owed — every authorised job has been paid.'
+              : 'No authorised, unpaid jobs in this period.'}
+            {awaiting.length > 0 ? ' Approve the jobs above to add them here.' : ''}
+          </p>
         ) : (
           <>
-            {undated > 0 && (
+            {/* Only meaningful when a period filter is on — in all-owed mode
+                undated payables are INCLUDED, so there is nothing to warn about. */}
+            {!showingAll && undated > 0 && (
               <p className="mb-3 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                {undated} approved job{undated === 1 ? ' has' : 's have'} no service date and are excluded from this dated run. Set their date or pay them on an undated run.
+                {undated} approved job{undated === 1 ? ' has' : 's have'} no service date, so {undated === 1 ? 'it is' : 'they are'} excluded from this dated run.
+                Switch to <strong>Everything owed</strong> to include {undated === 1 ? 'it' : 'them'}.
               </p>
             )}
             <div className="overflow-x-auto">

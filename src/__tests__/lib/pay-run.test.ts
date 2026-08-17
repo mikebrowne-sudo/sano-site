@@ -34,7 +34,20 @@ describe('Pay-run screen wiring (source-level)', () => {
   it('uses the fortnightly pay-period lib (real 30th/15th pay dates)', () => {
     expect(page).toMatch(/recentPayPeriods/)
     expect(page).toMatch(/payPeriodForKey/)
-    expect(page).toMatch(/period\.payDate/)
+    // Pay date comes from the period when one is selected, else today.
+    expect(page).toMatch(/period\?\.payDate \?\? today/)
+  })
+
+  // The period filter is OPTIONAL (2026-08-17). Filtering by service date hid
+  // real money: an undated payable matches no period, and payables from
+  // different months can never appear together — so the screen showed one
+  // contractor while several were owed. Default is now "everything owed".
+  it('defaults to everything owed, with the period as an optional filter', () => {
+    expect(page).toMatch(/const showAll = !searchParams\.period \|\| searchParams\.period === 'all'/)
+    // No period selected -> empty filter, which splitByPeriod treats as a no-op
+    // and returns every payable including undated ones.
+    expect(page).toMatch(/period \? \{ from: period\.periodStart, to: period\.periodEnd \} : \{\}/)
+    expect(view).toMatch(/Everything owed/)
   })
   it('shows BOTH ready-to-pay (grouped authorised) AND awaiting-authorisation in ONE screen', () => {
     expect(page).toMatch(/previewRemittancesForContractors/)   // ready to pay
@@ -47,10 +60,17 @@ describe('Pay-run screen wiring (source-level)', () => {
     expect(page).not.toMatch(/statement_id|create_remittance_from_statement|contractor-statements/)
     expect(view).not.toMatch(/statement_id|create_remittance_from_statement|contractor-statements/)
   })
-  it('creates remittances for the selected period + approves inline', () => {
+  it('creates remittances for exactly what is shown + approves inline', () => {
     expect(view).toMatch(/createRemittancesForContractors/)
-    expect(view).toMatch(/period: \{ from: periodStart, to: periodEnd \}/)
+    // CRITICAL: the create call must mirror the filter that BUILT the plan,
+    // or it would bundle a different set of payables than the one on screen.
+    expect(view).toMatch(/period: periodStart && periodEnd \? \{ from: periodStart, to: periodEnd \} : \{\}/)
     expect(view).toMatch(/PendingApprovalsList/)   // inline approve reuse
+  })
+
+  it('warns that a period filter hides undated + out-of-period payables', () => {
+    expect(view).toMatch(/no service date/i)
+    expect(view).toMatch(/Clear filter/)
   })
   it('is linked as the primary "Pay run" action on the landing page', () => {
     expect(landing).toMatch(/\/portal\/contractor-invoices\/pay-run/)
