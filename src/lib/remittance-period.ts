@@ -10,6 +10,11 @@ export interface EligibleInvoice {
   gstAmount: number | null
   serviceDate: string | null // ISO yyyy-mm-dd or null (undated)
   invoiceNumber?: string
+  // Job context — carried through the period split purely so the pay workspace
+  // can show what makes up a total. Not used by any filtering logic.
+  jobNumber?: string | null
+  jobAddress?: string | null
+  workersOnJob?: number
 }
 
 export interface PeriodFilter {

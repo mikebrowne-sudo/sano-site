@@ -28,7 +28,9 @@ describe('the by-contractor planner now resolves the effective date (source-leve
   const src = readFileSync(join(process.cwd(), 'src/app/portal/contractor-invoices/remittances/_actions-by-contractor.ts'), 'utf8')
 
   it('joins the job + reads gst_supply_date (not just the raw service_date column)', () => {
-    expect(src).toMatch(/jobs \( completed_at \)/)
+    // The job join also carries job_number/address for the pay-workspace
+    // breakdown (Phase 3); completed_at remains the date source.
+    expect(src).toMatch(/jobs \( completed_at, job_number, address \)/)
     expect(src).toMatch(/gst_supply_date/)
   })
   it('feeds the effective date to the period splitter via resolveContractorServiceDate', () => {

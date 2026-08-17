@@ -65,11 +65,10 @@ export default async function PayRunPage({ searchParams }: { searchParams: { per
       <Link href="/portal/contractor-invoices" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 mb-4">
         <ArrowLeft size={14} /> Contractor invoices
       </Link>
-      <h1 className="text-3xl font-bold text-sage-800 tracking-tight mb-1">Pay run</h1>
+      <h1 className="text-3xl font-bold text-sage-800 tracking-tight mb-1">Contractor pay</h1>
       <p className="text-sm text-sage-500 mb-6 max-w-2xl">
-        Everything currently owed to contractors. Check nothing is awaiting authorisation, then
-        bundle it into remittances. Narrow to a single pay period only if you need to —
-        1st–15th is paid on the 30th; 16th–end of month is paid on the 15th of the next month.
+        Everything currently owed to contractors, and anything still waiting on approval.
+        Approve what&rsquo;s outstanding, review who&rsquo;s owed what, then run the payment.
       </p>
 
       <PayRunView
@@ -78,7 +77,6 @@ export default async function PayRunPage({ searchParams }: { searchParams: { per
         periodStart={period?.periodStart ?? null}
         periodEnd={period?.periodEnd ?? null}
         payDate={payDate}
-        payDateLabel={period?.payDateLabel ?? 'All outstanding'}
         groups={plan.groups ?? []}
         grandTotal={plan.grand_total ?? 0}
         planError={plan.error ?? null}
