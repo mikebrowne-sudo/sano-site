@@ -125,7 +125,9 @@ describe('reachability — nothing removed (source-level)', () => {
 
   it('⌘K still reaches the hub children by name (P&L, Mileage, Calendar, etc.)', () => {
     const palette = readFileSync(join(process.cwd(), 'src/app/portal/_components/CommandPalette.tsx'), 'utf8')
-    for (const label of ['P&L statement', 'Mileage logbook', 'Calendar', 'Pay run', 'Contractor statements', 'Accountant access']) {
+    // 'Pay run' became 'Contractor pay' in Phase 5 so the palette matches the
+    // workspace naming (Contractor pay | Payment history). Same route.
+    for (const label of ['P&L statement', 'Mileage logbook', 'Calendar', 'Contractor pay', 'Contractor statements', 'Accountant access']) {
       expect(palette).toContain(label)
     }
     expect(palette).toMatch(/HUB_DESTINATIONS/)

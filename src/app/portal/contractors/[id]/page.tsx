@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Pencil, Smartphone, ClipboardList } from 'lucide-react'
+import { ArrowLeft, Pencil, Smartphone, ClipboardList, Wallet } from 'lucide-react'
 import { DocumentUpload } from '../_components/DocumentUpload'
 import { DocumentList } from '../_components/DocumentList'
 import { PayPreview } from '../_components/PayPreview'
@@ -260,6 +260,13 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
           >
             <ClipboardList size={14} />
             Setup
+          </Link>
+          <Link
+            href={`/portal/contractors/${params.id}/pay`}
+            className="inline-flex items-center gap-2 bg-white border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
+          >
+            <Wallet size={14} />
+            Pay
           </Link>
           <Link
             href={`/portal/contractors/${params.id}/tax`}
