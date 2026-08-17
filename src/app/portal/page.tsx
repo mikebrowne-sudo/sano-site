@@ -9,6 +9,19 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+
+// Always render fresh. The dashboard was the ONE portal page without this —
+// 49 others declare it — so Next.js statically cached it and served a stale
+// snapshot. Importing a bank statement updated the stored balance correctly,
+// but the dashboard kept showing the old bank balance / net position until
+// something else happened to bust the cache.
+//
+// revalidatePath('/portal') in the reconcile action isn't sufficient on its
+// own: it only fires when the import actually MOVES the balance forward, so
+// re-importing or importing an older statement left the stale page in place.
+// Every figure here is live operational money — none of it should ever be
+// served from cache.
+export const dynamic = 'force-dynamic'
 import {
   FileText, ArrowRight, DollarSign,
   AlertTriangle, Bell, CalendarDays, MapPin, UserRound, Wallet,
