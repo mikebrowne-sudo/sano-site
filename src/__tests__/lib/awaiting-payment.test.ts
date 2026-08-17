@@ -135,3 +135,24 @@ describe('relationship to Ready to pay', () => {
     expect(readyToPay).toBeLessThan(approval)
   })
 })
+
+describe('void must stay findable', () => {
+  // Regression guard: Void was once squeezed into an `ml-auto` slot inside the
+  // status strip on the detail page, where it wrapped out of view on a narrow
+  // window — staff could not find it at all. It is a destructive but genuinely
+  // needed action (wrong-period remittances get voided and rebuilt), so it must
+  // remain visible in both places it is used.
+  const detail = read('src/app/portal/contractor-invoices/remittances/[id]/page.tsx')
+
+  it('the remittance detail page gives Void its own row, not a cramped slot', () => {
+    expect(detail).toMatch(/VoidControl/)
+    expect(detail).not.toMatch(/ml-auto">\s*<VoidControl/)
+    // Explains what voiding does, so it isn't a bare unexplained button.
+    expect(detail).toMatch(/returns its jobs to Ready to pay/)
+  })
+
+  it('unpaid remittances can be voided straight from the Awaiting payment list', () => {
+    expect(section).toMatch(/VoidControl/)
+    expect(section).toMatch(/label="Void"/)
+  })
+})

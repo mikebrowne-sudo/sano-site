@@ -20,6 +20,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { Panel } from '../../../_components/Panel'
 import { RemittancePaidControl } from '../../_components/RemittancePaidControl'
+import { VoidControl } from '../../_components/VoidControl'
 import type { AwaitingPaymentRemittance } from '@/lib/awaiting-payment-data'
 
 /**
@@ -120,6 +121,10 @@ export function AwaitingPaymentSection({
                         View
                       </Link>
                       <RemittancePaidControl id={r.id} paidAt={null} paymentDate={r.paymentDate} />
+                      {/* Void inline: a wrong-period or superseded remittance is
+                          usually spotted HERE, in the list, not after opening
+                          it. Returns its jobs to Ready to pay. */}
+                      <VoidControl kind="remittance" id={r.id} label="Void" />
                     </div>
                   </td>
                 </tr>
