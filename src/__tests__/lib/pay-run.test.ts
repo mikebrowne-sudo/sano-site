@@ -53,7 +53,8 @@ describe('Pay-run screen wiring (source-level)', () => {
     expect(page).toMatch(/previewRemittancesForContractors/)   // ready to pay
     expect(page).toMatch(/loadApprovalRows[\s\S]{0,80}awaitingAuthorisation/) // awaiting
     expect(view).toMatch(/Ready to pay/)
-    expect(view).toMatch(/awaiting authorisation/i)
+    // Phase 3 renamed this to plain-language "awaiting approval".
+    expect(view).toMatch(/awaiting approval/i)
   })
   it('is the DIRECT path — no statement object / RPC in the logic', () => {
     // No statement data flow: no statement_id, no statement RPC, no statements route.
@@ -75,5 +76,49 @@ describe('Pay-run screen wiring (source-level)', () => {
   it('is linked as the primary "Pay run" action on the landing page', () => {
     expect(landing).toMatch(/\/portal\/contractor-invoices\/pay-run/)
     expect(landing).toMatch(/Pay run/)
+  })
+
+  // ── Phase 3: the contractor pay workspace ──────────────────────────────
+  describe('Phase 3 pay workspace', () => {
+    it('leads with an operational summary (owed total + awaiting count)', () => {
+      expect(view).toMatch(/Ready to pay/)
+      expect(view).toMatch(/Awaiting approval/)
+      expect(view).toMatch(/grandTotal/)
+      // Contractor + pay-item counts derive from the plan, not a separate query.
+      expect(view).toMatch(/const payeeCount = groups\.length/)
+      expect(view).toMatch(/const itemCount = groups\.reduce/)
+    })
+
+    it('groups by contractor with an expandable job breakdown', () => {
+      expect(view).toMatch(/toggle\(g\.key\)/)
+      expect(view).toMatch(/g\.lines\.map/)
+      expect(view).toMatch(/l\.jobNumber/)
+      expect(view).toMatch(/l\.jobAddress/)
+    })
+
+    it('keeps undated payables visible with an honest label', () => {
+      expect(view).toMatch(/Date unavailable/)
+      // Never filtered out of the display.
+      expect(view).not.toMatch(/filter\(.*serviceDate == null.*\)/)
+    })
+
+    it('shows multi-cleaner jobs as context, not a warning', () => {
+      expect(view).toMatch(/cleaners on this job/)
+      expect(view).toMatch(/l\.workersOnJob > 1/)
+    })
+
+    it('confirms contractors, counts, amounts and payment date before creating', () => {
+      expect(view).toMatch(/Confirm this pay run/)
+      expect(view).toMatch(/payment date/i)
+      expect(view).toMatch(/setConfirming/)
+    })
+
+    it('search narrows the DISPLAY only — payment always uses the full plan', () => {
+      expect(view).toMatch(/visibleGroups/)
+      // The create call reads `groups`, never `visibleGroups`, so a search box
+      // can never silently shrink what gets paid.
+      expect(view).toMatch(/contractorIds: groups\.flatMap/)
+      expect(view).not.toMatch(/contractorIds: visibleGroups/)
+    })
   })
 })

@@ -27,6 +27,16 @@ export interface PlanLine {
   hours: number | null
   amount: number
   gstAmount: number
+  /** Job context for the pay workspace breakdown (null for jobless payables). */
+  jobNumber: string | null
+  jobAddress: string | null
+  /**
+   * How many contractors are assigned to this job. A job legitimately worked by
+   * two cleaners produces two payables — surfacing the count as context stops
+   * that reading as a duplicate. Informational only; the authoritative duplicate
+   * guard is the job_id + contractor_id check in approveContractorPay.
+   */
+  workersOnJob: number
 }
 
 export interface GroupPlan {
@@ -55,7 +65,7 @@ interface EligibleCi {
   gst_supply_date: string | null
   job_id: string | null
   invoice_number: string | null
-  jobs: { completed_at: string | null } | null
+  jobs: { completed_at: string | null; job_number: string | null; address: string | null } | null
 }
 
 async function loadPlan(
@@ -79,7 +89,7 @@ async function loadPlan(
   // silently excludes it.
   const { data: ciRaw } = await supabase
     .from('contractor_invoices')
-    .select('id, contractor_id, amount, pay_hours, gst_amount, service_date, gst_supply_date, job_id, invoice_number, jobs ( completed_at )')
+    .select('id, contractor_id, amount, pay_hours, gst_amount, service_date, gst_supply_date, job_id, invoice_number, jobs ( completed_at, job_number, address )')
     .in('contractor_id', ids)
     .eq('status', 'approved')
   const cis = (ciRaw ?? []) as unknown as EligibleCi[]
@@ -89,6 +99,22 @@ async function loadPlan(
     .select('contractor_invoice_id')
     .not('contractor_invoice_id', 'is', null)
   const remittedSet = new Set((remitted ?? []).map((r) => r.contractor_invoice_id as string))
+
+  // How many contractors are assigned to each job in this plan. Counted across
+  // ALL contractors (not just the selected ones), because the point is "how many
+  // cleaners worked this job" — a job with two cleaners legitimately produces
+  // two payables, and showing that count stops it reading as a duplicate.
+  const planJobIds = Array.from(new Set(cis.map((c) => c.job_id).filter(Boolean) as string[]))
+  const workersByJob = new Map<string, number>()
+  if (planJobIds.length > 0) {
+    const { data: jw } = await supabase
+      .from('job_workers')
+      .select('job_id')
+      .in('job_id', planJobIds)
+    for (const r of (jw ?? []) as Array<{ job_id: string }>) {
+      workersByJob.set(r.job_id, (workersByJob.get(r.job_id) ?? 0) + 1)
+    }
+  }
 
   // Not-yet-remitted, normalised for the pure period splitter.
   const eligible: EligibleInvoice[] = cis
@@ -108,6 +134,9 @@ async function loadPlan(
         gst_supply_date: c.gst_supply_date,
       }).date,
       invoiceNumber: c.invoice_number ?? '',
+      jobNumber: c.jobs?.job_number ?? null,
+      jobAddress: c.jobs?.address ?? null,
+      workersOnJob: c.job_id ? (workersByJob.get(c.job_id) ?? 1) : 1,
     }))
 
   const groups = groupContractorsForRemittance((contractors ?? []) as RemittanceContractor[])
@@ -138,6 +167,9 @@ async function loadPlan(
           hours: c.hours,
           amount: round2(c.amount),
           gstAmount: round2(c.gstAmount ?? 0),
+          jobNumber: c.jobNumber ?? null,
+          jobAddress: c.jobAddress ?? null,
+          workersOnJob: c.workersOnJob ?? 1,
         })),
       undatedCount: split.undated.length,
     }
