@@ -146,6 +146,40 @@ export function assertCanAmend(input: AmendmentGuardInput): AmendmentGuardResult
   }
 }
 
+// ── Accepted-quote in-place-write guard ─────────────────────────────
+
+/**
+ * Canonical operator message for an attempted in-place write to an
+ * accepted quote. Shared so every write path words it identically.
+ */
+export const ACCEPTED_QUOTE_IN_PLACE_ERROR =
+  'This quote has already been accepted, so it cannot be edited in place. Save your changes as a new version instead — the accepted version stays on file as the client agreed to it.'
+
+/**
+ * An accepted quote records what the client agreed to, so it must never be
+ * mutated in place. The supported edit path forks a new draft version
+ * (createNewVersion) and writes onto that, leaving the accepted row intact.
+ *
+ * Returns an error object when `status` is 'accepted', otherwise null.
+ *
+ * This is a server-side backstop, not the primary mechanism: EditQuoteForm
+ * already forks first and then writes to the NEW draft, so on the supported
+ * flow the status seen here is 'draft' and this never fires. It exists
+ * because the rule was previously enforced only in the component — any other
+ * caller could silently overwrite an accepted quote. A production audit
+ * found 15 quotes whose price had been changed after acceptance that way.
+ *
+ * Deliberately narrow. It rejects only when the TARGET ROW is currently
+ * accepted; draft / sent / viewed / declined edits are unaffected, and the
+ * separate invoice-existence lock continues to govern converted quotes.
+ */
+export function assertNotAcceptedInPlace(
+  status: string | null | undefined,
+): { error: string } | null {
+  if (status === 'accepted') return { error: ACCEPTED_QUOTE_IN_PLACE_ERROR }
+  return null
+}
+
 // ── Audit helpers ───────────────────────────────────────────────────
 
 /**
