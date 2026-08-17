@@ -224,11 +224,30 @@ export async function createRemittancesForContractors(input: {
   paymentDate: string
   markPaid?: boolean
   period?: PeriodFilter
+  /**
+   * Explicit payables to include — the invoice ids staff actually ticked.
+   *
+   * When present, each group pays ONLY the intersection of its derived,
+   * server-verified eligible ids and this list. Intersecting (rather than
+   * trusting the list outright) keeps the server authoritative on eligibility:
+   * a stale tab or tampered payload cannot inject an already-remitted,
+   * unapproved or someone else's invoice. What staff ticked is the ceiling,
+   * never the source of truth for what is payable.
+   *
+   * Omitted = pay every eligible payable in the group (previous behaviour,
+   * still used by any caller that doesn't offer selection).
+   */
+  selectedCiIds?: string[]
 }): Promise<BuildResult> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || !isAdminUser(user)) return { error: 'Admin only.', created: 0, skipped: 0, failed: 0, items: [] }
   if (!input.paymentDate) return { error: 'A payment date is required.', created: 0, skipped: 0, failed: 0, items: [] }
+
+  const selected = input.selectedCiIds ? new Set(input.selectedCiIds) : null
+  if (selected && selected.size === 0) {
+    return { error: 'Select at least one job to pay.', created: 0, skipped: 0, failed: 0, items: [] }
+  }
 
   // Re-derive the plan under the SAME period filter used in the preview so the
   // created remittances match exactly what staff saw (no full-sweep drift).
@@ -237,24 +256,35 @@ export async function createRemittancesForContractors(input: {
   let created = 0, skipped = 0, failed = 0
 
   for (const g of groups) {
-    if (g.ciIds.length === 0) {
+    // Selection narrows the group; it can never widen it.
+    const payIds = selected ? g.ciIds.filter((id) => selected.has(id)) : g.ciIds
+    if (payIds.length === 0) {
       skipped++
-      items.push({ payee: g.payeeName, reference: g.reference, ok: false, ci_count: 0, total: 0, reason: 'no unpaid jobs' })
+      items.push({
+        payee: g.payeeName, reference: g.reference, ok: false, ci_count: 0, total: 0,
+        reason: selected ? 'nothing selected' : 'no unpaid jobs',
+      })
       continue
     }
+    // Totals must reflect what is actually being paid, not the whole group.
+    const paySum = payIds.length === g.ciIds.length
+      ? { count: g.ciCount, total: g.total }
+      : g.lines.filter((l) => payIds.includes(l.ciId))
+          .reduce((acc, l) => ({ count: acc.count + 1, total: round2(acc.total + l.amount) }), { count: 0, total: 0 })
+
     const res = await createContractorRemittance({
       paymentDate: input.paymentDate,
       reference: g.reference,
       payeeLabel: g.payeeName,
-      ciIds: g.ciIds,
+      ciIds: payIds,
       markPaid: input.markPaid === true,
     })
     if ('error' in res && res.error) {
       failed++
-      items.push({ payee: g.payeeName, reference: g.reference, ok: false, ci_count: g.ciCount, total: g.total, reason: res.error })
+      items.push({ payee: g.payeeName, reference: g.reference, ok: false, ci_count: paySum.count, total: paySum.total, reason: res.error })
     } else {
       created++
-      items.push({ payee: g.payeeName, reference: g.reference, ok: true, ci_count: g.ciCount, total: g.total })
+      items.push({ payee: g.payeeName, reference: g.reference, ok: true, ci_count: paySum.count, total: paySum.total })
     }
   }
 

@@ -22,7 +22,7 @@
 //    contractor_invoices -> contractor_remittances flow. The legacy
 //    pay_runs.kind='contractor' system is retired and never written here.
 
-import { useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import clsx from 'clsx'
@@ -32,6 +32,7 @@ import { createRemittancesForContractors, type GroupPlan } from '../../remittanc
 import { PendingApprovalsList, type ApprovalRow } from '../../pending-approvals/_components/PendingApprovalsList'
 import { AwaitingPaymentSection } from './AwaitingPaymentSection'
 import type { AwaitingPaymentSummary } from '@/lib/awaiting-payment-data'
+import { classifyPayable, defaultSelection, REASON_LABEL } from '@/lib/pay-run-selection'
 
 function money(n: number) { return formatCurrency(n) }
 
@@ -41,7 +42,7 @@ function serviceDateLabel(iso: string | null): string {
 }
 
 export function PayRunView({
-  periods, selectedKey, periodStart, periodEnd, payDate, groups, grandTotal, planError, awaiting,
+  periods, selectedKey, periodStart, periodEnd, payDate, groups, planError, awaiting,
   awaitingPayment,
 }: {
   periods: { key: string; label: string; payDateLabel: string }[]
@@ -51,7 +52,6 @@ export function PayRunView({
   periodEnd: string | null
   payDate: string
   groups: GroupPlan[]
-  grandTotal: number
   planError: string | null
   awaiting: ApprovalRow[]
   /** Remittances created but not yet paid out — never period-filtered. */
@@ -90,8 +90,51 @@ export function PayRunView({
   // Presentation only: `groups` (the full plan) is still what gets submitted,
   // so what Pay Run would actually pay is unchanged.
   const payableGroups = groups.filter((g) => g.ciCount > 0)
-  const payeeCount = payableGroups.length
-  const itemCount = payableGroups.reduce((s, g) => s + g.ciCount, 0)
+
+  // ── Explicit payable selection ───────────────────────────────────────
+  // What staff tick is exactly what gets paid. Selection is seeded from the
+  // period rule (current period + older unpaid backlog, excluding later work
+  // and undated items) and then belongs to the user — it is NOT recomputed on
+  // search or re-render, only when the PERIOD changes, which is a deliberate
+  // act. See lib/pay-run-selection.ts.
+  const allPayables = useMemo(
+    () => payableGroups.flatMap((g) => g.lines.map((l) => ({ ciId: l.ciId, serviceDate: l.serviceDate }))),
+    [payableGroups],
+  )
+  const [selectedCiIds, setSelectedCiIds] = useState<Set<string>>(
+    () => defaultSelection(allPayables, periodStart, periodEnd),
+  )
+  // Re-seed ONLY when the period changes (or the payable set itself does).
+  const seedKey = `${selectedKey}::${allPayables.map((p) => p.ciId).join(',')}`
+  const seededRef = useRef(seedKey)
+  useEffect(() => {
+    if (seededRef.current === seedKey) return
+    seededRef.current = seedKey
+    setSelectedCiIds(defaultSelection(allPayables, periodStart, periodEnd))
+  }, [seedKey, allPayables, periodStart, periodEnd])
+
+  function toggleCi(ciId: string) {
+    setSelectedCiIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(ciId)) next.delete(ciId); else next.add(ciId)
+      return next
+    })
+  }
+  const selectAll = () => setSelectedCiIds(new Set(allPayables.map((p) => p.ciId)))
+  const clearAll = () => setSelectedCiIds(new Set())
+  const selectDue = () => setSelectedCiIds(defaultSelection(allPayables, periodStart, periodEnd))
+
+  /** Selected lines + total for one group — drives display, review and payment. */
+  const groupSelection = (g: GroupPlan) => {
+    const lines = g.lines.filter((l) => selectedCiIds.has(l.ciId))
+    return { lines, count: lines.length, total: Math.round(lines.reduce((s, l) => s + l.amount, 0) * 100) / 100 }
+  }
+
+  // Only groups with something ticked are payable / reviewable.
+  const selectedGroups = payableGroups.filter((g) => groupSelection(g).count > 0)
+  const payeeCount = selectedGroups.length
+  const itemCount = payableGroups.reduce((s, g) => s + groupSelection(g).count, 0)
+  const selectedTotal = payableGroups.reduce((s, g) => s + groupSelection(g).total, 0)
   // Undated is counted across ALL groups — including ones with nothing visible,
   // since that is exactly what the notice needs to report.
   const undated = groups.reduce((s, g) => s + g.undatedCount, 0)
@@ -126,6 +169,10 @@ export function PayRunView({
         // Must mirror the filter used to BUILD this plan, or the server would
         // bundle a different set than the one shown. Empty = everything owed.
         period: periodStart && periodEnd ? { from: periodStart, to: periodEnd } : {},
+        // THE invariant: what was ticked and reviewed is exactly what is paid.
+        // The server intersects this with its own eligibility check, so this
+        // can only ever narrow the set.
+        selectedCiIds: Array.from(selectedCiIds),
       })
       if (res.error) { setErr(res.error); setConfirming(false); return }
       setResult(`Created ${res.created} remittance${res.created === 1 ? '' : 's'}${res.skipped ? `, ${res.skipped} skipped` : ''}${res.failed ? `, ${res.failed} failed` : ''}.`)
@@ -148,7 +195,7 @@ export function PayRunView({
         )}
         <span className="text-sage-600">
           Ready to pay{' '}
-          <span className="font-semibold text-sage-800 tabular-nums">{money(grandTotal)}</span>
+          <span className="font-semibold text-sage-800 tabular-nums">{money(selectedTotal)}</span>
           <span className="text-sage-400"> · {payeeCount} payee{payeeCount === 1 ? '' : 's'}, {itemCount} item{itemCount === 1 ? '' : 's'}</span>
         </span>
         <span className="text-sage-600">
@@ -212,13 +259,26 @@ export function PayRunView({
           <h2 className="text-[11px] uppercase tracking-wide text-sage-500 font-semibold">Ready to pay</h2>
           <span className="text-sm text-sage-600 tabular-nums">
             {needle && visibleGroups.length !== payableGroups.length && <span className="text-sage-400">{visibleGroups.length} of {payableGroups.length} shown · </span>}
-            <span className="font-semibold text-sage-800">{money(grandTotal)}</span>
+            <span className="font-semibold text-sage-800">{money(selectedTotal)}</span>
           </span>
         </div>
         <p className="text-[13px] text-sage-500 mb-3">
-          Approved work not yet placed on a remittance.
+          Tick the jobs to pay in this run.
           {hasAwaitingPayment && <> Does not include the {money(awaitingPayment.total)} already prepared above.</>}
         </p>
+
+        {payableGroups.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 mb-3 text-xs">
+            <button type="button" onClick={selectDue} className="text-sage-600 hover:text-sage-800 underline">
+              Select due for this run
+            </button>
+            <button type="button" onClick={selectAll} className="text-sage-500 hover:text-sage-700 underline">Select all</button>
+            <button type="button" onClick={clearAll} className="text-sage-500 hover:text-sage-700 underline">Clear all</button>
+            <span className="text-sage-400">
+              &ldquo;Due for this run&rdquo; = work up to the end of the selected period, including older unpaid jobs.
+            </span>
+          </div>
+        )}
 
         {planError ? (
           <p className="text-sm text-red-600">{planError}</p>
@@ -235,6 +295,7 @@ export function PayRunView({
           <div className="space-y-2">
             {visibleGroups.map((g) => {
               const open = expanded.has(g.key)
+              const sel = groupSelection(g)
               return (
                 <div key={g.key} className="rounded-xl border border-sage-100 overflow-hidden">
                   <button
@@ -251,26 +312,53 @@ export function PayRunView({
                           {g.combined && <span className="ml-2 text-[10px] uppercase tracking-wide text-sage-400">combined</span>}
                         </span>
                         <span className="block text-xs text-sage-500">
-                          {g.ciCount} job{g.ciCount === 1 ? '' : 's'} · Ready to pay
+                          {/* Selected count leads — it's what will be paid. */}
+                          {sel.count} of {g.ciCount} job{g.ciCount === 1 ? '' : 's'} selected
                         </span>
                       </span>
                     </span>
-                    <span className="text-lg font-bold text-sage-800 tabular-nums shrink-0">{money(g.total)}</span>
+                    <span className="text-right shrink-0">
+                      <span className="block text-lg font-bold text-sage-800 tabular-nums">{money(sel.total)}</span>
+                      {sel.count !== g.ciCount && (
+                        <span className="block text-[11px] text-sage-400 tabular-nums">of {money(g.total)} owed</span>
+                      )}
+                    </span>
                   </button>
 
                   {open && (
                     <div className="border-t border-sage-100 bg-sage-50/40 px-4 py-3">
                       <ul className="space-y-2">
-                        {g.lines.map((l) => (
-                          <li key={l.ciId} className="flex items-start justify-between gap-3 text-sm">
-                            <div className="min-w-0">
-                              <div className="text-sage-800 font-medium truncate">
+                        {g.lines.map((l) => {
+                          const cls = classifyPayable({ ciId: l.ciId, serviceDate: l.serviceDate }, periodStart, periodEnd)
+                          const badge = REASON_LABEL[cls.reason]
+                          const ticked = selectedCiIds.has(l.ciId)
+                          return (
+                          <li key={l.ciId} className="flex items-start gap-3 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={ticked}
+                              onChange={() => toggleCi(l.ciId)}
+                              aria-label={`Include ${l.jobNumber ?? l.invoiceNumber} in this pay run`}
+                              className="mt-1 rounded border-sage-300 shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className={clsx('font-medium truncate', ticked ? 'text-sage-800' : 'text-sage-400')}>
                                 {l.jobNumber ?? l.invoiceNumber}
                                 {l.jobAddress && <span className="font-normal text-sage-500"> — {l.jobAddress}</span>}
                               </div>
                               <div className="text-xs text-sage-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                                 <span className={clsx(!l.serviceDate && 'text-amber-700')}>{serviceDateLabel(l.serviceDate)}</span>
                                 {l.hours != null && <span>· {l.hours} hr{l.hours === 1 ? '' : 's'}</span>}
+                                {badge && (
+                                  <span className={clsx(
+                                    'inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px]',
+                                    cls.reason === 'overdue' ? 'bg-blue-50 text-blue-700'
+                                      : cls.reason === 'undated' ? 'bg-amber-50 text-amber-800'
+                                      : 'bg-sage-100 text-sage-600',
+                                  )}>
+                                    {badge}
+                                  </span>
+                                )}
                                 {l.workersOnJob > 1 && (
                                   <span className="inline-flex items-center gap-1 text-sage-600 bg-sage-100 rounded-full px-1.5 py-0.5 text-[10px]">
                                     <Users size={9} /> {l.workersOnJob} cleaners on this job
@@ -278,13 +366,16 @@ export function PayRunView({
                                 )}
                               </div>
                             </div>
-                            <div className="text-sage-800 font-medium tabular-nums shrink-0">{money(l.amount)}</div>
+                            <div className={clsx('font-medium tabular-nums shrink-0', ticked ? 'text-sage-800' : 'text-sage-400')}>{money(l.amount)}</div>
                           </li>
-                        ))}
+                          )
+                        })}
                       </ul>
                       <div className="mt-3 pt-2 border-t border-sage-200/70 flex items-center justify-between text-sm">
                         <span className="text-sage-500">Reference <span className="font-mono text-xs">{g.reference}</span></span>
-                        <span className="font-semibold text-sage-800 tabular-nums">{money(g.total)}</span>
+                        <span className="font-semibold text-sage-800 tabular-nums">
+                          {sel.count} selected · {money(sel.total)}
+                        </span>
                       </div>
                       {/* Where the money actually goes. Shown before payment so
                           staff verify the recipient — remittances store no bank
@@ -314,7 +405,7 @@ export function PayRunView({
         )}
 
         {/* ── Pay Run action ──────────────────────────────────────────── */}
-        {payableGroups.length > 0 && !confirming && (
+        {selectedGroups.length > 0 && !confirming && (
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
             <label className="flex items-center gap-2 text-sm text-sage-600">
               <input type="checkbox" checked={markPaid} onChange={(e) => setMarkPaid(e.target.checked)} />
@@ -369,8 +460,13 @@ export function PayRunView({
                   </tr>
                 </thead>
                 <tbody>
-                  {payableGroups.map((g) => (
-                    <tr key={g.key} className="border-b border-sage-50 last:border-0">
+                  {/* Counts and amounts are the SELECTED subset, never the
+                      whole group — the review must show exactly what will be
+                      paid. */}
+                  {selectedGroups.map((g) => {
+                    const sel = groupSelection(g)
+                    return (
+                    <tr key={g.key} className="border-b border-sage-50 last:border-0 align-top">
                       <td className="px-4 py-2 text-sage-800 font-medium">
                         {g.payeeName}
                         <span className="block text-[11px] font-normal text-sage-500">
@@ -378,17 +474,21 @@ export function PayRunView({
                             ? <>{g.bank.accountName ?? ''} <span className="font-mono">{g.bank.formatted}</span></>
                             : <span className="text-amber-700">{g.bank?.message ?? 'No bank account on file'}</span>}
                         </span>
+                        <span className="block text-[11px] font-normal text-sage-400 mt-0.5">
+                          {sel.lines.map((l) => l.jobNumber ?? l.invoiceNumber).join(', ')}
+                        </span>
                       </td>
                       <td className="px-4 py-2 font-mono text-xs text-sage-500">{g.reference}</td>
-                      <td className="px-4 py-2 text-right text-sage-600 tabular-nums">{g.ciCount}</td>
-                      <td className="px-4 py-2 text-right font-medium text-sage-800 tabular-nums">{money(g.total)}</td>
+                      <td className="px-4 py-2 text-right text-sage-600 tabular-nums">{sel.count}</td>
+                      <td className="px-4 py-2 text-right font-medium text-sage-800 tabular-nums">{money(sel.total)}</td>
                     </tr>
-                  ))}
+                    )
+                  })}
                   <tr className="bg-sage-50/70">
                     <td className="px-4 py-2 font-semibold text-sage-800" colSpan={3}>
                       Total · payment date {formatDate(payDate)}
                     </td>
-                    <td className="px-4 py-2 text-right font-bold text-sage-800 tabular-nums">{money(grandTotal)}</td>
+                    <td className="px-4 py-2 text-right font-bold text-sage-800 tabular-nums">{money(selectedTotal)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -399,7 +499,7 @@ export function PayRunView({
                 title={bankConflicts.length > 0 ? 'Resolve the bank-detail conflicts above first.' : undefined}
                 className="bg-sage-500 text-white font-semibold px-5 py-2.5 rounded-lg text-sm hover:bg-sage-700 disabled:opacity-50"
               >
-                {isPending ? 'Creating…' : `Create ${payeeCount} remittance${payeeCount === 1 ? '' : 's'} · ${money(grandTotal)}`}
+                {isPending ? 'Creating…' : `Create ${payeeCount} remittance${payeeCount === 1 ? '' : 's'} · ${money(selectedTotal)}`}
               </button>
               <button
                 type="button" onClick={() => setConfirming(false)} disabled={isPending}

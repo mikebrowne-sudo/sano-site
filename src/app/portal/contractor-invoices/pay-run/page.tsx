@@ -94,7 +94,6 @@ export default async function PayRunPage({ searchParams }: { searchParams: { per
         periodEnd={period?.periodEnd ?? null}
         payDate={payDate}
         groups={plan.groups ?? []}
-        grandTotal={plan.grand_total ?? 0}
         planError={plan.error ?? null}
         awaiting={awaiting}
         awaitingPayment={awaitingPayment}
