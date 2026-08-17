@@ -11,6 +11,7 @@ import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { getCustomerReplyToEmail } from '@/lib/email-reply-to'
 import {
   assertCanAmend,
+  assertNotAcceptedInPlace,
   findLockingInvoiceForQuote,
   writeAmendmentAudit,
 } from '@/lib/amendment-lock'
@@ -124,13 +125,20 @@ export async function updateQuote(input: UpdateQuoteInput) {
   // override is unchanged (or stamp them when it transitions from off to on).
   const { data: existing, error: existingErr } = await supabase
     .from('quotes')
-    .select('is_price_overridden, override_confirmed_by, override_confirmed_at, base_price, discount, share_token')
+    .select('is_price_overridden, override_confirmed_by, override_confirmed_at, base_price, discount, share_token, status')
     .eq('id', input.id)
     .single()
 
   if (existingErr || !existing) {
     return { error: `Quote not found or could not be loaded: ${existingErr?.message ?? 'missing row'}` }
   }
+
+  // Server-side backstop: an accepted quote must be forked, never mutated
+  // in place. See assertNotAcceptedInPlace for the full rationale. On the
+  // supported flow EditQuoteForm has already forked, so the row seen here
+  // is the new draft and this does not fire.
+  const acceptedGuard = assertNotAcceptedInPlace(existing.status as string | null)
+  if (acceptedGuard) return acceptedGuard
 
   const wasOverridden = existing?.is_price_overridden ?? false
   const isOverridden = input.is_price_overridden ?? false
