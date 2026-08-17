@@ -1,13 +1,18 @@
-// Pay run — the one clear screen for a fortnightly contractor pay cycle.
+// Contractor pay — the operational workspace for one contractor pay cycle.
 //
-// Pick a pay period (1–15 → paid 30th; 16–EOM → paid 15th next month). See two
-// blocks for that period: (1) authorised jobs grouped by contractor, ready to
-// bundle into remittances in one click; (2) jobs completed in the period still
-// AWAITING authorisation, approvable inline (each moves up into "ready to pay").
+// Three stages, in the order the money moves:
+//   1. AWAITING PAYMENT   remittances already prepared, bank transfer not done
+//   2. READY TO PAY       approved payables not yet on a remittance
+//   3. AWAITING APPROVAL  completed jobs whose pay still needs authorising
 //
-// Direct path: job → approved contractor_invoice → remittance (RA-####), without
-// the intermediate STMT layer. Admin-only. Reuses the existing period, plan,
-// approval + create logic — this screen just brings them together.
+// Stage 1 exists because stages 2 and 3 alone were misleading: once payables
+// are bundled into a remittance they correctly leave "ready to pay", and the
+// money then had nowhere to show. A prepared run could be forgotten entirely
+// (the July run, RA-0024..RA-0027 / $3,890, sat unpaid and invisible here).
+//
+// Direct path: job → approved contractor_invoice → remittance (RA-####), with
+// no statement layer. Admin-only. Reuses the existing period, plan, approval,
+// create and mark-paid logic — this screen brings them together.
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -16,6 +21,7 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { recentPayPeriods, payPeriodForKey } from '@/lib/contractor-pay-period'
 import { loadApprovalRows, awaitingAuthorisation } from '@/lib/contractor-pay-approvals-data'
+import { loadAwaitingPayment } from '@/lib/awaiting-payment-data'
 import { previewRemittancesForContractors } from '../remittances/_actions-by-contractor'
 import { PayRunView } from './_components/PayRunView'
 
@@ -60,6 +66,12 @@ export default async function PayRunPage({ searchParams }: { searchParams: { per
   )
   const awaiting = awaitingAuthorisation(approvalRows)
 
+  // "Awaiting payment" — remittances already created but not yet paid out.
+  // Deliberately NOT period-filtered: a prepared-but-unpaid run is an
+  // obligation regardless of which period is being viewed, and hiding it
+  // behind a filter is what let the July run ($3,890) be forgotten.
+  const awaitingPayment = await loadAwaitingPayment(supabase)
+
   return (
     <div className="max-w-4xl mx-auto">
       <Link href="/portal/contractor-invoices" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 mb-4">
@@ -92,6 +104,7 @@ export default async function PayRunPage({ searchParams }: { searchParams: { per
         grandTotal={plan.grand_total ?? 0}
         planError={plan.error ?? null}
         awaiting={awaiting}
+        awaitingPayment={awaitingPayment}
       />
     </div>
   )

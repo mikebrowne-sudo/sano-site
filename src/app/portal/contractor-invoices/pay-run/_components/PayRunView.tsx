@@ -28,11 +28,13 @@ import Link from 'next/link'
 import clsx from 'clsx'
 import {
   AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Users,
-  Wallet, ClipboardCheck, Search, X,
+  Wallet, ClipboardCheck, Search, X, Clock,
 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { createRemittancesForContractors, type GroupPlan } from '../../remittances/_actions-by-contractor'
 import { PendingApprovalsList, type ApprovalRow } from '../../pending-approvals/_components/PendingApprovalsList'
+import { AwaitingPaymentSection } from './AwaitingPaymentSection'
+import type { AwaitingPaymentSummary } from '@/lib/awaiting-payment-data'
 
 function money(n: number) { return formatCurrency(n) }
 
@@ -43,6 +45,7 @@ function serviceDateLabel(iso: string | null): string {
 
 export function PayRunView({
   periods, selectedKey, periodStart, periodEnd, payDate, groups, grandTotal, planError, awaiting,
+  awaitingPayment,
 }: {
   periods: { key: string; label: string; payDateLabel: string }[]
   selectedKey: string
@@ -54,6 +57,8 @@ export function PayRunView({
   grandTotal: number
   planError: string | null
   awaiting: ApprovalRow[]
+  /** Remittances created but not yet paid out — never period-filtered. */
+  awaitingPayment: AwaitingPaymentSummary
 }) {
   const router = useRouter()
   const [markPaid, setMarkPaid] = useState(false)
@@ -95,6 +100,11 @@ export function PayRunView({
   const payeeCount = groups.length
   const itemCount = groups.reduce((s, g) => s + g.ciCount, 0)
   const undated = groups.reduce((s, g) => s + g.undatedCount, 0)
+  const hasAwaitingPayment = awaitingPayment.remittanceCount > 0
+  // Only a GENUINE disagreement blocks. 'missing'/'unreadable' are shown per
+  // group but don't stop the run — the remittance itself carries no bank
+  // details, so creating it is still safe; the payment is the human step.
+  const bankConflicts = groups.filter((g) => g.bank?.status === 'conflict')
 
   function createAll() {
     setErr(null); setResult(null)
@@ -117,8 +127,21 @@ export function PayRunView({
 
   return (
     <div className="space-y-6">
-      {/* ── Summary ─────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* ── Summary — the three stages, in the order money moves ────────── */}
+      <div className={clsx('grid grid-cols-1 gap-3', hasAwaitingPayment ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
+        {/* Awaiting payment leads: the paperwork is done, only the transfer
+            is outstanding, so it is the nearer obligation. */}
+        {hasAwaitingPayment && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
+            <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-amber-600 mb-1">
+              <Clock size={13} /> Awaiting payment
+            </div>
+            <div className="text-3xl font-bold text-amber-900 tabular-nums">{money(awaitingPayment.total)}</div>
+            <div className="text-sm text-amber-700 mt-1">
+              {awaitingPayment.remittanceCount} remittance{awaitingPayment.remittanceCount === 1 ? '' : 's'} · {awaitingPayment.payeeCount} payee{awaitingPayment.payeeCount === 1 ? '' : 's'}
+            </div>
+          </div>
+        )}
         <div className="rounded-2xl border border-sage-200 bg-white p-5">
           <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-sage-400 mb-1">
             <Wallet size={13} /> Ready to pay
@@ -186,11 +209,23 @@ export function PayRunView({
         </p>
       )}
 
-      {/* ── Ready to pay (dominant) ─────────────────────────────────────── */}
+      {/* ── Awaiting payment — prepared, not yet transferred ────────────── */}
+      <AwaitingPaymentSection
+        remittances={awaitingPayment.remittances}
+        total={awaitingPayment.total}
+        payeeCount={awaitingPayment.payeeCount}
+      />
+
+      {/* ── Ready to pay ────────────────────────────────────────────────── */}
       <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-sage-800">
             <Users size={18} /> Ready to pay
+            {hasAwaitingPayment && (
+              <span className="text-xs font-normal text-sage-400">
+                — not counting {money(awaitingPayment.total)} already prepared above
+              </span>
+            )}
           </h2>
           <span className="text-sm text-sage-600 tabular-nums">
             {needle && visibleGroups.length !== groups.length && <span className="text-sage-400">{visibleGroups.length} of {groups.length} shown · </span>}
@@ -264,6 +299,25 @@ export function PayRunView({
                         <span className="text-sage-500">Reference <span className="font-mono text-xs">{g.reference}</span></span>
                         <span className="font-semibold text-sage-800 tabular-nums">{money(g.total)}</span>
                       </div>
+                      {/* Where the money actually goes. Shown before payment so
+                          staff verify the recipient — remittances store no bank
+                          details, so this is the only place it surfaces. */}
+                      <div className="mt-2 text-xs">
+                        {g.bank.status === 'ok' ? (
+                          <div className="text-sage-500">
+                            Pay to <span className="font-medium text-sage-700">{g.bank.accountName ?? g.payeeName}</span>
+                            {' · '}<span className="font-mono text-sage-700">{g.bank.formatted}</span>
+                            {g.bank.accountNameDiffersFromWorker && (
+                              <span className="ml-1.5 text-sage-400">(company account)</span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                            <AlertTriangle size={11} className="inline mr-1 -mt-0.5" />
+                            {g.bank.message}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -292,6 +346,25 @@ export function PayRunView({
         {confirming && (
           <div className="mt-5 border-t border-gray-100 pt-4">
             <h3 className="font-semibold text-sage-800 mb-1">Confirm this pay run</h3>
+            {/* Fail closed on a GENUINE bank-detail conflict. Formatting-only
+                differences normalise away and never reach here. A payee whose
+                account name differs from the worker's name is NOT blocked —
+                a company account is legitimate. */}
+            {bankConflicts.length > 0 && (
+              <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+                <p className="font-semibold flex items-center gap-1.5">
+                  <AlertTriangle size={14} /> Bank details need review
+                </p>
+                <ul className="mt-1 space-y-0.5 text-[13px]">
+                  {bankConflicts.map((g) => (
+                    <li key={g.key}><span className="font-medium">{g.payeeName}</span> — {g.bank.message}</li>
+                  ))}
+                </ul>
+                <p className="mt-1.5 text-[12px]">
+                  Fix the affected contractor profiles before creating these remittances.
+                </p>
+              </div>
+            )}
             <p className="text-sm text-sage-500 mb-3">
               This creates one remittance per contractor for the {itemCount} pay item{itemCount === 1 ? '' : 's'} listed above.
               {markPaid
@@ -311,7 +384,14 @@ export function PayRunView({
                 <tbody>
                   {groups.map((g) => (
                     <tr key={g.key} className="border-b border-sage-50 last:border-0">
-                      <td className="px-4 py-2 text-sage-800 font-medium">{g.payeeName}</td>
+                      <td className="px-4 py-2 text-sage-800 font-medium">
+                        {g.payeeName}
+                        <span className="block text-[11px] font-normal text-sage-500">
+                          {g.bank?.status === 'ok'
+                            ? <>{g.bank.accountName ?? ''} <span className="font-mono">{g.bank.formatted}</span></>
+                            : <span className="text-amber-700">{g.bank?.message ?? 'No bank account on file'}</span>}
+                        </span>
+                      </td>
                       <td className="px-4 py-2 font-mono text-xs text-sage-500">{g.reference}</td>
                       <td className="px-4 py-2 text-right text-sage-600 tabular-nums">{g.ciCount}</td>
                       <td className="px-4 py-2 text-right font-medium text-sage-800 tabular-nums">{money(g.total)}</td>
@@ -328,7 +408,8 @@ export function PayRunView({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
-                type="button" onClick={createAll} disabled={isPending}
+                type="button" onClick={createAll} disabled={isPending || bankConflicts.length > 0}
+                title={bankConflicts.length > 0 ? 'Resolve the bank-detail conflicts above first.' : undefined}
                 className="bg-sage-500 text-white font-semibold px-5 py-2.5 rounded-lg text-sm hover:bg-sage-700 disabled:opacity-50"
               >
                 {isPending ? 'Creating…' : `Create ${payeeCount} remittance${payeeCount === 1 ? '' : 's'} · ${money(grandTotal)}`}
