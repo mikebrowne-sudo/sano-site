@@ -80,23 +80,35 @@ export function PayRunView({
     })
   }
 
+  // A period filter can leave a payee group with NOTHING visible — the planner
+  // still returns it so its undated/out-of-period count can drive the "hidden
+  // items" notice. Counting those groups made the summary read
+  // "$0.00 · 1 payee, 0 items", which doesn't reconcile.
+  //
+  // The summary and the list therefore count only groups with at least one
+  // visible payable item, so payees shown === payees with something payable.
+  // Presentation only: `groups` (the full plan) is still what gets submitted,
+  // so what Pay Run would actually pay is unchanged.
+  const payableGroups = groups.filter((g) => g.ciCount > 0)
+  const payeeCount = payableGroups.length
+  const itemCount = payableGroups.reduce((s, g) => s + g.ciCount, 0)
+  // Undated is counted across ALL groups — including ones with nothing visible,
+  // since that is exactly what the notice needs to report.
+  const undated = groups.reduce((s, g) => s + g.undatedCount, 0)
+
   // Client-side search across payee, job number and address. Filters only what
   // is DISPLAYED — the payment itself always uses the full server-built plan for
   // the current period filter, so search can never narrow what gets paid.
   const needle = q.trim().toLowerCase()
   const visibleGroups = needle
-    ? groups.filter((g) =>
+    ? payableGroups.filter((g) =>
         g.payeeName.toLowerCase().includes(needle) ||
         g.lines.some((l) =>
           (l.jobNumber ?? '').toLowerCase().includes(needle) ||
           (l.jobAddress ?? '').toLowerCase().includes(needle) ||
           (l.invoiceNumber ?? '').toLowerCase().includes(needle)),
       )
-    : groups
-
-  const payeeCount = groups.length
-  const itemCount = groups.reduce((s, g) => s + g.ciCount, 0)
-  const undated = groups.reduce((s, g) => s + g.undatedCount, 0)
+    : payableGroups
   const hasAwaitingPayment = awaitingPayment.remittanceCount > 0
   // Only a GENUINE disagreement blocks. 'missing'/'unreadable' are shown per
   // group but don't stop the run — the remittance itself carries no bank
@@ -199,7 +211,7 @@ export function PayRunView({
         <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
           <h2 className="text-[11px] uppercase tracking-wide text-sage-500 font-semibold">Ready to pay</h2>
           <span className="text-sm text-sage-600 tabular-nums">
-            {needle && visibleGroups.length !== groups.length && <span className="text-sage-400">{visibleGroups.length} of {groups.length} shown · </span>}
+            {needle && visibleGroups.length !== payableGroups.length && <span className="text-sage-400">{visibleGroups.length} of {payableGroups.length} shown · </span>}
             <span className="font-semibold text-sage-800">{money(grandTotal)}</span>
           </span>
         </div>
@@ -210,7 +222,7 @@ export function PayRunView({
 
         {planError ? (
           <p className="text-sm text-red-600">{planError}</p>
-        ) : groups.length === 0 ? (
+        ) : payableGroups.length === 0 ? (
           <p className="text-sm text-sage-400">
             {showingAll
               ? 'Nothing is currently owed — every approved job has been paid.'
@@ -302,7 +314,7 @@ export function PayRunView({
         )}
 
         {/* ── Pay Run action ──────────────────────────────────────────── */}
-        {groups.length > 0 && !confirming && (
+        {payableGroups.length > 0 && !confirming && (
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
             <label className="flex items-center gap-2 text-sm text-sage-600">
               <input type="checkbox" checked={markPaid} onChange={(e) => setMarkPaid(e.target.checked)} />
@@ -357,7 +369,7 @@ export function PayRunView({
                   </tr>
                 </thead>
                 <tbody>
-                  {groups.map((g) => (
+                  {payableGroups.map((g) => (
                     <tr key={g.key} className="border-b border-sage-50 last:border-0">
                       <td className="px-4 py-2 text-sage-800 font-medium">
                         {g.payeeName}

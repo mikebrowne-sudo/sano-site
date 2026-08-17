@@ -14,7 +14,7 @@
 //
 // Mark paid reuses the canonical RemittancePaidControl; no payment logic here.
 
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import Link from 'next/link'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/format'
@@ -84,42 +84,18 @@ export function AwaitingPaymentSection({
             {remittances.map((r) => {
               const open = expanded.has(r.id)
               return (
-                <tr key={r.id} className="border-b border-sage-50 last:border-0 align-top">
+                <Fragment key={r.id}>
+                <tr className="border-b border-sage-50 align-top">
                   <td className="py-2.5 pr-3">
                     <button
                       type="button"
                       onClick={() => toggle(r.id)}
                       aria-expanded={open}
-                      className="inline-flex items-center gap-1 font-semibold text-sage-800 hover:underline"
+                      className="inline-flex items-center gap-1 font-semibold text-sage-800 hover:underline whitespace-nowrap"
                     >
                       {open ? <ChevronDown size={13} className="text-sage-400" /> : <ChevronRight size={13} className="text-sage-400" />}
                       {r.remittanceNumber}
                     </button>
-                    {open && (
-                      <div className="mt-2 mb-1 rounded-lg border border-sage-100 bg-sage-50/50 p-3">
-                        <ul className="space-y-1.5">
-                          {r.lines.map((l) => (
-                            <li key={l.itemId} className="flex items-start justify-between gap-4 text-[13px]">
-                              <span className="min-w-0">
-                                {l.isAdjustment ? (
-                                  <><span className="text-[10px] uppercase tracking-wide text-sage-500">Adjustment</span> {l.label ?? '—'}</>
-                                ) : (
-                                  <>
-                                    <span className="font-medium text-sage-800">{l.jobNumber ?? '—'}</span>
-                                    {l.jobAddress && <span className="text-sage-500"> — {l.jobAddress}</span>}
-                                    <span className="block text-xs text-sage-400">
-                                      {l.serviceDate ? formatDate(l.serviceDate) : 'Date unavailable'}
-                                      {l.contractorName && <> · {l.contractorName}</>}
-                                    </span>
-                                  </>
-                                )}
-                              </span>
-                              <span className="text-sage-800 font-medium tabular-nums shrink-0">{formatCurrency(l.amount)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
                   </td>
                   <td className="py-2.5 pr-3 text-sage-800">{r.payeeLabel ?? '—'}</td>
                   <td className="py-2.5 pr-3 text-sage-600 whitespace-nowrap">
@@ -147,6 +123,49 @@ export function AwaitingPaymentSection({
                     </div>
                   </td>
                 </tr>
+
+                {/* Job breakdown gets its OWN full-width row spanning every
+                    column. Nesting it inside the first cell squeezed the jobs
+                    into the narrow "Remittance" column and made them unreadable. */}
+                {open && (
+                  <tr className="border-b border-sage-50 bg-sage-50/40">
+                    <td colSpan={9} className="px-3 py-3">
+                      <table className="w-full text-[13px]">
+                        <thead>
+                          <tr className="text-left text-sage-400 text-[11px] uppercase tracking-wide">
+                            <th className="pb-1.5 pr-3 font-medium">Job</th>
+                            <th className="pb-1.5 pr-3 font-medium">Address</th>
+                            <th className="pb-1.5 pr-3 font-medium">Service date</th>
+                            <th className="pb-1.5 pr-3 font-medium">Contractor</th>
+                            <th className="pb-1.5 font-medium text-right">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {r.lines.map((l) => (
+                            <tr key={l.itemId} className="border-t border-sage-100">
+                              <td className="py-1.5 pr-3 font-medium text-sage-800 whitespace-nowrap">
+                                {l.isAdjustment
+                                  ? <span className="text-[10px] uppercase tracking-wide text-sage-500">Adjustment</span>
+                                  : (l.jobNumber ?? '—')}
+                              </td>
+                              <td className="py-1.5 pr-3 text-sage-600">
+                                {l.isAdjustment ? (l.label ?? '—') : (l.jobAddress ?? '—')}
+                              </td>
+                              <td className="py-1.5 pr-3 text-sage-600 whitespace-nowrap">
+                                {l.isAdjustment ? '—' : (l.serviceDate ? formatDate(l.serviceDate) : 'Date unavailable')}
+                              </td>
+                              <td className="py-1.5 pr-3 text-sage-600 whitespace-nowrap">{l.contractorName ?? '—'}</td>
+                              <td className="py-1.5 text-right font-medium text-sage-800 tabular-nums whitespace-nowrap">
+                                {formatCurrency(l.amount)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               )
             })}
           </tbody>

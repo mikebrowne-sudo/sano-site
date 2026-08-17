@@ -84,9 +84,13 @@ describe('Pay-run screen wiring (source-level)', () => {
       expect(view).toMatch(/Ready to pay/)
       expect(view).toMatch(/Awaiting approval/)
       expect(view).toMatch(/grandTotal/)
-      // Contractor + pay-item counts derive from the plan, not a separate query.
-      expect(view).toMatch(/const payeeCount = groups\.length/)
-      expect(view).toMatch(/const itemCount = groups\.reduce/)
+      // Counts derive from the plan, not a separate query — and only from
+      // groups with at least one VISIBLE payable item, so the summary always
+      // reconciles (a period filter can leave a group with nothing showing,
+      // which previously read "$0.00 · 1 payee, 0 items").
+      expect(view).toMatch(/const payableGroups = groups\.filter\(\(g\) => g\.ciCount > 0\)/)
+      expect(view).toMatch(/const payeeCount = payableGroups\.length/)
+      expect(view).toMatch(/const itemCount = payableGroups\.reduce/)
     })
 
     it('groups by contractor with an expandable job breakdown', () => {
@@ -119,6 +123,20 @@ describe('Pay-run screen wiring (source-level)', () => {
       // can never silently shrink what gets paid.
       expect(view).toMatch(/contractorIds: groups\.flatMap/)
       expect(view).not.toMatch(/contractorIds: visibleGroups/)
+    })
+
+    it('the empty-count fix is presentation only — payment still submits the full plan', () => {
+      // payableGroups drives what is COUNTED and LISTED. It must never become
+      // the source for what is PAID, or filtering the view would change the
+      // payment.
+      expect(view).not.toMatch(/contractorIds: payableGroups/)
+      expect(view).toMatch(/contractorIds: groups\.flatMap/)
+    })
+
+    it('counts undated across ALL groups so the hidden-items notice stays honest', () => {
+      // Deliberately `groups`, not `payableGroups` — a group with nothing
+      // visible is exactly the case the notice needs to report.
+      expect(view).toMatch(/const undated = groups\.reduce\(\(s, g\) => s \+ g\.undatedCount, 0\)/)
     })
   })
 })
