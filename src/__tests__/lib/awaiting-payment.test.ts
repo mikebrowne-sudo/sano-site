@@ -73,7 +73,7 @@ describe('period separation', () => {
   })
 
   it('falls back honestly when no item resolved to a date', () => {
-    expect(section).toMatch(/Service dates unavailable/)
+    expect(section).toMatch(/Dates unavailable/)
   })
 })
 
@@ -85,7 +85,8 @@ describe('display + actions', () => {
 
   it('links through to the existing remittance detail page', () => {
     expect(section).toMatch(/remittances\/\$\{r\.id\}/)
-    expect(section).toMatch(/View remittance/)
+    // The row's "View" action (whitespace-tolerant — JSX wraps the label).
+    expect(section).toMatch(/>\s*View\s*</)
   })
 
   it('shows the job breakdown from frozen items', () => {
@@ -113,7 +114,7 @@ describe('relationship to Ready to pay', () => {
   })
 
   it('tells the user Ready to pay is not the whole obligation', () => {
-    expect(view).toMatch(/not counting/)
+    expect(view).toMatch(/Does not include the/)
   })
 
   it('leaves the Ready-to-pay calculation untouched', () => {
@@ -122,11 +123,15 @@ describe('relationship to Ready to pay', () => {
   })
 
   it('renders the three stages in workflow order', () => {
+    // Section headings are the anchors — Awaiting payment first, then Ready to
+    // pay, then Awaiting approval (least advanced stage last).
     const awaitingPay = view.indexOf('AwaitingPaymentSection')
-    const readyToPay = view.indexOf('Ready to pay\n')
-    const approval = view.indexOf('awaiting approval')
+    const readyToPay = view.indexOf('>Ready to pay<')
+    const approval = view.indexOf('>Awaiting approval<')
     expect(awaitingPay).toBeGreaterThan(-1)
-    expect(awaitingPay).toBeLessThan(approval)
-    if (readyToPay > -1) expect(awaitingPay).toBeLessThan(readyToPay)
+    expect(readyToPay).toBeGreaterThan(-1)
+    expect(approval).toBeGreaterThan(-1)
+    expect(awaitingPay).toBeLessThan(readyToPay)
+    expect(readyToPay).toBeLessThan(approval)
   })
 })

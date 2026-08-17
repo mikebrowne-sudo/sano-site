@@ -26,10 +26,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import clsx from 'clsx'
-import {
-  AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Users,
-  Wallet, ClipboardCheck, Search, X, Clock,
-} from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, Users, Search, X } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { createRemittancesForContractors, type GroupPlan } from '../../remittances/_actions-by-contractor'
 import { PendingApprovalsList, type ApprovalRow } from '../../pending-approvals/_components/PendingApprovalsList'
@@ -127,47 +124,28 @@ export function PayRunView({
 
   return (
     <div className="space-y-6">
-      {/* ── Summary — the three stages, in the order money moves ────────── */}
-      <div className={clsx('grid grid-cols-1 gap-3', hasAwaitingPayment ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
-        {/* Awaiting payment leads: the paperwork is done, only the transfer
-            is outstanding, so it is the nearer obligation. */}
+      {/* Stage totals — a restrained strip, not dashboard cards. The three
+          stages read left to right in the order money moves. */}
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl border border-gray-100 bg-white px-5 py-3 text-sm">
         {hasAwaitingPayment && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
-            <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-amber-600 mb-1">
-              <Clock size={13} /> Awaiting payment
-            </div>
-            <div className="text-3xl font-bold text-amber-900 tabular-nums">{money(awaitingPayment.total)}</div>
-            <div className="text-sm text-amber-700 mt-1">
-              {awaitingPayment.remittanceCount} remittance{awaitingPayment.remittanceCount === 1 ? '' : 's'} · {awaitingPayment.payeeCount} payee{awaitingPayment.payeeCount === 1 ? '' : 's'}
-            </div>
-          </div>
+          <span className="text-sage-600">
+            Awaiting payment{' '}
+            <span className="font-semibold text-sage-800 tabular-nums">{money(awaitingPayment.total)}</span>
+            <span className="text-sage-400"> · {awaitingPayment.remittanceCount} remittance{awaitingPayment.remittanceCount === 1 ? '' : 's'}</span>
+          </span>
         )}
-        <div className="rounded-2xl border border-sage-200 bg-white p-5">
-          <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-sage-400 mb-1">
-            <Wallet size={13} /> Ready to pay
-          </div>
-          <div className="text-3xl font-bold text-sage-800 tabular-nums">{money(grandTotal)}</div>
-          <div className="text-sm text-sage-500 mt-1">
-            {payeeCount} contractor{payeeCount === 1 ? '' : 's'} · {itemCount} pay item{itemCount === 1 ? '' : 's'}
-          </div>
-        </div>
-        <div className={clsx(
-          'rounded-2xl border p-5',
-          awaiting.length > 0 ? 'border-amber-200 bg-amber-50/60' : 'border-sage-200 bg-white',
-        )}>
-          <div className={clsx(
-            'flex items-center gap-2 text-[11px] uppercase tracking-wide mb-1',
-            awaiting.length > 0 ? 'text-amber-600' : 'text-sage-400',
-          )}>
-            <ClipboardCheck size={13} /> Awaiting approval
-          </div>
-          <div className={clsx('text-3xl font-bold tabular-nums', awaiting.length > 0 ? 'text-amber-800' : 'text-sage-800')}>
+        <span className="text-sage-600">
+          Ready to pay{' '}
+          <span className="font-semibold text-sage-800 tabular-nums">{money(grandTotal)}</span>
+          <span className="text-sage-400"> · {payeeCount} payee{payeeCount === 1 ? '' : 's'}, {itemCount} item{itemCount === 1 ? '' : 's'}</span>
+        </span>
+        <span className="text-sage-600">
+          Awaiting approval{' '}
+          <span className={clsx('font-semibold tabular-nums', awaiting.length > 0 ? 'text-amber-700' : 'text-sage-800')}>
             {awaiting.length}
-          </div>
-          <div className={clsx('text-sm mt-1', awaiting.length > 0 ? 'text-amber-700' : 'text-sage-500')}>
-            {awaiting.length === 0 ? 'Nothing to approve' : `job${awaiting.length === 1 ? '' : 's'} to approve before paying`}
-          </div>
-        </div>
+          </span>
+          <span className="text-sage-400"> job{awaiting.length === 1 ? '' : 's'}</span>
+        </span>
       </div>
 
       {/* ── Controls ────────────────────────────────────────────────────── */}
@@ -217,21 +195,18 @@ export function PayRunView({
       />
 
       {/* ── Ready to pay ────────────────────────────────────────────────── */}
-      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-sage-800">
-            <Users size={18} /> Ready to pay
-            {hasAwaitingPayment && (
-              <span className="text-xs font-normal text-sage-400">
-                — not counting {money(awaitingPayment.total)} already prepared above
-              </span>
-            )}
-          </h2>
+      <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+          <h2 className="text-[11px] uppercase tracking-wide text-sage-500 font-semibold">Ready to pay</h2>
           <span className="text-sm text-sage-600 tabular-nums">
             {needle && visibleGroups.length !== groups.length && <span className="text-sage-400">{visibleGroups.length} of {groups.length} shown · </span>}
-            {money(grandTotal)}
+            <span className="font-semibold text-sage-800">{money(grandTotal)}</span>
           </span>
         </div>
+        <p className="text-[13px] text-sage-500 mb-3">
+          Approved work not yet placed on a remittance.
+          {hasAwaitingPayment && <> Does not include the {money(awaitingPayment.total)} already prepared above.</>}
+        </p>
 
         {planError ? (
           <p className="text-sm text-red-600">{planError}</p>
@@ -433,19 +408,15 @@ export function PayRunView({
       </section>
 
       {/* ── Awaiting approval ───────────────────────────────────────────── */}
-      <section className={clsx(
-        'rounded-2xl border p-5',
-        awaiting.length > 0 ? 'border-amber-200 bg-amber-50/50' : 'border-emerald-100 bg-emerald-50/40',
-      )}>
-        <h2 className={clsx(
-          'flex items-center gap-2 font-semibold mb-1',
-          awaiting.length > 0 ? 'text-amber-800' : 'text-emerald-800',
-        )}>
-          {awaiting.length > 0 ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
-          {awaiting.length > 0
-            ? `${awaiting.length} completed job${awaiting.length === 1 ? '' : 's'} awaiting approval${showingAll ? '' : ' this period'}`
-            : `Nothing awaiting approval${showingAll ? '' : ' for this period'}`}
-        </h2>
+      <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+          <h2 className="text-[11px] uppercase tracking-wide text-sage-500 font-semibold">Awaiting approval</h2>
+          <span className={clsx('text-sm tabular-nums', awaiting.length > 0 ? 'text-amber-700 font-semibold' : 'text-sage-500')}>
+            {awaiting.length > 0
+              ? `${awaiting.length} job${awaiting.length === 1 ? '' : 's'}${showingAll ? '' : ' this period'}`
+              : 'None'}
+          </span>
+        </div>
         <p className="text-[13px] text-sage-500 mb-3">
           {awaiting.length > 0
             ? 'Approve these first so they’re included — approving creates the payable and it moves straight into “ready to pay” above.'

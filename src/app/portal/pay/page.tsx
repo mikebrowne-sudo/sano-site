@@ -20,7 +20,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { LucideIcon } from 'lucide-react'
 import {
-  ArrowLeft, ArrowRight, Wallet, ClipboardCheck, Landmark, CircleDashed,
+  ArrowLeft, ArrowRight, Wallet, Landmark,
   Banknote, Receipt, Car, Layers, FileInput, FolderOpen, AlertTriangle,
 } from 'lucide-react'
 import clsx from 'clsx'
@@ -28,6 +28,7 @@ import { createClient } from '@/lib/supabase-server'
 import { isFinanceUser } from '@/lib/is-admin'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { loadContractorPayOverview, loadEmployeePayOverview } from '@/lib/pay-overview-data'
+import { loadAwaitingPayment } from '@/lib/awaiting-payment-data'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,9 +37,10 @@ export default async function PayHubPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!isFinanceUser(user)) notFound()
 
-  const [contractor, employee] = await Promise.all([
+  const [contractor, employee, awaitingPayment] = await Promise.all([
     loadContractorPayOverview(supabase),
     loadEmployeePayOverview(supabase),
+    loadAwaitingPayment(supabase),
   ])
 
   // Jobs still needing pay approval — the same source Contractor Pay uses.
@@ -102,40 +104,34 @@ export default async function PayHubPage() {
 
       {/* ── Contractors ────────────────────────────────────────────────── */}
       <section className="mb-8">
-        <h2 className="text-lg font-semibold text-sage-800 mb-3">Contractors</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-          <div className="rounded-2xl border border-sage-200 bg-white p-4">
-            <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-sage-400 mb-1">
-              <Wallet size={12} /> Ready to pay
-            </div>
-            <div className="text-2xl font-bold text-sage-800 tabular-nums">{formatCurrency(contractor.readyTotal)}</div>
-            <div className="text-xs text-sage-500 mt-0.5">
-              {contractor.payeeCount} payee{contractor.payeeCount === 1 ? '' : 's'} · {contractor.payItemCount} pay item{contractor.payItemCount === 1 ? '' : 's'}
-            </div>
-          </div>
-          <div className={clsx('rounded-2xl border p-4', awaiting.length > 0 ? 'border-amber-200 bg-amber-50/60' : 'border-sage-200 bg-white')}>
-            <div className={clsx('flex items-center gap-1.5 text-[11px] uppercase tracking-wide mb-1', awaiting.length > 0 ? 'text-amber-600' : 'text-sage-400')}>
-              <ClipboardCheck size={12} /> Awaiting approval
-            </div>
-            <div className={clsx('text-2xl font-bold tabular-nums', awaiting.length > 0 ? 'text-amber-800' : 'text-sage-800')}>{awaiting.length}</div>
-            <div className={clsx('text-xs mt-0.5', awaiting.length > 0 ? 'text-amber-700' : 'text-sage-500')}>
-              {awaiting.length === 0 ? 'Nothing to approve' : `job${awaiting.length === 1 ? '' : 's'} to approve`}
-            </div>
-          </div>
-          <div className="rounded-2xl border border-sage-200 bg-white p-4">
-            <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-sage-400 mb-1">
-              <Landmark size={12} /> Awaiting bank confirmation
-            </div>
-            <div className="text-2xl font-bold text-sage-800 tabular-nums">{formatCurrency(contractor.awaitingBankTotal)}</div>
-            <div className="text-xs text-sage-500 mt-0.5">
-              {contractor.awaitingBankCount} payment{contractor.awaitingBankCount === 1 ? '' : 's'}
-              {contractor.partlyConfirmedCount > 0 && (
-                <span className="inline-flex items-center gap-1 ml-1 text-amber-700">
-                  <CircleDashed size={10} /> {contractor.partlyConfirmedCount} partly
-                </span>
-              )}
-            </div>
-          </div>
+        <h2 className="text-[11px] uppercase tracking-wide text-sage-500 font-semibold mb-2">Contractors</h2>
+        <div className="rounded-xl border border-gray-100 bg-white shadow-sm divide-y divide-sage-50 mb-3">
+          <StatRow
+            label="Awaiting payment"
+            value={formatCurrency(awaitingPayment.total)}
+            detail={`${awaitingPayment.remittanceCount} remittance${awaitingPayment.remittanceCount === 1 ? '' : 's'} prepared, not yet transferred`}
+            href="/portal/contractor-invoices/pay-run"
+            accent={awaitingPayment.remittanceCount > 0}
+          />
+          <StatRow
+            label="Ready to pay"
+            value={formatCurrency(contractor.readyTotal)}
+            detail={`${contractor.payeeCount} payee${contractor.payeeCount === 1 ? '' : 's'} · ${contractor.payItemCount} pay item${contractor.payItemCount === 1 ? '' : 's'} not yet on a remittance`}
+            href="/portal/contractor-invoices/pay-run"
+          />
+          <StatRow
+            label="Awaiting approval"
+            value={String(awaiting.length)}
+            detail={awaiting.length === 0 ? 'Nothing to approve' : `completed job${awaiting.length === 1 ? '' : 's'} needing pay approval`}
+            href="/portal/contractor-invoices/pay-run"
+            accent={awaiting.length > 0}
+          />
+          <StatRow
+            label="Awaiting bank confirmation"
+            value={formatCurrency(contractor.awaitingBankTotal)}
+            detail={`${contractor.awaitingBankCount} paid payment${contractor.awaitingBankCount === 1 ? '' : 's'} not yet reconciled${contractor.partlyConfirmedCount > 0 ? ` · ${contractor.partlyConfirmedCount} partly` : ''}`}
+            href="/portal/contractor-invoices/remittances"
+          />
         </div>
         <div className="flex flex-wrap gap-2">
           <HubAction href="/portal/contractor-invoices/pay-run" icon={Wallet} label="Contractor pay" primary />
@@ -146,30 +142,23 @@ export default async function PayHubPage() {
 
       {/* ── Employees ──────────────────────────────────────────────────── */}
       <section className="mb-8">
-        <h2 className="text-lg font-semibold text-sage-800 mb-3">Employees</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-          <div className="rounded-2xl border border-sage-200 bg-white p-4">
-            <div className="text-[11px] uppercase tracking-wide text-sage-400 mb-1">On payroll</div>
-            <div className="text-2xl font-bold text-sage-800 tabular-nums">{employee.activeEmployees}</div>
-            <div className="text-xs text-sage-500 mt-0.5">active employee{employee.activeEmployees === 1 ? '' : 's'}</div>
-          </div>
-          <div className="rounded-2xl border border-sage-200 bg-white p-4 sm:col-span-2">
-            <div className="text-[11px] uppercase tracking-wide text-sage-400 mb-1">
-              {employee.latestRun?.status === 'draft' ? 'Draft pay run' : 'Latest pay run'}
-            </div>
-            {employee.latestRun ? (
-              <>
-                <div className="text-2xl font-bold text-sage-800 tabular-nums">{formatCurrency(employee.latestRun.netTotal)}</div>
-                <div className="text-xs text-sage-500 mt-0.5">
-                  {employee.latestRun.lineCount} employee{employee.latestRun.lineCount === 1 ? '' : 's'}
-                  {employee.latestRun.payDate && <> · pay date {formatDate(employee.latestRun.payDate)}</>}
-                  {employee.latestRun.status && <> · {employee.latestRun.status}</>}
-                </div>
-              </>
-            ) : (
-              <div className="text-sm text-sage-400 mt-1">No pay runs yet.</div>
-            )}
-          </div>
+        <h2 className="text-[11px] uppercase tracking-wide text-sage-500 font-semibold mb-2">Employees</h2>
+        <div className="rounded-xl border border-gray-100 bg-white shadow-sm divide-y divide-sage-50 mb-3">
+          <StatRow
+            label="On payroll"
+            value={String(employee.activeEmployees)}
+            detail={`active employee${employee.activeEmployees === 1 ? '' : 's'}`}
+            href="/portal/contractors"
+          />
+          <StatRow
+            label={employee.latestRun?.status === 'draft' ? 'Draft pay run' : 'Latest pay run'}
+            value={employee.latestRun ? formatCurrency(employee.latestRun.netTotal) : '—'}
+            detail={employee.latestRun
+              ? `${employee.latestRun.lineCount} employee${employee.latestRun.lineCount === 1 ? '' : 's'}${employee.latestRun.payDate ? ` · pay date ${formatDate(employee.latestRun.payDate)}` : ''}${employee.latestRun.status ? ` · ${employee.latestRun.status}` : ''}`
+              : 'No pay runs yet'}
+            href="/portal/payroll"
+            accent={employee.latestRun?.status === 'draft'}
+          />
         </div>
         <div className="flex flex-wrap gap-2">
           <HubAction href="/portal/payroll" icon={Banknote} label="Employee payroll" primary />
@@ -188,6 +177,30 @@ export default async function PayHubPage() {
         </div>
       </section>
     </div>
+  )
+}
+
+/** One labelled figure in the hub's stat list. Deliberately a plain row, not a
+ *  card — the hub should read like the rest of the portal. */
+function StatRow({
+  label, value, detail, href, accent,
+}: {
+  label: string
+  value: string
+  detail: string
+  href: string
+  accent?: boolean
+}) {
+  return (
+    <Link href={href} className="flex items-baseline justify-between gap-4 px-4 py-3 hover:bg-sage-50/60 transition-colors">
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-sage-800">{label}</span>
+        <span className="block text-xs text-sage-500">{detail}</span>
+      </span>
+      <span className={clsx('text-lg font-semibold tabular-nums shrink-0', accent ? 'text-amber-700' : 'text-sage-800')}>
+        {value}
+      </span>
+    </Link>
   )
 }
 
