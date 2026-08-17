@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Pencil } from 'lucide-react'
+import { Pencil } from 'lucide-react'
+import { BackLink } from '../../_components/BackLink'
 import { JobInvoiceButton } from './_components/JobInvoiceButton'
 import { JobStatusActions } from './_components/JobStatusActions'
 import { AssignJobSlot } from './_components/AssignJobSlot'
@@ -287,13 +288,11 @@ export default async function JobDetailPage({
 
   return (
     <div>
-      <Link
-        href="/portal/jobs"
-        className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"
-      >
-        <ArrowLeft size={14} />
-        Back to jobs
-      </Link>
+      {/* History-aware: jobs are reached from several places (the jobs list,
+          a remittance breakdown, the calendar), so Back should return to
+          whichever one you came from rather than always the jobs list. Falls
+          back to /portal/jobs on a fresh tab or direct link. */}
+      <BackLink fallbackHref="/portal/jobs" label="Back" />
 
       {isAdmin && hasClientMismatch && (
         <JobMismatchBanner jobId={job.id as string} quoteNumber={quoteNumber} />

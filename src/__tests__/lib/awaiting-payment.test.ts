@@ -135,3 +135,63 @@ describe('relationship to Ready to pay', () => {
     expect(readyToPay).toBeLessThan(approval)
   })
 })
+
+describe('void must stay findable', () => {
+  // Regression guard: Void was once squeezed into an `ml-auto` slot inside the
+  // status strip on the detail page, where it wrapped out of view on a narrow
+  // window — staff could not find it at all. It is a destructive but genuinely
+  // needed action (wrong-period remittances get voided and rebuilt), so it must
+  // remain visible in both places it is used.
+  const detail = read('src/app/portal/contractor-invoices/remittances/[id]/page.tsx')
+
+  it('the remittance detail page gives Void its own row, not a cramped slot', () => {
+    expect(detail).toMatch(/VoidControl/)
+    expect(detail).not.toMatch(/ml-auto">\s*<VoidControl/)
+    // Explains what voiding does, so it isn't a bare unexplained button.
+    expect(detail).toMatch(/returns its jobs to Ready to pay/)
+  })
+
+  it('unpaid remittances can be voided straight from the Awaiting payment list', () => {
+    expect(section).toMatch(/VoidControl/)
+    expect(section).toMatch(/label="Void"/)
+  })
+})
+
+describe('the RA number opens the remittance', () => {
+  // Regression guard: the RA number was briefly a <button> that expanded an
+  // inline accordion instead of a link. Clicking a document number must open
+  // that document — the detail page is where the jobs, PDF, send, mark-paid
+  // and void all live. The chevron beside it keeps the quick in-list peek.
+  it('links to the remittance detail page', () => {
+    expect(section).toMatch(/<Link\s+href=\{`\/portal\/contractor-invoices\/remittances\/\$\{r\.id\}`\}[\s\S]{0,160}\{r\.remittanceNumber\}/)
+  })
+
+  it('keeps a separate chevron for the inline preview', () => {
+    expect(section).toMatch(/aria-label=\{open \? `Hide jobs on/)
+  })
+})
+
+describe('job numbers link through to the job', () => {
+  const jobPage = read('src/app/portal/jobs/[id]/page.tsx')
+
+  it('the loader exposes the live job id alongside the frozen number', () => {
+    expect(data).toMatch(/jobId: ci\?\.job_id \?\? null/)
+  })
+
+  it('the breakdown links the job number when a live job exists', () => {
+    expect(section).toMatch(/href=\{`\/portal\/jobs\/\$\{l\.jobId\}`\}/)
+  })
+
+  it('falls back to plain text rather than a dead link', () => {
+    // A fixed-contract line, or one whose job_id was cleared by a historical
+    // correction, still shows its frozen number — just not as a link.
+    expect(section).toMatch(/\) : \(\s*\n\s*\/\/ No live job/)
+  })
+
+  it('Back from a job returns where you came from, not always the jobs list', () => {
+    expect(jobPage).toMatch(/BackLink/)
+    expect(jobPage).toMatch(/fallbackHref="\/portal\/jobs"/)
+    // The old hardcoded link is gone.
+    expect(jobPage).not.toMatch(/Back to jobs/)
+  })
+})

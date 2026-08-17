@@ -99,10 +99,20 @@ export default async function RemittanceBatchViewPage({ params }: { params: { id
             <CheckCircle2 size={13} className="text-emerald-600" /> Sent
           </span>
         )}
+      </div>
 
-        <span className="ml-auto">
-          <VoidControl kind="remittance" id={data.id} redirectTo="/portal/contractor-invoices" />
+      {/* Void gets its own row, not a cramped ml-auto slot in the status strip.
+          Squeezing it in there let it wrap out of view on a narrow window —
+          staff reported being unable to find it at all. It is a destructive,
+          occasionally-needed action, so it needs to be findable but not
+          competing with the primary actions in the header. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 mb-5">
+        <span className="text-xs text-sage-500">
+          {data.paidAt
+            ? 'Voiding reverts this payment and returns its jobs to Ready to pay.'
+            : 'Not paid yet — voiding removes this remittance and returns its jobs to Ready to pay.'}
         </span>
+        <VoidControl kind="remittance" id={data.id} redirectTo="/portal/contractor-invoices/pay-run" />
       </div>
 
       {/* Branded document preview */}

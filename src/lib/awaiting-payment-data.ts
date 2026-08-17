@@ -26,6 +26,13 @@ export interface AwaitingPaymentLine {
   itemId: string
   contractorName: string | null
   jobNumber: string | null
+  /**
+   * Live job id, for linking through to the job. Null when the payable has no
+   * linked job (a fixed-contract or adjustment line), or when the link was
+   * broken by a historical correction — the frozen job_number can outlive the
+   * job_id, so the NUMBER stays displayed either way and only the link drops.
+   */
+  jobId: string | null
   jobAddress: string | null
   serviceDate: string | null
   amount: number
@@ -117,6 +124,7 @@ export async function loadAwaitingPayment(supabase: SupabaseClient): Promise<Awa
       itemId: raw.id as string,
       contractorName: (raw.contractor_name as string | null) ?? null,
       jobNumber: (raw.job_number as string | null) ?? null,
+      jobId: ci?.job_id ?? null,
       jobAddress: (raw.job_address as string | null) ?? null,
       serviceDate,
       amount: round2(Number(raw.amount ?? 0)),
