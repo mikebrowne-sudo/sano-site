@@ -92,9 +92,13 @@ export async function importTransactions(csvText: string): Promise<ImportRespons
       bankBalance = res.effective.amount
       bankBalanceDate = res.effective.asAt
       bankBalanceUpdated = res.updated
-      if (res.updated) revalidatePath('/portal')
     }
 
+    // Revalidate the dashboard on EVERY import, not just when the balance moved
+    // forward. An import always adds transactions, which shift the net position
+    // and the reconciliation counts even when the ledger balance is unchanged —
+    // and gating this on `res.updated` meant a re-import left a stale dashboard.
+    revalidatePath('/portal')
     revalidatePath('/portal/finance/reconcile')
     return {
       ok: true,
