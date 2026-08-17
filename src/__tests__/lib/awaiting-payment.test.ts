@@ -170,3 +170,28 @@ describe('the RA number opens the remittance', () => {
     expect(section).toMatch(/aria-label=\{open \? `Hide jobs on/)
   })
 })
+
+describe('job numbers link through to the job', () => {
+  const jobPage = read('src/app/portal/jobs/[id]/page.tsx')
+
+  it('the loader exposes the live job id alongside the frozen number', () => {
+    expect(data).toMatch(/jobId: ci\?\.job_id \?\? null/)
+  })
+
+  it('the breakdown links the job number when a live job exists', () => {
+    expect(section).toMatch(/href=\{`\/portal\/jobs\/\$\{l\.jobId\}`\}/)
+  })
+
+  it('falls back to plain text rather than a dead link', () => {
+    // A fixed-contract line, or one whose job_id was cleared by a historical
+    // correction, still shows its frozen number — just not as a link.
+    expect(section).toMatch(/\) : \(\s*\n\s*\/\/ No live job/)
+  })
+
+  it('Back from a job returns where you came from, not always the jobs list', () => {
+    expect(jobPage).toMatch(/BackLink/)
+    expect(jobPage).toMatch(/fallbackHref="\/portal\/jobs"/)
+    // The old hardcoded link is gone.
+    expect(jobPage).not.toMatch(/Back to jobs/)
+  })
+})

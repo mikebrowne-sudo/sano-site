@@ -161,9 +161,23 @@ export function AwaitingPaymentSection({
                           {r.lines.map((l) => (
                             <tr key={l.itemId} className="border-t border-sage-100">
                               <td className="py-1.5 pr-3 font-medium text-sage-800 whitespace-nowrap">
-                                {l.isAdjustment
-                                  ? <span className="text-[10px] uppercase tracking-wide text-sage-500">Adjustment</span>
-                                  : (l.jobNumber ?? '—')}
+                                {l.isAdjustment ? (
+                                  <span className="text-[10px] uppercase tracking-wide text-sage-500">Adjustment</span>
+                                ) : l.jobId ? (
+                                  // Links to the live job. Back returns here —
+                                  // the job page uses the history-aware BackLink.
+                                  <Link
+                                    href={`/portal/jobs/${l.jobId}`}
+                                    className="text-sage-800 hover:underline"
+                                  >
+                                    {l.jobNumber ?? 'View job'}
+                                  </Link>
+                                ) : (
+                                  // No live job (fixed-contract line, or the
+                                  // link was broken by a correction) — show the
+                                  // frozen number without a dead link.
+                                  l.jobNumber ?? '—'
+                                )}
                               </td>
                               <td className="py-1.5 pr-3 text-sage-600">
                                 {l.isAdjustment ? (l.label ?? '—') : (l.jobAddress ?? '—')}
