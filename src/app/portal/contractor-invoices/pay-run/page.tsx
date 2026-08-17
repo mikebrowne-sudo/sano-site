@@ -65,6 +65,17 @@ export default async function PayRunPage({ searchParams }: { searchParams: { per
       <Link href="/portal/contractor-invoices" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 mb-4">
         <ArrowLeft size={14} /> Contractor invoices
       </Link>
+      {/* Current | History — the two halves of the contractor pay workspace. */}
+      <nav className="flex items-center gap-1 mb-5 text-sm">
+        <span className="px-3 py-1.5 rounded-lg bg-sage-100 text-sage-800 font-semibold">Current pay</span>
+        <Link
+          href="/portal/contractor-invoices/remittances"
+          className="px-3 py-1.5 rounded-lg text-sage-600 hover:bg-sage-50 hover:text-sage-800 transition-colors"
+        >
+          Payment history
+        </Link>
+      </nav>
+
       <h1 className="text-3xl font-bold text-sage-800 tracking-tight mb-1">Contractor pay</h1>
       <p className="text-sm text-sage-500 mb-6 max-w-2xl">
         Everything currently owed to contractors, and anything still waiting on approval.
