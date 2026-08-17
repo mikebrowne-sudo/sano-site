@@ -59,8 +59,16 @@ export function QuoteActionBar({
 
   // Hide in states where the Next Step panel / archive banner owns
   // the primary actions.
+  //
+  // `accepted` used to be hidden here alongside `converted`, on the
+  // assumption that the Next Step panel supplies everything an accepted
+  // quote needs. That panel only offers job/invoice conversion — it has no
+  // Preview, Download or Send. So an accepted quote had NO way to view or
+  // re-send its own document. Accepted now keeps a read-only action set
+  // (preview / download / copy link) minus the send + accept controls,
+  // which belong to the draft and sent states respectively.
   if (isArchived) return null
-  if (s === 'accepted' || s === 'converted') return null
+  if (s === 'converted') return null
   if (!isLatestVersion) return null
 
   const previewUrl = isCommercial
@@ -70,6 +78,7 @@ export function QuoteActionBar({
 
   const isDraft = s === 'draft'
   const isSent = s === 'sent' || s === 'viewed' || s === 'declined'
+  const isAccepted = s === 'accepted'
 
   return (
     <div
@@ -145,6 +154,30 @@ export function QuoteActionBar({
               accountsEmail={accountsEmail}
               clientReference={clientReference}
             />
+          </>
+        )}
+
+        {/* Accepted — the client has agreed to this version. No Send (it
+            would confuse an agreed document) and no Mark as Accepted (already
+            done), but the operator still needs to read and hand out the
+            document they're about to schedule work from. Editing this quote
+            forks a new draft, which lands in the isDraft branch above with
+            the full send controls. */}
+        {isAccepted && (
+          <>
+            <Link
+              href={previewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
+            >
+              <ExternalLink size={16} />
+              View Proposal
+            </Link>
+            {!isCommercial && (
+              <DownloadPdfButton href={`/api/quotes/${quoteId}/pdf`} />
+            )}
+            <QuoteCopyLinkButton shareUrl={shareUrl} />
           </>
         )}
       </div>

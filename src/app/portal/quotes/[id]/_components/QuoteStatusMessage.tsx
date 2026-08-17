@@ -8,10 +8,17 @@ export interface QuoteStatusMessageProps {
   status: string | null
   itemCount: number
   isArchived: boolean
+  /**
+   * Version number of this row. A draft above v1 is a revision of something
+   * the client already has, so it gets its own sentence rather than the
+   * generic new-quote copy — which read as though nothing had happened after
+   * a version fork.
+   */
+  versionNumber?: number
 }
 
-export function QuoteStatusMessage({ status, itemCount, isArchived }: QuoteStatusMessageProps) {
-  const text = pickMessage(status, itemCount, isArchived)
+export function QuoteStatusMessage({ status, itemCount, isArchived, versionNumber }: QuoteStatusMessageProps) {
+  const text = pickMessage(status, itemCount, isArchived, versionNumber ?? 1)
 
   return (
     <p className="text-sm text-sage-700 bg-sage-50 border border-sage-100 rounded-md px-4 py-2.5 mb-6">
@@ -20,7 +27,12 @@ export function QuoteStatusMessage({ status, itemCount, isArchived }: QuoteStatu
   )
 }
 
-function pickMessage(status: string | null, itemCount: number, isArchived: boolean): string {
+function pickMessage(
+  status: string | null,
+  itemCount: number,
+  isArchived: boolean,
+  versionNumber: number,
+): string {
   if (isArchived) {
     return 'This quote has been archived. Restore it if you need to make further changes.'
   }
@@ -44,6 +56,11 @@ function pickMessage(status: string | null, itemCount: number, isArchived: boole
   // draft
   if (itemCount === 0) {
     return 'This quote is still being prepared. Add line items or scope before sending.'
+  }
+  // A draft above v1 is a revision — the client is still holding an earlier
+  // version, so "ready to send" alone understates what needs to happen.
+  if (versionNumber > 1) {
+    return `This is version ${versionNumber} — a revision the client hasn’t received yet. Review the changes, then send it to replace the version they currently have.`
   }
   // "Ready" — draft with scope in place.
   return 'This quote is ready to send. Give the details a final review, then send it to the client.'

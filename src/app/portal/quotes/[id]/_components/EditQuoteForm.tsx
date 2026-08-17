@@ -293,8 +293,23 @@ export function EditQuoteForm({
     quote.is_latest_version === false ||
     (lockedByInvoice && !overrideActive)
 
+  // A save forks a new draft version whenever the current row has already
+  // left the operator's hands — i.e. the client has seen it (sent / viewed)
+  // or acted on it (accepted / declined). Editing those in place silently
+  // rewrites a document the client already has, which is exactly the
+  // "my changes vanished / I can't re-send" failure: the accepted row was
+  // mutated underneath and the action bar hid every send affordance.
+  //
+  // `accepted` deliberately forks rather than staying accepted: v1 keeps the
+  // acceptance the client actually gave (at that price and scope) and stays
+  // read-only history; v2 starts as a fresh draft that needs its own send +
+  // re-acceptance before it can become a job or invoice.
+  //
+  // `converted` is NOT in this set — those are governed by the Phase 5B
+  // invoice lock + admin override flow, which is left untouched here.
+  const FORK_ON_SAVE_STATUSES = new Set(['sent', 'viewed', 'accepted', 'declined'])
   const willCreateNewVersion =
-    !isLocked && (quote.status === 'sent' || quote.status === 'viewed')
+    !isLocked && FORK_ON_SAVE_STATUSES.has(quote.status ?? '')
 
   // Add-ons — seed from existing items
   const [addons, setAddons] = useState<Addon[]>(
@@ -626,7 +641,16 @@ export function EditQuoteForm({
       // freshly-saved draft rather than a cached shell.
       if (willCreateNewVersion) {
         router.refresh()
-        router.push(`/portal/quotes/${targetId}`)
+        // Carry the source version + its status through to the destination so
+        // it can render an explicit "vN created" confirmation. Without this
+        // the redirect is silent and lands on a page that looks identical to
+        // a brand-new draft — the operator can't tell a version was created,
+        // which is why the send/download actions read as "missing".
+        const params = new URLSearchParams({
+          revised_from: String(quote.version_number ?? 1),
+          revised_status: quote.status ?? '',
+        })
+        router.push(`/portal/quotes/${targetId}?${params.toString()}`)
         return
       }
 
@@ -1033,7 +1057,9 @@ export function EditQuoteForm({
         </a>
         {willCreateNewVersion && (
           <span className="text-xs text-sage-500 italic">
-            This quote has been sent — saving will create a new draft version (v{(quote.version_number ?? 1) + 1}).
+            {quote.status === 'accepted'
+              ? `This quote was accepted — saving keeps v${quote.version_number ?? 1} as the accepted record and creates a new draft (v${(quote.version_number ?? 1) + 1}) to send for re-acceptance.`
+              : `This quote has been sent — saving will create a new draft version (v${(quote.version_number ?? 1) + 1}).`}
           </span>
         )}
       </div>
