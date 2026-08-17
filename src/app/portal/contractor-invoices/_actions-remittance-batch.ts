@@ -36,6 +36,8 @@ export interface CreateRemittanceBatchInput {
 
 interface CIRow {
   id: string
+  /** Used to name the payable in the already-remitted rejection message. */
+  invoice_number: string | null
   amount: number | null
   note: string | null
   contractor_id: string | null
@@ -78,12 +80,56 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
   const { data: ciRaw, error: ciErr } = ciIds.length > 0
     ? await supabase
         .from('contractor_invoices')
-        .select('id, amount, notes:notes, contractor_id, job_id, payment_type, pay_basis, pay_hours, site_label, period_label, contractor_payment_snapshot_id, service_schedule_id, contractors ( full_name ), jobs ( job_number, address )')
+        .select('id, invoice_number, amount, notes:notes, contractor_id, job_id, payment_type, pay_basis, pay_hours, site_label, period_label, contractor_payment_snapshot_id, service_schedule_id, contractors ( full_name ), jobs ( job_number, address )')
         .in('id', ciIds)
     : { data: [] as unknown[], error: null }
   if (ciErr) return { error: `Could not load invoices: ${ciErr.message}` }
   const cis = (ciRaw ?? []) as unknown as Array<CIRow & { notes: string | null }>
   if (cis.length !== ciIds.length) return { error: 'Some selected invoices could not be found.' }
+
+  // ── INVARIANT: one contractor invoice → at most ONE active remittance ──
+  //
+  // A payable must never be payable twice. The Pay Run screen already hides
+  // already-remitted invoices, but that is a DISPLAY filter and ciIds arrives
+  // from the client — a stale tab, a double submit, or a manual selection can
+  // still carry an id that is already on a remittance. That is exactly how
+  // CI-0012 (RA-0001 + RA-0007, $175 paid twice) and CI-0015 (RA-0002 +
+  // RA-0003, $80 paid twice) happened historically.
+  //
+  // Checked BEFORE the header is created so a rejection leaves nothing behind.
+  // A matching DB trigger enforces the same rule for any writer that misses
+  // this — see docs/db/2026-08-17-one-invoice-one-remittance.sql. Neither layer
+  // is load-bearing on its own.
+  //
+  // Superseded lines are ignored: a corrected line is not an active payment.
+  if (ciIds.length > 0) {
+    const { data: existingRaw, error: exErr } = await supabase
+      .from('contractor_remittance_items')
+      .select('contractor_invoice_id, tax_status, contractor_remittances ( remittance_number, payee_label, payment_date, paid_at )')
+      .in('contractor_invoice_id', ciIds)
+    if (exErr) return { error: `Could not verify invoices are unpaid: ${exErr.message}` }
+
+    const clashes = (existingRaw ?? []).filter(
+      (row) => ((row as { tax_status?: string | null }).tax_status ?? 'active') !== 'superseded',
+    )
+    if (clashes.length > 0) {
+      const byId = new Map(cis.map((c) => [c.id, c]))
+      const flat = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null))
+      const detail = clashes.map((row) => {
+        const r = flat((row as { contractor_remittances?: unknown }).contractor_remittances) as
+          { remittance_number: string | null; payee_label: string | null; payment_date: string | null; paid_at: string | null } | null
+        const ci = byId.get((row as { contractor_invoice_id: string }).contractor_invoice_id)
+        const ciLabel = ci?.invoice_number ?? 'This invoice'
+        const payee = r?.payee_label ? ` (${r.payee_label})` : ''
+        const when = r?.payment_date ? ` dated ${r.payment_date}` : ''
+        const state = r?.paid_at ? 'paid' : 'not yet paid'
+        return `${ciLabel} is already on ${r?.remittance_number ?? 'another remittance'}${payee}${when} — ${state}`
+      })
+      return {
+        error: `${detail.join('. ')}. A contractor invoice can only be paid once, so this remittance was not created.`,
+      }
+    }
+  }
 
   // Load the matching job_worker rows so we can snapshot hours for lines
   // that are genuinely hourly. Display-only: we only attach hours when
