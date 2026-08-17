@@ -88,11 +88,8 @@ export default async function PayrollPage({ searchParams }: { searchParams?: { d
             </div>
           </Link>
           <p className="text-xs text-sage-400 mt-2">
-            Looking for older contractor pay runs?{' '}
-            <Link href="/portal/payroll/contractor-runs" className="underline hover:text-sage-600">
-              View past contractor pay runs
-            </Link>
-            .
+            The legacy contractor pay-run flow is retired — contractor pay runs
+            entirely through approve &rarr; remittance.
           </p>
         </div>
       )}
