@@ -20,7 +20,7 @@ export default async function ContractorPayrollPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 pb-28 md:pb-10">
       <Link href="/contractor/statements" className="inline-flex items-center gap-2 text-sm text-sage-600 hover:text-sage-800 mb-4">
-        <FileText size={15} /> View your payment statements
+        <FileText size={15} /> Past payment statements
       </Link>
       <ContractorPayView data={data} />
     </div>

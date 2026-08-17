@@ -29,8 +29,8 @@ export default async function PayHubPage() {
           cards: [
             { href: '/portal/contractor-invoices', title: 'Contractor invoices', desc: 'Every contractor payable, filterable.', icon: FileInput },
             { href: '/portal/contractor-invoices/remittances', title: 'Remittances', desc: 'Saved pay runs — sent and paid.', icon: FolderOpen },
-            { href: '/portal/contractor-statements', title: 'Contractor statements', desc: 'Period statements issued to contractors.', icon: Layers },
             { href: '/portal/mileage', title: 'Mileage logbook', desc: 'Reimbursable driving kilometres.', icon: Car },
+            { href: '/portal/contractor-statements', title: 'Contractor statements (historical)', desc: 'Retired workflow — old records, read-only.', icon: Layers },
           ],
         },
       ]}
