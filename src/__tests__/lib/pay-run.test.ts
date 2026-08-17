@@ -83,14 +83,18 @@ describe('Pay-run screen wiring (source-level)', () => {
     it('leads with an operational summary (owed total + awaiting count)', () => {
       expect(view).toMatch(/Ready to pay/)
       expect(view).toMatch(/Awaiting approval/)
-      expect(view).toMatch(/grandTotal/)
+      // The headline figure is now the SELECTED total, not the whole plan —
+      // Pay Run pays exactly what is ticked.
+      expect(view).toMatch(/selectedTotal/)
       // Counts derive from the plan, not a separate query — and only from
       // groups with at least one VISIBLE payable item, so the summary always
       // reconciles (a period filter can leave a group with nothing showing,
       // which previously read "$0.00 · 1 payee, 0 items").
       expect(view).toMatch(/const payableGroups = groups\.filter\(\(g\) => g\.ciCount > 0\)/)
-      expect(view).toMatch(/const payeeCount = payableGroups\.length/)
-      expect(view).toMatch(/const itemCount = payableGroups\.reduce/)
+      // Counts now reflect the SELECTED subset — a payee with nothing ticked
+      // isn't part of the run, and the totals must reconcile with what's paid.
+      expect(view).toMatch(/const payeeCount = selectedGroups\.length/)
+      expect(view).toMatch(/const itemCount = payableGroups\.reduce\(\(s, g\) => s \+ groupSelection\(g\)\.count, 0\)/)
     })
 
     it('groups by contractor with an expandable job breakdown', () => {
