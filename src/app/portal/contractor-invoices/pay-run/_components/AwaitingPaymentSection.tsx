@@ -87,15 +87,27 @@ export function AwaitingPaymentSection({
               return (
                 <Fragment key={r.id}>
                 <tr className="border-b border-sage-50 align-top">
-                  <td className="py-2.5 pr-3">
+                  <td className="py-2.5 pr-3 whitespace-nowrap">
+                    {/* The RA NUMBER is a link to the remittance page — that is
+                        where the jobs, document, PDF, send and void all live.
+                        It was briefly a button that expanded an inline
+                        accordion, which broke the obvious expectation that
+                        clicking a document number opens that document.
+                        The chevron beside it keeps the quick peek. */}
+                    <Link
+                      href={`/portal/contractor-invoices/remittances/${r.id}`}
+                      className="font-semibold text-sage-800 hover:underline"
+                    >
+                      {r.remittanceNumber}
+                    </Link>
                     <button
                       type="button"
                       onClick={() => toggle(r.id)}
                       aria-expanded={open}
-                      className="inline-flex items-center gap-1 font-semibold text-sage-800 hover:underline whitespace-nowrap"
+                      aria-label={open ? `Hide jobs on ${r.remittanceNumber}` : `Preview jobs on ${r.remittanceNumber}`}
+                      className="ml-1.5 align-middle text-sage-400 hover:text-sage-600"
                     >
-                      {open ? <ChevronDown size={13} className="text-sage-400" /> : <ChevronRight size={13} className="text-sage-400" />}
-                      {r.remittanceNumber}
+                      {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     </button>
                   </td>
                   <td className="py-2.5 pr-3 text-sage-800">{r.payeeLabel ?? '—'}</td>

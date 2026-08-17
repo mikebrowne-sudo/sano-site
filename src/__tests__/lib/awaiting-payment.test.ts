@@ -156,3 +156,17 @@ describe('void must stay findable', () => {
     expect(section).toMatch(/label="Void"/)
   })
 })
+
+describe('the RA number opens the remittance', () => {
+  // Regression guard: the RA number was briefly a <button> that expanded an
+  // inline accordion instead of a link. Clicking a document number must open
+  // that document — the detail page is where the jobs, PDF, send, mark-paid
+  // and void all live. The chevron beside it keeps the quick in-list peek.
+  it('links to the remittance detail page', () => {
+    expect(section).toMatch(/<Link\s+href=\{`\/portal\/contractor-invoices\/remittances\/\$\{r\.id\}`\}[\s\S]{0,160}\{r\.remittanceNumber\}/)
+  })
+
+  it('keeps a separate chevron for the inline preview', () => {
+    expect(section).toMatch(/aria-label=\{open \? `Hide jobs on/)
+  })
+})
