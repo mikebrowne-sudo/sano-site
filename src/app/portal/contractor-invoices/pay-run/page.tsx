@@ -45,26 +45,29 @@ export default async function PayRunPage({ searchParams }: { searchParams: { per
   // selection. Payables from different months also can't appear together, so a
   // period-first screen shows "one contractor" while several are owed. The job
   // here is "who do I owe?" — that question isn't period-scoped.
-  const showAll = !searchParams.period || searchParams.period === 'all'
-  const period = showAll ? null : (payPeriodForKey(searchParams.period) ?? null)
+  // The period drives the SUGGESTED SELECTION, not what is loaded.
+  //
+  // It used to filter the plan server-side, which meant choosing "16-31 Jul"
+  // physically removed May and June work from the page — so overdue backlog
+  // silently disappeared instead of being offered as "Older unpaid". The
+  // question a pay period answers is "what should normally be paid in this
+  // run?", not "hide everything else".
+  //
+  // So the plan is ALWAYS everything owed, and the period is passed to the
+  // view where lib/pay-run-selection.ts decides what is ticked by default.
+  const period = payPeriodForKey(searchParams.period) ?? null
 
   // "Ready to pay" — authorised, unremitted CIs grouped by contractor.
-  // splitByPeriod treats an empty filter as a no-op and returns everything
-  // (undated included), so passing {} is the honest "all owed" query.
+  // ALWAYS everything owed: `{}` makes splitByPeriod a no-op so nothing is
+  // hidden, including undated payables. The period only tints what is ticked.
   const allContractorIds = (await supabase.from('contractors').select('id')).data?.map((c) => c.id as string) ?? []
   const payDate = period?.payDate ?? today
-  const plan = await previewRemittancesForContractors(
-    allContractorIds,
-    payDate,
-    period ? { from: period.periodStart, to: period.periodEnd } : {},
-  )
+  const plan = await previewRemittancesForContractors(allContractorIds, payDate, {})
 
   // "Awaiting authorisation" — completed jobs with no approved payable yet.
-  // Unfiltered in all-owed mode so nothing sits unapproved out of view.
-  const approvalRows = await loadApprovalRows(
-    supabase,
-    period ? { from: period.periodStart, to: period.periodEnd } : {},
-  )
+  // Also unfiltered: unapproved work is a backlog, not a per-period concern,
+  // and hiding it behind a period is how it gets forgotten.
+  const approvalRows = await loadApprovalRows(supabase, {})
   const awaiting = awaitingAuthorisation(approvalRows)
 
   // "Awaiting payment" — remittances already created but not yet paid out.
