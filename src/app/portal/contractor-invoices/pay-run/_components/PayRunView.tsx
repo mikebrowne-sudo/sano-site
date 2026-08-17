@@ -1,17 +1,18 @@
 'use client'
 
-// Contractor Pay workspace (Phase 3).
+// Contractor Pay workspace.
 //
-// One screen that answers "what do we owe right now?" and "what needs approving
-// before we can pay it?" — in that order of prominence.
-//
-//   Summary  ->  Ready to pay (dominant)  ->  Awaiting approval  ->  Pay Run
+//   Pay period -> Awaiting payment -> Ready to pay -> Review -> Awaiting approval
 //
 // Design notes:
-//  * DEFAULT IS EVERYTHING OWED. The pay period is an optional filter. A
-//    service-date filter hides real money — undated payables match no period,
-//    and one contractor's work can straddle months — so the default must be the
-//    full picture. Filtering warns about exactly what it hid.
+//  * EVERYTHING OWED IS ALWAYS LISTED. The pay period SUGGESTS what to tick; it
+//    never hides a payable. It used to filter the plan server-side, which meant
+//    choosing "16-31 Jul" physically removed May and June work — overdue backlog
+//    vanished instead of being offered as "Older unpaid". The question a period
+//    answers is "what should normally be paid in this run?", not "hide the rest".
+//  * SELECTION IS AUTHORITATIVE. What is ticked is exactly what is paid; the
+//    server intersects it with its own eligibility check so the tick-set can
+//    only ever narrow the run. See lib/pay-run-selection.ts.
 //  * Contractor grouping comes from the planner's company-groups (a shared GST
 //    number collapses a couple into one payee), so what's shown here is exactly
 //    what would be paid.
@@ -223,28 +224,31 @@ export function PayRunView({
             </button>
           )}
         </div>
-        <select
-          value={selectedKey}
-          onChange={(e) => changePeriod(e.target.value)}
-          className="rounded-lg border border-sage-200 px-3 py-2 text-sm bg-white text-sage-700"
-        >
-          <option value="all">Everything owed</option>
-          {periods.map((p) => <option key={p.key} value={p.key}>Period · {p.label}</option>)}
-        </select>
-        {!showingAll && (
-          <button type="button" onClick={() => changePeriod('all')} className="text-xs text-sage-500 underline hover:text-sage-700">
-            Clear filter
-          </button>
-        )}
+        {/* The period SUGGESTS what to pay; it never hides anything. */}
+        <label className="flex items-center gap-2 text-sm text-sage-600 whitespace-nowrap">
+          Pay period
+          <select
+            value={selectedKey}
+            onChange={(e) => changePeriod(e.target.value)}
+            className="rounded-lg border border-sage-200 px-3 py-2 text-sm bg-white text-sage-700"
+          >
+            <option value="all">No period — nothing preselected</option>
+            {periods.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+          </select>
+        </label>
       </div>
 
-      {!showingAll && (
-        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          <strong>Filtered to one pay period.</strong> Payables dated outside it
-          {undated > 0 && <> — and {undated} with no service date</>} are hidden, so the
-          total above is not everything owed. Choose <strong>Everything owed</strong> to see the full amount.
-        </p>
-      )}
+      <p className="text-xs text-sage-500">
+        {showingAll ? (
+          <>Showing everything owed. Choose a pay period to preselect the jobs due in that run.</>
+        ) : (
+          <>
+            Everything owed is listed. The pay period preselects work up to the end of
+            it — including older unpaid jobs — and leaves later work unticked.
+            {undated > 0 && <> {undated} payable{undated === 1 ? ' has' : 's have'} no service date and need{undated === 1 ? 's' : ''} a look.</>}
+          </>
+        )}
+      </p>
 
       {/* ── Awaiting payment — prepared, not yet transferred ────────────── */}
       <AwaitingPaymentSection
@@ -415,7 +419,7 @@ export function PayRunView({
               type="button" onClick={() => { setErr(null); setResult(null); setConfirming(true) }}
               className="bg-sage-500 text-white font-semibold px-5 py-2.5 rounded-lg text-sm hover:bg-sage-700"
             >
-              Pay Run — review {payeeCount} payment{payeeCount === 1 ? '' : 's'}
+              Review Pay Run — {payeeCount} payment{payeeCount === 1 ? '' : 's'}
             </button>
           </div>
         )}
@@ -423,7 +427,7 @@ export function PayRunView({
         {/* Confirm step — exactly what is about to happen, before anything is created. */}
         {confirming && (
           <div className="mt-5 border-t border-gray-100 pt-4">
-            <h3 className="font-semibold text-sage-800 mb-1">Confirm this pay run</h3>
+            <h3 className="font-semibold text-sage-800 mb-1">Review Pay Run</h3>
             {/* Fail closed on a GENUINE bank-detail conflict. Formatting-only
                 differences normalise away and never reach here. A payee whose
                 account name differs from the worker's name is NOT blocked —
@@ -499,7 +503,7 @@ export function PayRunView({
                 title={bankConflicts.length > 0 ? 'Resolve the bank-detail conflicts above first.' : undefined}
                 className="bg-sage-500 text-white font-semibold px-5 py-2.5 rounded-lg text-sm hover:bg-sage-700 disabled:opacity-50"
               >
-                {isPending ? 'Creating…' : `Create ${payeeCount} remittance${payeeCount === 1 ? '' : 's'} · ${money(selectedTotal)}`}
+                {isPending ? 'Creating…' : `Create Payments · ${money(selectedTotal)}`}
               </button>
               <button
                 type="button" onClick={() => setConfirming(false)} disabled={isPending}
@@ -523,15 +527,15 @@ export function PayRunView({
       <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
           <h2 className="text-[11px] uppercase tracking-wide text-sage-500 font-semibold">Awaiting approval</h2>
+          {/* Never period-scoped — unapproved work is a backlog, not a
+              per-period concern. */}
           <span className={clsx('text-sm tabular-nums', awaiting.length > 0 ? 'text-amber-700 font-semibold' : 'text-sage-500')}>
-            {awaiting.length > 0
-              ? `${awaiting.length} job${awaiting.length === 1 ? '' : 's'}${showingAll ? '' : ' this period'}`
-              : 'None'}
+            {awaiting.length > 0 ? `${awaiting.length} completed job${awaiting.length === 1 ? '' : 's'}` : 'None'}
           </span>
         </div>
         <p className="text-[13px] text-sage-500 mb-3">
           {awaiting.length > 0
-            ? 'Approve these first so they’re included — approving creates the payable and it moves straight into “ready to pay” above.'
+            ? 'These jobs are not eligible for payment until approved. Approving creates the payable and it moves straight into “Ready to pay” above.'
             : `Every completed job${showingAll ? '' : ' in this period'} has an approved payable.`}
         </p>
         {awaiting.length > 0 && (

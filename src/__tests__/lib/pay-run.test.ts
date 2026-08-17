@@ -38,16 +38,17 @@ describe('Pay-run screen wiring (source-level)', () => {
     expect(page).toMatch(/period\?\.payDate \?\? today/)
   })
 
-  // The period filter is OPTIONAL (2026-08-17). Filtering by service date hid
-  // real money: an undated payable matches no period, and payables from
-  // different months can never appear together — so the screen showed one
-  // contractor while several were owed. Default is now "everything owed".
-  it('defaults to everything owed, with the period as an optional filter', () => {
-    expect(page).toMatch(/const showAll = !searchParams\.period \|\| searchParams\.period === 'all'/)
-    // No period selected -> empty filter, which splitByPeriod treats as a no-op
-    // and returns every payable including undated ones.
-    expect(page).toMatch(/period \? \{ from: period\.periodStart, to: period\.periodEnd \} : \{\}/)
-    expect(view).toMatch(/Everything owed/)
+  // The period SUGGESTS what to tick; it never hides a payable. It used to
+  // filter the plan server-side, which meant choosing "16-31 Jul" physically
+  // removed May and June work — overdue backlog vanished instead of being
+  // offered as "Older unpaid".
+  it('ALWAYS loads everything owed — the period never filters the plan', () => {
+    // Empty filter = splitByPeriod no-op = every payable, undated included.
+    expect(page).toMatch(/previewRemittancesForContractors\(allContractorIds, payDate, \{\}\)/)
+    // Approvals are likewise a backlog, not a per-period concern.
+    expect(page).toMatch(/loadApprovalRows\(supabase, \{\}\)/)
+    // The period is still resolved — but only to seed the default selection.
+    expect(page).toMatch(/const period = payPeriodForKey\(searchParams\.period\) \?\? null/)
   })
   it('shows BOTH ready-to-pay (grouped authorised) AND awaiting-authorisation in ONE screen', () => {
     expect(page).toMatch(/previewRemittancesForContractors/)   // ready to pay
@@ -69,9 +70,11 @@ describe('Pay-run screen wiring (source-level)', () => {
     expect(view).toMatch(/PendingApprovalsList/)   // inline approve reuse
   })
 
-  it('warns that a period filter hides undated + out-of-period payables', () => {
+  it('explains that the period preselects rather than hides', () => {
+    expect(view).toMatch(/Everything owed is listed/)
+    expect(view).toMatch(/preselects/)
+    // Undated payables are surfaced for review, never silently dropped.
     expect(view).toMatch(/no service date/i)
-    expect(view).toMatch(/Clear filter/)
   })
   it('is linked as the primary "Pay run" action on the landing page', () => {
     expect(landing).toMatch(/\/portal\/contractor-invoices\/pay-run/)
@@ -116,7 +119,7 @@ describe('Pay-run screen wiring (source-level)', () => {
     })
 
     it('confirms contractors, counts, amounts and payment date before creating', () => {
-      expect(view).toMatch(/Confirm this pay run/)
+      expect(view).toMatch(/Review Pay Run/)
       expect(view).toMatch(/payment date/i)
       expect(view).toMatch(/setConfirming/)
     })

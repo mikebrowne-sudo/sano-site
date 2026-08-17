@@ -20,11 +20,11 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { LucideIcon } from 'lucide-react'
 import {
-  ArrowLeft, ArrowRight, Wallet, Landmark,
-  Banknote, Receipt, Car, Layers, FileInput, FolderOpen, AlertTriangle,
+  ArrowLeft, ArrowRight, Wallet, Landmark, Banknote, FolderOpen, AlertTriangle,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { createClient } from '@/lib/supabase-server'
+import { buttonClasses } from '../_components/Button'
 import { isFinanceUser } from '@/lib/is-admin'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { loadContractorPayOverview, loadEmployeePayOverview } from '@/lib/pay-overview-data'
@@ -102,127 +102,162 @@ export default async function PayHubPage() {
         </section>
       )}
 
-      {/* ── Contractors ────────────────────────────────────────────────── */}
-      <section className="mb-8">
-        <h2 className="text-[11px] uppercase tracking-wide text-sage-500 font-semibold mb-2">Contractors</h2>
-        <div className="rounded-xl border border-gray-100 bg-white shadow-sm divide-y divide-sage-50 mb-3">
-          <StatRow
-            label="Awaiting payment"
-            value={formatCurrency(awaitingPayment.total)}
-            detail={`${awaitingPayment.remittanceCount} remittance${awaitingPayment.remittanceCount === 1 ? '' : 's'} prepared, not yet transferred`}
-            href="/portal/contractor-invoices/pay-run"
-            accent={awaitingPayment.remittanceCount > 0}
-          />
-          <StatRow
-            label="Ready to pay"
-            value={formatCurrency(contractor.readyTotal)}
-            detail={`${contractor.payeeCount} payee${contractor.payeeCount === 1 ? '' : 's'} · ${contractor.payItemCount} pay item${contractor.payItemCount === 1 ? '' : 's'} not yet on a remittance`}
-            href="/portal/contractor-invoices/pay-run"
-          />
-          <StatRow
-            label="Awaiting approval"
-            value={String(awaiting.length)}
-            detail={awaiting.length === 0 ? 'Nothing to approve' : `completed job${awaiting.length === 1 ? '' : 's'} needing pay approval`}
-            href="/portal/contractor-invoices/pay-run"
-            accent={awaiting.length > 0}
-          />
-          <StatRow
-            label="Awaiting bank confirmation"
-            value={formatCurrency(contractor.awaitingBankTotal)}
-            detail={`${contractor.awaitingBankCount} paid payment${contractor.awaitingBankCount === 1 ? '' : 's'} not yet reconciled${contractor.partlyConfirmedCount > 0 ? ` · ${contractor.partlyConfirmedCount} partly` : ''}`}
-            href="/portal/contractor-invoices/remittances"
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <HubAction href="/portal/contractor-invoices/pay-run" icon={Wallet} label="Contractor pay" primary />
-          <HubAction href="/portal/contractor-invoices/remittances" icon={FolderOpen} label="Payment history" />
-          <HubAction href="/portal/contractor-invoices" icon={FileInput} label="Contractor invoices" />
-        </div>
-      </section>
+      {/* Four primary cards. Each is a SUMMARY + one obvious way in — detail
+          belongs on the destination page, not here. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        {/* 1 — Contractor Pay: the main operational card. */}
+        <PayCard
+          icon={Wallet}
+          title="Contractor Pay"
+          href="/portal/contractor-invoices/pay-run"
+          actionLabel="Open Contractor Pay"
+          primary
+          stats={[
+            {
+              label: 'Awaiting payment',
+              value: formatCurrency(awaitingPayment.total),
+              detail: `${awaitingPayment.remittanceCount} remittance${awaitingPayment.remittanceCount === 1 ? '' : 's'} prepared`,
+              accent: awaitingPayment.remittanceCount > 0,
+            },
+            {
+              label: 'Ready to pay',
+              value: formatCurrency(contractor.readyTotal),
+              detail: `${contractor.payeeCount} payee${contractor.payeeCount === 1 ? '' : 's'} · ${contractor.payItemCount} job${contractor.payItemCount === 1 ? '' : 's'}`,
+            },
+            {
+              label: 'Awaiting approval',
+              value: String(awaiting.length),
+              detail: awaiting.length === 0 ? 'nothing to approve' : `job${awaiting.length === 1 ? '' : 's'} to approve`,
+              accent: awaiting.length > 0,
+            },
+          ]}
+        />
 
-      {/* ── Employees ──────────────────────────────────────────────────── */}
-      <section className="mb-8">
-        <h2 className="text-[11px] uppercase tracking-wide text-sage-500 font-semibold mb-2">Employees</h2>
-        <div className="rounded-xl border border-gray-100 bg-white shadow-sm divide-y divide-sage-50 mb-3">
-          <StatRow
-            label="On payroll"
-            value={String(employee.activeEmployees)}
-            detail={`active employee${employee.activeEmployees === 1 ? '' : 's'}`}
-            href="/portal/contractors"
-          />
-          <StatRow
-            label={employee.latestRun?.status === 'draft' ? 'Draft pay run' : 'Latest pay run'}
-            value={employee.latestRun ? formatCurrency(employee.latestRun.netTotal) : '—'}
-            detail={employee.latestRun
-              ? `${employee.latestRun.lineCount} employee${employee.latestRun.lineCount === 1 ? '' : 's'}${employee.latestRun.payDate ? ` · pay date ${formatDate(employee.latestRun.payDate)}` : ''}${employee.latestRun.status ? ` · ${employee.latestRun.status}` : ''}`
-              : 'No pay runs yet'}
-            href="/portal/payroll"
-            accent={employee.latestRun?.status === 'draft'}
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <HubAction href="/portal/payroll" icon={Banknote} label="Employee payroll" primary />
-          <HubAction href="/portal/payroll/ird" icon={Receipt} label="IRD liabilities" />
-          <HubAction href="/portal/mileage" icon={Car} label="Mileage" />
-        </div>
-      </section>
+        {/* 2 — Employee Pay: deliberately separate from contractor pay. */}
+        <PayCard
+          icon={Banknote}
+          title="Employee Pay"
+          href="/portal/payroll"
+          actionLabel="Open Employee Payroll"
+          stats={[
+            {
+              label: 'On payroll',
+              value: String(employee.activeEmployees),
+              detail: `active employee${employee.activeEmployees === 1 ? '' : 's'}`,
+            },
+            {
+              label: employee.latestRun?.status === 'draft' ? 'Draft pay run' : 'Latest pay run',
+              value: employee.latestRun ? formatCurrency(employee.latestRun.netTotal) : '—',
+              detail: employee.latestRun
+                ? `${employee.latestRun.lineCount} employee${employee.latestRun.lineCount === 1 ? '' : 's'}${employee.latestRun.payDate ? ` · ${formatDate(employee.latestRun.payDate)}` : ''}`
+                : 'no pay runs yet',
+              accent: employee.latestRun?.status === 'draft',
+            },
+          ]}
+        />
 
-      {/* ── Records ────────────────────────────────────────────────────── */}
-      <section>
-        <h2 className="text-[11px] uppercase tracking-wide text-sage-400 mb-2">Records</h2>
-        <div className="flex flex-wrap gap-2">
-          <HubAction href="/portal/payroll/contractor-withholding" icon={Receipt} label="Schedular withholding" />
-          <HubAction href="/portal/finance/reconcile-out" icon={Landmark} label="Bank reconciliation" />
-          <HubAction href="/portal/contractor-statements" icon={Layers} label="Contractor statements (historical)" />
-        </div>
-      </section>
+        {/* 3 — Payment History: reference, not where payments are built. */}
+        <PayCard
+          icon={FolderOpen}
+          title="Payment History"
+          href="/portal/contractor-invoices/remittances"
+          actionLabel="View Payment History"
+          stats={[
+            {
+              label: 'Awaiting bank confirmation',
+              value: formatCurrency(contractor.awaitingBankTotal),
+              detail: `${contractor.awaitingBankCount} payment${contractor.awaitingBankCount === 1 ? '' : 's'}${contractor.partlyConfirmedCount > 0 ? ` · ${contractor.partlyConfirmedCount} partly` : ''}`,
+            },
+            {
+              label: 'Bank confirmed',
+              value: String(contractor.confirmedCount),
+              detail: `payment${contractor.confirmedCount === 1 ? '' : 's'} matched to the bank`,
+            },
+          ]}
+        />
+
+        {/* 4 — IRD & Reconciliation: the finance follow-up tasks. */}
+        <PayCard
+          icon={Landmark}
+          title="IRD &amp; Reconciliation"
+          href="/portal/finance/reconcile-out"
+          actionLabel="Bank reconciliation"
+          secondary={[
+            { href: '/portal/payroll/ird', label: 'IRD liabilities' },
+            { href: '/portal/payroll/contractor-withholding', label: 'Schedular withholding' },
+          ]}
+          stats={[
+            {
+              label: 'Unreconciled payments',
+              value: String(contractor.awaitingBankCount + contractor.partlyConfirmedCount),
+              detail: 'paid, not yet matched to the bank',
+              accent: contractor.awaitingBankCount + contractor.partlyConfirmedCount > 0,
+            },
+          ]}
+        />
+      </div>
+
+      {/* Supporting records stay reachable without competing with the cards. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-sage-500">
+        <span className="uppercase tracking-wide text-[11px] text-sage-400">Also</span>
+        <Link href="/portal/contractor-invoices" className="hover:text-sage-700 underline">Contractor invoices</Link>
+        <Link href="/portal/mileage" className="hover:text-sage-700 underline">Mileage</Link>
+        <Link href="/portal/contractors" className="hover:text-sage-700 underline">Workforce</Link>
+        <Link href="/portal/contractor-statements" className="hover:text-sage-700 underline">Contractor statements (historical)</Link>
+      </div>
     </div>
   )
 }
 
-/** One labelled figure in the hub's stat list. Deliberately a plain row, not a
- *  card — the hub should read like the rest of the portal. */
-function StatRow({
-  label, value, detail, href, accent,
-}: {
+interface PayCardStat {
   label: string
   value: string
   detail: string
-  href: string
   accent?: boolean
-}) {
-  return (
-    <Link href={href} className="flex items-baseline justify-between gap-4 px-4 py-3 hover:bg-sage-50/60 transition-colors">
-      <span className="min-w-0">
-        <span className="block text-sm font-medium text-sage-800">{label}</span>
-        <span className="block text-xs text-sage-500">{detail}</span>
-      </span>
-      <span className={clsx('text-lg font-semibold tabular-nums shrink-0', accent ? 'text-amber-700' : 'text-sage-800')}>
-        {value}
-      </span>
-    </Link>
-  )
 }
 
-function HubAction({
-  href, icon: Icon, label, primary,
+/** One primary Pay card: a few headline figures and one obvious way in. */
+function PayCard({
+  icon: Icon, title, href, actionLabel, stats, primary, secondary,
 }: {
-  href: string
   icon: LucideIcon
-  label: string
+  title: string
+  href: string
+  actionLabel: string
+  stats: PayCardStat[]
   primary?: boolean
+  secondary?: { href: string; label: string }[]
 }) {
   return (
-    <Link
-      href={href}
-      className={clsx(
-        'inline-flex items-center gap-2 font-medium px-4 py-2.5 rounded-lg text-sm transition-colors',
-        primary
-          ? 'bg-sage-500 text-white hover:bg-sage-700'
-          : 'bg-white border border-sage-200 text-sage-700 hover:bg-sage-50',
-      )}
-    >
-      <Icon size={15} /> {label}
-    </Link>
+    <section className="rounded-xl border border-gray-100 bg-white shadow-sm p-5 flex flex-col">
+      <h2 className="flex items-center gap-2 text-base font-semibold text-sage-800 mb-3">
+        <Icon size={16} className="text-sage-500" /> {title}
+      </h2>
+
+      <dl className="space-y-2 flex-1">
+        {stats.map((s) => (
+          <div key={s.label} className="flex items-baseline justify-between gap-3">
+            <dt className="text-sm text-sage-600">{s.label}</dt>
+            <dd className="text-right">
+              <span className={clsx('font-semibold tabular-nums', s.accent ? 'text-amber-700' : 'text-sage-800')}>
+                {s.value}
+              </span>
+              <span className="block text-[11px] text-sage-400">{s.detail}</span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Link href={href} className={buttonClasses({ variant: primary ? 'primary' : 'secondary', size: 'sm' })}>
+          {actionLabel}
+        </Link>
+        {secondary?.map((s) => (
+          <Link key={s.href} href={s.href} className="text-xs text-sage-600 hover:text-sage-800 underline">
+            {s.label}
+          </Link>
+        ))}
+      </div>
+    </section>
   )
 }
