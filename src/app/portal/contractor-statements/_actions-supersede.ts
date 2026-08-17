@@ -1,38 +1,33 @@
 'use server'
 
-// Supersede an issued contractor statement. The state change is ATOMIC: a
-// single SECURITY DEFINER RPC (supersede_contractor_statement) verifies the
-// statement is issued, stamps the supersede fields, preserves issued_snapshot,
-// releases the linked CIs and writes the audit row in one transaction. If any
-// step fails, none persist. A fresh replacement draft is created separately via
-// the generate action (which then back-fills replacement_statement_id).
-
-import { createClient } from '@/lib/supabase-server'
-import { isAdminUser } from '@/lib/is-admin'
-import { revalidatePath } from 'next/cache'
+// RETIRED (Phase 2, 2026-08-17) — statement supersede.
+//
+// Supersede was the correction path for an ISSUED statement: stamp it
+// superseded, release its payables, and let a regenerated statement take its
+// place. It only ever applied to statements past 'draft'.
+//
+// Production has 0 issued statements, so there is nothing supersedable. With
+// generation and issue both retired, no new statement can reach a state where
+// supersede would apply.
+//
+// The supersede_contractor_statement RPC stays in the database untouched — it
+// is atomic and audited, and remains available for a one-off manual correction
+// if a historical record ever needs one. It simply has no caller in the app.
+//
+// Stubbed rather than deleted so direct invocation fails closed. SupersedeResult
+// is preserved so existing importers keep type-checking.
 
 export interface SupersedeResult {
+  ok?: true
   error?: string
-  ok?: boolean
   statement_number?: string
-  released_ci_ids?: string[]
+  released_cis?: number
 }
 
-export async function supersedeContractorStatement(input: { id: string; reason: string }): Promise<SupersedeResult> {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user || !isAdminUser(user)) return { error: 'Admin only.' }
-  const reason = (input.reason ?? '').trim()
-  if (!reason) return { error: 'A reason is required to supersede a statement.' }
+const RETIRED_MESSAGE =
+  'Contractor statements are retired. There is no active statement workflow to supersede.'
 
-  const { data, error } = await supabase.rpc('supersede_contractor_statement', {
-    p_statement_id: input.id,
-    p_reason: reason,
-  })
-  if (error) return { error: error.message }
-
-  revalidatePath('/portal/contractor-statements')
-  revalidatePath(`/portal/contractor-statements/${input.id}`)
-  const result = (data ?? {}) as { statement_number?: string; released_ci_ids?: string[] }
-  return { ok: true, statement_number: result.statement_number, released_ci_ids: result.released_ci_ids ?? [] }
+/** RETIRED — no longer supersedes statements as part of an active workflow. */
+export async function supersedeContractorStatement(): Promise<SupersedeResult> {
+  return { error: RETIRED_MESSAGE }
 }

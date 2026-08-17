@@ -1,17 +1,19 @@
 'use server'
 
-// Contractor confirms their own issued statement. Delegates to the
-// SECURITY DEFINER RPC (ownership + eligibility + confirmed_source set
-// server-side). No contractor UPDATE access to the table.
+// RETIRED (Phase 2, 2026-08-17) — contractor statement confirmation.
+//
+// Contractors previously had to confirm a statement before it could be paid.
+// That gate is gone: approved work becomes a remittance and is paid directly,
+// so there is nothing for a contractor to confirm.
+//
+// Stubbed rather than deleted so a direct invocation (stale bundle, replayed
+// POST) fails closed. The confirm_statement_as_contractor RPC is left in the
+// database untouched — it has no caller.
 
-import { getContractor } from '../_lib/get-contractor'
-import { revalidatePath } from 'next/cache'
+const RETIRED_MESSAGE =
+  'Payment statements no longer need confirming. Your pay is processed directly — nothing is required from you.'
 
-export async function confirmMyStatement(id: string): Promise<{ ok?: true; error?: string }> {
-  const { supabase } = await getContractor() // redirects if not an authed contractor
-  const { error } = await supabase.rpc('confirm_statement_as_contractor', { p_statement_id: id })
-  if (error) return { error: error.message }
-  revalidatePath(`/contractor/statements/${id}`)
-  revalidatePath('/contractor/statements')
-  return { ok: true }
+/** RETIRED — contractors no longer confirm statements to be paid. */
+export async function confirmMyStatement(): Promise<{ ok?: true; error?: string }> {
+  return { error: RETIRED_MESSAGE }
 }

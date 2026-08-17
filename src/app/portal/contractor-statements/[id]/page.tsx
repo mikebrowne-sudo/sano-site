@@ -1,3 +1,14 @@
+// Historical statement detail — READ-ONLY (Phase 2, 2026-08-17).
+//
+// The IssuePanel (issue · resend · confirm-on-behalf · extend deadline ·
+// supersede) is removed: statements are retired as an active workflow and every
+// one of those actions is stubbed. What remains is the record itself.
+//
+// Both render modes are kept so nothing becomes unreachable — an issued
+// statement still renders from its immutable snapshot, a draft still renders
+// live from its linked payables. Neither is rewritten.
+
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { CornerDownRight } from 'lucide-react'
@@ -6,7 +17,6 @@ import { getStatementDetail } from '@/lib/contractor-statement-data'
 import { periodLabel } from '@/lib/contractor-statement-period'
 import type { IssuedSnapshot } from '@/lib/contractor-statement-snapshot'
 import { ContractorStatementSnapshot } from '@/components/ContractorStatementSnapshot'
-import { IssuePanel } from '../_components/IssuePanel'
 
 function fmtCurrency(n: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
@@ -34,36 +44,20 @@ export default async function StatementDetailPage({ params }: { params: { id: st
   const status = stmt.status as string
   const snapshot = stmt.issued_snapshot as IssuedSnapshot | null
 
-  // Email-sent state (for the issued panel).
-  let emailSent: boolean | null = null
-  if (status !== 'draft') {
-    const { data: log } = await supabase
-      .from('notification_logs')
-      .select('id')
-      .eq('type', 'contractor_statement_issued')
-      .eq('status', 'sent')
-      .filter('payload->>statement_id', 'eq', params.id)
-      .limit(1)
-      .maybeSingle()
-    emailSent = !!log
-  }
-
   // Draft → live detail; issued+ → render from the immutable snapshot.
   const detail = status === 'draft' ? await getStatementDetail(supabase, params.id) : null
-  const lineCount = detail ? detail.lines.length : (snapshot?.lines.length ?? 0)
 
   return (
     <div>
       <BackLink fallbackHref="/portal/contractor-statements" label="Back to statements" />
 
-      <IssuePanel
-        statementId={params.id}
-        status={status}
-        lineCount={lineCount}
-        emailSent={emailSent}
-        reviewDueAt={(stmt.review_due_at as string | null) ?? null}
-        confirmedSource={(stmt.confirmed_source as string | null) ?? null}
-      />
+      <div className="rounded-xl border border-sage-200 bg-sage-50 p-4 mb-6 text-sm text-sage-700">
+        <p>
+          <span className="font-semibold">Historical record — read-only.</span> The
+          statement workflow is retired; contractor pay runs through{' '}
+          <Link href="/portal/contractor-invoices/pay-run" className="underline hover:text-sage-900">Pay run</Link>.
+        </p>
+      </div>
 
       {snapshot ? (
         <ContractorStatementSnapshot snapshot={snapshot} superseded={status === 'superseded'} />
