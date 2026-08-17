@@ -28,11 +28,13 @@ import Link from 'next/link'
 import clsx from 'clsx'
 import {
   AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Users,
-  Wallet, ClipboardCheck, Search, X,
+  Wallet, ClipboardCheck, Search, X, Clock,
 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { createRemittancesForContractors, type GroupPlan } from '../../remittances/_actions-by-contractor'
 import { PendingApprovalsList, type ApprovalRow } from '../../pending-approvals/_components/PendingApprovalsList'
+import { AwaitingPaymentSection } from './AwaitingPaymentSection'
+import type { AwaitingPaymentSummary } from '@/lib/awaiting-payment-data'
 
 function money(n: number) { return formatCurrency(n) }
 
@@ -43,6 +45,7 @@ function serviceDateLabel(iso: string | null): string {
 
 export function PayRunView({
   periods, selectedKey, periodStart, periodEnd, payDate, groups, grandTotal, planError, awaiting,
+  awaitingPayment,
 }: {
   periods: { key: string; label: string; payDateLabel: string }[]
   selectedKey: string
@@ -54,6 +57,8 @@ export function PayRunView({
   grandTotal: number
   planError: string | null
   awaiting: ApprovalRow[]
+  /** Remittances created but not yet paid out — never period-filtered. */
+  awaitingPayment: AwaitingPaymentSummary
 }) {
   const router = useRouter()
   const [markPaid, setMarkPaid] = useState(false)
@@ -95,6 +100,7 @@ export function PayRunView({
   const payeeCount = groups.length
   const itemCount = groups.reduce((s, g) => s + g.ciCount, 0)
   const undated = groups.reduce((s, g) => s + g.undatedCount, 0)
+  const hasAwaitingPayment = awaitingPayment.remittanceCount > 0
 
   function createAll() {
     setErr(null); setResult(null)
@@ -117,8 +123,21 @@ export function PayRunView({
 
   return (
     <div className="space-y-6">
-      {/* ── Summary ─────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* ── Summary — the three stages, in the order money moves ────────── */}
+      <div className={clsx('grid grid-cols-1 gap-3', hasAwaitingPayment ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
+        {/* Awaiting payment leads: the paperwork is done, only the transfer
+            is outstanding, so it is the nearer obligation. */}
+        {hasAwaitingPayment && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
+            <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-amber-600 mb-1">
+              <Clock size={13} /> Awaiting payment
+            </div>
+            <div className="text-3xl font-bold text-amber-900 tabular-nums">{money(awaitingPayment.total)}</div>
+            <div className="text-sm text-amber-700 mt-1">
+              {awaitingPayment.remittanceCount} remittance{awaitingPayment.remittanceCount === 1 ? '' : 's'} · {awaitingPayment.payeeCount} payee{awaitingPayment.payeeCount === 1 ? '' : 's'}
+            </div>
+          </div>
+        )}
         <div className="rounded-2xl border border-sage-200 bg-white p-5">
           <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-sage-400 mb-1">
             <Wallet size={13} /> Ready to pay
@@ -186,11 +205,23 @@ export function PayRunView({
         </p>
       )}
 
-      {/* ── Ready to pay (dominant) ─────────────────────────────────────── */}
+      {/* ── Awaiting payment — prepared, not yet transferred ────────────── */}
+      <AwaitingPaymentSection
+        remittances={awaitingPayment.remittances}
+        total={awaitingPayment.total}
+        payeeCount={awaitingPayment.payeeCount}
+      />
+
+      {/* ── Ready to pay ────────────────────────────────────────────────── */}
       <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-sage-800">
             <Users size={18} /> Ready to pay
+            {hasAwaitingPayment && (
+              <span className="text-xs font-normal text-sage-400">
+                — not counting {money(awaitingPayment.total)} already prepared above
+              </span>
+            )}
           </h2>
           <span className="text-sm text-sage-600 tabular-nums">
             {needle && visibleGroups.length !== groups.length && <span className="text-sage-400">{visibleGroups.length} of {groups.length} shown · </span>}
