@@ -65,6 +65,34 @@ function build(manual: unknown) {
   return fromCommercialProposalPayload(legacy)
 }
 
+describe('frequency suffixes on costed scope rows', () => {
+  it('recurring quotes show the frequency', () => {
+    const payload = build([])
+    const general = payload.scopeSections.find((s) => /general/i.test(s.title))
+    expect(general?.items[0]).toMatch(/\(weekly\)/)
+  })
+
+  it('one-off quotes suppress it (there is only one visit)', () => {
+    const legacy = buildProposalPayload({
+      quote: {
+        id: 'q1', quote_number: 'QT-0001', status: 'draft',
+        date_issued: null, valid_until: null, accepted_at: null,
+        service_address: '1 Test St', notes: null,
+        base_price: 1000, discount: null, gst_included: true, payment_type: null,
+      },
+      client: { name: 'Test Co', company_name: 'Test Co', service_address: '1 Test St', phone: null, email: null },
+      addons: [],
+      details: details({ is_one_off: true }),
+      scope: [scopeItem()],
+    })
+    const payload = fromCommercialProposalPayload(legacy)
+    const general = payload.scopeSections.find((s) => /general/i.test(s.title))
+
+    expect(general?.items[0]).toBe('Vacuum all carpeted areas')
+    expect(general?.items[0]).not.toMatch(/\(weekly\)/)
+  })
+})
+
 describe('manual scope sections in the proposal payload', () => {
   it('appends manual sections after the generated scope groups', () => {
     const payload = build([

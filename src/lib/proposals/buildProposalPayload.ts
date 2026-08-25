@@ -247,9 +247,16 @@ export function fromCommercialProposalPayload(
   // each task carries task_name + frequency_label. Frequency is
   // rendered as a lowercase parenthesised suffix — "Vacuum carpets
   // (weekly)" — so the scope reads as prose, not raw data.
+  // Frequency suffixes ("(weekly)", "(each visit)") describe a repeat,
+  // so they're suppressed on a one-off: there is only one visit, and
+  // "Clean and restock bathrooms (weekly)" on a single-visit quote
+  // reads as a contract the client isn't buying.
+  const oneOff = p.site_profile.is_one_off ?? false
+
   const generatedSections: ProposalScopeSection[] = p.scope_groups.map((g) => ({
     title: g.label,
     items: g.tasks.map((t) => {
+      if (oneOff) return t.task_name
       const freq = formatScopeFrequency(t.frequency_label ?? '')
       return freq ? `${t.task_name} ${freq}` : t.task_name
     }),
@@ -356,7 +363,7 @@ export function fromCommercialProposalPayload(
       contractTermMonths: settings.terms.default_contract_term_months,
       paymentTermDays:    settings.terms.default_payment_term_days,
       noticePeriodDays:   settings.terms.default_notice_period_days,
-      isOneOff:           p.site_profile.is_one_off ?? false,
+      isOneOff:           oneOff,
     },
 
     contact: {
