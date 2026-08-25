@@ -18,6 +18,14 @@ const INTRO_WORDING =
   'Thank you for considering Sano for your commercial cleaning services.'
 const SUPPORTIVE_WORDING =
   'We would be pleased to work with you and support the ongoing presentation, cleanliness, and care of your site.'
+
+// One-off equivalents. A single-visit clean has no "ongoing" anything,
+// so the supportive line can't promise it — and the intro drops the
+// plural "services" for the single clean being quoted.
+const INTRO_WORDING_ONE_OFF =
+  'Thank you for considering Sano for this clean.'
+const SUPPORTIVE_WORDING_ONE_OFF =
+  'We would be pleased to work with you and get the site looking its best.'
 const DEFAULT_AGREEMENT_WORDING =
   'By accepting this proposal, the client agrees to the scope, pricing, and terms set out in this document.'
 const VALIDITY_WORDING =
@@ -37,6 +45,9 @@ export function AcceptancePage({
   totalPages: number
 }) {
   const agreementWording = payload.acceptanceWording?.trim() || DEFAULT_AGREEMENT_WORDING
+  const oneOff = payload.siteContext.isOneOff
+  const introWording      = oneOff ? INTRO_WORDING_ONE_OFF      : INTRO_WORDING
+  const supportiveWording = oneOff ? SUPPORTIVE_WORDING_ONE_OFF : SUPPORTIVE_WORDING
 
   return (
     <ProposalLayout
@@ -47,8 +58,8 @@ export function AcceptancePage({
     >
       <div className="proposal-content proposal-content--acceptance">
         <div className="proposal-acceptance-copy">
-          <p className="proposal-acceptance-intro">{INTRO_WORDING}</p>
-          <p className="proposal-acceptance-wording">{SUPPORTIVE_WORDING}</p>
+          <p className="proposal-acceptance-intro">{introWording}</p>
+          <p className="proposal-acceptance-wording">{supportiveWording}</p>
           <p className="proposal-acceptance-wording">{agreementWording}</p>
           <p className="proposal-acceptance-wording">{VALIDITY_WORDING}</p>
           <p className="proposal-acceptance-wording proposal-acceptance-wording--close">
