@@ -20,7 +20,8 @@ import type {
   ScopeFrequency,
   ScopeInputMode,
 } from '@/lib/commercialQuote'
-import { isMarginTier, isSectorCategory, isContractTerm, isCleaningStandard } from '@/lib/commercialQuote'
+import { isMarginTier, isSectorCategory, isContractTerm, isCleaningStandard, parseManualScopeSections } from '@/lib/commercialQuote'
+import type { ManualScopeSection } from '@/lib/commercialQuote'
 import { assertCanAmend, assertNotAcceptedInPlace, findLockingInvoiceForQuote } from '@/lib/amendment-lock'
 
 // ── saveCommercialDetails ──────────────────────────────────────────
@@ -73,6 +74,13 @@ export interface CommercialDetailsInput {
   contract_term?: string | null
   notice_period_days?: number | null
   service_start_date?: string | null
+
+  // One-off clean (single visit). Default false = recurring service.
+  is_one_off?: boolean | null
+
+  // Free-text scope sections for the proposal Scope of Works page.
+  // Presentational only — never costed, never fed to the estimator.
+  manual_scope_sections?: ManualScopeSection[] | null
 
   cleaning_standard?: string | null
 
@@ -180,6 +188,10 @@ export async function saveCommercialDetails(
     contract_term:          input.contract_term          ?? null,
     notice_period_days:     input.notice_period_days     ?? null,
     service_start_date:     input.service_start_date     ?? null,
+    is_one_off:             input.is_one_off             ?? false,
+    // Re-parsed server-side: this is a jsonb column and the client is
+    // not the authority on its shape.
+    manual_scope_sections:  parseManualScopeSections(input.manual_scope_sections ?? []),
     cleaning_standard:      input.cleaning_standard      ?? null,
     security_sensitive:     input.security_sensitive     ?? false,
     induction_required:     input.induction_required     ?? false,

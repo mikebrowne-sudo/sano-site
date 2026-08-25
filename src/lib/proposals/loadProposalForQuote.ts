@@ -94,6 +94,7 @@ export async function loadProposalForQuote(
     accounts_email: null, accounts_contact_name: null,
     client_reference: null, requires_po: false,
     contract_term: null, notice_period_days: null, service_start_date: null,
+    is_one_off: false, manual_scope_sections: [],
     cleaning_standard: null, security_sensitive: false, induction_required: false,
     restricted_areas: false, restricted_areas_notes: null,
     created_at: '', updated_at: '',

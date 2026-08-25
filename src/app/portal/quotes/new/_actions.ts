@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import type { PricingBreakdown, PricingMode } from '@/lib/quote-pricing'
 import { validateCreateQuoteOverride } from './_actions-validation'
+import { parseManualScopeSections } from '@/lib/commercialQuote'
 import type {
   CommercialDetailsInput,
   CommercialScopeItemInput,
@@ -345,6 +346,10 @@ export async function createQuote(input: CreateQuoteInput) {
           contract_term:          cd.contract_term          ?? null,
           notice_period_days:     cd.notice_period_days     ?? null,
           service_start_date:     cd.service_start_date     ?? null,
+          is_one_off:             cd.is_one_off             ?? false,
+          // Re-parsed server-side: jsonb column, and the client is not
+          // the authority on its shape.
+          manual_scope_sections:  parseManualScopeSections(cd.manual_scope_sections ?? []),
           cleaning_standard:      cd.cleaning_standard      ?? null,
           security_sensitive:     cd.security_sensitive     ?? false,
           induction_required:     cd.induction_required     ?? false,

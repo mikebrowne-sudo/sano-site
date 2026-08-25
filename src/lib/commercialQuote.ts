@@ -118,6 +118,17 @@ export interface CommercialQuoteDetails {
   notice_period_days: number | null
   service_start_date: string | null
 
+  // One-off clean. False (the default) = ongoing recurring service,
+  // which is how most commercial quotes work. True switches the
+  // proposal to single-visit wording — no cadence, no contract term,
+  // a total service fee instead of a monthly one.
+  is_one_off: boolean
+
+  // Operator-written scope sections shown on the proposal Scope of
+  // Works page alongside the generated (costed) groups. Presentational
+  // only — never feeds pricing or estimated hours. Empty = none.
+  manual_scope_sections: ManualScopeSection[]
+
   cleaning_standard: CleaningStandard | null
 
   security_sensitive: boolean
@@ -127,6 +138,43 @@ export interface CommercialQuoteDetails {
 
   created_at: string
   updated_at: string
+}
+
+/** A free-text scope section written by the operator. Rendered on the
+ *  proposal Scope of Works page under its own heading. Not costed. */
+export interface ManualScopeSection {
+  title: string
+  items: string[]
+}
+
+/** Normalise the `manual_scope_sections` jsonb column.
+ *
+ *  The column is jsonb, so anything could be in there — legacy rows
+ *  (missing the column entirely), hand-edited JSON, or a bad write.
+ *  Everything that isn't a well-formed {title, items[]} is dropped
+ *  rather than rendered, so the proposal can never show `[object
+ *  Object]` or a stray null to a client.
+ *
+ *  Blank titles are allowed (an untitled list of extras is valid);
+ *  sections with no non-empty items are dropped, since a heading with
+ *  nothing under it is just noise on the page. */
+export function parseManualScopeSections(raw: unknown): ManualScopeSection[] {
+  if (!Array.isArray(raw)) return []
+  const out: ManualScopeSection[] = []
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue
+    const rec = entry as Record<string, unknown>
+    const title = typeof rec.title === 'string' ? rec.title.trim() : ''
+    const items = Array.isArray(rec.items)
+      ? rec.items
+          .filter((i): i is string => typeof i === 'string')
+          .map((i) => i.trim())
+          .filter(Boolean)
+      : []
+    if (items.length === 0) continue
+    out.push({ title, items })
+  }
+  return out
 }
 
 export interface CommercialScopeItem {

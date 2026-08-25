@@ -16,7 +16,9 @@ import {
   isMarginTier,
   isContractTerm,
   isCleaningStandard,
+  parseManualScopeSections,
 } from '@/lib/commercialQuote'
+import { Plus, Trash2 } from 'lucide-react'
 import type { CommercialDetailsInput } from '@/app/portal/quotes/_actions-commercial'
 import { SectorFieldPack } from './SectorFieldPack'
 
@@ -68,12 +70,52 @@ export interface CommercialDetailsFormState {
   notice_period_days: string
   service_start_date: string
 
+  // One-off clean (single visit) rather than ongoing recurring
+  // service. Drives the proposal wording; recurring is the default.
+  is_one_off: boolean
+
+  // Free-text scope sections for the proposal Scope of Works page.
+  // Items are held as one raw textarea string per section (one item
+  // per line) so typing feels natural; split into an array on save.
+  manual_scope_sections: ManualScopeFormSection[]
+
   cleaning_standard: CleaningStandard | ''
 
   security_sensitive: boolean
   induction_required: boolean
   restricted_areas: boolean
   restricted_areas_notes: string
+}
+
+/** Editor shape for one manual scope section. `itemsText` is the raw
+ *  textarea value — one scope item per line. Kept as a single string
+ *  rather than a string[] so the operator can type, paste and reorder
+ *  lines without the editor fighting them on every keystroke. */
+export interface ManualScopeFormSection {
+  _key: string
+  title: string
+  itemsText: string
+}
+
+let _manualScopeKeyCounter = 0
+function newManualScopeKey(): string {
+  _manualScopeKeyCounter += 1
+  return `manual-scope-${_manualScopeKeyCounter}`
+}
+
+export function emptyManualScopeSection(): ManualScopeFormSection {
+  return { _key: newManualScopeKey(), title: '', itemsText: '' }
+}
+
+/** Textarea string — one item per line — to the stored items array.
+ *  Blank lines are dropped, and any bullet character the operator
+ *  pasted in ("- ", "• ", "* ") is stripped, since the proposal
+ *  renders its own list markers. */
+export function manualScopeItemsFromText(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*[-•*·]\s*/, '').trim())
+    .filter(Boolean)
 }
 
 export function emptyCommercialDetails(): CommercialDetailsFormState {
@@ -112,6 +154,8 @@ export function emptyCommercialDetails(): CommercialDetailsFormState {
     contract_term: '',
     notice_period_days: '',
     service_start_date: '',
+    is_one_off: false,
+    manual_scope_sections: [],
     cleaning_standard: '',
     security_sensitive: false,
     induction_required: false,
@@ -161,6 +205,12 @@ export function hydrateCommercialDetails(
     contract_term:          isContractTerm(row.contract_term) ? row.contract_term : '',
     notice_period_days:     toStr(row.notice_period_days),
     service_start_date:     row.service_start_date     ?? '',
+    is_one_off:             row.is_one_off             ?? false,
+    manual_scope_sections:  parseManualScopeSections(row.manual_scope_sections).map((m) => ({
+      _key: newManualScopeKey(),
+      title: m.title,
+      itemsText: m.items.join('\n'),
+    })),
     cleaning_standard:      isCleaningStandard(row.cleaning_standard) ? row.cleaning_standard : '',
     security_sensitive:     row.security_sensitive     ?? false,
     induction_required:     row.induction_required     ?? false,
@@ -239,9 +289,19 @@ export function toCommercialDetailsInput(
     // contact / billing / reference up to the universal quotes
     // table (and ContactBillingSection), so they no longer flow
     // through this commercial-details payload.
-    contract_term:          state.contract_term || null,
-    notice_period_days:     toInt(state.notice_period_days),
+    // A one-off clean has no contract term or notice period. The form
+    // hides those inputs when the flag is set, but stale values can
+    // still be sitting in state from before it was ticked — null them
+    // so the stored row can't contradict the one-off wording.
+    contract_term:          state.is_one_off ? null : (state.contract_term || null),
+    notice_period_days:     state.is_one_off ? null : toInt(state.notice_period_days),
     service_start_date:     emptyToNull(state.service_start_date),
+    is_one_off:             state.is_one_off,
+    // Drop sections with no items — a heading with nothing under it
+    // would render as an empty block on the proposal.
+    manual_scope_sections:  state.manual_scope_sections
+      .map((m) => ({ title: m.title.trim(), items: manualScopeItemsFromText(m.itemsText) }))
+      .filter((m) => m.items.length > 0),
     cleaning_standard:      state.cleaning_standard || null,
     security_sensitive:     state.security_sensitive,
     induction_required:     state.induction_required,
@@ -323,6 +383,22 @@ export function CommercialDetailsSection({
     onChange({ ...value, [k]: v })
   }
 
+  // ── Manual scope section handlers ──
+  function addManualScope() {
+    set('manual_scope_sections', [...value.manual_scope_sections, emptyManualScopeSection()])
+  }
+
+  function removeManualScope(index: number) {
+    set('manual_scope_sections', value.manual_scope_sections.filter((_, i) => i !== index))
+  }
+
+  function updateManualScope(index: number, patch: Partial<ManualScopeFormSection>) {
+    set(
+      'manual_scope_sections',
+      value.manual_scope_sections.map((s, i) => (i === index ? { ...s, ...patch } : s)),
+    )
+  }
+
   function toggleServiceDay(day: string) {
     const s = new Set(value.service_days)
     if (s.has(day)) s.delete(day)
@@ -393,34 +469,125 @@ export function CommercialDetailsSection({
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Select
-              label="Contract term"
-              value={value.contract_term}
-              onChange={(v) => set('contract_term', v as ContractTerm | '')}
-              options={[{ value: '', label: '—' }, ...CONTRACT_TERM_OPTIONS]}
+          {/* One-off vs recurring. Most commercial work is ongoing, so
+               recurring stays the default and this is an opt-in. When
+               ticked, the proposal drops all cadence / contract-term /
+               monthly-fee wording and the contract fields below are
+               hidden — they don't apply to a single visit. */}
+          <div className="mb-4">
+            <CheckboxInput
+              label="One-off clean (single visit, not ongoing service)"
+              checked={value.is_one_off}
+              onChange={(v) => set('is_one_off', v)}
               disabled={disabled}
             />
-            <NumberInput
-              label="Notice period (days)"
-              value={value.notice_period_days}
-              onChange={(v) => set('notice_period_days', v)}
-              disabled={disabled}
-              integer
-              min={0}
-            />
-            <DateInput
-              label="Service start date"
-              value={value.service_start_date}
-              onChange={(v) => set('service_start_date', v)}
-              disabled={disabled}
-            />
+            <p className="mt-1 ml-6 text-sm text-sage-600">
+              Changes the proposal wording to a one-off clean and prices it
+              as a total service fee instead of a monthly fee.
+            </p>
           </div>
+
+          {value.is_one_off ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <DateInput
+                label="Service date"
+                value={value.service_start_date}
+                onChange={(v) => set('service_start_date', v)}
+                disabled={disabled}
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Select
+                label="Contract term"
+                value={value.contract_term}
+                onChange={(v) => set('contract_term', v as ContractTerm | '')}
+                options={[{ value: '', label: '—' }, ...CONTRACT_TERM_OPTIONS]}
+                disabled={disabled}
+              />
+              <NumberInput
+                label="Notice period (days)"
+                value={value.notice_period_days}
+                onChange={(v) => set('notice_period_days', v)}
+                disabled={disabled}
+                integer
+                min={0}
+              />
+              <DateInput
+                label="Service start date"
+                value={value.service_start_date}
+                onChange={(v) => set('service_start_date', v)}
+                disabled={disabled}
+              />
+            </div>
+          )}
           {/* Phase 5D — client_reference + requires_po now live in
                the universal ContactBillingSection at the top of the
                parent form. */}
         </div>
       </Fieldset>
+
+      {/* ── 1b. Manual scope sections ─────────────────────────
+           Free-text scope that renders on the proposal Scope of Works
+           page after the generated (costed) groups. Presentational
+           only — nothing here touches pricing or estimated hours. */}
+      <Fieldset title="Additional scope (proposal only)">
+        <p className="text-sm text-sage-600 mb-4">
+          Extra scope to list on the proposal&rsquo;s Scope of Works page, on top of
+          the priced scope items. One task per line. These are shown to the
+          client but don&rsquo;t affect pricing or estimated hours.
+        </p>
+
+        {value.manual_scope_sections.length === 0 ? (
+          <p className="text-sm text-sage-500 mb-4">No additional scope sections.</p>
+        ) : (
+          <div className="space-y-4 mb-4">
+            {value.manual_scope_sections.map((section, i) => (
+              <div key={section._key} className="rounded-lg border border-sage-100 bg-sage-50/40 p-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 space-y-3">
+                    <TextInput
+                      label="Section heading"
+                      value={section.title}
+                      onChange={(v) => updateManualScope(i, { title: v })}
+                      placeholder="e.g. Deep clean extras"
+                      disabled={disabled}
+                    />
+                    <TextareaInput
+                      label="Scope items (one per line)"
+                      value={section.itemsText}
+                      onChange={(v) => updateManualScope(i, { itemsText: v })}
+                      rows={4}
+                      placeholder={'Degrease kitchen extraction filters\nSteam clean upholstered seating\nWash internal glass, both sides'}
+                      disabled={disabled}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeManualScope(i)}
+                    disabled={disabled}
+                    aria-label={`Remove scope section ${i + 1}`}
+                    className="mt-7 rounded-lg border border-sage-200 p-2 text-sage-500 hover:text-red-600 hover:border-red-200 disabled:opacity-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={addManualScope}
+          disabled={disabled}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-sage-200 px-3 py-2 text-sm font-semibold text-sage-700 hover:bg-sage-50 disabled:opacity-50"
+        >
+          <Plus className="h-4 w-4" />
+          Add scope section
+        </button>
+      </Fieldset>
+
 
       {/* ── 2. Site & building profile ───────────────────────── */}
       <Fieldset title="Site & building profile">
