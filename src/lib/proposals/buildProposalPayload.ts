@@ -247,13 +247,25 @@ export function fromCommercialProposalPayload(
   // each task carries task_name + frequency_label. Frequency is
   // rendered as a lowercase parenthesised suffix — "Vacuum carpets
   // (weekly)" — so the scope reads as prose, not raw data.
-  const scopeSections: ProposalScopeSection[] = p.scope_groups.map((g) => ({
+  const generatedSections: ProposalScopeSection[] = p.scope_groups.map((g) => ({
     title: g.label,
     items: g.tasks.map((t) => {
       const freq = formatScopeFrequency(t.frequency_label ?? '')
       return freq ? `${t.task_name} ${freq}` : t.task_name
     }),
   }))
+
+  // Operator-written sections render after the generated ones, so the
+  // costed scope leads and the hand-written extras follow. They carry
+  // no frequency suffix — they aren't costed rows, so there's no
+  // frequency to state. An untitled manual section falls back to a
+  // neutral heading rather than rendering a blank <h3>.
+  const manualSections: ProposalScopeSection[] = p.site_profile.manual_scope_sections.map((m) => ({
+    title: m.title || 'Additional scope',
+    items: m.items,
+  }))
+
+  const scopeSections: ProposalScopeSection[] = [...generatedSections, ...manualSections]
 
   // Service schedule one-liners.
   const ss = p.service_schedule
@@ -265,9 +277,11 @@ export function fromCommercialProposalPayload(
   const startRow = p.commercial_terms?.rows?.find((r) => /start/i.test(r.label))
   const serviceStartDate = startRow?.value?.trim() || '—'
 
-  // Areas covered = the scope group titles; fits the "What's in scope"
-  // checklist on the Service Overview page.
-  const areasCovered = scopeSections.map((s) => s.title)
+  // Areas covered = the GENERATED scope group titles only. Manual
+  // sections are extra tasks, not areas of the site, so including them
+  // here would put "Deep Clean Extras" in the Service Overview's
+  // "Areas covered" cell.
+  const areasCovered = generatedSections.map((s) => s.title)
 
   // Pricing — single hero figure (just the dollar amount). The
   // template renders the GST + monthly suffixes from settings.

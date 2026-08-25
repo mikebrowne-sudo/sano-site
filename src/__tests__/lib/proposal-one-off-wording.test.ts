@@ -14,6 +14,7 @@ import {
   buildExecutiveSummary,
   buildServiceOverviewText,
   buildPricingSummaryText,
+  buildScopeIntro,
 } from '@/lib/proposals/content-builders'
 import { proposalFixture } from '@/lib/proposals/buildProposalPayload'
 import type { ProposalTemplatePayload } from '@/lib/proposals/buildProposalPayload'
@@ -155,6 +156,27 @@ describe('pricing summary', () => {
     expect(c.closingNote).not.toMatch(/monthly in arrears/i)
     // Payment terms still come from settings.
     expect(c.closingNote).toMatch(/day payment terms/i)
+  })
+})
+
+describe('scope of works intro', () => {
+  it('recurring keeps the frequency / service-cycle framing', () => {
+    const { lead, follow } = buildScopeIntro(payload())
+    expect(lead).toMatch(/agreed frequency/i)
+    expect(follow).toMatch(/service cycle/i)
+  })
+
+  it('one-off drops "every visit" and "service cycle"', () => {
+    const { lead, follow } = buildScopeIntro(oneOffPayload())
+    assertNoRecurringCues(lead)
+    assertNoRecurringCues(follow)
+    expect(follow).toMatch(/completed within the visit/i)
+  })
+
+  it('defaults to recurring when called with no payload', () => {
+    // ScopeOfWorksPage now passes the payload, but the no-arg form is
+    // still part of the exported surface.
+    expect(buildScopeIntro().lead).toMatch(/agreed frequency/i)
   })
 })
 

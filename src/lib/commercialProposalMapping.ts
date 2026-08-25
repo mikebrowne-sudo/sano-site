@@ -9,7 +9,9 @@
 // output should expose backend field names (quantity_type, unit_minutes,
 // production_rate, margin tier internals, etc).
 
+import { parseManualScopeSections } from '@/lib/commercialQuote'
 import type {
+  ManualScopeSection,
   CommercialQuoteDetails,
   CommercialScopeItem,
   ScopeFrequency,
@@ -243,6 +245,9 @@ export interface SiteProfileView {
   /** True when the quote is a single one-off clean rather than
    *  ongoing recurring service. Drives one-off proposal wording. */
   is_one_off: boolean
+  /** Operator-written scope sections, appended to the generated scope
+   *  groups on the Scope of Works page. Presentational only. */
+  manual_scope_sections: ManualScopeSection[]
 }
 
 export function buildSiteProfile(
@@ -259,6 +264,7 @@ export function buildSiteProfile(
     occupancy: occupancyLabel(details.occupancy_level),
     fixtures_summary: buildFixturesSummary(details),
     is_one_off: details.is_one_off ?? false,
+    manual_scope_sections: parseManualScopeSections(details.manual_scope_sections),
   }
 }
 

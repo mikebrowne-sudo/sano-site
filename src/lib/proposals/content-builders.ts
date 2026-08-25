@@ -382,7 +382,16 @@ export interface ScopeIntroContent {
   follow: string
 }
 
-export function buildScopeIntro(): ScopeIntroContent {
+export function buildScopeIntro(payload?: ProposalTemplatePayload): ScopeIntroContent {
+  // One-off: "every visit" and "service cycle" both assume a repeat.
+  // On a single visit the whole scope is completed in that one visit.
+  if (payload?.siteContext.isOneOff) {
+    return {
+      lead: 'The following scope outlines the cleaning tasks across each area of the site, grouped by function so it is clear what is covered.',
+      follow: 'The full scope is completed within the visit, with the team working through each area in turn so no space is overlooked.',
+    }
+  }
+
   return {
     lead: 'The following scope outlines the cleaning tasks across each area of the site. Tasks are grouped by function and delivered at the agreed frequency to maintain a consistent standard across all spaces.',
     follow: 'Core cleaning tasks are completed at every visit, with additional detail and less frequent tasks scheduled across the service cycle to ensure no area is overlooked.',
