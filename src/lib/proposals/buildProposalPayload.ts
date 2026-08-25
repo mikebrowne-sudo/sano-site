@@ -56,6 +56,12 @@ export interface ProposalSiteContext {
   contractTermMonths: number  // from settings
   paymentTermDays: number     // from settings
   noticePeriodDays: number    // from settings
+
+  // True when the quote is a single one-off clean rather than ongoing
+  // recurring service. Content-builders switch to one-off wording:
+  // no cadence sentence, no contract-term / monthly-invoicing lines,
+  // and the pricing hero reads as a total service fee.
+  isOneOff: boolean
 }
 
 export interface ProposalTemplatePayload {
@@ -213,6 +219,7 @@ export function proposalFixture(settings: ProposalSettings = DEFAULT_PROPOSAL_SE
       contractTermMonths: settings.terms.default_contract_term_months,
       paymentTermDays:    settings.terms.default_payment_term_days,
       noticePeriodDays:   settings.terms.default_notice_period_days,
+      isOneOff:           false,
     },
 
     contact: {
@@ -335,6 +342,7 @@ export function fromCommercialProposalPayload(
       contractTermMonths: settings.terms.default_contract_term_months,
       paymentTermDays:    settings.terms.default_payment_term_days,
       noticePeriodDays:   settings.terms.default_notice_period_days,
+      isOneOff:           p.site_profile.is_one_off ?? false,
     },
 
     contact: {

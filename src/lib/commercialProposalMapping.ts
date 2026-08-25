@@ -240,6 +240,9 @@ export interface SiteProfileView {
   traffic: string
   occupancy: string
   fixtures_summary: string
+  /** True when the quote is a single one-off clean rather than
+   *  ongoing recurring service. Drives one-off proposal wording. */
+  is_one_off: boolean
 }
 
 export function buildSiteProfile(
@@ -255,6 +258,7 @@ export function buildSiteProfile(
     traffic: trafficLabel(details.traffic_level),
     occupancy: occupancyLabel(details.occupancy_level),
     fixtures_summary: buildFixturesSummary(details),
+    is_one_off: details.is_one_off ?? false,
   }
 }
 

@@ -118,6 +118,12 @@ export interface CommercialQuoteDetails {
   notice_period_days: number | null
   service_start_date: string | null
 
+  // One-off clean. False (the default) = ongoing recurring service,
+  // which is how most commercial quotes work. True switches the
+  // proposal to single-visit wording — no cadence, no contract term,
+  // a total service fee instead of a monthly one.
+  is_one_off: boolean
+
   cleaning_standard: CleaningStandard | null
 
   security_sensitive: boolean

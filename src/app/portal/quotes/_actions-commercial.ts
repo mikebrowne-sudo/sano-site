@@ -74,6 +74,9 @@ export interface CommercialDetailsInput {
   notice_period_days?: number | null
   service_start_date?: string | null
 
+  // One-off clean (single visit). Default false = recurring service.
+  is_one_off?: boolean | null
+
   cleaning_standard?: string | null
 
   security_sensitive?: boolean | null
@@ -180,6 +183,7 @@ export async function saveCommercialDetails(
     contract_term:          input.contract_term          ?? null,
     notice_period_days:     input.notice_period_days     ?? null,
     service_start_date:     input.service_start_date     ?? null,
+    is_one_off:             input.is_one_off             ?? false,
     cleaning_standard:      input.cleaning_standard      ?? null,
     security_sensitive:     input.security_sensitive     ?? false,
     induction_required:     input.induction_required     ?? false,

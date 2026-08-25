@@ -68,6 +68,10 @@ export interface CommercialDetailsFormState {
   notice_period_days: string
   service_start_date: string
 
+  // One-off clean (single visit) rather than ongoing recurring
+  // service. Drives the proposal wording; recurring is the default.
+  is_one_off: boolean
+
   cleaning_standard: CleaningStandard | ''
 
   security_sensitive: boolean
@@ -112,6 +116,7 @@ export function emptyCommercialDetails(): CommercialDetailsFormState {
     contract_term: '',
     notice_period_days: '',
     service_start_date: '',
+    is_one_off: false,
     cleaning_standard: '',
     security_sensitive: false,
     induction_required: false,
@@ -161,6 +166,7 @@ export function hydrateCommercialDetails(
     contract_term:          isContractTerm(row.contract_term) ? row.contract_term : '',
     notice_period_days:     toStr(row.notice_period_days),
     service_start_date:     row.service_start_date     ?? '',
+    is_one_off:             row.is_one_off             ?? false,
     cleaning_standard:      isCleaningStandard(row.cleaning_standard) ? row.cleaning_standard : '',
     security_sensitive:     row.security_sensitive     ?? false,
     induction_required:     row.induction_required     ?? false,
@@ -239,9 +245,14 @@ export function toCommercialDetailsInput(
     // contact / billing / reference up to the universal quotes
     // table (and ContactBillingSection), so they no longer flow
     // through this commercial-details payload.
-    contract_term:          state.contract_term || null,
-    notice_period_days:     toInt(state.notice_period_days),
+    // A one-off clean has no contract term or notice period. The form
+    // hides those inputs when the flag is set, but stale values can
+    // still be sitting in state from before it was ticked — null them
+    // so the stored row can't contradict the one-off wording.
+    contract_term:          state.is_one_off ? null : (state.contract_term || null),
+    notice_period_days:     state.is_one_off ? null : toInt(state.notice_period_days),
     service_start_date:     emptyToNull(state.service_start_date),
+    is_one_off:             state.is_one_off,
     cleaning_standard:      state.cleaning_standard || null,
     security_sensitive:     state.security_sensitive,
     induction_required:     state.induction_required,
@@ -393,29 +404,58 @@ export function CommercialDetailsSection({
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Select
-              label="Contract term"
-              value={value.contract_term}
-              onChange={(v) => set('contract_term', v as ContractTerm | '')}
-              options={[{ value: '', label: '—' }, ...CONTRACT_TERM_OPTIONS]}
+          {/* One-off vs recurring. Most commercial work is ongoing, so
+               recurring stays the default and this is an opt-in. When
+               ticked, the proposal drops all cadence / contract-term /
+               monthly-fee wording and the contract fields below are
+               hidden — they don't apply to a single visit. */}
+          <div className="mb-4">
+            <CheckboxInput
+              label="One-off clean (single visit, not ongoing service)"
+              checked={value.is_one_off}
+              onChange={(v) => set('is_one_off', v)}
               disabled={disabled}
             />
-            <NumberInput
-              label="Notice period (days)"
-              value={value.notice_period_days}
-              onChange={(v) => set('notice_period_days', v)}
-              disabled={disabled}
-              integer
-              min={0}
-            />
-            <DateInput
-              label="Service start date"
-              value={value.service_start_date}
-              onChange={(v) => set('service_start_date', v)}
-              disabled={disabled}
-            />
+            <p className="mt-1 ml-6 text-sm text-sage-600">
+              Changes the proposal wording to a one-off clean and prices it
+              as a total service fee instead of a monthly fee.
+            </p>
           </div>
+
+          {value.is_one_off ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <DateInput
+                label="Service date"
+                value={value.service_start_date}
+                onChange={(v) => set('service_start_date', v)}
+                disabled={disabled}
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Select
+                label="Contract term"
+                value={value.contract_term}
+                onChange={(v) => set('contract_term', v as ContractTerm | '')}
+                options={[{ value: '', label: '—' }, ...CONTRACT_TERM_OPTIONS]}
+                disabled={disabled}
+              />
+              <NumberInput
+                label="Notice period (days)"
+                value={value.notice_period_days}
+                onChange={(v) => set('notice_period_days', v)}
+                disabled={disabled}
+                integer
+                min={0}
+              />
+              <DateInput
+                label="Service start date"
+                value={value.service_start_date}
+                onChange={(v) => set('service_start_date', v)}
+                disabled={disabled}
+              />
+            </div>
+          )}
           {/* Phase 5D — client_reference + requires_po now live in
                the universal ContactBillingSection at the top of the
                parent form. */}

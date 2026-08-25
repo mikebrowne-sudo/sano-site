@@ -135,6 +135,7 @@ export default async function CommercialProposalPage({
     contract_term: null,
     notice_period_days: null,
     service_start_date: null,
+    is_one_off: false,
     cleaning_standard: null,
     security_sensitive: false,
     induction_required: false,

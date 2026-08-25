@@ -226,16 +226,23 @@ export interface ExecutiveSummaryContent {
 /**
  * Structure:
  *   opener (green) — P1: "This proposal outlines the commercial
- *                        cleaning services for {client} at {address},
- *                        {a|an} {descriptor}."
+ *                        cleaning services for {client}, {a|an}
+ *                        {descriptor}."
  *   body [0]       — P2: approach framed around site use
- *   body [1]       — P3: structured, repeatable delivery
- *   body [2]       — P4: cadence + briefed staff
- *   body [3]       — P5: small team + communication
- *   body [4]       — closing pointer to the rest of the document
+ *   body [1]       — P3: cadence (recurring) / single-visit framing
+ *   body [2]       — P4: short team line
+ *   body [3]       — closing pointer to the rest of the document
+ *
+ * The site address is deliberately NOT repeated here. It already
+ * appears on the cover page and in the Service Overview meta grid —
+ * a third occurrence, in prose, reads as filler.
+ *
+ * One-off quotes (siteContext.isOneOff) drop every recurring cue:
+ * no "delivered {cadence}", no ongoing-service framing.
  */
 export function buildExecutiveSummary(payload: ProposalTemplatePayload): ExecutiveSummaryContent {
-  const { clientName, siteAddress, siteContext, serviceDays, serviceTimes } = payload
+  const { clientName, siteContext, serviceDays, serviceTimes } = payload
+  const oneOff = siteContext.isOneOff
 
   // ── P1 / opener ──
   const siteTypePhrase = formatSiteType(siteContext.sector, siteContext.buildingType)
@@ -252,9 +259,9 @@ export function buildExecutiveSummary(payload: ProposalTemplatePayload): Executi
   const descriptor = `${art} ${base}${clauses.length ? ' ' + clauses.join(' ') : ''}`
 
   const whoClause = clientName ? `for ${clientName}` : 'at your site'
-  const whereClause = siteAddress ? (clientName ? ` at ${siteAddress}` : ` ${siteAddress}`) : ''
   const siteBit = (base || clauses.length) ? `, ${descriptor}` : ''
-  const opener = `This proposal outlines the commercial cleaning services ${whoClause}${whereClause}${siteBit}.`
+  const serviceNoun = oneOff ? 'a one-off commercial clean' : 'the commercial cleaning services'
+  const opener = `This proposal outlines ${serviceNoun} ${whoClause}${siteBit}.`
 
   // ── Body paragraphs ──
   // Phase 4.1 — compressed. Executive Summary now covers only:
@@ -268,34 +275,51 @@ export function buildExecutiveSummary(payload: ProposalTemplatePayload): Executi
   const body: string[] = []
 
   body.push(
-    'The service has been structured around how the site is used day to day, with a focus on maintaining presentation across workspaces, shared areas, and amenities.',
+    oneOff
+      ? 'The clean has been scoped around how the site is used, with a focus on lifting presentation across workspaces, shared areas, and amenities in a single visit.'
+      : 'The service has been structured around how the site is used day to day, with a focus on maintaining presentation across workspaces, shared areas, and amenities.',
   )
 
-  // Cadence — single short sentence. No "trained staff / checklist"
-  // coda; that lives in Why Sano.
-  const daysPerWeek = countDaysPerWeek(serviceDays || '')
-  const cadence = cadencePhrase(daysPerWeek)
+  // Delivery sentence. Recurring quotes get a cadence ("delivered
+  // twice per week"); one-off quotes get single-visit framing, since
+  // a cadence would be actively wrong on a job with no repeat.
   const win = formatServiceWindow(serviceTimes || '')
   const winKind = windowDescriptor(serviceTimes || '')
   const winSuffix = winKind ? `agreed ${winKind} service window` : 'agreed service window'
   const winClause = win ? `within the ${winSuffix} (${win})` : (serviceTimes ? `within the ${winSuffix}` : '')
 
-  if (cadence && winClause) {
-    body.push(`Services are delivered ${cadence} ${winClause}.`)
-  } else if (cadence) {
-    body.push(`Services are delivered ${cadence}.`)
-  } else if (winClause) {
-    body.push(`Services are carried out ${winClause}.`)
+  if (oneOff) {
+    body.push(
+      winClause
+        ? `The work is completed in a single visit on the agreed date, ${winClause}.`
+        : 'The work is completed in a single visit on the agreed date.',
+    )
   } else {
-    body.push('Services are delivered to the agreed schedule.')
+    const daysPerWeek = countDaysPerWeek(serviceDays || '')
+    const cadence = cadencePhrase(daysPerWeek)
+    if (cadence && winClause) {
+      body.push(`Services are delivered ${cadence} ${winClause}.`)
+    } else if (cadence) {
+      body.push(`Services are delivered ${cadence}.`)
+    } else if (winClause) {
+      body.push(`Services are carried out ${winClause}.`)
+    } else {
+      body.push('Services are delivered to the agreed schedule.')
+    }
   }
 
   // One short team line. "Sano crew" branding is reserved for the
   // Why Sano page so the phrase appears exactly once in the document.
-  body.push('A consistent small team is assigned to the site.')
+  body.push(
+    oneOff
+      ? 'A small, experienced team is assigned to the clean.'
+      : 'A consistent small team is assigned to the site.',
+  )
 
   body.push(
-    'The following pages set out the full service structure, including scope, pricing, and commercial terms.',
+    oneOff
+      ? 'The following pages set out the full scope of the clean, pricing, and terms.'
+      : 'The following pages set out the full service structure, including scope, pricing, and commercial terms.',
   )
 
   return { opener, body }
@@ -314,6 +338,17 @@ function parseFloorCount(floors: string): number | null {
 // way visits are carried out.
 
 export function buildServiceOverviewText(payload: ProposalTemplatePayload): string[] {
+  // One-off: no schedule/cycle language. A single visit has a window
+  // and a date, not a cadence or a "service cycle".
+  if (payload.siteContext.isOneOff) {
+    const kindOneOff = windowDescriptor(payload.serviceTimes || '')
+    const windowRefOneOff = kindOneOff ? `the ${kindOneOff} service window` : 'the agreed service window'
+    return [
+      `The clean is carried out in a single visit on the agreed date, during ${windowRefOneOff}, so the site is ready for use immediately afterwards.`,
+      'The full scope is completed within that visit, with the team working through each area in turn and a final check before leaving site.',
+    ]
+  }
+
   const daysPerWeek = countDaysPerWeek(payload.serviceDays || '')
   const schedule = scheduleDescriptor(daysPerWeek)
   const kind = windowDescriptor(payload.serviceTimes || '')
@@ -365,26 +400,48 @@ export interface PricingSummaryContent {
 }
 
 export function buildPricingSummaryText(payload: ProposalTemplatePayload): PricingSummaryContent {
+  const oneOff = payload.siteContext.isOneOff
+  const paymentDays = payload.siteContext.paymentTermDays || 14
+
   // Phase 4.1 — intro deliberately avoids "consistent / over time"
   // language so the positioning line below owns that theme.
-  const intro = 'The monthly service fee reflects the agreed scope of works and service frequency, set for the full term of the contract.'
+  //
+  // One-off drops every recurring reference: no monthly fee, no
+  // contract term, no monthly-in-arrears invoicing, and no
+  // "consistency over time" positioning — there is no "over time".
+  const intro = oneOff
+    ? 'The service fee reflects the agreed scope of works for this clean, quoted as a fixed total for the visit.'
+    : 'The monthly service fee reflects the agreed scope of works and service frequency, set for the full term of the contract.'
 
-  const inclusionsNote = 'Pricing includes all labour, equipment, and service management required to maintain the standard outlined in this proposal.'
+  const inclusionsNote = oneOff
+    ? 'Pricing includes all labour, equipment, and materials required to complete the clean to the standard outlined in this proposal.'
+    : 'Pricing includes all labour, equipment, and service management required to maintain the standard outlined in this proposal.'
 
   // Phase 4 — subtle positioning line. Sits below the included list,
   // above the closing payment-terms note.
-  const positioningNote = 'The service is structured to support consistency and reliability over time, rather than short-term or variable results.'
+  const positioningNote = oneOff
+    ? 'The clean is scoped and priced to be completed properly in one visit, rather than trimmed to hit a lower number.'
+    : 'The service is structured to support consistency and reliability over time, rather than short-term or variable results.'
 
-  const included: string[] = [
-    'Trained cleaning staff, inducted for the site',
-    'All cleaning equipment and materials required',
-    'Consumables where agreed as part of the service',
-    'Ongoing supervision and quality checks',
-    'Direct communication and service support',
-  ]
+  const included: string[] = oneOff
+    ? [
+        'Trained cleaning staff, briefed for the site',
+        'All cleaning equipment and materials required',
+        'Consumables where agreed as part of the clean',
+        'On-site supervision and a final quality check',
+        'Direct communication and service support',
+      ]
+    : [
+        'Trained cleaning staff, inducted for the site',
+        'All cleaning equipment and materials required',
+        'Consumables where agreed as part of the service',
+        'Ongoing supervision and quality checks',
+        'Direct communication and service support',
+      ]
 
-  const paymentDays = payload.siteContext.paymentTermDays || 14
-  const closingNote = `Invoices are issued monthly in arrears with ${paymentDays}-day payment terms. Any changes to the agreed scope are confirmed in writing prior to being carried out.`
+  const closingNote = oneOff
+    ? `The invoice is issued on completion of the clean with ${paymentDays}-day payment terms. Any changes to the agreed scope are confirmed in writing prior to being carried out.`
+    : `Invoices are issued monthly in arrears with ${paymentDays}-day payment terms. Any changes to the agreed scope are confirmed in writing prior to being carried out.`
 
   return { intro, inclusionsNote, positioningNote, included, closingNote }
 }
