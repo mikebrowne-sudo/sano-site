@@ -129,7 +129,7 @@ export interface ProposalTemplatePayload {
 export const SANO_PROPOSAL_CONTACT: ProposalContact = {
   email: 'hello@sano.nz',
   website: 'sano.nz',
-  phone: '0800 726 664',
+  phone: '0800 726 686',
 }
 
 // ── Fixture ──────────────────────────────────────────────────────
