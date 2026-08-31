@@ -43,8 +43,19 @@ export function formatServiceDays(days: string): string {
 
   if (parts.length === 0) return s
   if (parts.length === 1) return parts[0]
-  const head = parts.slice(0, -1).join(', ')
-  return `${head} and ${parts[parts.length - 1]}`
+
+  // Always present days in week order. The chips are stored in whatever order
+  // they were clicked, so an operator ticking Sunday then Friday produced
+  // "Sunday, Friday, Saturday and Tuesday" on a client-facing proposal — which
+  // reads as carelessness before the reader reaches the price. Sorting here
+  // rather than at input keeps it correct no matter how the data arrived.
+  const WEEK_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+  const ordered = Array.from(new Set(parts))
+    .sort((a, b) => WEEK_ORDER.indexOf(a) - WEEK_ORDER.indexOf(b))
+
+  if (ordered.length === 1) return ordered[0]
+  const head = ordered.slice(0, -1).join(', ')
+  return `${head} and ${ordered[ordered.length - 1]}`
 }
 
 /** "1600-2200" / "16:00-22:00" / "5:00 pm - 10:00 pm" → "between 4:00 pm and 10:00 pm". */
