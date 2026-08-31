@@ -32,6 +32,8 @@ export function SendQuotePanel({
   primaryContactEmail = '',
   accountsEmail = '',
   clientReference = '',
+  sendLabel = 'Send to customer',
+  variant = 'default',
 }: {
   quoteId: string
   quoteNumber: string
@@ -45,6 +47,14 @@ export function SendQuotePanel({
   primaryContactEmail?: string
   accountsEmail?: string
   clientReference?: string
+  /** Override the customer-send button label (e.g. "Send again" on an
+   *  accepted quote, where the send is a copy of an agreed document
+   *  rather than the original issue). */
+  sendLabel?: string
+  /** 'resend' softens the collapsed button styling and hides the test-send
+   *  action: on an accepted quote this is a secondary convenience, not the
+   *  primary call to action. */
+  variant?: 'default' | 'resend'
 }) {
   const referenceLine = clientReference
     ? `\n\nYour reference: ${clientReference}`
@@ -156,21 +166,27 @@ export function SendQuotePanel({
   if (panel === null) {
     return (
       <div className="inline-flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => { setPanel('test'); setError(null) }}
-          className="inline-flex items-center gap-2 border border-sage-300 text-sage-700 bg-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
-        >
-          <FlaskConical size={16} />
-          Send test email
-        </button>
+        {variant !== 'resend' && (
+          <button
+            type="button"
+            onClick={() => { setPanel('test'); setError(null) }}
+            className="inline-flex items-center gap-2 border border-sage-300 text-sage-700 bg-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
+          >
+            <FlaskConical size={16} />
+            Send test email
+          </button>
+        )}
         <button
           type="button"
           onClick={() => { setPanel('customer'); setError(null) }}
-          className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
+          className={
+            variant === 'resend'
+              ? 'inline-flex items-center gap-2 border border-sage-300 text-sage-700 bg-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors'
+              : 'inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors'
+          }
         >
           <Send size={16} />
-          Send to customer
+          {sendLabel}
         </button>
       </div>
     )
@@ -302,7 +318,11 @@ export function SendQuotePanel({
         />
         <span className="inline-flex items-start gap-1.5">
           <AlertTriangle size={15} className="text-sage-600 shrink-0 mt-0.5" />
-          I confirm this quote will be <strong>recorded as issued to the customer</strong> and marked as Sent.
+          {variant === 'resend' ? (
+            <>I confirm this <strong>already-accepted quote</strong> will be sent to the customer again. Its accepted status is kept.</>
+          ) : (
+            <>I confirm this quote will be <strong>recorded as issued to the customer</strong> and marked as Sent.</>
+          )}
         </span>
       </label>
 
@@ -316,7 +336,7 @@ export function SendQuotePanel({
           className="inline-flex items-center gap-2 font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50 bg-sage-500 text-white hover:bg-sage-700"
         >
           <Send size={14} />
-          {isPending ? 'Sending…' : 'Send to customer'}
+          {isPending ? 'Sending…' : sendLabel}
         </button>
         <button type="button" onClick={reset} className="text-sm text-sage-600 hover:text-sage-800">
           Cancel

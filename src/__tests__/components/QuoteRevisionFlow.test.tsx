@@ -232,3 +232,33 @@ describe('Revise & resend — the discoverable path off an accepted quote', () =
     expect(screen.queryByRole('button', { name: /revise & resend/i })).not.toBeInTheDocument()
   })
 })
+
+describe('Accepted quote — Send again vs Revise & resend are distinct', () => {
+  it('offers both actions, clearly differentiated', () => {
+    render(<QuoteActionBar {...barProps({ status: 'accepted' })} />)
+
+    // Plain re-send of the agreed document…
+    expect(screen.getByRole('button', { name: /send again/i })).toBeInTheDocument()
+    // …and the fork-a-new-version path. Two buttons, two meanings.
+    expect(screen.getByRole('button', { name: /revise & resend/i })).toBeInTheDocument()
+  })
+
+  it('does not offer a generic "Send to customer" on an accepted quote', () => {
+    render(<QuoteActionBar {...barProps({ status: 'accepted' })} />)
+    // An unqualified Send here would be ambiguous about which version the
+    // client receives.
+    expect(screen.queryByRole('button', { name: /^send to customer$/i })).not.toBeInTheDocument()
+  })
+
+  it('hides the test-send action on the accepted re-send (secondary action)', () => {
+    render(<QuoteActionBar {...barProps({ status: 'accepted' })} />)
+    expect(screen.queryByRole('button', { name: /send test email/i })).not.toBeInTheDocument()
+  })
+
+  it('keeps the full send controls on a draft, including test send', () => {
+    render(<QuoteActionBar {...barProps({ status: 'draft' })} />)
+    expect(screen.getByRole('button', { name: /send to customer/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /send test email/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /send again/i })).not.toBeInTheDocument()
+  })
+})

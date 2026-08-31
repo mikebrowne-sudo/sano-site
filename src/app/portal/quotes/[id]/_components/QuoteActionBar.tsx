@@ -161,13 +161,18 @@ export function QuoteActionBar({
           </>
         )}
 
-        {/* Accepted — the client has agreed to this version. Deliberately no
-            plain Send (re-sending an agreed document unchanged invites
-            confusion about what is current) and no Mark as Accepted (already
-            done). The operator still needs to read and hand out the document
-            they're about to schedule work from, and needs an obvious route to
-            revising it: "Revise & resend" forks a new draft and lands on it,
-            where the isDraft branch above supplies the full send controls. */}
+        {/* Accepted — the client has agreed to this version. Two distinct,
+            deliberately separate send paths, plus no Mark as Accepted
+            (already done):
+              • "Send again"      — re-sends the AGREED document unchanged,
+                                    for a client who lost the email. Keeps the
+                                    accepted status; nothing is revised.
+              • "Revise & resend" — forks a new draft and lands on it, where
+                                    the isDraft branch supplies the full send
+                                    controls for the revised version.
+            They stay separate because a single "Send" here would be
+            ambiguous about whether the client receives the old or a new
+            version. */}
         {isAccepted && (
           <>
             <Link
@@ -183,6 +188,25 @@ export function QuoteActionBar({
               <DownloadPdfButton href={`/api/quotes/${quoteId}/pdf`} />
             )}
             <QuoteCopyLinkButton shareUrl={shareUrl} />
+            {/* Plain re-send of the AGREED document, unchanged — for when the
+                client has lost the email. Distinct from Revise & resend, which
+                forks a new version first. Styled as a secondary action and
+                labelled "Send again" so the two can't be confused, and the
+                send action preserves the accepted status rather than
+                demoting the quote back to 'sent'. */}
+            <SendQuotePanel
+              quoteId={quoteId}
+              quoteNumber={quoteDisplayNumber}
+              clientEmail={clientEmail}
+              greeting={greeting}
+              printUrl={shareUrl}
+              staffEmail={staffEmail}
+              primaryContactEmail={primaryContactEmail}
+              accountsEmail={accountsEmail}
+              clientReference={clientReference}
+              sendLabel="Send again"
+              variant="resend"
+            />
             <ReviseQuoteButton
               quoteId={quoteId}
               versionNumber={versionNumber}

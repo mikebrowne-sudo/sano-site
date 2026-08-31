@@ -308,7 +308,7 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
   // are all read at the same moment.
   const { data: quote, error: loadErr } = await supabase
     .from('quotes')
-    .select('date_issued, valid_until, sent_at, share_token, quote_number')
+    .select('date_issued, valid_until, sent_at, share_token, quote_number, status')
     .eq('id', input.quote_id)
     .single()
 
@@ -408,14 +408,33 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
     return { error: `Failed to send email: ${emailErr.message}` }
   }
 
-  // Email sent → flip status + stamp sent_at. Dates are already
-  // stamped above, so they're not re-set here.
+  // Email sent → stamp sent_at, and advance status only when that is
+  // actually a step forward. Dates are already stamped above, so they're
+  // not re-set here.
+  //
+  // Re-sending a quote the client has already ACCEPTED must not demote it
+  // back to 'sent'. Doing so would erase the acceptance from the workflow
+  // bar, re-arm "Mark as accepted", and make an agreed quote look like it
+  // was still awaiting a reply. `accepted_at` would survive but the status
+  // would contradict it. Same reasoning for a quote already 'converted' —
+  // its downstream job/invoice is the source of truth and the Phase 5B lock
+  // governs it.
+  //
+  // 'viewed' is also preserved: the client having opened the quote is
+  // strictly more information than 'sent', so a re-send shouldn't discard
+  // it. Only draft / sent / declined advance to 'sent' here.
   const sentAtIso = new Date().toISOString()
+
+  const currentStatus = (quote.status as string | null) ?? 'draft'
+  const PRESERVED_ON_RESEND = new Set(['accepted', 'converted', 'viewed'])
+  const statusPatch = PRESERVED_ON_RESEND.has(currentStatus)
+    ? {}
+    : { status: 'sent' }
 
   const { error: updateErr } = await supabase
     .from('quotes')
     .update({
-      status: 'sent',
+      ...statusPatch,
       sent_at: sentAtIso,
     })
     .eq('id', input.quote_id)
