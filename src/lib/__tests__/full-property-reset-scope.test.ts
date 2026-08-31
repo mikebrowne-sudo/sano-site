@@ -217,11 +217,19 @@ describe('buildHousekeepingIntro — weekly hours + service days are DESCRIPTIVE
   })
 })
 
-describe('isStructuredScopeType + buildDefaultScopeFor — both structured services', () => {
-  it('recognises both structured service codes and nothing else', () => {
-    expect(STRUCTURED_SCOPE_CODES).toEqual(['full_property_reset', 'residential_housekeeping'])
+describe('isStructuredScopeType + buildDefaultScopeFor — structured services', () => {
+  it('recognises the structured service codes and nothing else', () => {
+    // custom_quote joined the list so one-off jobs (specialist remediation,
+    // vehicle work) can use the same scope editor and PDF pipeline instead of
+    // being built as standalone documents outside the system.
+    expect(STRUCTURED_SCOPE_CODES).toEqual([
+      'full_property_reset',
+      'residential_housekeeping',
+      'custom_quote',
+    ])
     expect(isStructuredScopeType('full_property_reset')).toBe(true)
     expect(isStructuredScopeType('residential_housekeeping')).toBe(true)
+    expect(isStructuredScopeType('custom_quote')).toBe(true)
     expect(isStructuredScopeType('standard_clean')).toBe(false)
     expect(isStructuredScopeType('')).toBe(false)
     expect(isStructuredScopeType(null)).toBe(false)

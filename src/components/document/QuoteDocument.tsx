@@ -194,6 +194,13 @@ export function QuoteDocument({
 
   const primarySubBlocks: { label: string; value: string }[] = []
   if (address) primarySubBlocks.push({ label: 'Service address', value: address })
+  // Custom-quote reference pairs (registration, make/model, asset tag, serial).
+  // They sit alongside the service address because they answer the same
+  // question for the reader: which thing is this quote about. Normalisation
+  // has already dropped any row missing a label or a value.
+  for (const ref of structuredScope?.referenceFields ?? []) {
+    primarySubBlocks.push({ label: ref.label, value: ref.value })
+  }
   if (!structuredScope && descBlockValue) {
     primarySubBlocks.push({ label: 'Service description', value: descBlockValue })
   }

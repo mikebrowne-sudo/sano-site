@@ -61,6 +61,12 @@ export const SERVICE_TYPES_BY_CATEGORY: Record<ServiceCategory, { value: string;
     { value: 'deep_reset', label: 'Deep Reset Clean' },
   ],
   commercial: [
+    // Custom quote — a free-form structured-scope service for one-off jobs
+    // that do not fit an existing type (specialist remediation, vehicle work,
+    // unusual site work). Pricing-ineligible like Full Property Reset, so the
+    // operator sets the price manually, and the scope is written per quote
+    // rather than seeded from a template.
+    { value: 'custom_quote',  label: 'Custom Quote' },
     { value: 'maintenance',  label: 'Maintenance Clean' },
     { value: 'detailed',     label: 'Detailed Clean' },
     { value: 'initial',      label: 'Initial Clean' },
