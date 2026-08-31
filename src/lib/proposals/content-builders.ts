@@ -274,10 +274,26 @@ export function buildExecutiveSummary(payload: ProposalTemplatePayload): Executi
   // two pages don't echo each other.
   const body: string[] = []
 
+  // The spaces named here have to be the reader's own. "Workspaces, shared
+  // areas and amenities" is office vocabulary — on a restaurant or brewery
+  // tender it reads as a template that was never adjusted, which is exactly
+  // the impression a proposal cannot afford to give. Each sector names the
+  // areas its operator would name, and anything unrecognised falls back to
+  // neutral wording rather than borrowing another sector's language.
+  const AREAS_BY_SECTOR: Record<string, string> = {
+    hospitality: 'dining and public areas, bar and service areas, and bathrooms',
+    office:      'workspaces, shared areas, and amenities',
+    education:   'classrooms, shared spaces, and amenities',
+    medical:     'clinical spaces, waiting areas, and amenities',
+    industrial:  'operational areas, walkways, and amenities',
+  }
+  const sectorKey = (siteContext.sector || '').trim().toLowerCase()
+  const areasPhrase = AREAS_BY_SECTOR[sectorKey] ?? 'public-facing areas, shared spaces, and amenities'
+
   body.push(
     oneOff
-      ? 'The clean has been scoped around how the site is used, with a focus on lifting presentation across workspaces, shared areas, and amenities in a single visit.'
-      : 'The service has been structured around how the site is used day to day, with a focus on maintaining presentation across workspaces, shared areas, and amenities.',
+      ? `The clean has been scoped around how the site is used, with a focus on lifting presentation across ${areasPhrase} in a single visit.`
+      : `The service has been structured around how the site is used day to day, with a focus on maintaining presentation across ${areasPhrase}.`,
   )
 
   // Delivery sentence. Recurring quotes get a cadence ("delivered
