@@ -113,18 +113,24 @@ export function fmtCount(n: number | null | undefined, singular: string, plural?
 
 export type ProposalGroupKey =
   | 'general_areas'
+  | 'dining_public'
+  | 'bar_service'
   | 'offices_workstations'
   | 'kitchens_breakout'
   | 'bathrooms_washrooms'
   | 'common_areas'
+  | 'outdoor_areas'
   | 'specialist_areas'
 
 export const PROPOSAL_GROUP_LABEL: Record<ProposalGroupKey, string> = {
   general_areas:         'General Areas',
+  dining_public:         'Dining & Public Areas',
+  bar_service:           'Bar & Service Areas',
   offices_workstations:  'Workstations',
   kitchens_breakout:     'Kitchens & Breakout Areas',
   bathrooms_washrooms:   'Bathrooms & Washrooms',
   common_areas:          'Common Areas',
+  outdoor_areas:         'Outdoor Areas',
   specialist_areas:      'Specialist Areas',
 }
 
@@ -132,10 +138,13 @@ export const PROPOSAL_GROUP_LABEL: Record<ProposalGroupKey, string> = {
 // with zero rows are not rendered at all.
 export const PROPOSAL_GROUP_ORDER: readonly ProposalGroupKey[] = [
   'general_areas',
+  'dining_public',
+  'bar_service',
   'offices_workstations',
   'kitchens_breakout',
   'bathrooms_washrooms',
   'common_areas',
+  'outdoor_areas',
   'specialist_areas',
 ]
 
@@ -145,6 +154,19 @@ export const PROPOSAL_GROUP_ORDER: readonly ProposalGroupKey[] = [
 // wins. Anything unmatched falls into general_areas.
 const KEYWORD_PATTERNS: readonly [ProposalGroupKey, RegExp][] = [
   ['bathrooms_washrooms',  /bath|toilet|washroom|shower|urinal|lavatory|restroom/i],
+  // Hospitality groups sit above the kitchen and office patterns: a brewery
+  // row like "wet area beside kitchen" would otherwise be filed under
+  // "Kitchens & Breakout Areas", and the bar, beer garden and playground all
+  // fell through to "General Areas" — office vocabulary on a venue proposal.
+  //
+  // `bar` also matches rows that merely mention the kitchen as a location
+  // ("bar surfaces and wet area beside kitchen"). That is deliberate: the row
+  // describes BAR work, and the commercial kitchen itself is usually excluded
+  // on a venue contract, so the bar reading is the correct one. A genuine
+  // kitchen row would not name the bar.
+  ['bar_service',          /\bbar\b|\bbars\b|beer|keg|tap(?:s|room)?|cellar|barista|service\s*area|counter|wet\s*area/i],
+  ['outdoor_areas',        /outdoor|external|courtyard|garden|patio|deck|paving|limestone|gravel|playground|bark|car\s*park|forecourt|smoking/i],
+  ['dining_public',        /dining|restaurant|table|seating|booth|front\s*of\s*house|customer\s*area|public\s*area/i],
   ['kitchens_breakout',    /kitchen|breakroom|break\s*room|pantry|tea\s*point|cafe|caf[ée]|staff\s*room|staffroom|lunch/i],
   ['offices_workstations', /office|workstation|desk|cubicle|meeting\s*room|board\s*room|boardroom|conference/i],
   ['common_areas',         /reception|lobby|foyer|hall|hallway|corridor|stair|entry|entrance|lift|elevator|lounge|waiting/i],
