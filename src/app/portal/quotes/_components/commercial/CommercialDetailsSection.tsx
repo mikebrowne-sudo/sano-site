@@ -942,7 +942,7 @@ function MarginTierPicker({
 }: {
   value: MarginTier | ''; onChange: (v: MarginTier | '') => void; disabled?: boolean
 }) {
-  const tiers: MarginTier[] = ['win_the_work', 'standard', 'premium', 'specialist']
+  const tiers: MarginTier[] = ['competitive', 'win_the_work', 'standard', 'premium', 'specialist']
   return (
     <div>
       <span className="block text-sm font-semibold text-sage-800 mb-2">Commercial margin tier</span>

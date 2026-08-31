@@ -28,7 +28,7 @@ export type OccupancyLevel = 'low' | 'medium' | 'high'
 export type TrafficLevel = 'low' | 'medium' | 'high'
 export type ConsumablesBy = 'sano' | 'client' | 'shared'
 
-export type MarginTier = 'win_the_work' | 'standard' | 'premium' | 'specialist'
+export type MarginTier = 'competitive' | 'win_the_work' | 'standard' | 'premium' | 'specialist'
 
 // ── Phase 5A — Tender field enums ──────────────────────────────────
 
@@ -209,6 +209,18 @@ export interface MarginTierSpec {
 }
 
 export const MARGIN_TIERS: Record<MarginTier, MarginTierSpec> = {
+  // Competitive — for genuinely contested tenders where the margin has to be
+  // thinner than "win the work". Deliberately the lowest tier offered, and
+  // deliberately not the default: at this level a single sick day, an
+  // equipment replacement, or a site running over its modelled hours can wipe
+  // out the job's profit. Use it knowingly, with the true-margin figure in
+  // the pricing preview visible.
+  competitive: {
+    label: 'Competitive tender',
+    min: 0.10,
+    max: 0.15,
+    default: 0.12,
+  },
   win_the_work: {
     label: 'Win the work',
     min: 0.15,
@@ -420,7 +432,8 @@ export function isSectorCategory(v: unknown): v is SectorCategory {
 }
 
 export function isMarginTier(v: unknown): v is MarginTier {
-  return v === 'win_the_work' || v === 'standard' || v === 'premium' || v === 'specialist'
+  return v === 'competitive' || v === 'win_the_work'
+      || v === 'standard' || v === 'premium' || v === 'specialist'
 }
 
 // ── Commercial pricing preview ─────────────────────────────────────
@@ -465,6 +478,12 @@ export interface CommercialPreviewDetails {
   selected_margin_tier: MarginTier | '' | null
   labour_cost_basis: number | null   // $/hr
   service_days: string[] | null
+  /** Optional: what a contractor hour ACTUALLY costs, ex GST. When supplied
+   *  the preview reports true margin over real contractor cost, which is the
+   *  number that decides whether a lean tender is survivable. Distinct from
+   *  `labour_cost_basis`, which is the loaded internal rate the sell price is
+   *  built from and includes on-costs, supervision, equipment and overhead. */
+  contractor_hourly_cost?: number | null
 }
 
 // ── Scope input mode (Phase 1 UI-only) ─────────────────────────────
@@ -511,6 +530,17 @@ export interface CommercialPreview {
   estimated_monthly_sell_price: number
   estimated_weekly_sell_price: number
   estimated_per_visit_sell_price: number
+
+  // True margin over REAL contractor cost (null when no contractor rate given).
+  //
+  // The sell price is built from `labour_cost_basis`, a loaded rate covering
+  // on-costs, supervision, equipment and overhead. That is the right basis for
+  // pricing, but it hides the actual floor: what is left after paying the
+  // person who does the work. On a lean tender that gap is the whole decision,
+  // so it is surfaced rather than left to be worked out on a calculator.
+  contractor_weekly_cost: number | null
+  true_weekly_margin: number | null
+  true_margin_pct: number | null
 
   // Diagnostics
   included_scope_rows: number
@@ -640,6 +670,21 @@ export function computeCommercialPreview(
     ? estimated_weekly_sell_price / visits_per_week
     : 0
 
+  // True margin over real contractor cost. Only computed when a contractor
+  // rate was supplied — a guessed floor is worse than no floor.
+  const contractorRate = details.contractor_hourly_cost && details.contractor_hourly_cost > 0
+    ? details.contractor_hourly_cost
+    : null
+  const contractor_weekly_cost = contractorRate != null
+    ? estimated_weekly_hours * contractorRate
+    : null
+  const true_weekly_margin = contractor_weekly_cost != null
+    ? estimated_weekly_sell_price - contractor_weekly_cost
+    : null
+  const true_margin_pct = true_weekly_margin != null && estimated_weekly_sell_price > 0
+    ? true_weekly_margin / estimated_weekly_sell_price
+    : null
+
   const warnings: string[] = []
   if (included_scope_rows === 0) {
     warnings.push('No complete scope rows yet — add at least one row with a quantity and either unit minutes or a production rate.')
@@ -654,6 +699,16 @@ export function computeCommercialPreview(
   }
   if (!details.sector_category) {
     warnings.push('Pick a sector category to apply the sector multiplier.')
+  }
+  // A thin true margin is the failure mode that does not announce itself:
+  // the quote looks fine, and the job only loses money once someone is sick
+  // or the site runs over. Surface it while it can still be changed.
+  if (true_margin_pct != null && true_margin_pct < 0.30) {
+    warnings.push(
+      true_margin_pct <= 0
+        ? 'This price is at or below what the contractor costs. It cannot be delivered profitably.'
+        : `Only ${Math.round(true_margin_pct * 100)}% is left after contractor cost. That leaves little room for cover, equipment or a site that runs over.`,
+    )
   }
 
   return {
@@ -671,6 +726,9 @@ export function computeCommercialPreview(
     estimated_monthly_sell_price,
     estimated_weekly_sell_price,
     estimated_per_visit_sell_price,
+    contractor_weekly_cost,
+    true_weekly_margin,
+    true_margin_pct,
     included_scope_rows,
     incomplete_scope_rows,
     warnings,

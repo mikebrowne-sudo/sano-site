@@ -8,7 +8,7 @@
 // can copy the estimated sell price into the quote's base_price without
 // any forced overwrite.
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import clsx from 'clsx'
 import {
   computeCommercialPreview,
@@ -48,6 +48,13 @@ export function CommercialPricingPreview({
    *  falls back to the in-code constants — behaviour matches pre-3B. */
   pricingSettings?: PricingSettings
 }) {
+  // What a contractor hour actually costs, ex GST. Local to this preview and
+  // deliberately NOT persisted: it is a quoting aid for the operator, not part
+  // of the quote the client receives, and keeping it out of the schema avoids
+  // a migration for what is a sanity check. Type it in, see the real floor,
+  // decide the price.
+  const [contractorCost, setContractorCost] = useState('')
+
   const preview = useMemo(() => {
     const scopeRows: CommercialPreviewScopeRow[] = scope.map((r) => ({
       included: r.included,
@@ -64,6 +71,7 @@ export function CommercialPricingPreview({
         selected_margin_tier: details.selected_margin_tier || null,
         labour_cost_basis: parseNumber(details.labour_cost_basis),
         service_days: details.service_days.length > 0 ? details.service_days : null,
+        contractor_hourly_cost: parseNumber(contractorCost),
       },
       scopeRows,
       pricingSettings,
@@ -74,6 +82,7 @@ export function CommercialPricingPreview({
     details.selected_margin_tier,
     details.labour_cost_basis,
     details.service_days,
+    contractorCost,
     scope,
     pricingSettings,
   ])
@@ -156,6 +165,56 @@ export function CommercialPricingPreview({
             />
           </dl>
         </div>
+      </div>
+
+      {/* True margin over real contractor cost.
+          The sell price above is built from the loaded labour basis, which
+          includes on-costs, supervision, equipment and overhead. That is the
+          right basis for pricing but it hides the actual floor. On a lean
+          tender the question that decides go/no-go is "what is left after I
+          pay the person doing the work", so it is computed here rather than
+          on a calculator. */}
+      <div className="mt-5 pt-4 border-t border-sage-100">
+        <div className="flex flex-wrap items-end gap-4">
+          <label className="block">
+            <span className="block text-xs uppercase tracking-wide text-sage-500 mb-1">
+              Contractor cost ($/hr, ex GST)
+            </span>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={contractorCost}
+              onChange={(e) => setContractorCost(e.target.value)}
+              disabled={disabled}
+              placeholder="e.g. 28.00"
+              className="w-40 rounded-md border border-sage-200 px-3 py-2 text-sm focus:border-sage-500 focus:outline-none focus:ring-1 focus:ring-sage-500 disabled:bg-sage-50"
+            />
+          </label>
+          <p className="text-[11px] text-sage-500 max-w-xs leading-relaxed">
+            What you actually pay per hour, GST excluded. Used only to show the
+            margin below — not saved to the quote.
+          </p>
+        </div>
+
+        {preview.true_margin_pct != null && hasSellPrice && (
+          <dl
+            className={clsx(
+              'mt-4 rounded-lg border p-3 space-y-1.5 text-sm',
+              preview.true_margin_pct < 0.30
+                ? 'bg-amber-50 border-amber-200'
+                : 'bg-sage-50 border-sage-100',
+            )}
+          >
+            <Row label="Weekly sell price"   value={nzd(preview.estimated_weekly_sell_price)} muted />
+            <Row label="Weekly contractor cost" value={nzd(preview.contractor_weekly_cost ?? 0)} muted />
+            <Row
+              label="True weekly margin"
+              value={`${nzd(preview.true_weekly_margin ?? 0)} (${Math.round(preview.true_margin_pct * 100)}%)`}
+              strong
+            />
+          </dl>
+        )}
       </div>
 
       {onApplyToBasePrice && hasSellPrice && !disabled && (
