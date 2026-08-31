@@ -116,3 +116,35 @@ describe('AssumptionsExclusionsPage', () => {
     expect(screen.getByText(/treated as a variation/)).toBeInTheDocument()
   })
 })
+
+describe('layout', () => {
+  it('does not use the icon-tile grid, which squeezes text into a narrow column', () => {
+    // .proposal-scope-row is `grid-template-columns: 13mm 1fr` with the first
+    // column holding an icon tile. This page has no icons, so reusing it left
+    // an empty 13mm column and rendered the list vertically down the page.
+    const { container } = render(<AssumptionsExclusionsPage
+      payload={payload({
+        assumptions: ['A'], exclusions: ['B'], complianceNotes: '',
+      })}
+      pageNumber={6} totalPages={9} />)
+
+    expect(container.querySelector('.proposal-scope-row')).toBeNull()
+    expect(container.querySelector('.proposal-terms-stack')).not.toBeNull()
+    expect(container.querySelectorAll('.proposal-terms-block')).toHaveLength(2)
+  })
+
+  it('renders assumptions and exclusions as separate blocks', () => {
+    const { container } = render(<AssumptionsExclusionsPage
+      payload={payload({
+        assumptions: ['A one', 'A two'],
+        exclusions: ['E one', 'E two', 'E three'],
+        complianceNotes: '',
+      })}
+      pageNumber={6} totalPages={9} />)
+
+    const lists = container.querySelectorAll('.proposal-terms-block__list')
+    expect(lists).toHaveLength(2)
+    expect(lists[0].querySelectorAll('li')).toHaveLength(2)
+    expect(lists[1].querySelectorAll('li')).toHaveLength(3)
+  })
+})

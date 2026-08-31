@@ -54,43 +54,40 @@ export function AssumptionsExclusionsPage({
           variation and quoted separately before it is carried out.
         </p>
 
-        <div className="proposal-scope-stack">
+        {/* Full-width single-column blocks. The scope-row grid is not reused
+            here: its first column is a 13mm icon tile, and without an icon the
+            text is squeezed into the narrow remainder and runs vertically. */}
+        <div className="proposal-terms-stack">
           {assumptions.length > 0 && (
-            <div className="proposal-scope-row">
-              <div>
-                <h3 className="proposal-scope-row__head">Assumptions</h3>
-                <ul className="proposal-scope-row__list">
-                  {assumptions.map((item, i) => (
-                    <li key={i}>{item}</li>
-                  ))}
-                </ul>
-              </div>
+            <div className="proposal-terms-block">
+              <h3 className="proposal-terms-block__head">Assumptions</h3>
+              <ul className="proposal-terms-block__list">
+                {assumptions.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
             </div>
           )}
 
           {exclusions.length > 0 && (
-            <div className="proposal-scope-row">
-              <div>
-                <h3 className="proposal-scope-row__head">Not included</h3>
-                <ul className="proposal-scope-row__list">
-                  {exclusions.map((item, i) => (
-                    <li key={i}>{item}</li>
-                  ))}
-                </ul>
-              </div>
+            <div className="proposal-terms-block">
+              <h3 className="proposal-terms-block__head">Not included</h3>
+              <ul className="proposal-terms-block__list">
+                {exclusions.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
             </div>
           )}
 
           {compliance && (
-            <div className="proposal-scope-row">
-              <div>
-                <h3 className="proposal-scope-row__head">Compliance</h3>
-                <ul className="proposal-scope-row__list">
-                  {compliance.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line, i) => (
-                    <li key={i}>{line}</li>
-                  ))}
-                </ul>
-              </div>
+            <div className="proposal-terms-block">
+              <h3 className="proposal-terms-block__head">Compliance</h3>
+              <ul className="proposal-terms-block__list">
+                {compliance.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
+              </ul>
             </div>
           )}
         </div>
