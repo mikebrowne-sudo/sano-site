@@ -25,7 +25,7 @@ import {
 
 // ── Orderings ──────────────────────────────────────────────────────
 
-const TIER_ORDER: readonly MarginTier[] = ['win_the_work', 'standard', 'premium', 'specialist']
+const TIER_ORDER: readonly MarginTier[] = ['competitive', 'win_the_work', 'standard', 'premium', 'specialist']
 const SECTOR_ORDER: readonly SectorCategory[] = ['office', 'education', 'medical', 'hospitality', 'industrial', 'mixed_use', 'custom']
 const TRAFFIC_ORDER: readonly TrafficLevel[] = ['low', 'medium', 'high']
 
