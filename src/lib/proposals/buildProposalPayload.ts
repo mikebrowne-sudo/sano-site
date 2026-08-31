@@ -93,6 +93,17 @@ export interface ProposalTemplatePayload {
   // Scope
   scopeSections: ProposalScopeSection[]
 
+  // Assumptions, exclusions and compliance.
+  //
+  // These were captured on the quote and carried this far, but no page
+  // rendered them — so operator-written exclusions never reached the client.
+  // On a commercial tender that is the section that defines the boundary of
+  // the job, so it has to be visible rather than implied by "only tasks
+  // listed are included" in the terms.
+  assumptions: string[]
+  exclusions: string[]
+  complianceNotes: string
+
   // Pricing
   monthlyServiceFee: string     // pre-formatted hero amount, e.g. "$2,450"
   pricingNote: string
@@ -160,6 +171,16 @@ export function proposalFixture(settings: ProposalSettings = DEFAULT_PROPOSAL_SE
       'Bathrooms (×6) and end-of-trip facilities',
       'Stairwells, lifts, and corridors',
     ],
+
+    assumptions: [
+      'Bin liners and washroom consumables are supplied by the client.',
+      'Access is available within the agreed service window.',
+    ],
+    exclusions: [
+      'External glass above ground-floor level.',
+      'Carpet deep cleaning and specialist surface restoration.',
+    ],
+    complianceNotes: '',
 
     scopeSections: [
       {
@@ -336,6 +357,9 @@ export function fromCommercialProposalPayload(
     areasCovered,
 
     scopeSections,
+    assumptions:      p.assumptions,
+    exclusions:       p.exclusions,
+    complianceNotes:  p.compliance_notes ?? '',
 
     monthlyServiceFee,
     pricingNote,

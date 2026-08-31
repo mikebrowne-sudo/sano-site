@@ -15,6 +15,7 @@ import { ExecutiveSummaryPage } from './ExecutiveSummaryPage'
 import { WhySanoPage } from './WhySanoPage'
 import { ServiceOverviewPage } from './ServiceOverviewPage'
 import { ScopeOfWorksPage } from './ScopeOfWorksPage'
+import { AssumptionsExclusionsPage, shouldRenderAssumptionsExclusions } from './AssumptionsExclusionsPage'
 import { PricingSummaryPage } from './PricingSummaryPage'
 import { TermsAndConditionsPage } from './TermsAndConditionsPage'
 import { AcceptancePage } from './AcceptancePage'
@@ -26,10 +27,15 @@ export function ProposalDocument({ payload }: { payload: ProposalTemplatePayload
   // scope, and pricing are always rendered. Executive summary, terms,
   // and acceptance are togglable via settings. Why Sano is core
   // differentiation and therefore unconditional.
-  type PageKey = 'cover' | 'executive' | 'why' | 'overview' | 'scope' | 'pricing' | 'terms' | 'acceptance'
+  type PageKey = 'cover' | 'executive' | 'why' | 'overview' | 'scope' | 'assumptions' | 'pricing' | 'terms' | 'acceptance'
   const active: PageKey[] = ['cover']
   if (payload.sections.executiveSummary) active.push('executive')
-  active.push('why', 'overview', 'scope', 'pricing')
+  active.push('why', 'overview', 'scope')
+  // Only when there is something to state — an empty page of headings is
+  // worse than no page.
+  const showAssumptions = shouldRenderAssumptionsExclusions(payload)
+  if (showAssumptions) active.push('assumptions')
+  active.push('pricing')
   if (payload.sections.terms) active.push('terms')
   if (payload.sections.acceptance) active.push('acceptance')
 
@@ -47,6 +53,9 @@ export function ProposalDocument({ payload }: { payload: ProposalTemplatePayload
         <WhySanoPage           payload={payload} pageNumber={pageNum('why')}       totalPages={total} />
         <ServiceOverviewPage   payload={payload} pageNumber={pageNum('overview')}  totalPages={total} />
         <ScopeOfWorksPage      payload={payload} pageNumber={pageNum('scope')}     totalPages={total} />
+        {showAssumptions && (
+          <AssumptionsExclusionsPage payload={payload} pageNumber={pageNum('assumptions')} totalPages={total} />
+        )}
         <PricingSummaryPage    payload={payload} pageNumber={pageNum('pricing')}   totalPages={total} />
         {payload.sections.terms && (
           <TermsAndConditionsPage payload={payload} pageNumber={pageNum('terms')} totalPages={total} />
