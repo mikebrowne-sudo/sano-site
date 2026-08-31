@@ -308,7 +308,7 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
   // are all read at the same moment.
   const { data: quote, error: loadErr } = await supabase
     .from('quotes')
-    .select('date_issued, valid_until, sent_at, share_token, quote_number, status')
+    .select('date_issued, valid_until, sent_at, share_token, quote_number, status, service_category')
     .eq('id', input.quote_id)
     .single()
 
@@ -377,7 +377,11 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
     }
   }
 
-  const pdfFilename = `${sanitizePdfFilename(`Sano Quote - ${quote.quote_number}`)}.pdf`
+  // Commercial quotes go out as a proposal — the share page renders the
+  // proposal document for them, so the attachment must be named to match what
+  // the client actually opens.
+  const docLabel = quote.service_category === 'commercial' ? 'Proposal' : 'Quote'
+  const pdfFilename = `${sanitizePdfFilename(`Sano ${docLabel} - ${quote.quote_number}`)}.pdf`
 
   const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -481,7 +485,7 @@ export async function sendQuoteTestEmail(input: SendTestQuoteEmailInput) {
 
   const { data: quote, error: loadErr } = await supabase
     .from('quotes')
-    .select('date_issued, valid_until, share_token, quote_number')
+    .select('date_issued, valid_until, share_token, quote_number, service_category')
     .eq('id', input.quote_id)
     .single()
 
@@ -535,7 +539,9 @@ export async function sendQuoteTestEmail(input: SendTestQuoteEmailInput) {
     }
   }
 
-  const pdfFilename = `${sanitizePdfFilename(`Sano Quote - ${quote.quote_number}`)}.pdf`
+  // Match the customer-facing naming so a test send previews the real thing.
+  const docLabel = quote.service_category === 'commercial' ? 'Proposal' : 'Quote'
+  const pdfFilename = `${sanitizePdfFilename(`Sano ${docLabel} - ${quote.quote_number}`)}.pdf`
   const resend = new Resend(process.env.RESEND_API_KEY)
 
   // Clear internal markers so the review email can never be mistaken for
