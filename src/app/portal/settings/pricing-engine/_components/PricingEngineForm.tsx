@@ -26,13 +26,14 @@ import {
 // ── Orderings ──────────────────────────────────────────────────────
 
 const TIER_ORDER: readonly MarginTier[] = ['win_the_work', 'standard', 'premium', 'specialist']
-const SECTOR_ORDER: readonly SectorCategory[] = ['office', 'education', 'medical', 'industrial', 'mixed_use', 'custom']
+const SECTOR_ORDER: readonly SectorCategory[] = ['office', 'education', 'medical', 'hospitality', 'industrial', 'mixed_use', 'custom']
 const TRAFFIC_ORDER: readonly TrafficLevel[] = ['low', 'medium', 'high']
 
 const SECTOR_LABELS: Record<SectorCategory, string> = {
   office:     'Office',
   education:  'Education',
   medical:    'Medical',
+  hospitality:'Hospitality',
   industrial: 'Industrial',
   mixed_use:  'Mixed-use',
   custom:     'Custom',
