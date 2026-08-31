@@ -469,6 +469,40 @@ export const PROPOSAL_CSS = `
   margin-bottom: 0.5mm;
 }
 
+/* Assumptions & exclusions.
+   Deliberately NOT reusing .proposal-scope-row: that is a 13mm/1fr grid whose
+   first column holds an icon tile. Without an icon the content is pushed into
+   the narrow second column and the text runs vertically down the page. This
+   block is full-width, single column, with the same type scale as the scope
+   lists so both pages read as one document. */
+.proposal-terms-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6mm;
+}
+.proposal-terms-block__head {
+  font-size: 9.5pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sano-ink);
+  font-weight: 700;
+  margin: 0 0 2.5mm;
+  padding-bottom: 1.5mm;
+  border-bottom: 0.5pt solid var(--sano-rule, #d8d8d0);
+}
+.proposal-terms-block__list {
+  margin: 0;
+  padding-left: 4.5mm;
+  list-style: disc;
+  font-size: 10.5pt;
+  color: var(--sano-ink-2);
+  line-height: 1.6;
+}
+.proposal-terms-block__list li {
+  margin-bottom: 1.2mm;
+  padding-left: 1mm;
+}
+
 /* Pricing — prominent but not oversized */
 .proposal-pricing-wrap {
   display: flex;
