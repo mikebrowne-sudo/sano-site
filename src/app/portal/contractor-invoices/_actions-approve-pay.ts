@@ -43,6 +43,7 @@ interface JobRow {
   address: string | null
   status: string | null
   completed_at: string | null
+  scheduled_date: string | null
   deleted_at: string | null
   description: string | null
   quote_id: string | null
@@ -73,7 +74,7 @@ export async function approveContractorPay(
   //    the work is done).
   const { data: jobRaw } = await supabase
     .from('jobs')
-    .select('id, job_number, address, status, completed_at, deleted_at, description, quote_id')
+    .select('id, job_number, address, status, completed_at, deleted_at, description, quote_id, scheduled_date')
     .eq('id', jobId)
     .maybeSingle()
   const job = jobRaw as JobRow | null
@@ -141,8 +142,29 @@ export async function approveContractorPay(
   }
   if ('error' in calc) return { error: calc.error }
 
-  // 5. Date = job completion date by default (not today). This is also the GST
-  //    SUPPLY DATE for the payment.
+  // 5. Dates.
+  //
+  // SERVICE DATE is when the work was actually PERFORMED — the job's scheduled
+  // date. It drives which pay period the payable falls into, so it must not be
+  // inferred from `completed_at`: a job worked on the 12th but not marked
+  // complete until the 19th would otherwise land in the wrong fortnight, and
+  // the operator's period filter silently misses it. That happened in
+  // production — JOB-0289 (worked 12 Aug, completed 19 Aug) and JOB-0252
+  // (worked 22 Jul, completed 18 Aug, a 27-day drift across two periods).
+  //
+  // Falls back to completed_at, then today, so a job with no scheduled date
+  // still gets a usable date rather than null (a null service date is excluded
+  // from every period and becomes invisible in the pay run).
+  const serviceDate =
+    job.scheduled_date
+      ? String(job.scheduled_date).slice(0, 10)
+      : job.completed_at
+        ? String(job.completed_at).slice(0, 10)
+        : new Date().toISOString().slice(0, 10)
+
+  // DATE SUBMITTED / GST SUPPLY DATE remain keyed to completion, unchanged.
+  // The supply date has GST-period consequences and is deliberately NOT
+  // altered here; changing it is a separate decision from fixing pay periods.
   const dateSubmitted = job.completed_at ? String(job.completed_at).slice(0, 10) : new Date().toISOString().slice(0, 10)
 
   // 5b. GST snapshot at the supply date. Contractor rates are GST-INCLUSIVE, so
@@ -176,6 +198,8 @@ export async function approveContractorPay(
       job_id: jobId,
       amount: calc.amount,
       date_submitted: dateSubmitted,
+      // Persisted so the pay run periodises by when the work happened.
+      service_date: serviceDate,
       notes: note,
       status: 'approved',
       // Record how the pay was approved so the remittance can show hours for

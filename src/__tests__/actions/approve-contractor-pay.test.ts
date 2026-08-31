@@ -339,3 +339,80 @@ describe('approveContractorPay — GST snapshot at the supply date', () => {
     expect(p.gst_status).toBe('before_effective_date')
   })
 })
+
+describe('approveContractorPay — service_date drives the pay period', () => {
+  // Production bug: service_date was never set, so downstream code fell back to
+  // job.completed_at. A job WORKED on 12 Aug but not marked complete until
+  // 19 Aug was periodised as 19 Aug and vanished from the 1-15 Aug pay run.
+  // Real cases: JOB-0289 (12 -> 19 Aug) and JOB-0252 (22 Jul -> 18 Aug).
+  const LATE_COMPLETED = {
+    id: 'j9', job_number: 'JOB-0289', address: '157 Celtic Crescent, Ellerslie',
+    status: 'completed',
+    scheduled_date: '2026-08-12',                    // worked
+    completed_at: '2026-08-19T00:54:34.000Z',        // marked complete a week later
+    deleted_at: null, description: 'Clean',
+  }
+
+  it('stamps service_date from the job scheduled_date, not completed_at', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: LATE_COMPLETED,
+      jw: { pay_rate: 32.2, pay_type: 'hourly', hours_allocated: 7, extra_hours: 0, extra_hours_status: 'none' },
+      dup: null,
+      created: { id: 'ci9', invoice_number: 'CI-0116', amount: 225.4, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+
+    await approveContractorPay('j9', 'c1', {})
+
+    const payload = ciInsert.mock.calls[0][0]
+    // The whole point: the payable belongs to the 1-15 Aug period.
+    expect(payload.service_date).toBe('2026-08-12')
+    expect(payload.service_date).not.toBe('2026-08-19')
+  })
+
+  it('leaves date_submitted / GST supply date keyed to completion', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: LATE_COMPLETED,
+      jw: { pay_rate: 32.2, pay_type: 'hourly', hours_allocated: 7, extra_hours: 0, extra_hours_status: 'none' },
+      dup: null,
+      created: { id: 'ci9', invoice_number: 'CI-0116', amount: 225.4, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+
+    await approveContractorPay('j9', 'c1', {})
+
+    // GST supply date has its own period consequences and is deliberately
+    // NOT changed by this fix.
+    expect(ciInsert.mock.calls[0][0].date_submitted).toBe('2026-08-19')
+  })
+
+  it('falls back to completed_at when the job has no scheduled_date', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: { ...LATE_COMPLETED, scheduled_date: null },
+      jw: { pay_rate: 35, pay_type: 'hourly', hours_allocated: 4, extra_hours: 0, extra_hours_status: 'none' },
+      dup: null,
+      created: { id: 'ci10', invoice_number: 'CI-0117', amount: 140, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+
+    await approveContractorPay('j9', 'c1', {})
+
+    // Never null: a null service_date matches NO period and the payable
+    // becomes invisible in the pay run.
+    expect(ciInsert.mock.calls[0][0].service_date).toBe('2026-08-19')
+  })
+
+  it('never writes a null service_date', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: { ...LATE_COMPLETED, scheduled_date: null, completed_at: null },
+      jw: { pay_rate: 35, pay_type: 'hourly', hours_allocated: 4, extra_hours: 0, extra_hours_status: 'none' },
+      dup: null,
+      created: { id: 'ci11', invoice_number: 'CI-0118', amount: 140, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+
+    await approveContractorPay('j9', 'c1', {})
+
+    expect(ciInsert.mock.calls[0][0].service_date).toEqual(expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/))
+  })
+})

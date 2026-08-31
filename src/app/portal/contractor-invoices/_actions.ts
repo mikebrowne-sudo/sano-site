@@ -109,6 +109,23 @@ export async function createContractorInvoice(input: CIInput) {
     snapshotLink = { contractor_payment_snapshot_id: snapshotId, service_schedule_id: scheduleId }
   }
 
+  // Resolve the linked job's scheduled date so the payable is periodised by
+  // when the work happened rather than when it was marked complete.
+  let jobServiceDate: string | null = null
+  if (input.job_id) {
+    const { data: jobRow } = await supabase
+      .from('jobs')
+      .select('scheduled_date, completed_at')
+      .eq('id', input.job_id)
+      .maybeSingle()
+    const j = jobRow as { scheduled_date: string | null; completed_at: string | null } | null
+    jobServiceDate = j?.scheduled_date
+      ? String(j.scheduled_date).slice(0, 10)
+      : j?.completed_at
+        ? String(j.completed_at).slice(0, 10)
+        : null
+  }
+
   const { data, error } = await supabase
     .from('contractor_invoices')
     .insert({
@@ -121,10 +138,20 @@ export async function createContractorInvoice(input: CIInput) {
       payment_type: paymentType,
       site_label: paymentType === 'fixed_contract' ? siteLabel : null,
       period_label: paymentType === 'fixed_contract' ? periodLabel : null,
-      // Seed the operational service date for jobless payables from the explicit
-      // staff date (service_date or the confirmed GST supply date). Job-derived
-      // CIs leave it null and resolve from job.completed_at at statement time.
-      service_date: input.job_id ? null : (input.service_date || input.gst_supply_date || null),
+      // Operational service date = when the work was PERFORMED. It decides
+      // which pay period the payable falls into, so it is always populated.
+      //
+      // Job-linked payables previously left this null and let downstream code
+      // fall back to job.completed_at. That silently periodised by when someone
+      // marked the job complete rather than when it was worked, so a job done
+      // on the 12th and completed on the 19th missed the 1-15 pay run. We now
+      // resolve the job's scheduled_date up front (see jobServiceDate above).
+      // An explicit staff-supplied date always wins.
+      service_date:
+        input.service_date
+        || jobServiceDate
+        || input.gst_supply_date
+        || null,
       // Schedular link + correction lineage (null for ordinary payables).
       ...(snapshotLink ?? {}),
       supersedes_invoice_id: input.supersedes_invoice_id?.trim() || null,
