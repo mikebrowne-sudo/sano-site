@@ -49,6 +49,15 @@ export const SERVICE_TYPES_BY_CATEGORY: Record<ServiceCategory, { value: string;
     // the editable scope wording only. Selecting it loads the default
     // housekeeping scope (see lib/full-property-reset-scope).
     { value: 'residential_housekeeping', label: 'Residential Housekeeping' },
+    // Custom Quote is offered under BOTH categories. It was commercial-only at
+    // first, which forced a one-off job (vehicle work, specialist remediation)
+    // down the commercial path: the proposal document, the sector/margin block
+    // and the commercial share-page branch all key off
+    // service_category === 'commercial'. None of that applies to a job with no
+    // site, no sector and no recurring schedule, so the residential category —
+    // which renders the plain quote document — is the right home for most
+    // custom work.
+    { value: 'custom_quote',       label: 'Custom Quote' },
   ],
   property_management: [
     { value: 'routine',        label: 'Routine Clean' },
