@@ -316,6 +316,7 @@ const SECTOR_OPTIONS: readonly { value: SectorCategory; label: string }[] = [
   { value: 'office',     label: 'Office' },
   { value: 'education',  label: 'Education' },
   { value: 'medical',    label: 'Medical / Healthcare' },
+  { value: 'hospitality', label: 'Hospitality (restaurant, bar, brewery, cafe)' },
   { value: 'industrial', label: 'Industrial / Warehouse' },
   { value: 'mixed_use',  label: 'Mixed-use' },
   { value: 'custom',     label: 'Custom' },

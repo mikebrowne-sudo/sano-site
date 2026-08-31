@@ -11,6 +11,7 @@ export type SectorCategory =
   | 'office'
   | 'education'
   | 'medical'
+  | 'hospitality'
   | 'industrial'
   | 'mixed_use'
   | 'custom'
@@ -292,6 +293,41 @@ export const SECTOR_FIELD_PACKS: Record<SectorCategory, readonly SectorFieldDef[
     { key: 'sharps_present', label: 'Sharps present', type: 'boolean' },
     { key: 'between_patient_cleaning_required', label: 'Between-patient cleaning required', type: 'boolean' },
   ],
+  // Hospitality — restaurants, bars, breweries, cafes and function venues.
+  //
+  // The fields here are the ones that actually move the hours on a venue,
+  // learned from quoting them: whether the commercial kitchen is ours (by far
+  // the biggest single cost and risk swing), how late access starts (a venue
+  // that closes at 11pm is a different labour market than a 6am office), and
+  // whether outdoor and playground areas are in scope, which is common in NZ
+  // brewery and garden-bar sites and easy to leave unpriced.
+  //
+  // Seasonal variation is captured as a note rather than a second schedule:
+  // the engine models one visits-per-week figure, so the established practice
+  // is to quote the low season as the contract and price additional visits
+  // per-visit. The field exists so that decision is recorded on the quote
+  // instead of living in someone's memory.
+  hospitality: [
+    { key: 'hospitality_type', label: 'Venue type', type: 'select',
+      options: ['restaurant', 'bar', 'brewery', 'cafe', 'function_venue', 'hotel', 'club', 'other'] },
+    { key: 'licensed_premises', label: 'Licensed premises', type: 'boolean' },
+    { key: 'covers_seated', label: 'Seated covers', type: 'integer', min: 0 },
+    { key: 'commercial_kitchen_in_scope', label: 'Commercial kitchen in scope', type: 'select',
+      options: ['excluded', 'floors_only', 'full'] },
+    { key: 'bar_areas_count', label: 'Bar / service areas', type: 'integer', min: 0 },
+    { key: 'access_timing', label: 'Access timing', type: 'select',
+      options: ['pre_open_morning', 'between_service', 'post_close_evening', 'overnight', 'flexible'] },
+    { key: 'outdoor_areas_in_scope', label: 'Outdoor areas in scope', type: 'boolean' },
+    { key: 'outdoor_surface_types', label: 'Outdoor surfaces', type: 'chips',
+      options: ['decking', 'paving', 'limestone', 'gravel', 'artificial_turf', 'lawn', 'playground_bark'] },
+    { key: 'playground_present', label: 'Playground area', type: 'boolean' },
+    { key: 'seasonal_variation_notes', label: 'Seasonal variation', type: 'textarea',
+      placeholder: 'e.g. 4 cleans per week in winter, 5 per week over summer' },
+    { key: 'consumables_scope', label: 'Consumables', type: 'select',
+      options: ['sano_supplies', 'client_supplies', 'sano_restocks_client_supplies'] },
+    { key: 'waste_streams', label: 'Waste streams', type: 'chips',
+      options: ['general', 'recycling', 'organic', 'glass', 'cooking_oil', 'kegs'] },
+  ],
   industrial: [
     { key: 'industrial_type', label: 'Industrial type', type: 'select',
       options: ['warehouse', 'manufacturing', 'mechanical_workshop', 'food_production', 'logistics', 'other'] },
@@ -342,10 +378,19 @@ export const UNIT_MINUTE_DEFAULTS: Record<string, number> = {
 // Medical is slower because of protocol / PPE / disinfection overhead;
 // industrial slightly slower due to access + safety; education is
 // roughly office + a small uplift for heavier use.
+//
+// Hospitality sits at 1.15: a venue is not technically harder than an office,
+// but it is dirtier per square metre and far less forgiving. Food and drink
+// spillage, grease carry-out from the kitchen, and heavy public bathroom use
+// all mean surfaces need genuine cleaning rather than presentation upkeep,
+// and the work is judged by paying customers the next morning rather than by
+// the staff who work there. Restocking and bin volumes in a licensed venue
+// are also materially higher than an equivalent office footprint.
 export const SECTOR_MULTIPLIER: Record<SectorCategory, number> = {
   office: 1.00,
   education: 1.05,
   medical: 1.20,
+  hospitality: 1.15,
   industrial: 1.15,
   mixed_use: 1.05,
   custom: 1.00,
@@ -370,6 +415,7 @@ export function sectorFieldsFor(sector: SectorCategory): readonly SectorFieldDef
 
 export function isSectorCategory(v: unknown): v is SectorCategory {
   return v === 'office' || v === 'education' || v === 'medical'
+      || v === 'hospitality'
       || v === 'industrial' || v === 'mixed_use' || v === 'custom'
 }
 
