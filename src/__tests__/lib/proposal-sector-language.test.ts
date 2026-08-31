@@ -8,7 +8,7 @@
  * Hallertau Riverhead proposal output.
  */
 
-import { buildExecutiveSummary } from '@/lib/proposals/content-builders'
+import { buildExecutiveSummary, windowDescriptor, buildServiceOverviewText } from '@/lib/proposals/content-builders'
 import { proposalFixture } from '@/lib/proposals/buildProposalPayload'
 import type { ProposalTemplatePayload } from '@/lib/proposals/buildProposalPayload'
 
@@ -63,5 +63,54 @@ describe('executive summary — sector-appropriate area language', () => {
   it('is case-insensitive on the sector label', () => {
     expect(forSector('hospitality')).toContain('dining and public areas')
     expect(forSector('HOSPITALITY')).toContain('dining and public areas')
+  })
+})
+
+describe('service window descriptor', () => {
+  it('calls a window that crosses midnight overnight, not evening', () => {
+    // 23:00-09:00 was described as an "evening service window" while plainly
+    // running through to the next morning. Hallertau's real window.
+    expect(windowDescriptor('23:00 - 09:00')).toBe('overnight')
+  })
+
+  it('still calls a genuine evening window evening', () => {
+    expect(windowDescriptor('17:00 - 22:00')).toBe('evening')
+  })
+
+  it('still calls a daytime window daytime', () => {
+    expect(windowDescriptor('09:00 - 15:00')).toBe('daytime')
+  })
+
+  it('treats an early-morning start as evening when it does not wrap', () => {
+    // 05:00-09:00 is a pre-open clean, not overnight.
+    expect(windowDescriptor('05:00 - 09:00')).toBe('daytime')
+  })
+
+  it('returns empty for an unparseable window', () => {
+    expect(windowDescriptor('')).toBe('')
+    expect(windowDescriptor('after hours')).toBe('')
+  })
+})
+
+describe('service overview — day framing', () => {
+  it('says day of service for hospitality, not working day', () => {
+    const base = proposalFixture()
+    const out = buildServiceOverviewText({
+      ...base,
+      siteContext: { ...base.siteContext, sector: 'Hospitality' },
+    })
+    const joined = Array.isArray(out) ? out.join(' ') : String(out)
+    expect(joined).toContain('next day of service')
+    expect(joined).not.toContain('next working day')
+  })
+
+  it('keeps working-day framing for an office', () => {
+    const base = proposalFixture()
+    const out = buildServiceOverviewText({
+      ...base,
+      siteContext: { ...base.siteContext, sector: 'Office' },
+    })
+    const joined = Array.isArray(out) ? out.join(' ') : String(out)
+    expect(joined).toContain('next working day')
   })
 })

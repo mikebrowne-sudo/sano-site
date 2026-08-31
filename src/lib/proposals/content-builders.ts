@@ -177,6 +177,20 @@ export function windowDescriptor(window: string): '' | 'evening' | 'daytime' | '
   const split = s.split(/\s*[-–—]\s*|\s+to\s+/i)
   const start = split.length >= 1 ? parseClock(split[0]) : null
   if (!start) return ''
+
+  // 'overnight' was in the return type but never returned: any start at or
+  // after 4pm produced 'evening', so a venue window of 23:00-09:00 was
+  // described to the client as an "evening service window" while plainly
+  // running through to the next morning. A window that crosses midnight is
+  // overnight, and saying so is both accurate and the right word for
+  // after-hours hospitality work.
+  const end = split.length >= 2 ? parseClock(split[1]) : null
+  if (end) {
+    const startMins = start.h * 60 + start.m
+    const endMins = end.h * 60 + end.m
+    if (endMins <= startMins) return 'overnight'
+  }
+
   if (start.h >= 16 || start.h < 5) return 'evening'
   return 'daytime'
 }
@@ -395,7 +409,13 @@ export function buildServiceOverviewText(payload: ProposalTemplatePayload): stri
   // operates. "Trained staff follow a checklist" / "consistent team"
   // language has moved to Why Sano so the pages don't echo each
   // other. Two paragraphs is enough above the meta grid.
-  const p1 = `The service is structured ${scheduleClause}, with cleaning carried out during ${windowRef} so the site is ready for the next working day.`
+  // "ready for the next working day" is office framing. A restaurant, bar or
+  // brewery does not have working days — it has service, and the thing the
+  // operator cares about is the room being right when the doors open.
+  const readyFor = (payload.siteContext.sector || '').trim().toLowerCase() === 'hospitality'
+    ? 'so the site is presented ready for the next day of service'
+    : 'so the site is ready for the next working day'
+  const p1 = `The service is structured ${scheduleClause}, with cleaning carried out during ${windowRef} ${readyFor}.`
 
   const p2 = 'Core tasks are completed at each visit, with additional detail work scheduled across the service cycle.'
 
