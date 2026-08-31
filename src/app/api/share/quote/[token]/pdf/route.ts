@@ -13,7 +13,7 @@ export async function GET(
   const supabase = getServiceSupabase()
   const { data: quote } = await supabase
     .from('quotes')
-    .select('quote_number, deleted_at')
+    .select('quote_number, deleted_at, service_category')
     .eq('share_token', params.token)
     .is('deleted_at', null)
     .single()
@@ -25,7 +25,10 @@ export async function GET(
 
   try {
     const buffer = await renderPdfFromUrl(printUrl, { anchorClosingBlock: true })
-    const stem = sanitizePdfFilename(`Sano Quote - ${quote.quote_number}`)
+    // Commercial quotes are delivered as a proposal; the filename should say
+    // so, since it is what the client sees in their inbox and file system.
+    const label = quote.service_category === 'commercial' ? 'Proposal' : 'Quote'
+    const stem = sanitizePdfFilename(`Sano ${label} - ${quote.quote_number}`)
     const filename = `${stem}.pdf`
     return new NextResponse(Buffer.from(buffer), {
       status: 200,

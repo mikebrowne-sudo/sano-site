@@ -6,6 +6,8 @@ import { AutoPrint } from '../../_components/AutoPrint'
 import { SharePdfButton } from '../../_components/SharePdfButton'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { QuoteDocument } from '@/components/document/QuoteDocument'
+import { ProposalDocument } from '@/components/proposals/ProposalDocument'
+import { loadProposalForQuote } from '@/lib/proposals/loadProposalForQuote'
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
   const supabase = getServiceSupabase()
@@ -54,6 +56,7 @@ export default async function PublicQuotePage({
     .select(`
       id, quote_number, status, accepted_at, date_issued, valid_until, created_at,
       version_number, parent_quote_id, is_latest_version, share_token,
+      service_category,
       property_category, type_of_clean, service_type_code, frequency, scope_size,
       generated_scope,
       structured_scope,
@@ -136,6 +139,33 @@ export default async function PublicQuotePage({
     .select('label, description, price, sort_order')
     .eq('quote_id', quote.id)
     .order('sort_order')
+
+  // Commercial quotes are sold as a proposal, not a quote sheet. The operator
+  // previews the proposal, so the client link and the emailed PDF have to be
+  // the same document — otherwise the client receives a residential-style
+  // quote for work that was scoped and priced as a commercial tender.
+  //
+  // Falls back to the standard quote document if the proposal cannot be built
+  // (missing commercial details), so a share link never 404s on a client.
+  if (quote.service_category === 'commercial') {
+    const proposal = await loadProposalForQuote(supabase, quote.id as string)
+    if (proposal) {
+      return (
+        <>
+          <AutoPrint active={autoPrint} />
+          <ProposalDocument payload={proposal.payload} />
+          {!isPdfRender && (
+            <div className="mx-auto max-w-3xl px-6 py-8 print:hidden">
+              <SharePdfButton href={`/api/share/quote/${params.token}/pdf`} />
+              <div className="mt-6">
+                <AcceptQuote shareToken={params.token} status={quote.status} acceptedAt={quote.accepted_at} />
+              </div>
+            </div>
+          )}
+        </>
+      )
+    }
+  }
 
   return (
     <>
