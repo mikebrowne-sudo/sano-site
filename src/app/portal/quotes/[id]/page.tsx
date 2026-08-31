@@ -468,6 +468,7 @@ export default async function QuoteDetailPage({
         status={quoteStatus}
         isArchived={isArchived}
         isLatestVersion={quote.is_latest_version as boolean}
+        versionNumber={currentVersionNumber}
         isCommercial={isCommercial}
         shareUrl={shareUrl}
         clientEmail={currentClient?.email ?? ''}

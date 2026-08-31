@@ -11,6 +11,7 @@
 // must support as a result.
 
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 // The action bar pulls in SendQuotePanel -> quote server actions -> the Resend
 // SDK, which needs Node globals jsdom doesn't provide. These are presentation
@@ -19,10 +20,18 @@ jest.mock('@/app/portal/quotes/[id]/_actions', () => ({
   sendQuoteEmail: jest.fn(),
   sendQuoteTestEmail: jest.fn(),
 }))
+jest.mock('@/app/portal/quotes/_actions-versioning', () => ({
+  createNewVersion: jest.fn(),
+}))
+jest.mock('next/navigation', () => ({
+  useRouter: jest.fn(() => ({ push: jest.fn(), refresh: jest.fn() })),
+}))
 
 import { QuoteActionBar, type QuoteActionBarProps } from '@/app/portal/quotes/[id]/_components/QuoteActionBar'
 import { QuoteStatusMessage } from '@/app/portal/quotes/[id]/_components/QuoteStatusMessage'
 import { RevisionCreatedBanner } from '@/app/portal/quotes/[id]/_components/RevisionCreatedBanner'
+import { createNewVersion } from '@/app/portal/quotes/_actions-versioning'
+import { useRouter } from 'next/navigation'
 
 function barProps(overrides: Partial<QuoteActionBarProps> = {}): QuoteActionBarProps {
   return {
@@ -31,6 +40,7 @@ function barProps(overrides: Partial<QuoteActionBarProps> = {}): QuoteActionBarP
     status: 'draft',
     isArchived: false,
     isLatestVersion: true,
+    versionNumber: 1,
     isCommercial: false,
     shareUrl: 'https://sano.nz/share/quote/tok-1',
     clientEmail: 'client@example.com',
@@ -141,5 +151,84 @@ describe('RevisionCreatedBanner', () => {
       />,
     )
     expect(screen.getByRole('link', { name: /view v1/i })).toHaveAttribute('href', '/portal/quotes/q-1')
+  })
+})
+
+describe('Revise & resend — the discoverable path off an accepted quote', () => {
+  it('offers Revise & resend on an accepted quote', () => {
+    render(<QuoteActionBar {...barProps({ status: 'accepted' })} />)
+    expect(screen.getByRole('button', { name: /revise & resend/i })).toBeInTheDocument()
+  })
+
+  it('explains that the accepted version survives and is not re-sent', async () => {
+    const user = userEvent.setup()
+    render(<QuoteActionBar {...barProps({ status: 'accepted', versionNumber: 2 })} />)
+
+    await user.click(screen.getByRole('button', { name: /revise & resend/i }))
+
+    // Confirmation step spells out both halves of the guarantee.
+    expect(screen.getByText(/stays on file unchanged/i)).toBeInTheDocument()
+    expect(screen.getByText(/is not re-sent/i)).toBeInTheDocument()
+    // Forking v2 produces v3, not a hardcoded v2.
+    expect(screen.getByRole('button', { name: /create v3 draft/i })).toBeInTheDocument()
+  })
+
+  it('forks from the current version and lands on the new draft', async () => {
+    const user = userEvent.setup()
+    const push = jest.fn()
+    const refresh = jest.fn()
+    ;(useRouter as jest.Mock).mockReturnValue({ push, refresh })
+    ;(createNewVersion as jest.Mock).mockResolvedValue({ ok: true, new_quote_id: 'q-2' })
+
+    render(<QuoteActionBar {...barProps({ status: 'accepted', versionNumber: 1 })} />)
+    await user.click(screen.getByRole('button', { name: /revise & resend/i }))
+    await user.click(screen.getByRole('button', { name: /create v2 draft/i }))
+
+    expect(createNewVersion).toHaveBeenCalledWith('q-1', expect.objectContaining({
+      version_note: expect.stringContaining('accepted v1'),
+    }))
+    // Redirect carries the params RevisionCreatedBanner validates.
+    expect(push).toHaveBeenCalledWith('/portal/quotes/q-2?revised_from=1&revised_status=accepted')
+  })
+
+  it('surfaces a fork failure and does not navigate', async () => {
+    const user = userEvent.setup()
+    const push = jest.fn()
+    ;(useRouter as jest.Mock).mockReturnValue({ push, refresh: jest.fn() })
+    ;(createNewVersion as jest.Mock).mockResolvedValue({ error: 'Chain is locked.' })
+
+    render(<QuoteActionBar {...barProps({ status: 'accepted' })} />)
+    await user.click(screen.getByRole('button', { name: /revise & resend/i }))
+    await user.click(screen.getByRole('button', { name: /create v2 draft/i }))
+
+    expect(screen.getByText('Chain is locked.')).toBeInTheDocument()
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('does not navigate when the fork returns no new id', async () => {
+    const user = userEvent.setup()
+    const push = jest.fn()
+    ;(useRouter as jest.Mock).mockReturnValue({ push, refresh: jest.fn() })
+    ;(createNewVersion as jest.Mock).mockResolvedValue({ ok: true })
+
+    render(<QuoteActionBar {...barProps({ status: 'accepted' })} />)
+    await user.click(screen.getByRole('button', { name: /revise & resend/i }))
+    await user.click(screen.getByRole('button', { name: /create v2 draft/i }))
+
+    expect(screen.getByText(/nothing was changed/i)).toBeInTheDocument()
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('is absent on draft, sent and converted quotes', () => {
+    const { unmount } = render(<QuoteActionBar {...barProps({ status: 'draft' })} />)
+    expect(screen.queryByRole('button', { name: /revise & resend/i })).not.toBeInTheDocument()
+    unmount()
+
+    const { unmount: u2 } = render(<QuoteActionBar {...barProps({ status: 'sent' })} />)
+    expect(screen.queryByRole('button', { name: /revise & resend/i })).not.toBeInTheDocument()
+    u2()
+
+    render(<QuoteActionBar {...barProps({ status: 'converted' })} />)
+    expect(screen.queryByRole('button', { name: /revise & resend/i })).not.toBeInTheDocument()
   })
 })

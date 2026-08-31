@@ -23,6 +23,7 @@ import { DownloadPdfButton } from './DownloadPdfButton'
 import { QuoteCopyLinkButton } from './QuoteCopyLinkButton'
 import { SendQuotePanel } from './SendQuotePanel'
 import { MarkAsAcceptedButton } from './MarkAsAcceptedButton'
+import { ReviseQuoteButton } from './ReviseQuoteButton'
 
 export interface QuoteActionBarProps {
   quoteId: string
@@ -30,6 +31,8 @@ export interface QuoteActionBarProps {
   status: string | null
   isArchived: boolean
   isLatestVersion: boolean
+  /** Version number of this row — the fork source for Revise & resend. */
+  versionNumber: number
   isCommercial: boolean
   shareUrl: string
   clientEmail: string
@@ -46,6 +49,7 @@ export function QuoteActionBar({
   status,
   isArchived,
   isLatestVersion,
+  versionNumber,
   isCommercial,
   shareUrl,
   clientEmail,
@@ -157,12 +161,13 @@ export function QuoteActionBar({
           </>
         )}
 
-        {/* Accepted — the client has agreed to this version. No Send (it
-            would confuse an agreed document) and no Mark as Accepted (already
-            done), but the operator still needs to read and hand out the
-            document they're about to schedule work from. Editing this quote
-            forks a new draft, which lands in the isDraft branch above with
-            the full send controls. */}
+        {/* Accepted — the client has agreed to this version. Deliberately no
+            plain Send (re-sending an agreed document unchanged invites
+            confusion about what is current) and no Mark as Accepted (already
+            done). The operator still needs to read and hand out the document
+            they're about to schedule work from, and needs an obvious route to
+            revising it: "Revise & resend" forks a new draft and lands on it,
+            where the isDraft branch above supplies the full send controls. */}
         {isAccepted && (
           <>
             <Link
@@ -178,6 +183,12 @@ export function QuoteActionBar({
               <DownloadPdfButton href={`/api/quotes/${quoteId}/pdf`} />
             )}
             <QuoteCopyLinkButton shareUrl={shareUrl} />
+            <ReviseQuoteButton
+              quoteId={quoteId}
+              versionNumber={versionNumber}
+              status="accepted"
+              isCommercial={isCommercial}
+            />
           </>
         )}
       </div>
