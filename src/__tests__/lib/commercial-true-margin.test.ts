@@ -12,6 +12,8 @@ import {
   computeCommercialPreview,
   isMarginTier,
   MARGIN_TIERS,
+  DEFAULT_CONTRACTOR_RATE_INC_GST,
+  contractorRateExGst,
   type CommercialPreviewScopeRow,
 } from '@/lib/commercialQuote'
 
@@ -105,5 +107,31 @@ describe('true margin over contractor cost', () => {
     const p = computeCommercialPreview(
       details({ contractor_hourly_cost: 0 }), scope(600))
     expect(p.true_margin_pct).toBeNull()
+  })
+})
+
+describe('contractor rate — GST handling', () => {
+  it('splits GST out of an inclusive rate rather than adding it on', () => {
+    // Contractor rates are quoted and paid GST-INCLUSIVE. The GST portion is
+    // reclaimed as an input credit, so the real cost of an hour is the
+    // exclusive figure. Adding GST on top would overstate cost and hide margin.
+    expect(contractorRateExGst(35)).toBeCloseTo(30.4348, 3)
+    expect(contractorRateExGst(32.20)).toBeCloseTo(28.0, 4)
+  })
+
+  it('uses $35/hr inc GST as the standard rate', () => {
+    expect(DEFAULT_CONTRACTOR_RATE_INC_GST).toBe(35)
+  })
+
+  it('a negotiated lower rate produces a higher true margin', () => {
+    const standard = computeCommercialPreview(
+      details({ contractor_hourly_cost: contractorRateExGst(35) }), scope(600))
+    const negotiated = computeCommercialPreview(
+      details({ contractor_hourly_cost: contractorRateExGst(32) }), scope(600))
+
+    expect(negotiated.true_margin_pct!).toBeGreaterThan(standard.true_margin_pct!)
+    // And the cost difference is the ex-GST gap, not the inclusive one.
+    expect(standard.contractor_weekly_cost! - negotiated.contractor_weekly_cost!)
+      .toBeCloseTo(10 * (contractorRateExGst(35) - contractorRateExGst(32)), 4)
   })
 })

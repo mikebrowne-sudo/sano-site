@@ -14,6 +14,8 @@ import {
   computeCommercialPreview,
   MARGIN_TIERS,
   DEFAULT_LABOUR_COST_BASIS,
+  DEFAULT_CONTRACTOR_RATE_INC_GST,
+  contractorRateExGst,
   type CommercialPreviewScopeRow,
   type ScopeFrequency,
 } from '@/lib/commercialQuote'
@@ -48,12 +50,18 @@ export function CommercialPricingPreview({
    *  falls back to the in-code constants — behaviour matches pre-3B. */
   pricingSettings?: PricingSettings
 }) {
-  // What a contractor hour actually costs, ex GST. Local to this preview and
-  // deliberately NOT persisted: it is a quoting aid for the operator, not part
-  // of the quote the client receives, and keeping it out of the schema avoids
-  // a migration for what is a sanity check. Type it in, see the real floor,
-  // decide the price.
-  const [contractorCost, setContractorCost] = useState('')
+  // What a contractor hour actually costs. Entered GST-INCLUSIVE because that
+  // is how contractor rates are negotiated and paid in this business — $35/hr
+  // standard, sometimes agreed lower per contract. The engine works in ex-GST
+  // terms (the GST portion is reclaimed, so it is not a real cost), so the
+  // conversion happens here rather than asking the operator to do it.
+  //
+  // Seeded with the standard rate so the true margin is visible immediately
+  // rather than only after someone remembers to fill this in. Local state and
+  // deliberately NOT persisted: it is an operator quoting aid, not part of the
+  // quote the client receives, so it needs no schema change.
+  const [contractorRateIncGst, setContractorRateIncGst] =
+    useState(String(DEFAULT_CONTRACTOR_RATE_INC_GST))
 
   const preview = useMemo(() => {
     const scopeRows: CommercialPreviewScopeRow[] = scope.map((r) => ({
@@ -71,7 +79,10 @@ export function CommercialPricingPreview({
         selected_margin_tier: details.selected_margin_tier || null,
         labour_cost_basis: parseNumber(details.labour_cost_basis),
         service_days: details.service_days.length > 0 ? details.service_days : null,
-        contractor_hourly_cost: parseNumber(contractorCost),
+        contractor_hourly_cost: (() => {
+          const inc = parseNumber(contractorRateIncGst)
+          return inc != null && inc > 0 ? contractorRateExGst(inc) : null
+        })(),
       },
       scopeRows,
       pricingSettings,
@@ -82,10 +93,19 @@ export function CommercialPricingPreview({
     details.selected_margin_tier,
     details.labour_cost_basis,
     details.service_days,
-    contractorCost,
+    contractorRateIncGst,
     scope,
     pricingSettings,
   ])
+
+  // Shown back to the operator so the GST conversion is never a mystery.
+  const contractorIncParsed = parseNumber(contractorRateIncGst)
+  const contractorExGst = contractorIncParsed != null && contractorIncParsed > 0
+    ? contractorRateExGst(contractorIncParsed)
+    : null
+  const rateVsStandard = contractorIncParsed != null && contractorIncParsed > 0
+    ? ((contractorIncParsed - DEFAULT_CONTRACTOR_RATE_INC_GST) / DEFAULT_CONTRACTOR_RATE_INC_GST) * 100
+    : 0
 
   const hasSellPrice = preview.estimated_monthly_sell_price > 0
   const tier = preview.margin_tier
@@ -178,23 +198,36 @@ export function CommercialPricingPreview({
         <div className="flex flex-wrap items-end gap-4">
           <label className="block">
             <span className="block text-xs uppercase tracking-wide text-sage-500 mb-1">
-              Contractor cost ($/hr, ex GST)
+              Contractor rate ($/hr, incl GST)
             </span>
             <input
               type="number"
               min={0}
               step="0.01"
-              value={contractorCost}
-              onChange={(e) => setContractorCost(e.target.value)}
+              value={contractorRateIncGst}
+              onChange={(e) => setContractorRateIncGst(e.target.value)}
               disabled={disabled}
-              placeholder="e.g. 28.00"
+              placeholder={String(DEFAULT_CONTRACTOR_RATE_INC_GST)}
               className="w-40 rounded-md border border-sage-200 px-3 py-2 text-sm focus:border-sage-500 focus:outline-none focus:ring-1 focus:ring-sage-500 disabled:bg-sage-50"
             />
           </label>
-          <p className="text-[11px] text-sage-500 max-w-xs leading-relaxed">
-            What you actually pay per hour, GST excluded. Used only to show the
-            margin below — not saved to the quote.
-          </p>
+          <div className="text-[11px] text-sage-500 max-w-sm leading-relaxed">
+            <p>
+              What you pay the contractor per hour, GST inclusive. Standard is
+              ${DEFAULT_CONTRACTOR_RATE_INC_GST}/hr; change it for a negotiated rate.
+            </p>
+            {contractorExGst != null && (
+              <p className="mt-1 text-sage-600">
+                = <strong>{nzd(contractorExGst)}/hr</strong> ex GST, the real cost used below.
+                {contractorExGst > 0 && rateVsStandard !== 0 && (
+                  <span className="text-sage-500">
+                    {' '}({rateVsStandard > 0 ? '+' : ''}{rateVsStandard.toFixed(1)}% vs standard)
+                  </span>
+                )}
+              </p>
+            )}
+            <p className="mt-1 text-sage-400">Not saved to the quote.</p>
+          </div>
         </div>
 
         {preview.true_margin_pct != null && hasSellPrice && (
@@ -207,7 +240,7 @@ export function CommercialPricingPreview({
             )}
           >
             <Row label="Weekly sell price"   value={nzd(preview.estimated_weekly_sell_price)} muted />
-            <Row label="Weekly contractor cost" value={nzd(preview.contractor_weekly_cost ?? 0)} muted />
+            <Row label="Weekly contractor cost (ex GST)" value={nzd(preview.contractor_weekly_cost ?? 0)} muted />
             <Row
               label="True weekly margin"
               value={`${nzd(preview.true_weekly_margin ?? 0)} (${Math.round(preview.true_margin_pct * 100)}%)`}

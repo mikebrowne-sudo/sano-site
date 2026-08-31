@@ -449,6 +449,21 @@ export const WEEKS_PER_MONTH = 4.33
 // Default labour cost basis ($/hr) when the operator hasn't set one.
 export const DEFAULT_LABOUR_COST_BASIS = 65
 
+// Standard contractor rate, GST-INCLUSIVE, as negotiated per contract.
+// $35/hr is the usual rate; individual sites are sometimes agreed lower
+// (e.g. $32.20 on an ongoing contract where volume was traded for rate).
+// Contractor rates in this business are quoted and paid GST-inclusive, so
+// this is the number an operator actually knows and would type.
+export const DEFAULT_CONTRACTOR_RATE_INC_GST = 35
+
+// GST is split out of a contractor rate with 3/23 — never added on top.
+// A GST-registered contractor invoices inclusive of GST, and the GST portion
+// is reclaimed as an input credit, so the TRUE cost of an hour to the business
+// is the exclusive figure.
+export function contractorRateExGst(incGst: number): number {
+  return incGst / 1.15
+}
+
 // How many times a given scope frequency repeats per week. `per_visit`
 // is handled specially (multiplied by visits_per_week); `as_required`
 // contributes nothing to the recurring estimate.
