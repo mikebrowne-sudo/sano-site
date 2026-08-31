@@ -22,9 +22,21 @@ import { isPricingEligible } from '@/lib/quote-pricing'
 import { SERVICE_TYPES_BY_CATEGORY } from '@/lib/quote-wording'
 
 describe('custom_quote - registration', () => {
-  it('is offered as a commercial service type', () => {
-    const codes = SERVICE_TYPES_BY_CATEGORY.commercial.map((t) => t.value)
-    expect(codes).toContain('custom_quote')
+  it('is offered under BOTH residential and commercial', () => {
+    // Commercial-only forced one-off jobs down the commercial path: the
+    // proposal document, the sector/margin block and the commercial
+    // share-page branch all key off service_category === 'commercial'. A
+    // vehicle job has no site, no sector and no schedule, so residential -
+    // which renders the plain quote document - is the right home for most
+    // custom work.
+    expect(SERVICE_TYPES_BY_CATEGORY.residential.map((t) => t.value)).toContain('custom_quote')
+    expect(SERVICE_TYPES_BY_CATEGORY.commercial.map((t) => t.value)).toContain('custom_quote')
+  })
+
+  it('keeps the structured-scope behaviour under either category', () => {
+    expect(isStructuredScopeType('custom_quote')).toBe(true)
+    expect(isPricingEligible('residential', 'custom_quote')).toBe(false)
+    expect(isPricingEligible('commercial', 'custom_quote')).toBe(false)
   })
 
   it('uses the structured-scope editor', () => {
