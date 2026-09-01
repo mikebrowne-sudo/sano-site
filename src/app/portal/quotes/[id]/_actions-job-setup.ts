@@ -19,6 +19,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { assertQuoteConvertible } from '@/lib/quote-conversion-guard'
+import { computeQuoteTotal } from '@/lib/quote-total'
 import type { JobSetupInput, ReadyContractor, ConvertActionError } from './_lib-job-setup'
 
 type ResidentialItemRow = {
@@ -149,10 +150,11 @@ export async function createJobFromQuoteWithSetup(
   // Phase 5.5.16 — carry the client price across automatically. The
   // quote already holds the agreed number; staff should never need to
   // re-enter it on the job afterwards just to unblock invoicing.
-  const jobPrice =
-    quote.base_price != null
-      ? Math.max(0, Number(quote.base_price) - Number(quote.discount ?? 0))
-      : null
+  // Includes the quote's priced add-on lines. Carrying only
+  // base_price − discount silently dropped them, and the invoice then copied
+  // job_price faithfully — so a $1,080 quote produced a $600 invoice with
+  // nothing obviously wrong on it. See lib/quote-total.
+  const jobPrice = computeQuoteTotal(quote, residentialItems)
 
   const scopeSnapshot = {
     source_quote_id: quote.id,

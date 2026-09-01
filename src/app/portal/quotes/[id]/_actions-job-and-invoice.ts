@@ -26,6 +26,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { assertQuoteConvertible } from '@/lib/quote-conversion-guard'
+import { computeQuoteTotal } from '@/lib/quote-total'
 import { computeInvoiceDueDate, resolveServiceDate } from '@/lib/invoice-dates'
 
 type ResidentialItemRow = {
@@ -221,10 +222,10 @@ export async function createJobAndInvoiceFromQuote(quoteId: string) {
   // Phase 5.5.16 — also carry job_price across so the job is fully
   // priced from the moment of creation (matches the invoice that just
   // shipped to the client).
-  const jobPrice =
-    quote.base_price != null
-      ? Math.max(0, Number(quote.base_price) - Number(quote.discount ?? 0))
-      : null
+  // Includes the quote's add-on lines so job_price matches the invoice this
+  // path just created — that invoice DOES carry the add-ons as invoice_items,
+  // so a base-only job_price left the two disagreeing. See lib/quote-total.
+  const jobPrice = computeQuoteTotal(quote, residentialItems)
 
   const { data: job, error: jErr } = await supabase
     .from('jobs')
