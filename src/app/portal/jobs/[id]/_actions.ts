@@ -98,12 +98,25 @@ export async function createInvoiceFromJob(jobId: string) {
   // Pull the client's payment terms so the due date respects the
   // configured terms. We also need the quote's payment_type when
   // available — payment_type lives on the quote, not the job.
-  const [{ data: client }, { data: quote }] = await Promise.all([
+  const [{ data: client }, { data: quote }, { data: quoteItems }] = await Promise.all([
     supabase.from('clients').select('payment_type, payment_terms').eq('id', job.client_id).maybeSingle(),
     job.quote_id
       ? supabase.from('quotes').select('payment_type, property_category, type_of_clean, service_type, frequency, scope_size, notes').eq('id', job.quote_id).maybeSingle()
       : Promise.resolve({ data: null }),
+    // Add-on lines from the source quote. Needed BEFORE the insert so the
+    // invoice's base_price can exclude them: InvoiceDocument totals
+    // base_price + items, so putting an add-on-inclusive job_price in base
+    // AND listing the items would double-count.
+    job.quote_id
+      ? supabase.from('quote_items')
+          .select('label, description, price, sort_order')
+          .eq('quote_id', job.quote_id).order('sort_order')
+      : Promise.resolve({ data: [] as unknown[] }),
   ])
+  const addonRows = (quoteItems ?? []) as {
+    label: string; description: string | null; price: number; sort_order: number
+  }[]
+  const addonsTotal = addonRows.reduce((sum, r) => sum + Number(r.price ?? 0), 0)
   const q = quote as {
     payment_type?: string | null
     property_category?: string | null
@@ -163,7 +176,12 @@ export async function createInvoiceFromJob(jobId: string) {
       // the originally quoted date. This keeps re-scheduled jobs'
       // invoices honest.
       scheduled_clean_date: serviceDate,
-      base_price: job.job_price,
+      // job_price now carries the full quoted total (base + add-ons). The
+      // document adds the itemised lines on top, so the invoice's base must
+      // be the total MINUS those lines or they would be counted twice.
+      base_price: job.job_price != null
+        ? Math.max(0, Number(job.job_price) - addonsTotal)
+        : null,
       // Structured clean type → real service heading + composed description.
       property_category: (q?.property_category as string | null) ?? null,
       type_of_clean: qType,
@@ -186,11 +204,32 @@ export async function createInvoiceFromJob(jobId: string) {
     return { error: `Failed to create invoice: ${iErr?.message}` }
   }
 
-  // 3. Link invoice to job and set status to invoiced.
-  // No invoice_items insert — a job-based invoice has no add-on lines; the
-  // work shows via the service heading + description (from the structured
-  // clean type) above the "Base price" line. payment_status moves to
-  // 'invoice_sent' to reflect the new state.
+  // 3a. Copy the source quote's add-on lines onto the invoice.
+  //
+  // This previously inserted nothing, on the reasoning that "a job-based
+  // invoice has no add-on lines". That holds for a job created directly, but
+  // not for one converted from a quote that had them: the customer agreed to
+  // "clean $600 + carpet $300 + windows $180" and received an invoice showing
+  // a single $600 line. job_price now carries the full total (see
+  // lib/quote-total), so without the lines the invoice would show the right
+  // amount with no explanation of what it covers.
+  if (addonRows.length > 0) {
+    const { error: iiErr } = await supabase.from('invoice_items').insert(
+      addonRows.map((it) => ({
+        invoice_id: invoice.id,
+        label: it.label,
+        description: it.description ?? null,
+        price: it.price,
+        sort_order: it.sort_order,
+      })),
+    )
+    if (iiErr) {
+      return { error: `Invoice created but add-on lines failed: ${iiErr.message}` }
+    }
+  }
+
+  // 3b. Link invoice to job and set status to invoiced. payment_status moves
+  // to 'invoice_sent' to reflect the new state.
   await supabase
     .from('jobs')
     .update({ invoice_id: invoice.id, status: 'invoiced', payment_status: 'invoice_sent' })

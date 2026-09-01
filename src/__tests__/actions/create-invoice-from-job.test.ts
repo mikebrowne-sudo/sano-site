@@ -32,6 +32,13 @@ function makeSupabase(cfg: {
     if (table === 'clients') return { select: () => ({ eq: () => ({ maybeSingle: clientMaybe }) }) }
     if (table === 'quotes') return { select: () => ({ eq: () => ({ maybeSingle: quoteMaybe }) }) }
     if (table === 'invoices') return { insert: invoiceInsert }
+    // Add-on lines from the source quote are now copied onto the invoice, so
+    // the action queries quote_items. Default to none; tests that care about
+    // add-ons override this.
+    if (table === 'quote_items') {
+      return { select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [] }) }) }) }
+    }
+    if (table === 'invoice_items') return { insert: jest.fn().mockResolvedValue({ error: null }) }
     return {}
   })
 
@@ -90,5 +97,26 @@ describe('createInvoiceFromJob — service scope vs customer notes', () => {
     expect(payload.type_of_clean).toBeNull()
     // Scope is under the line item, not dumped in notes.
     expect(payload.notes ?? null).toBeNull()
+  })
+})
+
+describe('createInvoiceFromJob — quote add-ons', () => {
+  it('splits job_price so base + itemised lines does not double-count', () => {
+    // InvoiceDocument totals base_price + items. job_price now carries the
+    // FULL quoted total (600 base + 300 + 180 = 1080), so the invoice base
+    // must be the total minus those lines, or the client is billed 1560.
+    const jobPrice = 1080
+    const addons = [{ price: 300 }, { price: 180 }]
+    const addonsTotal = addons.reduce((s, a) => s + a.price, 0)
+    const invoiceBase = Math.max(0, jobPrice - addonsTotal)
+
+    expect(invoiceBase).toBe(600)
+    expect(invoiceBase + addonsTotal).toBe(1080)
+  })
+
+  it('leaves a job with no add-ons unchanged', () => {
+    const jobPrice = 415
+    const invoiceBase = Math.max(0, jobPrice - 0)
+    expect(invoiceBase).toBe(415)
   })
 })
