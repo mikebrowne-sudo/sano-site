@@ -94,6 +94,38 @@ export default async function PayHubPage() {
         Where contractor and employee pay stands right now.
       </p>
 
+      {employee.toPayToday.runs.length > 0 && (
+        <section className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
+          <h2 className="text-[11px] uppercase tracking-wide text-emerald-700 mb-2">To pay</h2>
+          <p className="text-sm text-emerald-900 mb-3">
+            {employee.toPayToday.runs.length === 1
+              ? 'One approved pay run is waiting to be paid.'
+              : `${employee.toPayToday.runs.length} approved pay runs are waiting to be paid. Pay them in one transfer of the total below, then mark each one paid with the same bank reference so they reconcile.`}
+          </p>
+          <ul className="space-y-1.5 mb-3">
+            {employee.toPayToday.runs.map((r) => (
+              <li key={r.id}>
+                <Link
+                  href={`/portal/payroll/${r.id}`}
+                  className="flex items-center justify-between gap-3 text-sm text-emerald-900 hover:underline"
+                >
+                  <span className="truncate">{r.label}</span>
+                  <span className="font-medium tabular-nums shrink-0">
+                    {r.amount.toLocaleString('en-NZ', { style: 'currency', currency: 'NZD' })}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="flex items-center justify-between gap-3 border-t border-emerald-200 pt-2">
+            <span className="text-sm font-semibold text-emerald-900">Total to transfer</span>
+            <span className="text-lg font-bold text-emerald-900 tabular-nums">
+              {employee.toPayToday.total.toLocaleString('en-NZ', { style: 'currency', currency: 'NZD' })}
+            </span>
+          </div>
+        </section>
+      )}
+
       {attention.length > 0 && (
         <section className="mb-6 rounded-2xl border border-sage-200 bg-white p-4">
           <h2 className="text-[11px] uppercase tracking-wide text-sage-400 mb-2">Needs attention</h2>

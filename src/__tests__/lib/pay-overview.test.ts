@@ -138,3 +138,66 @@ describe('worker pay view', () => {
     expect(worker).toMatch(/No pay runs for this employee yet/)
   })
 })
+
+/**
+ * "To pay" — the single total to transfer.
+ *
+ * Wages and mileage are separate pay runs, so a normal payday is several
+ * approved runs settled with ONE bank transfer. Nothing told the operator that
+ * total, so it was worked out by hand — and a hand-calculated transfer is how a
+ * payment ends up not matching the records.
+ */
+describe('Pay hub — to pay today', () => {
+  it('counts only APPROVED runs — draft is not owed, paid is gone', () => {
+    expect(data).toMatch(/r\.status === 'approved'/)
+  })
+
+  it('pays net PLUS mileage — what actually lands in the account', () => {
+    expect(data).toMatch(/net_pay[\s\S]{0,80}mileage_reimbursement/)
+  })
+
+  it('exposes a single total alongside the per-run breakdown', () => {
+    expect(data).toMatch(/toPayToday/)
+    expect(data).toMatch(/total: round2\(/)
+  })
+
+  it('stays read-only like the rest of the hub', () => {
+    const code = codeOnly(data)
+    expect(code).not.toMatch(/\.update\(/)
+    expect(code).not.toMatch(/\.insert\(/)
+  })
+
+  it('the hub renders the total and tells the operator to reuse one reference', () => {
+    expect(hub).toMatch(/Total to transfer/)
+    expect(hub).toMatch(/same bank reference/)
+  })
+
+  it('the hub links each run so it can be marked paid', () => {
+    expect(hub).toMatch(/\/portal\/payroll\/\$\{r\.id\}/)
+  })
+})
+
+/**
+ * Unattached mileage — the failure that underpaid an employee twice.
+ * Mileage is captured when a run is CREATED, so anything approved afterwards
+ * is silently skipped by the frozen figures.
+ */
+describe('Pay hub — unattached mileage indicator', () => {
+  it('counts only mileage no run has consumed', () => {
+    expect(data).toMatch(/\.is\('pay_run_id', null\)/)
+  })
+
+  it('includes draft as well as approved — draft is skipped by every run', () => {
+    expect(data).toMatch(/\['approved', 'draft'\]/)
+  })
+
+  it('states the money, not just a count', () => {
+    expect(data).toMatch(/unreimbursedMileageTotal/)
+    expect(hub).toMatch(/unreimbursedMileageTotal/)
+  })
+
+  it('warns louder when mileage is still unapproved', () => {
+    expect(hub).toMatch(/unapprovedMileageCount/)
+    expect(hub).toMatch(/won’t be picked up/)
+  })
+})

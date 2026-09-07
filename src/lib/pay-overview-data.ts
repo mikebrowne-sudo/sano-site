@@ -106,6 +106,16 @@ export interface EmployeePayOverview {
    *  every pay run, so it is the dangerous part: it stays invisible until
    *  someone approves it, which is how it gets missed. */
   unapprovedMileageCount: number
+  /** Approved-but-unpaid runs, and the SINGLE total to transfer.
+   *
+   *  Wages and mileage are separate pay runs, so a normal payday is several
+   *  approved runs settled with ONE bank transfer. Nothing previously told the
+   *  operator that total — it was worked out by hand, which is how a payment
+   *  ends up not matching the records. */
+  toPayToday: {
+    runs: { id: string; label: string; payDate: string | null; amount: number }[]
+    total: number
+  }
 }
 
 /** Employee side of the Pay hub. Read-only; no payroll behaviour is touched. */
@@ -146,6 +156,41 @@ export async function loadEmployeePayOverview(supabase: SupabaseClient): Promise
 
   const mileageRows = (mileage ?? []) as Array<{ status: string | null; reimbursement_amount: number | null }>
 
+  // Approved but not yet paid — the money that still has to leave the bank.
+  // Amount is net + mileage, i.e. what actually lands in the employee's account.
+  const unpaidRuns = ((runs ?? []) as Array<{ id: string; pay_date: string | null; status: string | null }>)
+    .filter((r) => r.status === 'approved')
+  const toPayRuns: { id: string; label: string; payDate: string | null; amount: number }[] = []
+  if (unpaidRuns.length > 0) {
+    const { data: unpaidLines } = await supabase
+      .from('pay_run_lines')
+      .select('pay_run_id, net_pay, mileage_reimbursement')
+      .in('pay_run_id', unpaidRuns.map((r) => r.id))
+    const byRun = new Map<string, number>()
+    for (const l of (unpaidLines ?? []) as Array<{ pay_run_id: string; net_pay: number | null; mileage_reimbursement: number | null }>) {
+      const amt = Number(l.net_pay ?? 0) + Number(l.mileage_reimbursement ?? 0)
+      byRun.set(l.pay_run_id, round2((byRun.get(l.pay_run_id) ?? 0) + amt))
+    }
+    const { data: periodRows } = await supabase
+      .from('pay_runs')
+      .select('id, pay_period_start, pay_period_end')
+      .in('id', unpaidRuns.map((r) => r.id))
+    const periodById = new Map(
+      ((periodRows ?? []) as Array<{ id: string; pay_period_start: string | null; pay_period_end: string | null }>)
+        .map((p) => [p.id, p]),
+    )
+    for (const r of unpaidRuns) {
+      const p = periodById.get(r.id)
+      toPayRuns.push({
+        id: r.id,
+        label: p?.pay_period_start && p?.pay_period_end ? `${p.pay_period_start} – ${p.pay_period_end}` : 'Pay run',
+        payDate: r.pay_date,
+        amount: byRun.get(r.id) ?? 0,
+      })
+    }
+    toPayRuns.sort((a, b) => (a.payDate ?? '').localeCompare(b.payDate ?? ''))
+  }
+
   return {
     activeEmployees: (emps ?? []).length,
     draftRunCount: draft.length,
@@ -155,6 +200,10 @@ export async function loadEmployeePayOverview(supabase: SupabaseClient): Promise
       mileageRows.reduce((s, m) => s + Number(m.reimbursement_amount ?? 0), 0),
     ),
     unapprovedMileageCount: mileageRows.filter((m) => m.status === 'draft').length,
+    toPayToday: {
+      runs: toPayRuns,
+      total: round2(toPayRuns.reduce((s, r) => s + r.amount, 0)),
+    },
   }
 }
 
