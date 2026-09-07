@@ -9,11 +9,15 @@ import { useRouter } from 'next/navigation'
 import { Pencil, X, Loader2, AlertTriangle } from 'lucide-react'
 import clsx from 'clsx'
 import { updateInvoiceDetails } from '../_actions-edit'
+import {
+  cleanTypeLabels, splitCleanType, resolveCleanType, CUSTOM_CLEAN_TYPE,
+} from '@/lib/clean-type-options'
 
 export interface InvoiceDetailValues {
   notes: string | null
   service_description: string | null
   service_address: string | null
+  type_of_clean: string | null
   client_reference: string | null
   requires_po: boolean
   contact_name: string | null
@@ -37,6 +41,13 @@ export function EditInvoiceDetailsButton({
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [v, setV] = useState<InvoiceDetailValues>(values)
+  // Clean type is stored as a free-text LABEL, so the editor offers the
+  // canonical list plus a "Custom…" box. A value that isn't canonical (legacy
+  // "End of Tenancy", or anything hand-typed) opens as Custom with the text
+  // pre-filled, so opening the editor never rewrites what's on the invoice.
+  const initialClean = splitCleanType(values.type_of_clean)
+  const [cleanSelect, setCleanSelect] = useState(initialClean.select)
+  const [cleanCustom, setCleanCustom] = useState(initialClean.custom)
   const [reason, setReason] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
@@ -53,6 +64,7 @@ export function EditInvoiceDetailsButton({
       const res = await updateInvoiceDetails({
         invoiceId,
         ...v,
+        type_of_clean: resolveCleanType(cleanSelect, cleanCustom),
         date_issued: v.date_issued || null,
         due_date: v.due_date || null,
         reason: reason || null,
@@ -107,6 +119,30 @@ export function EditInvoiceDetailsButton({
         {text('service_address', 'Service address')}
       </div>
 
+      <label className="block">
+        <span className="block text-[11px] font-medium text-sage-500 mb-1">Clean type</span>
+        <select
+          value={cleanSelect}
+          onChange={(e) => setCleanSelect(e.target.value)}
+          className={input}
+        >
+          <option value="">— None —</option>
+          {cleanTypeLabels().map((label) => (
+            <option key={label} value={label}>{label}</option>
+          ))}
+          <option value={CUSTOM_CLEAN_TYPE}>Custom…</option>
+        </select>
+        {cleanSelect === CUSTOM_CLEAN_TYPE && (
+          <input
+            type="text"
+            value={cleanCustom}
+            onChange={(e) => setCleanCustom(e.target.value)}
+            placeholder="Type the clean type as it should appear on the invoice"
+            className={clsx(input, 'mt-2')}
+            autoFocus
+          />
+        )}
+      </label>
       <label className="block">
         <span className="block text-[11px] font-medium text-sage-500 mb-1">Service description</span>
         <textarea value={v.service_description ?? ''} onChange={(e) => set('service_description', e.target.value)} rows={2} className={clsx(input, 'resize-y')} />

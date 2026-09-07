@@ -331,6 +331,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
                 notes: invoice.notes ?? null,
                 service_description: invoice.service_description ?? null,
                 service_address: invoice.service_address ?? null,
+                type_of_clean: (invoice.type_of_clean as string | null) ?? null,
                 client_reference: invoice.client_reference ?? null,
                 requires_po: invoice.requires_po ?? false,
                 contact_name: invoice.contact_name ?? null,
