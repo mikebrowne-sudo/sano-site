@@ -69,9 +69,18 @@ export default async function PayHubPage() {
     })
   }
   if (employee.unreimbursedMileage > 0) {
+    // State the MONEY and the consequence, not just a count. Mileage is
+    // captured when a pay run is created, so anything unattached (and
+    // especially anything still in draft) is silently skipped by the next
+    // run — the operator needs to act before approving, not after.
+    const money = `$${employee.unreimbursedMileageTotal.toFixed(2)}`
+    const unapproved = employee.unapprovedMileageCount
     attention.push({
-      label: `${employee.unreimbursedMileage} mileage log${employee.unreimbursedMileage === 1 ? '' : 's'} not yet reimbursed`,
-      href: '/portal/mileage', tone: 'sage',
+      label: unapproved > 0
+        ? `${money} mileage not on any pay run — ${unapproved} still unapproved, so it won’t be picked up`
+        : `${money} approved mileage not attached to any pay run`,
+      href: '/portal/mileage',
+      tone: unapproved > 0 ? 'amber' : 'sage',
     })
   }
 

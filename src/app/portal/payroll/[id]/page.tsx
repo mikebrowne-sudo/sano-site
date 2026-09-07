@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
+import { loadUnattachedMileage } from '@/lib/payroll/unattached-mileage'
+import { UnattachedMileageWarning } from './_components/UnattachedMileageWarning'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -106,6 +108,21 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
   const totalReimb = (lines ?? []).reduce((s, l) => s + (l.mileage_reimbursement ?? 0), 0)
   const totalPaid = Math.round((totalNet + totalReimb) * 100) / 100
 
+  // Mileage this run did NOT pick up. Captured at run CREATION, so anything
+  // approved afterwards (or still in draft) is silently excluded from the
+  // frozen figures above — the failure that underpaid an employee twice.
+  // Scoped to the people on this run, and to logs dated on or before the
+  // period end, so unrelated future mileage isn't flagged here.
+  const runContractorIds = Array.from(new Set(
+    (lines ?? []).map((l) => l.contractor_id as string).filter(Boolean),
+  ))
+  const unattachedMileage = runContractorIds.length > 0
+    ? await loadUnattachedMileage(supabase, {
+        contractorIds: runContractorIds,
+        upToDate: run.pay_period_end as string,
+      })
+    : { entries: [], approvedTotal: 0, draftTotal: 0, approvedCount: 0, draftCount: 0, approvedByContractor: {} }
+
   return (
     <div>
       <Link href="/portal/payroll" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"><ArrowLeft size={14} /> Back</Link>
@@ -113,6 +130,8 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
       {pendingKs10.length > 0 && (
         <div className="mb-6"><Ks10IrdAlert pending={pendingKs10} context="payrun" /></div>
       )}
+
+      <UnattachedMileageWarning summary={unattachedMileage} runStatus={run.status as string} />
 
       <div className="flex items-center justify-between mb-6">
         <div>
