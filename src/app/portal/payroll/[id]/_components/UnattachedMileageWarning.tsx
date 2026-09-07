@@ -12,13 +12,16 @@
 import Link from 'next/link'
 import { AlertTriangle } from 'lucide-react'
 import type { UnattachedMileageSummary } from '@/lib/payroll/unattached-mileage'
+import { AddMileageToRunButton } from './AddMileageToRunButton'
 
 export function UnattachedMileageWarning({
   summary,
   runStatus,
+  payRunId,
 }: {
   summary: UnattachedMileageSummary
   runStatus: string
+  payRunId: string
 }) {
   if (summary.approvedCount === 0 && summary.draftCount === 0) return null
 
@@ -40,14 +43,15 @@ export function UnattachedMileageWarning({
             {isFrozen ? (
               <>
                 This run&rsquo;s figures are frozen, so the mileage below can&rsquo;t be added to it.
-                Release it with a <strong>mileage-only pay run</strong> covering those dates.
+                It will be picked up automatically by the next pay run.
+              </>
+            ) : summary.draftCount > 0 ? (
+              <>
+                <strong>{summary.draftCount} {summary.draftCount === 1 ? 'trip is' : 'trips are'} still unapproved</strong>{' '}
+                and will be left out of this pay run. Check and approve them first, then add them here.
               </>
             ) : (
-              <>
-                Mileage is captured when a run is <strong>created</strong>, not when it&rsquo;s approved.
-                {summary.draftCount > 0 && ' Draft mileage is skipped entirely.'}
-                {' '}Approve the mileage first, then recreate this run so it picks the mileage up.
-              </>
+              <>Add it to this pay run before approving, so it&rsquo;s paid with these wages.</>
             )}
           </p>
 
@@ -69,15 +73,13 @@ export function UnattachedMileageWarning({
             ))}
           </ul>
 
-          <div className="mt-3 flex flex-wrap gap-3 text-xs">
-            <Link href="/portal/mileage" className="text-amber-900 underline hover:text-amber-950">
-              Review mileage
-            </Link>
-            {isFrozen && (
-              <Link href="/portal/payroll/new" className="text-amber-900 underline hover:text-amber-950">
-                Create a mileage-only run
-              </Link>
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+            {!isFrozen && summary.approvedCount > 0 && (
+              <AddMileageToRunButton payRunId={payRunId} />
             )}
+            <Link href="/portal/mileage" className="text-amber-900 underline hover:text-amber-950">
+              {summary.draftCount > 0 ? 'Check and approve mileage' : 'Review mileage'}
+            </Link>
           </div>
         </div>
       </div>

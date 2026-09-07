@@ -131,7 +131,7 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
         <div className="mb-6"><Ks10IrdAlert pending={pendingKs10} context="payrun" /></div>
       )}
 
-      <UnattachedMileageWarning summary={unattachedMileage} runStatus={run.status as string} />
+      <UnattachedMileageWarning summary={unattachedMileage} runStatus={run.status as string} payRunId={run.id as string} />
 
       <div className="flex items-center justify-between mb-6">
         <div>

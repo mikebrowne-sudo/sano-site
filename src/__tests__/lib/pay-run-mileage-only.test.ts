@@ -18,17 +18,20 @@ describe('mileage-only pay run zeros wages but keeps mileage', () => {
     expect(src).toMatch(/if \(input\.mileage_only\) \{[\s\S]{0,600}mileage_reimbursement: mileageAmt/)
   })
 
-  it('filters mileage to a period window (from/to)', () => {
-    expect(src).toMatch(/\.gte\('log_date', mileageFrom\)/)
+  // The lower bound was REMOVED (2026-09). It stranded any mileage older than
+  // one cycle — logged late, or approved after its run was created — because no
+  // future run looked back far enough to find it. Releasing it needed a separate
+  // mileage-only catch-up run. Double payment is prevented by pay_run_id, not
+  // by the dates.
+  it('has no lower date bound, so old mileage is never stranded', () => {
+    expect(src).not.toMatch(/\.gte\('log_date'/)
+  })
+  it('still bounds the top — mileage after this period belongs to the next run', () => {
     expect(src).toMatch(/\.lte\('log_date', mileageTo\)/)
   })
-  it('mileage-only mode does NOT shift the window (catch-up period controls it)', () => {
-    // shiftDays is 0 unless mileage_from_prior_week is set; mileage_only never shifts.
-    expect(src).toMatch(/input\.mileage_from_prior_week \? \(input\.pay_frequency === 'fortnightly' \? 14 : 7\) : 0/)
-  })
-  it('advance-pay mode shifts mileage back one cycle (prior week/fortnight)', () => {
-    expect(src).toMatch(/mileageFrom = shiftIso\(input\.pay_period_start, shiftDays\)/)
-    expect(src).toMatch(/mileageTo = shiftIso\(input\.pay_period_end, shiftDays\)/)
+  it('advance-pay mode shifts the upper bound back one cycle', () => {
+    expect(src).toMatch(/mileageTo = input\.mileage_from_prior_week/)
+    expect(src).toMatch(/shiftIso\(input\.pay_period_end/)
   })
 })
 
