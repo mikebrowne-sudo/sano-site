@@ -20,10 +20,19 @@ interface Job {
   assigned_to: string | null
   contractor_id: string | null
   recurring_job_id: string | null
+  /** Every assigned worker. jobs.assigned_to holds only the PRIMARY name, so
+   *  a two-cleaner job used to show one name on the calendar. */
+  worker_names?: string[]
 }
 
 export function JobCard({ job, compact }: { job: Job; compact?: boolean }) {
-  const isUnassigned = !job.contractor_id
+  const names = job.worker_names?.length
+    ? job.worker_names
+    : (job.assigned_to ? [job.assigned_to] : [])
+  // Assignment lives in job_workers; fall back to the primary pointer for
+  // legacy jobs with no worker rows.
+  const isUnassigned = names.length === 0 && !job.contractor_id
+  const assignedLabel = names.join(', ')
 
   if (compact) {
     return (
@@ -42,7 +51,12 @@ export function JobCard({ job, compact }: { job: Job; compact?: boolean }) {
         </div>
         {job.scheduled_time && <p className="text-sage-600 mt-0.5">{job.scheduled_time}</p>}
         {job.title && <p className="text-sage-500 truncate mt-0.5">{job.title}</p>}
-        {job.assigned_to && <p className="text-sage-400 truncate mt-0.5">{job.assigned_to}</p>}
+        {assignedLabel && (
+          <p className="text-sage-400 truncate mt-0.5">
+            {assignedLabel}
+            {names.length > 1 && <span className="text-sage-500"> ({names.length})</span>}
+          </p>
+        )}
         {isUnassigned && <p className="text-amber-600 mt-0.5">Unassigned</p>}
       </Link>
     )
@@ -76,8 +90,11 @@ export function JobCard({ job, compact }: { job: Job; compact?: boolean }) {
         {job.title && <p className="text-sage-700 text-sm truncate">{job.title}</p>}
         {job.address && <p className="text-sage-500 text-xs truncate mt-0.5">{job.address}</p>}
         <p className="text-xs mt-1">
-          {job.assigned_to ? (
-            <span className="text-sage-500">{job.assigned_to}</span>
+          {assignedLabel ? (
+            <span className="text-sage-500">
+              {assignedLabel}
+              {names.length > 1 && <span className="text-sage-400"> · {names.length} cleaners</span>}
+            </span>
           ) : (
             <span className="text-amber-600 font-medium">Unassigned</span>
           )}

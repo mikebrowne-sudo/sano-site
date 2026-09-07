@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { notifyContractorAssigned } from '@/lib/notify-contractor'
 import { assertCanAmend, writeAmendmentAudit } from '@/lib/amendment-lock'
 import { resolveAllowedHours } from '@/lib/allowed-hours'
+import { splitAllowedHours, resplitJobHours } from '@/lib/job-hours-split'
 import { snapshotJobVersion, computeChangedJobFields } from '@/lib/job-versions'
 import { pickSnapshotRate } from '@/lib/contractor-rate-snapshot'
 import { planWorkerDiff, localRemovalBlock, reconcilePrimaryContractor, type WorkerRow } from '@/lib/job-worker-diff'
@@ -112,16 +113,18 @@ export async function createJob(input: JobInput) {
     return { error: `Failed to create job: ${error?.message}` }
   }
 
-  // Save worker assignments. Seed each worker's hours_allocated from the
-  // job's allowed hours so the per-worker pay basis is populated up front
-  // (previously left null here, which stranded hours on multi-worker jobs).
-  if (input.worker_ids?.length) {
-    const cids = input.worker_ids.filter(Boolean)
-    const rateMap = await loadContractorRates(supabase, cids)
-    const rows = cids.map((cid) => ({
+  // Save worker assignments. allowed_hours is the job's TOTAL labour, so each
+  // worker's hours_allocated is their SHARE of it — an 8h job with two
+  // cleaners is 4h each. Seeding the full amount to every worker (the original
+  // bug) booked 16h of pay against an 8h job.
+  const createCids = (input.worker_ids ?? []).filter(Boolean)
+  if (createCids.length) {
+    const rateMap = await loadContractorRates(supabase, createCids)
+    const shares = splitAllowedHours(allowedHours, createCids.length)
+    const rows = createCids.map((cid, i) => ({
       job_id: data.id,
       contractor_id: cid,
-      hours_allocated: allowedHours,
+      hours_allocated: shares[i] ?? null,
       // New job → no existing snapshot to preserve; snapshot the current rate.
       pay_rate: pickSnapshotRate(null, rateMap[cid]),
       pay_type: 'hourly',
@@ -131,16 +134,24 @@ export async function createJob(input: JobInput) {
     }
   }
 
-  // Notify contractor if assigned on creation
-  if (input.contractor_id) {
-    const { data: contractor } = await supabase
+  // Notify EVERY assigned worker, each with their own share of the hours.
+  // This previously notified only `input.contractor_id` (the primary pointer),
+  // so on a two-cleaner job the second cleaner was never told.
+  const notifyCids = createCids.length
+    ? createCids
+    : (input.contractor_id ? [input.contractor_id] : [])
+  if (notifyCids.length) {
+    const notifyShares = splitAllowedHours(allowedHours, notifyCids.length)
+    const { data: people } = await supabase
       .from('contractors')
-      .select('full_name, email')
-      .eq('id', input.contractor_id)
-      .single()
+      .select('id, full_name, email')
+      .in('id', notifyCids)
+    const byId = new Map((people ?? []).map((p) => [p.id as string, p]))
 
-    if (contractor) {
-      await notifyContractorAssigned(contractor, {
+    await Promise.all(notifyCids.map((cid, i) => {
+      const person = byId.get(cid)
+      if (!person) return Promise.resolve()
+      return notifyContractorAssigned(person, {
         id: data.id,
         job_number: data.job_number,
         title: input.title || null,
@@ -148,8 +159,10 @@ export async function createJob(input: JobInput) {
         scheduled_date: input.scheduled_date || null,
         scheduled_time: input.scheduled_time || null,
         duration_estimate: input.duration_estimate || null,
+        // Their share, not the job total.
+        allowed_hours: notifyShares[i] ?? null,
       })
-    }
+    }))
   }
 
   redirect(`/portal/jobs/${data.id}`)
@@ -470,10 +483,13 @@ export async function updateJob(input: UpdateJobInput) {
     }
     if (workerDiff.toAdd.length > 0) {
       const rateMap = await loadContractorRates(supabase, workerDiff.toAdd)
+      // Hours are assigned by the re-split below, which sees the whole final
+      // roster. Insert with a null basis so a new worker never briefly carries
+      // the job's FULL hours.
       const addRows = workerDiff.toAdd.map((cid) => ({
         job_id: input.id,
         contractor_id: cid,
-        hours_allocated: allowedHours, // seed the pay basis for NEW workers only
+        hours_allocated: null,
         pay_rate: pickSnapshotRate(null, rateMap[cid]),
         pay_type: 'hourly',
       }))
@@ -486,29 +502,99 @@ export async function updateJob(input: UpdateJobInput) {
           entity_table: 'job_workers',
           entity_id: `${input.id}:${cid}`,
           before: null,
-          after: { contractor_id: cid, hours_allocated: allowedHours, pay_rate: pickSnapshotRate(null, rateMap[cid]) },
+          after: { contractor_id: cid, pay_rate: pickSnapshotRate(null, rateMap[cid]) },
         })
       }
     }
   }
 
-  // Notify new primary contractor if the primary assignment changed
-  if (contractorChanged) {
-    const [{ data: contractor }, { data: job }] = await Promise.all([
-      supabase.from('contractors').select('full_name, email').eq('id', newPrimary!).single(),
-      supabase.from('jobs').select('id, job_number').eq('id', input.id).single(),
-    ])
+  // Re-split the allowed hours across the FINAL roster. The roster or the
+  // allowed hours may have changed, and both move everyone's share: adding a
+  // 2nd worker to an 8h job must take the 1st from 8h to 4h, or the job books
+  // 12h. Workers already committed to pay are left untouched (their amount is
+  // frozen) and their hours come off the pool first.
+  {
+    const { data: finalRaw } = await supabase
+      .from('job_workers')
+      .select('contractor_id, hours_allocated, pay_status')
+      .eq('job_id', input.id)
+      .order('contractor_id')
+    const finalRows = (finalRaw ?? []) as unknown as
+      { contractor_id: string; hours_allocated: number | null; pay_status: string | null }[]
 
-    if (contractor && job) {
-      await notifyContractorAssigned(contractor, {
-        id: job.id,
-        job_number: job.job_number,
-        title: input.title || null,
-        address: input.address || null,
-        scheduled_date: input.scheduled_date || null,
-        scheduled_time: input.scheduled_time || null,
-        duration_estimate: input.duration_estimate || null,
-      })
+    if (finalRows.length > 0) {
+      // A payable freezes the amount just as a pay run does.
+      const { data: payables } = await supabase
+        .from('contractor_invoices')
+        .select('contractor_id')
+        .eq('job_id', input.id)
+        .neq('status', 'void')
+      const withPayable = new Set((payables ?? []).map((p) => p.contractor_id as string))
+
+      const resplit = resplitJobHours(
+        allowedHours,
+        finalRows.map((r) => ({
+          contractor_id: r.contractor_id,
+          hours_allocated: r.hours_allocated,
+          pay_status: r.pay_status,
+          locked: withPayable.has(r.contractor_id),
+        })),
+      )
+
+      for (const u of resplit.updates) {
+        const before = finalRows.find((r) => r.contractor_id === u.contractor_id)?.hours_allocated ?? null
+        if (before === u.hours_allocated) continue
+        await supabase
+          .from('job_workers')
+          .update({ hours_allocated: u.hours_allocated })
+          .eq('job_id', input.id)
+          .eq('contractor_id', u.contractor_id)
+        await supabase.from('audit_log').insert({
+          actor_id: user?.id ?? null,
+          actor_role: 'staff',
+          action: 'job_worker.hours_resplit',
+          entity_table: 'job_workers',
+          entity_id: `${input.id}:${u.contractor_id}`,
+          before: { hours_allocated: before },
+          after: { hours_allocated: u.hours_allocated, allowed_hours: allowedHours, worker_count: finalRows.length },
+        })
+      }
+    }
+  }
+
+  // Notify every NEWLY-ASSIGNED worker, plus a changed primary. Previously
+  // this fired only when the primary pointer changed, so adding a second
+  // cleaner to an existing job notified nobody at all.
+  {
+    const toNotify = new Set<string>(workerDiff?.toAdd ?? [])
+    if (contractorChanged && newPrimary) toNotify.add(newPrimary)
+
+    if (toNotify.size > 0) {
+      const ids = Array.from(toNotify)
+      const [{ data: people }, { data: job }, { data: finalWorkers }] = await Promise.all([
+        supabase.from('contractors').select('id, full_name, email').in('id', ids),
+        supabase.from('jobs').select('id, job_number').eq('id', input.id).single(),
+        supabase.from('job_workers').select('contractor_id, hours_allocated').eq('job_id', input.id),
+      ])
+      const hoursByCid = new Map(
+        (finalWorkers ?? []).map((w) => [w.contractor_id as string, (w.hours_allocated as number | null) ?? null]),
+      )
+
+      if (job) {
+        await Promise.all((people ?? []).map((person) =>
+          notifyContractorAssigned(person, {
+            id: job.id,
+            job_number: job.job_number,
+            title: input.title || null,
+            address: input.address || null,
+            scheduled_date: input.scheduled_date || null,
+            scheduled_time: input.scheduled_time || null,
+            duration_estimate: input.duration_estimate || null,
+            // Their post-split share, not the job total.
+            allowed_hours: hoursByCid.get(person.id as string) ?? null,
+          }),
+        ))
+      }
     }
   }
 

@@ -37,6 +37,18 @@ function makeClient({ existing, ci = null }: Opts) {
   const jwInsert = jest.fn().mockResolvedValue({ error: null })
   const jwDelete = jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) }) })
   const jobsUpdate = jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) })
+  const jwUpdate = jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) }) })
+
+  // The diff read ends at .eq(); the hours re-split reads .eq().order(). Make
+  // .eq() both awaitable AND chainable so one mock serves both.
+  const jwRead = () => {
+    const rows = { data: existing, error: null }
+    const thenable = {
+      then: (res: (v: unknown) => unknown) => Promise.resolve(rows).then(res),
+      order: jest.fn().mockResolvedValue(rows),
+    }
+    return thenable
+  }
 
   const from = jest.fn().mockImplementation((table: string) => {
     if (table === 'jobs') {
@@ -45,13 +57,24 @@ function makeClient({ existing, ci = null }: Opts) {
     if (table === 'job_workers') {
       return {
         select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ data: existing, error: null }), // diff read terminal
+        eq: jest.fn().mockImplementation(jwRead), // diff read terminal + .order() for the re-split
         delete: jwDelete,
         insert: jwInsert,
+        update: jwUpdate,
       }
     }
     if (table === 'contractor_invoices') {
-      return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), neq: jest.fn().mockReturnThis(), limit: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: ci, error: null }) }
+      // .neq() is terminal for the re-split's payable lookup and chainable for
+      // the removal guard, so it must be both.
+      const neq = jest.fn().mockImplementation(() => {
+        const rows = { data: [], error: null }
+        return {
+          then: (res: (v: unknown) => unknown) => Promise.resolve(rows).then(res),
+          limit: jest.fn().mockReturnValue({ maybeSingle: jest.fn().mockResolvedValue({ data: ci, error: null }) }),
+          maybeSingle: jest.fn().mockResolvedValue({ data: ci, error: null }),
+        }
+      })
+      return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), neq, limit: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: ci, error: null }) }
     }
     if (table === 'pay_run_items') {
       return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }) }
@@ -68,7 +91,7 @@ function makeClient({ existing, ci = null }: Opts) {
     return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), single: jest.fn().mockResolvedValue({ data: null, error: null }), maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }), insert: jest.fn().mockResolvedValue({ error: null }) }
   })
 
-  return { client: { from, auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'u-1', email: 'admin@sano.nz' } } }) } }, spies: { jwInsert, jwDelete, jobsUpdate } }
+  return { client: { from, auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'u-1', email: 'admin@sano.nz' } } }) } }, spies: { jwInsert, jwDelete, jobsUpdate, jwUpdate } }
 }
 
 const baseInput = { id: 'j-1', client_id: 'cl-1', contractor_id: 'A', description: 'desc', address: 'addr', allowed_hours: 4 }

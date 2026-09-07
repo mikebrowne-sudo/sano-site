@@ -12,6 +12,7 @@
 // approved adjustment × rate) — no separate approve-hours step.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { resolveWorkerHours } from '@/lib/job-hours-split'
 
 interface Row {
   contractor_id: string
@@ -75,6 +76,22 @@ export async function loadContractorsToPay(supabase: SupabaseClient): Promise<To
     .in('pay_status', ['pending', 'approved'])
 
   const rows = (rowsRaw ?? []) as unknown as Row[]
+
+  // Full worker count per job. The rows above are filtered by pay_status, so
+  // they don't reveal the whole roster — and the allowed-hours fallback below
+  // must be SPLIT across every worker on the job, not just the payable ones.
+  const jobIds = Array.from(new Set(rows.map((r) => r.jobs?.id).filter(Boolean) as string[]))
+  const workerCountByJob = new Map<string, number>()
+  if (jobIds.length > 0) {
+    const { data: rosterRaw } = await supabase
+      .from('job_workers')
+      .select('job_id')
+      .in('job_id', jobIds)
+    for (const w of (rosterRaw ?? []) as Array<{ job_id: string }>) {
+      workerCountByJob.set(w.job_id, (workerCountByJob.get(w.job_id) ?? 0) + 1)
+    }
+  }
+
   const groups = new Map<string, ToPayContractor>()
   const needsTidying: TidyJob[] = []
 
@@ -83,7 +100,11 @@ export async function loadContractorsToPay(supabase: SupabaseClient): Promise<To
     if (!j || j.deleted_at || !j.completed_at) continue // completed, live jobs only
 
     const rate = r.pay_rate ?? r.contractors?.hourly_rate ?? 0
-    const allowed = r.hours_allocated ?? j.allowed_hours ?? 0
+    const allowed = resolveWorkerHours(
+      r.hours_allocated,
+      j.allowed_hours,
+      Math.max(workerCountByJob.get(j.id) ?? 1, 1),
+    ) ?? 0
     const approvedAdj = r.extra_hours_status === 'approved' ? (r.extra_hours ?? 0) : 0
     const hours = Math.round((allowed + approvedAdj) * 100) / 100
     const reason = rate <= 0 ? 'No pay rate set' : hours <= 0 ? 'No hours set' : null

@@ -4,6 +4,7 @@
 // the "what still needs authorising" list is computed one way.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { resolveWorkerHours } from '@/lib/job-hours-split'
 import { getWorkerPayableHours } from './job-cost'
 import { classifyApprovalRow } from './pending-approvals'
 import type { ApprovalRow } from '@/app/portal/contractor-invoices/pending-approvals/_components/PendingApprovalsList'
@@ -61,10 +62,25 @@ export async function loadApprovalRows(
     if (ci.job_id && ci.contractor_id) ciByKey.set(`${ci.job_id}::${ci.contractor_id}`, { id: ci.id, invoice_number: ci.invoice_number, status: ci.status })
   }
 
+  // Worker count per job — the allowed-hours fallback below must be SPLIT
+  // across the job's workers. Returning the full jobs.allowed_hours to each
+  // worker double-counted labour on multi-cleaner jobs.
+  const { data: rosterRaw } = jobIds.length > 0
+    ? await supabase.from('job_workers').select('job_id, contractor_id').in('job_id', jobIds)
+    : { data: [] as unknown[] }
+  const workerCountByJob = new Map<string, number>()
+  for (const w of (rosterRaw ?? []) as Array<{ job_id: string }>) {
+    workerCountByJob.set(w.job_id, (workerCountByJob.get(w.job_id) ?? 0) + 1)
+  }
+
   const rows: ApprovalRow[] = live.map((r) => {
     const job = r.jobs!
     const rate = r.pay_rate ?? r.contractors?.hourly_rate ?? null
-    const allowedHours = r.hours_allocated ?? job.allowed_hours ?? null
+    const allowedHours = resolveWorkerHours(
+      r.hours_allocated,
+      job.allowed_hours,
+      Math.max(workerCountByJob.get(r.job_id) ?? 1, 1),
+    )
     const payableHours = getWorkerPayableHours({
       pay_rate: r.pay_rate, approved_hours: null, actual_hours: null,
       hours_allocated: r.hours_allocated, extra_hours: r.extra_hours, extra_hours_status: r.extra_hours_status,

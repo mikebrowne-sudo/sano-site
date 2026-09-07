@@ -19,6 +19,65 @@ import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { isAdminEmail } from '@/lib/is-admin'
 import { pickSnapshotRate, toPositiveRate } from '@/lib/contractor-rate-snapshot'
+import { resplitJobHours } from '@/lib/job-hours-split'
+
+/**
+ * Re-split a job's allowed hours across its current workers after the roster
+ * changes. allowed_hours is the job's TOTAL labour, so adding or removing a
+ * worker changes everyone's share. Workers already committed to pay keep their
+ * frozen amount and their hours come off the pool first.
+ *
+ * Returns a warning string when locked workers leave nothing to share out, so
+ * the caller can tell the operator rather than silently zeroing someone.
+ */
+async function resplitAndPersist(
+  supabase: ReturnType<typeof createClient>,
+  jobId: string,
+  actorId: string | null,
+): Promise<string | null> {
+  const [{ data: job }, { data: rows }, { data: payables }] = await Promise.all([
+    supabase.from('jobs').select('allowed_hours').eq('id', jobId).maybeSingle(),
+    supabase.from('job_workers').select('contractor_id, hours_allocated, pay_status').eq('job_id', jobId).order('contractor_id'),
+    supabase.from('contractor_invoices').select('contractor_id').eq('job_id', jobId).neq('status', 'void'),
+  ])
+  const workers = (rows ?? []) as unknown as
+    { contractor_id: string; hours_allocated: number | null; pay_status: string | null }[]
+  if (workers.length === 0) return null
+
+  const withPayable = new Set((payables ?? []).map((p) => p.contractor_id as string))
+  const allowed = (job?.allowed_hours as number | null) ?? null
+
+  const result = resplitJobHours(allowed, workers.map((w) => ({
+    contractor_id: w.contractor_id,
+    hours_allocated: w.hours_allocated,
+    pay_status: w.pay_status,
+    locked: withPayable.has(w.contractor_id),
+  })))
+
+  for (const u of result.updates) {
+    const before = workers.find((w) => w.contractor_id === u.contractor_id)?.hours_allocated ?? null
+    if (before === u.hours_allocated) continue
+    await supabase
+      .from('job_workers')
+      .update({ hours_allocated: u.hours_allocated })
+      .eq('job_id', jobId)
+      .eq('contractor_id', u.contractor_id)
+    await supabase.from('audit_log').insert({
+      actor_id: actorId,
+      actor_role: 'admin',
+      action: 'job_worker.hours_resplit',
+      entity_table: 'job_workers',
+      entity_id: `${jobId}:${u.contractor_id}`,
+      before: { hours_allocated: before },
+      after: { hours_allocated: u.hours_allocated, allowed_hours: allowed, worker_count: workers.length },
+    })
+  }
+
+  if (result.skipped.length > 0 && result.remainingHours === 0) {
+    return `The job’s allowed hours are fully committed to workers already in pay, so the remaining workers were allocated 0 hours. Raise the job’s allowed hours if more labour is needed.`
+  }
+  return null
+}
 
 function revalidate(jobId: string) {
   revalidatePath(`/portal/jobs/${jobId}`)
@@ -60,13 +119,16 @@ export async function addJobWorker(jobId: string, contractorId: string) {
   // Snapshot the contractor's current rate at add time (no existing row here,
   // so there is nothing to preserve). Null is allowed for a rate-less
   // contractor — job-cost falls back to the live rate + shows an "est." badge.
-  const hoursAllocated = (job.allowed_hours as number | null) ?? null
+  //
+  // Hours are set by the re-split below, which sees the whole final roster.
+  // Inserting the job's FULL allowed_hours here (the original bug) gave every
+  // worker the entire job: a 2-worker 8h job booked 16h of pay.
   const payRate = pickSnapshotRate(null, contractor.hourly_rate as number | null)
 
   const { error: insErr } = await supabase.from('job_workers').insert({
     job_id: jobId,
     contractor_id: contractorId,
-    hours_allocated: hoursAllocated,
+    hours_allocated: null,
     pay_rate: payRate,
     pay_type: 'hourly',
   })
@@ -79,11 +141,13 @@ export async function addJobWorker(jobId: string, contractorId: string) {
     entity_table: 'job_workers',
     entity_id: `${jobId}:${contractorId}`,
     before: null,
-    after: { contractor_id: contractorId, hours_allocated: hoursAllocated, pay_rate: payRate },
+    after: { contractor_id: contractorId, pay_rate: payRate },
   })
 
+  const warning = await resplitAndPersist(supabase, jobId, user.id)
+
   revalidate(jobId)
-  return { ok: true }
+  return warning ? { ok: true as const, warning } : { ok: true as const }
 }
 
 /** Admin explicitly changes a worker's snapshotted pay rate. This is the ONLY
@@ -217,6 +281,10 @@ export async function removeJobWorker(jobId: string, contractorId: string) {
     after: null,
   })
 
+  // Removing a worker gives the remaining ones a bigger share — an 8h job
+  // that drops from two cleaners to one goes back to 8h for the survivor.
+  const warning = await resplitAndPersist(supabase, jobId, user.id)
+
   revalidate(jobId)
-  return { ok: true }
+  return warning ? { ok: true as const, warning } : { ok: true as const }
 }
