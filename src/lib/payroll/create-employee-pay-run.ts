@@ -92,18 +92,28 @@ export async function createEmployeePayRun(
     // pay_run_id IS NULL excludes mileage already consumed by an earlier run —
     // so we must stamp these logs with this run's id below, or the same mileage
     // would be re-pulled (and re-paid) on every subsequent run.
-    // Mileage window: normally the run's own period, but when wages are paid in
-    // advance the mileage is for the PRIOR cycle — shift the window back one
-    // cycle (7 days weekly, 14 fortnightly) so it lines up with driving already
-    // done. Uses UTC date maths; date-only so no TZ drift.
-    const shiftDays = input.mileage_from_prior_week ? (input.pay_frequency === 'fortnightly' ? 14 : 7) : 0
+    // Mileage window: everything OUTSTANDING up to the end of this run's
+    // period. There is deliberately no lower bound.
+    //
+    // This used to be a one-cycle window (the run's own period, shifted back a
+    // week when wages are paid in advance). Anything older than that window
+    // — mileage logged late, or approved after its run was created — fell
+    // outside it and was stranded permanently: no future run would ever look
+    // that far back, so it could only be released by a separate mileage-only
+    // catch-up run. That stranded $490.20 across two pay cycles.
+    //
+    // An upper bound is still right: mileage driven AFTER this pay period
+    // belongs to the next run, not this one. `pay_run_id is null` already
+    // guarantees nothing is paid twice.
+    // Date-only UTC maths so there is no TZ drift.
     const shiftIso = (ymd: string, days: number) => {
       const d = new Date(`${ymd}T00:00:00Z`)
       d.setUTCDate(d.getUTCDate() - days)
       return d.toISOString().slice(0, 10)
     }
-    const mileageFrom = shiftIso(input.pay_period_start, shiftDays)
-    const mileageTo = shiftIso(input.pay_period_end, shiftDays)
+    const mileageTo = input.mileage_from_prior_week
+      ? shiftIso(input.pay_period_end, input.pay_frequency === 'fortnightly' ? 14 : 7)
+      : input.pay_period_end
 
     const { data: mileage } = await supabase
       .from('mileage_logs')
@@ -111,7 +121,6 @@ export async function createEmployeePayRun(
       .in('contractor_id', employees.map((e) => e.id))
       .eq('status', 'approved')
       .is('pay_run_id', null)
-      .gte('log_date', mileageFrom)
       .lte('log_date', mileageTo)
     const mileageByContractor = new Map<string, number>()
     const consumedMileageLogIds: string[] = []
