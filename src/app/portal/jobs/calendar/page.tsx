@@ -76,6 +76,9 @@ interface Job {
   assigned_to: string | null
   contractor_id: string | null
   recurring_job_id: string | null
+  /** Every assigned worker's name. jobs.contractor_id is only a PRIMARY
+   *  pointer — a two-cleaner job showed one name without this. */
+  worker_names?: string[]
 }
 
 export default async function CalendarPage({
@@ -135,7 +138,28 @@ export default async function CalendarPage({
     return `/portal/jobs/calendar?${params.toString()}`
   }
 
-  // Query jobs for range
+  // Query jobs for range.
+  //
+  // Assignment lives in job_workers (jobs.contractor_id is only a primary
+  // pointer), so the contractor FILTER resolves through job_workers first —
+  // filtering on jobs.contractor_id hid a job from the second cleaner
+  // assigned to it.
+  let filterJobIds: string[] | null = null
+  if (contractorFilter) {
+    const { data: assigned } = await supabase
+      .from('job_workers')
+      .select('job_id')
+      .eq('contractor_id', contractorFilter)
+    const viaWorkers = (assigned ?? []).map((r) => r.job_id as string)
+    const { data: viaPrimary } = await supabase
+      .from('jobs')
+      .select('id')
+      .eq('contractor_id', contractorFilter)
+      .gte('scheduled_date', rangeStart)
+      .lte('scheduled_date', rangeEnd)
+    filterJobIds = Array.from(new Set([...viaWorkers, ...(viaPrimary ?? []).map((r) => r.id as string)]))
+  }
+
   let query = supabase
     .from('jobs')
     .select('id, job_number, title, address, scheduled_date, scheduled_time, duration_estimate, status, assigned_to, contractor_id, recurring_job_id')
@@ -143,7 +167,10 @@ export default async function CalendarPage({
     .lte('scheduled_date', rangeEnd)
     .order('created_at', { ascending: true })
 
-  if (contractorFilter) query = query.eq('contractor_id', contractorFilter)
+  if (filterJobIds) {
+    // No matches — a sentinel keeps the query valid and returns nothing.
+    query = query.in('id', filterJobIds.length > 0 ? filterJobIds : ['00000000-0000-0000-0000-000000000000'])
+  }
   if (statusFilter === 'unassigned') query = query.is('contractor_id', null)
   else if (statusFilter) query = query.eq('status', statusFilter)
 
@@ -152,11 +179,32 @@ export default async function CalendarPage({
     supabase.from('contractors').select('id, full_name').eq('status', 'active').order('full_name'),
   ])
 
+  // Attach EVERY assigned worker so the calendar shows both cleaners.
+  const jobIds = (jobs ?? []).map((j) => j.id as string)
+  const workerNamesByJob = new Map<string, string[]>()
+  if (jobIds.length > 0) {
+    const { data: assignments } = await supabase
+      .from('job_workers')
+      .select('job_id, contractors ( full_name )')
+      .in('job_id', jobIds)
+    for (const a of assignments ?? []) {
+      const name = (a.contractors as unknown as { full_name: string | null } | null)?.full_name
+      if (!name) continue
+      const jid = a.job_id as string
+      workerNamesByJob.set(jid, [...(workerNamesByJob.get(jid) ?? []), name])
+    }
+  }
+
   const jobsByDate: Record<string, Job[]> = {}
   for (const d of dates) jobsByDate[d] = []
   for (const j of (jobs ?? []) as Job[]) {
     if (j.scheduled_date && jobsByDate[j.scheduled_date]) {
-      jobsByDate[j.scheduled_date].push(j)
+      const names = workerNamesByJob.get(j.id) ?? []
+      // Fall back to the legacy assigned_to label when no job_workers rows exist.
+      jobsByDate[j.scheduled_date].push({
+        ...j,
+        worker_names: names.length > 0 ? names : (j.assigned_to ? [j.assigned_to] : []),
+      })
     }
   }
   // Sort each day's jobs by parsed scheduled_time; unparseable times go to end-of-day.

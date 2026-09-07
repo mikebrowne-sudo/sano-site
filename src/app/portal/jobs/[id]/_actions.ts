@@ -8,6 +8,7 @@ import { sendNotification } from '@/lib/notifications/send'
 import { isLockedByInvoice, writeAmendmentAudit } from '@/lib/amendment-lock'
 import { isAdminUser } from '@/lib/is-admin'
 import { pickSnapshotRate } from '@/lib/contractor-rate-snapshot'
+import { resplitJobHours } from '@/lib/job-hours-split'
 
 // Phase D — mark a completed job as reviewed. Captures reviewed_at
 // + reviewed_by (FK to auth.users) and audit-logs the transition.
@@ -490,12 +491,50 @@ export async function assignJob(input: AssignJobInput) {
       {
         job_id: jobId,
         contractor_id: contractorId,
-        hours_allocated: allowedHoursAllowed ? (allowedHours ?? null) : (job.allowed_hours as number | null),
+        // Hours come from the re-split below, which accounts for every worker
+        // on the job. Writing the job's full allowed_hours here would give
+        // this contractor the whole job even when others are assigned.
         pay_rate: payRateToSet,
         pay_type: 'hourly',
       },
       { onConflict: 'job_id,contractor_id' },
     )
+
+  // Re-split the allowed hours across the job's full roster. allowed_hours is
+  // the job's TOTAL labour, so a solo assignee gets all of it and a second
+  // worker halves both shares. Workers already committed to pay keep their
+  // frozen amount.
+  {
+    const effectiveAllowed = allowedHoursAllowed
+      ? (allowedHours ?? null)
+      : ((job.allowed_hours as number | null) ?? null)
+
+    const [{ data: rosterRaw }, { data: payables }] = await Promise.all([
+      supabase.from('job_workers').select('contractor_id, hours_allocated, pay_status').eq('job_id', jobId).order('contractor_id'),
+      supabase.from('contractor_invoices').select('contractor_id').eq('job_id', jobId).neq('status', 'void'),
+    ])
+    const roster = (rosterRaw ?? []) as unknown as
+      { contractor_id: string; hours_allocated: number | null; pay_status: string | null }[]
+    const withPayable = new Set((payables ?? []).map((p) => p.contractor_id as string))
+
+    if (roster.length > 0) {
+      const result = resplitJobHours(effectiveAllowed, roster.map((r) => ({
+        contractor_id: r.contractor_id,
+        hours_allocated: r.hours_allocated,
+        pay_status: r.pay_status,
+        locked: withPayable.has(r.contractor_id),
+      })))
+      for (const u of result.updates) {
+        const before = roster.find((r) => r.contractor_id === u.contractor_id)?.hours_allocated ?? null
+        if (before === u.hours_allocated) continue
+        await supabase
+          .from('job_workers')
+          .update({ hours_allocated: u.hours_allocated })
+          .eq('job_id', jobId)
+          .eq('contractor_id', u.contractor_id)
+      }
+    }
+  }
 
   // Notify contractor. Skipped when the caller opts out via
   // notify:false (Assign Only) or when the contractor hasn't

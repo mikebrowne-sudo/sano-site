@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase-server'
+import { resolveWorkerHours } from '@/lib/job-hours-split'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Pencil } from 'lucide-react'
@@ -816,7 +817,10 @@ export default async function JobDetailPage({
                     <p className="text-[11px] text-sage-400 mt-0.5">Approving creates an approved contractor invoice that flows into a remittance. Same as the Pending approvals worklist.</p>
                     <div className="mt-2 space-y-2">
                       {workers.map((w) => {
-                        const allowed = w.hours_allocated ?? job.allowed_hours ?? null
+                        // Fallback must be SPLIT — `workers` is the full
+                        // roster, so a 2-cleaner 8h job falls back to 4h each,
+                        // not 8h each.
+                        const allowed = resolveWorkerHours(w.hours_allocated, job.allowed_hours, Math.max(workers.length, 1))
                         const approvedExtra = w.extra_hours_status === 'approved' ? (w.extra_hours ?? 0) : 0
                         const payableHours = allowed != null ? Math.round((allowed + approvedExtra) * 100) / 100 : null
                         const rate = (w.pay_rate as number | null) ?? w.hourly_rate ?? null

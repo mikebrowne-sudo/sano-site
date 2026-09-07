@@ -3,6 +3,7 @@
 // canonical basis and pulls their proof-of-completion photos.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { resolveWorkerHours } from '@/lib/job-hours-split'
 import { getWorkerPayableHours, getWorkerLabourCost, getWorkerRate } from '@/lib/job-cost'
 import { getJobPhotos } from '@/lib/job-photos'
 import { getServiceSupabase } from '@/lib/supabase-service'
@@ -37,7 +38,7 @@ export async function loadContractorJobDetail(
   jobId: string,
   fallbackRate: number,
 ): Promise<ContractorJobDetail | null> {
-  const [{ data: job }, { data: worker }, photos] = await Promise.all([
+  const [{ data: job }, { data: worker }, { data: roster }, photos] = await Promise.all([
     supabase
       .from('jobs')
       .select(`
@@ -47,7 +48,6 @@ export async function loadContractorJobDetail(
         status, contractor_notes, started_at, completed_at
       `)
       .eq('id', jobId)
-      .eq('contractor_id', contractorId)
       .maybeSingle(),
     supabase
       .from('job_workers')
@@ -55,8 +55,22 @@ export async function loadContractorJobDetail(
       .eq('job_id', jobId)
       .eq('contractor_id', contractorId)
       .maybeSingle(),
+    // The full roster: needed to size the hours fallback, and to authorise a
+    // NON-PRIMARY worker. Previously the job query filtered on
+    // jobs.contractor_id, so the second cleaner on a two-cleaner job couldn't
+    // open their own job at all.
+    supabase.from('job_workers').select('contractor_id').eq('job_id', jobId),
     getJobPhotos(jobId),
   ])
+
+  // Authorisation: assigned via job_workers, or the job's primary pointer.
+  const rosterIds = (roster ?? []).map((r) => r.contractor_id as string)
+  const isAssigned = rosterIds.includes(contractorId) || worker != null
+  if (job && !isAssigned) {
+    const { data: primaryCheck } = await supabase
+      .from('jobs').select('id').eq('id', jobId).eq('contractor_id', contractorId).maybeSingle()
+    if (!primaryCheck) return null
+  }
 
   if (!job) return null
 
@@ -101,7 +115,14 @@ export async function loadContractorJobDetail(
     contractor_hourly_rate: fallbackRate,
     approved_hours: null,
     actual_hours: null,
-    hours_allocated: (worker?.hours_allocated as number | null) ?? (job.allowed_hours as number | null) ?? null,
+    // Split the fallback across the roster — returning the job's full
+    // allowed_hours here showed each cleaner on a 2-cleaner 8h job "8h"
+    // instead of their actual 4h share.
+    hours_allocated: resolveWorkerHours(
+      worker?.hours_allocated as number | null,
+      job.allowed_hours as number | null,
+      Math.max(rosterIds.length, 1),
+    ),
     extra_hours: (worker?.extra_hours as number | null) ?? 0,
     extra_hours_status: (worker?.extra_hours_status as string | null) ?? 'none',
   }
