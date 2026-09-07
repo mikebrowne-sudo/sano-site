@@ -99,6 +99,13 @@ export interface EmployeePayOverview {
   /** Most recent employee pay run (draft first, else latest by pay date). */
   latestRun: { id: string; payDate: string | null; status: string | null; lineCount: number; netTotal: number } | null
   unreimbursedMileage: number
+  /** Dollar value of the unattached mileage, so the hub states the money at
+   *  stake rather than only a count. */
+  unreimbursedMileageTotal: number
+  /** Of the above, the portion still in DRAFT. Draft mileage is skipped by
+   *  every pay run, so it is the dangerous part: it stays invisible until
+   *  someone approves it, which is how it gets missed. */
+  unapprovedMileageCount: number
 }
 
 /** Employee side of the Pay hub. Read-only; no payroll behaviour is touched. */
@@ -106,7 +113,14 @@ export async function loadEmployeePayOverview(supabase: SupabaseClient): Promise
   const [{ data: emps }, { data: runs }, { data: mileage }] = await Promise.all([
     supabase.from('contractors').select('id').eq('status', 'active').neq('worker_type', 'contractor'),
     supabase.from('pay_runs').select('id, pay_date, status, kind').or('kind.is.null,kind.eq.employee').order('pay_date', { ascending: false }),
-    supabase.from('mileage_logs').select('id').neq('status', 'reimbursed'),
+    // Unattached mileage only. The previous filter was
+    // `.neq('status','reimbursed')`, which ignored pay_run_id and so counted
+    // logs ALREADY consumed by a run — inflating the number until it read as
+    // noise. What matters is mileage no run has picked up.
+    supabase.from('mileage_logs')
+      .select('id, status, reimbursement_amount')
+      .is('pay_run_id', null)
+      .in('status', ['approved', 'draft']),
   ])
 
   const employeeRuns = (runs ?? []) as Array<{ id: string; pay_date: string | null; status: string | null }>
@@ -130,11 +144,17 @@ export async function loadEmployeePayOverview(supabase: SupabaseClient): Promise
     }
   }
 
+  const mileageRows = (mileage ?? []) as Array<{ status: string | null; reimbursement_amount: number | null }>
+
   return {
     activeEmployees: (emps ?? []).length,
     draftRunCount: draft.length,
     latestRun,
-    unreimbursedMileage: (mileage ?? []).length,
+    unreimbursedMileage: mileageRows.length,
+    unreimbursedMileageTotal: round2(
+      mileageRows.reduce((s, m) => s + Number(m.reimbursement_amount ?? 0), 0),
+    ),
+    unapprovedMileageCount: mileageRows.filter((m) => m.status === 'draft').length,
   }
 }
 
