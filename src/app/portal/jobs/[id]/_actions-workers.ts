@@ -18,7 +18,9 @@
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { isAdminEmail } from '@/lib/is-admin'
-import { pickSnapshotRate, toPositiveRate } from '@/lib/contractor-rate-snapshot'
+import { toPositiveRate } from '@/lib/contractor-rate-snapshot'
+import { resolveWorkerRate } from '@/lib/contractor-client-rate'
+import { loadRateCandidates, todayIso } from '@/lib/contractor-client-rate-data'
 import { resplitJobHours } from '@/lib/job-hours-split'
 
 /**
@@ -96,7 +98,7 @@ export async function addJobWorker(jobId: string, contractorId: string) {
 
   const { data: job, error: jErr } = await supabase
     .from('jobs')
-    .select('id, allowed_hours')
+    .select('id, allowed_hours, client_id, scheduled_date')
     .eq('id', jobId)
     .single()
   if (jErr || !job) return { error: 'Job not found.' }
@@ -116,14 +118,25 @@ export async function addJobWorker(jobId: string, contractorId: string) {
     .maybeSingle()
   if (existing) return { error: `${contractor.full_name} is already assigned to this job.` }
 
-  // Snapshot the contractor's current rate at add time (no existing row here,
-  // so there is nothing to preserve). Null is allowed for a rate-less
-  // contractor — job-cost falls back to the live rate + shows an "est." badge.
+  // Snapshot the rate at add time (no existing row here, so there is nothing to
+  // preserve): a per-client agreed rate for this worker at this job's client
+  // wins over the flat profile rate. Null is allowed for a rate-less contractor
+  // — job-cost falls back to the live rate + shows an "est." badge.
   //
   // Hours are set by the re-split below, which sees the whole final roster.
   // Inserting the job's FULL allowed_hours here (the original bug) gave every
   // worker the entire job: a 2-worker 8h job booked 16h of pay.
-  const payRate = pickSnapshotRate(null, contractor.hourly_rate as number | null)
+  const candidates = await loadRateCandidates(
+    supabase as never,
+    [contractorId],
+    (job.client_id as string | null) ?? null,
+    (job.scheduled_date as string | null) || todayIso(),
+  )
+  const payRate = resolveWorkerRate(
+    null,
+    candidates[contractorId]?.clientRate ?? null,
+    contractor.hourly_rate as number | null,
+  ).rate
 
   const { error: insErr } = await supabase.from('job_workers').insert({
     job_id: jobId,

@@ -8,22 +8,37 @@ import { assertCanAmend, writeAmendmentAudit } from '@/lib/amendment-lock'
 import { resolveAllowedHours } from '@/lib/allowed-hours'
 import { splitAllowedHours, resplitJobHours } from '@/lib/job-hours-split'
 import { snapshotJobVersion, computeChangedJobFields } from '@/lib/job-versions'
-import { pickSnapshotRate } from '@/lib/contractor-rate-snapshot'
+import { resolveWorkerRate } from '@/lib/contractor-client-rate'
+import { loadRateCandidates, todayIso } from '@/lib/contractor-client-rate-data'
 import { planWorkerDiff, localRemovalBlock, reconcilePrimaryContractor, type WorkerRow } from '@/lib/job-worker-diff'
 import { isAdminUser } from '@/lib/is-admin'
 
 type ExistingWorkerRow = WorkerRow & { contractors: { full_name: string } | null }
 
-/** Map of contractor_id → current profile hourly_rate, for rate snapshotting. */
-async function loadContractorRates(
+/**
+ * Map of contractor_id → the pay_rate to snapshot on a new job_workers row,
+ * resolved against the job's CLIENT and service date: a per-client agreed rate
+ * wins over the contractor's flat profile rate. See
+ * `src/lib/contractor-client-rate.ts` for the full resolution order.
+ */
+async function loadNewWorkerRates(
   supabase: ReturnType<typeof createClient>,
   contractorIds: string[],
+  clientId: string | null | undefined,
+  serviceDateIso: string,
 ): Promise<Record<string, number | null>> {
-  const ids = Array.from(new Set(contractorIds.filter(Boolean)))
-  if (ids.length === 0) return {}
-  const { data } = await supabase.from('contractors').select('id, hourly_rate').in('id', ids)
+  const candidates = await loadRateCandidates(
+    supabase as never,
+    contractorIds,
+    clientId,
+    serviceDateIso,
+  )
   const map: Record<string, number | null> = {}
-  for (const c of data ?? []) map[c.id as string] = (c.hourly_rate as number | null) ?? null
+  for (const [cid, c] of Object.entries(candidates)) {
+    // New row → no existing snapshot to preserve; pass null so the client rate
+    // (then the profile rate) decides.
+    map[cid] = resolveWorkerRate(null, c.clientRate, c.contractorRate).rate
+  }
   return map
 }
 
@@ -119,14 +134,20 @@ export async function createJob(input: JobInput) {
   // bug) booked 16h of pay against an 8h job.
   const createCids = (input.worker_ids ?? []).filter(Boolean)
   if (createCids.length) {
-    const rateMap = await loadContractorRates(supabase, createCids)
+    const rateMap = await loadNewWorkerRates(
+      supabase,
+      createCids,
+      input.client_id,
+      input.scheduled_date || todayIso(),
+    )
     const shares = splitAllowedHours(allowedHours, createCids.length)
     const rows = createCids.map((cid, i) => ({
       job_id: data.id,
       contractor_id: cid,
       hours_allocated: shares[i] ?? null,
-      // New job → no existing snapshot to preserve; snapshot the current rate.
-      pay_rate: pickSnapshotRate(null, rateMap[cid]),
+      // New job → no existing snapshot to preserve; snapshot the resolved rate
+      // (per-client agreed rate if one applies, else the profile rate).
+      pay_rate: rateMap[cid] ?? null,
       pay_type: 'hourly',
     }))
     if (rows.length > 0) {
@@ -482,7 +503,14 @@ export async function updateJob(input: UpdateJobInput) {
       })
     }
     if (workerDiff.toAdd.length > 0) {
-      const rateMap = await loadContractorRates(supabase, workerDiff.toAdd)
+      // Resolve against the job's client + service date, so a worker added to
+      // an existing job gets the same per-client rate a new job would.
+      const rateMap = await loadNewWorkerRates(
+        supabase,
+        workerDiff.toAdd,
+        (current?.client_id as string | null) ?? null,
+        (input.scheduled_date || (current?.scheduled_date as string | null) || todayIso()),
+      )
       // Hours are assigned by the re-split below, which sees the whole final
       // roster. Insert with a null basis so a new worker never briefly carries
       // the job's FULL hours.
@@ -490,7 +518,7 @@ export async function updateJob(input: UpdateJobInput) {
         job_id: input.id,
         contractor_id: cid,
         hours_allocated: null,
-        pay_rate: pickSnapshotRate(null, rateMap[cid]),
+        pay_rate: rateMap[cid] ?? null,
         pay_type: 'hourly',
       }))
       await supabase.from('job_workers').insert(addRows)
@@ -502,7 +530,7 @@ export async function updateJob(input: UpdateJobInput) {
           entity_table: 'job_workers',
           entity_id: `${input.id}:${cid}`,
           before: null,
-          after: { contractor_id: cid, pay_rate: pickSnapshotRate(null, rateMap[cid]) },
+          after: { contractor_id: cid, pay_rate: rateMap[cid] ?? null },
         })
       }
     }

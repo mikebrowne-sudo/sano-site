@@ -31,3 +31,39 @@ describe('buildRecurringWorkerRow — recurring occurrence pay basis', () => {
     expect(row.pay_type).toBe('hourly')
   })
 })
+
+describe('buildRecurringWorkerRow — per-client rate', () => {
+  it('uses the client rate over the contractor profile rate', () => {
+    // The Oranga Tamariki case: profile $35, agreed OT rate $32.20.
+    const row = buildRecurringWorkerRow({
+      jobId: 'j-ot', contractorId: 'c-1', contractorRate: 35, clientRate: 32.2,
+      allowedHours: 7, payType: 'hourly',
+    })
+    expect(row.pay_rate).toBe(32.2)
+  })
+
+  it('falls back to the profile rate when no client rate applies', () => {
+    const row = buildRecurringWorkerRow({
+      jobId: 'j-res', contractorId: 'c-1', contractorRate: 35, clientRate: null,
+      allowedHours: 3, payType: 'hourly',
+    })
+    expect(row.pay_rate).toBe(35)
+  })
+
+  it('omitting clientRate entirely keeps the previous behaviour', () => {
+    const row = buildRecurringWorkerRow({
+      jobId: 'j-old', contractorId: 'c-1', contractorRate: 45,
+      allowedHours: 3, payType: 'hourly',
+    })
+    expect(row.pay_rate).toBe(45)
+  })
+
+  it('snapshots the client rate on a fixed-pay occurrence too', () => {
+    const row = buildRecurringWorkerRow({
+      jobId: 'j-fix', contractorId: 'c-1', contractorRate: 35, clientRate: 30,
+      allowedHours: 4, payType: 'fixed',
+    })
+    expect(row.pay_rate).toBe(30)
+    expect(row.hours_allocated).toBeNull()
+  })
+})

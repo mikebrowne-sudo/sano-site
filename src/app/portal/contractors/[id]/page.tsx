@@ -269,6 +269,13 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
             Pay
           </Link>
           <Link
+            href={`/portal/contractors/${params.id}/rates`}
+            className="inline-flex items-center gap-2 bg-white border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
+          >
+            <Wallet size={14} />
+            Rates
+          </Link>
+          <Link
             href={`/portal/contractors/${params.id}/tax`}
             className="inline-flex items-center gap-2 bg-white border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
           >

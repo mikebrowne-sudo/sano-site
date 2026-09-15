@@ -7,6 +7,7 @@ import { notifyContractorAssigned } from '@/lib/notify-contractor'
 import { computeNextInvoiceDate } from '@/lib/recurring-invoice'
 import { resolveAllowedHours } from '@/lib/allowed-hours'
 import { buildRecurringWorkerRow, type RecurringPayType } from '@/lib/recurring-worker'
+import { loadRateCandidates, todayIso } from '@/lib/contractor-client-rate-data'
 import { rollbackOrphanOccurrence } from '@/lib/recurring-rollback'
 
 interface RecurringJobInput {
@@ -240,12 +241,24 @@ export async function generateNextJob(recurringId: string) {
       .select('hourly_rate')
       .eq('id', rec.contractor_id)
       .single()
-    // Per-job override wins over the contractor's profile rate when set.
+    // Per-contract override wins over everything when set; it is the most
+    // specific instruction there is. Otherwise a per-client agreed rate wins
+    // over the contractor's flat profile rate.
     const overrideRate = (rec as { contractor_rate_override?: number | null }).contractor_rate_override
+    const occurrenceDate = (rec.next_due_date as string | null) || todayIso()
+    const candidates = overrideRate != null
+      ? {}
+      : await loadRateCandidates(
+          supabase as never,
+          [rec.contractor_id as string],
+          (rec.client_id as string | null) ?? null,
+          occurrenceDate,
+        )
     const workerRow = buildRecurringWorkerRow({
       jobId: newJob.id as string,
       contractorId: rec.contractor_id as string,
       contractorRate: (overrideRate != null ? Number(overrideRate) : (c?.hourly_rate as number | null)) ?? null,
+      clientRate: candidates[rec.contractor_id as string]?.clientRate ?? null,
       allowedHours: resolveAllowedHours(null, rec.duration_estimate as string | null),
       payType: (rec.contractor_pay_type as RecurringPayType) === 'fixed' ? 'fixed' : 'hourly',
     })
