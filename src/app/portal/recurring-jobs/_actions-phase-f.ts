@@ -14,6 +14,7 @@ import { isAdminEmail } from '@/lib/is-admin'
 import { loadJobSettings } from '@/lib/job-settings'
 import { resolveAllowedHours } from '@/lib/allowed-hours'
 import { buildRecurringWorkerRow, type RecurringPayType } from '@/lib/recurring-worker'
+import { pickClientRate, type ClientRateRecord } from '@/lib/contractor-client-rate'
 import { rollbackOrphanOccurrence } from '@/lib/recurring-rollback'
 
 // ─── Helpers ─────────────────────────────────────────────────────
@@ -231,8 +232,13 @@ export async function generateUpcomingRecurringJobs(input: {
   const allowedHours = resolveAllowedHours(null, rec.duration_estimate as string | null)
   const payType: RecurringPayType = (rec.contractor_pay_type as RecurringPayType) === 'fixed' ? 'fixed' : 'hourly'
   let contractorRate: number | null = null
+  // The per-client agreed rate history for this worker at this contract's
+  // client. Resolved PER OCCURRENCE below, because this path generates a run of
+  // dates and a rate change mid-run must apply from its effective date on.
+  let clientRateHistory: ClientRateRecord[] = []
   if (rec.contractor_id) {
-    // Per-job override wins over the contractor's profile rate when set.
+    // Per-contract override wins over everything when set; it is the most
+    // specific instruction there is.
     const overrideRate = (rec as { contractor_rate_override?: number | null }).contractor_rate_override
     if (overrideRate != null) {
       contractorRate = Number(overrideRate)
@@ -243,6 +249,27 @@ export async function generateUpcomingRecurringJobs(input: {
         .eq('id', rec.contractor_id)
         .single()
       contractorRate = (c?.hourly_rate as number | null) ?? null
+
+      if (rec.client_id) {
+        // Falls back to the profile rate if unreadable — an optional rate
+        // refinement must never break occurrence generation.
+        try {
+          const { data: rates } = await supabase
+            .from('contractor_client_rates')
+            .select('hourly_rate, effective_from, effective_to, status')
+            .eq('contractor_id', rec.contractor_id)
+            .eq('client_id', rec.client_id)
+            .eq('status', 'active')
+          clientRateHistory = (rates ?? []).map((r) => ({
+            hourlyRate: r.hourly_rate as number | string | null,
+            effectiveFrom: r.effective_from as string,
+            effectiveTo: (r.effective_to as string | null) ?? null,
+            status: (r.status as string | null) ?? null,
+          }))
+        } catch {
+          clientRateHistory = []
+        }
+      }
     }
   }
   const horizon = addDaysIso(todayIso(), weeks * 7)
@@ -328,6 +355,9 @@ export async function generateUpcomingRecurringJobs(input: {
         jobId: newJob.id as string,
         contractorId: rec.contractor_id as string,
         contractorRate,
+        // Resolved against THIS occurrence's date, so a rate change part-way
+        // through the generated run applies from its effective date on.
+        clientRate: pickClientRate(clientRateHistory, date),
         allowedHours,
         payType,
       })
