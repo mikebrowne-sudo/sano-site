@@ -29,6 +29,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { sendNotification } from '@/lib/notifications/send'
 import { generateDueRecurringInvoices } from '@/app/portal/recurring-jobs/_lib/generate-recurring-invoice'
+import { generateDueRecurringJobs } from '@/app/portal/recurring-jobs/_lib/generate-due-recurring-jobs'
 // Contractor statement reminder imports removed with Task D (Phase 2,
 // 2026-08-17) — see the retirement note at the Task D marker below.
 
@@ -317,6 +318,22 @@ async function runDaily(request: NextRequest) {
     if (recurring.errors.length) summary.errors.push(...recurring.errors.map((e) => `recurring: ${e}`))
   } catch (e) {
     summary.errors.push(`recurring_invoices: ${(e as Error).message}`)
+  }
+
+  // ════ Task E — Recurring JOB occurrences (rolling generation) ════
+  // Keep every active recurring contract topped up with a rolling six weeks of
+  // future occurrences, so setting a contract active is all staff have to do.
+  // Idempotent: dates that already have an occurrence are skipped, so re-running
+  // creates nothing. Occurrences appear in the contractor's calendar
+  // immediately (both jobs.contractor_id and the job_workers row are set).
+  try {
+    const recurringJobs = await generateDueRecurringJobs(supabase, nzDateString(0))
+    ;(summary as typeof summary & { recurring_jobs?: unknown }).recurring_jobs = recurringJobs
+    if (recurringJobs.errors.length) {
+      summary.errors.push(...recurringJobs.errors.map((e) => `recurring_jobs: ${e}`))
+    }
+  } catch (e) {
+    summary.errors.push(`recurring_jobs: ${(e as Error).message}`)
   }
 
   return NextResponse.json({ ok: summary.errors.length === 0, summary })

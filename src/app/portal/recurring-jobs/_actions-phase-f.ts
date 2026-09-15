@@ -218,7 +218,7 @@ export async function generateUpcomingRecurringJobs(input: {
 
   const { data: rec, error: readErr } = await supabase
     .from('recurring_jobs')
-    .select('id, client_id, title, description, address, scheduled_time, duration_estimate, contractor_id, contractor_pay_type, assigned_to, frequency, start_date, end_date, next_due_date, status, scope_snapshot, contractor_rate_override')
+    .select('id, client_id, title, description, address, scheduled_time, duration_estimate, contractor_id, contractor_pay_type, assigned_to, frequency, start_date, end_date, next_due_date, status, scope_snapshot, contractor_rate_override, contractor_pay_mode, contractor_per_visit_rate')
     .eq('id', recurringJobId)
     .single()
   if (readErr || !rec) return { error: 'Recurring contract not found.' }
@@ -358,6 +358,11 @@ export async function generateUpcomingRecurringJobs(input: {
         // Resolved against THIS occurrence's date, so a rate change part-way
         // through the generated run applies from its effective date on.
         clientRate: pickClientRate(clientRateHistory, date),
+        // A per-visit contract pays a SET AMOUNT per occurrence, never
+        // hours x rate (NZCL: $126 per clean).
+        perVisitRate: rec.contractor_pay_mode === 'per_visit'
+          ? (rec.contractor_per_visit_rate as number | null)
+          : null,
         allowedHours,
         payType,
       })

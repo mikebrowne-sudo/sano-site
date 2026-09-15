@@ -259,6 +259,11 @@ export async function generateNextJob(recurringId: string) {
       contractorId: rec.contractor_id as string,
       contractorRate: (overrideRate != null ? Number(overrideRate) : (c?.hourly_rate as number | null)) ?? null,
       clientRate: candidates[rec.contractor_id as string]?.clientRate ?? null,
+      // A per-visit contract pays a SET AMOUNT per occurrence, never
+      // hours x rate (NZCL: $126 per clean).
+      perVisitRate: (rec as { contractor_pay_mode?: string | null }).contractor_pay_mode === 'per_visit'
+        ? ((rec as { contractor_per_visit_rate?: number | null }).contractor_per_visit_rate ?? null)
+        : null,
       allowedHours: resolveAllowedHours(null, rec.duration_estimate as string | null),
       payType: (rec.contractor_pay_type as RecurringPayType) === 'fixed' ? 'fixed' : 'hourly',
     })

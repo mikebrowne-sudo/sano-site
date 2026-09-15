@@ -7,6 +7,7 @@
 // only future occurrences, never ones already generated.
 
 import { resolveWorkerRate } from './contractor-client-rate'
+import { toPositiveRate } from './contractor-rate-snapshot'
 
 export type RecurringPayType = 'hourly' | 'fixed'
 
@@ -23,6 +24,16 @@ export interface RecurringWorkerInput {
    * occurrence at the flat profile rate.
    */
   clientRate?: number | null
+  /**
+   * A SET AMOUNT paid per occurrence (recurring_jobs.contractor_per_visit_rate),
+   * for a contract whose contractor_pay_mode is 'per_visit'.
+   *
+   * This is the whole payable for the visit — NOT an hourly rate, and never
+   * multiplied by hours. It wins over both the client rate and the profile
+   * rate, because it is the most specific instruction the contract carries.
+   * Example: NZCL at 58B Trias Road is $126 per clean, not 3h x $30.
+   */
+  perVisitRate?: number | null
   /** Allocated hours for the occurrence (from the contract's duration). */
   allowedHours: number | null
   /** 'hourly' (paid per occurrence by hours) or 'fixed' (flat arrangement). */
@@ -30,15 +41,24 @@ export interface RecurringWorkerInput {
 }
 
 export function buildRecurringWorkerRow(input: RecurringWorkerInput) {
-  const isFixed = input.payType === 'fixed'
+  const perVisit = toPositiveRate(input.perVisitRate)
+  // A set amount per visit and a retainer both make the amount independent of
+  // hours — but they are NOT the same basis. 'per_visit' is payable for this
+  // occurrence; 'fixed' (a retainer) is not, and is paid separately for the
+  // period. See src/lib/job-worker-pay-basis.ts.
+  const payType = perVisit != null ? 'per_visit' : input.payType === 'fixed' ? 'fixed' : 'hourly'
+  const hoursIndependent = payType !== 'hourly'
+
   return {
     job_id: input.jobId,
     contractor_id: input.contractorId,
-    // Fixed-contract workers are NOT payable per occurrence, so we don't seed
-    // allocated hours — that avoids the pay UI showing a misleading
-    // hours × rate amount. The rate is still snapshotted for reference.
-    hours_allocated: isFixed ? null : input.allowedHours,
-    pay_rate: resolveWorkerRate(null, input.clientRate ?? null, input.contractorRate).rate,
-    pay_type: isFixed ? 'fixed' : 'hourly',
+    // Neither basis is paid by hours, so we don't seed allocated hours — that
+    // avoids the pay UI showing a misleading hours × amount figure.
+    hours_allocated: hoursIndependent ? null : input.allowedHours,
+    // For a per-visit row this is the SET AMOUNT for the visit; the 'per_visit'
+    // pay_type is what stops it being read as an hourly rate.
+    pay_rate: perVisit
+      ?? resolveWorkerRate(null, input.clientRate ?? null, input.contractorRate).rate,
+    pay_type: payType,
   }
 }

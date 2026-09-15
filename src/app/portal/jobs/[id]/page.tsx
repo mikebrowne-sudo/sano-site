@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { resolveWorkerHours } from '@/lib/job-hours-split'
+import { isPayablePerOccurrence, isSetAmountPerVisit } from '@/lib/job-worker-pay-basis'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Pencil } from 'lucide-react'
@@ -694,9 +695,17 @@ export default async function JobDetailPage({
                             const extraHrs = (w?.extra_hours as number | null) ?? 0
                             const approvedExtra = extraStatus === 'approved' ? extraHrs : 0
                             const payableHrs = allowedHrs != null ? allowedHrs + approvedExtra : null
-                            const isFixed = ((w?.pay_type as string | null) ?? null) === 'fixed'
-                            // Fixed-contract workers are not payable per occurrence.
-                            const pay = !isFixed && payableHrs != null ? payableHrs * payRate : null
+                            const wPayType = (w?.pay_type as string | null) ?? null
+                            // A RETAINER is not payable per occurrence. A SET
+                            // AMOUNT PER VISIT is — pay_rate is the whole
+                            // payable, never multiplied by hours.
+                            const isRetainer = !isPayablePerOccurrence(wPayType)
+                            const isPerVisit = isSetAmountPerVisit(wPayType)
+                            const pay = isRetainer
+                              ? null
+                              : isPerVisit
+                                ? payRate
+                                : payableHrs != null ? payableHrs * payRate : null
                             const locked = payStatus === 'included_in_pay_run' || payStatus === 'paid'
                             return (
                               <tr key={ew.contractorId} className="border-b border-gray-50">
@@ -752,10 +761,10 @@ export default async function JobDetailPage({
                                   </span>
                                 </td>
                                 <td className="py-2 pr-2 text-right">
-                                  {isFixed
+                                  {isRetainer
                                     ? (
-                                      <span className="text-[10px] font-semibold uppercase tracking-wide text-sage-500 bg-sage-50 px-1.5 py-0.5 rounded" title="Fixed-contract worker — paid via the fixed-contract contractor-invoice process, not payable per occurrence.">
-                                        Fixed contract
+                                      <span className="text-[10px] font-semibold uppercase tracking-wide text-sage-500 bg-sage-50 px-1.5 py-0.5 rounded" title="Retainer — paid a flat sum for the period via the fixed-contract contractor-invoice process, not payable per occurrence.">
+                                        Retainer
                                       </span>
                                     )
                                     : pay != null
