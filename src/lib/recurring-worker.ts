@@ -42,21 +42,23 @@ export interface RecurringWorkerInput {
 
 export function buildRecurringWorkerRow(input: RecurringWorkerInput) {
   const perVisit = toPositiveRate(input.perVisitRate)
-  // A per-visit amount IS a fixed arrangement, whatever the contract's
-  // pay_type column says — the amount does not depend on hours worked.
-  const isFixed = input.payType === 'fixed' || perVisit != null
+  // A set amount per visit and a retainer both make the amount independent of
+  // hours — but they are NOT the same basis. 'per_visit' is payable for this
+  // occurrence; 'fixed' (a retainer) is not, and is paid separately for the
+  // period. See src/lib/job-worker-pay-basis.ts.
+  const payType = perVisit != null ? 'per_visit' : input.payType === 'fixed' ? 'fixed' : 'hourly'
+  const hoursIndependent = payType !== 'hourly'
 
   return {
     job_id: input.jobId,
     contractor_id: input.contractorId,
-    // Fixed-contract workers are NOT payable by hours, so we don't seed
-    // allocated hours — that avoids the pay UI showing a misleading
-    // hours × rate amount.
-    hours_allocated: isFixed ? null : input.allowedHours,
-    // For a per-visit contract this is the SET AMOUNT for the visit; the
-    // 'fixed' pay_type below is what stops it being read as an hourly rate.
+    // Neither basis is paid by hours, so we don't seed allocated hours — that
+    // avoids the pay UI showing a misleading hours × amount figure.
+    hours_allocated: hoursIndependent ? null : input.allowedHours,
+    // For a per-visit row this is the SET AMOUNT for the visit; the 'per_visit'
+    // pay_type is what stops it being read as an hourly rate.
     pay_rate: perVisit
       ?? resolveWorkerRate(null, input.clientRate ?? null, input.contractorRate).rate,
-    pay_type: isFixed ? 'fixed' : 'hourly',
+    pay_type: payType,
   }
 }
