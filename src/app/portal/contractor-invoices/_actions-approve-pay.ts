@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { getWorkerPayableHours } from '@/lib/job-cost'
 import { computeApprovedAmount } from '@/lib/contractor-pay'
+import { isPayablePerOccurrence, isSetAmountPerVisit } from '@/lib/job-worker-pay-basis'
 import { conciseWorkType } from '@/lib/remittance-work-type'
 import { resolveContractorGstSnapshot } from '@/lib/contractor-gst-snapshot'
 import { revalidatePath } from 'next/cache'
@@ -94,14 +95,17 @@ export async function approveContractorPay(
   const jw = jwRaw as WorkerRow | null
   if (!jw) return { error: 'This contractor is not assigned to the job.' }
 
-  // 2b. Fixed-contract basis is NOT payable per occurrence. Enforced here (not
-  //     just the UI) so every entry point using this shared action is covered.
-  //     The check is per worker row, so a manually-added hourly worker on a job
-  //     generated from a fixed recurring template is still payable normally.
-  //     Fixed-contract pay flows through the separate fixed-contract
-  //     contractor-invoice process.
-  if (jw.pay_type === 'fixed') {
-    return { error: 'This worker is on a fixed-contract basis for this job — not payable per occurrence. Pay them through the fixed-contract contractor-invoice process instead.' }
+  // 2b. A RETAINER is not payable per occurrence. Enforced here (not just the
+  //     UI) so every entry point using this shared action is covered. The check
+  //     is per worker row, so a manually-added hourly worker on a job generated
+  //     from a retainer template is still payable normally. Retainer pay flows
+  //     through the separate fixed-contract contractor-invoice process.
+  //
+  //     A SET AMOUNT PER VISIT ('per_visit') is a different thing and IS
+  //     payable per occurrence — the amount simply does not depend on hours.
+  //     See src/lib/job-worker-pay-basis.ts.
+  if (!isPayablePerOccurrence(jw.pay_type)) {
+    return { error: 'This worker is on a retainer for this job — not payable per occurrence. Pay them through the fixed-contract contractor-invoice process instead.' }
   }
 
   // 3. Duplicate protection — one payable per job + contractor. (Admin
@@ -118,12 +122,16 @@ export async function approveContractorPay(
     return { error: 'This job is already approved for pay for this contractor.', alreadyApprovedId: existing.id as string }
   }
 
-  // 4. Resolve the amount. Fixed wins; otherwise hourly (approved hours
-  //    default to the worker's payable hours; rate from the job snapshot,
-  //    falling back to the contractor profile).
+  // 4. Resolve the amount. An explicit fixed amount wins; then a set-amount-
+  //    per-visit row (pay_rate IS the whole payable — never multiplied by
+  //    hours); otherwise hourly (approved hours default to the worker's payable
+  //    hours; rate from the job snapshot, falling back to the contractor
+  //    profile).
   let calc
   if (input.fixedAmount != null) {
     calc = computeApprovedAmount({ fixedAmount: input.fixedAmount })
+  } else if (isSetAmountPerVisit(jw.pay_type) && jw.pay_rate != null) {
+    calc = computeApprovedAmount({ fixedAmount: jw.pay_rate })
   } else {
     const effectiveHours = input.approvedHours ?? getWorkerPayableHours({
       pay_rate: jw.pay_rate,

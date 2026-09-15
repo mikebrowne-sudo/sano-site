@@ -225,7 +225,7 @@ describe('approveContractorPay', () => {
   })
 })
 
-describe('approveContractorPay — fixed-contract basis is not payable per occurrence', () => {
+describe('approveContractorPay — a retainer is not payable per occurrence', () => {
   it('1. an hourly recurring worker CAN be approved normally', async () => {
     const { client, ciInsert } = makeSupabase({
       job: COMPLETED_JOB,
@@ -247,7 +247,7 @@ describe('approveContractorPay — fixed-contract basis is not payable per occur
     })
     mockedCreate.mockReturnValue(client)
     const res = await approveContractorPay('j1', 'c1', { fixedAmount: 200 }) // even with a fixed amount
-    expect(res.error).toMatch(/fixed-contract basis/i)
+    expect(res.error).toMatch(/retainer/i)
     expect(ciInsert).not.toHaveBeenCalled()
   })
 
@@ -260,8 +260,8 @@ describe('approveContractorPay — fixed-contract basis is not payable per occur
     mockedCreate.mockReturnValue(client)
     const a = await approveContractorPay('j1', 'c1', {})
     const b = await approveContractorPay('j1', 'c1', { fixedAmount: 200 })
-    expect(a.error).toMatch(/fixed-contract basis/i)
-    expect(b.error).toMatch(/fixed-contract basis/i)
+    expect(a.error).toMatch(/retainer/i)
+    expect(b.error).toMatch(/retainer/i)
     expect(ciInsert).not.toHaveBeenCalled()
   })
 
@@ -414,5 +414,37 @@ describe('approveContractorPay — service_date drives the pay period', () => {
     await approveContractorPay('j9', 'c1', {})
 
     expect(ciInsert.mock.calls[0][0].service_date).toEqual(expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/))
+  })
+})
+
+describe('approveContractorPay — a set amount per visit IS payable per occurrence', () => {
+  it('approves a per_visit worker and uses pay_rate as the whole amount', async () => {
+    // NZCL 58B Trias Road: $126 per clean. Before per_visit existed this row
+    // carried pay_type 'fixed' and was wrongly blocked as a retainer.
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB,
+      jw: { pay_rate: 126, pay_type: 'per_visit', hours_allocated: null, extra_hours: null, extra_hours_status: null },
+      dup: null,
+      created: { id: 'ci-nzcl', invoice_number: 'CI-0200', amount: 126, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+    const res = await approveContractorPay('j1', 'c1', {})
+    expect(res).toMatchObject({ ok: true })
+    expect(ciInsert).toHaveBeenCalledTimes(1)
+    // The amount is the set amount — never multiplied by hours.
+    expect(ciInsert.mock.calls[0][0]).toMatchObject({ amount: 126 })
+  })
+
+  it('an explicit fixed amount still overrides the per-visit rate', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB,
+      jw: { pay_rate: 126, pay_type: 'per_visit', hours_allocated: null, extra_hours: null, extra_hours_status: null },
+      dup: null,
+      created: { id: 'ci-x', invoice_number: 'CI-0201', amount: 150, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+    const res = await approveContractorPay('j1', 'c1', { fixedAmount: 150 })
+    expect(res).toMatchObject({ ok: true })
+    expect(ciInsert.mock.calls[0][0]).toMatchObject({ amount: 150 })
   })
 })
