@@ -226,6 +226,11 @@ export async function generateDueRecurringJobs(
             contractorId: rec.contractor_id as string,
             contractorRate,
             clientRate: pickClientRate(clientRateHistory, date),
+            // A per-visit contract pays a SET AMOUNT per occurrence, never
+            // hours x rate (NZCL: $126 per clean).
+            perVisitRate: rec.contractor_pay_mode === 'per_visit'
+              ? (rec.contractor_per_visit_rate as number | null)
+              : null,
             allowedHours,
             payType,
           })
