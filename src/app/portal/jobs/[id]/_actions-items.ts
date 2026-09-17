@@ -27,6 +27,10 @@ import { costBasisOf, type JobItemCostBasis } from '@/lib/job-items'
 
 export interface JobItemInput {
   label: string
+  /** The operator explicitly confirmed nobody is paid for this (in-house work).
+   *  Distinguishes a deliberate answer from a half-finished entry, so the
+   *  "Needs contractor" prompt stops once it has been answered. */
+  inHouse?: boolean
   description?: string | null
   price: number
   contractorId?: string | null
@@ -84,6 +88,7 @@ function normalise(input: JobItemInput):
         cost_amount: null,
         cost_basis: 'fixed',
         cost_hours: null,
+        in_house: input.inHouse === true,
       },
     }
   }
@@ -122,8 +127,27 @@ function normalise(input: JobItemInput):
       cost_amount: costAmount,
       cost_basis: basis,
       cost_hours: costHours,
+      // Choosing someone clears the in-house answer — they are not both.
+      in_house: false,
     },
   }
+}
+
+/** Strip `in_house` and retry when the column does not exist yet.
+ *
+ *  The in_house migration (docs/db/2026-09-18-job-items-in-house.sql) is run by
+ *  hand, so the code may deploy first. Without this, every add/edit would fail
+ *  outright in that window. Losing the in-house FLAG until the migration lands
+ *  is a cosmetic regression (the prompt nags); losing the ability to record an
+ *  extra at all is not. */
+function isMissingInHouseColumn(message: string | undefined): boolean {
+  return !!message && /in_house/.test(message) && /column|schema cache/i.test(message)
+}
+
+function withoutInHouse(row: Record<string, unknown>): Record<string, unknown> {
+  const rest = { ...row }
+  delete rest.in_house
+  return rest
 }
 
 /** Is this item already committed to pay? Editing/deleting it then would
@@ -169,17 +193,19 @@ export async function addJobItem(jobId: string, input: JobItemInput): Promise<Jo
     .maybeSingle()
   const sortOrder = ((last?.sort_order as number | null) ?? -1) + 1
 
-  const { data: created, error: insErr } = await supabase
-    .from('job_items')
-    .insert({
-      ...norm.row,
-      job_id: jobId,
-      source: 'added',
-      sort_order: sortOrder,
-      created_by: user.id,
-    })
-    .select('id')
-    .single()
+  const baseRow = {
+    ...norm.row,
+    job_id: jobId,
+    source: 'added',
+    sort_order: sortOrder,
+    created_by: user.id,
+  }
+  let { data: created, error: insErr } = await supabase
+    .from('job_items').insert(baseRow).select('id').single()
+  if (insErr && isMissingInHouseColumn(insErr.message)) {
+    ({ data: created, error: insErr } = await supabase
+      .from('job_items').insert(withoutInHouse(baseRow)).select('id').single())
+  }
   if (insErr || !created) {
     return { error: `Could not add the extra: ${insErr?.message ?? 'no row returned'}` }
   }
@@ -237,10 +263,11 @@ export async function updateJobItem(
 
   // A quote-sourced item keeps its source: its charge lives in job_price and
   // flipping it to 'added' would double-bill the client.
-  const { error: updErr } = await supabase
-    .from('job_items')
-    .update(norm.row)
-    .eq('id', itemId)
+  let { error: updErr } = await supabase.from('job_items').update(norm.row).eq('id', itemId)
+  if (updErr && isMissingInHouseColumn(updErr.message)) {
+    ({ error: updErr } = await supabase
+      .from('job_items').update(withoutInHouse(norm.row)).eq('id', itemId))
+  }
   if (updErr) return { error: `Could not update the extra: ${updErr.message}` }
 
   await supabase.from('audit_log').insert({

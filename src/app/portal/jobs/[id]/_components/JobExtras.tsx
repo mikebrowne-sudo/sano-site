@@ -19,9 +19,10 @@
 // dropdowns over typing, avoid modals).
 
 import { useState, useTransition, useMemo } from 'react'
-import { Plus, Trash2, Pencil, X } from 'lucide-react'
+import { Plus, Trash2, Pencil, X, AlertCircle, DollarSign, Check } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { addJobItem, updateJobItem, deleteJobItem, type JobItemInput } from '../_actions-items'
+import { approveContractorPay } from '../../../contractor-invoices/_actions-approve-pay'
 
 export interface JobExtraRow {
   id: string
@@ -34,6 +35,8 @@ export interface JobExtraRow {
   cost_basis: string | null
   cost_hours: number | null
   source: string | null
+  /** Operator explicitly confirmed nobody is paid for this (in-house work). */
+  in_house?: boolean | null
   /** Set when a contractor payable already exists for this extra. */
   payable_number: string | null
   payable_status: string | null
@@ -97,8 +100,10 @@ function ExtraForm({
   })
   const [hours, setHours] = useState(existing?.cost_hours != null ? String(existing.cost_hours) : '')
   const [error, setError] = useState<string | null>(null)
+  const [confirmedNoContractor, setConfirmedNoContractor] = useState(existing?.in_house === true)
   const [isPending, startTransition] = useTransition()
 
+  const selectedContractor = contractors.find((c) => c.id === contractorId) ?? null
   const onJob = contractors.filter((c) => c.onJob)
   const others = contractors.filter((c) => !c.onJob)
 
@@ -115,22 +120,51 @@ function ExtraForm({
   const liveCharge = Number.isFinite(Number(price)) ? Number(price) : 0
 
   function pickContractor(id: string) {
+    const previous = contractorId
     setContractorId(id)
-    // Prefill the hourly rate from the contractor's profile so the common case
-    // needs no typing. Never overwrite a rate the operator already entered.
-    if (id && basis === 'hourly' && !rate) {
-      const c = contractors.find((x) => x.id === id)
-      if (c?.hourlyRate != null) setRate(String(c.hourlyRate))
+
+    if (!id) {
+      // Going back to in-house discards the pay figures. Clear them rather than
+      // keeping them in hidden state: the fields vanish from the form, and a
+      // stale rate silently reappearing against a DIFFERENT contractor later is
+      // worse than retyping it.
+      setRate('')
+      setHours('')
+      setError(null)
+      return
+    }
+
+    setConfirmedNoContractor(false)
+    setError(null)
+
+    // A rate belongs to a person, so switching contractor re-prefills rather
+    // than carrying the previous one across.
+    const c = contractors.find((x) => x.id === id)
+    if (basis === 'hourly' && (!rate || previous !== id)) {
+      setRate(c?.hourlyRate != null ? String(c.hourlyRate) : '')
     }
   }
 
   function submit() {
     setError(null)
+
+    // Saving an extra with nobody on it is legitimate (in-house work) but is far
+    // more often a half-finished entry. Ask once, then respect the answer —
+    // never block, and never nag twice for the same entry.
+    if (!contractorId && !confirmedNoContractor) {
+      setConfirmedNoContractor(true)
+      setError(
+        'No contractor set — nobody will be paid for this. Press again to save it as in-house work, or pick who did it above.',
+      )
+      return
+    }
+
     const input: JobItemInput = {
       label,
       description,
       price: Number(price),
       contractorId: contractorId || null,
+      inHouse: !contractorId,
       costBasis: basis,
       costRate: contractorId ? Number(rate) : null,
       costHours: contractorId && basis === 'hourly' ? Number(hours) : null,
@@ -202,7 +236,7 @@ function ExtraForm({
           disabled={costLocked}
           className="w-full max-w-sm rounded border border-sage-200 px-3 py-2 text-sm disabled:bg-sage-50 disabled:text-sage-400"
         >
-          <option value="">No one / in-house</option>
+          <option value="">No one — done in-house</option>
           {onJob.length > 0 && (
             <optgroup label="On this job">
               {onJob.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -274,6 +308,13 @@ function ExtraForm({
             )}
           </div>
 
+          {basis === 'hourly' && selectedContractor?.hourlyRate == null && (
+            <p className="mt-2 inline-flex items-center gap-1 text-[11px] text-amber-700">
+              <AlertCircle size={11} />
+              {selectedContractor?.name ?? 'This contractor'} has no rate on file — enter one for this extra.
+            </p>
+          )}
+
           {costLocked && (
             <p className="mt-2 text-[11px] text-amber-700">
               Already approved for pay ({existing?.payable_number}) — who does it and what
@@ -317,14 +358,80 @@ function ExtraForm({
   )
 }
 
+/** Approve the contractor payable for ONE extra.
+ *
+ *  Separate from the job's own pay approval: the person who did the extra is
+ *  often not on the job roster at all, and their payable is priced from the
+ *  item, never from hours on the clean. */
+function ApproveExtraPay({
+  jobId,
+  item,
+  jobCompleted,
+}: {
+  jobId: string
+  item: JobExtraRow
+  jobCompleted: boolean
+}) {
+  const router = useRouter()
+  const [error, setError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  if (item.payable_number) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] text-sage-600">
+        <Check size={12} />
+        {item.payable_status === 'paid' ? 'Paid' : 'Approved'} {item.payable_number}
+      </span>
+    )
+  }
+
+  // Nothing to pay — an in-house extra is charged but never paid out.
+  if (!item.contractor_id || item.cost_amount == null) return null
+
+  if (!jobCompleted) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded bg-sage-50 px-1.5 py-0.5 text-[11px] text-sage-600">
+        <Check size={11} />
+        Ready to pay {money(item.cost_amount)} — mark the job completed first
+      </span>
+    )
+  }
+
+  function approve() {
+    setError(null)
+    startTransition(async () => {
+      const res = await approveContractorPay(jobId, item.contractor_id as string, { jobItemId: item.id })
+      if (res?.error) { setError(res.error); return }
+      router.refresh()
+    })
+  }
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      <button
+        type="button"
+        onClick={approve}
+        disabled={isPending}
+        className="inline-flex items-center gap-1 rounded border border-sage-300 px-2 py-1 text-[11px] font-medium text-sage-700 hover:bg-sage-50 disabled:opacity-50"
+      >
+        <DollarSign size={11} />
+        {isPending ? 'Approving…' : `Approve ${money(item.cost_amount)} pay`}
+      </button>
+      {error && <span className="text-[11px] text-red-600">{error}</span>}
+    </span>
+  )
+}
+
 function ExtraRow({
   jobId,
   item,
   contractors,
+  jobCompleted,
 }: {
   jobId: string
   item: JobExtraRow
   contractors: ContractorOption[]
+  jobCompleted: boolean
 }) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
@@ -333,6 +440,11 @@ function ExtraRow({
   const [isPending, startTransition] = useTransition()
 
   const fromQuote = item.source === 'quote'
+  // Nudges, not blocks. An extra with no contractor might genuinely be in-house,
+  // so this prompts rather than refuses — but an unassigned extra is far more
+  // often one someone forgot to finish setting up.
+  const needsContractor = !item.contractor_id && !item.payable_number && !item.in_house
+  const needsCost = !!item.contractor_id && item.cost_amount == null
 
   if (editing) {
     return (
@@ -369,9 +481,19 @@ function ExtraRow({
                 From quote
               </span>
             )}
-            {item.payable_number && (
-              <span className="rounded bg-sage-50 px-1.5 py-0.5 text-[10px] text-sage-700">
-                {item.payable_status === 'paid' ? 'Paid' : 'Approved'} {item.payable_number}
+            {needsContractor && (
+              <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700">
+                <AlertCircle size={10} /> Needs contractor
+              </span>
+            )}
+            {item.in_house && !item.contractor_id && (
+              <span className="rounded bg-sage-100 px-1.5 py-0.5 text-[10px] text-sage-600">
+                In-house
+              </span>
+            )}
+            {needsCost && (
+              <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700">
+                <AlertCircle size={10} /> Needs pay amount
               </span>
             )}
           </div>
@@ -396,6 +518,9 @@ function ExtraRow({
                 <MarginPill charge={Number(item.price)} cost={Number(item.cost_amount ?? 0)} />
               </>
             )}
+          </div>
+          <div className="mt-1.5">
+            <ApproveExtraPay jobId={jobId} item={item} jobCompleted={jobCompleted} />
           </div>
         </div>
 
@@ -447,10 +572,13 @@ export default function JobExtras({
   jobId,
   items,
   contractors,
+  jobCompleted = false,
 }: {
   jobId: string
   items: JobExtraRow[]
   contractors: ContractorOption[]
+  /** Pay can only be approved once the work is done. */
+  jobCompleted?: boolean
 }) {
   const [adding, setAdding] = useState(false)
 
@@ -460,6 +588,12 @@ export default function JobExtras({
     .filter((i) => i.source !== 'quote')
     .reduce((a, i) => a + Number(i.price ?? 0), 0)
   const totalCost = items.reduce((a, i) => a + Number(i.cost_amount ?? 0), 0)
+  // An extra that has neither a contractor nor a payable is almost always one
+  // someone started and did not finish — surface it rather than let it go
+  // unpaid quietly.
+  const unfinished = items.filter(
+    (i) => !i.payable_number && !i.in_house && (!i.contractor_id || i.cost_amount == null),
+  ).length
 
   return (
     <section className="rounded-xl border border-sage-200 bg-white p-5">
@@ -484,7 +618,13 @@ export default function JobExtras({
 
       <div className="space-y-2">
         {items.map((item) => (
-          <ExtraRow key={item.id} jobId={jobId} item={item} contractors={contractors} />
+          <ExtraRow
+            key={item.id}
+            jobId={jobId}
+            item={item}
+            contractors={contractors}
+            jobCompleted={jobCompleted}
+          />
         ))}
 
         {adding && (
@@ -504,10 +644,19 @@ export default function JobExtras({
       </div>
 
       {items.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-sage-100 pt-3 text-[12px] text-sage-600">
-          <span>Added to the invoice: <strong>{money(addedCharge)}</strong></span>
-          <span className="text-sage-300">·</span>
-          <span>Contractor cost: {money(totalCost)}</span>
+        <div className="mt-3 border-t border-sage-100 pt-3">
+          <div className="flex flex-wrap items-center gap-2 text-[12px] text-sage-600">
+            <span>Added to the invoice: <strong>{money(addedCharge)}</strong></span>
+            <span className="text-sage-300">·</span>
+            <span>Contractor cost: {money(totalCost)}</span>
+          </div>
+          {unfinished > 0 && (
+            <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-amber-700">
+              <AlertCircle size={13} />
+              {unfinished === 1 ? '1 extra still needs' : `${unfinished} extras still need`} a
+              contractor and pay amount before {unfinished === 1 ? 'it' : 'they'} can be paid.
+            </p>
+          )}
         </div>
       )}
     </section>
