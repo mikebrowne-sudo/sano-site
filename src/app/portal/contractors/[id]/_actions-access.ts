@@ -19,6 +19,7 @@ import {
 } from '@/lib/auth-invites'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
 import { isAdminUser } from '@/lib/is-admin'
+import { getServiceSupabase } from '@/lib/supabase-service'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function requireAdmin(supabase: any): Promise<{ user: { id: string } } | { error: string }> {
@@ -207,7 +208,19 @@ export async function markContractorInviteAccepted(): Promise<{ ok: true }> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: true }
 
-  await supabase
+  // SERVICE CLIENT for the write, user client for the identity.
+  //
+  // The caller here IS the contractor, setting a flag on their own row at the
+  // end of the invite flow. Contractors have no write access to `contractors`
+  // (and under the tightened policy, none at all), so on the user client this
+  // update silently affects zero rows — RLS returns no error — and
+  // invite_accepted_at would never be stamped again.
+  //
+  // Scoped to the signed-in user's own row and to the single column, with the
+  // `.is(null)` guard keeping it write-once. It cannot be used to change a rate,
+  // a status, or anyone else's row.
+  const svc = getServiceSupabase()
+  await svc
     .from('contractors')
     .update({ invite_accepted_at: new Date().toISOString() })
     .eq('auth_user_id', user.id)
