@@ -59,7 +59,19 @@ export async function loadContractorJobDetail(
     // NON-PRIMARY worker. Previously the job query filtered on
     // jobs.contractor_id, so the second cleaner on a two-cleaner job couldn't
     // open their own job at all.
-    supabase.from('job_workers').select('contractor_id').eq('job_id', jobId),
+    //
+    // SERVICE CLIENT, deliberately. This is the one read here that is NOT the
+    // caller's own row, and job_workers RLS restricts a contractor to their own.
+    // Under the caller's client the roster would collapse to a single row, and
+    // `rosterIds.length` is the DIVISOR for the hours fallback below — so each
+    // cleaner on a 2-cleaner job would see the whole job's hours and pay instead
+    // of their half. That is a silent financial mis-display, not an error.
+    //
+    // Only `contractor_id` is selected — no pay_rate — and the caller is
+    // authorised immediately below, so this widens nothing the contractor can
+    // see. The staff-preview caller already passes a service client, so both
+    // callers now behave identically.
+    getServiceSupabase().from('job_workers').select('contractor_id').eq('job_id', jobId),
     getJobPhotos(jobId),
   ])
 
