@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Download, Printer } from 'lucide-react'
+import { ArrowLeft, Download, Printer, AlertTriangle } from 'lucide-react'
 import { SendInvoicePanel } from './_components/SendInvoicePanel'
 import { EditInvoiceDetailsButton } from './_components/EditInvoiceDetailsButton'
 import { EditInvoiceFinancials } from './_components/EditInvoiceFinancials'
@@ -21,6 +21,7 @@ import { StatusBadge } from '../../_components/StatusBadge'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 import { CustomInvoiceBadge } from '../_components/CustomInvoiceBadge'
 import clsx from 'clsx'
+import { stripeModeWarning } from '@/lib/stripe'
 
 function fmt(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
@@ -122,6 +123,9 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
   const shareUrl = `${siteUrl}/share/invoice/${invoice.share_token}`
+
+  // Null when Stripe can take real cards; a sentence explaining why not otherwise.
+  const stripeWarning = stripeModeWarning()
 
   // Email greeting — greet the contact PERSON, never the company/account
   // name. Prefer the linked contact, then the invoice's snapshot contact,
@@ -245,6 +249,17 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
           />
         </div>
       </div>
+      {/* Card payment only works against a LIVE Stripe key. A test key produces
+          a Pay button that looks fine and declines every real card, which is
+          invisible until a customer tries. Surface it before staff tell someone
+          to pay that way. Unpaid invoices only — a paid one is moot. */}
+      {stripeWarning && invoice.status !== 'paid' && !invoice.deleted_at && (
+        <div className="mb-6 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+          <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+          <span>{stripeWarning}</span>
+        </div>
+      )}
+
       <div className="flex justify-end mb-6 gap-2">
         <RegenerateShareLink table="invoices" id={invoice.id} />
         {isAdmin && !invoice.deleted_at && (
