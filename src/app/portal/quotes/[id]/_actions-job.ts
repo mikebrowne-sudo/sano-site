@@ -26,6 +26,7 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
+import { copyQuoteItemsToJob } from '@/lib/job-items-from-quote'
 
 type ResidentialItemRow = {
   label: string | null
@@ -81,7 +82,7 @@ export async function createJobFromQuote(quoteId: string) {
   ] = await Promise.all([
     supabase
       .from('quote_items')
-      .select('label, price, sort_order')
+      .select('label, description, price, sort_order')
       .eq('quote_id', quoteId)
       .order('sort_order'),
     supabase
@@ -153,6 +154,24 @@ export async function createJobFromQuote(quoteId: string) {
 
   if (jErr || !job) {
     return { error: `Failed to create job: ${jErr?.message ?? 'insert returned no row'}` }
+  }
+
+  // Carry the quote's add-ons onto the job as job_items (source = 'quote').
+  // Their CHARGE is already inside job_price / the invoice, so they are not
+  // billed again — they exist so a quoted extra (a carpet clean) can be given a
+  // contractor and a set amount on the job page. Best-effort: never fail the
+  // conversion over the pay-side copy.
+  {
+    const { data: { user: itemUser } } = await supabase.auth.getUser()
+    const copyRes = await copyQuoteItemsToJob(
+      supabase as never,
+      job.id as string,
+      residentialItems as never,
+      itemUser?.id ?? null,
+    )
+    if (copyRes.error) {
+      console.error('[quote->job] could not copy quote add-ons to job_items:', copyRes.error)
+    }
   }
 
   // 5. Mark quote as converted — same transition the invoice path
