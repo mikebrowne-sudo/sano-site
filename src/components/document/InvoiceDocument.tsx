@@ -245,6 +245,11 @@ export function InvoiceDocument({
   }
 
   const paymentDetails: PaymentDetailRow[] = sanoPaymentDetails(invoice.invoice_number)
+  // A prepaid invoice is issued BEFORE the work, so "due in 14 days" would be
+  // actively wrong. Say so where the customer is reading how to pay.
+  const paymentCallout = isCashSale
+    ? 'Payment is required before the clean. Please pay using the details below to confirm your booking.'
+    : undefined
   if (trimmedReference) {
     paymentDetails.push({ label: 'Your reference / PO', value: trimmedReference })
   }
@@ -277,6 +282,7 @@ export function InvoiceDocument({
       amountLabel={amountLabel}
       notes={invoice.notes}
       paymentDetails={paymentDetails}
+      paymentCallout={paymentCallout}
       totals={{
         subtotalExGstDisplay: fmt(subtotalExGst),
         gstDisplay: fmt(gstAmount),

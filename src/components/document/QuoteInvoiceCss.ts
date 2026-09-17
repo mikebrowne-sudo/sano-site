@@ -354,6 +354,18 @@ export const QUOTE_INVOICE_CSS = `
     margin-bottom: 24px;
     white-space: pre-line;
   }
+  /* Prepaid callout — payment is required BEFORE the clean, which a customer
+     must not have to find in the terms paragraph. Printed and on screen. */
+  .doc-pay-callout {
+    margin: 0 0 8px;
+    padding: 7px 10px;
+    border-left: 3px solid var(--sage-600);
+    background: var(--sage-50, #f4f7f5);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--sage-800, #1f3d34);
+    line-height: 1.45;
+  }
   .doc-pay-list {
     display: grid;
     grid-template-columns: auto 1fr;
