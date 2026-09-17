@@ -19,6 +19,8 @@ interface Cfg {
   insertErr?: { message: string } | null
   quote?: Record<string, unknown> | null
   contractor?: Record<string, unknown> | null
+  /** A job_items row, when approving pay for an EXTRA rather than the job. */
+  jobItem?: Record<string, unknown> | null
 }
 
 function selectChain(value: unknown) {
@@ -26,6 +28,9 @@ function selectChain(value: unknown) {
   chain.select = () => chain
   chain.eq = () => chain
   chain.neq = () => chain
+  // The duplicate guard is now item-aware: `.is('job_item_id', null)` for the
+  // job's own payable, `.eq('job_item_id', id)` for an extra's.
+  chain.is = () => chain
   chain.limit = () => chain
   chain.maybeSingle = jest.fn().mockResolvedValue({ data: value })
   chain.single = jest.fn().mockResolvedValue({ data: value })
@@ -47,6 +52,7 @@ function makeSupabase(cfg: Cfg) {
     if (table === 'job_workers') return selectChain(cfg.jw ?? null)
     if (table === 'contractors') return selectChain(cfg.contractor ?? (cfg.rate != null ? { hourly_rate: cfg.rate } : null))
     if (table === 'quotes') return selectChain(cfg.quote ?? null)
+    if (table === 'job_items') return selectChain(cfg.jobItem ?? null)
     if (table === 'audit_log') return audit
     if (table === 'contractor_invoices') {
       const base = selectChain(cfg.dup ?? null) as Record<string, unknown>
@@ -446,5 +452,156 @@ describe('approveContractorPay — a set amount per visit IS payable per occurre
     const res = await approveContractorPay('j1', 'c1', { fixedAmount: 150 })
     expect(res).toMatchObject({ ok: true })
     expect(ciInsert.mock.calls[0][0]).toMatchObject({ amount: 150 })
+  })
+})
+
+describe('approveContractorPay — a job EXTRA (job_items)', () => {
+  const CARPET = {
+    id: 'item1', job_id: 'j1', label: 'Carpet clean — lounge & hall',
+    contractor_id: 'dave', cost_amount: 180, cost_basis: 'fixed', cost_hours: null,
+  }
+
+  it('pays a contractor who was NEVER on the job roster', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB,
+      jw: null, // Dave has no job_workers row — this is the whole point.
+      jobItem: CARPET,
+      dup: null,
+      created: { id: 'ci2', invoice_number: 'CI-0100', amount: 180, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+
+    const res = await approveContractorPay('j1', 'dave', { jobItemId: 'item1' })
+
+    expect(res.error).toBeUndefined()
+    expect(ciInsert.mock.calls[0][0]).toMatchObject({
+      contractor_id: 'dave',
+      job_id: 'j1',
+      job_item_id: 'item1',
+      amount: 180,
+      pay_basis: 'fixed',
+      pay_hours: null,
+    })
+  })
+
+  it('names the extra on the remittance, not the job’s clean type', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB,
+      jw: null,
+      jobItem: CARPET,
+      quote: { type_of_clean: 'End of Tenancy Clean', service_type: 'End of Tenancy Clean' },
+      created: { id: 'ci2', invoice_number: 'CI-0100', amount: 180, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+
+    await approveContractorPay('j1', 'dave', { jobItemId: 'item1' })
+
+    // Dave never did the tenancy clean — he did the carpet.
+    expect(ciInsert.mock.calls[0][0]).toMatchObject({ notes: 'Carpet clean — lounge & hall' })
+  })
+
+  it('pays the item’s set amount, ignoring any hourly rate on the roster', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB,
+      // Dave IS on the roster at $40/hr for 6h — irrelevant to the carpet.
+      jw: { pay_rate: 40, pay_type: 'hourly', hours_allocated: 6, extra_hours: 0, extra_hours_status: 'none' },
+      jobItem: CARPET,
+      created: { id: 'ci2', invoice_number: 'CI-0100', amount: 180, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+
+    await approveContractorPay('j1', 'dave', { jobItemId: 'item1' })
+
+    expect(ciInsert.mock.calls[0][0]).toMatchObject({ amount: 180, pay_basis: 'fixed' })
+  })
+
+  it('pays a RETAINED contractor for an extra — the retainer covers the occurrence only', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB,
+      jw: { pay_rate: 1500, pay_type: 'fixed', hours_allocated: null, extra_hours: 0, extra_hours_status: 'none' },
+      jobItem: { ...CARPET, contractor_id: 'myrtle' },
+      created: { id: 'ci3', invoice_number: 'CI-0101', amount: 180, status: 'approved' },
+    })
+    mockedCreate.mockReturnValue(client)
+
+    const res = await approveContractorPay('j1', 'myrtle', { jobItemId: 'item1' })
+
+    expect(res.error).toBeUndefined()
+    expect(ciInsert.mock.calls[0][0]).toMatchObject({ amount: 180, job_item_id: 'item1' })
+  })
+
+  it('still refuses to pay a RETAINED contractor for the occurrence itself', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB,
+      jw: { pay_rate: 1500, pay_type: 'fixed', hours_allocated: null, extra_hours: 0, extra_hours_status: 'none' },
+    })
+    mockedCreate.mockReturnValue(client)
+
+    const res = await approveContractorPay('j1', 'myrtle', {})
+
+    expect(res.error).toMatch(/retainer/i)
+    expect(ciInsert).not.toHaveBeenCalled()
+  })
+
+  it('refuses when the extra has no contractor set', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB, jw: null,
+      jobItem: { ...CARPET, contractor_id: null },
+    })
+    mockedCreate.mockReturnValue(client)
+
+    const res = await approveContractorPay('j1', 'dave', { jobItemId: 'item1' })
+
+    expect(res.error).toMatch(/who did this extra/i)
+    expect(ciInsert).not.toHaveBeenCalled()
+  })
+
+  it('refuses when the extra belongs to a different contractor', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB, jw: null, jobItem: CARPET,
+    })
+    mockedCreate.mockReturnValue(client)
+
+    const res = await approveContractorPay('j1', 'someone-else', { jobItemId: 'item1' })
+
+    expect(res.error).toMatch(/different contractor/i)
+    expect(ciInsert).not.toHaveBeenCalled()
+  })
+
+  it('refuses when the extra belongs to a different job', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB, jw: null,
+      jobItem: { ...CARPET, job_id: 'other-job' },
+    })
+    mockedCreate.mockReturnValue(client)
+
+    const res = await approveContractorPay('j1', 'dave', { jobItemId: 'item1' })
+
+    expect(res.error).toMatch(/different job/i)
+    expect(ciInsert).not.toHaveBeenCalled()
+  })
+
+  it('blocks a second payable for the same extra', async () => {
+    const { client, ciInsert } = makeSupabase({
+      job: COMPLETED_JOB, jw: null, jobItem: CARPET,
+      dup: { id: 'ci-existing' },
+    })
+    mockedCreate.mockReturnValue(client)
+
+    const res = await approveContractorPay('j1', 'dave', { jobItemId: 'item1' })
+
+    expect(res.error).toMatch(/already approved/i)
+    expect(res.alreadyApprovedId).toBe('ci-existing')
+    expect(ciInsert).not.toHaveBeenCalled()
+  })
+
+  it('still requires a roster row for the JOB’s own payable', async () => {
+    const { client, ciInsert } = makeSupabase({ job: COMPLETED_JOB, jw: null })
+    mockedCreate.mockReturnValue(client)
+
+    const res = await approveContractorPay('j1', 'dave', {})
+
+    expect(res.error).toMatch(/not assigned to the job/i)
+    expect(ciInsert).not.toHaveBeenCalled()
   })
 })

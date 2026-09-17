@@ -13,6 +13,7 @@ import { isAdminUser } from '@/lib/is-admin'
 import { getWorkerPayableHours } from '@/lib/job-cost'
 import { computeApprovedAmount } from '@/lib/contractor-pay'
 import { isPayablePerOccurrence, isSetAmountPerVisit } from '@/lib/job-worker-pay-basis'
+import { jobItemPayable } from '@/lib/job-items'
 import { conciseWorkType } from '@/lib/remittance-work-type'
 import { resolveContractorGstSnapshot } from '@/lib/contractor-gst-snapshot'
 import { revalidatePath } from 'next/cache'
@@ -21,6 +22,11 @@ export interface ApproveContractorPayInput {
   approvedHours?: number | null
   fixedAmount?: number | null
   note?: string | null
+  /** Approve pay for a job EXTRA (job_items row) rather than the job occurrence
+   *  itself. The item carries its own contractor, amount and basis, and — see
+   *  the guard notes below — authorises the payable on its own, without a
+   *  job_workers row. */
+  jobItemId?: string | null
 }
 
 export interface ApprovedPayable {
@@ -48,6 +54,16 @@ interface JobRow {
   deleted_at: string | null
   description: string | null
   quote_id: string | null
+}
+
+interface JobItemRow {
+  id: string
+  job_id: string
+  label: string
+  contractor_id: string | null
+  cost_amount: number | null
+  cost_basis: string | null
+  cost_hours: number | null
 }
 
 interface WorkerRow {
@@ -85,7 +101,35 @@ export async function approveContractorPay(
     return { error: 'This job is not completed yet, so pay cannot be approved.' }
   }
 
-  // 2. Contractor must be assigned to the job.
+  // 1b. An EXTRA (job_items row) is paid on its own terms. Load it first, since
+  //     it changes which of the gates below apply.
+  const itemId = input.jobItemId?.trim() || null
+  let item: JobItemRow | null = null
+  if (itemId) {
+    const { data: itemRaw } = await supabase
+      .from('job_items')
+      .select('id, job_id, label, contractor_id, cost_amount, cost_basis, cost_hours')
+      .eq('id', itemId)
+      .maybeSingle()
+    item = itemRaw as JobItemRow | null
+    if (!item) return { error: 'That extra no longer exists.' }
+    if (item.job_id !== jobId) return { error: 'That extra belongs to a different job.' }
+    if (!item.contractor_id) return { error: 'Set who did this extra before approving pay for it.' }
+    if (item.contractor_id !== contractorId) {
+      return { error: 'That extra is assigned to a different contractor.' }
+    }
+  }
+
+  // 2. Contractor must be assigned to the job — FOR THE JOB ITSELF.
+  //
+  //    An EXTRA is deliberately exempt. The person who does the carpet clean is
+  //    frequently a specialist who was never on the job roster, and adding them
+  //    to job_workers to satisfy this check would be worse than skipping it:
+  //    a roster row carries hours_allocated, and resplitJobHours re-splits the
+  //    job's allowed hours across everyone on it, so the specialist would
+  //    silently cut the actual cleaner's payable hours.
+  //
+  //    The item's own contractor_id (checked above) is the authorisation here.
   const { data: jwRaw } = await supabase
     .from('job_workers')
     .select('pay_rate, pay_type, hours_allocated, extra_hours, extra_hours_status')
@@ -93,7 +137,7 @@ export async function approveContractorPay(
     .eq('contractor_id', contractorId)
     .maybeSingle()
   const jw = jwRaw as WorkerRow | null
-  if (!jw) return { error: 'This contractor is not assigned to the job.' }
+  if (!jw && !item) return { error: 'This contractor is not assigned to the job.' }
 
   // 2b. A RETAINER is not payable per occurrence. Enforced here (not just the
   //     UI) so every entry point using this shared action is covered. The check
@@ -104,22 +148,42 @@ export async function approveContractorPay(
   //     A SET AMOUNT PER VISIT ('per_visit') is a different thing and IS
   //     payable per occurrence — the amount simply does not depend on hours.
   //     See src/lib/job-worker-pay-basis.ts.
-  if (!isPayablePerOccurrence(jw.pay_type)) {
+  //
+  //     An EXTRA is exempt. A retainer covers the recurring occurrence, not
+  //     separately-identified additional work: a carpet clean by a retained
+  //     contractor is genuinely extra and genuinely payable. The retainer still
+  //     blocks paying the occurrence itself, which is what it is there for.
+  if (!item && jw && !isPayablePerOccurrence(jw.pay_type)) {
     return { error: 'This worker is on a retainer for this job — not payable per occurrence. Pay them through the fixed-contract contractor-invoice process instead.' }
   }
 
-  // 3. Duplicate protection — one payable per job + contractor. (Admin
-  //    override is a later stage.)
-  const { data: existing } = await supabase
+  // 3. Duplicate protection.
+  //
+  //    THE JOB ITSELF: one payable per (job, contractor) — unchanged. The
+  //    `is('job_item_id', null)` branch is what preserves that exactly: a
+  //    payable raised for an extra must not make the job look already paid,
+  //    and vice versa.
+  //
+  //    AN EXTRA: at most one payable per item. A job item is separately
+  //    identified work, so paying it is not paying the job again — but the same
+  //    item must never be paid twice. The partial unique index
+  //    contractor_invoices_job_item_uniq enforces this at the DB level too.
+  const dupBase = supabase
     .from('contractor_invoices')
     .select('id')
     .eq('job_id', jobId)
     .eq('contractor_id', contractorId)
     .neq('status', 'void')
-    .limit(1)
-    .maybeSingle()
+  const { data: existing } = itemId
+    ? await dupBase.eq('job_item_id', itemId).limit(1).maybeSingle()
+    : await dupBase.is('job_item_id', null).limit(1).maybeSingle()
   if (existing?.id) {
-    return { error: 'This job is already approved for pay for this contractor.', alreadyApprovedId: existing.id as string }
+    return {
+      error: itemId
+        ? 'This extra is already approved for pay.'
+        : 'This job is already approved for pay for this contractor.',
+      alreadyApprovedId: existing.id as string,
+    }
   }
 
   // 4. Resolve the amount. An explicit fixed amount wins; then a set-amount-
@@ -128,11 +192,17 @@ export async function approveContractorPay(
   //    hours; rate from the job snapshot, falling back to the contractor
   //    profile).
   let calc
-  if (input.fixedAmount != null) {
+  if (item) {
+    // An extra is priced by the ITEM, never by the job_workers row — the person
+    // who did it may not have one, and if they do, their hourly rate for the
+    // clean has nothing to do with what the carpet was worth.
+    calc = jobItemPayable(item)
+  } else if (input.fixedAmount != null) {
     calc = computeApprovedAmount({ fixedAmount: input.fixedAmount })
-  } else if (isSetAmountPerVisit(jw.pay_type) && jw.pay_rate != null) {
+  } else if (jw && isSetAmountPerVisit(jw.pay_type) && jw.pay_rate != null) {
     calc = computeApprovedAmount({ fixedAmount: jw.pay_rate })
   } else {
+    if (!jw) return { error: 'This contractor is not assigned to the job.' }
     const effectiveHours = input.approvedHours ?? getWorkerPayableHours({
       pay_rate: jw.pay_rate,
       approved_hours: null,
@@ -196,7 +266,10 @@ export async function approveContractorPay(
       .maybeSingle()
     workType = conciseWorkType((quote ?? {}) as { type_of_clean?: string | null; service_type?: string | null })
   }
-  const note = input.note?.trim() || workType || null
+  // For an extra the label IS the work type, and it is far more useful on a
+  // remittance advice than the job's clean type ("Carpet clean — lounge & hall"
+  // rather than "End of Tenancy Clean", which the specialist never did).
+  const note = input.note?.trim() || (item ? item.label : workType) || null
 
   // 6. Create the approved payable. CI-#### is set by the DB trigger.
   const { data: created, error: insErr } = await supabase
@@ -214,6 +287,9 @@ export async function approveContractorPay(
       // hourly pay and a dollar amount only for a fixed (manually-set) amount.
       pay_basis: calc.basis,
       pay_hours: calc.hours,
+      // Links the payable to the extra it pays for. NULL for an ordinary job
+      // payable, which is what the duplicate guard above keys on.
+      job_item_id: itemId,
       // GST snapshot (amount stays GST-inclusive; gst_amount is the 3/23 portion).
       ...gstFields,
     })
@@ -234,6 +310,8 @@ export async function approveContractorPay(
       job_id: jobId,
       job_number: job.job_number,
       contractor_id: contractorId,
+      job_item_id: itemId,
+      job_item_label: item?.label ?? null,
       basis: calc.basis,
       hours: calc.hours,
       amount: calc.amount,

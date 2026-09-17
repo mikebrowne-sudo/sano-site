@@ -224,17 +224,31 @@ export default async function JobDetailPage({
   // (the cleaner also did the oven) and just as frequently by a specialist who
   // is not, so the picker needs everyone, with the roster flagged.
   const [jobItemsRes, extrasContractorsRes] = await Promise.all([
+    // in_house is selected via a second attempt below when the column exists;
+    // see the fallback under jobItemsRes. Keeping it out of this select means a
+    // pre-migration database still renders the panel instead of erroring.
     supabase
       .from('job_items')
-      .select('id, label, description, price, contractor_id, cost_amount, cost_basis, cost_hours, source, sort_order, contractors ( full_name )')
+      .select('id, label, description, price, contractor_id, cost_amount, cost_basis, cost_hours, source, sort_order, in_house, contractors ( full_name )')
       .eq('job_id', params.id)
       .order('sort_order'),
     supabase.from('contractors').select('id, full_name, hourly_rate').eq('status', 'active').order('full_name'),
   ])
 
+  // The in_house column is added by a hand-run migration
+  // (docs/db/2026-09-18-job-items-in-house.sql), so the code may deploy first.
+  // Retry without it rather than losing the whole panel in that window.
+  const jobItems = jobItemsRes.error
+    ? await supabase
+      .from('job_items')
+      .select('id, label, description, price, contractor_id, cost_amount, cost_basis, cost_hours, source, sort_order, contractors ( full_name )')
+      .eq('job_id', params.id)
+      .order('sort_order')
+    : jobItemsRes
+
   // Payables keyed by the item they pay for, so a committed extra can be locked
   // in the UI instead of failing on save.
-  const itemIds = (jobItemsRes.data ?? []).map((i) => i.id as string)
+  const itemIds = (jobItems.data ?? []).map((i) => i.id as string)
   const { data: itemPayables } = itemIds.length > 0
     ? await supabase
       .from('contractor_invoices')
@@ -247,10 +261,10 @@ export default async function JobDetailPage({
     if (p.job_item_id) payableByItem.set(p.job_item_id, { invoice_number: p.invoice_number, status: p.status })
   }
 
-  const jobExtras = ((jobItemsRes.data ?? []) as unknown as Array<{
+  const jobExtras = ((jobItems.data ?? []) as unknown as Array<{
     id: string; label: string; description: string | null; price: number | null
     contractor_id: string | null; cost_amount: number | null; cost_basis: string | null
-    cost_hours: number | null; source: string | null
+    cost_hours: number | null; source: string | null; in_house?: boolean | null
     contractors: { full_name: string | null } | null
   }>).map((i) => ({
     id: i.id,
@@ -263,6 +277,7 @@ export default async function JobDetailPage({
     cost_basis: i.cost_basis,
     cost_hours: i.cost_hours,
     source: i.source,
+    in_house: i.in_house ?? false,
     payable_number: payableByItem.get(i.id)?.invoice_number ?? null,
     payable_status: payableByItem.get(i.id)?.status ?? null,
   }))
@@ -600,7 +615,12 @@ export default async function JobDetailPage({
         {/* Extras — work on top of the job (carpet, oven, windows). Charged to
             the client and paid to whoever actually did it, which is often NOT
             one of the job's assigned cleaners. */}
-        <JobExtras jobId={job.id} items={jobExtras} contractors={extrasContractors} />
+        <JobExtras
+          jobId={job.id}
+          items={jobExtras}
+          contractors={extrasContractors}
+          jobCompleted={job.status === 'completed' || job.status === 'invoiced'}
+        />
 
         {/* Phase D.1 — access instructions captured during assignment.
             Only rendered when set so jobs without access notes stay

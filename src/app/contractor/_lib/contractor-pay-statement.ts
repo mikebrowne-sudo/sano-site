@@ -29,6 +29,12 @@ export interface RawContractorInvoice {
   title: string | null
   jobCompletedAt: string | null
   jobDeletedAt: string | null
+  /** Set when this payable is for a job EXTRA (a carpet clean etc.) rather than
+   *  the job occurrence. The person who did the extra is often not on the job
+   *  roster at all, so the JOB's title describes work they never touched —
+   *  "End of Tenancy Clean" for someone who only cleaned the carpet. The item
+   *  label is what they actually did, and what they are being paid for. */
+  jobItemLabel?: string | null
 }
 
 export interface RawRemittanceLink {
@@ -142,7 +148,8 @@ export function buildContractorPayData(input: {
         ciId: c.id,
         jobId: c.jobId,
         jobNumber: c.jobNumber,
-        title: c.title,
+        // An extra's own label wins over the job title — see jobItemLabel.
+        title: c.jobItemLabel ?? c.title,
         date: c.date_submitted ?? c.jobCompletedAt ?? null,
         amount: c.amount ?? 0,
       })
