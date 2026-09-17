@@ -154,9 +154,33 @@ function ExtraForm({
     if (!contractorId && !confirmedNoContractor) {
       setConfirmedNoContractor(true)
       setError(
-        'No contractor set — nobody will be paid for this. Press again to save it as in-house work, or pick who did it above.',
+        'Who did this work? Pick a contractor above and set what they are paid. '
+        + 'If nobody is being paid for it, press Add again to save it as in-house work.',
       )
       return
+    }
+
+    // With a contractor chosen, the pay amount is REQUIRED — an assigned extra
+    // with no amount cannot be approved for pay later and would sit unpaid.
+    // The server enforces this too; catching it here keeps the message next to
+    // the field instead of after a round trip.
+    if (contractorId) {
+      const r = Number(rate)
+      if (!Number.isFinite(r) || r <= 0) {
+        setError(
+          basis === 'hourly'
+            ? `Set the hourly rate for ${selectedContractor?.name ?? 'this contractor'}.`
+            : `Set the amount to pay ${selectedContractor?.name ?? 'this contractor'} for this work.`,
+        )
+        return
+      }
+      if (basis === 'hourly') {
+        const h = Number(hours)
+        if (!Number.isFinite(h) || h <= 0) {
+          setError('Enter how many hours this took, so the pay can be worked out.')
+          return
+        }
+      }
     }
 
     const input: JobItemInput = {
@@ -226,7 +250,11 @@ function ExtraForm({
         </div>
       </div>
 
-      <div className="border-t border-sage-200 pt-4">
+      <div className="space-y-3 rounded-lg border border-sage-300 bg-white p-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-sage-500">
+          Contractor pay
+        </p>
+        <div>
         <label className="block text-[13px] font-medium text-sage-800 mb-1">
           Who did it
         </label>
@@ -250,11 +278,21 @@ function ExtraForm({
         </select>
         <p className="mt-1 text-[11px] text-sage-500">
           Often not the cleaner assigned to the job — pick whoever actually did this work.
+          {' '}Not in the list?{' '}
+          <a
+            href="/portal/contractors/new"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sage-700 underline hover:text-sage-900"
+          >
+            Add a new contractor
+          </a>
+          , then reopen this form.
         </p>
-      </div>
+        </div>
 
       {contractorId && (
-        <div>
+        <div className="border-t border-sage-100 pt-3">
           <label className="block text-[13px] font-medium text-sage-800 mb-2">
             How they&rsquo;re paid
           </label>
@@ -323,6 +361,7 @@ function ExtraForm({
           )}
         </div>
       )}
+      </div>
 
       {(liveCharge > 0 || liveCost > 0) && (
         <div className="flex items-center gap-3 rounded bg-white border border-sage-200 px-3 py-2 text-[12px] text-sage-600">
