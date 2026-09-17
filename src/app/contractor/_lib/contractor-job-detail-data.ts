@@ -18,7 +18,10 @@ export interface ContractorJobDetail {
   scheduled_date: string | null
   scheduled_time: string | null
   duration_estimate: string | null
-  allowed_hours: number | null
+  /** The contractor's OWN payable hours for this job — see payableHours below.
+   *  The job's total allowed_hours is deliberately NOT exposed: on a shared job
+   *  it is the sum of everyone's time, which reveals a co-worker's hours and,
+   *  with the rate, their pay. */
   access_instructions: string | null
   status: string
   contractor_notes: string | null
@@ -29,6 +32,10 @@ export interface ContractorJobDetail {
   payRate: number | null
   approvedExtra: number
   payStatus: ContractorPayStatus
+  /** Extras on this job that THIS contractor did (a carpet clean etc.), with
+   *  what they are paid for each. Someone else's extra is never included, and
+   *  the client charge never is either. */
+  myExtras: { id: string; label: string; amount: number; basis: string; hours: number | null }[]
   photos: { id: string; url: string | null; createdAt: string }[]
 }
 
@@ -114,6 +121,29 @@ export async function loadContractorJobDetail(
       })
   }
 
+  // Extras this contractor did on this job. SERVICE CLIENT: job_items is
+  // staff-only under RLS (it holds the client charge and other people's costs),
+  // so the read is scoped here instead — to this job, this contractor, and only
+  // the pay-side columns. `price` is deliberately not selected.
+  const { data: extraRows } = await svc
+    .from('job_items')
+    .select('id, label, cost_amount, cost_basis, cost_hours')
+    .eq('job_id', jobId)
+    .eq('contractor_id', contractorId)
+    .order('sort_order')
+  const myExtras = ((extraRows ?? []) as Array<{
+    id: string; label: string; cost_amount: number | null
+    cost_basis: string | null; cost_hours: number | null
+  }>)
+    .filter((e) => e.cost_amount != null && Number(e.cost_amount) > 0)
+    .map((e) => ({
+      id: e.id,
+      label: e.label,
+      amount: Number(e.cost_amount),
+      basis: e.cost_basis === 'hourly' ? 'hourly' : 'fixed',
+      hours: e.cost_hours == null ? null : Number(e.cost_hours),
+    }))
+
   const payStatus = getContractorPayStatus({
     jobStatus: (job.status as string | null) ?? null,
     jobCompletedAt: (job.completed_at as string | null) ?? null,
@@ -148,7 +178,6 @@ export async function loadContractorJobDetail(
     scheduled_date: (job.scheduled_date as string | null) ?? null,
     scheduled_time: (job.scheduled_time as string | null) ?? null,
     duration_estimate: (job.duration_estimate as string | null) ?? null,
-    allowed_hours: (job.allowed_hours as number | null) ?? null,
     access_instructions: (job.access_instructions as string | null) ?? null,
     status: (job.status as string) ?? 'draft',
     contractor_notes: (job.contractor_notes as string | null) ?? null,
@@ -159,6 +188,7 @@ export async function loadContractorJobDetail(
     payRate: getWorkerRate(costInput, fallbackRate),
     approvedExtra: costInput.extra_hours_status === 'approved' ? (costInput.extra_hours ?? 0) : 0,
     payStatus,
+    myExtras,
     photos: photos.map((p) => ({ id: p.id, url: p.url, createdAt: p.createdAt })),
   }
 }
