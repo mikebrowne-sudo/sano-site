@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
 import { computeDocumentTotals } from '@/lib/doc-totals'
 import { normaliseStructuredScope } from '@/lib/full-property-reset-scope'
+import { sanoPaymentDetails } from '@/lib/sano-bank-details'
 import {
   DocumentLayout,
   type DocumentLineItem,
@@ -262,6 +263,13 @@ export function QuoteDocument({
     ? 'Prices are in New Zealand Dollars and include GST.'
     : 'Prices are in New Zealand Dollars and exclude GST; GST is added to the total.'
   const paymentSentence = isCashSale ? 'Payment is required prior to the clean.' : 'Payment is due within 14 days of the invoice date.'
+
+  // A cash sale asks for payment BEFORE the clean, so the quote has to say where
+  // to send it — the customer may never see an invoice first. An on-account quote
+  // deliberately shows nothing: payment isn't due yet, and the invoice that
+  // follows carries the details.
+  const paymentDetails = isCashSale ? sanoPaymentDetails(quote.quote_number) : undefined
+
   const termsBody = `This quote is valid for 30 days from the issue date. ${gstSentence} ${paymentSentence} Sano Property Services Limited is GST registered (GST No. 148-387-648). No lock-in contracts — you can pause or cancel any time.`
 
   return (
@@ -282,6 +290,7 @@ export function QuoteDocument({
       lineItems={lineItems}
       amountLabel={amountLabel}
       notes={housekeepingNotes}
+      paymentDetails={paymentDetails}
       totals={{
         subtotalExGstDisplay: fmt(subtotalExGst),
         gstDisplay: fmt(gstAmount),
