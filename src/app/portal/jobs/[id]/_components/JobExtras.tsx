@@ -250,6 +250,16 @@ function ExtraForm({
         </select>
         <p className="mt-1 text-[11px] text-sage-500">
           Often not the cleaner assigned to the job — pick whoever actually did this work.
+          {' '}Not in the list?{' '}
+          <a
+            href="/portal/contractors/new"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sage-700 underline hover:text-sage-900"
+          >
+            Add a new contractor
+          </a>
+          , then reopen this form.
         </p>
       </div>
 

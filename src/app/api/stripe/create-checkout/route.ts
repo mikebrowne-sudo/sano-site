@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getStripe } from '@/lib/stripe'
+import { computeDocumentTotals } from '@/lib/doc-totals'
 
 function getPublicSupabase() {
   return createClient(
@@ -38,11 +39,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invoice already paid' }, { status: 400 })
     }
 
+    // The charged amount MUST equal the invoice's own grand total, GST and all.
+    //
+    // This previously charged base + add-ons - discount, which silently omitted
+    // GST on a GST-EXCLUSIVE invoice: the customer would see $920 on the document
+    // and be charged $800 at the checkout. computeDocumentTotals is the same
+    // function InvoiceDocument renders from, so the two cannot drift again.
     const items = (invoice.invoice_items ?? []) as { price: number }[]
     const addons = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
-    const total = (invoice.base_price ?? 0) + addons - (invoice.discount ?? 0)
+    const lineTotal = (invoice.base_price ?? 0) + addons - (invoice.discount ?? 0)
+    const { total } = computeDocumentTotals(lineTotal, !!invoice.gst_included)
 
-    if (total <= 0) {
+    if (!Number.isFinite(total) || total <= 0) {
       return NextResponse.json({ error: 'Invoice total must be greater than zero' }, { status: 400 })
     }
 
@@ -62,7 +70,9 @@ export async function POST(req: NextRequest) {
             unit_amount: Math.round(total * 100),
             product_data: {
               name: `Invoice ${invoice.invoice_number}`,
-              description: 'Sano cleaning services',
+              // `total` is the grand total either way, so the charge always
+              // includes GST regardless of how the invoice stores its prices.
+              description: 'Sano cleaning services (incl. GST)',
             },
           },
           quantity: 1,
