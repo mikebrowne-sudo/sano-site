@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
 import { computeDocumentTotals } from '@/lib/doc-totals'
 import { computeInvoiceDueDate } from '@/lib/invoice-dates'
+import { sanoPaymentDetails, type PaymentDetailRow } from '@/lib/sano-bank-details'
 import {
   DocumentLayout,
   type DocumentLineItem,
@@ -243,11 +244,7 @@ export function InvoiceDocument({
     lineItems.push({ description: 'Discount', amount: `-${fmt(invoice.discount ?? 0)}` })
   }
 
-  const paymentDetails: { label: string; value: string }[] = [
-    { label: 'Account', value: 'Sano Property Services Limited' },
-    { label: 'Number', value: '12-3627-0005597-00' },
-    { label: 'Reference', value: invoice.invoice_number },
-  ]
+  const paymentDetails: PaymentDetailRow[] = sanoPaymentDetails(invoice.invoice_number)
   if (trimmedReference) {
     paymentDetails.push({ label: 'Your reference / PO', value: trimmedReference })
   }
