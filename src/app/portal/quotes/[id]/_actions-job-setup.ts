@@ -21,6 +21,7 @@ import { redirect } from 'next/navigation'
 import { assertQuoteConvertible } from '@/lib/quote-conversion-guard'
 import { computeQuoteTotal } from '@/lib/quote-total'
 import type { JobSetupInput, ReadyContractor, ConvertActionError } from './_lib-job-setup'
+import { copyQuoteItemsToJob } from '@/lib/job-items-from-quote'
 
 type ResidentialItemRow = {
   label: string | null
@@ -132,7 +133,7 @@ export async function createJobFromQuoteWithSetup(
 
   // Pull both scope shapes so we can snapshot whichever applies.
   const [{ data: residentialItems }, { data: commercialScope }] = await Promise.all([
-    supabase.from('quote_items').select('label, price, sort_order').eq('quote_id', quoteId).order('sort_order'),
+    supabase.from('quote_items').select('label, description, price, sort_order').eq('quote_id', quoteId).order('sort_order'),
     supabase.from('commercial_scope_items')
       .select('area_type, task_name, frequency_label, task_group, display_order, included')
       .eq('quote_id', quoteId).order('display_order'),
@@ -262,6 +263,24 @@ export async function createJobFromQuoteWithSetup(
 
   if (jErr || !job) {
     return { error: `Failed to create job: ${jErr?.message ?? 'insert returned no row'}` }
+  }
+
+  // Carry the quote's add-ons onto the job as job_items (source = 'quote').
+  // Their CHARGE is already inside job_price / the invoice, so they are not
+  // billed again — they exist so a quoted extra (a carpet clean) can be given a
+  // contractor and a set amount on the job page. Best-effort: never fail the
+  // conversion over the pay-side copy.
+  {
+    const { data: { user: itemUser } } = await supabase.auth.getUser()
+    const copyRes = await copyQuoteItemsToJob(
+      supabase as never,
+      job.id as string,
+      residentialItems as never,
+      itemUser?.id ?? null,
+    )
+    if (copyRes.error) {
+      console.error('[quote->job] could not copy quote add-ons to job_items:', copyRes.error)
+    }
   }
 
   // ── Mark quote converted (mirrors the legacy path) ─────────────────

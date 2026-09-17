@@ -99,7 +99,9 @@ export async function createInvoiceFromJob(jobId: string) {
   // Pull the client's payment terms so the due date respects the
   // configured terms. We also need the quote's payment_type when
   // available — payment_type lives on the quote, not the job.
-  const [{ data: client }, { data: quote }, { data: quoteItems }] = await Promise.all([
+  const [{ data: client }, { data: quote }, { data: quoteItems },
+    { data: jobItemRows },
+  ] = await Promise.all([
     supabase.from('clients').select('payment_type, payment_terms').eq('id', job.client_id).maybeSingle(),
     job.quote_id
       ? supabase.from('quotes').select('payment_type, property_category, type_of_clean, service_type, frequency, scope_size, notes').eq('id', job.quote_id).maybeSingle()
@@ -113,11 +115,24 @@ export async function createInvoiceFromJob(jobId: string) {
           .select('label, description, price, sort_order')
           .eq('quote_id', job.quote_id).order('sort_order')
       : Promise.resolve({ data: [] as unknown[] }),
+    // EXTRAS added on the job itself (job_items). Unlike the quote add-ons
+    // above these are NOT inside job_price, so they are additive: each becomes
+    // a new invoice line and raises the total. Only source='added' qualifies —
+    // a source='quote' row's charge is already in job_price and billing it
+    // again would double-charge the client.
+    supabase.from('job_items')
+      .select('label, description, price, source, sort_order')
+      .eq('job_id', jobId).eq('source', 'added').order('sort_order'),
   ])
   const addonRows = (quoteItems ?? []) as {
     label: string; description: string | null; price: number; sort_order: number
   }[]
   const addonsTotal = addonRows.reduce((sum, r) => sum + Number(r.price ?? 0), 0)
+  // Extras added on the job. Additive to job_price, so they raise the invoice
+  // total rather than being carved out of base_price like the quote add-ons.
+  const extraRows = (jobItemRows ?? []) as {
+    label: string; description: string | null; price: number | null; sort_order: number | null
+  }[]
   const q = quote as {
     payment_type?: string | null
     property_category?: string | null
@@ -226,6 +241,37 @@ export async function createInvoiceFromJob(jobId: string) {
     )
     if (iiErr) {
       return { error: `Invoice created but add-on lines failed: ${iiErr.message}` }
+    }
+  }
+
+  // 3a-ii. Append the job's EXTRAS as further invoice lines.
+  //
+  // These are the carpet clean found on site: work agreed after the job was
+  // created, so it is in neither the quote nor job_price. Each becomes a new
+  // line and raises the invoice total by its price — which is the whole point,
+  // and the opposite of the quote add-ons above, whose total is carved OUT of
+  // base_price because job_price already contains them.
+  //
+  // sort_order continues past the quote lines so the invoice reads in the order
+  // the work was agreed: quoted items first, then what was added on the day.
+  //
+  // The contractor who did the extra is deliberately NOT named on the invoice,
+  // and neither is what they were paid. The client bought Sano.
+  if (extraRows.length > 0) {
+    const baseSort = addonRows.length > 0
+      ? Math.max(...addonRows.map((r) => Number(r.sort_order ?? 0))) + 1
+      : 0
+    const { error: exErr } = await supabase.from('invoice_items').insert(
+      extraRows.map((it, i) => ({
+        invoice_id: invoice.id,
+        label: it.label,
+        description: it.description ?? null,
+        price: Number(it.price ?? 0),
+        sort_order: baseSort + i,
+      })),
+    )
+    if (exErr) {
+      return { error: `Invoice created but the job's extras failed to bill: ${exErr.message}` }
     }
   }
 

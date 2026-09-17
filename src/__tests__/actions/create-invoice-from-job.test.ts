@@ -13,6 +13,10 @@ function makeSupabase(cfg: {
   job: Record<string, unknown>
   client?: Record<string, unknown> | null
   quote?: Record<string, unknown> | null
+  /** job_items rows with source='added' — the job's extras. */
+  jobItems?: Record<string, unknown>[]
+  /** quote_items rows — add-ons already inside job_price. */
+  quoteItems?: Record<string, unknown>[]
 }) {
   const jobSingle = jest.fn().mockResolvedValue({ data: cfg.job, error: null })
   const clientMaybe = jest.fn().mockResolvedValue({ data: cfg.client ?? { payment_type: 'on_account', payment_terms: '14_days' } })
@@ -21,6 +25,7 @@ function makeSupabase(cfg: {
     select: () => ({ single: jest.fn().mockResolvedValue({ data: { id: 'inv1' }, error: null }) }),
   })
   const jobsUpdate = jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) })
+  const invoiceItemsInsert = jest.fn().mockResolvedValue({ error: null })
 
   const from = jest.fn((table: string) => {
     if (table === 'jobs') {
@@ -36,13 +41,23 @@ function makeSupabase(cfg: {
     // the action queries quote_items. Default to none; tests that care about
     // add-ons override this.
     if (table === 'quote_items') {
-      return { select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [] }) }) }) }
+      return { select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: cfg.quoteItems ?? [] }) }) }) }
     }
-    if (table === 'invoice_items') return { insert: jest.fn().mockResolvedValue({ error: null }) }
+    // Extras added on the job itself (job_items, source='added'). Unlike the
+    // quote add-ons these are ADDITIVE to job_price, so they become new invoice
+    // lines. Default to none; the extras tests override it.
+    if (table === 'job_items') {
+      return {
+        select: () => ({
+          eq: () => ({ eq: () => ({ order: () => Promise.resolve({ data: cfg.jobItems ?? [] }) }) }),
+        }),
+      }
+    }
+    if (table === 'invoice_items') return { insert: invoiceItemsInsert }
     return {}
   })
 
-  return { client: { from }, invoiceInsert }
+  return { client: { from }, invoiceInsert, invoiceItemsInsert }
 }
 
 const JOB = {
@@ -118,5 +133,75 @@ describe('createInvoiceFromJob — quote add-ons', () => {
     const jobPrice = 415
     const invoiceBase = Math.max(0, jobPrice - 0)
     expect(invoiceBase).toBe(415)
+  })
+})
+
+describe('createInvoiceFromJob — job extras (job_items)', () => {
+  it('bills an extra as a new invoice line on top of base_price', async () => {
+    const { client, invoiceInsert, invoiceItemsInsert } = makeSupabase({
+      job: { ...JOB, job_price: 600 },
+      jobItems: [
+        { label: 'Carpet clean — lounge & hall', description: 'Two rooms', price: 300, source: 'added', sort_order: 0 },
+      ],
+    })
+    mockedCreate.mockReturnValue(client)
+
+    await createInvoiceFromJob('j1')
+
+    // base_price is untouched by the extra — the extra is ADDITIVE, so the
+    // invoice total becomes 600 + 300 rather than the extra being carved out.
+    expect(invoiceInsert.mock.calls[0][0]).toMatchObject({ base_price: 600 })
+
+    const lines = invoiceItemsInsert.mock.calls.at(-1)![0] as Record<string, unknown>[]
+    expect(lines).toHaveLength(1)
+    expect(lines[0]).toMatchObject({
+      invoice_id: 'inv1',
+      label: 'Carpet clean — lounge & hall',
+      description: 'Two rooms',
+      price: 300,
+    })
+  })
+
+  it('never puts the contractor or what they were paid on the invoice', async () => {
+    const { client, invoiceItemsInsert } = makeSupabase({
+      job: { ...JOB, job_price: 600 },
+      jobItems: [
+        { label: 'Carpet clean', description: null, price: 300, source: 'added', sort_order: 0 },
+      ],
+    })
+    mockedCreate.mockReturnValue(client)
+
+    await createInvoiceFromJob('j1')
+
+    const lines = invoiceItemsInsert.mock.calls.at(-1)![0] as Record<string, unknown>[]
+    expect(Object.keys(lines[0]).sort()).toEqual(
+      ['description', 'invoice_id', 'label', 'price', 'sort_order'],
+    )
+  })
+
+  it('appends extras AFTER the quote add-ons, continuing the sort order', async () => {
+    const { client, invoiceItemsInsert } = makeSupabase({
+      job: { ...JOB, job_price: 900 },
+      quoteItems: [{ label: 'Windows', description: null, price: 180, sort_order: 0 }],
+      jobItems: [{ label: 'Oven clean', description: null, price: 80, source: 'added', sort_order: 0 }],
+    })
+    mockedCreate.mockReturnValue(client)
+
+    await createInvoiceFromJob('j1')
+
+    // Two separate inserts: quote add-ons first, then the job's extras.
+    const quoteLines = invoiceItemsInsert.mock.calls[0][0] as Record<string, unknown>[]
+    const extraLines = invoiceItemsInsert.mock.calls[1][0] as Record<string, unknown>[]
+    expect(quoteLines[0]).toMatchObject({ label: 'Windows', sort_order: 0 })
+    expect(extraLines[0]).toMatchObject({ label: 'Oven clean', sort_order: 1 })
+  })
+
+  it('does not insert any extra line when the job has none', async () => {
+    const { client, invoiceItemsInsert } = makeSupabase({ job: { ...JOB, job_price: 415 } })
+    mockedCreate.mockReturnValue(client)
+
+    await createInvoiceFromJob('j1')
+
+    expect(invoiceItemsInsert).not.toHaveBeenCalled()
   })
 })

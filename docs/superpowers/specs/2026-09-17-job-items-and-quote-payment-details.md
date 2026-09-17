@@ -417,6 +417,91 @@ Two changes, kept separate:
   `page.tsx:702-708` already does in the view layer. Small, mechanical, removes
   a live mis-costing, and touching this file twice for two reasons would be worse.
 
+---
+
+# Addendum — 2026-09-17, after PR 1/2 merged (#598)
+
+Operator clarification: **the cleaner assigned to the job is often not the
+person who does the extra.** A carpet clean is frequently a specialist who was
+never on the job roster at all.
+
+The data model already allowed this (`job_items.contractor_id` is independent of
+`job_workers`), but the *approval path* did not, and this had been
+under-planned.
+
+## The blocker this exposes
+
+`approveContractorPay` refuses any contractor without a `job_workers` row:
+
+```
+src/app/portal/contractor-invoices/_actions-approve-pay.ts:94
+  if (!jw) return { error: 'This contractor is not assigned to the job.' }
+```
+
+Contractor job visibility is gated the same way
+(`src/app/contractor/_lib/contractor-job-detail-data.ts:66`). So today a carpet
+specialist can neither be paid for the job nor see it.
+
+## Decision: the item authorises its own payable (option A)
+
+An item payable authorises on `job_items.contractor_id` alone. No roster row is
+created.
+
+**The rejected alternative** was auto-inserting a `job_workers` row when an item
+is assigned. It is cheaper and reuses the existing path, but a roster row carries
+`hours_allocated`, and `resplitJobHours`
+(`src/app/portal/jobs/[id]/_actions-workers.ts:35-82`) re-splits the job's
+allowed hours across *everyone* on the roster. Adding the carpet specialist would
+silently cut the actual cleaner's payable hours. That is a money bug, and this
+codebase has been bitten by exactly that class of defect before (QUO-0313,
+JOB-0289). Two authorisation paths, kept explicit and tested, is the cheaper risk.
+
+## Operator decisions taken
+
+1. **No client-approval gate on an extra.** Staff add it and it bills. The
+   operator has already agreed it verbally on site, and the invoice can still be
+   corrected before sending. No tickbox, no accept flow.
+2. **A non-roster contractor sees the extra only** — label, address, date and
+   their own pay. NOT the main clean, NOT the roster, NOT the client charge.
+3. **Contractor dropdown is grouped**: the job's assigned workers first under an
+   "On this job" heading, then all other contractors, then "No one / in-house".
+   The specialist is always one scroll away, never hidden.
+
+## Client-facing rule
+
+The invoice shows the extra as an ordinary line — label and price, placed after
+the quoted add-ons. It **never** names the contractor who did it and **never**
+exposes `cost_amount`. A unit test pins that `cost_amount` cannot reach a
+customer-facing document.
+
+## Revised guard changes (PR 6)
+
+Three narrow changes, each item-scoped, none weakening the job payable:
+
+| Guard | Job payable | Item payable |
+|---|---|---|
+| Duplicate | one per (job, contractor) — **unchanged** | at most one per item |
+| Roster row required | **yes, unchanged** | no — `job_items.contractor_id` authorises |
+| Retainer gate | **yes, unchanged** | exempt — an extra is genuinely extra work |
+
+The `job_item_id IS NULL` branch of the duplicate query is what preserves
+today's behaviour exactly.
+
+## Revised build order
+
+| PR | Contents | Risk |
+|---|---|---|
+| 3 | Extras panel on the job page | Low |
+| 4 | Quote→job conversion writes `source: 'quote'` items | Medium |
+| 5 | `createInvoiceFromJob` appends item lines | Medium — billing |
+| 6 | Pay approval: duplicate + roster + retainer guards | **HARD STOP** |
+| 7 | Contractor sees their own extra | Low |
+
+PR 7 is new, and falls directly out of option A: without it a specialist is paid
+but cannot see what for.
+
+---
+
 ## Explicitly out of scope
 
 - Stripe Pay-Now on quotes (decided against, above).
