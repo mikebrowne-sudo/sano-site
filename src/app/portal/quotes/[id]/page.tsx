@@ -477,6 +477,7 @@ export default async function QuoteDetailPage({
         primaryContactEmail={quote.contact_email ?? ''}
         accountsEmail={quote.accounts_email ?? ''}
         clientReference={quote.client_reference ?? ''}
+        paymentType={(quote as { payment_type?: string | null }).payment_type ?? null}
       />
 
       {/* Copy-paste email accept-block (for sending from your own inbox). */}

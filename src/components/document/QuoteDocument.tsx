@@ -269,6 +269,11 @@ export function QuoteDocument({
   // deliberately shows nothing: payment isn't due yet, and the invoice that
   // follows carries the details.
   const paymentDetails = isCashSale ? sanoPaymentDetails(quote.quote_number) : undefined
+  // Stated where the customer is already looking at how to pay, not only in the
+  // terms paragraph at the foot of the page.
+  const paymentCallout = isCashSale
+    ? 'Payment is required before the clean. Once you accept, please pay using the details below and we will confirm your booking.'
+    : undefined
 
   const termsBody = `This quote is valid for 30 days from the issue date. ${gstSentence} ${paymentSentence} Sano Property Services Limited is GST registered (GST No. 148-387-648). No lock-in contracts — you can pause or cancel any time.`
 
@@ -291,6 +296,7 @@ export function QuoteDocument({
       amountLabel={amountLabel}
       notes={housekeepingNotes}
       paymentDetails={paymentDetails}
+      paymentCallout={paymentCallout}
       totals={{
         subtotalExGstDisplay: fmt(subtotalExGst),
         gstDisplay: fmt(gstAmount),

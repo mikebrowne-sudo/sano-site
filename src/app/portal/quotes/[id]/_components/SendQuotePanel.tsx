@@ -33,6 +33,7 @@ export function SendQuotePanel({
   accountsEmail = '',
   clientReference = '',
   sendLabel = 'Send to customer',
+  paymentType,
   variant = 'default',
 }: {
   quoteId: string
@@ -47,6 +48,10 @@ export function SendQuotePanel({
   primaryContactEmail?: string
   accountsEmail?: string
   clientReference?: string
+  /** 'cash_sale' (prepaid) or 'on_account'. A prepaid quote asks for payment
+   *  BEFORE the clean, so the default email has to say so — the customer may
+   *  never open the attached document. */
+  paymentType?: string | null
   /** Override the customer-send button label (e.g. "Send again" on an
    *  accepted quote, where the send is a copy of an agreed document
    *  rather than the original issue). */
@@ -68,8 +73,18 @@ export function SendQuotePanel({
   const [to, setTo] = useState(defaultTo)
   const [ccAccounts, setCcAccounts] = useState(false)
   const [subject, setSubject] = useState(`Quote ${quoteNumber} from Sano`)
+  // Prepaid work is paid BEFORE the clean, so the default email says so and
+  // gives the account. The customer may never open the attached document, and
+  // "we will invoice you later" is the reasonable assumption otherwise.
+  // Staff can still edit every word before sending.
+  const prepaidLine =
+    paymentType === 'cash_sale'
+      ? `
+
+Payment is required before the clean. Once you are happy to go ahead, please pay to Sano Property Services Limited, 12-3627-0005597-00, using ${quoteNumber} as the reference, and we will confirm your booking.`
+      : ''
   const [message, setMessage] = useState(
-    `${greeting}\n\nPlease find your quote ${quoteNumber} from Sano via the link below.${referenceLine}\n\nIf you have any questions or would like to go ahead, just let us know.\n\nKind regards,\nThe Sano team`,
+    `${greeting}\n\nPlease find your quote ${quoteNumber} from Sano via the link below.${referenceLine}${prepaidLine}\n\nIf you have any questions or would like to go ahead, just let us know.\n\nKind regards,\nThe Sano team`,
   )
   const [confirmCustomer, setConfirmCustomer] = useState(false)
 

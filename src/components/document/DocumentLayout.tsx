@@ -119,8 +119,13 @@ export interface DocumentLayoutProps {
   amountLabel?: string
   /** Notes block (free text). Optional. */
   notes?: string | null
-  /** Invoice-only Payment Details block. Pass null/undefined for quotes. */
+  /** Payment Details block (account / number / reference). */
   paymentDetails?: ReadonlyArray<{ label: string; value: string }>
+  /** A short, prominent line stating WHEN payment is due, shown directly above
+   *  the payment details. Used for prepaid (cash sale) work, where "pay before
+   *  the clean" is the single most important thing on the page and must not be
+   *  left buried in the terms paragraph at the bottom. */
+  paymentCallout?: string | null
   /** Totals (subtotal, gst, total). */
   totals: DocumentTotals
   /** Terms paragraph — varies by kind + payment_type. */
@@ -145,6 +150,7 @@ export function DocumentLayout({
   amountLabel = 'Amount (incl. GST)',
   notes,
   paymentDetails,
+  paymentCallout,
   totals,
   termsBody,
   footer,
@@ -268,6 +274,9 @@ export function DocumentLayout({
                 {paymentDetails && paymentDetails.length > 0 && (
                   <>
                     <h4>Payment details</h4>
+                    {paymentCallout && (
+                      <p className="doc-pay-callout">{paymentCallout}</p>
+                    )}
                     <dl className="doc-pay-list">
                       {paymentDetails.map((row) => (
                         <PayRow key={row.label} label={row.label} value={row.value} />

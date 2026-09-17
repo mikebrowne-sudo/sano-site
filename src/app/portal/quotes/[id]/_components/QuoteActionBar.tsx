@@ -41,6 +41,9 @@ export interface QuoteActionBarProps {
   primaryContactEmail: string
   accountsEmail: string
   clientReference: string
+  /** 'cash_sale' (prepaid) or 'on_account' — drives the prepaid line in the
+   *  default customer email. */
+  paymentType?: string | null
 }
 
 export function QuoteActionBar({
@@ -58,6 +61,7 @@ export function QuoteActionBar({
   primaryContactEmail,
   accountsEmail,
   clientReference,
+  paymentType,
 }: QuoteActionBarProps) {
   const s = (status ?? 'draft').toLowerCase()
 
@@ -122,6 +126,7 @@ export function QuoteActionBar({
               primaryContactEmail={primaryContactEmail}
               accountsEmail={accountsEmail}
               clientReference={clientReference}
+              paymentType={paymentType}
             />
           </>
         )}
@@ -157,6 +162,7 @@ export function QuoteActionBar({
               primaryContactEmail={primaryContactEmail}
               accountsEmail={accountsEmail}
               clientReference={clientReference}
+              paymentType={paymentType}
             />
           </>
         )}
@@ -204,6 +210,7 @@ export function QuoteActionBar({
               primaryContactEmail={primaryContactEmail}
               accountsEmail={accountsEmail}
               clientReference={clientReference}
+              paymentType={paymentType}
               sendLabel="Send again"
               variant="resend"
             />
