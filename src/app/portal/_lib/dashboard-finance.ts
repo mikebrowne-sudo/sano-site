@@ -147,22 +147,36 @@ export async function buildIncomeProjection(
     cm += 1
     if (cm === 13) { cm = 1; cy += 1 }
   }
-  const rangeStart = monthBounds(months[0].y, months[0].m).from
+  // No rangeStart: overdue invoices are deliberately fetched from any earlier
+  // date and rolled into the current month (see the sent-invoice block below).
   const rangeEnd = monthBounds(months[months.length - 1].y, months[months.length - 1].m).to
 
   const totals: Record<string, number> = {}
   for (const { y, m } of months) totals[monthKey(y, m)] = 0
 
   // 1. Unpaid sent invoices, by DUE month.
+  //
+  // OVERDUE invoices land in the CURRENT month, not the month they were
+  // originally due. Money that should already be in is still expected — you
+  // want it now — so burying it in a past month made it vanish from the
+  // projection entirely. Previously the query started at rangeStart (the
+  // current month), so anything overdue was never even fetched: $1,420 across
+  // June and July was invisible on the chart while still genuinely owed.
+  //
+  // No lower bound on due_date for that reason; the upper bound still applies
+  // so invoices due beyond the projection window stay out.
+  const currentKey = monthKey(months[0].y, months[0].m)
   const { data: sentInv } = await supabase
     .from('invoices')
     .select('base_price, discount, due_date, invoice_items ( price )')
     .eq('status', 'sent')
     .is('deleted_at', null)
     .not('due_date', 'is', null)
-    .gte('due_date', rangeStart).lte('due_date', rangeEnd)
+    .lte('due_date', rangeEnd)
   for (const i of (sentInv ?? []) as Array<Record<string, unknown>>) {
-    const key = String(i.due_date).slice(0, 7)
+    const dueKey = String(i.due_date).slice(0, 7)
+    // Anything due before this month is overdue → count it as expected NOW.
+    const key = dueKey < currentKey ? currentKey : dueKey
     if (!(key in totals)) continue
     const items = (i.invoice_items ?? []) as Array<{ price: number | null }>
     const itemsTotal = items.reduce((s, it) => s + (it.price ?? 0), 0)
