@@ -65,6 +65,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
     'contractor.job_reminder_day_before': true,
     'contractor.job_updated':             true,
     'contractor.job_cancelled':           true,
+    'contractor.confirm_hours':           true,
     'customer.booking_confirmation':      true,
     'customer.job_reminder_day_before':   true,
     'customer.cleaner_on_the_way':        true,
