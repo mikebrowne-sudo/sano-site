@@ -61,6 +61,11 @@ export interface InvoiceDocumentInput {
   accounts_contact_name?: string | null
   accounts_email?: string | null
   client_reference?: string | null
+  /** Invoice-level "Billed to" override (e.g. the client's company).
+   * When set it replaces the client name on this invoice only. */
+  bill_to_name?: string | null
+  /** Invoice-level "Attn:" override (e.g. the person at the company). */
+  bill_to_attention?: string | null
   clients?: {
     name: string
     company_name?: string | null
@@ -174,11 +179,22 @@ export function InvoiceDocument({
   // header (alongside Invoice # / Issued / Due) and also in the Payment
   // Details block below for bank-transfer reference routing. Including it
   // in the address block as well would render the value three times.
+  //
+  // bill_to_name / bill_to_attention are per-invoice overrides for when a
+  // customer asks for the invoice to be addressed differently (e.g. to
+  // their company, attention to them). They live on the invoice, not the
+  // client, so renaming never rewrites past invoices. When the name is
+  // overridden the client's company line is dropped (it's usually what the
+  // override says), and an Attn equal to the name is suppressed.
+  const billToName = (invoice.bill_to_name ?? '').trim() || null
+  const billToAttn = (invoice.bill_to_attention ?? '').trim() || null
+  const partyName = billToName ?? client?.name ?? '—'
+  const rawAttn = billToAttn ?? invoice.accounts_contact_name ?? invoice.contact_name ?? null
   const toParty: DocumentParty = {
-    name: client?.name ?? '—',
-    company: client?.company_name ?? null,
+    name: partyName,
+    company: billToName ? null : (client?.company_name ?? null),
     address: client?.service_address ?? null,
-    attn: invoice.accounts_contact_name ?? invoice.contact_name ?? null,
+    attn: rawAttn && rawAttn.trim().toLowerCase() !== partyName.trim().toLowerCase() ? rawAttn : null,
     phone: invoice.contact_phone ?? client?.phone ?? null,
     email: invoice.accounts_email ?? invoice.contact_email ?? client?.email ?? null,
   }

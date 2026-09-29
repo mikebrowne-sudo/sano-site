@@ -25,6 +25,8 @@ export interface InvoiceDetailValues {
   contact_phone: string | null
   accounts_contact_name: string | null
   accounts_email: string | null
+  bill_to_name: string | null
+  bill_to_attention: string | null
   date_issued: string | null
   due_date: string | null
 }
@@ -32,10 +34,13 @@ export interface InvoiceDetailValues {
 export function EditInvoiceDetailsButton({
   invoiceId,
   isSent,
+  client,
   values,
 }: {
   invoiceId: string
   isSent: boolean
+  /** The linked client — powers the one-click "Bill to company" swap. */
+  client?: { name: string | null; company_name: string | null }
   values: InvoiceDetailValues
 }) {
   const router = useRouter()
@@ -85,6 +90,10 @@ export function EditInvoiceDetailsButton({
     )
   }
 
+  const clientName = (client?.name ?? '').trim()
+  const companyName = (client?.company_name ?? '').trim()
+  const canBillToCompany = !!companyName && !!clientName
+
   const input = 'w-full rounded-lg border border-sage-200 px-3 py-2 text-sm text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500'
   const text = (k: keyof InvoiceDetailValues, label: string, type = 'text') => (
     <label className="block">
@@ -106,6 +115,33 @@ export function EditInvoiceDetailsButton({
           This invoice has already been sent. Changes will be recorded, but the invoice will not be resent automatically.
         </div>
       )}
+
+      <div className="rounded-lg border border-sage-200 bg-white p-3 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-xs font-semibold text-sage-700">Billed to (as shown on the invoice)</span>
+          <div className="flex flex-wrap gap-2">
+            {canBillToCompany && (
+              <button type="button"
+                onClick={() => setV((p) => ({ ...p, bill_to_name: companyName, bill_to_attention: clientName }))}
+                className="text-xs font-medium text-sage-700 border border-sage-200 rounded-lg px-2.5 py-1 hover:bg-sage-50">
+                Bill to {companyName}, Attn: {clientName}
+              </button>
+            )}
+            {(v.bill_to_name || v.bill_to_attention) && (
+              <button type="button"
+                onClick={() => setV((p) => ({ ...p, bill_to_name: null, bill_to_attention: null }))}
+                className="text-xs text-sage-500 hover:text-sage-700 underline">
+                Reset to client name
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {text('bill_to_name', 'Name on invoice (blank = client name)')}
+          {text('bill_to_attention', 'Attention to (blank = contact)')}
+        </div>
+        <p className="text-[11px] text-sage-500">Only changes this invoice. The client record is not renamed.</p>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {text('contact_name', 'Primary contact')}

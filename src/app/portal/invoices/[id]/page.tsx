@@ -53,6 +53,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         override_confirmed_by, override_confirmed_at, calculated_price,
         contact_id, contact_name, contact_email, contact_phone,
         accounts_contact_name, accounts_email,
+        bill_to_name, bill_to_attention,
         client_reference, requires_po,
         job_id, source,
         deleted_at,
@@ -296,6 +297,13 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         <Section title="Client">
           <p className="font-medium text-sage-800">{client?.name ?? '—'}</p>
           {client?.company_name && <p className="text-sage-600 text-sm">{client.company_name}</p>}
+          {(invoice.bill_to_name || invoice.bill_to_attention) && (
+            <p className="mt-2 text-sm text-sage-700">
+              <span className="text-sage-500">Invoice addressed to: </span>
+              <span className="font-medium">{invoice.bill_to_name || client?.name}</span>
+              {invoice.bill_to_attention && <> · Attn: {invoice.bill_to_attention}</>}
+            </p>
+          )}
 
           {(invoice.contact_name || invoice.contact_email || invoice.accounts_email || invoice.client_reference || invoice.requires_po) && (
             <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
@@ -342,6 +350,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             <EditInvoiceDetailsButton
               invoiceId={invoice.id}
               isSent={['sent', 'paid', 'overdue'].includes(invoice.status ?? '')}
+              client={{ name: client?.name ?? null, company_name: client?.company_name ?? null }}
               values={{
                 notes: invoice.notes ?? null,
                 service_description: invoice.service_description ?? null,
@@ -354,6 +363,8 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
                 contact_phone: invoice.contact_phone ?? null,
                 accounts_contact_name: invoice.accounts_contact_name ?? null,
                 accounts_email: invoice.accounts_email ?? null,
+                bill_to_name: invoice.bill_to_name ?? null,
+                bill_to_attention: invoice.bill_to_attention ?? null,
                 date_issued: invoice.date_issued ?? null,
                 due_date: invoice.due_date ?? null,
               }}
