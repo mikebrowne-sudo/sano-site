@@ -296,7 +296,24 @@ export async function approveContractorPay(
     .select('id, invoice_number, amount, status')
     .single()
   if (insErr || !created) {
-    return { error: `Could not create the contractor payable: ${insErr?.message ?? 'no row returned'}` }
+    // Translate the DB backstops into something an operator can act on. A raw
+    // Postgres message ("duplicate key value violates unique constraint
+    // contractor_invoices_active_job_contractor_uq") tells them nothing about
+    // what to do, and it happened in production.
+    const msg = insErr?.message ?? 'no row returned'
+    if (/contractor_invoices_job_item_uniq/.test(msg)) {
+      return { error: 'This extra already has a contractor payable. Void it first if it needs to change.' }
+    }
+    if (/contractor_invoices_active_job_contractor_uq/.test(msg)) {
+      return itemId
+        ? {
+            error: 'The database is still blocking a second payable for this contractor on this job, '
+              + 'so the extra cannot be paid separately yet. The duplicate index needs the job-items '
+              + 'migration applied (docs/db/2026-09-29-ci-dup-index-item-aware.sql).',
+          }
+        : { error: 'This job is already approved for pay for this contractor.' }
+    }
+    return { error: `Could not create the contractor payable: ${msg}` }
   }
 
   await supabase.from('audit_log').insert({
