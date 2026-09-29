@@ -1,9 +1,10 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
+import type { QueueSignal } from '@/lib/hours-confirmation'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Check, Loader2, AlertTriangle, ExternalLink } from 'lucide-react'
+import { Check, Loader2, AlertTriangle, ExternalLink, CheckCircle2, Clock } from 'lucide-react'
 import clsx from 'clsx'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { approveContractorPay } from '../../_actions-approve-pay'
@@ -27,6 +28,10 @@ export interface ApprovalRow {
   flags: ApprovalFlag[]
   readiness: Readiness
   existingCI: { id: string; invoice_number: string | null; status: string | null } | null
+  /** The contractor's own answer on whether the job went to plan:
+   *  confirmed (safe to approve) | flagged (ran over, look first) | awaiting. */
+  confirmation?: QueueSignal
+  confirmationNote?: string | null
 }
 
 const FLAG_LABEL: Record<ApprovalFlag, string> = {
@@ -182,7 +187,31 @@ export function PendingApprovalsList({
                         {r.note && <div className="text-[11px] text-sage-400 italic max-w-[220px] truncate" title={r.note}>{r.note}</div>}
                       </td>
                       <td className="py-3 px-3 text-sage-600 text-xs whitespace-nowrap">{formatDate(r.completedAt)}</td>
-                      <td className="py-3 px-3 text-sage-700">{r.contractorName}</td>
+                      <td className="py-3 px-3 text-sage-700">
+                        {r.contractorName}
+                        {/* The contractor's own answer. A green tick means they
+                            confirmed it went to plan, so this row can be
+                            approved without chasing. Amber means they flagged an
+                            overrun — look before approving. */}
+                        {r.confirmation === 'confirmed' && (
+                          <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700">
+                            <CheckCircle2 size={10} /> Confirmed
+                          </div>
+                        )}
+                        {r.confirmation === 'flagged' && (
+                          <div
+                            className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-medium text-amber-700"
+                            title={r.confirmationNote ?? undefined}
+                          >
+                            <AlertTriangle size={10} /> Ran over
+                          </div>
+                        )}
+                        {r.confirmation === 'awaiting' && (
+                          <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-sage-400">
+                            <Clock size={10} /> Not confirmed
+                          </div>
+                        )}
+                      </td>
                       <td className="py-3 px-3">
                         <div className="text-[11px] text-sage-400">
                           allowed {r.allowedHours ?? '—'}{r.submittedHours != null ? ` · submitted ${r.submittedHours}` : ''}

@@ -14,6 +14,9 @@ export const CONTRACTOR_NOTIFICATION_TYPES = [
   'job_reminder_day_before',
   'job_updated',
   'job_cancelled',
+  // Evening of the clean: nudge to confirm the job went to plan, so pay
+  // isn't approved with no signal from the person who did the work.
+  'confirm_hours',
 ] as const
 
 export const CUSTOMER_NOTIFICATION_TYPES = [
@@ -35,6 +38,7 @@ export const ALL_NOTIFICATION_TYPES: { type: NotificationType; audience: Notific
   { type: 'job_reminder_day_before', audience: 'contractor', label: 'Job reminder — day before' },
   { type: 'job_updated',            audience: 'contractor', label: 'Job updated' },
   { type: 'job_cancelled',          audience: 'contractor', label: 'Job cancelled' },
+  { type: 'confirm_hours',          audience: 'contractor', label: 'Confirm hours — after the clean' },
   // Customer
   { type: 'booking_confirmation',   audience: 'customer',   label: 'Booking confirmation' },
   { type: 'job_reminder_day_before', audience: 'customer',   label: 'Job reminder — day before' },
