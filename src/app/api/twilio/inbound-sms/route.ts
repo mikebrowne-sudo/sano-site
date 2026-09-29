@@ -23,8 +23,17 @@ import { validateTwilioSignature } from '@/lib/notifications/twilio-validate'
 import {
   classifyInbound,
   helpReplyBody,
+  confirmHoursReplyBody,
+  nothingToConfirmReplyBody,
   twimlResponse,
 } from '@/lib/notifications/inbound-handler'
+import {
+  resolveSmsConfirmation,
+  ambiguousSmsSuffix,
+  hoursToConfirm,
+  CONFIRMATION_START_DATE,
+  type PendingConfirmation,
+} from '@/lib/hours-confirmation'
 
 export const dynamic = 'force-dynamic'
 
@@ -83,7 +92,19 @@ export async function POST(request: NextRequest) {
   }
 
   const classification = classifyInbound(body)
-  let actionTaken: 'opted_out' | 'help_replied' | 'none' = 'none'
+  // Best-effort CONTRACTOR lookup by phone — a "YES" reply confirming a job
+  // comes from a contractor, not a client.
+  let matchedContractorId: string | null = null
+  {
+    const { data } = await supabase
+      .from('contractors')
+      .select('id')
+      .eq('phone', fromPhone)
+      .limit(1)
+    matchedContractorId = (data?.[0]?.id as string | undefined) ?? null
+  }
+
+  let actionTaken: 'opted_out' | 'help_replied' | 'hours_confirmed' | 'none' = 'none'
   let replyBody: string | null = null
 
   if (classification.kind === 'stop' && matchedClientId) {
@@ -101,6 +122,99 @@ export async function POST(request: NextRequest) {
   } else if (classification.kind === 'help') {
     replyBody = helpReplyBody()
     actionTaken = 'help_replied'
+  } else if (classification.kind === 'confirm_hours' && matchedContractorId) {
+    // Confirming a finished job went to plan, by replying to the reminder.
+    //
+    // A reply carries no job reference, so the job is inferred as the one whose
+    // reminder was sent most recently — what is on the contractor's screen.
+    // When several are outstanding we confirm ONLY that one and tell them the
+    // rest need the portal, rather than silently confirming jobs they didn't
+    // mean. A wrong confirmation lands on a pay record.
+    const { data: rows } = await supabase
+      .from('job_workers')
+      .select(`
+        job_id, contractor_id, hours_allocated, extra_hours, extra_hours_status,
+        jobs!inner ( id, job_number, scheduled_date, status, deleted_at )
+      `)
+      .eq('contractor_id', matchedContractorId)
+      .eq('hours_confirmed_status', 'unconfirmed')
+      .in('jobs.status', ['completed', 'invoiced'])
+      .is('jobs.deleted_at', null)
+      .gte('jobs.scheduled_date', CONFIRMATION_START_DATE)
+
+    // Pair each candidate with when its reminder actually went out.
+    const pending: PendingConfirmation[] = []
+    for (const r of rows ?? []) {
+      const job = r.jobs as unknown as
+        { id: string; job_number: string | null; scheduled_date: string | null } | null
+      if (!job) continue
+      const { data: lastLog } = await supabase
+        .from('notification_logs')
+        .select('sent_at, created_at')
+        .eq('type', 'confirm_hours')
+        .eq('related_job_id', job.id)
+        .eq('related_contractor_id', matchedContractorId)
+        .eq('status', 'sent')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      pending.push({
+        jobId: job.id,
+        contractorId: matchedContractorId,
+        jobNumber: job.job_number ?? '—',
+        scheduledDate: job.scheduled_date,
+        lastRemindedAt: (lastLog?.sent_at as string | null) ?? (lastLog?.created_at as string | null) ?? null,
+        hoursAllocated: (r.hours_allocated as number | null) ?? null,
+        extraHours: (r.extra_hours as number | null) ?? null,
+        extraHoursStatus: (r.extra_hours_status as string | null) ?? null,
+      })
+    }
+
+    const resolution = resolveSmsConfirmation(pending)
+    if (resolution.kind === 'none') {
+      replyBody = nothingToConfirmReplyBody()
+    } else {
+      const target = resolution.pending
+      const { error: upErr } = await supabase
+        .from('job_workers')
+        .update({
+          hours_confirmed_status: 'as_planned',
+          hours_confirmed_at: new Date().toISOString(),
+          hours_confirmed_note: `Confirmed by SMS reply "${classification.keyword}"`,
+        })
+        .eq('job_id', target.jobId)
+        .eq('contractor_id', matchedContractorId)
+        .eq('hours_confirmed_status', 'unconfirmed')
+
+      if (upErr) {
+        // Don't claim success we didn't achieve — point them at the portal.
+        replyBody = 'Sano: Sorry, we could not record that. Please confirm in the portal.'
+      } else {
+        actionTaken = 'hours_confirmed'
+        const hours = hoursToConfirm({
+          jobId: target.jobId, contractorId: matchedContractorId,
+          hoursAllocated: target.hoursAllocated,
+          hoursConfirmedStatus: 'unconfirmed',
+          extraHours: target.extraHours, extraHoursStatus: target.extraHoursStatus,
+        })
+        replyBody = confirmHoursReplyBody(target.jobNumber, hours != null ? String(hours) : null)
+          + (resolution.kind === 'ambiguous' ? ambiguousSmsSuffix(resolution.count - 1) : '')
+
+        await supabase.from('audit_log').insert({
+          actor_role: 'contractor',
+          action: 'job_worker.hours_confirmed',
+          entity_table: 'job_workers',
+          entity_id: `${target.jobId}:${matchedContractorId}`,
+          before: { hours_confirmed_status: 'unconfirmed' },
+          after: {
+            hours_confirmed_status: 'as_planned',
+            via: 'sms_reply',
+            keyword: classification.keyword,
+            outstanding_after: resolution.kind === 'ambiguous' ? resolution.count - 1 : 0,
+          },
+        })
+      }
+    }
   }
 
   // Persist the inbound row for forensics + portal display.
@@ -110,6 +224,7 @@ export async function POST(request: NextRequest) {
     to_phone: toPhone || null,
     body: body || null,
     matched_client_id: matchedClientId,
+    matched_contractor_id: matchedContractorId,
     keyword: classification.kind === 'other' ? null : classification.keyword,
     action_taken: actionTaken,
     raw_payload: params as unknown as Record<string, unknown>,

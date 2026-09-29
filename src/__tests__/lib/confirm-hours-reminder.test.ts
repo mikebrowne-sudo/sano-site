@@ -115,3 +115,58 @@ describe("Carol's approval queue", () => {
     expect(code).not.toMatch(/\.insert\(/)
   })
 })
+
+describe('go-live cutoff in the cron', () => {
+  it('never chases a job scheduled before go-live', () => {
+    expect(cron).toMatch(/\.gte\('jobs\.scheduled_date', CONFIRMATION_START_DATE\)/)
+  })
+})
+
+describe('confirming by SMS reply — the inbound webhook', () => {
+  const inbound = read('src/app/api/twilio/inbound-sms/route.ts')
+  const handler = read('src/lib/notifications/inbound-handler.ts')
+
+  it('matches the sender against contractors, not just clients', () => {
+    expect(inbound).toMatch(/from\('contractors'\)[\s\S]{0,120}\.eq\('phone', fromPhone\)/)
+  })
+
+  it('only confirms finished, post-go-live jobs', () => {
+    expect(inbound).toMatch(/\['completed', 'invoiced'\]/)
+    expect(inbound).toMatch(/CONFIRMATION_START_DATE/)
+  })
+
+  // The guard that stops a reply confirming a job the contractor didn't mean.
+  it('updates exactly one job, and only while it is still unconfirmed', () => {
+    expect(inbound).toMatch(/\.eq\('job_id', target\.jobId\)/)
+    expect(inbound).toMatch(/\.eq\('hours_confirmed_status', 'unconfirmed'\)/)
+  })
+
+  it('never claims success when the write failed', () => {
+    expect(inbound).toMatch(/could not record that/i)
+  })
+
+  it('tells the contractor when other jobs are still outstanding', () => {
+    expect(inbound).toMatch(/ambiguousSmsSuffix/)
+  })
+
+  it('records that it came in by SMS, for the audit trail', () => {
+    expect(inbound).toMatch(/via: 'sms_reply'/)
+  })
+
+  it('replies when there was nothing waiting, rather than going silent', () => {
+    expect(inbound).toMatch(/nothingToConfirmReplyBody/)
+  })
+
+  // Exact-token only: "yes but the oven took ages" must NOT confirm.
+  it('classifies only exact confirmation tokens', () => {
+    expect(handler).toMatch(/CONFIRM_KEYWORDS/)
+    expect(handler).toMatch(/'YES', 'Y'/)
+  })
+
+  it('keeps STOP ahead of the confirm keywords', () => {
+    const stopAt = handler.indexOf('STOP_KEYWORDS.has(trimmed)')
+    const confirmAt = handler.indexOf('CONFIRM_KEYWORDS.has(trimmed)')
+    expect(stopAt).toBeGreaterThan(-1)
+    expect(confirmAt).toBeGreaterThan(stopAt)
+  })
+})

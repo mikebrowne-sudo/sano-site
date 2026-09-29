@@ -60,7 +60,7 @@ create index if not exists idx_job_workers_hours_confirmed
 -- Settings -> Notifications like every other template.
 insert into public.notification_templates (type, channel, audience, subject, body, enabled)
 select 'confirm_hours', 'sms', 'contractor', null,
-       'Sano: {{job_title}} on {{scheduled_date}} is done. Please confirm your {{allowed_hours}}h so we can pay it: {{job_link}}',
+       'Sano: {{job_title}} on {{scheduled_date}} is done. Reply YES to confirm your {{allowed_hours}}h, or tap {{job_link}} if it took longer.',
        true
 where not exists (
   select 1 from public.notification_templates

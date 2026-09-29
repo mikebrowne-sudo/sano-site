@@ -13,6 +13,16 @@
 // Pure helpers — no DB, no Supabase — so the reminder cron, the contractor
 // portal and Carol's queue all derive the same states.
 
+/**
+ * Jobs scheduled BEFORE this date are never chased for confirmation.
+ *
+ * The feature went live 2026-09-30. At that point 21 completed jobs going back
+ * to May had never been approved for pay; those were settled outside the portal,
+ * so chasing contractors about them would be noise about money already dealt
+ * with. Confirmation applies from go-live forward only.
+ */
+export const CONFIRMATION_START_DATE = '2026-09-30'
+
 export const HOURS_CONFIRMED_STATUSES = ['unconfirmed', 'as_planned', 'took_longer'] as const
 export type HoursConfirmedStatus = (typeof HOURS_CONFIRMED_STATUSES)[number]
 
@@ -49,7 +59,10 @@ export interface ConfirmableJob {
  * which is exactly the case that was being missed.
  */
 export function isConfirmable(job: ConfirmableJob): boolean {
-  return job.status === 'completed' || job.status === 'invoiced'
+  if (job.status !== 'completed' && job.status !== 'invoiced') return false
+  // Pre-go-live work was settled outside the portal — don't ask about it.
+  if (!job.scheduledDate) return false
+  return job.scheduledDate >= CONFIRMATION_START_DATE
 }
 
 /** Does this worker still owe an answer? */
@@ -138,4 +151,60 @@ export function summariseConfirmations(
     else awaiting += 1
   }
   return { confirmed, flagged, awaiting, total: rows.length }
+}
+
+// ── Confirming by SMS reply ────────────────────────────────────────
+
+/** An outstanding confirmation, as the SMS resolver needs to see it. */
+export interface PendingConfirmation {
+  jobId: string
+  contractorId: string
+  jobNumber: string
+  /** ISO date the job was scheduled for. */
+  scheduledDate: string | null
+  /** When the reminder SMS for this job was last sent. */
+  lastRemindedAt: string | null
+  hoursAllocated: number | null
+  extraHours?: number | null
+  extraHoursStatus?: string | null
+}
+
+export type SmsResolution =
+  | { kind: 'none' }
+  | { kind: 'one'; pending: PendingConfirmation }
+  | { kind: 'ambiguous'; count: number; pending: PendingConfirmation }
+
+/**
+ * Which job does a bare "YES" mean?
+ *
+ * A reply carries no job reference, so it has to be inferred. The rule: the job
+ * whose reminder was sent MOST RECENTLY. That matches what the contractor is
+ * replying to — the text on their screen.
+ *
+ * When more than one job is outstanding the answer is reported as `ambiguous`:
+ * the most-recently-reminded job is still returned (it is the best inference,
+ * and the reply genuinely was to that text), but the caller tells the
+ * contractor the others are still waiting rather than silently confirming all
+ * of them. Confirming a job the contractor didn't mean would put a wrong figure
+ * on a pay record.
+ */
+export function resolveSmsConfirmation(pending: PendingConfirmation[]): SmsResolution {
+  if (pending.length === 0) return { kind: 'none' }
+
+  const sorted = [...pending].sort((a, b) => {
+    // Most recently reminded first; a job never reminded sorts last.
+    const ar = a.lastRemindedAt ?? ''
+    const br = b.lastRemindedAt ?? ''
+    if (ar !== br) return br.localeCompare(ar)
+    return (b.scheduledDate ?? '').localeCompare(a.scheduledDate ?? '')
+  })
+
+  if (sorted.length === 1) return { kind: 'one', pending: sorted[0] }
+  return { kind: 'ambiguous', count: sorted.length, pending: sorted[0] }
+}
+
+/** Extra line appended when other jobs are still outstanding. */
+export function ambiguousSmsSuffix(remaining: number): string {
+  if (remaining <= 0) return ''
+  return ` You have ${remaining} other job${remaining === 1 ? '' : 's'} to confirm - please use the portal link.`
 }

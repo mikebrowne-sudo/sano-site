@@ -28,7 +28,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { sendNotification } from '@/lib/notifications/send'
-import { hoursToConfirm } from '@/lib/hours-confirmation'
+import { hoursToConfirm, CONFIRMATION_START_DATE } from '@/lib/hours-confirmation'
 import { generateDueRecurringInvoices } from '@/app/portal/recurring-jobs/_lib/generate-recurring-invoice'
 import { generateDueRecurringJobs } from '@/app/portal/recurring-jobs/_lib/generate-due-recurring-jobs'
 import { autoApproveCompletedRecurringJobs } from '@/lib/recurring-pay-auto-approve'
@@ -227,6 +227,8 @@ async function runDaily(request: NextRequest) {
       .in('jobs.status', ['completed', 'invoiced'])
       .is('jobs.deleted_at', null)
       .lte('jobs.scheduled_date', today)
+      // Go-live cutoff: pre-2026-09-30 work was settled outside the portal.
+      .gte('jobs.scheduled_date', CONFIRMATION_START_DATE)
 
     if (rowsErr) {
       summary.errors.push(`confirm_hours query: ${rowsErr.message}`)
