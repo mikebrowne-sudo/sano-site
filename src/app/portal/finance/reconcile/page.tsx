@@ -169,7 +169,11 @@ export default async function ReconcilePage() {
         <Td className="text-right">
           {canEdit && d.status === 'not_recorded' && (
             <Link
-              href={`/portal/expenses/new?amount=${Math.abs(d.txn.amount)}&date=${d.txn.date}&ref=${encodeURIComponent(d.txn.memo || d.txn.payee)}&returnTo=${encodeURIComponent('/portal/finance/reconcile')}`}
+              // `payee` is passed separately from `ref` so the expense form can
+              // recognise a recurring vendor and prefill its category + GST.
+              // The reference shown to staff is still memo-first, but the vendor
+              // signal lives in the payee ("GOOGLE WORKSPACE_SANO.NZ AUCKLAND").
+              href={`/portal/expenses/new?amount=${Math.abs(d.txn.amount)}&date=${d.txn.date}&ref=${encodeURIComponent(d.txn.memo || d.txn.payee)}&payee=${encodeURIComponent(d.txn.payee || '')}&returnTo=${encodeURIComponent('/portal/finance/reconcile')}`}
               className="text-sage-600 hover:text-sage-800 underline whitespace-nowrap"
             >Add expense →</Link>
           )}

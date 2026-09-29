@@ -26,12 +26,19 @@ export function ExpenseForm({
   vendorSuggestions = [],
   receiptUrl = null,
   returnTo = '/portal/expenses',
+  recognisedVendor = null,
 }: {
   expense?: ExpenseData
   vendorSuggestions?: VendorSuggestion[]
   receiptUrl?: string | null
   /** Where to go after saving — the origin the user came from (e.g. reconcile). */
   returnTo?: string
+  /**
+   * Vendor recognised from the bank payee, whose usual category + GST have been
+   * prefilled. Shown so the prefill is visible and checkable rather than silent
+   * — these values reach a GST return.
+   */
+  recognisedVendor?: string | null
 }) {
   const isEdit = !!expense?.id
 
@@ -142,6 +149,12 @@ export function ExpenseForm({
 
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-8">
+      {recognisedVendor && !isEdit && (
+        <p className="text-sm text-sage-800 bg-sage-50 border border-sage-200 rounded-md px-3 py-2">
+          Recognised <span className="font-semibold">{recognisedVendor}</span> from the bank payee —
+          category and GST are filled in from the last time. Change them if this one is different.
+        </p>
+      )}
       <Section title="Expense">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="block">
