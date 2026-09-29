@@ -40,6 +40,7 @@ export default async function PrintInvoicePage({ params }: { params: { id: strin
         base_price, discount, gst_included, payment_type,
         contact_name, contact_email, contact_phone,
         accounts_contact_name, accounts_email,
+        bill_to_name, bill_to_attention,
         client_reference, requires_po,
         clients ( name, company_name, service_address, phone, email )
       `)
