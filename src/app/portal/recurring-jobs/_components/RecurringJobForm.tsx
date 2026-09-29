@@ -228,13 +228,16 @@ export function RecurringJobForm({
               {contractorPayMode === 'fixed' ? (
                 <Field label="Contractor monthly pay ($)" type="number" step="0.01" min="0" value={contractorMonthlyPay} onChange={setContractorMonthlyPay} placeholder="e.g. 1500" />
               ) : (
-                <Field label="Contractor pay per visit ($, ex GST)" type="number" step="0.01" min="0" value={contractorPerVisitRate} onChange={setContractorPerVisitRate} placeholder="e.g. 60" />
+                <Field label="Contractor pay per visit ($)" type="number" step="0.01" min="0" value={contractorPerVisitRate} onChange={setContractorPerVisitRate} placeholder="e.g. 60" />
               )}
             </div>
             <span className="block text-[12px] text-sage-500 mt-1.5">
               {contractorPayMode === 'fixed'
                 ? 'Same amount paid each month.'
                 : 'Pays rate × the number of service days that month (uses the service days set above). Set service days under the billing section.'}
+            </span>
+            <span className="block text-[12px] text-sage-500 mt-1">
+              This is the total the contractor is paid. Nothing is added for GST &mdash; if they&rsquo;re GST registered, it&rsquo;s their full amount.
             </span>
           </div>
         )}
