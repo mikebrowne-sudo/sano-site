@@ -97,6 +97,10 @@ function fmt(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
 }
 
+function sameName(a: string | null | undefined, b: string | null | undefined): boolean {
+  return !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase()
+}
+
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('en-NZ', {
@@ -192,7 +196,9 @@ export function InvoiceDocument({
   const rawAttn = billToAttn ?? invoice.accounts_contact_name ?? invoice.contact_name ?? null
   const toParty: DocumentParty = {
     name: partyName,
-    company: billToName ? null : (client?.company_name ?? null),
+    // Drop the company line when it just repeats the name (e.g. a client whose
+    // name and company are both "Oranga Tamariki - Ministry For Children").
+    company: billToName || sameName(client?.company_name, partyName) ? null : (client?.company_name ?? null),
     address: client?.service_address ?? null,
     attn: rawAttn && rawAttn.trim().toLowerCase() !== partyName.trim().toLowerCase() ? rawAttn : null,
     phone: invoice.contact_phone ?? client?.phone ?? null,
@@ -276,7 +282,13 @@ export function InvoiceDocument({
   const gstSentence = invoice.gst_included
     ? 'All amounts are in New Zealand Dollars and include GST.'
     : 'Amounts are in New Zealand Dollars and exclude GST; GST is added to the total.'
-  const paymentSentence = isCashSale ? 'Payment is required prior to the clean.' : 'Payment is due within 14 days of the invoice date.'
+  // State the real due date. The old fixed "within 14 days" contradicted the
+  // header for clients on other terms (e.g. 20th of the following month).
+  const paymentSentence = isCashSale
+    ? 'Payment is required prior to the clean.'
+    : dueDateForDisplay
+      ? `Payment is due by ${fmtDate(dueDateForDisplay)}.`
+      : 'Payment is due within 14 days of the invoice date.'
   const termsBody = `${paymentSentence} ${gstSentence} Sano Property Services Limited is GST registered (GST No. 148-387-648) under the Goods and Services Tax Act 1985. Please use your invoice number as the payment reference.`
 
   return (

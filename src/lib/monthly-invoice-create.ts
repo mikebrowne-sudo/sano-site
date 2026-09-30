@@ -122,7 +122,7 @@ export async function createMonthlyInvoiceCore(
 
   const { data: primaryContact } = await supabase
     .from('contacts')
-    .select('id')
+    .select('id, full_name, email')
     .eq('client_id', client.id)
     .eq('contact_type', 'primary')
     .maybeSingle()
@@ -136,6 +136,10 @@ export async function createMonthlyInvoiceCore(
     .insert({
       client_id: client.id,
       contact_id: primaryContact?.id ?? null,
+      // Copy the primary contact onto the invoice so the document prints
+      // "Attn: <name>" and Send defaults to their email.
+      contact_name: (primaryContact?.full_name as string | null) ?? null,
+      contact_email: (primaryContact?.email as string | null) ?? null,
       quote_id: null,
       job_id: null,
       source: 'job',

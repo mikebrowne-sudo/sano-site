@@ -47,7 +47,7 @@ function makeSupabase(jobs: Record<string, unknown>[], opts: { linkFailsFor?: st
       }
     }
     if (table === 'contacts') {
-      return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: jest.fn().mockResolvedValue({ data: { id: 'ct1' } }) }) }) }) }
+      return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: jest.fn().mockResolvedValue({ data: { id: 'ct1', full_name: 'Kelsey Harvey', email: 'kelsey@example.com' } }) }) }) }) }
     }
     if (table === 'invoices') return { insert: invoiceInsert, delete: invoiceDelete }
     if (table === 'audit_log') return { insert: auditInsert }
@@ -78,6 +78,7 @@ describe('createMonthlyInvoice', () => {
       base_price: 945, gst_included: false, type_of_clean: 'Residential Housekeeping',
       scheduled_clean_date: '2026-08-26',
       notes: 'Contract rate: $630.00 + GST per week',
+      contact_id: 'ct1', contact_name: 'Kelsey Harvey', contact_email: 'kelsey@example.com',
     })
     expect(payload.service_description).toBe(
       'August 2026: 3 visits × $315.00 + GST\nVisit dates: 12, 14 and 26 August',
