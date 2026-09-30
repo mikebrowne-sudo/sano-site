@@ -210,7 +210,7 @@ export function RecurringJobForm({
               ? 'Same amount every month (the monthly value below).'
               : billingMode === 'per_visit'
                 ? 'The invoice = rate per visit × the number of service days in that month, so it varies month to month.'
-                : 'On the invoice day, bills last month’s COMPLETED visits for this client (rate per visit × visits done), listing each visit. Visits are marked invoiced so they’re never billed twice; any marked complete late go on the next run.'}
+                : 'On the invoice day, bills last month’s COMPLETED visits for this client (rate per visit × visits done), with the visit dates on one line. Visits are marked invoiced so they’re never billed twice; any marked complete late go on the next run.'}
           </span>
         </div>
 

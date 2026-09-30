@@ -3,6 +3,7 @@ import {
   visitDate,
   buildMonthlyLines,
   composeMonthlyDescription,
+  formatVisitDates,
   type MonthlyJobInput,
 } from '@/lib/monthly-invoice'
 
@@ -65,15 +66,45 @@ describe('buildMonthlyLines', () => {
   })
 })
 
+describe('formatVisitDates', () => {
+  it('joins days naturally and groups by month', () => {
+    expect(formatVisitDates(['2026-08-12'])).toBe('12 August')
+    expect(formatVisitDates(['2026-08-14', '2026-08-12'])).toBe('12 and 14 August')
+    expect(formatVisitDates(['2026-08-12', '2026-08-14', '2026-08-19', '2026-08-21', '2026-08-26', '2026-08-28']))
+      .toBe('12, 14, 19, 21, 26 and 28 August')
+    expect(formatVisitDates(['2026-10-02', '2026-09-30'])).toBe('30 September and 2 October')
+  })
+})
+
 describe('composeMonthlyDescription', () => {
-  it('lists each visit with date, hours and amount', () => {
+  it('summarises visits × rate with one line of dates', () => {
+    const r = buildMonthlyLines(
+      ['2026-08-12', '2026-08-14', '2026-08-19', '2026-08-21', '2026-08-26', '2026-08-28']
+        .map((d, i) => job({ id: `j${i}`, scheduled_date: d })),
+      315,
+    )
+    if ('error' in r) throw new Error(r.error)
+    expect(composeMonthlyDescription('August 2026', r.lines)).toBe(
+      'August 2026: 6 visits × $315.00 + GST\nVisit dates: 12, 14, 19, 21, 26 and 28 August',
+    )
+  })
+
+  it('states the total, not a per-visit rate, when prices differ', () => {
     const r = buildMonthlyLines([
       job({ id: 'a', scheduled_date: '2026-08-12' }),
-      job({ id: 'b', scheduled_date: '2026-08-14', allowed_hours: '7.00' }),
+      job({ id: 'b', scheduled_date: '2026-08-14', job_price: 400 }),
     ], 315)
     if ('error' in r) throw new Error(r.error)
     expect(composeMonthlyDescription('August 2026', r.lines)).toBe(
-      'August 2026 — 2 visits\nWed 12 Aug — 7 hrs — $315.00\nFri 14 Aug — 7 hrs — $315.00',
+      'August 2026: 2 visits (total $715.00 + GST)\nVisit dates: 12 and 14 August',
+    )
+  })
+
+  it('singular visit', () => {
+    const r = buildMonthlyLines([job({ id: 'a', scheduled_date: '2026-10-02' })], 315)
+    if ('error' in r) throw new Error(r.error)
+    expect(composeMonthlyDescription('October 2026', r.lines)).toBe(
+      'October 2026: 1 visit × $315.00 + GST\nVisit dates: 2 October',
     )
   })
 })

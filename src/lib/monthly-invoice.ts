@@ -107,32 +107,49 @@ function fmtMoney(n: number): string {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
 }
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
-// Built by hand (not toLocaleDateString) so the PDF reads identically on
-// every runtime — ICU output varies ("Wed, 12 Aug" vs "Wed 12 Aug").
-function fmtVisitDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00Z`)
-  return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`
-}
-
-function fmtHours(h: number): string {
-  return `${Number.isInteger(h) ? h : h.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')} hrs`
+/** "12", "12 and 14", "12, 14 and 19" */
+function joinList(items: string[]): string {
+  if (items.length <= 1) return items.join('')
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
 }
 
 /**
- * Service description shown under the invoice line: a summary line then one
- * line per visit, e.g. "Wed 12 Aug — 7 hrs — $315.00".
+ * Visit dates as one line, grouped by month:
+ * "12, 14, 19, 21, 26 and 28 August" (or "30 September and 2 October").
+ * Built by hand, not toLocaleDateString, so it reads identically everywhere.
+ */
+export function formatVisitDates(dates: ReadonlyArray<string>): string {
+  const byMonth = new Map<string, number[]>()
+  for (const d of [...dates].sort()) {
+    const key = d.slice(0, 7)
+    const list = byMonth.get(key) ?? []
+    list.push(Number(d.slice(8, 10)))
+    byMonth.set(key, list)
+  }
+  return joinList(
+    Array.from(byMonth.entries()).map(([key, days]) =>
+      `${joinList(days.map(String))} ${MONTHS_LONG[Number(key.slice(5, 7)) - 1]}`),
+  )
+}
+
+/**
+ * Service description shown under the invoice line — a summary, not a row per
+ * visit (Mike, 2026-09-30):
+ *   "August 2026: 6 visits × $315.00 + GST"
+ *   "Visit dates: 12, 14, 19, 21, 26 and 28 August"
+ * If the visits aren't all the same price, the summary states the total
+ * instead of claiming a per-visit rate that doesn't hold.
  */
 export function composeMonthlyDescription(monthLabel: string, lines: ReadonlyArray<MonthlyLine>): string {
-  const head = `${monthLabel} — ${lines.length} visit${lines.length === 1 ? '' : 's'}`
-  const rows = lines.map((l) =>
-    [fmtVisitDate(l.date), l.hours != null && l.hours > 0 ? fmtHours(l.hours) : null, fmtMoney(l.price)]
-      .filter(Boolean)
-      .join(' — '),
-  )
-  return [head, ...rows].join('\n')
+  const n = lines.length
+  const visits = `${n} visit${n === 1 ? '' : 's'}`
+  const prices = new Set(lines.map((l) => l.price))
+  const total = Math.round(lines.reduce((s, l) => s + l.price, 0) * 100) / 100
+  const summary = prices.size === 1
+    ? `${monthLabel}: ${visits} × ${fmtMoney(lines[0].price)} + GST`
+    : `${monthLabel}: ${visits} (total ${fmtMoney(total)} + GST)`
+  return `${summary}
+Visit dates: ${formatVisitDates(lines.map((l) => l.date))}`
 }
 
 /**
