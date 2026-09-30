@@ -66,7 +66,11 @@ describe('Pay-run screen wiring (source-level)', () => {
     expect(view).toMatch(/createRemittancesForContractors/)
     // CRITICAL: the create call must mirror the filter that BUILT the plan,
     // or it would bundle a different set of payables than the one on screen.
-    expect(view).toMatch(/period: periodStart && periodEnd \? \{ from: periodStart, to: periodEnd \} : \{\}/)
+    // The page builds the plan as everything owed (`{}`), so the create call
+    // sends `{}` too — sending the period dropped ticked older payables.
+    expect(page).toMatch(/previewRemittancesForContractors\(allContractorIds, payDate, \{\}\)/)
+    expect(view).toMatch(/period: \{\},/)
+    expect(view).not.toMatch(/period: periodStart && periodEnd/)
     expect(view).toMatch(/PendingApprovalsList/)   // inline approve reuse
   })
 
