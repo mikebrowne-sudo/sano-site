@@ -21,7 +21,7 @@ interface JWRow {
   contractors: { full_name: string | null; hourly_rate: number | null } | null
   jobs: {
     id: string; job_number: string | null; address: string | null; status: string | null
-    completed_at: string | null; allowed_hours: number | null; description: string | null; deleted_at: string | null
+    completed_at: string | null; scheduled_date?: string | null; allowed_hours: number | null; description: string | null; deleted_at: string | null
   } | null
 }
 
@@ -41,14 +41,17 @@ export async function loadApprovalRows(
     .select(`
       contractor_id, job_id, pay_rate, pay_type, hours_allocated, actual_hours, extra_hours, extra_hours_status,
       contractors ( full_name, hourly_rate ),
-      jobs ( id, job_number, address, status, completed_at, allowed_hours, description, deleted_at )
+      jobs ( id, job_number, address, status, completed_at, scheduled_date, allowed_hours, description, deleted_at )
     `)
 
   const all = (jwRaw ?? []) as unknown as JWRow[]
   let live = all.filter((r) => r.jobs && !r.jobs.deleted_at && (r.jobs.status === 'completed' || r.jobs.status === 'invoiced'))
-  // Period window on the job completion date (the pay-run's completion basis).
-  if (opts.from) live = live.filter((r) => (r.jobs!.completed_at ?? '').slice(0, 10) >= opts.from!)
-  if (opts.to) live = live.filter((r) => (r.jobs!.completed_at ?? '').slice(0, 10) <= opts.to!)
+  // Period window on the day the work was done (scheduled date), falling back
+  // to completion — the same date approval stamps as the payable's service_date,
+  // so a job lands in the same period before and after it's approved.
+  const visitDate = (j: NonNullable<JWRow['jobs']>) => (j.scheduled_date ?? j.completed_at ?? '').slice(0, 10)
+  if (opts.from) live = live.filter((r) => visitDate(r.jobs!) >= opts.from!)
+  if (opts.to) live = live.filter((r) => visitDate(r.jobs!) <= opts.to!)
 
   const workersPerJob = new Map<string, number>()
   for (const r of live) workersPerJob.set(r.job_id, (workersPerJob.get(r.job_id) ?? 0) + 1)
