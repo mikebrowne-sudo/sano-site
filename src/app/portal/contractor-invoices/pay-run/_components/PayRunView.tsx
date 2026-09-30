@@ -168,15 +168,22 @@ export function PayRunView({
         paymentDate: payDate,
         markPaid,
         // Must mirror the filter used to BUILD this plan, or the server would
-        // bundle a different set than the one shown. Empty = everything owed.
-        period: periodStart && periodEnd ? { from: periodStart, to: periodEnd } : {},
+        // bundle a different set than the one shown. The page always builds
+        // the plan as EVERYTHING OWED (`{}`); the period only preselects ticks.
+        // Sending the period here re-filtered server-side and silently dropped
+        // ticked older payables (VMK's Aug jobs in a 1–15 Sep run → 0 created).
+        period: {},
         // THE invariant: what was ticked and reviewed is exactly what is paid.
         // The server intersects this with its own eligibility check, so this
         // can only ever narrow the set.
         selectedCiIds: Array.from(selectedCiIds),
       })
       if (res.error) { setErr(res.error); setConfirming(false); return }
+      // Name every payee that didn't go through, with the reason — a bare
+      // "1 skipped" looked like the button did nothing.
+      const problems = res.items.filter((i) => !i.ok && i.reason !== 'nothing selected').map((i) => `${i.payee}: ${i.reason ?? 'not created'}`)
       setResult(`Created ${res.created} remittance${res.created === 1 ? '' : 's'}${res.skipped ? `, ${res.skipped} skipped` : ''}${res.failed ? `, ${res.failed} failed` : ''}.`)
+      if (problems.length) setErr(problems.join(' · '))
       setConfirming(false)
       router.refresh()
     })
