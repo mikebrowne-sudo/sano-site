@@ -140,14 +140,19 @@ export function formatVisitDates(dates: ReadonlyArray<string>): string {
  * If the visits aren't all the same price, the summary states the total
  * instead of claiming a per-visit rate that doesn't hold.
  */
-export function composeMonthlyDescription(monthLabel: string, lines: ReadonlyArray<MonthlyLine>): string {
+export function composeMonthlyDescription(
+  monthLabel: string,
+  lines: ReadonlyArray<MonthlyLine>,
+  opts: { gstIncluded?: boolean } = {},
+): string {
   const n = lines.length
   const visits = `${n} visit${n === 1 ? '' : 's'}`
   const prices = new Set(lines.map((l) => l.price))
   const total = Math.round(lines.reduce((s, l) => s + l.price, 0) * 100) / 100
+  const gst = opts.gstIncluded ? 'incl. GST' : '+ GST'
   const summary = prices.size === 1
-    ? `${monthLabel}: ${visits} × ${fmtMoney(lines[0].price)} + GST`
-    : `${monthLabel}: ${visits} (total ${fmtMoney(total)} + GST)`
+    ? `${monthLabel}: ${visits} × ${fmtMoney(lines[0].price)} ${gst}`
+    : `${monthLabel}: ${visits} (total ${fmtMoney(total)} ${gst})`
   return `${summary}
 Visit dates: ${formatVisitDates(lines.map((l) => l.date))}`
 }
@@ -172,4 +177,23 @@ export function groupVisitsByMonth(
     else out.set(m, [j.id])
   }
   return new Map(Array.from(out.entries()).sort(([a], [b]) => a.localeCompare(b)))
+}
+
+/**
+ * Label for a weekly invoice period, e.g. "Week of 28 September – 4 October 2026"
+ * or "Week of 5–11 October 2026". When stragglers stretch the range beyond
+ * seven days it drops "Week of" and just shows the range.
+ */
+export function periodLabel(start: string, end: string): string {
+  const s = new Date(`${start}T00:00:00Z`)
+  const e = new Date(`${end}T00:00:00Z`)
+  const sd = s.getUTCDate(), sm = MONTHS_LONG[s.getUTCMonth()], sy = s.getUTCFullYear()
+  const ed = e.getUTCDate(), em = MONTHS_LONG[e.getUTCMonth()], ey = e.getUTCFullYear()
+  const range = sy !== ey
+    ? `${sd} ${sm} ${sy} – ${ed} ${em} ${ey}`
+    : sm !== em
+      ? `${sd} ${sm} – ${ed} ${em} ${ey}`
+      : `${sd}–${ed} ${em} ${ey}`
+  const days = Math.round((e.getTime() - s.getTime()) / 86400000) + 1
+  return days === 7 ? `Week of ${range}` : range
 }

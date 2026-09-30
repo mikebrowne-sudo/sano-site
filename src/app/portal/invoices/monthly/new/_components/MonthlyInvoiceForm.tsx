@@ -24,7 +24,7 @@ const fmtDay = (iso: string) => {
 }
 
 export function MonthlyInvoiceForm({
-  clients, clientId, months, month, monthLabel, jobs, defaultRate, defaultLabel, defaultNotes,
+  clients, clientId, months, month, monthLabel, jobs, defaultRate, defaultLabel, defaultNotes, defaultGstIncluded,
 }: {
   clients: { id: string; label: string; count: number }[]
   clientId: string | null
@@ -35,12 +35,14 @@ export function MonthlyInvoiceForm({
   defaultRate: number | null
   defaultLabel: string
   defaultNotes: string
+  defaultGstIncluded: boolean
 }) {
   const router = useRouter()
   const [selected, setSelected] = useState<Set<string>>(() => new Set(jobs.map((j) => j.id)))
   const [rate, setRate] = useState(defaultRate != null ? String(defaultRate) : '')
   const [label, setLabel] = useState(defaultLabel)
   const [notes, setNotes] = useState(defaultNotes)
+  const [gstIncluded, setGstIncluded] = useState(defaultGstIncluded)
   const [err, setErr] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -58,7 +60,9 @@ export function MonthlyInvoiceForm({
     }
     return { total: round2(t), unpriced: u }
   }, [jobs, selected, rateNum, rateValid])
-  const gst = round2(total * 0.15)
+  // GST-inclusive prices: the total already contains GST (3/23 of it).
+  const gst = gstIncluded ? round2(total * 3 / 23) : round2(total * 0.15)
+  const grand = gstIncluded ? total : round2(total + gst)
 
   function go(params: { client?: string | null; month?: string | null }) {
     const q = new URLSearchParams()
@@ -88,6 +92,7 @@ export function MonthlyInvoiceForm({
         ratePerVisit: rateNum,
         serviceLabel: label,
         notes,
+        gstIncluded,
       })
       if (res && 'error' in res) setErr(res.error)
     })
@@ -131,7 +136,7 @@ export function MonthlyInvoiceForm({
                   <th className="px-3 py-2">Visit</th>
                   <th className="px-3 py-2">Job</th>
                   <th className="px-3 py-2">Hours</th>
-                  <th className="px-3 py-2 text-right">Price (ex GST)</th>
+                  <th className="px-3 py-2 text-right">Price{gstIncluded ? ' (incl. GST)' : ' (ex GST)'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -162,7 +167,7 @@ export function MonthlyInvoiceForm({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label className="block">
-              <span className="block text-sm font-medium text-sage-700 mb-1">Per-visit rate (ex GST)</span>
+              <span className="block text-sm font-medium text-sage-700 mb-1">Per-visit rate{gstIncluded ? ' (incl. GST)' : ' (ex GST)'}</span>
               <input className={input} inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="e.g. 315" />
               <span className="block text-xs text-sage-500 mt-1">Used for visits with no price on the job. It&apos;s saved onto those jobs.</span>
             </label>
@@ -171,6 +176,11 @@ export function MonthlyInvoiceForm({
               <input className={input} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Residential Housekeeping" />
             </label>
           </div>
+
+          <label className="flex items-center gap-2 text-sm text-sage-700">
+            <input type="checkbox" checked={gstIncluded} onChange={(e) => setGstIncluded(e.target.checked)} className="rounded border-sage-300" />
+            Prices include GST <span className="text-xs text-sage-500">(e.g. $180 incl. GST — prefilled from the client&apos;s schedule)</span>
+          </label>
 
           <label className="block">
             <span className="block text-sm font-medium text-sage-700 mb-1">Invoice notes</span>
@@ -181,8 +191,8 @@ export function MonthlyInvoiceForm({
 
           <div className="rounded-xl border border-sage-200 bg-sage-50/60 p-4 text-sm space-y-1">
             <div className="flex justify-between"><span className="text-sage-600">{monthLabel} — {selected.size} visit{selected.size === 1 ? '' : 's'}</span><span>{fmt(total)}</span></div>
-            <div className="flex justify-between"><span className="text-sage-600">GST (15%)</span><span>{fmt(gst)}</span></div>
-            <div className="flex justify-between font-semibold text-sage-800"><span>Total</span><span>{fmt(round2(total + gst))}</span></div>
+            <div className="flex justify-between"><span className="text-sage-600">{gstIncluded ? 'Includes GST (15%)' : 'GST (15%)'}</span><span>{fmt(gst)}</span></div>
+            <div className="flex justify-between font-semibold text-sage-800"><span>Total</span><span>{fmt(grand)}</span></div>
             {unpriced > 0 && <p className="text-red-600 text-xs pt-1">{unpriced} selected visit{unpriced === 1 ? ' has' : 's have'} no price — enter a per-visit rate.</p>}
           </div>
 
