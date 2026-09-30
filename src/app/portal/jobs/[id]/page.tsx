@@ -171,7 +171,7 @@ export default async function JobDetailPage({
     job.invoice_id
       ? supabase
           .from('invoices')
-          .select('invoice_number, status, base_price, discount, invoice_items ( price )')
+          .select('invoice_number, status, base_price, discount, invoice_items ( price ), linked_jobs:jobs!jobs_invoice_id_fkey ( id )')
           .eq('id', job.invoice_id)
           .single()
       : Promise.resolve({
@@ -312,6 +312,9 @@ export default async function JobDetailPage({
   const linkedInvoiceRow = linkedInvoiceRes.data
   const linkedInvoiceTotal = (() => {
     if (!linkedInvoiceRow) return null
+    // A monthly invoice covers several visits, so its total is never meant to
+    // equal one job's price — skip the "invoice total differs" comparison.
+    if (((linkedInvoiceRow as { linked_jobs?: unknown[] | null }).linked_jobs ?? []).length > 1) return null
     const items = (linkedInvoiceRow.invoice_items ?? []) as { price: number | null }[]
     const addons = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
     return (linkedInvoiceRow.base_price ?? 0) + addons - (linkedInvoiceRow.discount ?? 0)

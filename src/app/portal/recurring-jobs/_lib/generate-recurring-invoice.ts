@@ -252,7 +252,10 @@ export async function generateDueRecurringInvoices(
     .from('recurring_jobs')
     .select(REC_COLS)
     .eq('status', 'active')
-    .not('monthly_value', 'is', null)
+    // Per-visit contracts carry no monthly_value — the old
+    // .not('monthly_value', 'is', null) filter skipped them forever.
+    // generateFor() validates the amount for both billing modes.
+    .or('monthly_value.not.is.null,billing_mode.eq.per_visit')
     .not('next_invoice_date', 'is', null)
 
   let generated = 0

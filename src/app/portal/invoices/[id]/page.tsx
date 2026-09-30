@@ -92,6 +92,10 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       .from('jobs')
       .select('id, job_number, status, scheduled_date')
       .eq('invoice_id', params.id)
+      // A monthly invoice links many jobs; limit(1) keeps maybeSingle() from
+      // erroring to null (which would offer "Create job" and duplicate one).
+      .order('scheduled_date')
+      .limit(1)
       .maybeSingle(),
     // Phase 1 follow-up: fetch the source quote for the linked-record
     // strip near the header. invoice.quote_id is the one-way pointer
