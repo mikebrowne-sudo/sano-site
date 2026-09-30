@@ -127,7 +127,9 @@ describe('confirming by SMS reply — the inbound webhook', () => {
   const handler = read('src/lib/notifications/inbound-handler.ts')
 
   it('matches the sender against contractors, not just clients', () => {
-    expect(inbound).toMatch(/from\('contractors'\)[\s\S]{0,120}\.eq\('phone', fromPhone\)/)
+    // Matching now goes through matchByPhone(), which normalises to E.164 —
+    // see the phone-normalisation suite below.
+    expect(inbound).toMatch(/matchByPhone\('contractors'\)/)
   })
 
   it('only confirms finished, post-go-live jobs', () => {
@@ -168,5 +170,46 @@ describe('confirming by SMS reply — the inbound webhook', () => {
     const confirmAt = handler.indexOf('CONFIRM_KEYWORDS.has(trimmed)')
     expect(stopAt).toBeGreaterThan(-1)
     expect(confirmAt).toBeGreaterThan(stopAt)
+  })
+})
+
+/**
+ * Phone normalisation — the reason no SMS has ever sent.
+ *
+ * Twilio requires E.164 and rejects a local number with error 21211. Every
+ * phone in this DB is stored as a person types it ("0220337295"), and both the
+ * outbound sender and the inbound matcher used the raw string.
+ */
+describe('phone normalisation', () => {
+  const twilio = read('src/lib/notifications/twilio.ts')
+  const inbound = read('src/app/api/twilio/inbound-sms/route.ts')
+
+  it('the outbound sender converts to E.164 before calling Twilio', () => {
+    expect(twilio).toMatch(/toE164NZ\(to\)/)
+    expect(twilio).toMatch(/form\.set\('To', e164\)/)
+  })
+
+  it('never sends the raw local number', () => {
+    expect(twilio).not.toMatch(/form\.set\('To', to\.trim\(\)\)/)
+  })
+
+  it('fails with a clear reason rather than paying for a rejected send', () => {
+    expect(twilio).toMatch(/not a valid NZ number/)
+  })
+
+  // Twilio's `From` is +64...; contractors are stored as 0... — a direct
+  // equality match would drop every confirmation silently.
+  it('the inbound matcher compares in E.164, not raw', () => {
+    expect(inbound).toMatch(/const fromE164 = toE164NZ\(fromPhone\)/)
+    expect(inbound).toMatch(/toE164NZ\(r\.phone as string \| null\) === fromE164/)
+  })
+
+  it('still tries an exact match first, for rows already in E.164', () => {
+    expect(inbound).toMatch(/\.eq\('phone', fromPhone\)/)
+  })
+
+  it('matches contractors as well as clients', () => {
+    expect(inbound).toMatch(/matchByPhone\('contractors'\)/)
+    expect(inbound).toMatch(/matchByPhone\('clients'\)/)
   })
 })

@@ -1,3 +1,4 @@
+import { toE164NZ } from '@/lib/nz-phone'
 // Phase H — Twilio SMS helper.
 //
 // Server-only — pulls auth from env vars. Never exposes the auth
@@ -79,13 +80,23 @@ export async function sendTwilioSms(input: SendTwilioSmsInput): Promise<SendTwil
   if (!to.trim())   return { ok: false, error: 'Recipient phone number is required.' }
   if (!body.trim()) return { ok: false, error: 'Message body is required.' }
 
+  // Twilio requires E.164 and rejects a local number with error 21211. Every
+  // phone in this DB is stored as a person types it ("0220337295",
+  // "022 024 2244"), and this used to pass the raw string through — which is
+  // why no SMS has ever sent. Normalising HERE covers every caller: the cron,
+  // manual sends, and the admin test panel.
+  const e164 = toE164NZ(to)
+  if (!e164) {
+    return { ok: false, error: `Recipient phone "${to.trim()}" is not a valid NZ number (E.164 required).` }
+  }
+
   const auth = Buffer.from(`${sid}:${token}`).toString('base64')
   const url  = `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Messages.json`
 
   // Sender precedence: Messaging Service wins. The two params are
   // mutually exclusive on Twilio's side — sending both is rejected.
   const form = new URLSearchParams()
-  form.set('To', to.trim())
+  form.set('To', e164)
   if (msgSid) {
     form.set('MessagingServiceSid', msgSid)
   } else {

@@ -27,6 +27,7 @@ import {
   nothingToConfirmReplyBody,
   twimlResponse,
 } from '@/lib/notifications/inbound-handler'
+import { toE164NZ } from '@/lib/nz-phone'
 import {
   resolveSmsConfirmation,
   ambiguousSmsSuffix,
@@ -80,29 +81,35 @@ export async function POST(request: NextRequest) {
 
   const supabase = getServiceSupabase()
 
-  // Best-effort client lookup by phone.
-  let matchedClientId: string | null = null
-  {
-    const { data } = await supabase
-      .from('clients')
-      .select('id')
-      .eq('phone', fromPhone)
-      .limit(1)
-    matchedClientId = (data?.[0]?.id as string | undefined) ?? null
+  // Match the sender by phone.
+  //
+  // Twilio delivers `From` in E.164 (+64211234567) but every phone in this DB
+  // is stored as a person types it ("021 123 4567"). A direct `.eq('phone', ...)`
+  // therefore NEVER matches — which would silently drop every confirmation.
+  // So candidates are normalised in code and compared in E.164.
+  const fromE164 = toE164NZ(fromPhone)
+
+  async function matchByPhone(table: 'clients' | 'contractors'): Promise<string | null> {
+    // Exact match first — cheap, and correct for any row already in E.164.
+    const { data: exact } = await supabase
+      .from(table).select('id').eq('phone', fromPhone).limit(1)
+    if (exact?.[0]?.id) return exact[0].id as string
+    if (!fromE164) return null
+
+    // Otherwise normalise the stored values and compare. The row counts here
+    // are small (about 120 phones across both tables), so this is cheap.
+    const { data: rows } = await supabase
+      .from(table).select('id, phone').not('phone', 'is', null)
+    for (const r of rows ?? []) {
+      if (toE164NZ(r.phone as string | null) === fromE164) return r.id as string
+    }
+    return null
   }
 
+  const matchedClientId = await matchByPhone('clients')
   const classification = classifyInbound(body)
-  // Best-effort CONTRACTOR lookup by phone — a "YES" reply confirming a job
-  // comes from a contractor, not a client.
-  let matchedContractorId: string | null = null
-  {
-    const { data } = await supabase
-      .from('contractors')
-      .select('id')
-      .eq('phone', fromPhone)
-      .limit(1)
-    matchedContractorId = (data?.[0]?.id as string | undefined) ?? null
-  }
+  // A "YES" confirming a job comes from a contractor, not a client.
+  const matchedContractorId = await matchByPhone('contractors')
 
   let actionTaken: 'opted_out' | 'help_replied' | 'hours_confirmed' | 'none' = 'none'
   let replyBody: string | null = null
