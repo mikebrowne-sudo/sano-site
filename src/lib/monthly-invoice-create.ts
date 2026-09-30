@@ -34,6 +34,10 @@ export interface CreateMonthlyInvoiceCoreInput {
   serviceLabel: string | null
   /** Printed in the invoice's Notes box, e.g. the contract rate. */
   notes?: string | null
+  /** The date the invoice will be issued, when known up-front (the cron's
+   *  billing date). Used only to compute the due date, e.g. 1 Nov → 20 Nov on
+   *  20th-of-month terms. The page leaves it unset; Send stamps the dates. */
+  issueDate?: string | null
   actor: MonthlyInvoiceActor
   /** Recorded on the audit row, e.g. the recurring schedule that raised it. */
   recurringJobId?: string | null
@@ -156,7 +160,7 @@ export async function createMonthlyInvoiceCore(
       due_date: computeInvoiceDueDate({
         payment_type: paymentType,
         payment_terms: (client.payment_terms as string | null) ?? null,
-        date_issued: null,
+        date_issued: input.issueDate ?? null,
         service_date: lastVisit,
       }),
     })

@@ -297,6 +297,7 @@ export async function generateCompletedVisits(
       ratePerVisit: Number(rec.per_visit_rate),
       serviceLabel: label,
       notes: note,
+      issueDate: billDate,
       actor: { id: null, email: null, role: 'system' },
       recurringJobId: rec.id,
     })

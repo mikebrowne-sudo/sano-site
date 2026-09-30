@@ -69,6 +69,7 @@ describe("generateFor — billing_mode 'completed_visits'", () => {
       clientId: 'cl1', month: '2026-10', jobIds: ['j1', 'j2'], ratePerVisit: 315,
       serviceLabel: 'Residential Housekeeping', recurringJobId: 'rec1', actor: { id: null, role: 'system' },
       notes: 'Contract rate: $630.00 + GST per week ($724.50 incl. GST)',
+      issueDate: '2026-11-01',
     })
     expect(send).toHaveBeenCalledWith(client, 'inv1')
     expect(recUpdate).toHaveBeenCalledWith({ next_invoice_date: '2026-12-01' })
