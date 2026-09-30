@@ -1,0 +1,136 @@
+// Monthly invoice from completed jobs — pure helpers.
+//
+// Some clients (e.g. Oranga Tamariki, 2 × 7-hour visits a week) are billed
+// once a month for the visits actually completed that month. Each visit is
+// its own job; the monthly invoice links all of them and lists every visit
+// (date, hours, amount) in the service description under a single line, so
+// the document total stays base_price-only and matches everywhere totals are
+// computed (list, share page, PDF, Stripe, CSV).
+//
+// Dependency-free so it can be unit-tested and shared by the page + action.
+
+export interface MonthlyJobInput {
+  id: string
+  job_number: string | null
+  scheduled_date: string | null
+  completed_at: string | null
+  allowed_hours: number | string | null
+  job_price: number | string | null
+}
+
+export interface MonthlyLine {
+  jobId: string
+  jobNumber: string | null
+  /** 'YYYY-MM-DD' — the date the visit is billed for. */
+  date: string
+  hours: number | null
+  price: number
+  /** True when the price came from the per-visit rate (job had none). */
+  priceFromRate: boolean
+}
+
+const MONTHS_LONG = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
+/** 'YYYY-MM' → first/last day ('YYYY-MM-DD') + a human label ("August 2026"). */
+export function monthRange(month: string): { start: string; end: string; label: string } | null {
+  const m = /^(\d{4})-(\d{2})$/.exec(month)
+  if (!m) return null
+  const y = Number(m[1])
+  const mo = Number(m[2])
+  if (mo < 1 || mo > 12) return null
+  const first = new Date(Date.UTC(y, mo - 1, 1))
+  const last = new Date(Date.UTC(y, mo, 0))
+  const iso = (d: Date) => d.toISOString().slice(0, 10)
+  return {
+    start: iso(first),
+    end: iso(last),
+    label: `${MONTHS_LONG[mo - 1]} ${y}`,
+  }
+}
+
+/**
+ * The date a visit is billed under. The scheduled date wins: contractors
+ * often tap "complete" days later (JOB-0289 was done 12 Aug, marked complete
+ * 19 Aug), and the customer thinks in visit days, not app taps.
+ */
+export function visitDate(job: Pick<MonthlyJobInput, 'scheduled_date' | 'completed_at'>): string | null {
+  return job.scheduled_date ?? (job.completed_at ? job.completed_at.slice(0, 10) : null)
+}
+
+function toNum(v: number | string | null | undefined): number | null {
+  if (v == null || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100
+
+/**
+ * Build the invoice lines. A job's own job_price wins; otherwise the
+ * per-visit rate is used. Returns an error naming the jobs that end up with
+ * no price so nothing is ever billed at $0 by accident.
+ */
+export function buildMonthlyLines(
+  jobs: ReadonlyArray<MonthlyJobInput>,
+  ratePerVisit: number | null,
+): { lines: MonthlyLine[]; total: number } | { error: string } {
+  const rate = ratePerVisit != null && ratePerVisit > 0 ? round2(ratePerVisit) : null
+  const lines: MonthlyLine[] = []
+  const unpriced: string[] = []
+  for (const j of jobs) {
+    const own = toNum(j.job_price)
+    const price = own != null && own > 0 ? round2(own) : rate
+    const date = visitDate(j)
+    if (price == null) { unpriced.push(j.job_number ?? j.id); continue }
+    if (!date) return { error: `${j.job_number ?? j.id} has no scheduled or completed date.` }
+    lines.push({
+      jobId: j.id,
+      jobNumber: j.job_number,
+      date,
+      hours: toNum(j.allowed_hours),
+      price,
+      priceFromRate: !(own != null && own > 0),
+    })
+  }
+  if (unpriced.length > 0) {
+    return { error: `No price for ${unpriced.join(', ')} — enter a per-visit rate.` }
+  }
+  if (lines.length === 0) return { error: 'Select at least one completed visit.' }
+  lines.sort((a, b) => a.date.localeCompare(b.date))
+  return { lines, total: round2(lines.reduce((s, l) => s + l.price, 0)) }
+}
+
+function fmtMoney(n: number): string {
+  return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
+}
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+// Built by hand (not toLocaleDateString) so the PDF reads identically on
+// every runtime — ICU output varies ("Wed, 12 Aug" vs "Wed 12 Aug").
+function fmtVisitDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`)
+  return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`
+}
+
+function fmtHours(h: number): string {
+  return `${Number.isInteger(h) ? h : h.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')} hrs`
+}
+
+/**
+ * Service description shown under the invoice line: a summary line then one
+ * line per visit, e.g. "Wed 12 Aug — 7 hrs — $315.00".
+ */
+export function composeMonthlyDescription(monthLabel: string, lines: ReadonlyArray<MonthlyLine>): string {
+  const head = `${monthLabel} — ${lines.length} visit${lines.length === 1 ? '' : 's'}`
+  const rows = lines.map((l) =>
+    [fmtVisitDate(l.date), l.hours != null && l.hours > 0 ? fmtHours(l.hours) : null, fmtMoney(l.price)]
+      .filter(Boolean)
+      .join(' — '),
+  )
+  return [head, ...rows].join('\n')
+}

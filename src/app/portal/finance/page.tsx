@@ -121,7 +121,7 @@ export default async function FinancePage({
     jobInvoiceIds.length > 0
       ? supabase
           .from('invoices')
-          .select('id, base_price, discount, invoice_items ( price )')
+          .select('id, base_price, discount, invoice_items ( price ), linked_jobs:jobs!jobs_invoice_id_fkey ( id )')
           .in('id', jobInvoiceIds)
       : Promise.resolve({ data: [] as Array<{ id: string; base_price: number; discount: number; invoice_items: { price: number }[] }> }),
     jobIds.length > 0
@@ -144,7 +144,11 @@ export default async function FinancePage({
     base_price: number
     discount: number
     invoice_items: { price: number }[] | null
+    linked_jobs?: { id: string }[] | null
   }>) {
+    // Monthly invoices cover several visits — their total never equals one
+    // job's price, so leave them out of the per-job total comparison.
+    if ((inv.linked_jobs ?? []).length > 1) continue
     const items = inv.invoice_items ?? []
     const addons = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
     const total = (inv.base_price ?? 0) + addons - (inv.discount ?? 0)
