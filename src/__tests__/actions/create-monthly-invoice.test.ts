@@ -80,7 +80,7 @@ describe('createMonthlyInvoice', () => {
       notes: 'Contract rate: $630.00 + GST per week',
     })
     expect(payload.service_description).toBe(
-      'August 2026 — 3 visits\nWed 12 Aug — 7 hrs — $315.00\nFri 14 Aug — 7 hrs — $315.00\nWed 26 Aug — 7 hrs — $315.00',
+      'August 2026: 3 visits × $315.00 + GST\nVisit dates: 12, 14 and 26 August',
     )
     // Every job linked + invoiced; only the unpriced ones get the rate stamped.
     expect(s.jobUpdates.map((u) => u.id)).toEqual(['j1', 'j2', 'j3'])

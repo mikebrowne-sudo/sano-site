@@ -113,8 +113,9 @@ export default async function NewMonthlyInvoicePage({
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-sage-800">Monthly invoice from completed visits</h1>
         <p className="text-sm text-sage-600 mt-1 max-w-2xl">
-          One invoice for all the visits a client had in a month. Each visit is listed with its date,
-          hours and price, and the jobs are marked invoiced so they can&apos;t be billed twice.
+          One invoice for all the visits a client had in a month. The invoice shows the number of
+          visits × the rate and the visit dates on one line, and the jobs are marked invoiced so
+          they can&apos;t be billed twice.
           The invoice is created as a draft — review it, then send.
         </p>
       </div>
