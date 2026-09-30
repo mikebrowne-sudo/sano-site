@@ -134,3 +134,25 @@ export function composeMonthlyDescription(monthLabel: string, lines: ReadonlyArr
   )
   return [head, ...rows].join('\n')
 }
+
+/**
+ * Group outstanding visits by billing month ('YYYY-MM'), keeping only visits
+ * dated on or before `throughDate`. Used by the 'completed_visits' recurring
+ * billing: a visit marked complete late (after its month was billed) is still
+ * picked up by the next run, on its own correctly-labelled invoice.
+ */
+export function groupVisitsByMonth(
+  jobs: ReadonlyArray<Pick<MonthlyJobInput, 'id' | 'scheduled_date' | 'completed_at'>>,
+  throughDate: string,
+): Map<string, string[]> {
+  const out = new Map<string, string[]>()
+  for (const j of jobs) {
+    const d = visitDate(j)
+    if (!d || d > throughDate) continue
+    const m = d.slice(0, 7)
+    const list = out.get(m)
+    if (list) list.push(j.id)
+    else out.set(m, [j.id])
+  }
+  return new Map(Array.from(out.entries()).sort(([a], [b]) => a.localeCompare(b)))
+}

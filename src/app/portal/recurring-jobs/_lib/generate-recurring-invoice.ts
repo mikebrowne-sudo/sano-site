@@ -10,6 +10,8 @@ import { resolveContractorGstSnapshot } from '@/lib/contractor-gst-snapshot'
 import { sendRecurringInvoiceEmail } from './send-recurring-invoice'
 import { computeRecurringAmount } from './per-visit-billing'
 import { formatCurrency } from '@/lib/format'
+import { groupVisitsByMonth } from '@/lib/monthly-invoice'
+import { createMonthlyInvoiceCore, defaultServiceLabel } from '@/lib/monthly-invoice-create'
 
 export interface RecurringRow {
   id: string
@@ -27,8 +29,9 @@ export interface RecurringRow {
   /** When true, the invoice sent on `invoice_send_day` bills for the PREVIOUS
    *  calendar month (e.g. Pukekohe: sent the 7th of Sep for August's work). */
   bill_in_arrears: boolean | null
-  /** 'fixed' (flat monthly_value) or 'per_visit' (rate × service days that month).
-   *  Optional so pre-existing callers default to fixed. */
+  /** 'fixed' (flat monthly_value), 'per_visit' (rate × SCHEDULED service days
+   *  that month) or 'completed_visits' (rate × visits actually COMPLETED —
+   *  one invoice per month, jobs linked). Optional; defaults to fixed. */
   billing_mode?: string | null
   per_visit_rate?: number | null
   service_days_of_week?: number[] | null
@@ -154,6 +157,7 @@ export interface RecurringInvoiceResult {
 
 export async function generateFor(supabase: SupabaseClient, rec: RecurringRow): Promise<RecurringInvoiceResult> {
   if (!rec.client_id) return { skipped: 'no client' }
+  if (rec.billing_mode === 'completed_visits') return generateCompletedVisits(supabase, rec)
   const isPerVisit = rec.billing_mode === 'per_visit'
   if (isPerVisit) {
     if (!(Number(rec.per_visit_rate) > 0)) return { skipped: 'no per-visit rate' }
@@ -244,6 +248,80 @@ export async function generateFor(supabase: SupabaseClient, rec: RecurringRow): 
   return existing ? { skipped: 'already billed for this date' } : { invoiceId, sent }
 }
 
+/**
+ * 'completed_visits' billing: on the invoice date, bill every completed,
+ * un-invoiced visit for the client up to the end of the PREVIOUS month —
+ * one invoice per month, built by the same core as Invoices → Monthly
+ * invoice (visits listed, jobs linked so nothing is billed twice). Visits
+ * marked complete late roll into the next run under their own month.
+ *
+ * Scoped to the CLIENT, not the schedule: a client on this mode is billed
+ * monthly for everything done for them (e.g. Oranga Tamariki's Wednesday and
+ * Friday schedules plus any hand-made visits). If two schedules for the same
+ * client both run, the second finds nothing left and skips — no duplicates.
+ */
+export async function generateCompletedVisits(
+  supabase: SupabaseClient,
+  rec: RecurringRow,
+): Promise<RecurringInvoiceResult> {
+  if (!rec.client_id) return { skipped: 'no client' }
+  if (!(Number(rec.per_visit_rate) > 0)) return { skipped: 'no per-visit rate' }
+  const billDate = rec.next_invoice_date
+  if (!billDate) return { skipped: 'no next invoice date set' }
+  const sendDay = rec.invoice_send_day ?? Number(billDate.slice(8, 10))
+  const throughMonth = serviceMonth(billDate, true)
+
+  const { data: jobs, error: jErr } = await supabase
+    .from('jobs')
+    .select('id, scheduled_date, completed_at')
+    .eq('client_id', rec.client_id)
+    .eq('status', 'completed')
+    .is('invoice_id', null)
+    .is('deleted_at', null)
+    .eq('is_test', false)
+  if (jErr) return { error: `could not load visits: ${jErr.message}` }
+
+  const byMonth = groupVisitsByMonth(jobs ?? [], throughMonth.end)
+  const label = (await defaultServiceLabel(supabase, rec.client_id)) ?? 'Regular cleaning'
+
+  const invoiceIds: string[] = []
+  const errors: string[] = []
+  let sent = false
+  for (const [month, jobIds] of Array.from(byMonth.entries())) {
+    const res = await createMonthlyInvoiceCore(supabase, {
+      clientId: rec.client_id,
+      month,
+      jobIds,
+      ratePerVisit: Number(rec.per_visit_rate),
+      serviceLabel: label,
+      actor: { id: null, email: null, role: 'system' },
+      recurringJobId: rec.id,
+    })
+    if ('error' in res) { errors.push(`${month}: ${res.error}`); continue }
+    invoiceIds.push(res.invoiceId)
+    if (rec.invoice_auto_send) {
+      // Fail-safe: a failed send leaves a draft in the "Send draft invoices" to-do.
+      const s = await sendRecurringInvoiceEmail(supabase, res.invoiceId)
+      if (s.sent) sent = true
+      else if (s.error) errors.push(`${month}: created but not sent (${s.error})`)
+    }
+  }
+
+  // Monthly contractor payable only applies to schedules that pay monthly;
+  // per-visit auto-approval (#612) handles everyone else.
+  const payable = await ensureContractorPayable(supabase, rec, billDate)
+  if (payable.error) errors.push(payable.error)
+
+  await supabase
+    .from('recurring_jobs')
+    .update({ next_invoice_date: advanceOneMonth(billDate, sendDay) })
+    .eq('id', rec.id)
+
+  if (errors.length > 0) return { invoiceId: invoiceIds[0], sent, error: errors.join('; ') }
+  if (invoiceIds.length === 0) return { skipped: 'no completed visits to bill' }
+  return { invoiceId: invoiceIds[0], sent }
+}
+
 export async function generateDueRecurringInvoices(
   svc: SupabaseClient,
   today: string,
@@ -252,10 +330,10 @@ export async function generateDueRecurringInvoices(
     .from('recurring_jobs')
     .select(REC_COLS)
     .eq('status', 'active')
-    // Per-visit contracts carry no monthly_value — the old
+    // Per-visit / completed-visit contracts carry no monthly_value — the old
     // .not('monthly_value', 'is', null) filter skipped them forever.
     // generateFor() validates the amount for both billing modes.
-    .or('monthly_value.not.is.null,billing_mode.eq.per_visit')
+    .or('monthly_value.not.is.null,billing_mode.in.(per_visit,completed_visits)')
     .not('next_invoice_date', 'is', null)
 
   let generated = 0
