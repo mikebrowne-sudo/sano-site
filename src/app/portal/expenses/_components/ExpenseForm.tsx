@@ -4,7 +4,8 @@ import { useEffect, useState, useTransition } from 'react'
 import { ChevronDown, Trash2, UploadCloud, FileText, X } from 'lucide-react'
 import { createExpense, updateExpense, deleteExpense } from '../_actions'
 import { uploadExpenseReceipt, removeExpenseReceipt } from '../_actions-receipt'
-import { SELECTABLE_EXPENSE_CATEGORIES, isAccountantConfirmCategory } from '@/lib/expense-categories'
+import clsx from 'clsx'
+import { SELECTABLE_EXPENSE_CATEGORIES, isAccountantConfirmCategory, isNeverGstCategory } from '@/lib/expense-categories'
 import { RECEIPT_ACCEPT, RECEIPT_MAX_BYTES, isAllowedReceiptType, receiptIsPdf } from '@/lib/expense-receipts'
 import type { VendorSuggestion } from '../_data'
 
@@ -56,6 +57,9 @@ export function ExpenseForm({
   const [error, setError] = useState<string | null>(null)
 
   const accountantConfirm = isAccountantConfirmCategory(category)
+  // Categories that can never carry a GST input credit (employee wages, IRD
+  // remittances, owner capital, director loans). The server enforces this too.
+  const neverGst = isNeverGstCategory(category)
   const hasExistingReceipt = isEdit && !!expense?.receipt_path && !!receiptUrl && !removeExisting && !receiptFile
 
   // Object URL for image previews of a staged file; revoked on change/unmount.
@@ -184,10 +188,24 @@ export function ExpenseForm({
             <span className="block text-sm font-semibold text-sage-800 mb-1.5">Payment reference</span>
             <input value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} placeholder="Bank reference, for matching" className={inputCls} />
           </label>
-          <label className="flex items-center gap-2 mt-7">
-            <input type="checkbox" checked={gstInclusive} onChange={(e) => setGstInclusive(e.target.checked)} className="h-4 w-4 rounded border-sage-300 text-sage-500 focus:ring-sage-500" />
-            <span className="text-sm text-sage-700">Amount is GST-inclusive</span>
-          </label>
+          <div className="mt-7">
+            <label className={clsx('flex items-center gap-2', neverGst && 'opacity-50')}>
+              <input
+                type="checkbox"
+                checked={neverGst ? false : gstInclusive}
+                disabled={neverGst}
+                onChange={(e) => setGstInclusive(e.target.checked)}
+                className="h-4 w-4 rounded border-sage-300 text-sage-500 focus:ring-sage-500 disabled:cursor-not-allowed"
+              />
+              <span className="text-sm text-sage-700">Amount is GST-inclusive</span>
+            </label>
+            {neverGst && (
+              <p className="text-xs text-sage-500 mt-1">
+                No GST on this category — it isn&rsquo;t a supply to the business, so there is
+                nothing to claim.
+              </p>
+            )}
+          </div>
         </div>
 
         <label className="block mt-4">
