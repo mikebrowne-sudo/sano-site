@@ -152,7 +152,10 @@ export function QuoteDocument({
   // the address block as well would render the value twice.
   const toParty: DocumentParty = {
     name: client?.name ?? '—',
-    company: client?.company_name ?? null,
+    // Drop the company line when it just repeats the name.
+    company: client?.company_name && client.company_name.trim().toLowerCase() !== (client?.name ?? '').trim().toLowerCase()
+      ? client.company_name
+      : null,
     address: client?.service_address ?? null,
     attn: quote.contact_name ?? null,
     phone: quote.contact_phone ?? client?.phone ?? null,

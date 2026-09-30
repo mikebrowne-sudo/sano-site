@@ -207,3 +207,34 @@ describe('InvoiceDocument — per-invoice Billed-to override', () => {
     expect(screen.queryByText(/Attn:/)).not.toBeInTheDocument()
   })
 })
+
+describe('InvoiceDocument — terms + billed-to tidy-ups', () => {
+  const ot = {
+    name: 'Oranga Tamariki - Ministry For Children',
+    company_name: 'Oranga Tamariki - Ministry For Children',
+    service_address: '157 Celtic Crescent',
+    phone: null,
+    email: 'kelsey@example.com',
+  }
+
+  it('states the real due date in the terms (not a fixed 14 days)', () => {
+    render(<InvoiceDocument wrapper="share-page" invoice={makeInvoice({ due_date: '2026-10-20' })} items={[]} />)
+    expect(screen.getByText(/Payment is due by 20 October 2026\./)).toBeInTheDocument()
+    expect(screen.queryByText(/within 14 days/)).not.toBeInTheDocument()
+  })
+
+  it('keeps the prepaid wording for cash sales', () => {
+    render(<InvoiceDocument wrapper="share-page" invoice={makeInvoice({ payment_type: 'cash_sale' })} items={[]} />)
+    expect(screen.getByText(/Payment is required prior to the clean\./)).toBeInTheDocument()
+  })
+
+  it('does not repeat the company line when it equals the client name', () => {
+    const { container } = render(<InvoiceDocument wrapper="share-page" invoice={makeInvoice({ clients: ot })} items={[]} />)
+    expect(container.textContent?.match(/Oranga Tamariki - Ministry For Children/g)?.length).toBe(1)
+  })
+
+  it('prints Attn from the invoice contact', () => {
+    render(<InvoiceDocument wrapper="share-page" invoice={makeInvoice({ clients: ot, contact_name: 'Kelsey Harvey' })} items={[]} />)
+    expect(screen.getByText(/Attn: Kelsey Harvey/)).toBeInTheDocument()
+  })
+})
