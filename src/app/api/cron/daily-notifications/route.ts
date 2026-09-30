@@ -30,6 +30,7 @@ import { getServiceSupabase } from '@/lib/supabase-service'
 import { sendNotification } from '@/lib/notifications/send'
 import { generateDueRecurringInvoices } from '@/app/portal/recurring-jobs/_lib/generate-recurring-invoice'
 import { generateDueRecurringJobs } from '@/app/portal/recurring-jobs/_lib/generate-due-recurring-jobs'
+import { autoApproveCompletedRecurringJobs } from '@/lib/recurring-pay-auto-approve'
 // Contractor statement reminder imports removed with Task D (Phase 2,
 // 2026-08-17) — see the retirement note at the Task D marker below.
 
@@ -334,6 +335,21 @@ async function runDaily(request: NextRequest) {
     }
   } catch (e) {
     summary.errors.push(`recurring_jobs: ${(e as Error).message}`)
+  }
+
+  // ════ Task F — Auto-approve contractor pay for recurring visits ════
+  // Backstop for the inline approve on "Mark complete": any recurring
+  // occurrence completed in the last 60 days with no contractor payable gets
+  // one. Idempotent (one payable per job + contractor).
+  try {
+    const since = new Date(Date.now() - 60 * 86400000).toISOString()
+    const autoPay = await autoApproveCompletedRecurringJobs(supabase, since)
+    ;(summary as typeof summary & { recurring_pay?: unknown }).recurring_pay = {
+      scanned: autoPay.scanned, approved: autoPay.approved,
+    }
+    if (autoPay.errors.length) summary.errors.push(...autoPay.errors.map((e) => `recurring_pay: ${e}`))
+  } catch (e) {
+    summary.errors.push(`recurring_pay: ${(e as Error).message}`)
   }
 
   return NextResponse.json({ ok: summary.errors.length === 0, summary })

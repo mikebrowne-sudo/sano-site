@@ -9,6 +9,8 @@ import { isLockedByInvoice, writeAmendmentAudit } from '@/lib/amendment-lock'
 import { isAdminUser } from '@/lib/is-admin'
 import { pickSnapshotRate } from '@/lib/contractor-rate-snapshot'
 import { resplitJobHours } from '@/lib/job-hours-split'
+import { getServiceSupabase } from '@/lib/supabase-service'
+import { autoApproveRecurringJobPay } from '@/lib/recurring-pay-auto-approve'
 
 // Phase D — mark a completed job as reviewed. Captures reviewed_at
 // + reviewed_by (FK to auth.users) and audit-logs the transition.
@@ -324,6 +326,14 @@ export async function completeJob(jobId: string) {
 
   if (error) {
     return { error: `Failed to complete job: ${error.message}` }
+  }
+
+  // Recurring occurrence → approve the contractor payable now (see
+  // src/lib/recurring-pay-auto-approve.ts). Non-fatal; the cron sweep retries.
+  try {
+    await autoApproveRecurringJobPay(getServiceSupabase(), jobId)
+  } catch (e) {
+    console.error('[completeJob] recurring auto-approve failed', e)
   }
 
   revalidatePath(`/portal/jobs/${jobId}`)
