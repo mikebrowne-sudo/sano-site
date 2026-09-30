@@ -11,7 +11,7 @@ import { sendRecurringInvoiceEmail } from './send-recurring-invoice'
 import { computeRecurringAmount } from './per-visit-billing'
 import { formatCurrency } from '@/lib/format'
 import { groupVisitsByMonth } from '@/lib/monthly-invoice'
-import { createMonthlyInvoiceCore, defaultServiceLabel } from '@/lib/monthly-invoice-create'
+import { createMonthlyInvoiceCore, defaultServiceLabel, scheduleInvoiceNote } from '@/lib/monthly-invoice-create'
 
 export interface RecurringRow {
   id: string
@@ -216,6 +216,7 @@ export async function generateFor(supabase: SupabaseClient, rec: RecurringRow): 
         scheduled_clean_date: billDate,
         base_price: amount,
         service_description: serviceDescription,
+        notes: await scheduleInvoiceNote(supabase, { recurringJobId: rec.id, clientId: rec.client_id }),
         payment_type: paymentType,
         due_date: dueDate,
       })
@@ -283,6 +284,7 @@ export async function generateCompletedVisits(
 
   const byMonth = groupVisitsByMonth(jobs ?? [], throughMonth.end)
   const label = (await defaultServiceLabel(supabase, rec.client_id)) ?? 'Regular cleaning'
+  const note = await scheduleInvoiceNote(supabase, { recurringJobId: rec.id, clientId: rec.client_id })
 
   const invoiceIds: string[] = []
   const errors: string[] = []
@@ -294,6 +296,7 @@ export async function generateCompletedVisits(
       jobIds,
       ratePerVisit: Number(rec.per_visit_rate),
       serviceLabel: label,
+      notes: note,
       actor: { id: null, email: null, role: 'system' },
       recurringJobId: rec.id,
     })

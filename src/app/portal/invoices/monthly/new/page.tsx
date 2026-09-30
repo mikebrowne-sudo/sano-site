@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { monthRange, visitDate } from '@/lib/monthly-invoice'
 import { MonthlyInvoiceForm, type MonthlyJobRow } from './_components/MonthlyInvoiceForm'
+import { scheduleInvoiceNote } from '@/lib/monthly-invoice-create'
 
 // Monthly invoice from completed jobs — pick client → month → visits.
 // Only completed, un-invoiced, live jobs are offered, so a visit can't be
@@ -79,11 +80,14 @@ export default async function NewMonthlyInvoicePage({
         .sort((a, b) => a.date.localeCompare(b.date))
     : []
 
-  // Prefills: per-visit rate from the client's most recent priced job, and the
-  // heading from their most recent quote. Both editable on the form.
+  // Prefills: per-visit rate from the client's most recent priced job, the
+  // heading from their most recent quote, and the note from their recurring
+  // schedule (e.g. the weekly contract rate). All editable on the form.
   let defaultRate: number | null = null
   let defaultLabel = ''
+  let defaultNotes = ''
   if (clientId) {
+    defaultNotes = (await scheduleInvoiceNote(supabase, { clientId })) ?? ''
     const [{ data: pricedJob }, { data: lastQuote }] = await Promise.all([
       supabase.from('jobs').select('job_price').eq('client_id', clientId).is('deleted_at', null)
         .not('job_price', 'is', null).gt('job_price', 0)
@@ -125,6 +129,7 @@ export default async function NewMonthlyInvoicePage({
         jobs={monthJobs}
         defaultRate={defaultRate}
         defaultLabel={defaultLabel}
+        defaultNotes={defaultNotes}
       />
     </div>
   )

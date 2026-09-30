@@ -22,6 +22,8 @@ export interface CreateMonthlyInvoiceInput {
   ratePerVisit: number | null
   /** Invoice heading, e.g. "Residential Housekeeping". */
   serviceLabel: string | null
+  /** Printed in the invoice's Notes box. */
+  notes?: string | null
 }
 
 export async function createMonthlyInvoice(

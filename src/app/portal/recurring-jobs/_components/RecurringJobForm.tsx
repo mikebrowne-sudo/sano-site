@@ -26,6 +26,7 @@ interface RecurringJobData {
   status: string
   monthly_value?: number | null
   invoice_auto_send?: boolean | null
+  invoice_note?: string | null
   invoice_send_day?: number | null
   contractor_monthly_pay?: number | null
   billing_mode?: string | null
@@ -74,6 +75,7 @@ export function RecurringJobForm({
   const [serviceDays, setServiceDays] = useState<Set<number>>(new Set(recurringJob?.service_days_of_week ?? []))
   const [invoiceSendDay, setInvoiceSendDay] = useState(recurringJob?.invoice_send_day != null ? String(recurringJob.invoice_send_day) : '')
   const [invoiceAutoSend, setInvoiceAutoSend] = useState(recurringJob?.invoice_auto_send ?? false)
+  const [invoiceNote, setInvoiceNote] = useState(recurringJob?.invoice_note ?? '')
   const [contractorMonthlyPay, setContractorMonthlyPay] = useState(recurringJob?.contractor_monthly_pay != null ? String(recurringJob.contractor_monthly_pay) : '')
   const [contractorPayMode, setContractorPayMode] = useState<'fixed' | 'per_visit'>((recurringJob?.contractor_pay_mode as 'fixed' | 'per_visit') ?? 'fixed')
   const [contractorPerVisitRate, setContractorPerVisitRate] = useState(recurringJob?.contractor_per_visit_rate != null ? String(recurringJob.contractor_per_visit_rate) : '')
@@ -116,6 +118,7 @@ export function RecurringJobForm({
       contractor_monthly_pay: toNum(contractorMonthlyPay),
       invoice_send_day: toNum(invoiceSendDay),
       invoice_auto_send: invoiceAutoSend,
+      invoice_note: invoiceNote.trim() || null,
       billing_mode: billingMode,
       per_visit_rate: billsPerVisitRate ? toNum(perVisitRate) : undefined,
       // Service days are needed whenever EITHER billing or contractor pay is per-visit.
@@ -269,6 +272,13 @@ export function RecurringJobForm({
             Auto-send the invoice to the client
             <span className="block text-[11px] text-sage-400">Leave off to raise a <span className="font-medium">draft</span> each month (it lands in your To-do to review + send). Turn on to email it automatically on the invoice day.</span>
           </span>
+        </label>
+        <label className="block mt-4">
+          <span className="block text-sm font-semibold text-sage-800 mb-1.5">Note on every invoice</span>
+          <textarea value={invoiceNote} onChange={(e) => setInvoiceNote(e.target.value)} rows={2}
+            placeholder="e.g. Contract rate: $630.00 + GST per week ($724.50 incl. GST)"
+            className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm resize-y" />
+          <span className="block text-[11px] text-sage-500 mt-1">Printed in the Notes box of each invoice. Customer-facing only — it is not shown on jobs or to the contractor.</span>
         </label>
         <p className="text-[11px] text-sage-400 mt-2">
           With a monthly value + invoice day set, the monthly invoice is raised automatically — no per-month clicking.

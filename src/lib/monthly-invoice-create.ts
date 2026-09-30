@@ -32,6 +32,8 @@ export interface CreateMonthlyInvoiceCoreInput {
   ratePerVisit: number | null
   /** Invoice heading, e.g. "Residential Housekeeping". */
   serviceLabel: string | null
+  /** Printed in the invoice's Notes box, e.g. the contract rate. */
+  notes?: string | null
   actor: MonthlyInvoiceActor
   /** Recorded on the audit row, e.g. the recurring schedule that raised it. */
   recurringJobId?: string | null
@@ -40,6 +42,29 @@ export interface CreateMonthlyInvoiceCoreInput {
 export type CreateMonthlyInvoiceResult =
   | { invoiceId: string; invoiceNumber: string | null; total: number; visits: number }
   | { error: string }
+
+/**
+ * The invoice note set on the client's recurring schedule(s), if any. Read
+ * on its own (not via REC_COLS) and error-tolerant so a missing column can
+ * never break invoicing.
+ */
+export async function scheduleInvoiceNote(
+  supabase: SupabaseClient,
+  opts: { recurringJobId?: string | null; clientId: string },
+): Promise<string | null> {
+  try {
+    const q = supabase.from('recurring_jobs').select('invoice_note').not('invoice_note', 'is', null)
+    const { data, error } = opts.recurringJobId
+      ? await q.eq('id', opts.recurringJobId).limit(1)
+      : await q.eq('client_id', opts.clientId).eq('status', 'active').order('created_at').limit(1)
+    if (error) return null
+    const note = ((data?.[0] as { invoice_note?: string | null } | undefined)?.invoice_note ?? '').trim()
+    return note || null
+  } catch {
+    // A note must never block an invoice.
+    return null
+  }
+}
 
 /** Heading prefill: the client's most recent quote's clean type, if any. */
 export async function defaultServiceLabel(supabase: SupabaseClient, clientId: string): Promise<string | null> {
@@ -119,6 +144,7 @@ export async function createMonthlyInvoiceCore(
       scheduled_clean_date: lastVisit,
       type_of_clean: (input.serviceLabel ?? '').trim() || null,
       service_description: composeMonthlyDescription(range.label, built.lines),
+      notes: (input.notes ?? '').trim() || null,
       base_price: built.total,
       gst_included: false,
       payment_type: paymentType,
