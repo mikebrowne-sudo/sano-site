@@ -75,7 +75,7 @@ describe('createMonthlyInvoice', () => {
     const payload = s.invoiceInsert.mock.calls[0][0]
     expect(payload).toMatchObject({
       client_id: 'cl1', job_id: null, quote_id: null, status: 'draft', source: 'job',
-      base_price: 945, gst_included: false, type_of_clean: 'Residential Housekeeping',
+      base_price: 945, gst_included: false, payment_type: 'on_account', type_of_clean: 'Residential Housekeeping',
       scheduled_clean_date: '2026-08-26',
       notes: 'Contract rate: $630.00 + GST per week',
       contact_id: 'ct1', contact_name: 'Kelsey Harvey', contact_email: 'kelsey@example.com',
@@ -89,6 +89,15 @@ describe('createMonthlyInvoice', () => {
     expect(s.jobUpdates[2].update).not.toHaveProperty('job_price')
     expect(s.auditInsert).toHaveBeenCalled()
     expect(redirect).toHaveBeenCalledWith('/portal/invoices/inv1')
+  })
+
+  it('GST-inclusive prices and a prepaid client still give a valid on-account invoice', async () => {
+    const s = makeSupabase([job('j1', '2026-08-12')])
+    mockedCreate.mockReturnValue(s.client)
+    await createMonthlyInvoice({ ...base, ratePerVisit: 180, gstIncluded: true, jobIds: ['j1'] })
+    const payload = s.invoiceInsert.mock.calls[0][0]
+    expect(payload).toMatchObject({ gst_included: true, base_price: 180, payment_type: 'on_account' })
+    expect(payload.service_description).toContain('1 visit × $180.00 incl. GST')
   })
 
   it.each([

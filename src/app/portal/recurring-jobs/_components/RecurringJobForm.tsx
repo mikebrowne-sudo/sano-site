@@ -27,6 +27,8 @@ interface RecurringJobData {
   monthly_value?: number | null
   invoice_auto_send?: boolean | null
   invoice_note?: string | null
+  invoice_frequency?: string | null
+  rate_includes_gst?: boolean | null
   invoice_send_day?: number | null
   contractor_monthly_pay?: number | null
   billing_mode?: string | null
@@ -76,6 +78,8 @@ export function RecurringJobForm({
   const [invoiceSendDay, setInvoiceSendDay] = useState(recurringJob?.invoice_send_day != null ? String(recurringJob.invoice_send_day) : '')
   const [invoiceAutoSend, setInvoiceAutoSend] = useState(recurringJob?.invoice_auto_send ?? false)
   const [invoiceNote, setInvoiceNote] = useState(recurringJob?.invoice_note ?? '')
+  const [invoiceFrequency, setInvoiceFrequency] = useState<'monthly' | 'weekly'>(recurringJob?.invoice_frequency === 'weekly' ? 'weekly' : 'monthly')
+  const [rateIncludesGst, setRateIncludesGst] = useState(!!recurringJob?.rate_includes_gst)
   const [contractorMonthlyPay, setContractorMonthlyPay] = useState(recurringJob?.contractor_monthly_pay != null ? String(recurringJob.contractor_monthly_pay) : '')
   const [contractorPayMode, setContractorPayMode] = useState<'fixed' | 'per_visit'>((recurringJob?.contractor_pay_mode as 'fixed' | 'per_visit') ?? 'fixed')
   const [contractorPerVisitRate, setContractorPerVisitRate] = useState(recurringJob?.contractor_per_visit_rate != null ? String(recurringJob.contractor_per_visit_rate) : '')
@@ -119,6 +123,8 @@ export function RecurringJobForm({
       invoice_send_day: toNum(invoiceSendDay),
       invoice_auto_send: invoiceAutoSend,
       invoice_note: invoiceNote.trim() || null,
+      invoice_frequency: billingMode === 'completed_visits' ? invoiceFrequency : 'monthly',
+      rate_includes_gst: billsPerVisitRate ? rateIncludesGst : false,
       billing_mode: billingMode,
       per_visit_rate: billsPerVisitRate ? toNum(perVisitRate) : undefined,
       // Service days are needed whenever EITHER billing or contractor pay is per-visit.
@@ -220,8 +226,40 @@ export function RecurringJobForm({
           ) : (
             <Field label="Rate per visit ($, ex GST)" type="number" step="0.01" min="0" value={perVisitRate} onChange={setPerVisitRate} placeholder="e.g. 100" />
           )}
-          <Field label="Invoice on day of month (1–31; 31 = end of month)" type="number" min="1" value={invoiceSendDay} onChange={setInvoiceSendDay} placeholder="e.g. 1" />
+          {billingMode === 'completed_visits' && invoiceFrequency === 'weekly' ? (
+            <div>
+              <span className="block text-sm font-semibold text-sage-800 mb-1.5">Invoice day</span>
+              <p className="text-sm text-sage-600 py-3">Every Monday, for the previous Monday–Sunday.</p>
+            </div>
+          ) : (
+            <Field label="Invoice on day of month (1–31; 31 = end of month)" type="number" min="1" value={invoiceSendDay} onChange={setInvoiceSendDay} placeholder="e.g. 1" />
+          )}
         </div>
+
+        {billingMode === 'completed_visits' && (
+          <div className="mt-4">
+            <span className="block text-sm font-semibold text-sage-800 mb-1.5">Invoice</span>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setInvoiceFrequency('monthly')} className={clsx('px-3 py-1.5 rounded-md text-sm font-medium border', invoiceFrequency === 'monthly' ? 'bg-sage-600 text-white border-sage-600' : 'bg-white text-sage-600 border-sage-200 hover:border-sage-300')}>Monthly</button>
+              <button type="button" onClick={() => setInvoiceFrequency('weekly')} className={clsx('px-3 py-1.5 rounded-md text-sm font-medium border', invoiceFrequency === 'weekly' ? 'bg-sage-600 text-white border-sage-600' : 'bg-white text-sage-600 border-sage-200 hover:border-sage-300')}>Weekly</button>
+            </div>
+            <span className="block text-[11px] text-sage-500 mt-1.5">
+              {invoiceFrequency === 'monthly'
+                ? 'One invoice on the invoice day for last month’s completed visits.'
+                : 'One invoice every Monday for the previous week’s completed visits.'}
+            </span>
+          </div>
+        )}
+
+        {billsPerVisitRate && (
+          <label className="flex items-start gap-2 mt-4 text-sm text-sage-700">
+            <input type="checkbox" checked={rateIncludesGst} onChange={(e) => setRateIncludesGst(e.target.checked)} className="mt-0.5 rounded border-sage-300" />
+            <span>
+              Rate includes GST
+              <span className="block text-[11px] text-sage-400">Tick when the per-visit price was quoted GST-inclusive (e.g. $180 incl. GST). Untick for &ldquo;+ GST&rdquo; prices.</span>
+            </span>
+          </label>
+        )}
 
         {/* Contractor pay — fixed monthly OR per visit (rate × cleans that month). */}
         {contractorId && (

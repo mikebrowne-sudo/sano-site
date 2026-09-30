@@ -25,13 +25,17 @@ export interface MonthlyInvoiceActor {
 
 export interface CreateMonthlyInvoiceCoreInput {
   clientId: string
-  /** 'YYYY-MM' */
-  month: string
+  /** 'YYYY-MM' — a calendar month. Ignored when `period` is given. */
+  month?: string
+  /** Explicit billing period (weekly invoicing). Overrides `month`. */
+  period?: { start: string; end: string; label: string }
   jobIds: string[]
   /** Ex-GST price for any selected visit that has no job_price. */
   ratePerVisit: number | null
   /** Invoice heading, e.g. "Residential Housekeeping". */
   serviceLabel: string | null
+  /** The rate/prices already include GST (e.g. Bella's $180 incl.). */
+  gstIncluded?: boolean
   /** Printed in the invoice's Notes box, e.g. the contract rate. */
   notes?: string | null
   /** The date the invoice will be issued, when known up-front (the cron's
@@ -70,6 +74,22 @@ export async function scheduleInvoiceNote(
   }
 }
 
+/** Whether the client's completed-visits schedule prices include GST (fails soft to false). */
+export async function scheduleRateIncludesGst(supabase: SupabaseClient, clientId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('recurring_jobs')
+      .select('rate_includes_gst')
+      .eq('client_id', clientId)
+      .eq('billing_mode', 'completed_visits')
+      .limit(1)
+    if (error) return false
+    return !!(data?.[0] as { rate_includes_gst?: boolean } | undefined)?.rate_includes_gst
+  } catch {
+    return false
+  }
+}
+
 /** Heading prefill: the client's most recent quote's clean type, if any. */
 export async function defaultServiceLabel(supabase: SupabaseClient, clientId: string): Promise<string | null> {
   const { data } = await supabase
@@ -88,7 +108,7 @@ export async function createMonthlyInvoiceCore(
   supabase: SupabaseClient,
   input: CreateMonthlyInvoiceCoreInput,
 ): Promise<CreateMonthlyInvoiceResult> {
-  const range = monthRange(input.month)
+  const range = input.period ?? (input.month ? monthRange(input.month) : null)
   if (!range) return { error: 'Pick a month.' }
   const jobIds = Array.from(new Set(input.jobIds ?? []))
   if (jobIds.length === 0) return { error: 'Select at least one completed visit.' }
@@ -131,7 +151,11 @@ export async function createMonthlyInvoiceCore(
     .eq('contact_type', 'primary')
     .maybeSingle()
 
-  const paymentType = (client.payment_type as string | null) ?? 'on_account'
+  // Always on account: these invoices bill visits AFTER the work, so cash-sale
+  // wording ("payment is required before the clean") would be wrong, and
+  // invoices.payment_type rejects client-only values like 'prepaid'. Due
+  // dates still follow the client's payment_terms.
+  const paymentType = 'on_account'
   const lastVisit = built.lines[built.lines.length - 1].date
   const serviceAddress = (jobs.find((j) => j.address)?.address as string | null) ?? client.service_address ?? null
 
@@ -151,10 +175,10 @@ export async function createMonthlyInvoiceCore(
       service_address: serviceAddress,
       scheduled_clean_date: lastVisit,
       type_of_clean: (input.serviceLabel ?? '').trim() || null,
-      service_description: composeMonthlyDescription(range.label, built.lines),
+      service_description: composeMonthlyDescription(range.label, built.lines, { gstIncluded: !!input.gstIncluded }),
       notes: (input.notes ?? '').trim() || null,
       base_price: built.total,
-      gst_included: false,
+      gst_included: !!input.gstIncluded,
       payment_type: paymentType,
       // date_issued stays null until Send stamps it (same as job invoices).
       due_date: computeInvoiceDueDate({
@@ -210,7 +234,9 @@ export async function createMonthlyInvoiceCore(
       recurring_job_id: input.recurringJobId ?? null,
       invoice_number: invoice.invoice_number,
       client_id: client.id,
-      month: input.month,
+      month: input.month ?? null,
+      period: input.period ?? null,
+      gst_included: !!input.gstIncluded,
       visits: built.lines.map((l) => ({ job_id: l.jobId, job_number: l.jobNumber, date: l.date, price: l.price, price_from_rate: l.priceFromRate })),
       base_price: built.total,
       rate_per_visit: input.ratePerVisit,

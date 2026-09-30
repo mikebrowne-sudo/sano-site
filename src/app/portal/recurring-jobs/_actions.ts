@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { notifyContractorAssigned } from '@/lib/notify-contractor'
-import { computeNextInvoiceDate } from '@/lib/recurring-invoice'
+import { computeNextInvoiceDate, nextMondayOnOrAfter } from '@/lib/recurring-invoice'
+import { nzToday } from '@/lib/nz-date'
 import { resolveAllowedHours } from '@/lib/allowed-hours'
 import { buildRecurringWorkerRow, type RecurringPayType } from '@/lib/recurring-worker'
 import { loadRateCandidates, todayIso } from '@/lib/contractor-client-rate-data'
@@ -30,6 +31,10 @@ interface RecurringJobInput {
   /** Printed in the Notes of every invoice this schedule raises. Never copied to jobs. */
   invoice_note?: string | null
   invoice_send_day?: number
+  /** Completed-visits billing cadence: 'monthly' (invoice day) or 'weekly' (Mondays). */
+  invoice_frequency?: 'monthly' | 'weekly'
+  /** The per-visit rate already includes GST (e.g. $180 incl.). */
+  rate_includes_gst?: boolean
   contractor_monthly_pay?: number
   billing_mode?: string
   per_visit_rate?: number
@@ -94,9 +99,13 @@ export async function createRecurringJob(input: RecurringJobInput) {
       contractor_rate_override: input.contractor_rate_override ?? null,
       contractor_pay_mode: input.contractor_pay_mode ?? 'fixed',
       contractor_per_visit_rate: input.contractor_per_visit_rate ?? null,
-      next_invoice_date: input.invoice_send_day
-        ? computeNextInvoiceDate(input.start_date, input.invoice_send_day)
-        : null,
+      invoice_frequency: input.invoice_frequency === 'weekly' ? 'weekly' : 'monthly',
+      rate_includes_gst: !!input.rate_includes_gst,
+      next_invoice_date: input.invoice_frequency === 'weekly' && input.billing_mode === 'completed_visits'
+        ? nextMondayOnOrAfter(input.start_date)
+        : input.invoice_send_day
+          ? computeNextInvoiceDate(input.start_date, input.invoice_send_day)
+          : null,
     })
     .select('id')
     .single()
@@ -116,7 +125,7 @@ export async function updateRecurringJob(id: string, input: RecurringJobInput) {
   // Recalculate next_due_date if frequency or start changed
   const { data: current } = await supabase
     .from('recurring_jobs')
-    .select('last_generated_date, next_due_date, next_invoice_date')
+    .select('last_generated_date, next_due_date, next_invoice_date, invoice_frequency')
     .eq('id', id)
     .single()
 
@@ -125,6 +134,9 @@ export async function updateRecurringJob(id: string, input: RecurringJobInput) {
     input.frequency,
     current?.last_generated_date,
   )
+
+  const weeklyNow = input.invoice_frequency === 'weekly' && input.billing_mode === 'completed_visits'
+  const cadenceChanged = ((current as { invoice_frequency?: string | null } | null)?.invoice_frequency ?? 'monthly') !== (weeklyNow ? 'weekly' : 'monthly')
 
   const { error } = await supabase
     .from('recurring_jobs')
@@ -155,10 +167,17 @@ export async function updateRecurringJob(id: string, input: RecurringJobInput) {
       contractor_rate_override: input.contractor_rate_override ?? null,
       contractor_pay_mode: input.contractor_pay_mode ?? 'fixed',
       contractor_per_visit_rate: input.contractor_per_visit_rate ?? null,
-      // Keep an existing schedule; only (re)seed when a day is set and none exists.
-      next_invoice_date: input.invoice_send_day
-        ? (current?.next_invoice_date ?? computeNextInvoiceDate(new Date().toISOString().slice(0, 10), input.invoice_send_day))
-        : (current?.next_invoice_date ?? null),
+      invoice_frequency: weeklyNow ? 'weekly' : 'monthly',
+      rate_includes_gst: !!input.rate_includes_gst,
+      // Keep an existing schedule; only (re)seed when none exists or the
+      // cadence switched between monthly and weekly.
+      next_invoice_date: weeklyNow
+        ? (!cadenceChanged && current?.next_invoice_date ? current.next_invoice_date : nextMondayOnOrAfter(nzToday()))
+        : input.invoice_send_day
+          ? (!cadenceChanged && current?.next_invoice_date
+            ? current.next_invoice_date
+            : computeNextInvoiceDate(nzToday(), input.invoice_send_day))
+          : (current?.next_invoice_date ?? null),
     })
     .eq('id', id)
 

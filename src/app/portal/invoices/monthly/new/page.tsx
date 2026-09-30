@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { monthRange, visitDate } from '@/lib/monthly-invoice'
 import { MonthlyInvoiceForm, type MonthlyJobRow } from './_components/MonthlyInvoiceForm'
-import { scheduleInvoiceNote } from '@/lib/monthly-invoice-create'
+import { scheduleInvoiceNote, scheduleRateIncludesGst } from '@/lib/monthly-invoice-create'
 
 // Monthly invoice from completed jobs — pick client → month → visits.
 // Only completed, un-invoiced, live jobs are offered, so a visit can't be
@@ -86,8 +86,10 @@ export default async function NewMonthlyInvoicePage({
   let defaultRate: number | null = null
   let defaultLabel = ''
   let defaultNotes = ''
+  let defaultGstIncluded = false
   if (clientId) {
     defaultNotes = (await scheduleInvoiceNote(supabase, { clientId })) ?? ''
+    defaultGstIncluded = await scheduleRateIncludesGst(supabase, clientId)
     const [{ data: pricedJob }, { data: lastQuote }] = await Promise.all([
       supabase.from('jobs').select('job_price').eq('client_id', clientId).is('deleted_at', null)
         .not('job_price', 'is', null).gt('job_price', 0)
@@ -131,6 +133,7 @@ export default async function NewMonthlyInvoicePage({
         defaultRate={defaultRate}
         defaultLabel={defaultLabel}
         defaultNotes={defaultNotes}
+        defaultGstIncluded={defaultGstIncluded}
       />
     </div>
   )
