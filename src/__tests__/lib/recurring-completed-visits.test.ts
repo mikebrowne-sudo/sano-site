@@ -3,6 +3,7 @@
 jest.mock('@/lib/monthly-invoice-create', () => ({
   createMonthlyInvoiceCore: jest.fn(),
   defaultServiceLabel: jest.fn().mockResolvedValue('Residential Housekeeping'),
+  scheduleInvoiceNote: jest.fn().mockResolvedValue('Contract rate: $630.00 + GST per week ($724.50 incl. GST)'),
 }))
 jest.mock('@/app/portal/recurring-jobs/_lib/send-recurring-invoice', () => ({
   sendRecurringInvoiceEmail: jest.fn(),
@@ -67,6 +68,7 @@ describe("generateFor — billing_mode 'completed_visits'", () => {
     expect(core.mock.calls[0][1]).toMatchObject({
       clientId: 'cl1', month: '2026-10', jobIds: ['j1', 'j2'], ratePerVisit: 315,
       serviceLabel: 'Residential Housekeeping', recurringJobId: 'rec1', actor: { id: null, role: 'system' },
+      notes: 'Contract rate: $630.00 + GST per week ($724.50 incl. GST)',
     })
     expect(send).toHaveBeenCalledWith(client, 'inv1')
     expect(recUpdate).toHaveBeenCalledWith({ next_invoice_date: '2026-12-01' })

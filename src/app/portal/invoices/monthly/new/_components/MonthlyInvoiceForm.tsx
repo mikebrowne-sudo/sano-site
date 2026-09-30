@@ -24,7 +24,7 @@ const fmtDay = (iso: string) => {
 }
 
 export function MonthlyInvoiceForm({
-  clients, clientId, months, month, monthLabel, jobs, defaultRate, defaultLabel,
+  clients, clientId, months, month, monthLabel, jobs, defaultRate, defaultLabel, defaultNotes,
 }: {
   clients: { id: string; label: string; count: number }[]
   clientId: string | null
@@ -34,11 +34,13 @@ export function MonthlyInvoiceForm({
   jobs: MonthlyJobRow[]
   defaultRate: number | null
   defaultLabel: string
+  defaultNotes: string
 }) {
   const router = useRouter()
   const [selected, setSelected] = useState<Set<string>>(() => new Set(jobs.map((j) => j.id)))
   const [rate, setRate] = useState(defaultRate != null ? String(defaultRate) : '')
   const [label, setLabel] = useState(defaultLabel)
+  const [notes, setNotes] = useState(defaultNotes)
   const [err, setErr] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -85,6 +87,7 @@ export function MonthlyInvoiceForm({
         jobIds: jobs.filter((j) => selected.has(j.id)).map((j) => j.id),
         ratePerVisit: rateNum,
         serviceLabel: label,
+        notes,
       })
       if (res && 'error' in res) setErr(res.error)
     })
@@ -168,6 +171,13 @@ export function MonthlyInvoiceForm({
               <input className={input} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Residential Housekeeping" />
             </label>
           </div>
+
+          <label className="block">
+            <span className="block text-sm font-medium text-sage-700 mb-1">Invoice notes</span>
+            <textarea className={input} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. Contract rate: $630.00 + GST per week ($724.50 incl. GST)" />
+            <span className="block text-xs text-sage-500 mt-1">Printed in the Notes box on the invoice. Prefilled from the client&apos;s recurring schedule.</span>
+          </label>
 
           <div className="rounded-xl border border-sage-200 bg-sage-50/60 p-4 text-sm space-y-1">
             <div className="flex justify-between"><span className="text-sage-600">{monthLabel} — {selected.size} visit{selected.size === 1 ? '' : 's'}</span><span>{fmt(total)}</span></div>

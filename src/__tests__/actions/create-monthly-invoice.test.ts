@@ -70,13 +70,14 @@ describe('createMonthlyInvoice', () => {
     const s = makeSupabase(jobs)
     mockedCreate.mockReturnValue(s.client)
 
-    await createMonthlyInvoice({ ...base, jobIds: ['j1', 'j2', 'j3'] })
+    await createMonthlyInvoice({ ...base, jobIds: ['j1', 'j2', 'j3'], notes: '  Contract rate: $630.00 + GST per week  ' })
 
     const payload = s.invoiceInsert.mock.calls[0][0]
     expect(payload).toMatchObject({
       client_id: 'cl1', job_id: null, quote_id: null, status: 'draft', source: 'job',
       base_price: 945, gst_included: false, type_of_clean: 'Residential Housekeeping',
       scheduled_clean_date: '2026-08-26',
+      notes: 'Contract rate: $630.00 + GST per week',
     })
     expect(payload.service_description).toBe(
       'August 2026 — 3 visits\nWed 12 Aug — 7 hrs — $315.00\nFri 14 Aug — 7 hrs — $315.00\nWed 26 Aug — 7 hrs — $315.00',
