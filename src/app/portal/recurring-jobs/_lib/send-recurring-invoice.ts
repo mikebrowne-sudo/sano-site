@@ -23,17 +23,23 @@ export async function sendRecurringInvoiceEmail(
 ): Promise<{ sent?: true; error?: string }> {
   const { data: invoice } = await svc
     .from('invoices')
-    .select('share_token, invoice_number, date_issued, due_date, payment_type, scheduled_clean_date, client_id, contact_name')
+    .select('share_token, invoice_number, date_issued, due_date, payment_type, scheduled_clean_date, client_id, contact_name, accounts_email')
     .eq('id', invoiceId)
     .single()
   if (!invoice?.share_token || !invoice?.invoice_number) return { error: 'invoice not ready to send' }
 
   const { data: client } = await svc
     .from('clients')
-    .select('email, payment_terms')
+    .select('email, accounts_email, payment_terms')
     .eq('id', invoice.client_id)
     .maybeSingle()
-  const to = (client?.email as string | null)?.trim()
+  // Same routing as the manual Send panel: invoice accounts email, then the
+  // client's accounts email, then the client's main email.
+  const to = (
+    (invoice.accounts_email as string | null)?.trim() ||
+    (client?.accounts_email as string | null)?.trim() ||
+    (client?.email as string | null)?.trim()
+  )
   if (!to) return { error: 'no client email on file' }
 
   // Stamp issue + due dates on the first send (sticky thereafter). NZ date:
