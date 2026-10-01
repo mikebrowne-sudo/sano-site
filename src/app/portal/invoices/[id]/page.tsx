@@ -85,7 +85,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   const [{ data: clientRecord }, { data: linkedJob }, { data: linkedQuote }, { data: candidateJobs }] = await Promise.all([
     supabase
       .from('clients')
-      .select('name, email')
+      .select('name, email, accounts_email')
       .eq('id', invoice.client_id)
       .single(),
     supabase
@@ -247,7 +247,9 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             clientEmail={clientRecord?.email ?? ''}
             greeting={greeting}
             printUrl={shareUrl}
-            accountsEmail={invoice.accounts_email ?? ''}
+            // Invoice snapshot first, then the client's standing accounts
+            // email, so "send all their invoices to X" is a one-field change.
+            accountsEmail={invoice.accounts_email || clientRecord?.accounts_email || ''}
             primaryContactEmail={invoice.contact_email ?? ''}
             clientReference={invoice.client_reference ?? ''}
             requiresPo={invoice.requires_po ?? false}
