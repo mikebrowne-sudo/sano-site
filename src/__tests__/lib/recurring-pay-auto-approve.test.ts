@@ -17,8 +17,8 @@ describe('scheduleHasMonthlyContractorPayable', () => {
   it('flat monthly contractor pay → yes (Pukekohe)', () => {
     expect(scheduleHasMonthlyContractorPayable({ contractor_pay_mode: 'fixed', contractor_monthly_pay: '1500.00', contractor_per_visit_rate: null })).toBe(true)
   })
-  it('per-visit contractor mode with a rate → yes (totalled monthly)', () => {
-    expect(scheduleHasMonthlyContractorPayable({ contractor_pay_mode: 'per_visit', contractor_monthly_pay: null, contractor_per_visit_rate: '126.00' })).toBe(true)
+  it('per-visit contractor mode → no, paid per completed visit (NZCL)', () => {
+    expect(scheduleHasMonthlyContractorPayable({ contractor_pay_mode: 'per_visit', contractor_monthly_pay: null, contractor_per_visit_rate: '126.00' })).toBe(false)
   })
   it('no schedule-level contractor pay → no (Celtic)', () => {
     expect(scheduleHasMonthlyContractorPayable({ contractor_pay_mode: 'fixed', contractor_monthly_pay: null, contractor_per_visit_rate: null })).toBe(false)
