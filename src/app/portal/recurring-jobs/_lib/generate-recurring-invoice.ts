@@ -84,13 +84,11 @@ export async function ensureContractorPayable(
   billDate: string,
 ): Promise<{ created?: boolean; skipped?: string; error?: string }> {
   if (!rec.contractor_id) return { skipped: 'no contractor' }
-  const perVisitPay = rec.contractor_pay_mode === 'per_visit'
-  if (perVisitPay) {
-    if (!(Number(rec.contractor_per_visit_rate) > 0)) return { skipped: 'no contractor per-visit rate' }
-    if (!(rec.service_days_of_week && rec.service_days_of_week.length > 0)) return { skipped: 'no service days for per-visit pay' }
-  } else if (!(Number(rec.contractor_monthly_pay) > 0)) {
-    return { skipped: 'no contractor pay' }
-  }
+  // Per-visit contractor pay (NZCL: $126 a clean) is approved per COMPLETED
+  // visit by recurring-pay-auto-approve — totalling scheduled days here paid
+  // for cleans that never happened and double-paid ad-hoc visits.
+  if (rec.contractor_pay_mode === 'per_visit') return { skipped: 'per-visit pay is approved per completed visit' }
+  if (!(Number(rec.contractor_monthly_pay) > 0)) return { skipped: 'no contractor pay' }
   const siteLabel = rec.title?.trim() || 'Recurring contract'
   // Period label follows the service month — the PREVIOUS month when billing in
   // arrears — so the contractor's payable lines up with the month worked.
@@ -109,13 +107,7 @@ export async function ensureContractorPayable(
     .maybeSingle()
   if (existing) return { skipped: 'payable already exists for this period' }
 
-  // Fixed = flat monthly pay; per-visit = rate × service days in the period.
-  const amount = perVisitPay
-    ? computeRecurringAmount(
-        { billingMode: 'per_visit', perVisitRate: rec.contractor_per_visit_rate, serviceDaysOfWeek: rec.service_days_of_week },
-        { start: period.start, end: period.end },
-      ).amount
-    : Number(rec.contractor_monthly_pay)
+  const amount = Number(rec.contractor_monthly_pay)
   const { fields: gstFields } = await resolveContractorGstSnapshot(supabase, rec.contractor_id, amount, billDate)
 
   const { data: ci, error } = await supabase

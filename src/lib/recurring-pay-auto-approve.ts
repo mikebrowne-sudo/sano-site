@@ -6,9 +6,10 @@
 // needs a human decision is left alone and stays in Pending approvals exactly
 // as before:
 //
-//   • the schedule pays its contractor MONTHLY (contractor_monthly_pay, or the
-//     per-visit contractor mode that ensureContractorPayable totals per month)
-//     — approving each visit as well would double-pay
+//   • the schedule pays its contractor MONTHLY (contractor_monthly_pay, raised
+//     by ensureContractorPayable) — approving each visit as well would
+//     double-pay. Per-visit contractor mode is NOT monthly: each completed
+//     visit is approved here at its set amount.
 //   • a retainer worker row (not payable per occurrence)
 //   • a pending extra-hours claim (staff must accept or decline it first)
 //   • no usable rate or hours
@@ -30,8 +31,9 @@ export interface ScheduleContractorPay {
 
 /** True when the schedule raises its own (monthly) contractor payable. */
 export function scheduleHasMonthlyContractorPayable(rec: ScheduleContractorPay): boolean {
-  if (Number(rec.contractor_monthly_pay) > 0) return true
-  return rec.contractor_pay_mode === 'per_visit' && Number(rec.contractor_per_visit_rate) > 0
+  // Per-visit mode is paid per completed visit (approved here), never monthly.
+  if (rec.contractor_pay_mode === 'per_visit') return false
+  return Number(rec.contractor_monthly_pay) > 0
 }
 
 export interface AutoApproveWorker {
