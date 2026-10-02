@@ -28,6 +28,22 @@ export interface ExpenseCategory {
   accountantConfirm?: boolean
   /** Legacy value kept for old rows; hidden from the capture dropdown. */
   legacy?: boolean
+  /**
+   * This category can NEVER carry a GST input credit, whatever the
+   * gst_inclusive flag says:
+   *
+   *   • wages_payroll  — PAYE wages to an employee are outside the GST system
+   *   • ird_payment    — PAYE / GST / tax remitted to IRD is money held on
+   *                      behalf, not a supply to the business
+   *   • owner_capital  — capital introduced is not a supply
+   *   • director_loan  — a loan is not a supply
+   *
+   * Contractor payments are deliberately NOT here: a GST-registered
+   * contractor's invoice does carry claimable GST. Whether a given payment
+   * qualifies depends on that contractor's verified GST status on the supply
+   * date (contractor_gst_history), never on the category alone.
+   */
+  neverGst?: boolean
 }
 
 export const EXPENSE_CATEGORIES: readonly ExpenseCategory[] = [
@@ -42,11 +58,13 @@ export const EXPENSE_CATEGORIES: readonly ExpenseCategory[] = [
   { value: 'equipment', label: 'Equipment' },
   { value: 'marketing', label: 'Marketing' },
   { value: 'accounting_legal', label: 'Accounting / legal' },
-  { value: 'wages_payroll', label: 'Wages / payroll' },
+  { value: 'wages_payroll', label: 'Wages / payroll (employees — no GST)', neverGst: true },
+  { value: 'contractor_payment', label: 'Contractor payment' },
+  { value: 'ird_payment', label: 'IRD payment (PAYE / GST / tax — not an expense)', accountantConfirm: true, neverGst: true },
   { value: 'capital_expense', label: 'Capital expense (asset)', accountantConfirm: true },
-  { value: 'owner_capital', label: 'Owner capital introduced', accountantConfirm: true },
+  { value: 'owner_capital', label: 'Owner capital introduced', accountantConfirm: true, neverGst: true },
   { value: 'expense_reimbursement', label: 'Reimbursement for business expense', accountantConfirm: true },
-  { value: 'director_loan', label: 'Director / shareholder loan', accountantConfirm: true },
+  { value: 'director_loan', label: 'Director / shareholder loan', accountantConfirm: true, neverGst: true },
   { value: 'owner_equity', label: 'Owner loan / contribution / drawings (legacy)', accountantConfirm: true, legacy: true },
   { value: 'other', label: 'Other' },
 ]
@@ -78,4 +96,20 @@ export function expenseCategoryLabel(value: string | null | undefined): string {
 /** Whether a category needs accountant confirmation (capex / owner equity). */
 export function isAccountantConfirmCategory(value: string | null | undefined): boolean {
   return !!EXPENSE_CATEGORIES.find((c) => c.value === value)?.accountantConfirm
+}
+
+/** Categories that can never carry a GST input credit (see `neverGst`). */
+export function isNeverGstCategory(value: string | null | undefined): boolean {
+  return !!EXPENSE_CATEGORIES.find((c) => c.value === value)?.neverGst
+}
+
+/**
+ * The GST-inclusive flag to store for a category.
+ *
+ * For a never-GST category the answer is always false, regardless of what was
+ * entered — a $1,000 owner-capital row flagged GST-inclusive silently claimed
+ * $130.43 that was never claimable. Everything else keeps the operator's flag.
+ */
+export function resolveGstInclusive(category: string | null | undefined, entered: boolean): boolean {
+  return isNeverGstCategory(category) ? false : entered
 }
