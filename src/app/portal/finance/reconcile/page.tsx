@@ -73,8 +73,16 @@ const CREDIT_TONE: Record<CreditStatus, string> = {
   reconciled: 'bg-emerald-50 text-emerald-700', unpaid_match: 'bg-amber-50 text-amber-700', allocate_match: 'bg-sky-50 text-sky-700', amount_match: 'bg-amber-50 text-amber-700', financing: 'bg-sage-100 text-sage-600', unmatched: 'bg-red-50 text-red-700',
   likely_bundle: 'bg-amber-50 text-amber-700', likely_match: 'bg-amber-50 text-amber-700',
 }
-const DEBIT_LABEL: Record<DebitStatus, string> = { recorded: 'Recorded', not_recorded: 'Not recorded' }
-const DEBIT_TONE: Record<DebitStatus, string> = { recorded: 'bg-emerald-50 text-emerald-700', not_recorded: 'bg-amber-50 text-amber-700' }
+const DEBIT_LABEL: Record<DebitStatus, string> = {
+  recorded: 'Recorded',
+  already_paid_elsewhere: 'Paid via payroll',
+  not_recorded: 'Not recorded',
+}
+const DEBIT_TONE: Record<DebitStatus, string> = {
+  recorded: 'bg-emerald-50 text-emerald-700',
+  already_paid_elsewhere: 'bg-sage-100 text-sage-700',
+  not_recorded: 'bg-amber-50 text-amber-700',
+}
 
 export default async function ReconcilePage() {
   const supabase = createClient()
@@ -82,8 +90,8 @@ export default async function ReconcilePage() {
   if (!isFinanceUser(user)) notFound()
   const canEdit = isAdminUser(user) // accountants are read-only
 
-  const { transactions, meta, invoices, expenses } = await getReconcileData()
-  const result = reconcile({ transactions, invoices, expenses })
+  const { transactions, meta, invoices, expenses, paymentRecords } = await getReconcileData()
+  const result = reconcile({ transactions, invoices, expenses, paymentRecords })
   const s = result.summary
   const hasData = transactions.length > 0
 
@@ -167,6 +175,13 @@ export default async function ReconcilePage() {
         <Td><Badge tone={DEBIT_TONE[d.status]}>{DEBIT_LABEL[d.status]}</Badge></Td>
         <Td className="text-right font-medium">{fmt(Math.abs(d.txn.amount))}</Td>
         <Td className="text-right">
+          {d.status === 'already_paid_elsewhere' && d.paymentRecord && (
+            // Recorded as a remittance or pay run — NOT an expense. Showing the
+            // source here is what stops the cost being entered a second time.
+            <span className="text-xs text-sage-600 whitespace-nowrap" title="Already recorded — do not add as an expense">
+              {d.paymentRecord.label}
+            </span>
+          )}
           {canEdit && d.status === 'not_recorded' && (
             <Link
               // `payee` is passed separately from `ref` so the expense form can
@@ -203,6 +218,7 @@ export default async function ReconcilePage() {
             <Stat label="Money out" value={fmt(s.totalOut)} tone="out" sub={`${s.debitCount} debits`} />
             <Stat label="Invoices to mark paid" value={String(s.invoicesToMarkPaid)} tone={s.invoicesToMarkPaid ? 'warn' : 'ok'} />
             <Stat label="Debits to record" value={String(s.debitsToRecord)} tone={s.debitsToRecord ? 'warn' : 'ok'} />
+            <Stat label="Paid via payroll" value={String(s.debitsPaidElsewhere)} tone="ok" />
           </div>
 
           <Panel icon={ArrowDownLeft} title={`Money in — ${creditsOut.length} to reconcile`}>

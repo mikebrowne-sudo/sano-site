@@ -38,6 +38,23 @@ export interface ReconExpense {
   expenseDate: string | null
 }
 
+/**
+ * A contractor remittance or an employee pay run already recorded in the
+ * portal. A bank debit matching one of these IS recorded — just not in the
+ * `expenses` table — so it must never be offered as "add expense".
+ *
+ * Entering these as expenses double-counts the cost and double-claims its GST:
+ * the contractor's payable already lives in contractor_invoices, and an
+ * employee's wages/PAYE already live in pay_runs. Neither is an expense row.
+ */
+export interface ReconPaymentRecord {
+  kind: 'remittance' | 'pay_run'
+  /** Operator-facing label, e.g. "RA-0042 · VMK LTD" or "Pay run 28 Sep". */
+  label: string
+  amount: number
+  paymentDate: string | null
+}
+
 // reconcile() emits the first five. 'likely_bundle' / 'likely_match' are
 // display-only states the page derives for an unmatched credit when a
 // payer-scoped subset of invoices plausibly explains it.
@@ -47,7 +64,10 @@ export interface ReconExpense {
 // allocation + clear the bank line. Distinct from 'unpaid_match', which also
 // flips the invoice to paid.
 export type CreditStatus = 'reconciled' | 'unpaid_match' | 'allocate_match' | 'amount_match' | 'financing' | 'unmatched' | 'likely_bundle' | 'likely_match'
-export type DebitStatus = 'recorded' | 'not_recorded'
+// 'already_paid_elsewhere' — the debit matches a contractor remittance or an
+// employee pay run. It is RECORDED, just not as an expense; offering "add
+// expense" here is how a cost gets counted twice.
+export type DebitStatus = 'recorded' | 'already_paid_elsewhere' | 'not_recorded'
 
 export interface CreditRow {
   txn: BankTxn
@@ -58,6 +78,8 @@ export interface DebitRow {
   txn: BankTxn
   status: DebitStatus
   expense: ReconExpense | null
+  /** Set when status is 'already_paid_elsewhere' — what it was paid through. */
+  paymentRecord?: ReconPaymentRecord | null
 }
 
 export interface ReconResult {
@@ -71,6 +93,8 @@ export interface ReconResult {
     invoicesToMarkPaid: number // unpaid_match + amount_match
     allocationsToRecord: number // allocate_match (already-paid, needs allocation)
     debitsToRecord: number // not_recorded
+    /** Debits already recorded as a remittance or pay run (NOT expenses). */
+    debitsPaidElsewhere: number
     unmatchedCredits: number
     financingCredits: number
   }
@@ -97,8 +121,10 @@ export function reconcile(args: {
   transactions: BankTxn[]
   invoices: ReconInvoice[]
   expenses: ReconExpense[]
+  /** Contractor remittances + employee pay runs already recorded elsewhere. */
+  paymentRecords?: ReconPaymentRecord[]
 }): ReconResult {
-  const { transactions, invoices, expenses } = args
+  const { transactions, invoices, expenses, paymentRecords = [] } = args
 
   const byNumber = new Map<string, ReconInvoice>()
   for (const inv of invoices) byNumber.set(inv.invoiceNumber.toUpperCase(), inv)
@@ -112,7 +138,7 @@ export function reconcile(args: {
     if (txn.direction === 'in') {
       credits.push(matchCredit(txn, byNumber, invoices))
     } else {
-      debits.push(matchDebit(txn, expenses))
+      debits.push(matchDebit(txn, expenses, paymentRecords))
     }
   }
 
@@ -130,6 +156,7 @@ export function reconcile(args: {
       invoicesToMarkPaid: credits.filter((c) => c.status === 'unpaid_match' || c.status === 'amount_match').length,
       allocationsToRecord: credits.filter((c) => c.status === 'allocate_match').length,
       debitsToRecord: debits.filter((d) => d.status === 'not_recorded').length,
+      debitsPaidElsewhere: debits.filter((d) => d.status === 'already_paid_elsewhere').length,
       unmatchedCredits: credits.filter((c) => c.status === 'unmatched').length,
       financingCredits: credits.filter((c) => c.status === 'financing').length,
     },
@@ -215,8 +242,14 @@ function matchCredit(txn: BankTxn, byNumber: Map<string, ReconInvoice>, invoices
   return { txn, invoice: null, status: 'unmatched' }
 }
 
-function matchDebit(txn: BankTxn, expenses: ReconExpense[]): DebitRow {
+function matchDebit(
+  txn: BankTxn,
+  expenses: ReconExpense[],
+  paymentRecords: ReconPaymentRecord[] = [],
+): DebitRow {
   const abs = round2(Math.abs(txn.amount))
+
+  // 1. An expense row already records this debit.
   const candidates = expenses.filter((e) => round2(e.amount) === abs)
   if (candidates.length > 0) {
     // Prefer the closest by date when several share the amount.
@@ -227,5 +260,20 @@ function matchDebit(txn: BankTxn, expenses: ReconExpense[]): DebitRow {
       return { txn, expense: best.e, status: 'recorded' }
     }
   }
+
+  // 2. A contractor remittance or employee pay run records it instead. Checked
+  //    AFTER expenses so a genuine expense row still wins, and reported as a
+  //    distinct status so the UI can say what it was paid through rather than
+  //    inviting a duplicate expense.
+  const payCandidates = paymentRecords.filter((p) => round2(p.amount) === abs)
+  if (payCandidates.length > 0) {
+    const best = payCandidates
+      .map((p) => ({ p, d: daysApart(txn.date, p.paymentDate ?? '') }))
+      .sort((a, b) => a.d - b.d)[0]
+    if (best.d <= DATE_WINDOW_DAYS) {
+      return { txn, expense: null, status: 'already_paid_elsewhere', paymentRecord: best.p }
+    }
+  }
+
   return { txn, expense: null, status: 'not_recorded' }
 }
