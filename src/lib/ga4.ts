@@ -19,7 +19,12 @@
 // client component. Callers should additionally cache the result (the page
 // wraps getGa4Stats in unstable_cache with a 1-hour revalidate).
 
-import { BetaAnalyticsDataClient } from '@google-analytics/data'
+import { BetaAnalyticsDataClient, protos } from '@google-analytics/data'
+import {
+  INTERNAL_PATH_PREFIXES, DATA_CENTRE_CITIES, AUTOMATED_OS, HOME_COUNTRY,
+} from '@/lib/analytics-filters'
+
+type FilterExpression = protos.google.analytics.data.v1beta.IFilterExpression
 
 export interface NameValue {
   label: string
@@ -44,6 +49,44 @@ export interface Ga4Stats {
   phoneClicks: number
   emailClicks: number
   trend30d: TrendPoint[]
+  /** Last-30-day sessions excluded from the figures above (raw GA data is untouched). */
+  filtered: { internalSessions: number; automatedSessions: number }
+}
+
+// ── Marketing-traffic filter (reporting layer) ─────────────────────────────
+// Rules live in analytics-filters.ts. Applied to visitors, trend, sources,
+// landing pages, devices, new/returning and locations. NOT applied to the
+// lead / phone / email event counts: those come from real clicks and form
+// submits, and hiding a genuine lead is worse than counting a stray one.
+
+const internalLandingPage: FilterExpression = {
+  orGroup: {
+    expressions: INTERNAL_PATH_PREFIXES.map((prefix) => ({
+      filter: { fieldName: 'landingPage', stringFilter: { matchType: 'BEGINS_WITH' as const, value: prefix } },
+    })),
+  },
+}
+
+// Outside NZ AND (known data-centre town OR desktop Linux).
+const likelyAutomated: FilterExpression = {
+  andGroup: {
+    expressions: [
+      { notExpression: { filter: { fieldName: 'country', stringFilter: { matchType: 'EXACT' as const, value: HOME_COUNTRY } } } },
+      {
+        orGroup: {
+          expressions: [
+            { filter: { fieldName: 'city', inListFilter: { values: [...DATA_CENTRE_CITIES] } } },
+            { filter: { fieldName: 'operatingSystem', stringFilter: { matchType: 'EXACT' as const, value: AUTOMATED_OS } } },
+          ],
+        },
+      },
+    ],
+  },
+}
+
+export const EXCLUDE_INTERNAL: FilterExpression = { notExpression: internalLandingPage }
+export const MARKETING_ONLY: FilterExpression = {
+  andGroup: { expressions: [{ notExpression: internalLandingPage }, { notExpression: likelyAutomated }] },
 }
 
 export function isGa4Configured(): boolean {
@@ -67,6 +110,7 @@ export async function getGa4Stats(): Promise<Ga4Stats> {
       property,
       dateRanges: [{ startDate, endDate: 'today' }],
       metrics: [{ name: 'activeUsers' }],
+      dimensionFilter: MARKETING_ONLY,
     })
     return Number(res.rows?.[0]?.metricValues?.[0]?.value ?? 0)
   }
@@ -77,9 +121,9 @@ export async function getGa4Stats(): Promise<Ga4Stats> {
       dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
       dimensions: [{ name: dimension }],
       metrics: [{ name: 'sessions' }],
-      ...(beginsWith
-        ? { dimensionFilter: { filter: { fieldName: dimension, stringFilter: { matchType: 'BEGINS_WITH' as const, value: beginsWith } } } }
-        : {}),
+      dimensionFilter: beginsWith
+        ? { andGroup: { expressions: [MARKETING_ONLY, { filter: { fieldName: dimension, stringFilter: { matchType: 'BEGINS_WITH' as const, value: beginsWith } } }] } }
+        : MARKETING_ONLY,
       orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
       limit: 8,
     })
@@ -109,6 +153,7 @@ export async function getGa4Stats(): Promise<Ga4Stats> {
       dateRanges: [{ startDate: '29daysAgo', endDate: 'today' }],
       dimensions: [{ name: 'date' }],
       metrics: [{ name: 'activeUsers' }],
+      dimensionFilter: MARKETING_ONLY,
       orderBys: [{ dimension: { dimensionName: 'date' } }],
     })
     return (res.rows ?? []).map((r) => {
@@ -120,11 +165,22 @@ export async function getGa4Stats(): Promise<Ga4Stats> {
     })
   }
 
+  const sessions30d = async (dimensionFilter?: FilterExpression): Promise<number> => {
+    const [res] = await client.runReport({
+      property,
+      dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+      metrics: [{ name: 'sessions' }],
+      ...(dimensionFilter ? { dimensionFilter } : {}),
+    })
+    return Number(res.rows?.[0]?.metricValues?.[0]?.value ?? 0)
+  }
+
   const [
     visitorsToday, visitors7d, visitors30d,
     topSources, topLandingPages, topSuburbPages,
     deviceSplit, newVsReturning, topLocations,
     events, trend30d,
+    rawSessions, nonInternalSessions, marketingSessions,
   ] = await Promise.all([
     usersSince('today'),
     usersSince('7daysAgo'),
@@ -137,6 +193,9 @@ export async function getGa4Stats(): Promise<Ga4Stats> {
     topBy('city'),
     eventCounts(),
     trend(),
+    sessions30d(),
+    sessions30d(EXCLUDE_INTERNAL),
+    sessions30d(MARKETING_ONLY),
   ])
 
   return {
@@ -153,5 +212,9 @@ export async function getGa4Stats(): Promise<Ga4Stats> {
     phoneClicks: events.get('phone_click') ?? 0,
     emailClicks: events.get('email_click') ?? 0,
     trend30d,
+    filtered: {
+      internalSessions: Math.max(0, rawSessions - nonInternalSessions),
+      automatedSessions: Math.max(0, nonInternalSessions - marketingSessions),
+    },
   }
 }
