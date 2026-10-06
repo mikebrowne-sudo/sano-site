@@ -11,23 +11,14 @@
 
 import { JWT } from 'google-auth-library'
 
-export interface GscQueryRow {
-  query: string
-  clicks: number
-  impressions: number
-  ctr: number // 0..1
-  position: number
-}
+// Two consecutive 28-day periods are fetched live (Search Console keeps ~16
+// months), so period comparisons need no database storage. All analysis is
+// in src/lib/seo-insights.ts (pure, unit-tested).
 
-export interface GscStats {
-  totalClicks: number
-  totalImpressions: number
-  avgCtr: number // 0..1
-  avgPosition: number
-  topQueries: GscQueryRow[]
-  startDate: string
-  endDate: string
-}
+import {
+  gscPeriods, normalisePagePath,
+  type GscData, type GscMetrics, type GscPeriod, type GscRow, type GscQueryPageRow,
+} from '@/lib/seo-insights'
 
 export function isGscConfigured(): boolean {
   return !!(process.env.GA4_SA_KEY_BASE64 && process.env.GSC_SITE_URL)
@@ -35,16 +26,6 @@ export function isGscConfigured(): boolean {
 
 interface ApiRow { keys?: string[]; clicks?: number; impressions?: number; ctr?: number; position?: number }
 interface ApiResp { rows?: ApiRow[] }
-
-// GSC data lags ~2–3 days; use a 28-day window ending 3 days ago.
-function dateRange(): { startDate: string; endDate: string } {
-  const d = new Date()
-  d.setDate(d.getDate() - 3)
-  const endDate = d.toISOString().slice(0, 10)
-  d.setDate(d.getDate() - 27)
-  const startDate = d.toISOString().slice(0, 10)
-  return { startDate, endDate }
-}
 
 async function runQuery(token: string, site: string, body: Record<string, unknown>): Promise<ApiResp> {
   const res = await fetch(
@@ -58,7 +39,14 @@ async function runQuery(token: string, site: string, body: Record<string, unknow
   return res.json() as Promise<ApiResp>
 }
 
-export async function getGscStats(): Promise<GscStats> {
+const metrics = (r: ApiRow | undefined): GscMetrics => ({
+  clicks: Math.round(r?.clicks ?? 0),
+  impressions: Math.round(r?.impressions ?? 0),
+  ctr: r?.ctr ?? 0,
+  position: r?.position ?? 0,
+})
+
+export async function getGscData(): Promise<GscData> {
   const json = JSON.parse(Buffer.from(process.env.GA4_SA_KEY_BASE64 as string, 'base64').toString('utf8'))
   const auth = new JWT({
     email: json.client_email,
@@ -69,29 +57,59 @@ export async function getGscStats(): Promise<GscStats> {
   if (!token) throw new Error('Could not obtain a Search Console access token.')
 
   const site = process.env.GSC_SITE_URL as string
-  const { startDate, endDate } = dateRange()
+  const { current, previous } = gscPeriods()
 
-  const [totals, queries] = await Promise.all([
-    runQuery(token, site, { startDate, endDate }),
-    runQuery(token, site, { startDate, endDate, dimensions: ['query'], rowLimit: 10 }),
+  const totalsFor = async (p: GscPeriod): Promise<GscMetrics> => metrics((await runQuery(token, site, { ...p })).rows?.[0])
+
+  const rowsBy = async (p: GscPeriod, dimension: 'query' | 'page'): Promise<GscRow[]> => {
+    const res = await runQuery(token, site, { ...p, dimensions: [dimension], rowLimit: 1000 })
+    const byKey = new Map<string, GscRow>()
+    for (const r of res.rows ?? []) {
+      const raw = r.keys?.[0] ?? ''
+      const key = dimension === 'page' ? normalisePagePath(raw) : raw
+      // Two URLs can normalise to one path (trailing slash, www) — merge them,
+      // impression-weighting the position.
+      const m = metrics(r)
+      const e = byKey.get(key)
+      if (!e) { byKey.set(key, { key, ...m }); continue }
+      const impressions = e.impressions + m.impressions
+      const clicks = e.clicks + m.clicks
+      byKey.set(key, {
+        key,
+        clicks,
+        impressions,
+        ctr: impressions ? clicks / impressions : 0,
+        position: impressions ? (e.position * e.impressions + m.position * m.impressions) / impressions : 0,
+      })
+    }
+    return Array.from(byKey.values())
+  }
+
+  const queryPagesFor = async (p: GscPeriod): Promise<GscQueryPageRow[]> => {
+    const res = await runQuery(token, site, { ...p, dimensions: ['query', 'page'], rowLimit: 5000 })
+    return (res.rows ?? []).map((r) => ({
+      query: r.keys?.[0] ?? '',
+      page: normalisePagePath(r.keys?.[1] ?? ''),
+      ...metrics(r),
+    }))
+  }
+
+  const [totCur, totPrev, qCur, qPrev, pCur, pPrev, queryPages] = await Promise.all([
+    totalsFor(current),
+    totalsFor(previous),
+    rowsBy(current, 'query'),
+    rowsBy(previous, 'query'),
+    rowsBy(current, 'page'),
+    rowsBy(previous, 'page'),
+    queryPagesFor(current),
   ])
 
-  const t = totals.rows?.[0] ?? {}
-  const topQueries: GscQueryRow[] = (queries.rows ?? []).map((r) => ({
-    query: r.keys?.[0] ?? '(unknown)',
-    clicks: Math.round(r.clicks ?? 0),
-    impressions: Math.round(r.impressions ?? 0),
-    ctr: r.ctr ?? 0,
-    position: Number((r.position ?? 0).toFixed(1)),
-  }))
-
   return {
-    totalClicks: Math.round(t.clicks ?? 0),
-    totalImpressions: Math.round(t.impressions ?? 0),
-    avgCtr: t.ctr ?? 0,
-    avgPosition: Number((t.position ?? 0).toFixed(1)),
-    topQueries,
-    startDate,
-    endDate,
+    current,
+    previous,
+    totals: { current: totCur, previous: totPrev },
+    queries: { current: qCur, previous: qPrev },
+    pages: { current: pCur, previous: pPrev },
+    queryPages,
   }
 }
