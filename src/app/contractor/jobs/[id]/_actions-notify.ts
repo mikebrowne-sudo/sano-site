@@ -11,6 +11,7 @@
 // page if a genuine re-send is needed.
 
 import { createClient } from '@/lib/supabase-server'
+import { getServiceSupabase } from '@/lib/supabase-service'
 import { revalidatePath } from 'next/cache'
 import { sendNotification } from '@/lib/notifications/send'
 
@@ -39,7 +40,12 @@ export async function contractorOnTheWaySms(jobId: string):
   const contractorId = await getContractorId(supabase)
   if (!contractorId) return { error: 'Not authenticated.' }
 
-  const { data: job } = await supabase
+  // Everything below runs on the service client, scoped to THIS contractor's
+  // job (contractor_id filter). Clients + notification_logs are staff-only under
+  // RLS, so the contractor's own session can't read the customer's name/phone,
+  // check the same-day dedupe, or write the log row.
+  const svc = getServiceSupabase()
+  const { data: job } = await svc
     .from('jobs')
     .select(`
       id, address, scheduled_time, client_id, contractor_id, deleted_at,
@@ -55,7 +61,7 @@ export async function contractorOnTheWaySms(jobId: string):
   // Same-day dedupe — at most one "on the way" SMS per job per day.
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
-  const { count } = await supabase
+  const { count } = await svc
     .from('notification_logs')
     .select('id', { count: 'exact', head: true })
     .eq('type', 'cleaner_on_the_way')
@@ -68,7 +74,7 @@ export async function contractorOnTheWaySms(jobId: string):
 
   const client = job.clients as unknown as { name: string | null; phone: string | null } | null
 
-  const result = await sendNotification(supabase, {
+  const result = await sendNotification(svc, {
     type: 'cleaner_on_the_way',
     channel: 'sms',
     audience: 'customer',

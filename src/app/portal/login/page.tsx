@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-browser'
 import Image from 'next/image'
@@ -12,6 +12,13 @@ export default function PortalLoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // Set by the middleware when a signed-in account isn't on the staff allow-list.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('error') === 'no_access') {
+      setError("This account doesn't have access to the Sano portal. Contractors sign in at /contractor/login.")
+    }
+  }, [])
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
