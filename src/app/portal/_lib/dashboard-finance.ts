@@ -4,7 +4,8 @@
 // disagree with the P&L statement. Admin-only caller; read-only.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { buildProfitLoss, type PLIncomeRow, type PLExpenseRow } from '@/app/portal/finance/_lib/profit-loss'
+import { buildProfitLoss } from '@/app/portal/finance/_lib/profit-loss'
+import { loadProfitLossInputs } from '@/app/portal/finance/_lib/profit-loss-data'
 import { computeRecurringAmount } from '@/app/portal/recurring-jobs/_lib/per-visit-billing'
 
 export interface MonthPoint {
@@ -67,33 +68,13 @@ export async function buildDashboardFinance(
   const windowStart = monthBounds(months[0].y, months[0].m).from
   const windowEnd = monthBounds(months[months.length - 1].y, months[months.length - 1].m).to
 
-  const [{ data: invRaw }, { data: expRaw }] = await Promise.all([
-    supabase.from('invoices')
-      .select('base_price, discount, date_paid, invoice_items ( price )')
-      .eq('status', 'paid')
-      .gte('date_paid', windowStart).lte('date_paid', windowEnd),
-    supabase.from('expenses')
-      .select('amount, category, expense_date')
-      .gte('expense_date', windowStart).lte('expense_date', windowEnd),
-  ])
-
-  const income: PLIncomeRow[] = ((invRaw ?? []) as Array<Record<string, unknown>>).map((i) => {
-    const items = (i.invoice_items ?? []) as Array<{ price: number | null }>
-    const itemsTotal = items.reduce((s, it) => s + (it.price ?? 0), 0)
-    const base = (i.base_price as number | null) ?? 0
-    const discount = (i.discount as number | null) ?? 0
-    return { total: base + itemsTotal - discount, datePaid: (i.date_paid as string | null) ?? null }
-  })
-  const expenses: PLExpenseRow[] = ((expRaw ?? []) as Array<Record<string, unknown>>).map((e) => ({
-    amount: (e.amount as number | null) ?? 0,
-    category: (e.category as string | null) ?? null,
-    expenseDate: (e.expense_date as string | null) ?? null,
-  }))
+  // Same loader as the P&L statement, bounded to the window.
+  const { income, expenses, remittances } = await loadProfitLossInputs(supabase, { from: windowStart, to: windowEnd })
 
   const currentKey = monthKey(ty, tm)
   const points: MonthPoint[] = months.map(({ y, m }) => {
     const { from, to } = monthBounds(y, m)
-    const pl = buildProfitLoss({ income, expenses, from, to })
+    const pl = buildProfitLoss({ income, expenses, remittances, from, to })
     const key = monthKey(y, m)
     return {
       month: key,

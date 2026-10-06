@@ -47,6 +47,7 @@ const HUB_DESTINATIONS: { href: string; label: string; group: string }[] = [
   { href: '/portal/contractor-statements', label: 'Contractor statements (historical)', group: 'Pay' },
   { href: '/portal/payroll', label: 'Employee pay', group: 'Pay' },
   { href: '/portal/mileage', label: 'Mileage logbook', group: 'Pay' },
+  { href: '/portal/finance/accountant-pack', label: 'Accountant pack (Excel)', group: 'Reports' },
   { href: '/portal/finance/profit-loss', label: 'P&L statement', group: 'Reports' },
   { href: '/portal/finance/job-margins', label: 'Job margins', group: 'Reports' },
   { href: '/portal/finance/reconcile', label: 'Bank reconciliation', group: 'Reports' },

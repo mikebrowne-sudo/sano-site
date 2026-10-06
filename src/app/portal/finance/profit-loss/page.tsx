@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation'
 import { PeriodFilter } from '../_components/PeriodFilter'
 import { resolvePeriod } from '../_lib/periods'
 import { buildProfitLoss } from '../_lib/profit-loss'
+import { loadProfitLossInputs } from '../_lib/profit-loss-data'
 import clsx from 'clsx'
 
 export const dynamic = 'force-dynamic'
@@ -32,36 +33,10 @@ export default async function ProfitLossPage({
   const periodKey = searchParams.period ?? 'ytd'
   const { from, to } = resolvePeriod(periodKey, searchParams.from, searchParams.to)
 
-  // Cash basis: income from paid invoices, all cost out from the Expenses
-  // table (which reconciles to the ASB bank export). The builder owns the
-  // basis + bucketing logic for testability. Volumes are small.
-  const [{ data: invoices }, { data: expenses }] = await Promise.all([
-    supabase
-      .from('invoices')
-      .select('base_price, discount, date_paid, invoice_items ( price )')
-      .eq('status', 'paid')
-      .is('deleted_at', null)
-      .not('is_test', 'is', true),
-    supabase
-      .from('expenses')
-      .select('amount, category, expense_date'),
-  ])
-
-  const income = (invoices ?? []).map((i) => {
-    const items = (i.invoice_items ?? []) as { price: number }[]
-    const addons = items.reduce((s, it) => s + (it.price ?? 0), 0)
-    return {
-      total: (i.base_price ?? 0) + addons - (i.discount ?? 0),
-      datePaid: (i.date_paid as string | null) ?? null,
-    }
-  })
-  const expenseRows = (expenses ?? []).map((e) => ({
-    amount: (e.amount as number | null) ?? 0,
-    category: (e.category as string | null) ?? null,
-    expenseDate: (e.expense_date as string | null) ?? null,
-  }))
-
-  const pl = buildProfitLoss({ income, expenses: expenseRows, from, to })
+  // Cash basis — the shared loader defines income / contractor cost / expenses
+  // for every P&L surface; the builder owns bucketing + duplicate matching.
+  const inputs = await loadProfitLossInputs(supabase, { from, to })
+  const pl = buildProfitLoss({ ...inputs, from, to })
 
   return (
     <div className="tnum max-w-3xl">
@@ -85,6 +60,10 @@ export default async function ProfitLossPage({
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <Row label="Income" sub={`${pl.incomeCount} paid invoice${pl.incomeCount !== 1 ? 's' : ''}`} value={pl.income} strong />
         <Row label="Less cost of sales — contractor payments" sub={`${pl.costOfSalesCount} payment${pl.costOfSalesCount !== 1 ? 's' : ''}`} value={-pl.costOfSales} />
+        <Row label="Remittances paid" sub={`${pl.remittancesCount}`} value={-pl.remittancesTotal} indent />
+        {pl.otherContractorCount > 0 && (
+          <Row label="Other contractor payments (expenses)" sub={`${pl.otherContractorCount}`} value={-pl.otherContractorTotal} indent />
+        )}
         <Row label="Gross profit" value={pl.grossProfit} strong divider sub={`${pl.grossMarginPct}% margin`} />
 
         {/* Operating expenses */}
@@ -109,11 +88,18 @@ export default async function ProfitLossPage({
         </Note>
       )}
 
+      {pl.duplicatesExcludedCount > 0 && (
+        <Note tone="amber">
+          {pl.duplicatesExcludedCount} contractor-payment expense{pl.duplicatesExcludedCount !== 1 ? 's' : ''} ({fmt(pl.duplicatesExcludedTotal)}) in
+          this period duplicate a remittance (same amount, within a few days) and are not counted twice.
+        </Note>
+      )}
+
       <p className="text-xs text-sage-400 mt-6">
-        Cash basis: income = invoices marked paid (by payment date); cost out = the Expenses table (by expense date), which
-        reconciles to the bank. Contractor payments are read from the Wages / payroll expense category. Figures are as-entered and
-        GST-inclusive where the source records are. This is a working management view, not a filed financial statement — confirm
-        final categories and treatment with your accountant.
+        Cash basis: income = invoices marked paid (by payment date, GST-inclusive amount received); contractor cost = remittances
+        paid (by payment date) plus any contractor-payment expenses not already covered by a remittance; other costs = the Expenses
+        table (by expense date). Employee wages sit in operating expenses. Figures are GST-inclusive. This is a working management
+        view, not a filed financial statement — confirm final categories and treatment with your accountant.
       </p>
     </div>
   )
