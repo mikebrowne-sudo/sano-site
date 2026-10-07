@@ -63,3 +63,52 @@ export function getMonthsBetween(from: string, to: string): { month: string; lab
 
   return months
 }
+
+/** Today's date in New Zealand as 'YYYY-MM-DD' (server runs in UTC). */
+export function nzToday(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
+}
+
+/** NZ financial year (1 April – 31 March) containing `dateIso`. */
+export function financialYear(dateIso: string): Period {
+  const y = Number(dateIso.slice(0, 4))
+  const m = Number(dateIso.slice(5, 7))
+  const start = m >= 4 ? y : y - 1
+  return {
+    key: `fy${start + 1}`,
+    label: `FY ${start}/${String((start + 1) % 100).padStart(2, '0')} (1 Apr ${start} – 31 Mar ${start + 1})`,
+    from: `${start}-04-01`,
+    to: `${start + 1}-03-31`,
+  }
+}
+
+/** Last completed calendar month before `dateIso`. */
+export function previousMonth(dateIso: string): Period {
+  let y = Number(dateIso.slice(0, 4))
+  let m = Number(dateIso.slice(5, 7)) - 1
+  if (m === 0) { m = 12; y -= 1 }
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  const mm = String(m).padStart(2, '0')
+  return { key: 'prev_month', label: 'Last month', from: `${y}-${mm}-01`, to: `${y}-${mm}-${last}` }
+}
+
+/** Presets for the accountant pack: this FY, last FY, last month. */
+export function accountantPackPeriods(today: string): Period[] {
+  const thisFy = financialYear(today)
+  const lastFy = financialYear(`${Number(thisFy.from.slice(0, 4)) - 1}-06-01`)
+  return [
+    { ...thisFy, key: 'fy_current', label: `This financial year — ${thisFy.label}` },
+    { ...lastFy, key: 'fy_previous', label: `Last financial year — ${lastFy.label}` },
+    previousMonth(today),
+  ]
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+/** Resolve the accountant pack period from query params (custom wins when valid). */
+export function resolveAccountantPackPeriod(today: string, key?: string | null, from?: string | null, to?: string | null): { key: string; from: string; to: string } {
+  if (from && to && ISO_DATE.test(from) && ISO_DATE.test(to) && from <= to) return { key: 'custom', from, to }
+  const presets = accountantPackPeriods(today)
+  const p = presets.find((x) => x.key === key) ?? presets[0]
+  return { key: p.key, from: p.from, to: p.to }
+}
