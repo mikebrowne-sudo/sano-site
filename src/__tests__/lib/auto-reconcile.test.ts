@@ -1,4 +1,4 @@
-import { payerKey, proposeAutoReconcile, referencedNumbers, type ArCredit, type ArInvoice } from '@/lib/auto-reconcile'
+import { payerKey, proposeAutoReconcile, referencedNumbers, sameDocNumber, suggestCreditMatches, type ArCredit, type ArInvoice } from '@/lib/auto-reconcile'
 
 function credit(p: Partial<ArCredit>): ArCredit {
   return { id: 'c1', date: '2026-09-21', amount: 100, payee: 'D/C FROM SOMEONE', memo: '', cleared: false, allocated: 0, ...p }
@@ -173,5 +173,66 @@ describe('auto-reconcile — safety rules', () => {
   it('skips drafts and fully allocated payments', () => {
     expect(run([credit({ amount: 100, memo: 'INV-0001' })], [inv({ status: 'draft' })]).proposals).toHaveLength(0)
     expect(run([credit({ amount: 100, allocated: 100, memo: 'INV-0001' })], [inv({})]).proposals).toHaveLength(0)
+  })
+})
+
+describe('auto-reconcile — bundle prefers invoices issued before the payment', () => {
+  it('auto-matches the Royal Heights $1,570 even though a later $230 invoice could swap in', () => {
+    const rh = { clientId: 'rh', clientLabel: 'Barfoot & Thompson Royal Heights' }
+    const r = run(
+      [credit({ amount: 1570, payee: 'D/C FROM B&T Royal Heights', date: '2026-09-30' })],
+      [
+        inv({ number: 'INV-0306', total: 900, dateIssued: '2026-08-23', ...rh }),
+        inv({ number: 'INV-0383', total: 320, dateIssued: '2026-09-16', ...rh }),
+        inv({ number: 'INV-0403', total: 230, dateIssued: '2026-09-16', ...rh }),
+        inv({ number: 'INV-0320', total: 120, dateIssued: '2026-09-16', ...rh }),
+        inv({ number: 'INV-0338', total: 230, dateIssued: '2026-10-03', ...rh }), // issued after the payment
+      ],
+    )
+    expect(r.proposals[0].allocations.map((a) => a.invoiceId).sort()).toEqual(['INV-0306', 'INV-0320', 'INV-0383', 'INV-0403'])
+  })
+})
+
+describe('suggestCreditMatches — the reconcile screen', () => {
+  const sg = (c: Partial<ArCredit>, invoices: ArInvoice[], history: Array<{ payerKey: string; clientId: string }> = []) =>
+    suggestCreditMatches({ credit: credit(c), invoices, history })
+
+  it('offers a part payment against a referenced invoice, leaving the balance owing', () => {
+    const r = sg({ amount: 1777.5, memo: 'INV-0308' }, [inv({ number: 'INV-0308', total: 3555 })])
+    expect(r.suggestions[0]).toMatchObject({ kind: 'part_payment', allocations: [{ invoiceId: 'INV-0308', amount: 1777.5 }] })
+    expect(r.suggestions[0].label).toMatch(/1777.50 still owing/)
+  })
+
+  it('ranks a payer bundle using only already-issued invoices first', () => {
+    const rh = { clientId: 'rh', clientLabel: 'Barfoot & Thompson Royal Heights' }
+    const r = sg({ amount: 350, payee: 'D/C FROM B&T Royal Heights', date: '2026-09-30' }, [
+      inv({ number: 'A', total: 120, dateIssued: '2026-09-01', ...rh }),
+      inv({ number: 'B', total: 230, dateIssued: '2026-09-02', ...rh }),
+      inv({ number: 'LATE', total: 230, dateIssued: '2026-10-03', ...rh }),
+    ])
+    expect(r.suggestions[0].allocations.map((a) => a.invoiceId).sort()).toEqual(['A', 'B'])
+    expect(r.clientIds).toEqual(['rh'])
+  })
+
+  it('warns when the referenced invoice is already paid in full', () => {
+    const r = sg({ amount: 1080, memo: 'J Mulvany INV0340' }, [inv({ number: 'INV-0340', status: 'paid', total: 1080, allocated: 1080 })])
+    expect(r.notes.join(' ')).toMatch(/INV-0340 is already paid in full/)
+  })
+
+  it('labels IRD money as a refund, not income', () => {
+    const r = sg({ amount: 17.33, payee: 'D/C FROM I.R.D. 060-220-360' }, [])
+    expect(r.suggestions).toHaveLength(0)
+    expect(r.notes[0]).toMatch(/tax refund/)
+  })
+
+  it('only offers weak same-amount guesses when the payer is unknown', () => {
+    const r = sg({ amount: 240, payee: 'D/C FROM L M M ABRAHAM' }, [inv({ number: 'INV-0430', total: 240, clientId: 'w', clientLabel: 'Wendell Property' })])
+    expect(r.suggestions[0].kind).toBe('amount_only')
+  })
+
+  it('treats quote, job and invoice numbers alike', () => {
+    expect(sameDocNumber('QUO-0491', 'JOB-0491')).toBe(true)
+    expect(sameDocNumber('INV-0491', 'JOB-491')).toBe(true)
+    expect(sameDocNumber('QUO-0414', 'JOB-0491')).toBe(false)
   })
 })

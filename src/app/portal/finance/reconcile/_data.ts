@@ -52,6 +52,23 @@ export interface ReconcileData {
    * the cost and double-claim its GST.
    */
   paymentRecords: ReconPaymentRecord[]
+  /**
+   * Jobs with no invoice yet — a payment that quotes a quote/job number, or
+   * comes from a known customer, may be paying one of these (deposit, or the
+   * invoice was never raised). Surfaced so the job can be invoiced, then matched.
+   */
+  uninvoicedJobs: UninvoicedJob[]
+}
+
+export interface UninvoicedJob {
+  id: string
+  jobNumber: string
+  quoteNumber: string | null
+  clientId: string | null
+  status: string
+  date: string | null
+  address: string
+  price: number | null
 }
 
 interface TxnRow {
@@ -80,7 +97,7 @@ export async function getReconcileData(): Promise<ReconcileData> {
       .order('txn_date', { ascending: false }),
     supabase
       .from('invoices')
-      .select('id, invoice_number, status, base_price, discount, gst_included, date_paid, service_address, clients ( name ), invoice_items ( price )')
+      .select('id, invoice_number, status, base_price, discount, gst_included, date_paid, date_issued, scheduled_clean_date, service_address, client_id, bill_to_name, clients ( name, company_name, branch_name ), invoice_items ( price )')
       .neq('status', 'cancelled')
       .is('deleted_at', null)
       .not('is_test', 'is', true),
@@ -175,7 +192,8 @@ export async function getReconcileData(): Promise<ReconcileData> {
   })
 
   const invoices: ReconInvoice[] = (invoiceData ?? []).map((i) => {
-    const client =(i.clients as unknown as { name: string } | null)?.name ?? ''
+    const c = i.clients as unknown as { name: string | null; company_name: string | null; branch_name: string | null } | null
+    const client = c?.name ?? ''
     return {
       id: i.id as string,
       invoiceNumber: (i.invoice_number as string | null) ?? '',
@@ -186,6 +204,12 @@ export async function getReconcileData(): Promise<ReconcileData> {
       client,
       address: (i.service_address as string | null) ?? '',
       allocatedTotal: round2(allocatedByInvoice.get(i.id as string) ?? 0),
+      clientId: (i.client_id as string | null) ?? null,
+      // "Barfoot & Thompson Henderson" — company + branch, for payer matching.
+      clientLabel: `${c?.company_name || c?.name || ''} ${c?.branch_name ?? ''}`.trim(),
+      billTo: (i.bill_to_name as string | null) ?? null,
+      dateIssued: (i.date_issued as string | null) ?? null,
+      serviceDate: (i.scheduled_clean_date as string | null) ?? null,
     }
   })
   const expenses: ReconExpense[] = (expenseData ?? []).map((e) => ({
@@ -235,5 +259,22 @@ export async function getReconcileData(): Promise<ReconcileData> {
     })
   }
 
-  return { transactions, meta, invoices, expenses, paymentRecords }
+  const { data: jobData } = await supabase
+    .from('jobs')
+    .select('id, job_number, client_id, status, scheduled_date, address, job_price, quotes ( quote_number )')
+    .is('invoice_id', null)
+    .is('deleted_at', null)
+    .neq('status', 'cancelled')
+  const uninvoicedJobs: UninvoicedJob[] = ((jobData ?? []) as Array<Record<string, unknown>>).map((j) => ({
+    id: j.id as string,
+    jobNumber: (j.job_number as string | null) ?? '',
+    quoteNumber: (j.quotes as { quote_number?: string | null } | null)?.quote_number ?? null,
+    clientId: (j.client_id as string | null) ?? null,
+    status: (j.status as string | null) ?? '',
+    date: (j.scheduled_date as string | null) ?? null,
+    address: (j.address as string | null) ?? '',
+    price: j.job_price == null ? null : Number(j.job_price),
+  }))
+
+  return { transactions, meta, invoices, expenses, paymentRecords, uninvoicedJobs }
 }

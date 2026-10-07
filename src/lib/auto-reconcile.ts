@@ -238,11 +238,148 @@ export function proposeAutoReconcile(args: {
     }
 
     const bundleItems = cands.slice(0, MAX_BUNDLE_CANDIDATES).map((inv) => ({ item: inv, value: open.get(inv.id) ?? 0 })).filter((x) => x.value > 0)
-    const bundle = uniqueSubset(bundleItems, due)
+    // Prefer invoices that already existed when the money arrived: a bundle
+    // using only those wins even if a later-issued invoice could also fit.
+    const issuedBefore = bundleItems.filter((x) => !x.item.dateIssued || x.item.dateIssued <= c.date)
+    const bundle = uniqueSubset(issuedBefore, due) ?? (issuedBefore.length === bundleItems.length ? null : uniqueSubset(bundleItems, due))
     if (bundle) { commit(bundle, 'amount_match', `known payer, bundle ${bundle.map((i) => i.number).join(' + ')}`); continue }
 
     review.push({ creditId: c.id, why: cands.length ? 'No unique invoice or combination matches the amount' : 'No open invoices for this payer' })
   }
 
   return { proposals, review }
+}
+
+// ── Suggestions for the reconcile screen ─────────────────────────────────────
+//
+// For a payment that auto-reconcile left alone, rank what it most likely
+// pays — so the screen can offer a one-click Confirm instead of a hunt. Same
+// payer learning + reference parsing as the auto path, but returns options
+// (best first) rather than only certainties, including part payments.
+
+export interface ArSuggestion {
+  kind: 'reference' | 'part_payment' | 'exact' | 'oldest' | 'bundle' | 'amount_only'
+  allocations: ArAllocation[]
+  /** Short operator-facing reason, e.g. "Royal Heights — 4 invoices". */
+  label: string
+}
+
+export interface ArCreditSuggestions {
+  /** Clients the payer resolves to (scopes the "pick invoices" list). */
+  clientIds: string[]
+  suggestions: ArSuggestion[]
+  /** Warnings worth showing, e.g. a referenced invoice that's already paid in full. */
+  notes: string[]
+}
+
+/** Do two document numbers refer to the same number? ("QUO-0491" ≡ "JOB-0491" ≡ "INV-491") */
+export function sameDocNumber(a: string, b: string): boolean {
+  return numKey(a) === numKey(b)
+}
+
+/** All subsets (size 2–MAX_BUNDLE_SIZE) summing to target, up to `limit`. */
+function subsets<T>(items: Array<{ item: T; value: number }>, target: number, limit: number): T[][] {
+  const out: T[][] = []
+  const pick: T[] = []
+  const walk = (start: number, remaining: number) => {
+    if (out.length >= limit) return
+    if (remaining === 0 && pick.length >= 2) { out.push([...pick]); return }
+    if (pick.length >= MAX_BUNDLE_SIZE || remaining <= 0) return
+    for (let i = start; i < items.length; i++) {
+      if (items[i].value > remaining) continue
+      pick.push(items[i].item)
+      walk(i + 1, remaining - items[i].value)
+      pick.pop()
+    }
+  }
+  walk(0, target)
+  return out
+}
+
+export function suggestCreditMatches(args: {
+  credit: ArCredit
+  invoices: ArInvoice[]
+  history: ArHistory[]
+  max?: number
+}): ArCreditSuggestions {
+  const { credit: c } = args
+  const max = args.max ?? 3
+  const due = cents(c.amount) - cents(c.allocated)
+  const text = `${c.payee} ${c.memo}`
+  const openOf = (inv: ArInvoice) => Math.max(0, cents(inv.total) - cents(inv.allocated))
+  const suggestions: ArSuggestion[] = []
+  const seen = new Set<string>()
+  const add = (s: ArSuggestion) => {
+    const key = s.allocations.map((a) => a.invoiceId).sort().join('+')
+    if (seen.has(key) || suggestions.length >= max) return
+    seen.add(key)
+    suggestions.push(s)
+  }
+  const alloc = (inv: ArInvoice, amountCents = openOf(inv)) => ({ invoiceId: inv.id, amount: amountCents / 100 })
+  const notes: string[] = []
+  if (due <= 0) return { clientIds: [], suggestions, notes }
+  if (NON_INCOME_RE.test(text)) {
+    notes.push(/i\.?\s?r\.?\s?d|inland\s+revenue/i.test(text)
+      ? 'From IRD — a tax refund, not customer income. Tick it off.'
+      : 'Owner money / transfer — not customer income. Tick it off.')
+    return { clientIds: [], suggestions, notes }
+  }
+
+  const byNum = new Map(args.invoices.map((i) => [numKey(i.number), i]))
+  const usable = (inv: ArInvoice) => !['draft', 'cancelled', 'void'].includes(inv.status) && openOf(inv) > 0
+
+  // 1. Reference(s) in the bank text.
+  const refs = Array.from(new Map(referencedNumbers(text)
+    .map((r) => byNum.get(numKey(r)))
+    .filter((inv): inv is ArInvoice => !!inv && usable(inv))
+    .map((inv) => [inv.id, inv])).values())
+  if (refs.length > 0) {
+    const sum = refs.reduce((s, inv) => s + openOf(inv), 0)
+    if (sum === due) add({ kind: 'reference', allocations: refs.map((inv) => alloc(inv)), label: `Reference ${refs.map((i) => i.number).join(' + ')}` })
+    else if (refs.length === 1 && due < openOf(refs[0])) {
+      add({ kind: 'part_payment', allocations: [alloc(refs[0], due)], label: `Part payment of ${refs[0].number} — $${((openOf(refs[0]) - due) / 100).toFixed(2)} still owing` })
+    }
+  }
+
+  // 2. The payer's own invoices.
+  const learned = new Set(args.history.filter((h) => h.payerKey === payerKey(c.payee)).map((h) => h.clientId))
+  const labels = Array.from(new Set(args.invoices.map((i) => i.clientLabel).filter(Boolean)))
+  const named = new Set([...matchClientsForPayee(c.payee, labels), ...(c.memo ? matchClientsForPayee(c.memo, labels) : [])])
+  for (const inv of refs) if (inv.clientId) learned.add(inv.clientId)
+  for (const inv of args.invoices) if (inv.clientId && named.has(inv.clientLabel)) learned.add(inv.clientId)
+  const clientIds = Array.from(learned)
+
+  const sameTime = (inv: ArInvoice) => inv.status !== 'paid' || (!!inv.datePaid && Math.abs(days(inv.datePaid, c.date)) <= PAID_DATE_WINDOW)
+  const cands = args.invoices
+    .filter((inv) => inv.clientId && learned.has(inv.clientId) && usable(inv) && sameTime(inv))
+    .sort((a, b) => (a.dateIssued ?? '').localeCompare(b.dateIssued ?? '') || a.number.localeCompare(b.number))
+  const who = (inv: ArInvoice) => inv.clientLabel || 'client'
+
+  for (const inv of cands.filter((i) => openOf(i) === due)) {
+    add({ kind: 'exact', allocations: [alloc(inv)], label: `${who(inv)} — ${inv.number}` })
+  }
+  const before = cands.filter((i) => !i.dateIssued || i.dateIssued <= c.date)
+  const items = (pool: ArInvoice[]) => pool.slice(0, MAX_BUNDLE_CANDIDATES).map((inv) => ({ item: inv, value: openOf(inv) }))
+  for (const set of [...subsets(items(before), due, max), ...subsets(items(cands), due, max)]) {
+    add({ kind: 'bundle', allocations: set.map((inv) => alloc(inv)), label: `${who(set[0])} — ${set.length} invoices` })
+  }
+
+  // 3. Nothing tied to the payer: same-amount open invoices anywhere (weak).
+  if (suggestions.length === 0 && clientIds.length === 0) {
+    for (const inv of args.invoices.filter((i) => i.status !== 'paid' && usable(i) && openOf(i) === due).slice(0, max)) {
+      add({ kind: 'amount_only', allocations: [alloc(inv)], label: `Same amount: ${inv.number} (${who(inv)}) — check the payer` })
+    }
+  }
+
+  // A referenced invoice that's already fully paid: likely a double payment,
+  // or an earlier payment was matched to the wrong invoice.
+  for (const r of referencedNumbers(text)) {
+    const inv = byNum.get(numKey(r))
+    if (inv && !['draft', 'cancelled', 'void'].includes(inv.status) && openOf(inv) === 0) {
+      notes.push(`${inv.number} is already paid in full — a double payment, or an earlier payment was matched to it by mistake.`)
+    }
+  }
+  if (clientIds.length === 0 && suggestions.length === 0) notes.push('Payer not recognised — search by name or address, or create the client + invoice.')
+
+  return { clientIds, suggestions, notes }
 }
