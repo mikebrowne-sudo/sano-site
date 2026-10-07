@@ -8,6 +8,7 @@ import { matchClientsForPayee } from '@/lib/payee-match'
 import { findSubsets } from '@/lib/subset-sum'
 import { getReconcileData } from './_data'
 import { Uploader } from './_components/Uploader'
+import { AutoReconcileButton } from './_components/AutoReconcileButton'
 import { ClearToggle } from './_components/ClearToggle'
 import { MatchPanel, type MatchInvoice } from './_components/MatchPanel'
 import { ReverseAllocation } from './_components/ReverseAllocation'
@@ -155,6 +156,9 @@ export default async function ReconcilePage() {
               {m.allocations.map((a) => (
                 <div key={a.id} className="flex items-center justify-end gap-2 text-xs text-sage-500">
                   <span className="tabular-nums">{a.invoiceNumber} · {fmt(a.amount)}</span>
+                  {a.matchReason?.startsWith('auto:') && (
+                    <span title={a.matchReason} className="rounded bg-sage-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sage-600">auto</span>
+                  )}
                   {canEdit && <ReverseAllocation allocationId={a.id} invoiceNumber={a.invoiceNumber} amount={a.amount} />}
                 </div>
               ))}
@@ -208,6 +212,7 @@ export default async function ReconcilePage() {
       <p className="text-sm text-sage-500 mb-8">Import an ASB CSV export to match bank credits against your invoices and debits against your expenses. Re-importing is safe — duplicates are skipped.</p>
 
       {canEdit && <Uploader />}
+      {canEdit && hasData && <AutoReconcileButton />}
 
       {!hasData ? (
         <p className="text-sage-500 text-sm mt-8">{canEdit ? 'No bank transactions imported yet. Upload an ASB export above to get started.' : 'No bank transactions have been imported yet.'}</p>

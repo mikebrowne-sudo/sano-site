@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { extractInvoiceRefs, extractNumberRefs, type BankTxn } from '@/lib/asb-import'
 import type { ReconInvoice, ReconExpense, ReconPaymentRecord } from '@/lib/bank-reconcile'
+import { invoicePayableTotal } from './_apply'
 
 /** A live (un-reversed) allocation of bank money to an invoice. */
 export interface AllocationRow {
@@ -12,6 +13,8 @@ export interface AllocationRow {
   invoiceNumber: string
   amount: number
   method: string
+  /** "auto: …" when made by auto-reconcile. */
+  matchReason: string | null
   reconciledAt: string | null
 }
 
@@ -64,7 +67,7 @@ export async function getReconcileData(): Promise<ReconcileData> {
       .order('txn_date', { ascending: false }),
     supabase
       .from('invoices')
-      .select('id, invoice_number, status, base_price, discount, date_paid, service_address, clients ( name ), invoice_items ( price )')
+      .select('id, invoice_number, status, base_price, discount, gst_included, date_paid, service_address, clients ( name ), invoice_items ( price )')
       .neq('status', 'cancelled')
       .is('deleted_at', null)
       .not('is_test', 'is', true),
@@ -74,7 +77,7 @@ export async function getReconcileData(): Promise<ReconcileData> {
     // Live (un-reversed) allocations — the durable bank↔invoice link.
     supabase
       .from('invoice_payment_allocations')
-      .select('id, bank_transaction_id, invoice_id, amount_allocated, method, reconciled_at, invoices ( invoice_number )')
+      .select('id, bank_transaction_id, invoice_id, amount_allocated, method, match_reason, reconciled_at, invoices ( invoice_number )')
       .is('reversed_at', null),
   ])
 
@@ -90,6 +93,7 @@ export async function getReconcileData(): Promise<ReconcileData> {
       invoiceNumber: invNum,
       amount: Number(a.amount_allocated ?? 0),
       method: (a.method as string) ?? 'manual',
+      matchReason: (a.match_reason as string | null) ?? null,
       reconciledAt: (a.reconciled_at as string | null) ?? null,
     }
     const list = allocByTxn.get(row.bankTransactionId) ?? []
@@ -120,14 +124,13 @@ export async function getReconcileData(): Promise<ReconcileData> {
   })
 
   const invoices: ReconInvoice[] = (invoiceData ?? []).map((i) => {
-    const items = (i.invoice_items ?? []) as { price: number }[]
-    const addons = items.reduce((s, it) => s + (it.price ?? 0), 0)
-    const client = (i.clients as unknown as { name: string } | null)?.name ?? ''
+    const client =(i.clients as unknown as { name: string } | null)?.name ?? ''
     return {
       id: i.id as string,
       invoiceNumber: (i.invoice_number as string | null) ?? '',
       status: (i.status as string | null) ?? 'draft',
-      total: (i.base_price ?? 0) + addons - (i.discount ?? 0),
+      // GST-inclusive — what the client actually pays (GST-exclusive invoices add 15%).
+      total: invoicePayableTotal(i),
       datePaid: (i.date_paid as string | null) ?? null,
       client,
       address: (i.service_address as string | null) ?? '',
