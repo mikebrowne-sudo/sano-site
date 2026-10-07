@@ -40,6 +40,7 @@ import { buildStaffTasks } from '@/lib/staff-tasks'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 import { buildDashboardFinance, buildIncomeProjection } from './_lib/dashboard-finance'
 import { getBankBalance } from '@/lib/bank-balance'
+import { invoiceBalanceDue, invoiceTotalInclGst, loadAllocatedByInvoice, type InvoiceAmountFields } from '@/lib/invoice-balance'
 import { buildCashPosition } from '@/lib/cash-position'
 import { loadJobMargins } from '@/lib/job-margin'
 import { GrowthChart } from './_components/GrowthChart'
@@ -91,13 +92,13 @@ export default async function PortalDashboard() {
     // and declined are NOT pipeline, so they're excluded. Without this the count
     // balloons with won/dead quotes (e.g. 126 total vs ~27 actually open).
     supabase.from('quotes').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('is_latest_version', true).in('status', ['draft', 'sent']),
-    supabase.from('invoices').select('id, due_date, base_price, discount, invoice_items ( price )').is('deleted_at', null).eq('is_test', false).eq('status', 'sent'),
+    supabase.from('invoices').select('id, due_date, base_price, discount, gst_included, invoice_items ( price )').is('deleted_at', null).eq('is_test', false).eq('status', 'sent'),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).is('contractor_id', null).neq('status', 'completed').neq('status', 'invoiced'),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('scheduled_date', today).neq('status', 'completed').neq('status', 'invoiced'),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('status', 'in_progress'),
     supabase.from('worker_training_assignments').select('*', { count: 'exact', head: true }).neq('status', 'completed').not('due_date', 'is', null).lt('due_date', today),
-    supabase.from('invoices').select('id, base_price, discount, invoice_items ( price )').is('deleted_at', null).eq('is_test', false).eq('status', 'paid').gte('date_paid', monthStart),
+    supabase.from('invoices').select('id, base_price, discount, gst_included, invoice_items ( price )').is('deleted_at', null).eq('is_test', false).eq('status', 'paid').gte('date_paid', monthStart),
     supabase.from('jobs').select('id, job_number, title, address, scheduled_time, status, clients ( name ), contractors ( full_name )').is('deleted_at', null).eq('is_test', false).eq('scheduled_date', today).neq('status', 'completed').neq('status', 'invoiced').order('scheduled_time', { ascending: true }).limit(12),
     loadStaffTaskCounts(supabase),
     // Sales follow-ups due (today or earlier, not closed).
@@ -163,17 +164,18 @@ export default async function PortalDashboard() {
   const outstandingCount = sentInvoices?.length ?? 0
   const overdueCount = (sentInvoices ?? []).filter((i) => i.due_date && i.due_date < today).length
 
-  // Money at a glance — total = base_price + addon items − discount (the app's
-  // canonical invoice formula). Outstanding = sent (owed); overdue = sent past
-  // due; received = paid this calendar month.
-  type MoneyInv = { due_date?: string | null; base_price: number | null; discount: number | null; invoice_items: { price: number | null }[] }
-  const invTotal = (inv: MoneyInv) =>
-    (inv.base_price ?? 0) + (inv.invoice_items ?? []).reduce((s, i) => s + (i.price ?? 0), 0) - (inv.discount ?? 0)
+  // Money at a glance. Amounts are GST-inclusive (what the customer pays — a
+  // GST-exclusive invoice adds 15%), and "owed" is what's LEFT after any part
+  // payments already matched. Outstanding = sent (owed); overdue = sent past
+  // due; received = invoices paid this calendar month.
+  type MoneyInv = InvoiceAmountFields & { id: string; due_date?: string | null }
   const sentRows = (sentInvoices ?? []) as unknown as MoneyInv[]
   const paidRows = (paidThisMonth ?? []) as unknown as MoneyInv[]
-  const outstandingRevenue = sentRows.reduce((s, i) => s + invTotal(i), 0)
-  const overdueRevenue = sentRows.filter((i) => i.due_date && i.due_date < today).reduce((s, i) => s + invTotal(i), 0)
-  const receivedThisMonth = paidRows.reduce((s, i) => s + invTotal(i), 0)
+  const allocatedBySent = await loadAllocatedByInvoice(supabase, sentRows.map((i) => i.id))
+  const owed = (i: MoneyInv) => invoiceBalanceDue(i, allocatedBySent.get(i.id) ?? 0)
+  const outstandingRevenue = sentRows.reduce((s, i) => s + owed(i), 0)
+  const overdueRevenue = sentRows.filter((i) => i.due_date && i.due_date < today).reduce((s, i) => s + owed(i), 0)
+  const receivedThisMonth = paidRows.reduce((s, i) => s + invoiceTotalInclGst(i), 0)
 
   const schedule = (todaySchedule ?? []) as unknown as Array<{
     id: string; job_number: string | null; title: string | null; address: string | null
