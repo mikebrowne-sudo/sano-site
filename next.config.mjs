@@ -15,6 +15,12 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['puppeteer-core', '@sparticuz/chromium'],
   },
+  // The git commit this build came from (Netlify sets COMMIT_REF at build
+  // time). Inlined at build, so /api/health can report which deploy is live
+  // without reading env at runtime — the post-deploy smoke check waits for it.
+  env: {
+    BUILD_COMMIT: process.env.COMMIT_REF ?? '',
+  },
 }
 
 export default nextConfig

@@ -26,26 +26,27 @@ permissions:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       BASE: https://sano.nz
     steps:
       - name: Wait for the new deploy to come live
-        # Poll the dynamic health probe. force-dynamic + no-store means a 200
-        # here proves the freshly-deployed SSR function is executing. Give
-        # Netlify time to build + publish: up to 30 tries × 12s ≈ 6 min.
+        # /api/health reports the commit its build came from. Wait until it
+        # reports THIS push's commit — a plain 200 isn't enough, because the
+        # previous deploy also answers 200 until Netlify switches over.
+        # Up to 40 tries × 15s = 10 min (build + publish).
         run: |
-          echo "Waiting for $BASE/api/health to return 200…"
-          for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$BASE/api/health" || echo 000)
-            if [ "$code" = "200" ]; then
-              echo "health is up (attempt $i)"
+          echo "Waiting for $BASE/api/health to report commit $GITHUB_SHA…"
+          for i in $(seq 1 40); do
+            body=$(curl -s --max-time 15 "$BASE/api/health" || echo '')
+            if echo "$body" | grep -q "$GITHUB_SHA"; then
+              echo "new deploy is live (attempt $i)"
               exit 0
             fi
-            echo "attempt $i: health=$code — retrying in 12s"
-            sleep 12
+            echo "attempt $i: not live yet ($body) — retrying in 15s"
+            sleep 15
           done
-          echo "::error::/api/health did not return 200 within the wait window"
+          echo "::error::the deploy for $GITHUB_SHA did not go live within 10 minutes"
           exit 1
 
       - name: Smoke-check key surfaces
