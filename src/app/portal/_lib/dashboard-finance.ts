@@ -129,25 +129,31 @@ export async function buildIncomeProjection(
     cm += 1
     if (cm === 13) { cm = 1; cy += 1 }
   }
-  const rangeStart = monthBounds(months[0].y, months[0].m).from
+  // No lower bound on the invoice query: overdue invoices are fetched from any
+  // earlier date and rolled into the current month (see below).
   const rangeEnd = monthBounds(months[months.length - 1].y, months[months.length - 1].m).to
+  const currentKey = monthKey(months[0].y, months[0].m)
 
   const totals: Record<string, number> = {}
   for (const { y, m } of months) totals[monthKey(y, m)] = 0
 
-  // 1. Unpaid sent invoices, by DUE month.
+  // 1. Unpaid sent invoices, by DUE month — except OVERDUE ones, which land in
+  //    the CURRENT month. Money that should already be in is still expected
+  //    (you want it now); bucketing it by its old due month made it vanish
+  //    from the projection entirely, since the window starts this month.
   const { data: sentInv } = await supabase
     .from('invoices')
     .select('id, base_price, discount, gst_included, due_date, invoice_items ( price )')
     .eq('status', 'sent')
     .is('deleted_at', null)
     .not('due_date', 'is', null)
-    .gte('due_date', rangeStart).lte('due_date', rangeEnd)
+    .lte('due_date', rangeEnd)
   // GST-inclusive balance still owed (part payments already matched are taken off).
   const sentRows = (sentInv ?? []) as Array<InvoiceAmountFields & { id: string; due_date: string }>
   const allocated = await loadAllocatedByInvoice(supabase, sentRows.map((i) => i.id))
   for (const i of sentRows) {
-    const key = String(i.due_date).slice(0, 7)
+    const dueKey = String(i.due_date).slice(0, 7)
+    const key = dueKey < currentKey ? currentKey : dueKey // overdue → expected now
     if (!(key in totals)) continue
     totals[key] += invoiceBalanceDue(i, allocated.get(i.id) ?? 0)
   }
