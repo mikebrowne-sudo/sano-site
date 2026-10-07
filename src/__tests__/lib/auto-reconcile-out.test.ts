@@ -111,4 +111,22 @@ describe('money-out auto-reconcile', () => {
     const r = go({ debits: [debit({ amount: 10.91, payee: 'SAIGON BAKERY AUCKLAND', memo: 'EFTPOS' })] })
     expect(r.proposals).toHaveLength(0)
   })
+
+  it('matches a wage payment that includes mileage (payout = net + mileage)', () => {
+    // The runner passes net pay + mileage reimbursement as the pay run's payout.
+    const r = go({
+      debits: [debit({ amount: 822.66, memo: 'BILL PAYMENT TO WAGES CAROL 10082026', date: '2026-08-10' })],
+      payRuns: [run({ id: 'aug10', payDate: '2026-08-10', net: 505.5 + 317.16 })],
+    })
+    expect(r.proposals[0]).toMatchObject({ kind: 'pay_run', payRunId: 'aug10' })
+  })
+
+  it('flags two pay runs paid in one transfer for a human (one link per debit)', () => {
+    const r = go({
+      debits: [debit({ amount: 1501.2, memo: 'BILL PAYMENT TO WAGES CAROL 070926', date: '2026-09-07' })],
+      payRuns: [run({ id: 'a', payDate: '2026-09-07', net: 505.5 }), run({ id: 'b', payDate: '2026-09-07', net: 995.7 })],
+    })
+    expect(r.proposals).toHaveLength(0)
+    expect(r.review[0].why).toMatch(/Pays 2 pay runs together/)
+  })
 })

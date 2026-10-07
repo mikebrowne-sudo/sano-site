@@ -9,8 +9,9 @@
 //      open remittance of the same amount; else exactly one open remittance of
 //      the same amount within 7 days; else exactly one combination (2–4) of
 //      open remittances paid within 3 days that sums to the debit.
-//   2. Employee pay run — exactly one paid pay run whose net pay equals the
-//      debit, paid within 6 days.
+//   2. Employee pay run — exactly one paid pay run whose payout (net pay +
+//      mileage reimbursement) equals the debit, paid within 6 days. Two pay
+//      runs paid in one transfer are flagged for review (one link per debit).
 //   3. Own-account transfer — the bank text names Sano's own account number
 //      with a different suffix (e.g. -51 tax savings). Not an expense.
 //   4. Existing expense — exactly one unlinked expense of the same amount
@@ -51,6 +52,7 @@ export interface OutRemittance {
 export interface OutPayRun {
   id: string
   payDate: string | null
+  /** What was transferred: net pay + mileage reimbursement. */
   net: number
   reference: string | null
   linked: boolean
@@ -224,6 +226,14 @@ export function proposeDebitReconcile(args: {
       continue
     }
     if (runs.length > 1) { review.push({ debitId: d.id, why: 'Several pay runs of this amount' }); continue }
+    const nearRuns = args.payRuns
+      .filter((p) => !payRunTaken.has(p.id) && p.payDate && absDays(p.payDate, d.date) <= RECORD_DATE_WINDOW)
+      .map((p) => ({ item: p, value: cents(p.net) }))
+    const runPair = nearRuns.length >= 2 ? uniqueSubset(nearRuns, due, 3) : null
+    if (runPair) {
+      review.push({ debitId: d.id, why: `Pays ${runPair.length} pay runs together (${runPair.map((p) => p.payDate).join(', ')}) — tick it off once checked` })
+      continue
+    }
 
     // 3. Transfer to Sano's own account (tax savings).
     if (ownAccountTransfer(text, args.ownAccount)) {

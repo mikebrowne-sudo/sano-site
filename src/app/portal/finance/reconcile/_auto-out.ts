@@ -33,7 +33,8 @@ export async function runAutoReconcileOut(supabase: SupabaseClient, userId: stri
     supabase.from('contractor_remittances').select('id, remittance_number, reference, payee_label, payment_date'),
     supabase.from('contractor_remittance_items').select('remittance_id, amount'),
     supabase.from('remittance_payment_allocations').select('bank_transaction_id, remittance_id, amount_allocated').is('reversed_at', null),
-    supabase.from('pay_runs').select('id, pay_date, payment_reference, pay_run_lines ( net_pay )').eq('status', 'paid'),
+    // Payout = net pay + mileage reimbursement (paid in the same transfer).
+    supabase.from('pay_runs').select('id, pay_date, payment_reference, pay_run_lines ( net_pay, mileage_reimbursement )').eq('status', 'paid'),
     supabase.from('expenses').select('id, expense_date, amount, category, vendor, payment_reference, gst_inclusive'),
     supabase
       .from('bank_debit_links')
@@ -96,7 +97,8 @@ export async function runAutoReconcileOut(supabase: SupabaseClient, userId: stri
       ? ((runsQ.data ?? []) as Rec[]).map((p) => ({
           id: p.id as string,
           payDate: (p.pay_date as string | null) ?? null,
-          net: round2(((p.pay_run_lines ?? []) as Array<{ net_pay: number | null }>).reduce((s, l) => s + Number(l.net_pay ?? 0), 0)),
+          net: round2(((p.pay_run_lines ?? []) as Array<{ net_pay: number | null; mileage_reimbursement: number | null }>)
+            .reduce((s, l) => s + Number(l.net_pay ?? 0) + Number(l.mileage_reimbursement ?? 0), 0)),
           reference: (p.payment_reference as string | null) ?? null,
           linked: linkedPayRun.has(p.id as string),
         }))

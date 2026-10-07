@@ -201,7 +201,7 @@ export async function getReconcileData(): Promise<ReconcileData> {
       .select('remittance_number, payee_label, payment_date, contractor_remittance_items ( amount )'),
     supabase
       .from('pay_runs')
-      .select('pay_date, status, pay_run_lines ( net_pay )')
+      .select('pay_date, status, pay_run_lines ( net_pay, mileage_reimbursement )')
       .eq('status', 'paid'),
   ])
 
@@ -222,8 +222,9 @@ export async function getReconcileData(): Promise<ReconcileData> {
   }
 
   for (const pr of payRunData ?? []) {
-    const lines = (pr.pay_run_lines as { net_pay: number | null }[] | null) ?? []
-    const net = round2(lines.reduce((sum, l) => sum + Number(l.net_pay ?? 0), 0))
+    // What was actually transferred: net pay + mileage reimbursement.
+    const lines = (pr.pay_run_lines as { net_pay: number | null; mileage_reimbursement: number | null }[] | null) ?? []
+    const net = round2(lines.reduce((sum, l) => sum + Number(l.net_pay ?? 0) + Number(l.mileage_reimbursement ?? 0), 0))
     if (net <= 0) continue
     const date = (pr.pay_date as string | null) ?? null
     paymentRecords.push({
