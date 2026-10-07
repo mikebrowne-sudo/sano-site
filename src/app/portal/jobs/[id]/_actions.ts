@@ -11,6 +11,7 @@ import { pickSnapshotRate } from '@/lib/contractor-rate-snapshot'
 import { resplitJobHours } from '@/lib/job-hours-split'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { autoApproveRecurringJobPay } from '@/lib/recurring-pay-auto-approve'
+import { applyQuoteCardPayment } from '@/lib/card-payments'
 
 // Phase D — mark a completed job as reviewed. Captures reviewed_at
 // + reviewed_by (FK to auth.users) and audit-logs the transition.
@@ -283,6 +284,10 @@ export async function createInvoiceFromJob(jobId: string) {
     .from('jobs')
     .update({ invoice_id: invoice.id, status: 'invoiced', payment_status: 'invoice_sent' })
     .eq('id', jobId)
+
+  // A customer who paid this quote by card upfront: mark the invoice paid.
+  const cardPaid = await applyQuoteCardPayment(supabase as never, invoice.id as string)
+  if (cardPaid.applied) await supabase.from('jobs').update({ payment_status: 'paid' }).eq('id', jobId)
 
   revalidatePath(`/portal/jobs/${jobId}`)
   revalidatePath('/portal/jobs')
