@@ -3,7 +3,7 @@ import { getServiceSupabase } from '@/lib/supabase-service'
 import { getStripe } from '@/lib/stripe'
 import { computeDocumentTotals } from '@/lib/doc-totals'
 import { invoiceBalanceDue, loadAllocatedByInvoice } from '@/lib/invoice-balance'
-import { invoiceCardPayable, quoteCardPayable } from '@/lib/card-payments'
+import { clientCardSetting, invoiceCardPayable, quoteCardPayable } from '@/lib/card-payments'
 
 // Service-role client, scoped by the unguessable share_token — the same
 // pattern as the share pages. This used the anon key, which only worked
@@ -64,13 +64,13 @@ export async function POST(req: NextRequest) {
     } else {
       const { data: invoice, error } = await supabase
         .from('invoices')
-        .select('id, invoice_number, status, payment_type, allow_card_payment, base_price, discount, gst_included, share_token, clients ( name, email ), invoice_items ( price )')
+        .select('id, invoice_number, status, payment_type, allow_card_payment, base_price, discount, gst_included, share_token, clients ( name, email, allow_card_payment ), invoice_items ( price )')
         .eq('share_token', share_token)
         .is('deleted_at', null)
         .single()
       if (error || !invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
       if (invoice.status === 'paid') return NextResponse.json({ error: 'Invoice already paid' }, { status: 400 })
-      if (!invoiceCardPayable(invoice)) {
+      if (!invoiceCardPayable({ ...invoice, client_allow_card_payment: clientCardSetting(invoice.clients) })) {
         return NextResponse.json({ error: 'Card payment is not available for this invoice' }, { status: 400 })
       }
       // Charge what is still owed — the grand total incl. GST (the same maths

@@ -14,6 +14,7 @@ import { findPossibleDuplicates, getClientLinkCounts } from '../_lib-cleanup'
 import { proposedAccountName } from '@/lib/account-cleanup'
 import type { AccountContact } from '../_actions-contacts'
 import { isAdminUser } from '@/lib/is-admin'
+import { ClientCardPaymentToggle } from './_components/ClientCardPaymentToggle'
 
 // Phase 5.5.7 — read-only audit timeline mirroring the staff pattern.
 const ACTION_LABELS: Record<string, string> = {
@@ -40,7 +41,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   const [{ data: client, error }, { data: { user } }] = await Promise.all([
     supabase
       .from('clients')
-      .select('id, name, company_name, branch_name, email, phone, service_address, billing_address, billing_same_as_service, notes, auth_user_id, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, is_archived, archived_at')
+      .select('id, name, company_name, branch_name, email, phone, service_address, billing_address, billing_same_as_service, notes, auth_user_id, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, is_archived, archived_at, allow_card_payment')
       .eq('id', params.id)
       .single(),
     supabase.auth.getUser(),
@@ -197,6 +198,13 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           notes: vm.notes,
         }}
       />
+
+      {isAdmin && (
+        <ClientCardPaymentToggle
+          clientId={vm.id}
+          initial={(client as { allow_card_payment?: boolean | null }).allow_card_payment === true}
+        />
+      )}
 
       {/* ── 2. Contacts (normal workflow) ──────────────────── */}
       {isAdmin && (

@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { CreditCard } from 'lucide-react'
 import { setInvoiceCardPayment } from '../_actions-card-payment'
 
-export function CardPaymentToggle({ invoiceId, initial, onAccount }: { invoiceId: string; initial: boolean; onAccount: boolean }) {
+export function CardPaymentToggle({ invoiceId, initial, hint }: { invoiceId: string; initial: boolean; hint: string }) {
   const [checked, setChecked] = useState(initial)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -33,9 +33,7 @@ export function CardPaymentToggle({ invoiceId, initial, onAccount }: { invoiceId
         />
         <CreditCard size={15} className="text-sage-600" />
         Show &ldquo;Pay now&rdquo; (card) on this invoice
-        <span className="text-xs text-sage-500">
-          {onAccount ? 'Off by default for on-account customers' : 'On by default for cash-sale'}
-        </span>
+        <span className="text-xs text-sage-500">{hint}</span>
       </label>
       {error && <p className="text-red-600 text-xs mt-1">{error}</p>}
     </div>

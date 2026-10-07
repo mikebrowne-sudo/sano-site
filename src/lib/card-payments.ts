@@ -4,6 +4,8 @@
 //   • Invoices: cash-sale invoices offer a card by default; on-account ones
 //     don't — unless staff tick "Show Pay now" on that invoice
 //     (invoices.allow_card_payment: null = the default, true/false = override).
+//     A customer can be set to always get it (clients.allow_card_payment), which
+//     applies to every invoice that has no override of its own.
 //     Only issued, unpaid invoices are payable.
 //   • Quotes: only a residential-style, ONE-OFF, cash-sale quote the customer
 //     has accepted. Recurring quotes are priced per visit, so one payment would
@@ -26,13 +28,28 @@ export function isOneOff(frequency: string | null | undefined): boolean {
   return f === '' || f === 'one_off'
 }
 
-/** Does this invoice offer card payment at all (ignoring its status)? */
-export function invoiceOffersCard(i: { payment_type?: string | null; allow_card_payment?: boolean | null }): boolean {
+type CardFields = {
+  payment_type?: string | null
+  allow_card_payment?: boolean | null
+  /** The customer's standing setting (clients.allow_card_payment). */
+  client_allow_card_payment?: boolean | null
+}
+
+/** Does this invoice offer card payment at all (ignoring its status)?
+ *  Invoice override → customer "always show" → payment-type default. */
+export function invoiceOffersCard(i: CardFields): boolean {
   if (i.allow_card_payment === true || i.allow_card_payment === false) return i.allow_card_payment
+  if (i.client_allow_card_payment === true) return true
   return !isOnAccount(i.payment_type)
 }
 
-export function invoiceCardPayable(i: { payment_type?: string | null; allow_card_payment?: boolean | null; status?: string | null }): boolean {
+/** Reads the customer's setting off a joined `clients ( allow_card_payment )`. */
+export function clientCardSetting(clients: unknown): boolean | null {
+  const c = (Array.isArray(clients) ? clients[0] : clients) as { allow_card_payment?: boolean | null } | null | undefined
+  return c?.allow_card_payment ?? null
+}
+
+export function invoiceCardPayable(i: CardFields & { status?: string | null }): boolean {
   if (!invoiceOffersCard(i)) return false
   return !['draft', 'cancelled', 'paid'].includes(i.status ?? '')
 }

@@ -7,7 +7,7 @@ import { SharePdfButton } from '../../_components/SharePdfButton'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { InvoiceDocument } from '@/components/document/InvoiceDocument'
 import { canTakeRealPayments } from '@/lib/stripe'
-import { invoiceOffersCard } from '@/lib/card-payments'
+import { clientCardSetting, invoiceOffersCard } from '@/lib/card-payments'
 import { invoiceBalanceDue, loadAllocatedByInvoice } from '@/lib/invoice-balance'
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
@@ -60,7 +60,7 @@ export default async function PublicInvoicePage({
       accounts_contact_name, accounts_email,
       bill_to_name, bill_to_attention,
       client_reference,
-      clients ( name, company_name, service_address, phone, email )
+      clients ( name, company_name, service_address, phone, email, allow_card_payment )
     `)
     .eq('share_token', params.token)
     .is('deleted_at', null)
@@ -78,7 +78,7 @@ export default async function PublicInvoicePage({
   // GST less any part payment) — the same figure create-checkout charges.
   // On-account customers pay on terms and aren't offered a card unless staff
   // ticked "Show Pay now" on this invoice (lib/card-payments).
-  const showPay = !isPdfRender && canTakeRealPayments() && invoiceOffersCard(invoice)
+  const showPay = !isPdfRender && canTakeRealPayments() && invoiceOffersCard({ ...invoice, client_allow_card_payment: clientCardSetting(invoice.clients) })
   let totalDisplay = ''
   if (showPay) {
     const allocated = (await loadAllocatedByInvoice(supabase, [invoice.id])).get(invoice.id) ?? 0

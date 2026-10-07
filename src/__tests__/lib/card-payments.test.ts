@@ -1,4 +1,4 @@
-import { applyQuoteCardPayment, invoiceCardPayable, invoiceOffersCard, isOnAccount, isOneOff, quoteCardPayable } from '@/lib/card-payments'
+import { applyQuoteCardPayment, clientCardSetting, invoiceCardPayable, invoiceOffersCard, isOnAccount, isOneOff, quoteCardPayable } from '@/lib/card-payments'
 
 describe('card payment eligibility', () => {
   it('never offers a card to on-account customers', () => {
@@ -20,6 +20,14 @@ describe('card payment eligibility', () => {
     expect(invoiceOffersCard({ payment_type: 'on_account', allow_card_payment: true })).toBe(true)
     expect(invoiceOffersCard({ payment_type: 'cash_sale', allow_card_payment: false })).toBe(false)
     expect(invoiceCardPayable({ payment_type: 'on_account', allow_card_payment: true, status: 'sent' })).toBe(true)
+  })
+
+  it('applies the customer "always show" setting unless the invoice overrides it', () => {
+    expect(invoiceOffersCard({ payment_type: 'on_account', client_allow_card_payment: true })).toBe(true)
+    expect(invoiceOffersCard({ payment_type: 'on_account', allow_card_payment: false, client_allow_card_payment: true })).toBe(false)
+    expect(clientCardSetting({ allow_card_payment: true })).toBe(true)
+    expect(clientCardSetting([{ allow_card_payment: true }])).toBe(true)
+    expect(clientCardSetting(null)).toBe(null)
   })
 
   it('treats null / One-off / one_off frequency as one-off', () => {
