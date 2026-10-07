@@ -28,8 +28,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { sendNotification } from '@/lib/notifications/send'
+import { hoursToConfirm, CONFIRMATION_START_DATE } from '@/lib/hours-confirmation'
 import { generateDueRecurringInvoices } from '@/app/portal/recurring-jobs/_lib/generate-recurring-invoice'
 import { generateDueRecurringJobs } from '@/app/portal/recurring-jobs/_lib/generate-due-recurring-jobs'
+import { autoApproveCompletedRecurringJobs } from '@/lib/recurring-pay-auto-approve'
 // Contractor statement reminder imports removed with Task D (Phase 2,
 // 2026-08-17) — see the retirement note at the Task D marker below.
 
@@ -86,6 +88,10 @@ async function runDaily(request: NextRequest) {
     },
     overdue: {
       invoices_scanned: 0,
+      sent: 0, skipped: 0,
+    },
+    confirm_hours: {
+      workers_scanned: 0,
       sent: 0, skipped: 0,
     },
     errors: [] as string[],
@@ -192,6 +198,102 @@ async function runDaily(request: NextRequest) {
     }
   } catch (e) {
     summary.errors.push(`day_before: ${(e as Error).message}`)
+  }
+
+  // ════ Task C — Confirm-hours reminders ═════════════════
+  //
+  // Nudges a contractor to confirm a FINISHED job went to plan. Without this,
+  // pay is approved with no signal from the person who did the work — which is
+  // how $4,068 across 21 completed jobs came to sit unapproved, some since May.
+  //
+  // Iterates job_workers, NOT jobs.contractor_id: assignment lives in
+  // job_workers, so on a two-cleaner job BOTH cleaners are asked, each about
+  // their own allocated share.
+  //
+  // No upper age limit — an unanswered job from last week still gets chased.
+  // Same-day, per-worker dedupe via notification_logs, matching Task A.
+  try {
+    const today = nzDateString(0)
+
+    const { data: rows, error: rowsErr } = await supabase
+      .from('job_workers')
+      .select(`
+        contractor_id, hours_allocated, extra_hours, extra_hours_status,
+        hours_confirmed_status,
+        contractors ( full_name, phone ),
+        jobs!inner ( id, job_number, title, address, scheduled_date, scheduled_time, status, deleted_at )
+      `)
+      .eq('hours_confirmed_status', 'unconfirmed')
+      .in('jobs.status', ['completed', 'invoiced'])
+      .is('jobs.deleted_at', null)
+      .lte('jobs.scheduled_date', today)
+      // Go-live cutoff: pre-2026-09-30 work was settled outside the portal.
+      .gte('jobs.scheduled_date', CONFIRMATION_START_DATE)
+
+    if (rowsErr) {
+      summary.errors.push(`confirm_hours query: ${rowsErr.message}`)
+    } else if (rows) {
+      summary.confirm_hours.workers_scanned = rows.length
+
+      for (const row of rows) {
+        const job = row.jobs as unknown as {
+          id: string; job_number: string; title: string | null; address: string | null
+          scheduled_date: string | null; scheduled_time: string | null; status: string
+        } | null
+        const contractor = row.contractors as unknown as
+          { full_name: string | null; phone: string | null } | null
+        if (!job || !contractor || !row.contractor_id) { summary.confirm_hours.skipped++; continue }
+
+        // Shared with the portal + the contractor card so every surface shows
+        // the same figure: their own share, plus any ADMIN-APPROVED adjustment.
+        const hours = hoursToConfirm({
+          jobId: job.id,
+          contractorId: row.contractor_id as string,
+          hoursAllocated: (row.hours_allocated as number | null) ?? null,
+          hoursConfirmedStatus: 'unconfirmed',
+          extraHours: (row.extra_hours as number | null) ?? null,
+          extraHoursStatus: (row.extra_hours_status as string | null) ?? null,
+        })
+
+        const { count: alreadySent } = await supabase
+          .from('notification_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('type', 'confirm_hours')
+          .eq('audience', 'contractor')
+          .eq('related_job_id', job.id)
+          .eq('related_contractor_id', row.contractor_id)
+          .eq('status', 'sent')
+          .gte('created_at', todayStartIso)
+        if ((alreadySent ?? 0) > 0) { summary.confirm_hours.skipped++; continue }
+
+        const r = await sendNotification(supabase, {
+          type: 'confirm_hours',
+          channel: 'sms',
+          audience: 'contractor',
+          source: 'automated',
+          recipientName: contractor.full_name,
+          recipientPhone: contractor.phone,
+          variables: {
+            contractor_name: (contractor.full_name ?? '').split(/\s+/)[0],
+            job_title:       job.title ?? job.job_number,
+            job_number:      job.job_number,
+            site_address:    job.address ?? '',
+            scheduled_date:  job.scheduled_date ? fmtDateNZ(job.scheduled_date) : '',
+            scheduled_time:  job.scheduled_time ?? '',
+            allowed_hours:   hours != null ? String(hours) : '',
+            job_link:        `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/contractor/jobs/${job.id}`,
+            business_name:   BUSINESS_NAME,
+            business_phone:  BUSINESS_PHONE,
+          },
+          jobId: job.id,
+          contractorId: row.contractor_id as string,
+        })
+        if (r.status === 'sent') summary.confirm_hours.sent++
+        else                     summary.confirm_hours.skipped++
+      }
+    }
+  } catch (e) {
+    summary.errors.push(`confirm_hours: ${(e as Error).message}`)
   }
 
   // ════ Task B — Overdue invoice reminders ═══════════════════════
@@ -334,6 +436,21 @@ async function runDaily(request: NextRequest) {
     }
   } catch (e) {
     summary.errors.push(`recurring_jobs: ${(e as Error).message}`)
+  }
+
+  // ════ Task F — Auto-approve contractor pay for recurring visits ════
+  // Backstop for the inline approve on "Mark complete": any recurring
+  // occurrence completed in the last 60 days with no contractor payable gets
+  // one. Idempotent (one payable per job + contractor).
+  try {
+    const since = new Date(Date.now() - 60 * 86400000).toISOString()
+    const autoPay = await autoApproveCompletedRecurringJobs(supabase, since)
+    ;(summary as typeof summary & { recurring_pay?: unknown }).recurring_pay = {
+      scanned: autoPay.scanned, approved: autoPay.approved,
+    }
+    if (autoPay.errors.length) summary.errors.push(...autoPay.errors.map((e) => `recurring_pay: ${e}`))
+  } catch (e) {
+    summary.errors.push(`recurring_pay: ${(e as Error).message}`)
   }
 
   return NextResponse.json({ ok: summary.errors.length === 0, summary })

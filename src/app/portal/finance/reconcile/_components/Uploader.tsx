@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Upload } from 'lucide-react'
 import { importTransactions, type ImportResponse } from '../_actions'
+import { autoSummaryText } from './AutoReconcileButton'
 import clsx from 'clsx'
 
 export function Uploader() {
@@ -77,6 +78,8 @@ export function Uploader() {
           Imported {result.newCount} new transaction{result.newCount !== 1 ? 's' : ''}
           {result.dupCount ? `, skipped ${result.dupCount} already-imported` : ''}
           {result.account ? ` · ${result.account}` : ''}.
+          {result.autoReconcile && <> {autoSummaryText(result.autoReconcile)}</>}
+          {result.autoReconcileError && <> Auto-reconcile didn&apos;t run ({result.autoReconcileError}) — use &ldquo;Auto-reconcile now&rdquo;.</>}
           {result.bankBalance != null && result.bankBalanceDate && (
             <>
               {' '}

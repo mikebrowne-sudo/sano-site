@@ -23,9 +23,18 @@ const HELP_KEYWORDS = new Set([
   'HELP', 'INFO',
 ])
 
+// Confirming a finished job went to plan, by replying to the reminder SMS.
+// Exact-token only, same as STOP/HELP, so a conversational "yes but the oven
+// took ages" is NOT silently treated as "it went to plan" — that would confirm
+// a pay figure the contractor was actually disputing.
+const CONFIRM_KEYWORDS = new Set([
+  'YES', 'Y', 'YEP', 'YUP', 'CONFIRM', 'CONFIRMED', 'OK', 'DONE',
+])
+
 export type InboundClassification =
   | { kind: 'stop'; keyword: string }
   | { kind: 'help'; keyword: string }
+  | { kind: 'confirm_hours'; keyword: string }
   | { kind: 'other' }
 
 export function classifyInbound(rawBody: string | null | undefined): InboundClassification {
@@ -36,6 +45,9 @@ export function classifyInbound(rawBody: string | null | undefined): InboundClas
   }
   if (HELP_KEYWORDS.has(trimmed)) {
     return { kind: 'help', keyword: trimmed }
+  }
+  if (CONFIRM_KEYWORDS.has(trimmed)) {
+    return { kind: 'confirm_hours', keyword: trimmed }
   }
   return { kind: 'other' }
 }
@@ -49,6 +61,17 @@ const HELP_REPLY_BODY =
 
 export function helpReplyBody(): string {
   return HELP_REPLY_BODY
+}
+
+/** Confirmed by SMS — tell them it landed, so they don't wonder. */
+export function confirmHoursReplyBody(jobNumber: string, hours: string | null): string {
+  const h = hours ? `${hours}h` : 'your hours'
+  return `Sano: Thanks - ${h} confirmed for ${jobNumber}. Nothing else needed.`
+}
+
+/** Nothing outstanding to confirm — say so rather than leaving them guessing. */
+export function nothingToConfirmReplyBody(): string {
+  return 'Sano: Thanks. We had no jobs waiting on your confirmation. For anything else, email hello@sano.nz or call 0800 726 686.'
 }
 
 /**

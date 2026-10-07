@@ -9,7 +9,7 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
-import { normaliseExpenseCategory } from '@/lib/expense-categories'
+import { normaliseExpenseCategory, resolveGstInclusive } from '@/lib/expense-categories'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 // Note: createExpense returns the new id (rather than redirecting) so the
@@ -38,14 +38,19 @@ function validate(input: ExpenseInput): string | null {
 }
 
 function rowFrom(input: ExpenseInput) {
+  const category = normaliseExpenseCategory(input.category)
   return {
     expense_date: input.expense_date,
     amount: input.amount,
-    category: normaliseExpenseCategory(input.category),
+    category,
     vendor: input.vendor?.trim() || null,
     description: input.description?.trim() || null,
     payment_reference: input.payment_reference?.trim() || null,
-    gst_inclusive: input.gst_inclusive ?? true,
+    // Enforced here, not just in the UI, so no entry point can store a GST
+    // claim against a category that can never carry one (employee wages, IRD
+    // remittances, owner capital, director loans). A $1,000 owner-capital row
+    // flagged GST-inclusive silently claimed $130.43 that was never claimable.
+    gst_inclusive: resolveGstInclusive(category, input.gst_inclusive ?? true),
     notes: input.notes?.trim() || null,
   }
 }

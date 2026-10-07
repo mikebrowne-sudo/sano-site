@@ -12,6 +12,9 @@ export async function createJobFromInvoice(invoiceId: string) {
     .from('jobs')
     .select('id')
     .eq('invoice_id', invoiceId)
+    // limit(1): a monthly invoice links many jobs, and maybeSingle() on >1
+    // row returns null — which would wrongly create another job.
+    .limit(1)
     .maybeSingle()
 
   if (existingJob) {

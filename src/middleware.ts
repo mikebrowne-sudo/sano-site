@@ -90,6 +90,23 @@ export async function middleware(request: NextRequest) {
   const isContractorUser = !!contractorRecord
   const isClientUser = !!clientRecord && !isContractorUser
 
+  // ── Staff portal is allow-list only ──
+  // Only the admin accounts (ADMIN_EMAILS) and the accountant logins may
+  // use /portal. Any other signed-in account that isn't a contractor or client
+  // (a stray invite, an orphaned login, a shared inbox) is signed out and sent
+  // to the login page — it is NOT treated as staff.
+  const isStaff = isAdminEmail(user.email)
+  const isUnknownAccount = !isStaff && !isAccountantEmail(user.email) && !isContractorUser && !isClientUser
+  if (isUnknownAccount && (isPortal || isContractor || isClient) && !isPortalLogin && !isPortalCallback && !isResetPassword && !isForgotPassword) {
+    await supabase.auth.signOut()
+    const redirect = NextResponse.redirect(new URL('/portal/login?error=no_access', request.url))
+    response.cookies.getAll().forEach((c) => redirect.cookies.set(c))
+    return redirect
+  }
+  if (isClientUser && isPortal && !isPortalLogin) {
+    return NextResponse.redirect(new URL('/client/dashboard', request.url))
+  }
+
   // ── Contractor user hitting admin portal → redirect out ──
   if (isContractorUser && isPortal && !isPortalLogin) {
     return NextResponse.redirect(new URL('/contractor/jobs', request.url))
@@ -127,6 +144,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+
   // ── Login page redirects for already-authenticated users ──
   if (isPortalLogin && isContractorUser) {
     return NextResponse.redirect(new URL('/contractor/jobs', request.url))
@@ -134,7 +152,7 @@ export async function middleware(request: NextRequest) {
   if (isPortalLogin && isClientUser) {
     return NextResponse.redirect(new URL('/client/dashboard', request.url))
   }
-  if (isPortalLogin && !isContractorUser && !isClientUser) {
+  if (isPortalLogin && (isStaff || isAccountant)) {
     return NextResponse.redirect(new URL(isAccountant ? '/portal/finance' : '/portal', request.url))
   }
   if (isContractorLogin && isContractorUser) {

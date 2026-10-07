@@ -24,7 +24,8 @@ const create = read('src/app/portal/contractor-invoices/_actions-remittance-batc
 const edit = read('src/app/portal/contractor-invoices/_actions-remittance-edit.ts')
 const planner = read('src/app/portal/contractor-invoices/remittances/_actions-by-contractor.ts')
 const byContractorPage = read('src/app/portal/contractor-invoices/remittances/new-by-contractor/page.tsx')
-const approve = read('src/app/portal/contractor-invoices/_actions-approve-pay.ts')
+// The guard lives in the shared core (manual button + recurring auto-approve).
+const approve = read('src/lib/approve-contractor-pay-core.ts')
 const sql = read('docs/db/2026-08-17-one-invoice-one-remittance.sql')
 
 describe('layer 1 — already-remitted invoices are not offered as payable', () => {

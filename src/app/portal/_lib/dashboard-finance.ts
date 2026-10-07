@@ -4,8 +4,10 @@
 // disagree with the P&L statement. Admin-only caller; read-only.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { buildProfitLoss, type PLIncomeRow, type PLExpenseRow } from '@/app/portal/finance/_lib/profit-loss'
+import { buildProfitLoss } from '@/app/portal/finance/_lib/profit-loss'
+import { loadProfitLossInputs } from '@/app/portal/finance/_lib/profit-loss-data'
 import { computeRecurringAmount } from '@/app/portal/recurring-jobs/_lib/per-visit-billing'
+import { invoiceBalanceDue, loadAllocatedByInvoice, type InvoiceAmountFields } from '@/lib/invoice-balance'
 
 export interface MonthPoint {
   /** Month key 'YYYY-MM'. */
@@ -67,33 +69,13 @@ export async function buildDashboardFinance(
   const windowStart = monthBounds(months[0].y, months[0].m).from
   const windowEnd = monthBounds(months[months.length - 1].y, months[months.length - 1].m).to
 
-  const [{ data: invRaw }, { data: expRaw }] = await Promise.all([
-    supabase.from('invoices')
-      .select('base_price, discount, date_paid, invoice_items ( price )')
-      .eq('status', 'paid')
-      .gte('date_paid', windowStart).lte('date_paid', windowEnd),
-    supabase.from('expenses')
-      .select('amount, category, expense_date')
-      .gte('expense_date', windowStart).lte('expense_date', windowEnd),
-  ])
-
-  const income: PLIncomeRow[] = ((invRaw ?? []) as Array<Record<string, unknown>>).map((i) => {
-    const items = (i.invoice_items ?? []) as Array<{ price: number | null }>
-    const itemsTotal = items.reduce((s, it) => s + (it.price ?? 0), 0)
-    const base = (i.base_price as number | null) ?? 0
-    const discount = (i.discount as number | null) ?? 0
-    return { total: base + itemsTotal - discount, datePaid: (i.date_paid as string | null) ?? null }
-  })
-  const expenses: PLExpenseRow[] = ((expRaw ?? []) as Array<Record<string, unknown>>).map((e) => ({
-    amount: (e.amount as number | null) ?? 0,
-    category: (e.category as string | null) ?? null,
-    expenseDate: (e.expense_date as string | null) ?? null,
-  }))
+  // Same loader as the P&L statement, bounded to the window.
+  const { income, expenses, remittances } = await loadProfitLossInputs(supabase, { from: windowStart, to: windowEnd })
 
   const currentKey = monthKey(ty, tm)
   const points: MonthPoint[] = months.map(({ y, m }) => {
     const { from, to } = monthBounds(y, m)
-    const pl = buildProfitLoss({ income, expenses, from, to })
+    const pl = buildProfitLoss({ income, expenses, remittances, from, to })
     const key = monthKey(y, m)
     return {
       month: key,
@@ -156,17 +138,18 @@ export async function buildIncomeProjection(
   // 1. Unpaid sent invoices, by DUE month.
   const { data: sentInv } = await supabase
     .from('invoices')
-    .select('base_price, discount, due_date, invoice_items ( price )')
+    .select('id, base_price, discount, gst_included, due_date, invoice_items ( price )')
     .eq('status', 'sent')
     .is('deleted_at', null)
     .not('due_date', 'is', null)
     .gte('due_date', rangeStart).lte('due_date', rangeEnd)
-  for (const i of (sentInv ?? []) as Array<Record<string, unknown>>) {
+  // GST-inclusive balance still owed (part payments already matched are taken off).
+  const sentRows = (sentInv ?? []) as Array<InvoiceAmountFields & { id: string; due_date: string }>
+  const allocated = await loadAllocatedByInvoice(supabase, sentRows.map((i) => i.id))
+  for (const i of sentRows) {
     const key = String(i.due_date).slice(0, 7)
     if (!(key in totals)) continue
-    const items = (i.invoice_items ?? []) as Array<{ price: number | null }>
-    const itemsTotal = items.reduce((s, it) => s + (it.price ?? 0), 0)
-    totals[key] += ((i.base_price as number | null) ?? 0) + itemsTotal - ((i.discount as number | null) ?? 0)
+    totals[key] += invoiceBalanceDue(i, allocated.get(i.id) ?? 0)
   }
 
   // 2. Upcoming recurring-contract invoices. Each active recurring job raises an
@@ -216,4 +199,125 @@ export async function buildIncomeProjection(
     label: MONTH_LABELS[m - 1],
     projected: Math.round(totals[monthKey(y, m)] * 100) / 100,
   }))
+}
+
+// ── Jobs booked per month (growth + forward bookings) ───────────────────────
+
+export interface BookedMonth {
+  month: string        // 'YYYY-MM'
+  label: string        // 'Sep'
+  jobs: number         // jobs scheduled in the month
+  done: number         // of which completed / invoiced
+  value: number        // booked value (job prices; recurring visits valued from their contract)
+  doneValue: number    // value of the completed / invoiced jobs
+  unpriced: number     // jobs with no price we could find
+  current: boolean     // the month containing today
+  future: boolean      // months after this one — booked ahead
+}
+
+export interface BookedJobRow {
+  scheduledDate: string
+  status: string | null
+  jobPrice: number | null
+  recurringJobId: string | null
+}
+
+export interface RecurringValueRow {
+  id: string
+  billingMode: string | null
+  monthlyValue: number | null
+  perVisitRate: number | null
+}
+
+/**
+ * Pure: bucket jobs into months and value them. A job's own price wins; a
+ * recurring visit with no price is valued from its contract — the per-visit
+ * rate, or a fixed monthly contract's value shared across that month's visits
+ * (so the month totals the contract, however many visits there are).
+ */
+export function summariseBookedJobs(
+  jobs: BookedJobRow[],
+  recurring: RecurringValueRow[],
+  months: Array<{ y: number; m: number }>,
+  todayKey: string,
+): BookedMonth[] {
+  const recById = new Map(recurring.map((r) => [r.id, r]))
+  const keys = months.map(({ y, m }) => monthKey(y, m))
+  const out = new Map<string, BookedMonth>(months.map(({ y, m }) => {
+    const key = monthKey(y, m)
+    return [key, { month: key, label: MONTH_LABELS[m - 1], jobs: 0, done: 0, value: 0, doneValue: 0, unpriced: 0, current: key === todayKey, future: key > todayKey }]
+  }))
+
+  // Visits per (recurring contract, month) — to spread a fixed monthly value.
+  const visitsPerRecMonth = new Map<string, number>()
+  for (const j of jobs) {
+    if (!j.recurringJobId) continue
+    const k = `${j.recurringJobId}|${j.scheduledDate.slice(0, 7)}`
+    visitsPerRecMonth.set(k, (visitsPerRecMonth.get(k) ?? 0) + 1)
+  }
+
+  for (const j of jobs) {
+    const key = j.scheduledDate.slice(0, 7)
+    const bucket = out.get(key)
+    if (!bucket) continue
+    bucket.jobs += 1
+    const isDone = j.status === 'completed' || j.status === 'invoiced'
+    if (isDone) bucket.done += 1
+
+    let value = Number(j.jobPrice ?? 0)
+    if (!(value > 0) && j.recurringJobId) {
+      const rec = recById.get(j.recurringJobId)
+      // per_visit and completed_visits contracts both price each visit.
+      if (Number(rec?.perVisitRate) > 0) value = Number(rec?.perVisitRate)
+      else if (Number(rec?.monthlyValue) > 0) value = Number(rec?.monthlyValue) / (visitsPerRecMonth.get(`${j.recurringJobId}|${key}`) ?? 1)
+    }
+    if (value > 0) {
+      bucket.value += value
+      if (isDone) bucket.doneValue += value
+    } else bucket.unpriced += 1
+  }
+
+  return keys.map((k) => {
+    const b = out.get(k) as BookedMonth
+    return { ...b, value: Math.round(b.value * 100) / 100, doneValue: Math.round(b.doneValue * 100) / 100 }
+  })
+}
+
+/** Jobs booked for the last `past` months (incl. this one) and the next `ahead`. */
+export async function buildBookedJobs(supabase: SupabaseClient, today: string, past = 12, ahead = 3): Promise<BookedMonth[]> {
+  const [ty, tm] = today.slice(0, 7).split('-').map(Number)
+  const months: { y: number; m: number }[] = []
+  for (let off = -(past - 1); off <= ahead; off++) {
+    const d = new Date(Date.UTC(ty, tm - 1 + off, 1))
+    months.push({ y: d.getUTCFullYear(), m: d.getUTCMonth() + 1 })
+  }
+  const from = monthBounds(months[0].y, months[0].m).from
+  const to = monthBounds(months[months.length - 1].y, months[months.length - 1].m).to
+
+  const [{ data: jobRows }, recRes] = await Promise.all([
+    supabase
+      .from('jobs')
+      .select('scheduled_date, status, job_price, recurring_job_id')
+      .is('deleted_at', null)
+      .not('is_test', 'is', true)
+      .neq('status', 'cancelled')
+      .gte('scheduled_date', from)
+      .lte('scheduled_date', to),
+    supabase.from('recurring_jobs').select('id, billing_mode, monthly_value, per_visit_rate'),
+  ])
+
+  const jobs: BookedJobRow[] = ((jobRows ?? []) as Array<Record<string, unknown>>).map((j) => ({
+    scheduledDate: j.scheduled_date as string,
+    status: (j.status as string | null) ?? null,
+    jobPrice: j.job_price == null ? null : Number(j.job_price),
+    recurringJobId: (j.recurring_job_id as string | null) ?? null,
+  }))
+  const recurring: RecurringValueRow[] = (recRes.error ? [] : (recRes.data ?? []) as Array<Record<string, unknown>>).map((r) => ({
+    id: r.id as string,
+    billingMode: (r.billing_mode as string | null) ?? null,
+    monthlyValue: r.monthly_value == null ? null : Number(r.monthly_value),
+    perVisitRate: r.per_visit_rate == null ? null : Number(r.per_visit_rate),
+  }))
+
+  return summariseBookedJobs(jobs, recurring, months, monthKey(ty, tm))
 }

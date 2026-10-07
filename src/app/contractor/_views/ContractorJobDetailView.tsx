@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { ArrowLeft, MapPin, Calendar, Clock, Timer, Camera, CheckCircle } from 'lucide-react'
 import clsx from 'clsx'
 import { ContractorJobActions } from '../jobs/[id]/_components/ContractorJobActions'
+import { ConfirmHoursCard } from '../jobs/[id]/_components/ConfirmHoursCard'
 import { ContractorNotesForm } from '../jobs/[id]/_components/ContractorNotesForm'
 import { OnTheWayButton } from '../jobs/[id]/_components/OnTheWayButton'
 import { ContractorPhotos } from '../jobs/[id]/_components/ContractorPhotos'
@@ -99,6 +100,38 @@ export function ContractorJobDetailView({
 
       {!readOnly && (job.status === 'draft' || job.status === 'assigned') && (
         <OnTheWayButton jobId={job.id} />
+      )}
+
+      {/* "Did this job go to plan?" — asked once the job is finished. The pay
+          basis is the allowed hours agreed up front, so this is one question,
+          not a timesheet. Rendered in the staff preview too (disabled), so
+          Mike sees exactly what the contractor sees. */}
+      {isDone && (
+        <div className="mt-5">
+          {readOnly ? (
+            <div className="bg-white border-2 border-sage-200 rounded-2xl p-4 opacity-60">
+              <p className="text-base font-semibold text-sage-800">Did this job go to plan?</p>
+              <p className="text-sm text-sage-600 mt-1">
+                The contractor confirms their hours here.
+              </p>
+              <div className="mt-4 space-y-2">
+                <button type="button" disabled className="w-full bg-emerald-600 text-white font-semibold px-6 py-4 rounded-2xl text-base cursor-not-allowed min-h-[52px]">
+                  Yes, as planned
+                </button>
+                <button type="button" disabled className="w-full bg-white border-2 border-sage-300 text-sage-700 font-semibold px-6 py-4 rounded-2xl text-base cursor-not-allowed min-h-[52px]">
+                  It took longer
+                </button>
+              </div>
+            </div>
+          ) : (
+            <ConfirmHoursCard
+              jobId={job.id}
+              hours={job.payableHours ?? job.allowed_hours ?? null}
+              status={job.hours_confirmed_status}
+              note={job.hours_confirmed_note}
+            />
+          )}
+        </div>
       )}
 
       {/* Schedule card */}

@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getServiceSupabase } from '@/lib/supabase-service'
 import { getStripe } from '@/lib/stripe'
 import { computeDocumentTotals } from '@/lib/doc-totals'
 
-function getPublicSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
-}
+// Service-role client, scoped by the unguessable share_token — the same
+// pattern as the share pages. This used the anon key, which only worked
+// because anon could read EVERY invoice (RLS `using (true)`); that policy is
+// being dropped. It also means the stripe_checkout_session_id write below now
+// actually lands (anon never had UPDATE, so it silently no-op'd).
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,12 +22,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 })
     }
 
-    const supabase = getPublicSupabase()
+    const supabase = getServiceSupabase()
 
     const { data: invoice, error } = await supabase
       .from('invoices')
       .select('id, invoice_number, status, base_price, discount, gst_included, share_token, clients ( name, email ), invoice_items ( price )')
       .eq('share_token', share_token)
+      .is('deleted_at', null)
       .single()
 
     if (error || !invoice) {

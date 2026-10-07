@@ -4,6 +4,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { resolveWorkerHours } from '@/lib/job-hours-split'
+import { isHoursConfirmedStatus, type HoursConfirmedStatus } from '@/lib/hours-confirmation'
 import { getWorkerPayableHours, getWorkerLabourCost, getWorkerRate } from '@/lib/job-cost'
 import { getJobPhotos } from '@/lib/job-photos'
 import { getServiceSupabase } from '@/lib/supabase-service'
@@ -24,6 +25,9 @@ export interface ContractorJobDetail {
    *  with the rate, their pay. */
   access_instructions: string | null
   status: string
+  /** Contractor's confirmation that the job went to plan. */
+  hours_confirmed_status: HoursConfirmedStatus
+  hours_confirmed_note: string | null
   contractor_notes: string | null
   started_at: string | null
   completed_at: string | null
@@ -58,7 +62,7 @@ export async function loadContractorJobDetail(
       .maybeSingle(),
     supabase
       .from('job_workers')
-      .select('hours_allocated, pay_rate, extra_hours, extra_hours_status')
+      .select('hours_allocated, pay_rate, extra_hours, extra_hours_status, hours_confirmed_status, hours_confirmed_note')
       .eq('job_id', jobId)
       .eq('contractor_id', contractorId)
       .maybeSingle(),
@@ -180,6 +184,11 @@ export async function loadContractorJobDetail(
     duration_estimate: (job.duration_estimate as string | null) ?? null,
     access_instructions: (job.access_instructions as string | null) ?? null,
     status: (job.status as string) ?? 'draft',
+    // Contractor's own "did it go to plan?" answer on this job.
+    hours_confirmed_status: isHoursConfirmedStatus(worker?.hours_confirmed_status)
+      ? worker.hours_confirmed_status
+      : 'unconfirmed',
+    hours_confirmed_note: (worker?.hours_confirmed_note as string | null) ?? null,
     contractor_notes: (job.contractor_notes as string | null) ?? null,
     started_at: (job.started_at as string | null) ?? null,
     completed_at: (job.completed_at as string | null) ?? null,

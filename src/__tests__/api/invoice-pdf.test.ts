@@ -54,14 +54,19 @@ describe('GET /api/invoices/[id]/pdf', () => {
     expect((await getStaffInvoicePdf(fakeRequest(), { params: { id: 'abc' } })).status).toBe(401)
   })
 
+  it('returns 403 for a signed-in non-staff account (e.g. a contractor)', async () => {
+    mockedCreate.mockReturnValue(makeStub({ user: { id: 'u', email: 'kritika55@hotmail.com' }, invoice: null }))
+    expect((await getStaffInvoicePdf(fakeRequest(), { params: { id: 'abc' } })).status).toBe(403)
+  })
+
   it('returns 404 when invoice missing', async () => {
-    mockedCreate.mockReturnValue(makeStub({ user: { id: 'u', email: 'x@x' }, invoice: null }))
+    mockedCreate.mockReturnValue(makeStub({ user: { id: 'u', email: 'michael@sano.nz' }, invoice: null }))
     expect((await getStaffInvoicePdf(fakeRequest(), { params: { id: 'abc' } })).status).toBe(404)
   })
 
   it('returns 200 with Sano Tax Invoice filename on success', async () => {
     mockedCreate.mockReturnValue(makeStub({
-      user: { id: 'u', email: 'x@x' },
+      user: { id: 'u', email: 'michael@sano.nz' },
       invoice: { invoice_number: 'INV-9001', deleted_at: null },
     }))
     mockedRender.mockResolvedValue(Buffer.from('PDF'))

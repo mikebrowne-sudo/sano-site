@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
+import { isAdminEmail } from '@/lib/is-admin'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import {
   parseCookieHeader,
@@ -24,6 +25,7 @@ export async function GET(
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  if (!isAdminEmail(user.email)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { data: quote } = await supabase
     .from('quotes')

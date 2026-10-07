@@ -168,3 +168,76 @@ describe('the in-house answer is remembered', () => {
     expect(needsContractor({ contractor_id: null, in_house: undefined })).toBe(true)
   })
 })
+
+describe('the DB duplicate index must match the application guard', () => {
+  // Found in production 2026-09-29, approving a real carpet clean:
+  //   duplicate key value violates unique constraint
+  //   "contractor_invoices_active_job_contractor_uq"
+  //
+  // That index (added 2026-07-21 as a race backstop) enforced one active payable
+  // per (job, contractor) with NO awareness of job_item_id. So a contractor paid
+  // for the clean could not also be paid for an extra on the same job — the app
+  // guard allowed it and the database refused.
+  //
+  // The two must agree. These model the index predicates so a future change to
+  // one without the other is caught here.
+
+  /** contractor_invoices_active_job_contractor_uq, AFTER the fix. */
+  function jobPayableIndexKey(row: { job_id: string | null; contractor_id: string | null; job_item_id: string | null; status: string }) {
+    const inScope = row.status !== 'void'
+      && row.job_id != null
+      && row.contractor_id != null
+      && row.job_item_id == null      // ← the clause that was missing
+    return inScope ? `${row.job_id}:${row.contractor_id}` : null
+  }
+
+  /** contractor_invoices_job_item_uniq. */
+  function itemPayableIndexKey(row: { job_item_id: string | null; status: string }) {
+    return row.job_item_id != null && row.status !== 'void' ? row.job_item_id : null
+  }
+
+  function collides(rows: Array<Parameters<typeof jobPayableIndexKey>[0]>): boolean {
+    for (const keyFn of [jobPayableIndexKey, itemPayableIndexKey]) {
+      const keys = rows.map(keyFn).filter((k): k is string => k != null)
+      if (new Set(keys).size !== keys.length) return true
+    }
+    return false
+  }
+
+  const CLEAN = { job_id: 'j1', contractor_id: 'nasrin', job_item_id: null, status: 'approved' }
+  const CARPET = { job_id: 'j1', contractor_id: 'nasrin', job_item_id: 'carpet', status: 'approved' }
+
+  it('the real-world case now passes: paid for the clean AND the carpet', () => {
+    expect(collides([CLEAN, CARPET])).toBe(false)
+  })
+
+  it('the old index would have rejected it — the bug', () => {
+    // Same rows, without the job_item_id IS NULL clause.
+    const oldKey = (r: typeof CLEAN) =>
+      r.status !== 'void' && r.job_id != null ? `${r.job_id}:${r.contractor_id}` : null
+    const keys = [CLEAN, CARPET].map(oldKey)
+    expect(new Set(keys).size).toBe(1)   // collision
+  })
+
+  it('still refuses a second payable for the job itself', () => {
+    expect(collides([CLEAN, { ...CLEAN }])).toBe(true)
+  })
+
+  it('still refuses paying the same extra twice', () => {
+    expect(collides([CARPET, { ...CARPET }])).toBe(true)
+  })
+
+  it('allows two DIFFERENT extras on one job', () => {
+    expect(collides([CARPET, { ...CARPET, job_item_id: 'oven' }])).toBe(false)
+  })
+
+  it('a voided payable never blocks a replacement', () => {
+    expect(collides([{ ...CLEAN, status: 'void' }, CLEAN])).toBe(false)
+    expect(collides([{ ...CARPET, status: 'void' }, CARPET])).toBe(false)
+  })
+
+  it('job-less payables (manual fixed-contract) stay unconstrained', () => {
+    const manual = { job_id: null, contractor_id: 'nasrin', job_item_id: null, status: 'approved' }
+    expect(collides([manual, { ...manual }])).toBe(false)
+  })
+})

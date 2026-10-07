@@ -24,6 +24,8 @@ export interface RawContractorInvoice {
   status: string | null // 'pending' | 'approved' | 'paid'
   date_paid: string | null
   date_submitted: string | null
+  /** Day the work was done (stamped from the job's scheduled date at approval). */
+  service_date?: string | null
   jobId: string | null
   jobNumber: string | null
   title: string | null
@@ -150,7 +152,8 @@ export function buildContractorPayData(input: {
         jobNumber: c.jobNumber,
         // An extra's own label wins over the job title — see jobItemLabel.
         title: c.jobItemLabel ?? c.title,
-        date: c.date_submitted ?? c.jobCompletedAt ?? null,
+        // Day the clean was done, not the day it was marked complete.
+        date: c.service_date ?? c.date_submitted ?? c.jobCompletedAt ?? null,
         amount: c.amount ?? 0,
       })
     }

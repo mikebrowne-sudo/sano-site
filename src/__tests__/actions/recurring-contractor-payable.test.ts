@@ -56,6 +56,17 @@ describe('ensureContractorPayable', () => {
     expect(await ensureContractorPayable(supabase, rec({ contractor_monthly_pay: null }), '2026-07-31')).toMatchObject({ skipped: expect.any(String) })
   })
 
+  it('never raises a monthly payable for per-visit pay — each completed visit is approved instead (NZCL)', async () => {
+    const { supabase, insertCi } = makeSupabase(null)
+    const res = await ensureContractorPayable(
+      supabase,
+      rec({ contractor_monthly_pay: null, contractor_pay_mode: 'per_visit', contractor_per_visit_rate: 126, service_days_of_week: [3] }),
+      '2026-10-03',
+    )
+    expect(res).toEqual({ skipped: 'per-visit pay is approved per completed visit' })
+    expect(insertCi).not.toHaveBeenCalled()
+  })
+
   it('is idempotent — skips when a payable already exists for the period', async () => {
     const { supabase, insertCi } = makeSupabase({ id: 'existing' })
     const res = await ensureContractorPayable(supabase, rec(), '2026-07-31')

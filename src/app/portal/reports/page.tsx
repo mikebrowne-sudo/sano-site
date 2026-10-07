@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { isFinanceUser } from '@/lib/is-admin'
 import { HubGrid } from '../_components/HubGrid'
-import { Scale, BarChart3, Landmark, ShieldAlert, Wallet2 } from 'lucide-react'
+import { Scale, BarChart3, Landmark, ShieldAlert, Wallet2, FileSpreadsheet } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +18,7 @@ export default async function ReportsHubPage() {
       sections={[
         {
           cards: [
+            { href: '/portal/finance/accountant-pack', title: 'Accountant pack', desc: 'Everything for the accountant, as one Excel workbook.', icon: FileSpreadsheet },
             { href: '/portal/finance/profit-loss', title: 'P&L statement', desc: 'Profit & loss for any period.', icon: Scale },
             { href: '/portal/finance/job-margins', title: 'Job margins', desc: 'Profit per job, plus jobs flagged to action.', icon: BarChart3 },
             { href: '/portal/finance/reconcile', title: 'Bank reconciliation', desc: 'Match bank statements to the ledger.', icon: Landmark },

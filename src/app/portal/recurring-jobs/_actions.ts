@@ -27,6 +27,8 @@ interface RecurringJobInput {
   status?: string
   monthly_value?: number
   invoice_auto_send?: boolean
+  /** Printed in the Notes of every invoice this schedule raises. Never copied to jobs. */
+  invoice_note?: string | null
   invoice_send_day?: number
   contractor_monthly_pay?: number
   billing_mode?: string
@@ -84,6 +86,7 @@ export async function createRecurringJob(input: RecurringJobInput) {
       monthly_value: input.monthly_value ?? null,
       contractor_monthly_pay: input.contractor_monthly_pay ?? null,
       invoice_auto_send: input.invoice_auto_send ?? false,
+      invoice_note: (input.invoice_note ?? '').trim() || null,
       invoice_send_day: input.invoice_send_day ?? null,
       billing_mode: input.billing_mode ?? 'fixed',
       per_visit_rate: input.per_visit_rate ?? null,
@@ -144,6 +147,7 @@ export async function updateRecurringJob(id: string, input: RecurringJobInput) {
       monthly_value: input.monthly_value ?? null,
       contractor_monthly_pay: input.contractor_monthly_pay ?? null,
       invoice_auto_send: input.invoice_auto_send ?? false,
+      invoice_note: (input.invoice_note ?? '').trim() || null,
       invoice_send_day: input.invoice_send_day ?? null,
       billing_mode: input.billing_mode ?? 'fixed',
       per_visit_rate: input.per_visit_rate ?? null,
