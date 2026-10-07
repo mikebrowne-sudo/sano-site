@@ -100,6 +100,14 @@ describe('composeMonthlyDescription', () => {
     )
   })
 
+  it('says incl. GST for GST-inclusive rates', () => {
+    const r = buildMonthlyLines([job({ id: 'a', scheduled_date: '2026-09-29' })], 180)
+    if ('error' in r) throw new Error(r.error)
+    expect(composeMonthlyDescription('Week of 28 September – 4 October 2026', r.lines, { gstIncluded: true })).toBe(
+      'Week of 28 September – 4 October 2026: 1 visit × $180.00 incl. GST\nVisit dates: 29 September',
+    )
+  })
+
   it('singular visit', () => {
     const r = buildMonthlyLines([job({ id: 'a', scheduled_date: '2026-10-02' })], 315)
     if ('error' in r) throw new Error(r.error)

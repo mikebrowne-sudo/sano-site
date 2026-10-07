@@ -24,6 +24,8 @@ export interface CreateMonthlyInvoiceInput {
   serviceLabel: string | null
   /** Printed in the invoice's Notes box. */
   notes?: string | null
+  /** Prices already include GST. */
+  gstIncluded?: boolean
 }
 
 export async function createMonthlyInvoice(
