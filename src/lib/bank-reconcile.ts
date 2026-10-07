@@ -32,6 +32,14 @@ export interface ReconInvoice {
   /** Sum of live (un-reversed) allocations already made against this invoice.
    *  Defaults to 0 when the caller doesn't supply it. */
   allocatedTotal?: number
+  clientId?: string | null
+  /** Company + branch ("Barfoot & Thompson Henderson"). */
+  clientLabel?: string
+  /** Per-invoice "Billed to" override (e.g. the landlord a branch pays for). */
+  billTo?: string | null
+  dateIssued?: string | null
+  /** The job's clean date. */
+  serviceDate?: string | null
 }
 export interface ReconExpense {
   amount: number

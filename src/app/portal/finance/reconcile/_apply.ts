@@ -106,9 +106,17 @@ export async function applyBankAllocation(supabase: SupabaseClient, input: Apply
     return { ok: false, error: insErr.message }
   }
 
-  // Mark any not-yet-paid target invoices paid (already-paid stay as-is).
+  // Mark a not-yet-paid invoice paid ONLY once its payments cover the full
+  // total. A part payment (e.g. half of INV-0308) is recorded against the
+  // invoice but leaves it open with a balance. Already-paid invoices stay as-is.
   const date = paidDate || (line.txn_date as string | null) || nowIso.slice(0, 10)
-  const unpaidIds = Array.from(invoiceInfo.entries()).filter(([, v]) => v.status !== 'paid').map(([id]) => id)
+  const unpaidIds = Array.from(invoiceInfo.entries())
+    .filter(([id, v]) => {
+      if (v.status === 'paid') return false
+      const after = round2((ctxInvoices[id]?.allocated ?? 0) + proposed.filter((p) => p.invoiceId === id).reduce((s, p) => s + p.amount, 0))
+      return after >= round2(ctxInvoices[id]?.total ?? 0) - 0.005
+    })
+    .map(([id]) => id)
   let markedPaid = 0
   if (unpaidIds.length > 0) {
     const { data: upd, error: updErr } = await supabase

@@ -4,58 +4,87 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminUser, isFinanceUser } from '@/lib/is-admin'
 import { notFound } from 'next/navigation'
 import { reconcile, type CreditStatus, type DebitStatus, type ReconInvoice } from '@/lib/bank-reconcile'
-import { matchClientsForPayee } from '@/lib/payee-match'
-import { findSubsets } from '@/lib/subset-sum'
-import { getReconcileData } from './_data'
+import { payerKey, referencedNumbers, sameDocNumber, suggestCreditMatches, type ArHistory, type ArInvoice } from '@/lib/auto-reconcile'
+import { getReconcileData, type UninvoicedJob } from './_data'
 import { Uploader } from './_components/Uploader'
 import { AutoReconcileButton } from './_components/AutoReconcileButton'
 import { ReverseDebitLink } from './_components/ReverseDebitLink'
 import { ClearToggle } from './_components/ClearToggle'
-import { MatchPanel, type MatchInvoice } from './_components/MatchPanel'
+import { MatchPanel, type MatchInvoice, type PanelSuggestion } from './_components/MatchPanel'
+import { ConfirmMatch } from './_components/ConfirmMatch'
 import { ReverseAllocation } from './_components/ReverseAllocation'
 import clsx from 'clsx'
 
 const STATUS_ORDER: Record<string, number> = { sent: 0, draft: 1, paid: 2 }
 
-/** Scope candidate invoices by payer and suggest subset-sum bundles.
- *  `scoped` is true when the payee actually mapped to a client — only then are
- *  suggestions trustworthy enough to badge as "Likely". When unscoped we fall
- *  back to all open invoices for the manual picker, but any subset match there
- *  is coincidental, so it must not drive the badge. */
-function buildMatch(
-  payee: string,
-  amount: number,
-  invoices: ReconInvoice[],
-  clientNames: string[],
-): { candidates: MatchInvoice[]; allCandidates: MatchInvoice[]; suggestions: string[][]; scoped: boolean } {
-  const toMatchInvoice = (i: ReconInvoice): MatchInvoice => ({
-    id: i.id, number: i.invoiceNumber, total: i.total, status: i.status,
-    address: i.address ?? '', client: i.client ?? '', allocated: i.allocatedTotal ?? 0,
-  })
-  const toCandidates = (pool: ReconInvoice[]): MatchInvoice[] =>
-    pool
-      .filter((i) => i.status === 'sent' || i.status === 'draft' || i.status === 'paid')
-      .sort((a, b) => (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3) || b.total - a.total)
-      .slice(0, 40)
-      .map(toMatchInvoice)
+interface CreditAssist {
+  candidates: MatchInvoice[]
+  allCandidates: MatchInvoice[]
+  suggestions: PanelSuggestion[]
+  scoped: boolean
+  /** Who the payer resolved to, for the picker heading. */
+  scopeLabel: string
+  /** First suggestion is safe to one-click (not a mere same-amount guess). */
+  confirmable: boolean
+  notes: string[]
+  /** This customer's (or the quoted) jobs that have no invoice yet. */
+  jobs: UninvoicedJob[]
+}
 
-  const scopedNames = matchClientsForPayee(payee, clientNames)
-  const scoped = scopedNames.length > 0
-  const scopedPool = scoped
-    ? invoices.filter((i) => i.client && scopedNames.includes(i.client))
-    : invoices.filter((i) => i.status === 'sent') // fallback: open invoices
-  const candidates = toCandidates(scopedPool)
-  // Full, all-clients list — the searchable pool. Includes PAID invoices so a
-  // paid manual invoice (e.g. INV-26022) can be found via the search box.
-  const allCandidates = invoices
-    .filter((i) => i.status !== 'cancelled')
-    .sort((a, b) => (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3) || b.total - a.total)
-    .map(toMatchInvoice)
-  const suggestions = findSubsets(amount, candidates.map((c) => ({ id: c.id, amount: c.total })))
-  return { candidates, allCandidates, suggestions, scoped }
+const toMatchInvoice = (i: ReconInvoice): MatchInvoice => ({
+  id: i.id, number: i.invoiceNumber, total: i.total, status: i.status,
+  address: i.address ?? '', client: i.billTo || i.clientLabel || i.client || '',
+  allocated: i.allocatedTotal ?? 0, serviceDate: i.serviceDate ?? null,
+})
+// Open invoices first, then most recent job first.
+const byStatusThenDate = (a: ReconInvoice, b: ReconInvoice) =>
+  (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3)
+  || (b.serviceDate ?? b.dateIssued ?? '').localeCompare(a.serviceDate ?? a.dateIssued ?? '')
+
+/**
+ * Who paid, their jobs/invoices, and the ranked likely matches for one credit.
+ * The payer is resolved from the payee/memo (name + branch) and from payers
+ * learned on earlier matches; the picker lists that customer's invoices, with
+ * every client still reachable through search / "show all".
+ */
+function buildAssist(
+  credit: { id: string; date: string; amount: number; payee: string; memo: string; allocated: number },
+  invoices: ReconInvoice[],
+  arInvoices: ArInvoice[],
+  history: ArHistory[],
+  allCandidates: MatchInvoice[],
+  uninvoicedJobs: UninvoicedJob[],
+): CreditAssist {
+  const { clientIds, suggestions, notes } = suggestCreditMatches({ credit: { ...credit, cleared: false }, invoices: arInvoices, history })
+  const scoped = clientIds.length > 0
+  // Jobs never invoiced that this payment may be for: quoted by number in the
+  // bank text (QUO-0491 → JOB-0491), or done for the customer who paid.
+  const refs = referencedNumbers(`${credit.payee} ${credit.memo}`)
+  const jobs = uninvoicedJobs.filter((j) =>
+    refs.some((r) => sameDocNumber(r, j.jobNumber) || (!!j.quoteNumber && sameDocNumber(r, j.quoteNumber)))
+    || (!!j.clientId && clientIds.includes(j.clientId) && j.status === 'completed'),
+  ).slice(0, 4)
+  const pool = scoped
+    ? invoices.filter((i) => i.clientId && clientIds.includes(i.clientId) && i.status !== 'cancelled')
+    : invoices.filter((i) => i.status === 'sent')
+  const labels = Array.from(new Set(pool.map((i) => i.clientLabel ?? '').filter(Boolean)))
+  return {
+    candidates: [...pool].sort(byStatusThenDate).slice(0, 40).map(toMatchInvoice),
+    allCandidates,
+    suggestions: suggestions.map((sg) => ({ label: sg.label, allocations: sg.allocations })),
+    scoped,
+    scopeLabel: labels.length === 1 ? labels[0] : labels.length > 1 ? `${labels.length} linked clients` : '',
+    confirmable: !!suggestions[0] && suggestions[0].kind !== 'amount_only',
+    notes,
+    jobs,
+  }
 }
 
 export const dynamic = 'force-dynamic'
+
+function round2(n: number) {
+  return Math.round((n + Number.EPSILON) * 100) / 100
+}
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
@@ -92,20 +121,35 @@ export default async function ReconcilePage() {
   if (!isFinanceUser(user)) notFound()
   const canEdit = isAdminUser(user) // accountants are read-only
 
-  const { transactions, meta, invoices, expenses, paymentRecords } = await getReconcileData()
+  const { transactions, meta, invoices, expenses, paymentRecords, uninvoicedJobs } = await getReconcileData()
   const result = reconcile({ transactions, invoices, expenses, paymentRecords })
   const s = result.summary
   const hasData = transactions.length > 0
 
-  // Precompute match suggestions for the unmatched credits.
-  const clientNames = Array.from(new Set(invoices.map((i) => i.client ?? '').filter(Boolean)))
-  const creditMatch = new Map<string, { candidates: MatchInvoice[]; allCandidates: MatchInvoice[]; suggestions: string[][]; scoped: boolean }>()
-  for (const c of result.credits) {
-    // Build a match/allocate panel for anything that still needs allocating:
-    // no auto-match (unmatched), or a paid-but-unallocated invoice (allocate_match).
-    if (c.status === 'unmatched' || c.status === 'allocate_match') {
-      creditMatch.set(c.txn.uniqueId, buildMatch(c.txn.payee, c.txn.amount, invoices, clientNames))
+  // Likely matches for every credit still needing action — so most lines are a
+  // one-click Confirm (incl. part payments) instead of a hunt.
+  const arInvoices: ArInvoice[] = invoices.map((i) => ({
+    id: i.id, number: i.invoiceNumber, status: i.status, total: i.total, allocated: i.allocatedTotal ?? 0,
+    dateIssued: i.dateIssued ?? null, datePaid: i.datePaid, clientId: i.clientId ?? null, clientLabel: i.clientLabel ?? '',
+  }))
+  const invById = new Map(invoices.map((i) => [i.id, i]))
+  // Payers learned from earlier matches: bank payee → the client it paid.
+  const history: ArHistory[] = []
+  for (const t of transactions) {
+    for (const a of meta.get(t.uniqueId)?.allocations ?? []) {
+      const clientId = invById.get(a.invoiceId)?.clientId
+      if (clientId) history.push({ payerKey: payerKey(t.payee), clientId })
     }
+  }
+  const allCandidates = invoices.filter((i) => i.status !== 'cancelled').sort(byStatusThenDate).map(toMatchInvoice)
+  const creditMatch = new Map<string, CreditAssist>()
+  for (const c of result.credits) {
+    const m = meta.get(c.txn.uniqueId)
+    if (!m || m.cleared || c.status === 'reconciled' || c.status === 'financing') continue
+    creditMatch.set(c.txn.uniqueId, buildAssist(
+      { id: m.id, date: c.txn.date, amount: c.txn.amount, payee: c.txn.payee, memo: c.txn.memo, allocated: m.allocatedTotal },
+      invoices, arInvoices, history, allCandidates, uninvoicedJobs,
+    ))
   }
 
   // A line is "done" when it needs nothing from us: an auto-reconciled credit
@@ -129,7 +173,7 @@ export default async function ReconcilePage() {
     const cm = creditMatch.get(c.txn.uniqueId)
     const display: CreditStatus =
       c.status === 'unmatched' && cm?.scoped && cm.suggestions.length > 0
-        ? (cm.suggestions[0].length >= 2 ? 'likely_bundle' : 'likely_match')
+        ? (cm.suggestions[0].allocations.length >= 2 ? 'likely_bundle' : 'likely_match')
         : c.status
     return (
       <tr key={`${c.txn.uniqueId}-${i}`} className={clsx('border-b border-gray-50', m?.cleared && 'opacity-45')}>
@@ -139,21 +183,50 @@ export default async function ReconcilePage() {
         <Td><Badge tone={CREDIT_TONE[display]}>{CREDIT_LABEL[display]}</Badge></Td>
         <Td className="text-right font-medium">{fmt(c.txn.amount)}</Td>
         <Td className="text-right">
-          {canEdit && (c.status === 'unpaid_match' || c.status === 'amount_match') && c.invoice && (
-            <Link href={`/portal/invoices/${c.invoice.id}`} className="text-sage-600 hover:text-sage-800 underline whitespace-nowrap">Mark paid →</Link>
-          )}
-          {canEdit && (c.status === 'unmatched' || c.status === 'allocate_match') && m && creditMatch.has(c.txn.uniqueId) && (
-            <MatchPanel
+          {/* Best match in one click. Replaces the old "Mark paid →" link, which
+              forced the full invoice amount and skipped the bank link. */}
+          {canEdit && m && cm && cm.confirmable && (
+            <ConfirmMatch
               lineId={m.id}
-              amount={c.txn.amount}
               date={c.txn.date}
-              payee={c.txn.payee}
-              candidates={creditMatch.get(c.txn.uniqueId)!.candidates}
-              allCandidates={creditMatch.get(c.txn.uniqueId)!.allCandidates}
-              scoped={creditMatch.get(c.txn.uniqueId)!.scoped}
-              suggestions={creditMatch.get(c.txn.uniqueId)!.suggestions}
-              triggerLabel={c.status === 'allocate_match' ? 'Allocate →' : 'Match →'}
+              suggestion={{
+                label: cm.suggestions[0].label,
+                allocations: cm.suggestions[0].allocations,
+                numbers: cm.suggestions[0].allocations.map((a) => invById.get(a.invoiceId)?.invoiceNumber ?? '?'),
+                partial: cm.suggestions[0].allocations.some((a) => {
+                  const inv = invById.get(a.invoiceId)
+                  return !!inv && a.amount < inv.total - (inv.allocatedTotal ?? 0) - 0.005
+                }),
+              }}
             />
+          )}
+          {canEdit && m && cm && (
+            <div className={clsx(cm.suggestions[0] && 'mt-1')}>
+              <MatchPanel
+                lineId={m.id}
+                amount={round2(c.txn.amount - m.allocatedTotal)}
+                date={c.txn.date}
+                payee={`${c.txn.payee} ${c.txn.memo}`.trim()}
+                candidates={cm.candidates}
+                allCandidates={cm.allCandidates}
+                scoped={cm.scoped}
+                scopeLabel={cm.scopeLabel}
+                suggestions={cm.suggestions}
+                triggerLabel={cm.confirmable ? 'Other options' : 'Match →'}
+              />
+            </div>
+          )}
+          {/* Jobs never invoiced that this payment may be for, and any warnings. */}
+          {m && cm && (cm.jobs.length > 0 || cm.notes.length > 0) && (
+            <div className="mt-1 space-y-0.5 text-right">
+              {cm.jobs.map((j) => (
+                <div key={j.id} className="text-xs text-amber-700">
+                  {j.jobNumber}{j.quoteNumber ? ` (${j.quoteNumber})` : ''} · {j.status}{j.price != null ? ` · ${fmt(j.price)}` : ''} · not invoiced{' '}
+                  {canEdit && <Link href={`/portal/jobs/${j.id}`} className="underline hover:text-amber-900">Invoice it →</Link>}
+                </div>
+              ))}
+              {cm.notes.map((n, k) => <div key={k} className="text-xs text-sage-500 max-w-[320px] ml-auto">{n}</div>)}
+            </div>
           )}
           {/* Existing allocations on this line, each reversible. */}
           {m && m.allocations.length > 0 && (
