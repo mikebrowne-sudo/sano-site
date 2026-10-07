@@ -15,6 +15,20 @@ export interface MatchInvoice {
   client: string
   /** Amount already allocated to this invoice (live). Remaining = total − this. */
   allocated?: number
+  /** The job's clean date, when known. */
+  serviceDate?: string | null
+}
+
+/** A ranked suggestion: which invoices, and how much of the payment each gets. */
+export interface PanelSuggestion {
+  label: string
+  allocations: Array<{ invoiceId: string; amount: number }>
+}
+
+function shortDate(iso?: string | null): string {
+  if (!iso) return ''
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`)
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
 
 function fmt(n: number) {
@@ -46,6 +60,7 @@ export function MatchPanel({
   candidates,
   allCandidates,
   scoped = false,
+  scopeLabel,
   suggestions,
   triggerLabel = 'Match →',
 }: {
@@ -57,7 +72,9 @@ export function MatchPanel({
   /** Full, all-clients searchable candidate list (includes paid invoices). */
   allCandidates?: MatchInvoice[]
   scoped?: boolean
-  suggestions: string[][]
+  /** Who the payer resolved to, e.g. "Barfoot & Thompson Royal Heights". */
+  scopeLabel?: string
+  suggestions: PanelSuggestion[]
   /** Trigger link text — "Match →" for unmatched, "Allocate →" for paid lines. */
   triggerLabel?: string
 }) {
@@ -92,7 +109,11 @@ export function MatchPanel({
     [selected],
   )
   const matches = Math.abs(allocatedTotal - amount) < 0.005
-  const selectedUnpaid = Array.from(selected.keys()).filter((id) => byId.get(id)?.status !== 'paid')
+  // Only invoices this allocation fully covers flip to paid; part payments leave a balance.
+  const selectedUnpaid = Array.from(selected.entries()).filter(([id, v]) => {
+    const inv = byId.get(id)
+    return inv && inv.status !== 'paid' && (parseFloat(v) || 0) >= remainingOf(inv) - 0.005
+  }).map(([id]) => id)
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -119,12 +140,9 @@ export function MatchPanel({
       return next
     })
   }
-  function applySuggestion(ids: string[]) {
+  function applySuggestion(sg: PanelSuggestion) {
     const next = new Map<string, string>()
-    for (const id of ids) {
-      const inv = byId.get(id)
-      next.set(id, inv ? remainingOf(inv).toFixed(2) : '')
-    }
+    for (const a of sg.allocations) next.set(a.invoiceId, a.amount.toFixed(2))
     setSelected(next)
   }
   function submit() {
@@ -161,23 +179,23 @@ export function MatchPanel({
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-sage-500 mb-2">Suggested {suggestions.length === 1 ? 'match' : 'matches'}</p>
                   <div className="space-y-2">
-                    {suggestions.map((ids, i) => (
+                    {suggestions.map((sg, i) => (
                       <button
                         key={i}
-                        onClick={() => applySuggestion(ids)}
+                        onClick={() => applySuggestion(sg)}
                         className="w-full text-left bg-sage-50 hover:bg-sage-100 border border-sage-100 rounded-lg px-3 py-2.5 transition-colors"
                       >
                         <div className="flex items-center justify-between text-xs font-semibold text-sage-600 mb-1">
-                          <span>{ids.length} invoice{ids.length !== 1 ? 's' : ''}</span>
-                          <span>{fmt(ids.reduce((s, id) => s + (byId.get(id)?.total ?? 0), 0))}</span>
+                          <span className="truncate">{sg.label}</span>
+                          <span className="shrink-0">{fmt(sg.allocations.reduce((s, a) => s + a.amount, 0))}</span>
                         </div>
-                        {ids.map((id) => {
-                          const inv = byId.get(id)
+                        {sg.allocations.map((a) => {
+                          const inv = byId.get(a.invoiceId)
                           if (!inv) return null
                           return (
-                            <div key={id} className="flex items-baseline justify-between gap-2 text-sm">
-                              <span className="min-w-0 truncate"><span className="font-medium text-sage-800">{inv.number}</span> <span className="text-sage-400">{label(inv)}</span></span>
-                              <span className="text-sage-500 tabular-nums shrink-0">{fmt(inv.total)}</span>
+                            <div key={a.invoiceId} className="flex items-baseline justify-between gap-2 text-sm">
+                              <span className="min-w-0 truncate"><span className="font-medium text-sage-800">{inv.number}</span> <span className="text-sage-400">{shortDate(inv.serviceDate)} {label(inv)}</span></span>
+                              <span className="text-sage-500 tabular-nums shrink-0">{fmt(a.amount)}{a.amount < remainingOf(inv) - 0.005 ? <span className="text-amber-600"> of {fmt(remainingOf(inv))}</span> : null}</span>
                             </div>
                           )
                         })}
@@ -207,7 +225,7 @@ export function MatchPanel({
                 <div className="flex items-center justify-between mb-2 gap-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-sage-500">
                     {shown.length ? (q ? 'Search results' : 'Or pick invoices') : 'No invoices found'}
-                    {scoped && !showAll && !q && shown.length > 0 && <span className="ml-1 normal-case font-normal text-sage-400">(matched client only)</span>}
+                    {scoped && !showAll && !q && shown.length > 0 && <span className="ml-1 normal-case font-normal text-sage-400">({scopeLabel ? `jobs for ${scopeLabel}` : 'matched client only'})</span>}
                   </p>
                   {canShowAll && !q && (
                     <button
@@ -232,7 +250,7 @@ export function MatchPanel({
                             {c.status === 'paid' && <span className="ml-2 text-xs text-emerald-600">paid</span>}
                             {c.status === 'draft' && <span className="ml-2 text-xs text-gray-400">draft</span>}
                             {(c.allocated ?? 0) > 0 && <span className="ml-2 text-xs text-sage-400">{fmt(rem)} left</span>}
-                            <span className="block text-xs text-sage-400 truncate">{label(c) || c.client}</span>
+                            <span className="block text-xs text-sage-400 truncate">{c.serviceDate ? `${shortDate(c.serviceDate)} · ` : ''}{label(c) || c.client}</span>
                           </span>
                           <span className="text-sm font-medium text-sage-700 tabular-nums">{fmt(c.total)}</span>
                         </label>

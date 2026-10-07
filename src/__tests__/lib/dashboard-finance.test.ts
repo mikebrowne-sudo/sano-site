@@ -12,15 +12,16 @@ describe('dashboard finance — reuses the P&L, bounded query, correct window', 
 
   it('delegates money-in/out to buildProfitLoss (never a separate definition)', () => {
     expect(src).toMatch(/import \{ buildProfitLoss/)
-    expect(src).toMatch(/const pl = buildProfitLoss\(\{ income, expenses, from, to \}\)/)
+    expect(src).toMatch(/const pl = buildProfitLoss\(\{ income, expenses, remittances, from, to \}\)/)
     expect(src).toMatch(/income: pl\.moneyIn/)
     expect(src).toMatch(/expenses: pl\.moneyOut/)
   })
 
-  it('bounds the invoice + expense queries to the window (not the whole table)', () => {
-    expect(src).toMatch(/\.gte\('date_paid', windowStart\)\.lte\('date_paid', windowEnd\)/)
-    expect(src).toMatch(/\.gte\('expense_date', windowStart\)\.lte\('expense_date', windowEnd\)/)
-    expect(src).toMatch(/\.eq\('status', 'paid'\)/)   // income = paid invoices only
+  it('loads through the shared P&L loader, bounded to the window (not the whole table)', () => {
+    expect(src).toMatch(/loadProfitLossInputs\(supabase, \{ from: windowStart, to: windowEnd \}\)/)
+    const loader = readFileSync(join(process.cwd(), 'src/app/portal/finance/_lib/profit-loss-data.ts'), 'utf8')
+    expect(loader).toMatch(/\.gte\('date_paid', window\.from\)\.lte\('date_paid', window\.to\)/)
+    expect(loader).toMatch(/\.eq\('status', 'paid'\)/)   // income = paid invoices only
   })
 
   it('net position is the sum of monthly nets; change % guards divide-by-zero', () => {

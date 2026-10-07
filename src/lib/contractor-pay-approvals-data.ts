@@ -8,6 +8,7 @@ import { resolveWorkerHours } from '@/lib/job-hours-split'
 import { getWorkerPayableHours } from './job-cost'
 import { classifyApprovalRow } from './pending-approvals'
 import type { ApprovalRow } from '@/app/portal/contractor-invoices/pending-approvals/_components/PendingApprovalsList'
+import { queueSignal, isHoursConfirmedStatus } from '@/lib/hours-confirmation'
 
 interface JWRow {
   contractor_id: string
@@ -18,6 +19,8 @@ interface JWRow {
   actual_hours: number | null
   extra_hours: number | null
   extra_hours_status: string | null
+  hours_confirmed_status: string | null
+  hours_confirmed_note: string | null
   contractors: { full_name: string | null; hourly_rate: number | null } | null
   jobs: {
     id: string; job_number: string | null; address: string | null; status: string | null
@@ -40,6 +43,7 @@ export async function loadApprovalRows(
     .from('job_workers')
     .select(`
       contractor_id, job_id, pay_rate, pay_type, hours_allocated, actual_hours, extra_hours, extra_hours_status,
+      hours_confirmed_status, hours_confirmed_note,
       contractors ( full_name, hourly_rate ),
       jobs ( id, job_number, address, status, completed_at, scheduled_date, allowed_hours, description, deleted_at )
     `)
@@ -100,6 +104,17 @@ export async function loadApprovalRows(
       allowedHours, submittedHours: r.actual_hours, defaultApprovedHours: payableHours, rate,
       mode: computed.mode, computedAmount: computed.computedAmount, flags: computed.flags,
       readiness: computed.readiness, existingCI,
+      // The contractor's own answer on whether the job went to plan. Lets Carol
+      // bulk-approve the confirmed rows and look only at the flagged ones,
+      // instead of approving every row blind.
+      confirmation: queueSignal({
+        jobId: r.job_id, contractorId: r.contractor_id,
+        hoursAllocated: r.hours_allocated,
+        hoursConfirmedStatus: isHoursConfirmedStatus(r.hours_confirmed_status)
+          ? r.hours_confirmed_status
+          : 'unconfirmed',
+      }),
+      confirmationNote: r.hours_confirmed_note?.trim() || null,
     }
   })
   rows.sort((a, b) => {
