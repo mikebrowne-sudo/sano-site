@@ -8,6 +8,8 @@ import { matchClientsForPayee } from '@/lib/payee-match'
 import { findSubsets } from '@/lib/subset-sum'
 import { getReconcileData } from './_data'
 import { Uploader } from './_components/Uploader'
+import { AutoReconcileButton } from './_components/AutoReconcileButton'
+import { ReverseDebitLink } from './_components/ReverseDebitLink'
 import { ClearToggle } from './_components/ClearToggle'
 import { MatchPanel, type MatchInvoice } from './_components/MatchPanel'
 import { ReverseAllocation } from './_components/ReverseAllocation'
@@ -112,7 +114,11 @@ export default async function ReconcilePage() {
   // only what still needs action. Totals above stay over every transaction.
   const isCleared = (uid: string) => !!meta.get(uid)?.cleared
   const isCreditDone = (c: (typeof result.credits)[number]) => c.status === 'reconciled' || isCleared(c.txn.uniqueId)
-  const isDebitDone = (d: (typeof result.debits)[number]) => d.status === 'recorded' || isCleared(d.txn.uniqueId)
+  // A debit already recorded as a remittance / pay run has nothing left to do,
+  // so it drops off the to-do list just like a cleared or linked line.
+  const isDebitDone = (d: (typeof result.debits)[number]) =>
+    d.status === 'recorded' || d.status === 'already_paid_elsewhere' || isCleared(d.txn.uniqueId)
+    || (meta.get(d.txn.uniqueId)?.debitLinks.length ?? 0) > 0
   const creditsOut = result.credits.filter((c) => !isCreditDone(c))
   const creditsDone = result.credits.filter(isCreditDone)
   const debitsOut = result.debits.filter((d) => !isDebitDone(d))
@@ -155,6 +161,9 @@ export default async function ReconcilePage() {
               {m.allocations.map((a) => (
                 <div key={a.id} className="flex items-center justify-end gap-2 text-xs text-sage-500">
                   <span className="tabular-nums">{a.invoiceNumber} · {fmt(a.amount)}</span>
+                  {a.matchReason?.startsWith('auto:') && (
+                    <span title={a.matchReason} className="rounded bg-sage-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sage-600">auto</span>
+                  )}
                   {canEdit && <ReverseAllocation allocationId={a.id} invoiceNumber={a.invoiceNumber} amount={a.amount} />}
                 </div>
               ))}
@@ -175,14 +184,31 @@ export default async function ReconcilePage() {
         <Td><Badge tone={DEBIT_TONE[d.status]}>{DEBIT_LABEL[d.status]}</Badge></Td>
         <Td className="text-right font-medium">{fmt(Math.abs(d.txn.amount))}</Td>
         <Td className="text-right">
-          {d.status === 'already_paid_elsewhere' && d.paymentRecord && (
+          {d.status === 'already_paid_elsewhere' && d.paymentRecord && !(m && m.debitLinks.length > 0) && (
             // Recorded as a remittance or pay run — NOT an expense. Showing the
             // source here is what stops the cost being entered a second time.
             <span className="text-xs text-sage-600 whitespace-nowrap" title="Already recorded — do not add as an expense">
               {d.paymentRecord.label}
             </span>
           )}
-          {canEdit && d.status === 'not_recorded' && (
+          {/* What this debit was reconciled against, each undoable. */}
+          {m && m.debitLinks.length > 0 && (
+            <div className="space-y-0.5">
+              {m.debitLinks.map((l) => (
+                <div key={l.id} className="flex items-center justify-end gap-2 text-xs text-sage-500">
+                  <span className="whitespace-nowrap">{l.label}</span>
+                  {l.auto && (
+                    <span title={l.matchReason ?? undefined} className="rounded bg-sage-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sage-600">auto</span>
+                  )}
+                  {canEdit && l.kind !== 'remittance' && <ReverseDebitLink linkId={l.id} label={l.label} createdExpense={l.kind === 'created_expense'} />}
+                  {canEdit && l.kind === 'remittance' && (
+                    <Link href="/portal/finance/reconcile-out" className="text-sage-400 hover:text-sage-700 underline">undo</Link>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {canEdit && d.status === 'not_recorded' && !(m && m.debitLinks.length > 0) && (
             <Link
               // `payee` is passed separately from `ref` so the expense form can
               // recognise a recurring vendor and prefill its category + GST.
@@ -208,6 +234,7 @@ export default async function ReconcilePage() {
       <p className="text-sm text-sage-500 mb-8">Import an ASB CSV export to match bank credits against your invoices and debits against your expenses. Re-importing is safe — duplicates are skipped.</p>
 
       {canEdit && <Uploader />}
+      {canEdit && hasData && <AutoReconcileButton />}
 
       {!hasData ? (
         <p className="text-sage-500 text-sm mt-8">{canEdit ? 'No bank transactions imported yet. Upload an ASB export above to get started.' : 'No bank transactions have been imported yet.'}</p>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
+import { isFinanceEmail } from '@/lib/is-admin'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import {
   parseCookieHeader,
@@ -18,6 +19,7 @@ export async function GET(
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!isFinanceEmail(user.email)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { data: invoice } = await supabase
     .from('invoices')
