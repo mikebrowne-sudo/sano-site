@@ -126,7 +126,9 @@ export function ContractorJobDetailView({
           ) : (
             <ConfirmHoursCard
               jobId={job.id}
-              hours={job.payableHours ?? job.allowed_hours ?? null}
+              // Their own hours only — never fall back to the job total, which on a
+              // shared job includes the other cleaner's time.
+              hours={job.payableHours ?? null}
               status={job.hours_confirmed_status}
               note={job.hours_confirmed_note}
             />
