@@ -1,21 +1,28 @@
-// Pay run — the one clear screen for a fortnightly contractor pay cycle.
+// Contractor pay — the operational workspace for one contractor pay cycle.
 //
-// Pick a pay period (1–15 → paid 30th; 16–EOM → paid 15th next month). See two
-// blocks for that period: (1) authorised jobs grouped by contractor, ready to
-// bundle into remittances in one click; (2) jobs completed in the period still
-// AWAITING authorisation, approvable inline (each moves up into "ready to pay").
+// Three stages, in the order the money moves:
+//   1. AWAITING PAYMENT   remittances already prepared, bank transfer not done
+//   2. READY TO PAY       approved payables not yet on a remittance
+//   3. AWAITING APPROVAL  completed jobs whose pay still needs authorising
 //
-// Direct path: job → approved contractor_invoice → remittance (RA-####), without
-// the intermediate STMT layer. Admin-only. Reuses the existing period, plan,
-// approval + create logic — this screen just brings them together.
+// Stage 1 exists because stages 2 and 3 alone were misleading: once payables
+// are bundled into a remittance they correctly leave "ready to pay", and the
+// money then had nowhere to show. A prepared run could be forgotten entirely
+// (the July run, RA-0024..RA-0027 / $3,890, sat unpaid and invisible here).
+//
+// Direct path: job → approved contractor_invoice → remittance (RA-####), with
+// no statement layer. Admin-only. Reuses the existing period, plan, approval,
+// create and mark-paid logic — this screen brings them together.
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { PortalPageHeader } from '../../_components/PortalPageHeader'
+import { buttonClasses } from '../../_components/Button'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
-import { recentPayPeriods, payPeriodForKey, payPeriodForDate } from '@/lib/contractor-pay-period'
+import { recentPayPeriods, payPeriodForKey } from '@/lib/contractor-pay-period'
 import { loadApprovalRows, awaitingAuthorisation } from '@/lib/contractor-pay-approvals-data'
+import { loadAwaitingPayment } from '@/lib/awaiting-payment-data'
 import { previewRemittancesForContractors } from '../remittances/_actions-by-contractor'
 import { PayRunView } from './_components/PayRunView'
 
@@ -28,45 +35,71 @@ export default async function PayRunPage({ searchParams }: { searchParams: { per
 
   const today = new Date().toISOString().slice(0, 10)
   const periods = recentPayPeriods(today, 6)
-  const period = payPeriodForKey(searchParams.period) ?? periods[0] ?? payPeriodForDate(today)
 
-  // "Ready to pay" — authorised, unremitted CIs grouped by contractor for jobs
-  // whose service date falls in the period. Reuses the by-contractor planner.
+  // DEFAULT = "everything owed" (?period absent or 'all'). A period is an
+  // OPTIONAL filter, not a gate.
+  //
+  // Why: filtering by service date hid real money. A payable whose date can't be
+  // resolved (no job completed_at, no service_date, no gst_supply_date) matches
+  // NO period, so it was unpayable from this screen and invisible on every
+  // selection. Payables from different months also can't appear together, so a
+  // period-first screen shows "one contractor" while several are owed. The job
+  // here is "who do I owe?" — that question isn't period-scoped.
+  // The period drives the SUGGESTED SELECTION, not what is loaded.
+  //
+  // It used to filter the plan server-side, which meant choosing "16-31 Jul"
+  // physically removed May and June work from the page — so overdue backlog
+  // silently disappeared instead of being offered as "Older unpaid". The
+  // question a pay period answers is "what should normally be paid in this
+  // run?", not "hide everything else".
+  //
+  // So the plan is ALWAYS everything owed, and the period is passed to the
+  // view where lib/pay-run-selection.ts decides what is ticked by default.
+  const period = payPeriodForKey(searchParams.period) ?? null
+
+  // "Ready to pay" — authorised, unremitted CIs grouped by contractor.
+  // ALWAYS everything owed: `{}` makes splitByPeriod a no-op so nothing is
+  // hidden, including undated payables. The period only tints what is ticked.
   const allContractorIds = (await supabase.from('contractors').select('id')).data?.map((c) => c.id as string) ?? []
-  const plan = await previewRemittancesForContractors(
-    allContractorIds,
-    period.payDate,
-    { from: period.periodStart, to: period.periodEnd },
-  )
+  const payDate = period?.payDate ?? today
+  const plan = await previewRemittancesForContractors(allContractorIds, payDate, {})
 
-  // "Awaiting authorisation" — completed jobs in the period with no approved
-  // payable yet. Approvable inline; approving creates the CI which then appears
-  // in the ready-to-pay block on refresh.
-  const approvalRows = await loadApprovalRows(supabase, { from: period.periodStart, to: period.periodEnd })
+  // "Awaiting authorisation" — completed jobs with no approved payable yet.
+  // Also unfiltered: unapproved work is a backlog, not a per-period concern,
+  // and hiding it behind a period is how it gets forgotten.
+  const approvalRows = await loadApprovalRows(supabase, {})
   const awaiting = awaitingAuthorisation(approvalRows)
 
+  // "Awaiting payment" — remittances already created but not yet paid out.
+  // Deliberately NOT period-filtered: a prepared-but-unpaid run is an
+  // obligation regardless of which period is being viewed, and hiding it
+  // behind a filter is what let the July run ($3,890) be forgotten.
+  const awaitingPayment = await loadAwaitingPayment(supabase)
+
   return (
-    <div className="max-w-4xl mx-auto">
-      <Link href="/portal/contractor-invoices" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 mb-4">
-        <ArrowLeft size={14} /> Contractor invoices
-      </Link>
-      <h1 className="text-3xl font-bold text-sage-800 tracking-tight mb-1">Pay run</h1>
-      <p className="text-sm text-sage-500 mb-6 max-w-2xl">
-        Pick the pay period, check nothing is still awaiting authorisation, then bundle everyone&rsquo;s authorised
-        jobs into remittances. 1st–15th is paid on the 30th; 16th–end of month is paid on the 15th of the next month.
-      </p>
+    <div className="max-w-5xl">
+      <PortalPageHeader
+        backHref="/portal/pay"
+        backLabel="Back to pay"
+        title="Contractor pay"
+        subtitle="Awaiting payment · Ready to pay · Awaiting approval"
+        actions={
+          <Link href="/portal/contractor-invoices/remittances" className={buttonClasses({ variant: 'secondary' })}>
+            Payment history
+          </Link>
+        }
+      />
 
       <PayRunView
         periods={periods.map((p) => ({ key: p.periodStart, label: p.label, payDateLabel: p.payDateLabel }))}
-        selectedKey={period.periodStart}
-        periodStart={period.periodStart}
-        periodEnd={period.periodEnd}
-        payDate={period.payDate}
-        payDateLabel={period.payDateLabel}
+        selectedKey={period ? period.periodStart : 'all'}
+        periodStart={period?.periodStart ?? null}
+        periodEnd={period?.periodEnd ?? null}
+        payDate={payDate}
         groups={plan.groups ?? []}
-        grandTotal={plan.grand_total ?? 0}
         planError={plan.error ?? null}
         awaiting={awaiting}
+        awaitingPayment={awaitingPayment}
       />
     </div>
   )

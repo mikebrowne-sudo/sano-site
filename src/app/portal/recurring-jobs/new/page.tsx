@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { RecurringJobForm } from '../_components/RecurringJobForm'
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { BackLink } from '../../_components/BackLink'
 
 export default async function NewRecurringJobPage() {
   const supabase = createClient()
@@ -13,9 +12,7 @@ export default async function NewRecurringJobPage() {
 
   return (
     <div>
-      <Link href="/portal/recurring-jobs" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4">
-        <ArrowLeft size={14} /> Back to recurring jobs
-      </Link>
+      <BackLink fallbackHref="/portal/recurring-jobs" label="Back to recurring jobs" />
       <h1 className="text-2xl font-bold text-sage-800 mb-8">New Recurring Job</h1>
       <RecurringJobForm clients={clients ?? []} contractors={contractors ?? []} />
     </div>

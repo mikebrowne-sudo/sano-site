@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { AcceptQuote } from './_components/AcceptQuote'
 import { getServiceSupabase } from '@/lib/supabase-service'
@@ -6,6 +6,8 @@ import { AutoPrint } from '../../_components/AutoPrint'
 import { SharePdfButton } from '../../_components/SharePdfButton'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { QuoteDocument } from '@/components/document/QuoteDocument'
+import { ProposalDocument } from '@/components/proposals/ProposalDocument'
+import { loadProposalForQuote } from '@/lib/proposals/loadProposalForQuote'
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
   const supabase = getServiceSupabase()
@@ -53,6 +55,8 @@ export default async function PublicQuotePage({
     .from('quotes')
     .select(`
       id, quote_number, status, accepted_at, date_issued, valid_until, created_at,
+      version_number, parent_quote_id, is_latest_version, share_token,
+      service_category,
       property_category, type_of_clean, service_type_code, frequency, scope_size,
       generated_scope,
       structured_scope,
@@ -68,6 +72,41 @@ export default async function PublicQuotePage({
     .single()
 
   if (error || !quote) notFound()
+
+  // Superseded-link forwarding.
+  //
+  // Every version mints its own share_token, so a client holding the emailed
+  // link for v1 would keep seeing v1 forever — and could accept a quote we've
+  // since revised. When this token's row is no longer the latest of its chain,
+  // forward to the newest version that has ACTUALLY BEEN SENT.
+  //
+  // The sent-gate matters: an in-progress draft (say v2 mid-edit, with
+  // half-finished pricing) must never be exposed to the client. If the newer
+  // version hasn't been sent yet, this token keeps rendering its own row
+  // unchanged — the client simply sees what they were last given.
+  //
+  // Skipped entirely for ?pdf=1 so PDF renders always capture the exact
+  // version they were asked for, never a forwarded one.
+  if (!isPdfRender && quote.is_latest_version === false) {
+    const chainRootId = (quote.parent_quote_id as string | null) ?? (quote.id as string)
+    const { data: newerSent } = await supabase
+      .from('quotes')
+      .select('share_token, version_number')
+      .or(`id.eq.${chainRootId},parent_quote_id.eq.${chainRootId}`)
+      .is('deleted_at', null)
+      .gt('version_number', (quote.version_number as number | null) ?? 1)
+      // Only versions the client has genuinely been issued. Drafts are
+      // excluded; 'accepted' / 'declined' are included because reaching those
+      // states requires having been sent first.
+      .in('status', ['sent', 'viewed', 'accepted', 'declined', 'converted'])
+      .order('version_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (newerSent?.share_token && newerSent.share_token !== params.token) {
+      redirect(`/share/quote/${newerSent.share_token}`)
+    }
+  }
 
   // Phase 6 — first-view tracking. When the share page is opened by the
   // client and the quote is currently `sent`, promote to `viewed` and
@@ -100,6 +139,33 @@ export default async function PublicQuotePage({
     .select('label, description, price, sort_order')
     .eq('quote_id', quote.id)
     .order('sort_order')
+
+  // Commercial quotes are sold as a proposal, not a quote sheet. The operator
+  // previews the proposal, so the client link and the emailed PDF have to be
+  // the same document — otherwise the client receives a residential-style
+  // quote for work that was scoped and priced as a commercial tender.
+  //
+  // Falls back to the standard quote document if the proposal cannot be built
+  // (missing commercial details), so a share link never 404s on a client.
+  if (quote.service_category === 'commercial') {
+    const proposal = await loadProposalForQuote(supabase, quote.id as string)
+    if (proposal) {
+      return (
+        <>
+          <AutoPrint active={autoPrint} />
+          <ProposalDocument payload={proposal.payload} />
+          {!isPdfRender && (
+            <div className="mx-auto max-w-3xl px-6 py-8 print:hidden">
+              <SharePdfButton href={`/api/share/quote/${params.token}/pdf`} />
+              <div className="mt-6">
+                <AcceptQuote shareToken={params.token} status={quote.status} acceptedAt={quote.accepted_at} />
+              </div>
+            </div>
+          )}
+        </>
+      )
+    }
+  }
 
   return (
     <>

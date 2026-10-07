@@ -1,82 +1,36 @@
-'use client'
-
-import { useState, useTransition } from 'react'
-import { createPayRun } from '../_actions'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
+import { createClient } from '@/lib/supabase-server'
+import { NewPayRunForm, type PayrollEmployee } from './_components/NewPayRunForm'
 
-// Advance weekly period from a reference date: the Monday of that week (payday),
-// through the following Sunday, paid on the Monday. Matches Carol's terms
-// (weekly · Monday payday · Mon–Sun · advance) so staff don't fight defaults.
-function advanceWeek(ref: Date): { start: string; end: string; payDate: string } {
-  const dow = ref.getDay() // 0 Sun … 6 Sat
-  const mondayOffset = (dow + 6) % 7 // days back to Monday
-  const monday = new Date(ref)
-  monday.setDate(ref.getDate() - mondayOffset)
-  const sunday = new Date(monday)
-  sunday.setDate(monday.getDate() + 6)
-  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  return { start: iso(monday), end: iso(sunday), payDate: iso(monday) }
-}
+export const dynamic = 'force-dynamic'
 
-export default function NewPayRunPage() {
-  const [frequency, setFrequency] = useState<'weekly' | 'fortnightly'>('weekly')
-  // Pre-fill the current advance week (Monday payday) so the weekly run resolves
-  // from the standing terms rather than being typed / defaulting to arrears.
-  const initial = advanceWeek(new Date())
-  const [start, setStart] = useState(initial.start)
-  const [end, setEnd] = useState(initial.end)
-  const [payDate, setPayDate] = useState(initial.payDate)
-  const [notes, setNotes] = useState('')
-  const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
+export default async function NewPayRunPage() {
+  const supabase = createClient()
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    startTransition(async () => {
-      const result = await createPayRun({ pay_period_start: start, pay_period_end: end, pay_date: payDate, pay_frequency: frequency, notes: notes.trim() || undefined })
-      if (result?.error) setError(result.error)
-    })
-  }
+  // Active EMPLOYEES only (worker_type != contractor) — the people this run pays.
+  // Contractors are paid via the separate Contractor pay flow, never here.
+  const { data } = await supabase
+    .from('contractors')
+    .select('id, full_name, pay_frequency, hourly_rate, standard_hours')
+    .eq('status', 'active')
+    .neq('worker_type', 'contractor')
+    .order('full_name')
+
+  const employees: PayrollEmployee[] = (data ?? []).map((e) => ({
+    id: e.id as string,
+    name: (e.full_name as string) ?? '—',
+    payFrequency: (e.pay_frequency as 'weekly' | 'fortnightly' | null) ?? null,
+    hourlyRate: e.hourly_rate == null ? null : Number(e.hourly_rate),
+    standardHours: e.standard_hours == null ? null : Number(e.standard_hours),
+  }))
 
   return (
     <div>
       <Link href="/portal/payroll" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"><ArrowLeft size={14} /> Back</Link>
-      <h1 className="text-2xl font-bold text-sage-800 mb-8">New Pay Run</h1>
-      <form onSubmit={handleSubmit} className="max-w-lg space-y-6">
-        <label className="block">
-          <span className="block text-sm font-semibold text-sage-800 mb-1.5">Pay cycle</span>
-          <select value={frequency} onChange={(e) => setFrequency(e.target.value as 'weekly' | 'fortnightly')} className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500">
-            <option value="weekly">Weekly (e.g. Carol)</option>
-            <option value="fortnightly">Fortnightly (e.g. Radhika)</option>
-          </select>
-          <span className="block text-xs text-sage-400 mt-1.5">Only employees on this cycle are added to the run.</span>
-        </label>
-        <p className="text-xs text-sage-500 bg-sage-50 border border-sage-100 rounded-lg px-3 py-2">Pre-filled to the current <strong>advance</strong> week (Mon–Sun, paid on the Monday). Adjust if needed.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <label className="block">
-            <span className="block text-sm font-semibold text-sage-800 mb-1.5">Period start</span>
-            <input type="date" value={start} onChange={(e) => setStart(e.target.value)} required className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
-          </label>
-          <label className="block">
-            <span className="block text-sm font-semibold text-sage-800 mb-1.5">Period end</span>
-            <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} required className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
-          </label>
-        </div>
-        <label className="block">
-          <span className="block text-sm font-semibold text-sage-800 mb-1.5">Pay date</span>
-          <input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} required className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500" />
-        </label>
-        <label className="block">
-          <span className="block text-sm font-semibold text-sage-800 mb-1.5">Notes</span>
-          <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-sage-500" />
-        </label>
-        {error && <p className="text-red-600 text-sm bg-red-50 rounded-lg px-4 py-3">{error}</p>}
-        <button type="submit" disabled={isPending} className="bg-sage-500 text-white font-semibold px-6 py-3 rounded-lg hover:bg-sage-700 transition-colors disabled:opacity-50">
-          {isPending ? 'Creating…' : 'Create Pay Run'}
-        </button>
-      </form>
+      <h1 className="text-2xl font-bold text-sage-800 mb-1">New pay run</h1>
+      <p className="text-sm text-sage-500 mb-8">Pay your employees. Pick the cycle and see exactly who&rsquo;s included before you create it.</p>
+      <NewPayRunForm employees={employees} />
     </div>
   )
 }

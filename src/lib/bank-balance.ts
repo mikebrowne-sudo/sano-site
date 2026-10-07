@@ -55,8 +55,16 @@ export async function saveBankBalanceFromImport(
   userId: string | null,
 ): Promise<{ updated: boolean; effective: BankBalance }> {
   const current = await getBankBalance(supabase)
-  // Older-or-equal statement: keep what we have.
-  if (current && balance.asAt <= current.asAt) {
+  // Strictly OLDER statement: keep what we have — importing an April export
+  // must never drag the dashboard back to April's balance.
+  //
+  // A SAME-DAY statement always wins. It used to be rejected (`<=`), which
+  // silently discarded the correct figure: export a statement in the morning,
+  // export again that afternoon after more transactions clear, and the second
+  // import kept the stale morning balance while reporting success. That is
+  // exactly when a balance moves, and the later export is by definition the
+  // more complete one — ASB restates the ledger balance in every export.
+  if (current && balance.asAt < current.asAt) {
     return { updated: false, effective: current }
   }
 

@@ -294,7 +294,13 @@ export function QuoteBuilder({
       </fieldset>
 
       {/* ── Property details ─────────────────────── */}
-      {category && (
+      {/* Hidden for a Custom Quote: bedrooms, bathrooms and property type are
+          meaningless on a one-off job that may not involve a building at all
+          (vehicle work, equipment, specialist remediation), and an empty
+          "Property details" heading invites the operator to fill in fields
+          that then print nothing useful. The custom scope editor carries the
+          job description instead. */}
+      {category && s.service_type_code !== 'custom_quote' && (
         <Block title="Property details">
           {isResidentialStyle && (
             <>

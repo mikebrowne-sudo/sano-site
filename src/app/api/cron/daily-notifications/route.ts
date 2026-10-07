@@ -28,11 +28,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { sendNotification } from '@/lib/notifications/send'
+import { hoursToConfirm, CONFIRMATION_START_DATE } from '@/lib/hours-confirmation'
 import { generateDueRecurringInvoices } from '@/app/portal/recurring-jobs/_lib/generate-recurring-invoice'
-import { loadWorkforceSettings } from '@/lib/workforce-settings'
-import { toNzCalendarDate } from '@/lib/contractor-statement-period'
-import { calendarDaysBetween, dueReminderNo } from '@/lib/contractor-statement-reminders'
-import { sendStatementReminder } from '@/lib/contractor-statement-reminder-email'
+import { generateDueRecurringJobs } from '@/app/portal/recurring-jobs/_lib/generate-due-recurring-jobs'
+import { autoApproveCompletedRecurringJobs } from '@/lib/recurring-pay-auto-approve'
+// Contractor statement reminder imports removed with Task D (Phase 2,
+// 2026-08-17) — see the retirement note at the Task D marker below.
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -87,6 +88,10 @@ async function runDaily(request: NextRequest) {
     },
     overdue: {
       invoices_scanned: 0,
+      sent: 0, skipped: 0,
+    },
+    confirm_hours: {
+      workers_scanned: 0,
       sent: 0, skipped: 0,
     },
     errors: [] as string[],
@@ -195,6 +200,102 @@ async function runDaily(request: NextRequest) {
     summary.errors.push(`day_before: ${(e as Error).message}`)
   }
 
+  // ════ Task C — Confirm-hours reminders ═════════════════
+  //
+  // Nudges a contractor to confirm a FINISHED job went to plan. Without this,
+  // pay is approved with no signal from the person who did the work — which is
+  // how $4,068 across 21 completed jobs came to sit unapproved, some since May.
+  //
+  // Iterates job_workers, NOT jobs.contractor_id: assignment lives in
+  // job_workers, so on a two-cleaner job BOTH cleaners are asked, each about
+  // their own allocated share.
+  //
+  // No upper age limit — an unanswered job from last week still gets chased.
+  // Same-day, per-worker dedupe via notification_logs, matching Task A.
+  try {
+    const today = nzDateString(0)
+
+    const { data: rows, error: rowsErr } = await supabase
+      .from('job_workers')
+      .select(`
+        contractor_id, hours_allocated, extra_hours, extra_hours_status,
+        hours_confirmed_status,
+        contractors ( full_name, phone ),
+        jobs!inner ( id, job_number, title, address, scheduled_date, scheduled_time, status, deleted_at )
+      `)
+      .eq('hours_confirmed_status', 'unconfirmed')
+      .in('jobs.status', ['completed', 'invoiced'])
+      .is('jobs.deleted_at', null)
+      .lte('jobs.scheduled_date', today)
+      // Go-live cutoff: pre-2026-09-30 work was settled outside the portal.
+      .gte('jobs.scheduled_date', CONFIRMATION_START_DATE)
+
+    if (rowsErr) {
+      summary.errors.push(`confirm_hours query: ${rowsErr.message}`)
+    } else if (rows) {
+      summary.confirm_hours.workers_scanned = rows.length
+
+      for (const row of rows) {
+        const job = row.jobs as unknown as {
+          id: string; job_number: string; title: string | null; address: string | null
+          scheduled_date: string | null; scheduled_time: string | null; status: string
+        } | null
+        const contractor = row.contractors as unknown as
+          { full_name: string | null; phone: string | null } | null
+        if (!job || !contractor || !row.contractor_id) { summary.confirm_hours.skipped++; continue }
+
+        // Shared with the portal + the contractor card so every surface shows
+        // the same figure: their own share, plus any ADMIN-APPROVED adjustment.
+        const hours = hoursToConfirm({
+          jobId: job.id,
+          contractorId: row.contractor_id as string,
+          hoursAllocated: (row.hours_allocated as number | null) ?? null,
+          hoursConfirmedStatus: 'unconfirmed',
+          extraHours: (row.extra_hours as number | null) ?? null,
+          extraHoursStatus: (row.extra_hours_status as string | null) ?? null,
+        })
+
+        const { count: alreadySent } = await supabase
+          .from('notification_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('type', 'confirm_hours')
+          .eq('audience', 'contractor')
+          .eq('related_job_id', job.id)
+          .eq('related_contractor_id', row.contractor_id)
+          .eq('status', 'sent')
+          .gte('created_at', todayStartIso)
+        if ((alreadySent ?? 0) > 0) { summary.confirm_hours.skipped++; continue }
+
+        const r = await sendNotification(supabase, {
+          type: 'confirm_hours',
+          channel: 'sms',
+          audience: 'contractor',
+          source: 'automated',
+          recipientName: contractor.full_name,
+          recipientPhone: contractor.phone,
+          variables: {
+            contractor_name: (contractor.full_name ?? '').split(/\s+/)[0],
+            job_title:       job.title ?? job.job_number,
+            job_number:      job.job_number,
+            site_address:    job.address ?? '',
+            scheduled_date:  job.scheduled_date ? fmtDateNZ(job.scheduled_date) : '',
+            scheduled_time:  job.scheduled_time ?? '',
+            allowed_hours:   hours != null ? String(hours) : '',
+            job_link:        `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/contractor/jobs/${job.id}`,
+            business_name:   BUSINESS_NAME,
+            business_phone:  BUSINESS_PHONE,
+          },
+          jobId: job.id,
+          contractorId: row.contractor_id as string,
+        })
+        if (r.status === 'sent') summary.confirm_hours.sent++
+        else                     summary.confirm_hours.skipped++
+      }
+    }
+  } catch (e) {
+    summary.errors.push(`confirm_hours: ${(e as Error).message}`)
+  }
+
   // ════ Task B — Overdue invoice reminders ═══════════════════════
   try {
     const today = nzDateString(0)
@@ -292,62 +393,21 @@ async function runDaily(request: NextRequest) {
     summary.errors.push(`overdue: ${(e as Error).message}`)
   }
 
-  // ════ Task D — Contractor statement reminders (email) ══════════
-  // Anchored to issued_at: reminder 1 at +2 days, reminder 2 at +4 days (NZ).
-  // Gated behind an explicit workforce setting (default OFF) so no automated
-  // contractor email goes out until it's deliberately enabled. Idempotent —
-  // dedup by (statement_id, reminder_no) via notification_logs. Never changes
-  // statement status; never confirms.
-  const reminders = { enabled: false, scanned: 0, sent: 0, skipped: 0, failed: 0 }
-  try {
-    const settings = await loadWorkforceSettings(supabase)
-    reminders.enabled = settings.enable_contractor_statement_reminders
-    if (reminders.enabled) {
-      const todayNz = nzDateString(0)
-      const { data: issued, error: issErr } = await supabase
-        .from('contractor_statements')
-        .select('id, statement_number, contractor_id, issued_at, review_due_at, contractors ( full_name, email )')
-        .eq('status', 'issued')
-      if (issErr) {
-        summary.errors.push(`statement_reminders query: ${issErr.message}`)
-      } else {
-        reminders.scanned = (issued ?? []).length
-        for (const st of issued ?? []) {
-          const issuedNz = toNzCalendarDate(st.issued_at as string | null)
-          if (!issuedNz) { reminders.skipped++; continue }
-          const days = calendarDaysBetween(issuedNz, todayNz)
-
-          const { data: sentLogs } = await supabase
-            .from('notification_logs')
-            .select('payload')
-            .eq('type', 'contractor_statement_reminder')
-            .eq('status', 'sent')
-            .filter('payload->>statement_id', 'eq', st.id)
-          const sent = {
-            r1_sent: (sentLogs ?? []).some((l) => Number((l.payload as { reminder_no?: number } | null)?.reminder_no) === 1),
-            r2_sent: (sentLogs ?? []).some((l) => Number((l.payload as { reminder_no?: number } | null)?.reminder_no) === 2),
-          }
-          const no = dueReminderNo(days, sent)
-          if (!no) { reminders.skipped++; continue }
-
-          const c = st.contractors as unknown as { full_name: string | null; email: string | null } | null
-          const r = await sendStatementReminder(supabase, {
-            statementId: st.id as string,
-            statementNumber: st.statement_number as string,
-            contractorId: st.contractor_id as string,
-            contactName: c?.full_name ?? null,
-            email: c?.email ?? null,
-            reviewDueAt: (st.review_due_at as string | null) ?? null,
-            reminderNo: no,
-          })
-          if (r.ok) reminders.sent++
-          else reminders.failed++
-        }
-      }
-    }
-    ;(summary as typeof summary & { statement_reminders?: unknown }).statement_reminders = reminders
-  } catch (e) {
-    summary.errors.push(`statement_reminders: ${(e as Error).message}`)
+  // ════ Task D — Contractor statement reminders — RETIRED ════════
+  // (Phase 2, 2026-08-17) These chased contractors to review and confirm an
+  // issued statement before payment. That gate no longer exists: pay flows
+  // straight from approved work to a remittance, so there is nothing to chase.
+  //
+  // Hard-disabled here rather than left on its workforce-setting gate, so that
+  // flipping enable_contractor_statement_reminders on can never email
+  // contractors about a retired workflow. The reminder helpers remain in
+  // src/lib/contractor-statement-reminder*.ts with no caller.
+  //
+  // Never sent in production: 0 statement notifications exist. The summary key
+  // is kept (retired: true) so the cron response shape stays stable for
+  // anything reading it.
+  ;(summary as typeof summary & { statement_reminders?: unknown }).statement_reminders = {
+    retired: true, enabled: false, scanned: 0, sent: 0, skipped: 0, failed: 0,
   }
 
   // ════ Task C — Recurring invoices (draft generation) ════════════
@@ -360,6 +420,37 @@ async function runDaily(request: NextRequest) {
     if (recurring.errors.length) summary.errors.push(...recurring.errors.map((e) => `recurring: ${e}`))
   } catch (e) {
     summary.errors.push(`recurring_invoices: ${(e as Error).message}`)
+  }
+
+  // ════ Task E — Recurring JOB occurrences (rolling generation) ════
+  // Keep every active recurring contract topped up with a rolling six weeks of
+  // future occurrences, so setting a contract active is all staff have to do.
+  // Idempotent: dates that already have an occurrence are skipped, so re-running
+  // creates nothing. Occurrences appear in the contractor's calendar
+  // immediately (both jobs.contractor_id and the job_workers row are set).
+  try {
+    const recurringJobs = await generateDueRecurringJobs(supabase, nzDateString(0))
+    ;(summary as typeof summary & { recurring_jobs?: unknown }).recurring_jobs = recurringJobs
+    if (recurringJobs.errors.length) {
+      summary.errors.push(...recurringJobs.errors.map((e) => `recurring_jobs: ${e}`))
+    }
+  } catch (e) {
+    summary.errors.push(`recurring_jobs: ${(e as Error).message}`)
+  }
+
+  // ════ Task F — Auto-approve contractor pay for recurring visits ════
+  // Backstop for the inline approve on "Mark complete": any recurring
+  // occurrence completed in the last 60 days with no contractor payable gets
+  // one. Idempotent (one payable per job + contractor).
+  try {
+    const since = new Date(Date.now() - 60 * 86400000).toISOString()
+    const autoPay = await autoApproveCompletedRecurringJobs(supabase, since)
+    ;(summary as typeof summary & { recurring_pay?: unknown }).recurring_pay = {
+      scanned: autoPay.scanned, approved: autoPay.approved,
+    }
+    if (autoPay.errors.length) summary.errors.push(...autoPay.errors.map((e) => `recurring_pay: ${e}`))
+  } catch (e) {
+    summary.errors.push(`recurring_pay: ${(e as Error).message}`)
   }
 
   return NextResponse.json({ ok: summary.errors.length === 0, summary })

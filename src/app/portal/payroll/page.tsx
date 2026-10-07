@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase-server'
 import { DollarSign, Plus, ClipboardCheck } from 'lucide-react'
 import clsx from 'clsx'
 import { isAdminEmail } from '@/lib/is-admin'
+import { QuickPayWeek } from './_components/QuickPayWeek'
+import { DeleteDraftPayRunButton } from './_components/DeleteDraftPayRunButton'
 
 function fmtDate(iso: string | null) {
   if (!iso) return '—'
@@ -21,6 +23,18 @@ export default async function PayrollPage({ searchParams }: { searchParams?: { d
     .select('id, pay_period_start, pay_period_end, pay_date, status, created_at')
     .or('kind.is.null,kind.eq.employee')
     .order('pay_date', { ascending: false })
+
+  // Active weekly employees → the one-click "Pay this week" card. (Fortnightly
+  // employees like Radhika get the standard New Pay Run flow.)
+  const { data: weeklyEmps } = await supabase
+    .from('contractors')
+    .select('full_name')
+    .eq('status', 'active')
+    .neq('worker_type', 'contractor')
+    .eq('pay_frequency', 'weekly')
+    .order('full_name')
+  const weeklyNames = (weeklyEmps ?? []).map((e) => (e.full_name as string) ?? '—')
+  const lastPaid = (runs ?? []).find((r) => r.status === 'completed')?.pay_date ?? null
 
   if (error) {
     return (
@@ -47,6 +61,13 @@ export default async function PayrollPage({ searchParams }: { searchParams?: { d
         </div>
       </div>
 
+      {/* One-click weekly pay — the fast path for routine weekly employees. */}
+      {isAdmin && weeklyNames.length > 0 && (
+        <div className="mb-8">
+          <QuickPayWeek frequency="weekly" employeeNames={weeklyNames} lastPaidDate={lastPaid} />
+        </div>
+      )}
+
       {/* Stage F — contractor pay approvals now live in the canonical
           payables flow. This card points at the new worklist; the old
           job-hours queue + contractor pay-run creation are retired (the
@@ -67,11 +88,8 @@ export default async function PayrollPage({ searchParams }: { searchParams?: { d
             </div>
           </Link>
           <p className="text-xs text-sage-400 mt-2">
-            Looking for older contractor pay runs?{' '}
-            <Link href="/portal/payroll/contractor-runs" className="underline hover:text-sage-600">
-              View past contractor pay runs
-            </Link>
-            .
+            The legacy contractor pay-run flow is retired — contractor pay runs
+            entirely through approve &rarr; remittance.
           </p>
         </div>
       )}
@@ -90,6 +108,7 @@ export default async function PayrollPage({ searchParams }: { searchParams?: { d
                 <th className="px-5 py-3 font-semibold">Period</th>
                 <th className="px-5 py-3 font-semibold">Pay date</th>
                 <th className="px-5 py-3 font-semibold">Status</th>
+                <th className="px-5 py-3 font-semibold"></th>
               </tr>
             </thead>
             <tbody>
@@ -98,6 +117,7 @@ export default async function PayrollPage({ searchParams }: { searchParams?: { d
                   <td className="p-0"><Link href={`/portal/payroll/${r.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors font-medium text-sage-800">{fmtDate(r.pay_period_start)} – {fmtDate(r.pay_period_end)}</Link></td>
                   <td className="p-0"><Link href={`/portal/payroll/${r.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors text-sage-600">{fmtDate(r.pay_date)}</Link></td>
                   <td className="p-0"><Link href={`/portal/payroll/${r.id}`} className="block px-5 py-3 group-hover:bg-gray-50 transition-colors"><span className={clsx('inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize', r.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-700')}>{r.status}</span></Link></td>
+                  <td className="px-5 py-3 text-right">{isAdmin && r.status === 'draft' && <DeleteDraftPayRunButton payRunId={r.id as string} />}</td>
                 </tr>
               ))}
             </tbody>

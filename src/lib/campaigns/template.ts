@@ -18,12 +18,35 @@
 export interface TemplateLead {
   company: string
   contact_name: string | null
+  /** Recipient email — used to detect a generic/shared inbox for the greeting. */
+  email?: string | null
 }
+
+/** Sender identity shown in the email body + signature. Lets a campaign send as
+ *  Carol (or anyone) rather than a hardcoded name. */
+export interface TemplateSender {
+  /** Full name in the sign-off, e.g. "Carol Browne". */
+  name: string
+  /** Optional role/line under the name, e.g. omitted when the name stands alone. */
+  roleLine?: string | null
+  /** Reply email shown in the text signature (the address replies go to). The
+   *  HTML banner is an image and carries branding visually; the text/plain part
+   *  spells out the contact details for completeness. */
+  email?: string | null
+  /** Absolute URL to a signature banner image. When set, the HTML email shows
+   *  this image as the signature (linked to sano.nz) instead of the text block.
+   *  The text/plain part always keeps the readable text signature. */
+  bannerUrl?: string | null
+}
+
+const DEFAULT_SENDER: TemplateSender = { name: 'Michael Browne', email: 'hello@sano.nz' }
 
 export interface RenderedEmail {
   subject: string
   html: string
   text: string
+  /** Which template variant was selected — 'named' or 'team' — for audit. */
+  variant: 'named' | 'team'
 }
 
 function firstName(contactName: string | null): string {
@@ -32,75 +55,150 @@ function firstName(contactName: string | null): string {
   return first || 'there'
 }
 
+/** A name is only usable for a personal greeting when it's a proper first +
+ *  last name — not a bare first name, an inbox word, or junk. First-name-only
+ *  ("Paul") reads as mail-merge, so those fall back to the team greeting. */
+export function hasUsableFullName(contactName: string | null | undefined): boolean {
+  if (!contactName) return false
+  const parts = contactName.trim().split(/\s+/).filter(Boolean)
+  if (parts.length < 2) return false
+  // each part looks like a name (letters, hyphen, apostrophe), not "there"/"info"
+  const junk = /^(there|team|info|office|admin|reception|enquiries|sales|accounts|hello|contact|manager|owner)$/i
+  return parts.every((p) => /^[A-Za-zĀ-ſ'’.-]{2,}$/.test(p)) && !parts.some((p) => junk.test(p))
+}
+
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-export function renderCommercialIntro(opts: {
-  lead: TemplateLead
-  /** Recipient tracking token (sales_campaign_recipients.token). */
-  token: string
-  /** Absolute site origin, e.g. https://sano.nz */
-  siteUrl: string
-  /** Subject override from the campaign row. */
-  subject?: string
+/** Assemble the final HTML + text from a set of body paragraphs. Shared by the
+ *  intro and the follow-up so they look identical. The website link in the
+ *  signature is a PLAIN https://sano.nz (NOT tracked/redirected) — a tracked
+ *  link adds a redirect domain and makes a personal email read as a campaign. */
+function assembleEmail(opts: {
+  paragraphs: string[]
+  sender: TemplateSender
+  /** Kept for call-site compatibility; no longer used (open pixel removed). */
+  token?: string
+  /** Kept for call-site compatibility; no longer used (open pixel removed). */
+  siteUrl?: string
+  subject: string
+  variant: 'named' | 'team'
 }): RenderedEmail {
-  const { lead, token, siteUrl } = opts
-  const name = firstName(lead.contact_name)
-  const company = lead.company
-
-  const subject = opts.subject || `Quick question about office cleaning at ${company}`
-
-  const trackedSiteLink = `${siteUrl}/api/campaigns/track/click/${token}?to=${encodeURIComponent(
-    `${siteUrl}/services/commercial-cleaning`
-  )}`
-  const openPixel = `${siteUrl}/api/campaigns/track/open/${token}`
-
-  const paragraphs = [
-    `Hi ${name},`,
-    `I'll keep this short. I run Sano, an Auckland cleaning company, and over the last while we've been taking on more commercial work: offices and professional practices that want the place consistently sharp without having to chase their cleaners.`,
-    `If ${company} is happy with its current arrangement, no worries at all. But if the cleaning has become one of those quietly annoying things (details getting missed, different faces every week, standards drifting), I'd genuinely like the chance to quote it. Our teams are background-checked and insured, and we stand behind the work with a satisfaction guarantee.`,
-    `A quick walkthrough is usually all it takes: fifteen minutes, and you'll have a clear, practical quote to weigh up whenever the timing suits.`,
-    `Two honest notes to finish. If you're not the right person for this, sorry for the interruption, and if you can point me at whoever looks after the office I'd really appreciate it. And if you'd simply rather not hear from me, reply "no thanks" and that's the last email you'll get from us.`,
-    `Cheers,`,
-  ]
+  const { paragraphs, sender, subject, variant } = opts
+  // No open-tracking pixel: opens are unreliable (Apple/Gmail pre-fetch) and we
+  // don't use them for follow-up decisions. The useful measures — delivery,
+  // bounce, reply, and outcome — come from the webhook + recipient state, not
+  // from a pixel. Delivery/bounce/reply tracking is unaffected by this.
 
   const signatureText = [
-    `Michael Browne`,
+    sender.name,
+    ...(sender.roleLine ? [sender.roleLine] : []),
     `Sano | Clean spaces - Healthy living`,
+    ...(sender.email ? [sender.email] : []),
     `sano.nz | 0800 726 686`,
     `Auckland, New Zealand`,
   ]
+  const text = [...paragraphs, '', ...signatureText].join('\n\n').replace(/\n\n\n+/g, '\n\n')
 
-  const text = [
-    ...paragraphs,
-    '',
-    ...signatureText,
-    '',
-    `More on our commercial cleaning: ${siteUrl}/services/commercial-cleaning`,
-  ].join('\n\n').replace(/\n\n\n+/g, '\n\n')
+  const htmlParas = paragraphs.map((p) => `<p style="margin:0 0 14px 0;">${esc(p)}</p>`).join('\n      ')
+  const roleHtml = sender.roleLine ? `<p style="margin:0 0 4px 0;color:#5c6b64;">${esc(sender.roleLine)}</p>\n      ` : ''
 
-  const htmlParas = paragraphs
-    .map((p) => `<p style="margin:0 0 14px 0;">${esc(p)}</p>`)
-    .join('\n      ')
+  // Signature: banner image when provided (same banner Carol's real Outlook
+  // emails use — linked to sano.nz, left-aligned, no rounding), otherwise the
+  // plain text block with an untracked sano.nz link.
+  const signatureHtml = sender.bannerUrl
+    ? `<a href="https://sano.nz" style="display:block;text-decoration:none;">
+        <img src="${esc(sender.bannerUrl)}" alt="${esc(sender.name)} — Sano | sano.nz" width="850" style="display:block;width:850px;max-width:100%;height:auto;border:0;margin:8px 0 0;" />
+      </a>`
+    : `<p style="margin:0 0 4px 0;">${esc(sender.name)}</p>
+      ${roleHtml}<p style="margin:0 0 4px 0;color:#5c6b64;">Sano | Clean spaces - Healthy living</p>
+      <p style="margin:0 0 4px 0;color:#5c6b64;">
+        <a href="https://sano.nz" style="color:#076653;">sano.nz</a> | 0800 726 686
+      </p>
+      <p style="margin:0;color:#5c6b64;">Auckland, New Zealand</p>`
 
+  // Left-aligned, full-width, no centered card — reads like a personal email
+  // Carol typed in Outlook/Gmail, not a marketing template. A generous max-width
+  // keeps long lines readable without floating a narrow column in the middle.
   const html = `<!DOCTYPE html>
 <html lang="en">
   <body style="margin:0;padding:0;background:#ffffff;">
-    <div style="max-width:560px;margin:0 auto;padding:24px 20px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#333d38;">
+    <div style="max-width:850px;margin:0;padding:16px;text-align:left;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#222222;">
       ${htmlParas}
-      <p style="margin:0 0 4px 0;">Michael Browne</p>
-      <p style="margin:0 0 4px 0;color:#5c6b64;">Sano | Clean spaces - Healthy living</p>
-      <p style="margin:0 0 4px 0;color:#5c6b64;">
-        <a href="${trackedSiteLink}" style="color:#076653;">sano.nz</a> | 0800 726 686
-      </p>
-      <p style="margin:0;color:#5c6b64;">Auckland, New Zealand</p>
-      <img src="${openPixel}" width="1" height="1" alt="" style="display:block;border:0;" />
+      ${signatureHtml}
     </div>
   </body>
 </html>`
 
-  return { subject, html, text }
+  return { subject, html, text, variant }
+}
+
+export function renderCommercialIntro(opts: {
+  lead: TemplateLead
+  token: string
+  siteUrl: string
+  subject?: string
+  sender?: TemplateSender
+}): RenderedEmail {
+  const { lead, token, siteUrl } = opts
+  const company = lead.company
+  const sender = opts.sender ?? DEFAULT_SENDER
+  const senderFirst = sender.name.trim().split(/\s+/)[0] || 'Carol'
+  const subject = opts.subject || `Cleaning at ${company}`
+
+  // Two templates, selected on the ONE thing that changes whether the email
+  // sounds personal or automated: do we have a reliable full name?
+  //   named  → greet by first name, soft ask to be pointed to the best person
+  //   team   → "Hi team", ask someone in the team to point to the best person
+  const named = hasUsableFullName(lead.contact_name)
+  const greetName = named ? firstName(lead.contact_name) : 'team'
+
+  const intro = `I'm ${senderFirst} and I run Sano. We're an Auckland cleaning company, and I wanted to see whether there might be an opportunity to provide a quote for the cleaning at ${company}, either now or when you next review your cleaning arrangements.`
+  const askLine = named
+    ? `If this isn't something you look after, I'd really appreciate you pointing me towards the best person to speak with.`
+    : `If someone in the team could point me towards the best person to speak with about this, I'd really appreciate it.`
+
+  return assembleEmail({
+    paragraphs: [
+      `Hi ${greetName},`,
+      `I hope you don't mind me reaching out.`,
+      intro,
+      askLine,
+      `If you're already well sorted in this space, feel free to let me know and I won't follow up again.`,
+      `Kind regards,`,
+    ],
+    sender, token, siteUrl, subject, variant: named ? 'named' : 'team',
+  })
+}
+
+/** One light follow-up to a non-replier, ~5 business days after the intro. Same
+ *  named/team split. Subject prefixed "Re:" so it threads as a follow-up. */
+export function renderCommercialFollowup(opts: {
+  lead: TemplateLead
+  token: string
+  siteUrl: string
+  /** The original subject sent to this lead — the follow-up re-uses it as "Re: ...". */
+  originalSubject: string
+  sender?: TemplateSender
+}): RenderedEmail {
+  const { lead, token, siteUrl, originalSubject } = opts
+  const company = lead.company
+  const sender = opts.sender ?? DEFAULT_SENDER
+  const named = hasUsableFullName(lead.contact_name)
+  const greetName = named ? firstName(lead.contact_name) : 'team'
+  const subject = /^re:/i.test(originalSubject) ? originalSubject : `Re: ${originalSubject}`
+
+  const paragraphs = [
+    `Hi ${greetName},`,
+    `I just wanted to follow up on my email below in case it was missed.`,
+    `I'd appreciate the opportunity to provide a quote for the cleaning at ${company}, either now or when you next review your arrangements.`,
+    // Named leads get the "someone else?" line; team inboxes don't.
+    ...(named ? [`If there's someone else I'd be better speaking with, I'd really appreciate you pointing me in the right direction.`] : []),
+    `Kind regards,`,
+  ]
+
+  return assembleEmail({ paragraphs, sender, token, siteUrl, subject, variant: named ? 'named' : 'team' })
 }
 
 /** Belt-and-braces unsubscribe header alongside the human reply-to-opt-out. */

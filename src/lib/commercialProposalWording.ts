@@ -54,6 +54,44 @@ export const AREA_WORDING_SPECS: Record<ProposalGroupKey, AreaWordingSpec> = {
     closing: 'Bins are emptied and relined every visit.',
   },
 
+  // Hospitality groups. Written for an operator whose site is judged by paying
+  // customers the next time the doors open, not by staff who work there. The
+  // sentences name what a venue manager would actually check.
+  dining_public: {
+    opening:
+      'Dining and public areas are reset for service, so the room is presentable before the first customer arrives.',
+    triggers: [
+      { rank: 10, pattern: /vacuum|carpet/i,        sentence: 'Carpeted areas are vacuumed, including under tables and along edges.' },
+      { rank: 20, pattern: /concrete|mop|hard.?floor/i, sentence: 'Hard floors are dust mopped and damp mopped, with spills and marks lifted rather than spread.' },
+      { rank: 30, pattern: /table|chair|seating|booth/i, sentence: 'Tables, chairs and seating are wiped down, including ledges and bases where spillage collects.' },
+      { rank: 40, pattern: /glass|window|sill|ledge/i,  sentence: 'Internal glass, ledges and sills are spot-cleaned to remove marks and fingerprints.' },
+    ],
+    closing: null,
+  },
+
+  bar_service: {
+    opening:
+      'Bar and service areas carry the heaviest spillage on a venue site and are cleaned with that in mind.',
+    triggers: [
+      { rank: 10, pattern: /surface|counter|bench/i, sentence: 'Bar surfaces and working benches are cleaned and sanitised.' },
+      { rank: 20, pattern: /behind|move|item/i,      sentence: 'Light items are moved to clean behind the bar and along the working benches on the agreed cadence.' },
+      { rank: 30, pattern: /floor|mop|wet\s*area/i,   sentence: 'Floors and wet areas are mopped and sanitised, with attention to the drainage points where residue builds up.' },
+    ],
+    closing: 'Beer lines, taps and drip trays remain the responsibility of your team.',
+  },
+
+  outdoor_areas: {
+    opening:
+      'Outdoor areas are part of what customers see first, and are maintained on the same cadence as the interior.',
+    triggers: [
+      { rank: 10, pattern: /limestone|gravel|rake/i,   sentence: 'Loose surfaces are raked back to an even finish and rubbish is collected.' },
+      { rank: 20, pattern: /paving|waterblast|deck/i,  sentence: 'Paved areas are waterblasted on the agreed cadence to lift ground-in grime.' },
+      { rank: 30, pattern: /playground|bark/i,         sentence: 'The playground area is tidied and rubbish removed. This is presentation upkeep, not a formal playground safety inspection.' },
+      { rank: 40, pattern: /rubbish|litter|bin/i,      sentence: 'Litter is collected across the outdoor areas each visit.' },
+    ],
+    closing: null,
+  },
+
   offices_workstations: {
     opening:
       'Offices and workstations are cleaned quietly, without disrupting the day. Surfaces, floors, and high-touch points are maintained consistently.',

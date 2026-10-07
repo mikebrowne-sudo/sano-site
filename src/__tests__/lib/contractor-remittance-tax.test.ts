@@ -181,24 +181,32 @@ describe('PR 9 migration + wiring safeguards (source-level)', () => {
   const doc = readFileSync(join(process.cwd(), 'src/components/ContractorRemittanceDocument.tsx'), 'utf8')
   const stmtDoc = readFileSync(join(process.cwd(), 'src/components/ContractorStatementSnapshot.tsx'), 'utf8')
 
+  // NOTE (Phase 2, 2026-08-17): the statement workflow is retired, so the
+  // `issue` half of these paired assertions has been dropped —
+  // _actions-issue.ts is now a stub and can no longer create or pay anything.
+  // Every guard on the CANONICAL path (remit + sql) is still asserted below,
+  // unchanged; the tax protections that matter are on remittance creation.
+
   it('NO (contractor_id, supply_date) snapshot lookup remains anywhere', () => {
     // The resolver signature takes an explicit id map, not a supply date.
     expect(resolver).not.toMatch(/supplyDate.*approvedSnapshots|approvedSnapshots.*supplyDate/)
     // The wiring loads snapshots by id (.in('id', ...)), never by contractor+date.
     expect(remit).not.toMatch(/\.eq\('contractor_id', .*\)[\s\S]{0,80}\.eq\('status', 'approved'\)/)
     expect(remit).toMatch(/\.in\('id', snapshotIds\)/)
-    expect(issue).toMatch(/\.in\('id', stmtSnapshotIds\)/)
   })
 
   it('the explicit link lives on the payable + is copied to the remittance', () => {
     expect(sql).toMatch(/alter table public\.contractor_invoices[\s\S]*add column if not exists contractor_payment_snapshot_id uuid[\s\S]*on delete restrict/)
     expect(remit).toMatch(/contractorPaymentSnapshotId: ci\.contractor_payment_snapshot_id/)
-    expect(issue).toMatch(/contractorPaymentSnapshotId: ci\.contractor_payment_snapshot_id/)
   })
 
-  it('a payable with an invalid/absent explicit snapshot BLOCKS creation/issue', () => {
+  it('a payable with an invalid/absent explicit snapshot BLOCKS remittance creation', () => {
     expect(remit).toMatch(/if \(r\.kind === 'error'\) return \{ error:/)
-    expect(issue).toMatch(/if \(taxR\.kind === 'error'\) return \{ error:/)
+  })
+
+  it('the retired statement issue action can no longer create or pay anything', () => {
+    expect(issue).toMatch(/RETIRED \(Phase 2/)
+    expect(issue).not.toMatch(/from\('contractor_statements'\)/)
   })
 
   it('DB validates approved+ok+same-contractor+same-schedule+exact-match on insert', () => {
@@ -273,9 +281,10 @@ describe('PR 9 migration + wiring safeguards (source-level)', () => {
     expect(create).toMatch(/Cannot approve schedular payable/)
   })
 
-  it('remittance + statement block a schedular payable with no snapshot (no ordinary fallback)', () => {
+  it('remittance blocks a schedular payable with no snapshot (no ordinary fallback)', () => {
+    // Statement issue is retired (Phase 2) — remittance creation is now the
+    // only path this guard has to cover, and it still covers it.
     expect(remit).toMatch(/a schedular payable has no payment snapshot/)
-    expect(issue).toMatch(/is schedular but has no payment snapshot/)
   })
 
   it('corrections retain the original + supersede via explicit lineage', () => {

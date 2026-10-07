@@ -28,7 +28,7 @@ describe('portal nav — restructured shape', () => {
       '/portal/finance', '/portal/contractor-invoices', '/portal/contractor-statements',
       '/portal/payroll', '/portal/payroll/employee', '/portal/mileage',
       '/portal/leads', '/portal/campaigns', '/portal/reviews',
-      '/portal/jobs/calendar', '/portal/settings/accountants', '/portal/settings/archive',
+      '/portal/settings/accountants', '/portal/settings/archive',
     ]) {
       expect(hrefs).not.toContain(gone)
     }
@@ -54,9 +54,14 @@ describe('isNavActive — hubs light up on the routes they front', () => {
       expect(isNavActive(p, item('/portal/marketing'))).toBe(true)
     }
   })
-  it('Jobs stays lit on the folded-in Calendar view', () => {
-    expect(isNavActive('/portal/jobs/calendar', item('/portal/jobs'))).toBe(true)
+  it('Calendar is its own item; Jobs and Calendar highlight distinctly', () => {
+    // On the calendar page: Calendar lit, Jobs NOT.
+    expect(isNavActive('/portal/jobs/calendar', item('/portal/jobs/calendar'))).toBe(true)
+    expect(isNavActive('/portal/jobs/calendar', item('/portal/jobs'))).toBe(false)
+    // On a jobs page: Jobs lit, Calendar NOT.
     expect(isNavActive('/portal/jobs', item('/portal/jobs'))).toBe(true)
+    expect(isNavActive('/portal/jobs/123', item('/portal/jobs'))).toBe(true)
+    expect(isNavActive('/portal/jobs', item('/portal/jobs/calendar'))).toBe(false)
   })
   it('Settings stays lit on its sub-pages (accountants / archive folded in)', () => {
     expect(isNavActive('/portal/settings/accountants', item('/portal/settings'))).toBe(true)
@@ -106,7 +111,9 @@ describe('reachability — nothing removed (source-level)', () => {
     expect(settings).toMatch(/Accountant access/)
   })
   it('the Pay hub links every former pay tab', () => {
-    for (const p of ['/portal/contractor-invoices/pay-run', '/portal/contractor-invoices', '/portal/contractor-statements', '/portal/payroll/employee', '/portal/mileage']) {
+    // 'Employee pay' now points at the full payroll system (/portal/payroll);
+    // the old /portal/payroll/employee helper redirects there.
+    for (const p of ['/portal/contractor-invoices/pay-run', '/portal/contractor-invoices', '/portal/contractor-statements', '/portal/payroll', '/portal/mileage']) {
       expect(payHub).toContain(p)
     }
   })
@@ -118,7 +125,9 @@ describe('reachability — nothing removed (source-level)', () => {
 
   it('⌘K still reaches the hub children by name (P&L, Mileage, Calendar, etc.)', () => {
     const palette = readFileSync(join(process.cwd(), 'src/app/portal/_components/CommandPalette.tsx'), 'utf8')
-    for (const label of ['P&L statement', 'Mileage logbook', 'Calendar', 'Pay run', 'Contractor statements', 'Accountant access']) {
+    // 'Pay run' became 'Contractor pay' in Phase 5 so the palette matches the
+    // workspace naming (Contractor pay | Payment history). Same route.
+    for (const label of ['P&L statement', 'Mileage logbook', 'Calendar', 'Contractor pay', 'Contractor statements', 'Accountant access']) {
       expect(palette).toContain(label)
     }
     expect(palette).toMatch(/HUB_DESTINATIONS/)

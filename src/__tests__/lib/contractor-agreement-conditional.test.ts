@@ -113,6 +113,41 @@ describe('clause 9 — insurance reflects the arrangement', () => {
   })
 })
 
+describe('clause 17.2 — liability cap wording varies by insurance arrangement', () => {
+  it('covered_by_sano: refers to "the applicable insurance arrangement", flat $5,000 cap, NOT "the Contractor’s insurance"', () => {
+    const c17 = clause({ insuranceMode: 'covered_by_sano' }, '17.')
+    expect(c17).toMatch(/loss covered under the applicable insurance arrangement/)
+    expect(c17).toMatch(/limited to \$5,000\./)
+    expect(c17).not.toMatch(/the Contractor’s insurance/)
+    expect(c17).not.toMatch(/amount recoverable under the Contractor’s insurance/)
+  })
+  it('own_required: retains the existing "Contractor’s insurance" / greater-of wording', () => {
+    const c17 = clause({ insuranceMode: 'own_required' }, '17.')
+    expect(c17).toMatch(/damage covered by the Contractor’s insurance/)
+    expect(c17).toMatch(/greater of \$5,000 or the amount recoverable under the Contractor’s insurance/)
+  })
+  it('not_required: 17.2 has no insurance reference; flat $5,000 cap', () => {
+    // Isolate the 17.2 sentence (17.1 legitimately mentions an insurance excess).
+    const body = buildContractorSections({ insuranceMode: 'not_required' }).find((s) => s.title.startsWith('17.'))!.body
+    const c172 = body.find((b) => b.startsWith('17.2'))!
+    expect(c172).toMatch(/theft or breach of confidentiality, the Contractor’s aggregate liability/)
+    expect(c172).toMatch(/limited to \$5,000\./)
+    expect(c172).not.toMatch(/insurance/i)
+  })
+  it('17.1 and 17.3 are unchanged across all modes', () => {
+    for (const mode of ['own_required', 'covered_by_sano', 'not_required'] as const) {
+      const c17 = clause({ insuranceMode: mode }, '17.')
+      expect(c17).toMatch(/17\.1 The Contractor is responsible for direct loss or damage/)
+      expect(c17).toMatch(/17\.3 The Principal’s liability to the Contractor is limited to fees due/)
+    }
+  })
+  it('never exposes insurer / policy / limit in any 17.2 variant', () => {
+    for (const mode of ['own_required', 'covered_by_sano', 'not_required'] as const) {
+      expect(clause({ insuranceMode: mode }, '17.').toLowerCase()).not.toMatch(/policy number|internal reference|named insurer/)
+    }
+  })
+})
+
 describe('agreementSections(type, opts) — employees unaffected', () => {
   it('permanent/casual return unchanged regardless of opts', () => {
     const a = agreementSections('permanent_employee')

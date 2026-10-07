@@ -10,7 +10,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard, FileText, Receipt, Briefcase, RefreshCw, Users,
   HardHat, BookOpen, DollarSign, Wallet, Bell, Settings,
-  Wallet2, UserPlus, BarChart3, Megaphone, FileSignature,
+  Wallet2, UserPlus, BarChart3, Megaphone, FileSignature, CalendarDays,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -40,7 +40,8 @@ export const NAV_GROUPS: NavGroup[] = [
     heading: 'Operations',
     items: [
       { href: '/portal',                label: 'Dashboard', icon: LayoutDashboard, exact: true },
-      { href: '/portal/jobs',           label: 'Jobs',      icon: Briefcase },   // Calendar lives inside Jobs
+      { href: '/portal/jobs',           label: 'Jobs',      icon: Briefcase },
+      { href: '/portal/jobs/calendar',  label: 'Calendar',  icon: CalendarDays },
       { href: '/portal/recurring-jobs', label: 'Recurring', icon: RefreshCw },
     ],
   },
@@ -105,8 +106,13 @@ export function isNavActive(pathname: string, item: NavItem): boolean {
   const hubPrefixes = HUB_PREFIXES[item.href]
   if (hubPrefixes) return hubPrefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`))
 
-  // Jobs now includes the Calendar view (folded in) — highlight on both.
+  // Calendar is its own top-level item at /portal/jobs/calendar — match it exactly.
+  if (item.href === '/portal/jobs/calendar') {
+    return pathname === '/portal/jobs/calendar' || pathname.startsWith('/portal/jobs/calendar/')
+  }
+  // Jobs fronts its sub-pages EXCEPT the calendar (which is its own item now).
   if (item.href === '/portal/jobs') {
+    if (pathname === '/portal/jobs/calendar' || pathname.startsWith('/portal/jobs/calendar/')) return false
     return pathname === '/portal/jobs' || pathname.startsWith('/portal/jobs/')
   }
   // Settings fronts its own sub-pages (Accountant access, Archive live inside it).

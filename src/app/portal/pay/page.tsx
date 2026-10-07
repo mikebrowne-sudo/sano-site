@@ -1,8 +1,34 @@
-import { createClient } from '@/lib/supabase-server'
+// Pay hub (Phase 5) — an operational overview, not just navigation.
+//
+// Answers "what's the state of pay across the business right now?" in one
+// glance, then routes to the two workspaces that do the work:
+//   Contractors -> Current pay · Payment history
+//   Employees   -> Payroll · IRD liabilities · Mileage
+//
+// Every contractor figure is derived exactly the way Contractor Pay and Payment
+// History derive it (see lib/pay-overview-data.ts), so the hub can never
+// disagree with the screens it links to.
+//
+// Read-only: viewing this page changes no payment state.
+//
+// Retired concepts are deliberately absent from the primary layout — contractor
+// statements and the legacy contractor pay-run track are gone from the actions;
+// the statements archive is kept only as a small labelled historical link, since
+// the records still exist.
+
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import type { LucideIcon } from 'lucide-react'
+import {
+  ArrowLeft, ArrowRight, Wallet, Landmark, Banknote, FolderOpen, AlertTriangle,
+} from 'lucide-react'
+import clsx from 'clsx'
+import { createClient } from '@/lib/supabase-server'
+import { buttonClasses } from '../_components/Button'
 import { isFinanceUser } from '@/lib/is-admin'
-import { HubGrid } from '../_components/HubGrid'
-import { CalendarClock, ClipboardCheck, Banknote, FileInput, FolderOpen, Layers, Car } from 'lucide-react'
+import { formatCurrency, formatDate } from '@/lib/format'
+import { loadContractorPayOverview, loadEmployeePayOverview } from '@/lib/pay-overview-data'
+import { loadAwaitingPayment } from '@/lib/awaiting-payment-data'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,29 +37,268 @@ export default async function PayHubPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!isFinanceUser(user)) notFound()
 
+  const [contractor, employee, awaitingPayment] = await Promise.all([
+    loadContractorPayOverview(supabase),
+    loadEmployeePayOverview(supabase),
+    loadAwaitingPayment(supabase),
+  ])
+
+  // Jobs still needing pay approval — the same source Contractor Pay uses.
+  const { loadApprovalRows, awaitingAuthorisation } = await import('@/lib/contractor-pay-approvals-data')
+  const awaiting = awaitingAuthorisation(await loadApprovalRows(supabase))
+
+  // Needs attention — only genuinely actionable things. A payment waiting on
+  // bank reconciliation is NORMAL and is reported as information, not an alert.
+  const attention: { label: string; href: string; tone: 'amber' | 'sage' }[] = []
+  if (awaiting.length > 0) {
+    attention.push({
+      label: `${awaiting.length} completed job${awaiting.length === 1 ? '' : 's'} awaiting pay approval`,
+      href: '/portal/contractor-invoices/pay-run', tone: 'amber',
+    })
+  }
+  if (contractor.partlyConfirmedCount > 0) {
+    attention.push({
+      label: `${contractor.partlyConfirmedCount} payment${contractor.partlyConfirmedCount === 1 ? '' : 's'} only partly matched to the bank`,
+      href: '/portal/finance/reconcile-out', tone: 'amber',
+    })
+  }
+  if (employee.draftRunCount > 0) {
+    attention.push({
+      label: `${employee.draftRunCount} draft employee pay run${employee.draftRunCount === 1 ? '' : 's'} to review`,
+      href: '/portal/payroll', tone: 'sage',
+    })
+  }
+  if (employee.unreimbursedMileage > 0) {
+    // State the MONEY and the consequence, not just a count. Mileage is
+    // captured when a pay run is created, so anything unattached (and
+    // especially anything still in draft) is silently skipped by the next
+    // run — the operator needs to act before approving, not after.
+    const money = `$${employee.unreimbursedMileageTotal.toFixed(2)}`
+    const unapproved = employee.unapprovedMileageCount
+    attention.push({
+      label: unapproved > 0
+        ? `${money} mileage not on any pay run — ${unapproved} still unapproved, so it won’t be picked up`
+        : `${money} approved mileage not attached to any pay run`,
+      href: '/portal/mileage',
+      tone: unapproved > 0 ? 'amber' : 'sage',
+    })
+  }
+
   return (
-    <HubGrid
-      title="Pay"
-      intro="Everything for paying people, in the order you do it — run a fortnightly pay cycle, then the records behind it."
-      sections={[
-        {
-          heading: 'Run a pay cycle',
-          cards: [
-            { href: '/portal/contractor-invoices/pay-run', title: 'Pay run', desc: 'Bundle a fortnight’s authorised jobs into remittances.', icon: CalendarClock },
-            { href: '/portal/contractor-invoices/pending-approvals', title: 'Pending approvals', desc: 'Completed jobs awaiting pay authorisation.', icon: ClipboardCheck },
-            { href: '/portal/payroll/employee', title: 'Employee pay', desc: 'Salaried staff — Carol and future employees.', icon: Banknote },
-          ],
-        },
-        {
-          heading: 'Records',
-          cards: [
-            { href: '/portal/contractor-invoices', title: 'Contractor invoices', desc: 'Every contractor payable, filterable.', icon: FileInput },
-            { href: '/portal/contractor-invoices/remittances', title: 'Remittances', desc: 'Saved pay runs — sent and paid.', icon: FolderOpen },
-            { href: '/portal/contractor-statements', title: 'Contractor statements', desc: 'Period statements issued to contractors.', icon: Layers },
-            { href: '/portal/mileage', title: 'Mileage logbook', desc: 'Reimbursable driving kilometres.', icon: Car },
-          ],
-        },
-      ]}
-    />
+    <div className="max-w-5xl">
+      <Link href="/portal" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 mb-4">
+        <ArrowLeft size={14} /> Dashboard
+      </Link>
+      <h1 className="text-3xl font-bold text-sage-800 tracking-tight mb-1">Pay</h1>
+      <p className="text-sm text-sage-500 mb-6 max-w-2xl">
+        Where contractor and employee pay stands right now.
+      </p>
+
+      {employee.toPayToday.runs.length > 0 && (
+        <section className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
+          <h2 className="text-[11px] uppercase tracking-wide text-emerald-700 mb-2">To pay</h2>
+          <p className="text-sm text-emerald-900 mb-3">
+            {employee.toPayToday.runs.length === 1
+              ? 'One approved pay run is waiting to be paid.'
+              : `${employee.toPayToday.runs.length} approved pay runs are waiting to be paid. Pay them in one transfer of the total below, then mark each one paid with the same bank reference so they reconcile.`}
+          </p>
+          <ul className="space-y-1.5 mb-3">
+            {employee.toPayToday.runs.map((r) => (
+              <li key={r.id}>
+                <Link
+                  href={`/portal/payroll/${r.id}`}
+                  className="flex items-center justify-between gap-3 text-sm text-emerald-900 hover:underline"
+                >
+                  <span className="truncate">{r.label}</span>
+                  <span className="font-medium tabular-nums shrink-0">
+                    {r.amount.toLocaleString('en-NZ', { style: 'currency', currency: 'NZD' })}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="flex items-center justify-between gap-3 border-t border-emerald-200 pt-2">
+            <span className="text-sm font-semibold text-emerald-900">Total to transfer</span>
+            <span className="text-lg font-bold text-emerald-900 tabular-nums">
+              {employee.toPayToday.total.toLocaleString('en-NZ', { style: 'currency', currency: 'NZD' })}
+            </span>
+          </div>
+        </section>
+      )}
+
+      {attention.length > 0 && (
+        <section className="mb-6 rounded-2xl border border-sage-200 bg-white p-4">
+          <h2 className="text-[11px] uppercase tracking-wide text-sage-400 mb-2">Needs attention</h2>
+          <ul className="space-y-1.5">
+            {attention.map((a) => (
+              <li key={a.href + a.label}>
+                <Link href={a.href} className="flex items-center gap-2 text-sm text-sage-700 hover:text-sage-900 group">
+                  <AlertTriangle size={13} className={a.tone === 'amber' ? 'text-amber-500' : 'text-sage-400'} />
+                  <span className="group-hover:underline">{a.label}</span>
+                  <ArrowRight size={13} className="text-sage-300 group-hover:text-sage-500" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Four primary cards. Each is a SUMMARY + one obvious way in — detail
+          belongs on the destination page, not here. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        {/* 1 — Contractor Pay: the main operational card. */}
+        <PayCard
+          icon={Wallet}
+          title="Contractor Pay"
+          href="/portal/contractor-invoices/pay-run"
+          actionLabel="Open Contractor Pay"
+          primary
+          stats={[
+            {
+              label: 'Awaiting payment',
+              value: formatCurrency(awaitingPayment.total),
+              detail: `${awaitingPayment.remittanceCount} remittance${awaitingPayment.remittanceCount === 1 ? '' : 's'} prepared`,
+              accent: awaitingPayment.remittanceCount > 0,
+            },
+            {
+              label: 'Ready to pay',
+              value: formatCurrency(contractor.readyTotal),
+              detail: `${contractor.payeeCount} payee${contractor.payeeCount === 1 ? '' : 's'} · ${contractor.payItemCount} job${contractor.payItemCount === 1 ? '' : 's'}`,
+            },
+            {
+              label: 'Awaiting approval',
+              value: String(awaiting.length),
+              detail: awaiting.length === 0 ? 'nothing to approve' : `job${awaiting.length === 1 ? '' : 's'} to approve`,
+              accent: awaiting.length > 0,
+            },
+          ]}
+        />
+
+        {/* 2 — Employee Pay: deliberately separate from contractor pay. */}
+        <PayCard
+          icon={Banknote}
+          title="Employee Pay"
+          href="/portal/payroll"
+          actionLabel="Open Employee Payroll"
+          stats={[
+            {
+              label: 'On payroll',
+              value: String(employee.activeEmployees),
+              detail: `active employee${employee.activeEmployees === 1 ? '' : 's'}`,
+            },
+            {
+              label: employee.latestRun?.status === 'draft' ? 'Draft pay run' : 'Latest pay run',
+              value: employee.latestRun ? formatCurrency(employee.latestRun.netTotal) : '—',
+              detail: employee.latestRun
+                ? `${employee.latestRun.lineCount} employee${employee.latestRun.lineCount === 1 ? '' : 's'}${employee.latestRun.payDate ? ` · ${formatDate(employee.latestRun.payDate)}` : ''}`
+                : 'no pay runs yet',
+              accent: employee.latestRun?.status === 'draft',
+            },
+          ]}
+        />
+
+        {/* 3 — Payment History: reference, not where payments are built. */}
+        <PayCard
+          icon={FolderOpen}
+          title="Payment History"
+          href="/portal/contractor-invoices/remittances"
+          actionLabel="View Payment History"
+          stats={[
+            {
+              label: 'Awaiting bank confirmation',
+              value: formatCurrency(contractor.awaitingBankTotal),
+              detail: `${contractor.awaitingBankCount} payment${contractor.awaitingBankCount === 1 ? '' : 's'}${contractor.partlyConfirmedCount > 0 ? ` · ${contractor.partlyConfirmedCount} partly` : ''}`,
+            },
+            {
+              label: 'Bank confirmed',
+              value: String(contractor.confirmedCount),
+              detail: `payment${contractor.confirmedCount === 1 ? '' : 's'} matched to the bank`,
+            },
+          ]}
+        />
+
+        {/* 4 — IRD & Reconciliation: the finance follow-up tasks. */}
+        <PayCard
+          icon={Landmark}
+          title="IRD &amp; Reconciliation"
+          href="/portal/finance/reconcile-out"
+          actionLabel="Bank reconciliation"
+          secondary={[
+            { href: '/portal/payroll/ird', label: 'IRD liabilities' },
+            { href: '/portal/payroll/contractor-withholding', label: 'Schedular withholding' },
+          ]}
+          stats={[
+            {
+              label: 'Unreconciled payments',
+              value: String(contractor.awaitingBankCount + contractor.partlyConfirmedCount),
+              detail: 'paid, not yet matched to the bank',
+              accent: contractor.awaitingBankCount + contractor.partlyConfirmedCount > 0,
+            },
+          ]}
+        />
+      </div>
+
+      {/* Supporting records stay reachable without competing with the cards. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-sage-500">
+        <span className="uppercase tracking-wide text-[11px] text-sage-400">Also</span>
+        <Link href="/portal/contractor-invoices" className="hover:text-sage-700 underline">Contractor invoices</Link>
+        <Link href="/portal/mileage" className="hover:text-sage-700 underline">Mileage</Link>
+        <Link href="/portal/contractors" className="hover:text-sage-700 underline">Workforce</Link>
+        <Link href="/portal/contractor-statements" className="hover:text-sage-700 underline">Contractor statements (historical)</Link>
+      </div>
+    </div>
+  )
+}
+
+interface PayCardStat {
+  label: string
+  value: string
+  detail: string
+  accent?: boolean
+}
+
+/** One primary Pay card: a few headline figures and one obvious way in. */
+function PayCard({
+  icon: Icon, title, href, actionLabel, stats, primary, secondary,
+}: {
+  icon: LucideIcon
+  title: string
+  href: string
+  actionLabel: string
+  stats: PayCardStat[]
+  primary?: boolean
+  secondary?: { href: string; label: string }[]
+}) {
+  return (
+    <section className="rounded-xl border border-gray-100 bg-white shadow-sm p-5 flex flex-col">
+      <h2 className="flex items-center gap-2 text-base font-semibold text-sage-800 mb-3">
+        <Icon size={16} className="text-sage-500" /> {title}
+      </h2>
+
+      <dl className="space-y-2 flex-1">
+        {stats.map((s) => (
+          <div key={s.label} className="flex items-baseline justify-between gap-3">
+            <dt className="text-sm text-sage-600">{s.label}</dt>
+            <dd className="text-right">
+              <span className={clsx('font-semibold tabular-nums', s.accent ? 'text-amber-700' : 'text-sage-800')}>
+                {s.value}
+              </span>
+              <span className="block text-[11px] text-sage-400">{s.detail}</span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Link href={href} className={buttonClasses({ variant: primary ? 'primary' : 'secondary', size: 'sm' })}>
+          {actionLabel}
+        </Link>
+        {secondary?.map((s) => (
+          <Link key={s.href} href={s.href} className="text-xs text-sage-600 hover:text-sage-800 underline">
+            {s.label}
+          </Link>
+        ))}
+      </div>
+    </section>
   )
 }

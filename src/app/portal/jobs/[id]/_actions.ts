@@ -8,6 +8,9 @@ import { sendNotification } from '@/lib/notifications/send'
 import { isLockedByInvoice, writeAmendmentAudit } from '@/lib/amendment-lock'
 import { isAdminUser } from '@/lib/is-admin'
 import { pickSnapshotRate } from '@/lib/contractor-rate-snapshot'
+import { resplitJobHours } from '@/lib/job-hours-split'
+import { getServiceSupabase } from '@/lib/supabase-service'
+import { autoApproveRecurringJobPay } from '@/lib/recurring-pay-auto-approve'
 
 // Phase D — mark a completed job as reviewed. Captures reviewed_at
 // + reviewed_by (FK to auth.users) and audit-logs the transition.
@@ -98,12 +101,40 @@ export async function createInvoiceFromJob(jobId: string) {
   // Pull the client's payment terms so the due date respects the
   // configured terms. We also need the quote's payment_type when
   // available — payment_type lives on the quote, not the job.
-  const [{ data: client }, { data: quote }] = await Promise.all([
+  const [{ data: client }, { data: quote }, { data: quoteItems },
+    { data: jobItemRows },
+  ] = await Promise.all([
     supabase.from('clients').select('payment_type, payment_terms').eq('id', job.client_id).maybeSingle(),
     job.quote_id
       ? supabase.from('quotes').select('payment_type, property_category, type_of_clean, service_type, frequency, scope_size, notes').eq('id', job.quote_id).maybeSingle()
       : Promise.resolve({ data: null }),
+    // Add-on lines from the source quote. Needed BEFORE the insert so the
+    // invoice's base_price can exclude them: InvoiceDocument totals
+    // base_price + items, so putting an add-on-inclusive job_price in base
+    // AND listing the items would double-count.
+    job.quote_id
+      ? supabase.from('quote_items')
+          .select('label, description, price, sort_order')
+          .eq('quote_id', job.quote_id).order('sort_order')
+      : Promise.resolve({ data: [] as unknown[] }),
+    // EXTRAS added on the job itself (job_items). Unlike the quote add-ons
+    // above these are NOT inside job_price, so they are additive: each becomes
+    // a new invoice line and raises the total. Only source='added' qualifies —
+    // a source='quote' row's charge is already in job_price and billing it
+    // again would double-charge the client.
+    supabase.from('job_items')
+      .select('label, description, price, source, sort_order')
+      .eq('job_id', jobId).eq('source', 'added').order('sort_order'),
   ])
+  const addonRows = (quoteItems ?? []) as {
+    label: string; description: string | null; price: number; sort_order: number
+  }[]
+  const addonsTotal = addonRows.reduce((sum, r) => sum + Number(r.price ?? 0), 0)
+  // Extras added on the job. Additive to job_price, so they raise the invoice
+  // total rather than being carved out of base_price like the quote add-ons.
+  const extraRows = (jobItemRows ?? []) as {
+    label: string; description: string | null; price: number | null; sort_order: number | null
+  }[]
   const q = quote as {
     payment_type?: string | null
     property_category?: string | null
@@ -163,7 +194,12 @@ export async function createInvoiceFromJob(jobId: string) {
       // the originally quoted date. This keeps re-scheduled jobs'
       // invoices honest.
       scheduled_clean_date: serviceDate,
-      base_price: job.job_price,
+      // job_price now carries the full quoted total (base + add-ons). The
+      // document adds the itemised lines on top, so the invoice's base must
+      // be the total MINUS those lines or they would be counted twice.
+      base_price: job.job_price != null
+        ? Math.max(0, Number(job.job_price) - addonsTotal)
+        : null,
       // Structured clean type → real service heading + composed description.
       property_category: (q?.property_category as string | null) ?? null,
       type_of_clean: qType,
@@ -186,11 +222,63 @@ export async function createInvoiceFromJob(jobId: string) {
     return { error: `Failed to create invoice: ${iErr?.message}` }
   }
 
-  // 3. Link invoice to job and set status to invoiced.
-  // No invoice_items insert — a job-based invoice has no add-on lines; the
-  // work shows via the service heading + description (from the structured
-  // clean type) above the "Base price" line. payment_status moves to
-  // 'invoice_sent' to reflect the new state.
+  // 3a. Copy the source quote's add-on lines onto the invoice.
+  //
+  // This previously inserted nothing, on the reasoning that "a job-based
+  // invoice has no add-on lines". That holds for a job created directly, but
+  // not for one converted from a quote that had them: the customer agreed to
+  // "clean $600 + carpet $300 + windows $180" and received an invoice showing
+  // a single $600 line. job_price now carries the full total (see
+  // lib/quote-total), so without the lines the invoice would show the right
+  // amount with no explanation of what it covers.
+  if (addonRows.length > 0) {
+    const { error: iiErr } = await supabase.from('invoice_items').insert(
+      addonRows.map((it) => ({
+        invoice_id: invoice.id,
+        label: it.label,
+        description: it.description ?? null,
+        price: it.price,
+        sort_order: it.sort_order,
+      })),
+    )
+    if (iiErr) {
+      return { error: `Invoice created but add-on lines failed: ${iiErr.message}` }
+    }
+  }
+
+  // 3a-ii. Append the job's EXTRAS as further invoice lines.
+  //
+  // These are the carpet clean found on site: work agreed after the job was
+  // created, so it is in neither the quote nor job_price. Each becomes a new
+  // line and raises the invoice total by its price — which is the whole point,
+  // and the opposite of the quote add-ons above, whose total is carved OUT of
+  // base_price because job_price already contains them.
+  //
+  // sort_order continues past the quote lines so the invoice reads in the order
+  // the work was agreed: quoted items first, then what was added on the day.
+  //
+  // The contractor who did the extra is deliberately NOT named on the invoice,
+  // and neither is what they were paid. The client bought Sano.
+  if (extraRows.length > 0) {
+    const baseSort = addonRows.length > 0
+      ? Math.max(...addonRows.map((r) => Number(r.sort_order ?? 0))) + 1
+      : 0
+    const { error: exErr } = await supabase.from('invoice_items').insert(
+      extraRows.map((it, i) => ({
+        invoice_id: invoice.id,
+        label: it.label,
+        description: it.description ?? null,
+        price: Number(it.price ?? 0),
+        sort_order: baseSort + i,
+      })),
+    )
+    if (exErr) {
+      return { error: `Invoice created but the job's extras failed to bill: ${exErr.message}` }
+    }
+  }
+
+  // 3b. Link invoice to job and set status to invoiced. payment_status moves
+  // to 'invoice_sent' to reflect the new state.
   await supabase
     .from('jobs')
     .update({ invoice_id: invoice.id, status: 'invoiced', payment_status: 'invoice_sent' })
@@ -238,6 +326,14 @@ export async function completeJob(jobId: string) {
 
   if (error) {
     return { error: `Failed to complete job: ${error.message}` }
+  }
+
+  // Recurring occurrence → approve the contractor payable now (see
+  // src/lib/recurring-pay-auto-approve.ts). Non-fatal; the cron sweep retries.
+  try {
+    await autoApproveRecurringJobPay(getServiceSupabase(), jobId)
+  } catch (e) {
+    console.error('[completeJob] recurring auto-approve failed', e)
   }
 
   revalidatePath(`/portal/jobs/${jobId}`)
@@ -451,12 +547,50 @@ export async function assignJob(input: AssignJobInput) {
       {
         job_id: jobId,
         contractor_id: contractorId,
-        hours_allocated: allowedHoursAllowed ? (allowedHours ?? null) : (job.allowed_hours as number | null),
+        // Hours come from the re-split below, which accounts for every worker
+        // on the job. Writing the job's full allowed_hours here would give
+        // this contractor the whole job even when others are assigned.
         pay_rate: payRateToSet,
         pay_type: 'hourly',
       },
       { onConflict: 'job_id,contractor_id' },
     )
+
+  // Re-split the allowed hours across the job's full roster. allowed_hours is
+  // the job's TOTAL labour, so a solo assignee gets all of it and a second
+  // worker halves both shares. Workers already committed to pay keep their
+  // frozen amount.
+  {
+    const effectiveAllowed = allowedHoursAllowed
+      ? (allowedHours ?? null)
+      : ((job.allowed_hours as number | null) ?? null)
+
+    const [{ data: rosterRaw }, { data: payables }] = await Promise.all([
+      supabase.from('job_workers').select('contractor_id, hours_allocated, pay_status').eq('job_id', jobId).order('contractor_id'),
+      supabase.from('contractor_invoices').select('contractor_id').eq('job_id', jobId).neq('status', 'void'),
+    ])
+    const roster = (rosterRaw ?? []) as unknown as
+      { contractor_id: string; hours_allocated: number | null; pay_status: string | null }[]
+    const withPayable = new Set((payables ?? []).map((p) => p.contractor_id as string))
+
+    if (roster.length > 0) {
+      const result = resplitJobHours(effectiveAllowed, roster.map((r) => ({
+        contractor_id: r.contractor_id,
+        hours_allocated: r.hours_allocated,
+        pay_status: r.pay_status,
+        locked: withPayable.has(r.contractor_id),
+      })))
+      for (const u of result.updates) {
+        const before = roster.find((r) => r.contractor_id === u.contractor_id)?.hours_allocated ?? null
+        if (before === u.hours_allocated) continue
+        await supabase
+          .from('job_workers')
+          .update({ hours_allocated: u.hours_allocated })
+          .eq('job_id', jobId)
+          .eq('contractor_id', u.contractor_id)
+      }
+    }
+  }
 
   // Notify contractor. Skipped when the caller opts out via
   // notify:false (Assign Only) or when the contractor hasn't

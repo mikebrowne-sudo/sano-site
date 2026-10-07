@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { ArrowLeft, MapPin, Calendar, Clock, Timer, Camera, CheckCircle } from 'lucide-react'
 import clsx from 'clsx'
 import { ContractorJobActions } from '../jobs/[id]/_components/ContractorJobActions'
+import { ConfirmHoursCard } from '../jobs/[id]/_components/ConfirmHoursCard'
 import { ContractorNotesForm } from '../jobs/[id]/_components/ContractorNotesForm'
 import { OnTheWayButton } from '../jobs/[id]/_components/OnTheWayButton'
 import { ContractorPhotos } from '../jobs/[id]/_components/ContractorPhotos'
@@ -101,12 +102,52 @@ export function ContractorJobDetailView({
         <OnTheWayButton jobId={job.id} />
       )}
 
+      {/* "Did this job go to plan?" — asked once the job is finished. The pay
+          basis is the allowed hours agreed up front, so this is one question,
+          not a timesheet. Rendered in the staff preview too (disabled), so
+          Mike sees exactly what the contractor sees. */}
+      {isDone && (
+        <div className="mt-5">
+          {readOnly ? (
+            <div className="bg-white border-2 border-sage-200 rounded-2xl p-4 opacity-60">
+              <p className="text-base font-semibold text-sage-800">Did this job go to plan?</p>
+              <p className="text-sm text-sage-600 mt-1">
+                The contractor confirms their hours here.
+              </p>
+              <div className="mt-4 space-y-2">
+                <button type="button" disabled className="w-full bg-emerald-600 text-white font-semibold px-6 py-4 rounded-2xl text-base cursor-not-allowed min-h-[52px]">
+                  Yes, as planned
+                </button>
+                <button type="button" disabled className="w-full bg-white border-2 border-sage-300 text-sage-700 font-semibold px-6 py-4 rounded-2xl text-base cursor-not-allowed min-h-[52px]">
+                  It took longer
+                </button>
+              </div>
+            </div>
+          ) : (
+            <ConfirmHoursCard
+              jobId={job.id}
+              // Their own hours only — never fall back to the job total, which on a
+              // shared job includes the other cleaner's time.
+              hours={job.payableHours ?? null}
+              status={job.hours_confirmed_status}
+              note={job.hours_confirmed_note}
+            />
+          )}
+        </div>
+      )}
+
       {/* Schedule card */}
       <div className="bg-white rounded-2xl border border-sage-100 p-5 mt-5 space-y-4">
         {scheduledDate && <Row icon={Calendar} label="Date" value={scheduledDate} />}
         {job.scheduled_time && <Row icon={Clock} label="Time" value={job.scheduled_time} />}
         {job.duration_estimate && <Row icon={Timer} label="Duration" value={job.duration_estimate} />}
-        {job.allowed_hours != null && <Row icon={Timer} label="Allowed hours" value={`${job.allowed_hours} hr${job.allowed_hours === 1 ? '' : 's'}`} />}
+        {/* THEIR hours, not the job's. On a 6h two-cleaner job this reads "3 hrs",
+            because that is what this person is there to do and be paid for. The
+            job's total is deliberately not shown: it is the other cleaner's pay
+            and Sano's cost, neither of which is theirs to see. */}
+        {job.payableHours != null && (
+          <Row icon={Timer} label="Your hours" value={`${job.payableHours} hr${job.payableHours === 1 ? '' : 's'}`} />
+        )}
         {job.address && <Row icon={MapPin} label="Address" value={job.address} />}
       </div>
 
@@ -139,6 +180,36 @@ export function ContractorJobDetailView({
             {job.payableHours} hr{job.payableHours === 1 ? '' : 's'} × {fmtCurrency(job.payRate)}/hr
             {job.approvedExtra !== 0 && <span className="text-sage-400"> · incl. {job.approvedExtra > 0 ? '+' : ''}{job.approvedExtra}h adjustment</span>}
           </p>
+        </Card>
+      )}
+
+      {/* Extras this contractor did on the job — a carpet clean, an oven.
+          Paid separately from the clean, often to someone who was never on the
+          job roster, so it gets its own line rather than being folded into the
+          hourly pay above. Only THIS contractor's extras, and only what they
+          are paid — never the client charge, never someone else's extra. */}
+      {job.myExtras.length > 0 && (
+        <Card heading="Extras you did on this job">
+          <ul className="space-y-2">
+            {job.myExtras.map((e) => (
+              <li key={e.id} className="flex items-start justify-between gap-3">
+                <span className="text-sm text-sage-700">{e.label}</span>
+                <span className="shrink-0 text-right">
+                  <span className="block text-sage-800 font-semibold tabular-nums">{fmtCurrency(e.amount)}</span>
+                  {e.basis === 'hourly' && e.hours != null && (
+                    <span className="block text-[11px] text-sage-500 tabular-nums">
+                      {e.hours} hr{e.hours === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {job.payableHours != null && (
+            <p className="mt-3 border-t border-sage-100 pt-2 text-[11px] text-sage-500">
+              Paid separately from your hours on the clean.
+            </p>
+          )}
         </Card>
       )}
 

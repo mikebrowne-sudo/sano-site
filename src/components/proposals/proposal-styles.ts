@@ -94,16 +94,29 @@ export const PROPOSAL_CSS = `
   position: absolute; inset: 0;
   background-size: cover;
   background-position: center;
-  filter: brightness(0.55);
+  /* NO css filter here — see below. Darkening is done by the overlay. */
 }
+/* The header darkening used to be a CSS brightness filter on the element
+   above. A CSS filter forces Chromium to rasterize the element into its own
+   composited layer, which discards the source JPEG and embeds a LOSSLESS PNG
+   of the filtered result — once per page, because each page's raster is a
+   distinct pixel buffer. On a 9-page proposal that was 18 PNG copies of the
+   banner at ~573 KB each: roughly 10.6 MB of an 11 MB document, enough to be
+   rejected by mail gateways that cap at 10 MB.
+   Unfiltered images pass through as JPEG and are shared across pages, so the
+   same darkening expressed as a flat overlay costs nothing. brightness(0.55)
+   multiplies each channel by 0.55, so its equivalent is a black layer at 45%
+   alpha, composited under the existing directional gradient. */
 .proposal-header__overlay {
   position: absolute; inset: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(15, 17, 19, 0.92) 0%,
-    rgba(15, 17, 19, 0.75) 55%,
-    rgba(15, 17, 19, 0.45) 100%
-  );
+  background:
+    linear-gradient(
+      90deg,
+      rgba(15, 17, 19, 0.92) 0%,
+      rgba(15, 17, 19, 0.75) 55%,
+      rgba(15, 17, 19, 0.45) 100%
+    ),
+    rgba(0, 0, 0, 0.45);
 }
 .proposal-header__content {
   position: relative;
@@ -467,6 +480,40 @@ export const PROPOSAL_CSS = `
 }
 .proposal-scope-row__list li {
   margin-bottom: 0.5mm;
+}
+
+/* Assumptions & exclusions.
+   Deliberately NOT reusing .proposal-scope-row: that is a 13mm/1fr grid whose
+   first column holds an icon tile. Without an icon the content is pushed into
+   the narrow second column and the text runs vertically down the page. This
+   block is full-width, single column, with the same type scale as the scope
+   lists so both pages read as one document. */
+.proposal-terms-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6mm;
+}
+.proposal-terms-block__head {
+  font-size: 9.5pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sano-ink);
+  font-weight: 700;
+  margin: 0 0 2.5mm;
+  padding-bottom: 1.5mm;
+  border-bottom: 0.5pt solid var(--sano-rule, #d8d8d0);
+}
+.proposal-terms-block__list {
+  margin: 0;
+  padding-left: 4.5mm;
+  list-style: disc;
+  font-size: 10.5pt;
+  color: var(--sano-ink-2);
+  line-height: 1.6;
+}
+.proposal-terms-block__list li {
+  margin-bottom: 1.2mm;
+  padding-left: 1mm;
 }
 
 /* Pricing — prominent but not oversized */

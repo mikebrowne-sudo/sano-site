@@ -1,6 +1,7 @@
+import { invoiceTotalInclGst, type InvoiceAmountFields } from '@/lib/invoice-balance'
 import { createClient } from '@/lib/supabase-server'
 import Link from 'next/link'
-import { AlertTriangle, Briefcase, Receipt, BookOpen, CalendarDays, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, Briefcase, Receipt, BookOpen, CalendarDays, ShieldCheck, CalendarClock } from 'lucide-react'
 import { RunJobReminders, RunTrainingReminders } from './_components/ReminderButtons'
 import { computeComplianceStatus } from '@/lib/contractor-compliance'
 import { ComplianceBadge } from '../contractors/_components/ComplianceBadge'
@@ -27,6 +28,10 @@ export default async function AlertsPage() {
   const staleFloor = new Date()
   staleFloor.setDate(staleFloor.getDate() - 30)
   const staleFloorStr = staleFloor.toISOString().slice(0, 10)
+  // Renewals surface once they're within 30 days.
+  const in30 = new Date()
+  in30.setDate(in30.getDate() + 30)
+  const in30Str = in30.toISOString().slice(0, 10)
 
   // Load all alert data in parallel
   const [
@@ -36,6 +41,8 @@ export default async function AlertsPage() {
     { data: overdueInvoices, count: overdueInvCount },
     { data: overdueTraining, count: overdueTrainingCount },
     { data: activeContractors },
+    { data: salesFollowUps },
+    { data: salesRenewals },
   ] = await Promise.all([
     // Unassigned, live, not completed/invoiced. Split into recent/upcoming
     // ("active", shown) vs older-than-30-days ("stale", hidden) in JS below.
@@ -59,7 +66,7 @@ export default async function AlertsPage() {
       .neq('status', 'completed').neq('status', 'invoiced'),
     // Overdue invoices — the full list (you asked for all of them), oldest first.
     supabase.from('invoices')
-      .select('id, invoice_number, base_price, discount, due_date, clients ( name ), invoice_items ( price )', { count: 'exact' })
+      .select('id, invoice_number, base_price, discount, gst_included, due_date, clients ( name ), invoice_items ( price )', { count: 'exact' })
       .is('deleted_at', null)
       .eq('status', 'sent')
       .lt('due_date', today)
@@ -75,6 +82,21 @@ export default async function AlertsPage() {
       .select('id, full_name, status, insurance_expiry, right_to_work_required, right_to_work_expiry, contract_signed_date')
       .eq('status', 'active')
       .order('full_name'),
+    // Sales follow-ups due — leads whose next_follow_up is today or earlier and
+    // aren't closed. So a scheduled follow-up actually reaches you.
+    supabase.from('sales_leads')
+      .select('id, company, contact_name, status, next_follow_up')
+      .not('next_follow_up', 'is', null)
+      .lte('next_follow_up', today)
+      .not('status', 'in', '(won,lost,do_not_contact)')
+      .order('next_follow_up', { ascending: true }),
+    // Renewals coming up — within the next 30 days (won clients up for review).
+    supabase.from('sales_leads')
+      .select('id, company, contact_name, status, renewal_date')
+      .not('renewal_date', 'is', null)
+      .lte('renewal_date', in30Str)
+      .not('status', 'in', '(lost,do_not_contact)')
+      .order('renewal_date', { ascending: true }),
   ])
 
   // Compute compliance flags for active contractors
@@ -84,6 +106,11 @@ export default async function AlertsPage() {
 
   const complianceFlaggedCount = complianceFlagged.length
 
+  // Typed views of the sales alert rows (Supabase infers these loosely).
+  type SalesRow = { id: string; company: string; contact_name: string | null; next_follow_up?: string | null; renewal_date?: string | null }
+  const followUpRows = (salesFollowUps ?? []) as unknown as SalesRow[]
+  const renewalRows = (salesRenewals ?? []) as unknown as SalesRow[]
+
   // Split unassigned into active (recent/upcoming → shown) vs stale (old drafts
   // → hidden but counted, so nothing silently disappears).
   const unassignedAll = allUnassigned ?? []
@@ -92,10 +119,7 @@ export default async function AlertsPage() {
   const unassignedCount = activeUnassigned.length
 
   // Total owed across all overdue invoices, for the section header.
-  const overdueTotal = (overdueInvoices ?? []).reduce((sum, inv) => {
-    const items = (inv.invoice_items ?? []) as { price: number }[]
-    return sum + (inv.base_price ?? 0) + items.reduce((s, i) => s + (i.price ?? 0), 0) - (inv.discount ?? 0)
-  }, 0)
+  const overdueTotal = (overdueInvoices ?? []).reduce((sum, inv) => sum + invoiceTotalInclGst(inv as InvoiceAmountFields), 0)
 
   // Calculate which tomorrow jobs haven't been reminded today
   const todayStart = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).toISOString()
@@ -126,8 +150,7 @@ export default async function AlertsPage() {
           <div className="space-y-2">
             {(overdueInvoices ?? []).map((inv) => {
               const client = inv.clients as unknown as { name: string } | null
-              const items = (inv.invoice_items ?? []) as { price: number }[]
-              const total = (inv.base_price ?? 0) + items.reduce((s, i) => s + (i.price ?? 0), 0) - (inv.discount ?? 0)
+              const total = invoiceTotalInclGst(inv as InvoiceAmountFields)
               const daysOver = inv.due_date ? Math.floor((Date.now() - new Date(inv.due_date).getTime()) / 86400000) : 0
               return (
                 <Link key={inv.id} href={`/portal/invoices/${inv.id}`} className="flex items-center justify-between bg-red-50 rounded-lg px-4 py-3 hover:bg-red-100 transition-colors text-sm">
@@ -260,6 +283,34 @@ export default async function AlertsPage() {
           </div>
         )}
       </Section>
+
+      {/* ── Sales follow-ups & renewals due ── */}
+      {(followUpRows.length > 0 || renewalRows.length > 0) && (
+        <Section title={`Sales follow-ups & renewals (${followUpRows.length + renewalRows.length})`} icon={CalendarClock}>
+          <div className="space-y-2">
+            {followUpRows.map((l) => (
+              <Link key={`f-${l.id}`} href={`/portal/leads/${l.id}`} className="flex items-center justify-between rounded-lg px-4 py-3 bg-amber-50 hover:bg-amber-100 transition-colors text-sm">
+                <div className="min-w-0">
+                  <span className="font-medium text-sage-800">{l.company}</span>
+                  {l.contact_name && <span className="text-sage-500"> · {l.contact_name}</span>}
+                  <p className="text-xs text-sage-600 mt-0.5">Follow up due {l.next_follow_up}</p>
+                </div>
+                <span className="text-[11px] font-semibold text-amber-700 flex-none">Follow up</span>
+              </Link>
+            ))}
+            {renewalRows.map((l) => (
+              <Link key={`r-${l.id}`} href={`/portal/leads/${l.id}`} className="flex items-center justify-between rounded-lg px-4 py-3 bg-sage-50 hover:bg-sage-100 transition-colors text-sm">
+                <div className="min-w-0">
+                  <span className="font-medium text-sage-800">{l.company}</span>
+                  {l.contact_name && <span className="text-sage-500"> · {l.contact_name}</span>}
+                  <p className="text-xs text-sage-600 mt-0.5">Renewal / review {l.renewal_date}</p>
+                </div>
+                <span className="text-[11px] font-semibold text-sage-600 flex-none">Renewal</span>
+              </Link>
+            ))}
+          </div>
+        </Section>
+      )}
 
       {/* ── 6. Compliance alerts — BOTTOM ── */}
       <Section title={`Compliance Alerts (${complianceFlaggedCount})`} icon={ShieldCheck}>

@@ -6,6 +6,7 @@ import { AutoPrint } from '../../_components/AutoPrint'
 import { SharePdfButton } from '../../_components/SharePdfButton'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { InvoiceDocument } from '@/components/document/InvoiceDocument'
+import { canTakeRealPayments } from '@/lib/stripe'
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
   const supabase = getServiceSupabase()
@@ -55,6 +56,7 @@ export default async function PublicInvoicePage({
       base_price, discount, gst_included, payment_type,
       contact_name, contact_email, contact_phone,
       accounts_contact_name, accounts_email,
+      bill_to_name, bill_to_attention,
       client_reference,
       clients ( name, company_name, service_address, phone, email )
     `)
@@ -94,7 +96,11 @@ export default async function PublicInvoicePage({
           !isPdfRender ? <SharePdfButton href={`/api/share/invoice/${params.token}/pdf`} /> : undefined
         }
         interactiveSlot={
-          !isPdfRender ? (
+          // Only offer card payment when a real card can actually be charged.
+          // A test key renders a Pay button that declines every real card, which
+          // reads to the customer as "Sano's payment system is broken". The bank
+          // details on the invoice remain, so they always have a way to pay.
+          !isPdfRender && canTakeRealPayments() ? (
             <PayNowButton
               shareToken={params.token}
               status={invoice.status}

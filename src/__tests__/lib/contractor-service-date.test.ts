@@ -7,6 +7,13 @@ describe('resolveContractorServiceDate — one rule for every canonical CI', () 
     })).toEqual({ date: '2026-07-06', source: 'job_completed_at' })
   })
 
+  it('job-derived CI prefers the visit date stamped at approval over the completion date', () => {
+    // JOB-0361: cleaned Wed 9 Sep, marked complete 16 Sep.
+    expect(resolveContractorServiceDate({
+      job_id: 'j1', job_completed_at_nz: '2026-09-16', service_date: '2026-09-09', gst_supply_date: '2026-09-15',
+    })).toEqual({ date: '2026-09-09', source: 'service_date' })
+  })
+
   it('manual (jobless) CI uses an explicit service_date', () => {
     expect(resolveContractorServiceDate({
       job_id: null, job_completed_at_nz: null, service_date: '2026-07-10', gst_supply_date: null,

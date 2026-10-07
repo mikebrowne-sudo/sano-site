@@ -40,6 +40,11 @@ export interface PayslipSnapshot {
   earnings: { lines: EarningsLine[]; gross: number }
   deductions: { paye: number; employeeKsRate: number; employeeKsAmount: number; total: number; net: number }
   employerContributions: { ksRate: number; ksGross: number; esct: number | null; ksNet: number | null }
+  /** Non-taxable reimbursements paid alongside wages (e.g. mileage). Excluded
+   *  from gross/PAYE/KiwiSaver; added to net to give the total paid. */
+  reimbursements: { mileage: number; total: number }
+  /** What actually hits the bank: net wages + reimbursements. */
+  totalPaid: number
   termsSnapshot: unknown
 }
 
@@ -71,6 +76,8 @@ export interface BuildSnapshotInput {
   employerKsGross: number
   esct: number | null
   employerKsNet: number | null
+  /** Non-taxable mileage reimbursement paid with this line. */
+  mileageReimbursement?: number
   termsSnapshot: unknown
 }
 
@@ -107,6 +114,11 @@ export function buildPayslipSnapshot(i: BuildSnapshotInput): PayslipSnapshot {
       esct: i.esct == null ? null : r2(i.esct),
       ksNet: i.employerKsNet == null ? null : r2(i.employerKsNet),
     },
+    reimbursements: {
+      mileage: r2(i.mileageReimbursement ?? 0),
+      total: r2(i.mileageReimbursement ?? 0),
+    },
+    totalPaid: r2(i.net + (i.mileageReimbursement ?? 0)),
     termsSnapshot: i.termsSnapshot ?? null,
   }
 }

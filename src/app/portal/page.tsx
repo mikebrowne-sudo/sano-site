@@ -9,10 +9,23 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+
+// Always render fresh. The dashboard was the ONE portal page without this —
+// 49 others declare it — so Next.js statically cached it and served a stale
+// snapshot. Importing a bank statement updated the stored balance correctly,
+// but the dashboard kept showing the old bank balance / net position until
+// something else happened to bust the cache.
+//
+// revalidatePath('/portal') in the reconcile action isn't sufficient on its
+// own: it only fires when the import actually MOVES the balance forward, so
+// re-importing or importing an older statement left the stale page in place.
+// Every figure here is live operational money — none of it should ever be
+// served from cache.
+export const dynamic = 'force-dynamic'
 import {
   FileText, ArrowRight, DollarSign,
   AlertTriangle, Bell, CalendarDays, MapPin, UserRound, Wallet,
-  TrendingUp, TrendingDown, Briefcase, BarChart3, Landmark, TrendingUp as ProjIcon,
+  TrendingUp, TrendingDown, Briefcase, BarChart3, Landmark, TrendingUp as ProjIcon, PiggyBank,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { isAdminUser, isAccountantUser } from '@/lib/is-admin'
@@ -25,8 +38,11 @@ import { loadPendingKs10Submissions, type PendingKs10 } from '@/lib/kiwisaver-ks
 import { loadStaffTaskCounts } from './_lib/staff-tasks-data'
 import { buildStaffTasks } from '@/lib/staff-tasks'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
-import { buildDashboardFinance } from './_lib/dashboard-finance'
+import { buildDashboardFinance, buildIncomeProjection, buildBookedJobs } from './_lib/dashboard-finance'
+import { BookedJobsChart } from './_components/BookedJobsChart'
 import { getBankBalance } from '@/lib/bank-balance'
+import { invoiceBalanceDue, invoiceTotalInclGst, loadAllocatedByInvoice, type InvoiceAmountFields } from '@/lib/invoice-balance'
+import { buildCashPosition } from '@/lib/cash-position'
 import { loadJobMargins } from '@/lib/job-margin'
 import { GrowthChart } from './_components/GrowthChart'
 
@@ -42,6 +58,8 @@ export default async function PortalDashboard() {
   if (isAccountantUser(user) && !isAdminUser(user)) redirect('/portal/finance')
   const today = new Date().toISOString().slice(0, 10)
   const monthStart = today.slice(0, 8) + '01' // first of the current month
+  const in30 = new Date(); in30.setDate(in30.getDate() + 30)
+  const in30Str = in30.toISOString().slice(0, 10)
   const todayLabel = new Date().toLocaleDateString('en-NZ', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
@@ -60,6 +78,8 @@ export default async function PortalDashboard() {
     { data: paidThisMonth },
     { data: todaySchedule },
     taskCounts,
+    { count: salesFollowUpsDue },
+    { count: salesRenewalsSoon },
   ] = await Promise.all([
     // Phase 5.5.13 — every dashboard query honours the live-record
     // rule: deleted_at IS NULL AND is_test = false. Test / archived
@@ -73,15 +93,23 @@ export default async function PortalDashboard() {
     // and declined are NOT pipeline, so they're excluded. Without this the count
     // balloons with won/dead quotes (e.g. 126 total vs ~27 actually open).
     supabase.from('quotes').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('is_latest_version', true).in('status', ['draft', 'sent']),
-    supabase.from('invoices').select('id, due_date, base_price, discount, invoice_items ( price )').is('deleted_at', null).eq('is_test', false).eq('status', 'sent'),
+    supabase.from('invoices').select('id, due_date, base_price, discount, gst_included, invoice_items ( price )').is('deleted_at', null).eq('is_test', false).eq('status', 'sent'),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).is('contractor_id', null).neq('status', 'completed').neq('status', 'invoiced'),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('scheduled_date', today).neq('status', 'completed').neq('status', 'invoiced'),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('status', 'in_progress'),
     supabase.from('worker_training_assignments').select('*', { count: 'exact', head: true }).neq('status', 'completed').not('due_date', 'is', null).lt('due_date', today),
-    supabase.from('invoices').select('id, base_price, discount, invoice_items ( price )').is('deleted_at', null).eq('is_test', false).eq('status', 'paid').gte('date_paid', monthStart),
+    supabase.from('invoices').select('id, base_price, discount, gst_included, invoice_items ( price )').is('deleted_at', null).eq('is_test', false).eq('status', 'paid').gte('date_paid', monthStart),
     supabase.from('jobs').select('id, job_number, title, address, scheduled_time, status, clients ( name ), contractors ( full_name )').is('deleted_at', null).eq('is_test', false).eq('scheduled_date', today).neq('status', 'completed').neq('status', 'invoiced').order('scheduled_time', { ascending: true }).limit(12),
     loadStaffTaskCounts(supabase),
+    // Sales follow-ups due (today or earlier, not closed).
+    supabase.from('sales_leads').select('*', { count: 'exact', head: true })
+      .not('next_follow_up', 'is', null).lte('next_follow_up', today)
+      .not('status', 'in', '(won,lost,do_not_contact)'),
+    // Renewals within the next 30 days (not lost/DNC).
+    supabase.from('sales_leads').select('*', { count: 'exact', head: true })
+      .not('renewal_date', 'is', null).lte('renewal_date', in30Str)
+      .not('status', 'in', '(lost,do_not_contact)'),
   ])
 
   const staffTasks = buildStaffTasks(taskCounts)
@@ -89,11 +117,31 @@ export default async function PortalDashboard() {
   // ── Business health: 12-month money-in/out series (reuses the P&L defs) +
   //    this-month operational stats. Admin-only page, so no extra gate needed.
   const finance = await buildDashboardFinance(supabase, today, 12)
+  const projection = await buildIncomeProjection(supabase, today, 3)
+  const bookedJobs = await buildBookedJobs(supabase, today, 12, 3)
+  // Headline: the last full month vs the first month with bookings in the window.
+  const bookedPast = bookedJobs.filter((m) => !m.future && !m.current)
+  const lastFull = bookedPast[bookedPast.length - 1]
+  const firstWithJobs = bookedPast.find((m) => m.jobs > 0)
+  const bookedHeadline = lastFull && lastFull.jobs > 0
+    ? {
+        main: `${lastFull.jobs} jobs in ${lastFull.label} · ${money0(lastFull.value)}`,
+        sub: firstWithJobs && firstWithJobs !== lastFull ? `from ${firstWithJobs.jobs} in ${firstWithJobs.label}` : '',
+        growthPct: firstWithJobs && firstWithJobs !== lastFull && firstWithJobs.jobs > 0
+          ? Math.round(((lastFull.jobs - firstWithJobs.jobs) / firstWithJobs.jobs) * 100)
+          : null,
+      }
+    : null
 
   // Bank balance = ASB's stated ledger balance, captured from the last CSV
   // imported into reconciliation (no live feed). Null until a statement with a
   // balance line has been imported.
   const bankBalance = await getBankBalance(supabase)
+
+  // Cash position = total company cash − genuine owner capital introduced.
+  // Distinct from the P&L "net position" (an operating result). Owner capital
+  // is only the owner_capital rows — NOT loans or expense reimbursements.
+  const cashPosition = await buildCashPosition(supabase)
 
   // Jobs completed this month + their average margin (ties into Job margins).
   const { data: completedThisMonth } = await supabase
@@ -131,17 +179,18 @@ export default async function PortalDashboard() {
   const outstandingCount = sentInvoices?.length ?? 0
   const overdueCount = (sentInvoices ?? []).filter((i) => i.due_date && i.due_date < today).length
 
-  // Money at a glance — total = base_price + addon items − discount (the app's
-  // canonical invoice formula). Outstanding = sent (owed); overdue = sent past
-  // due; received = paid this calendar month.
-  type MoneyInv = { due_date?: string | null; base_price: number | null; discount: number | null; invoice_items: { price: number | null }[] }
-  const invTotal = (inv: MoneyInv) =>
-    (inv.base_price ?? 0) + (inv.invoice_items ?? []).reduce((s, i) => s + (i.price ?? 0), 0) - (inv.discount ?? 0)
+  // Money at a glance. Amounts are GST-inclusive (what the customer pays — a
+  // GST-exclusive invoice adds 15%), and "owed" is what's LEFT after any part
+  // payments already matched. Outstanding = sent (owed); overdue = sent past
+  // due; received = invoices paid this calendar month.
+  type MoneyInv = InvoiceAmountFields & { id: string; due_date?: string | null }
   const sentRows = (sentInvoices ?? []) as unknown as MoneyInv[]
   const paidRows = (paidThisMonth ?? []) as unknown as MoneyInv[]
-  const outstandingRevenue = sentRows.reduce((s, i) => s + invTotal(i), 0)
-  const overdueRevenue = sentRows.filter((i) => i.due_date && i.due_date < today).reduce((s, i) => s + invTotal(i), 0)
-  const receivedThisMonth = paidRows.reduce((s, i) => s + invTotal(i), 0)
+  const allocatedBySent = await loadAllocatedByInvoice(supabase, sentRows.map((i) => i.id))
+  const owed = (i: MoneyInv) => invoiceBalanceDue(i, allocatedBySent.get(i.id) ?? 0)
+  const outstandingRevenue = sentRows.reduce((s, i) => s + owed(i), 0)
+  const overdueRevenue = sentRows.filter((i) => i.due_date && i.due_date < today).reduce((s, i) => s + owed(i), 0)
+  const receivedThisMonth = paidRows.reduce((s, i) => s + invoiceTotalInclGst(i), 0)
 
   const schedule = (todaySchedule ?? []) as unknown as Array<{
     id: string; job_number: string | null; title: string | null; address: string | null
@@ -167,6 +216,20 @@ export default async function PortalDashboard() {
   if ((overdueTraining ?? 0) > 0) {
     alerts.push({
       label: `${overdueTraining} overdue training item${overdueTraining !== 1 ? 's' : ''}`,
+      href: '/portal/alerts',
+      tone: 'amber',
+    })
+  }
+  if ((salesFollowUpsDue ?? 0) > 0) {
+    alerts.push({
+      label: `${salesFollowUpsDue} sales follow-up${salesFollowUpsDue !== 1 ? 's' : ''} due`,
+      href: '/portal/alerts',
+      tone: 'amber',
+    })
+  }
+  if ((salesRenewalsSoon ?? 0) > 0) {
+    alerts.push({
+      label: `${salesRenewalsSoon} renewal${salesRenewalsSoon !== 1 ? 's' : ''} coming up`,
       href: '/portal/alerts',
       tone: 'amber',
     })
@@ -238,10 +301,10 @@ export default async function PortalDashboard() {
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <div className="flex items-center justify-between mb-1">
-            <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500">Money in vs out — last 12 months</h2>
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500">Money in vs out — last 12 months + projected</h2>
             <Link href="/portal/reports" className="inline-flex items-center gap-1 text-xs text-sage-500 hover:text-sage-700 font-medium">Reports <ArrowRight size={11} /></Link>
           </div>
-          <GrowthChart points={finance.months} />
+          <GrowthChart points={finance.months} projection={projection} />
         </div>
 
         <div className="bg-sage-800 text-white rounded-2xl shadow-sm p-6 flex flex-col justify-between">
@@ -276,8 +339,26 @@ export default async function PortalDashboard() {
         </div>
       </section>
 
-      {/* ── Cash position: bank balance + projected with outstanding ── */}
-      <section className="grid gap-4 sm:grid-cols-2">
+      {/* ── Jobs booked per month: growth + what's already booked ahead ── */}
+      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-1">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500">Jobs booked — last 12 months + ahead</h2>
+          {bookedHeadline && (
+            <p className="flex items-center gap-2 text-sm text-sage-700">
+              <span className="font-semibold">{bookedHeadline.main}</span>
+              {bookedHeadline.growthPct != null && bookedHeadline.growthPct > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100" title={bookedHeadline.sub}>
+                  ▲ {bookedHeadline.growthPct}% <span className="font-normal text-emerald-600">{bookedHeadline.sub}</span>
+                </span>
+              )}
+            </p>
+          )}
+        </div>
+        <BookedJobsChart months={bookedJobs} />
+      </section>
+
+      {/* ── Cash position: bank balance + projected + net-of-owner-funding ── */}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* Bank balance — ASB's stated figure from the last imported statement */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500">
@@ -316,6 +397,28 @@ export default async function PortalDashboard() {
             <>
               <div className="mt-2 text-3xl font-bold tracking-tight tabular-nums text-sage-800">{money0(outstandingRevenue)}</div>
               <div className="mt-1 text-xs text-sage-400 tabular-nums">owed on {outstandingCount} sent invoice{outstandingCount === 1 ? '' : 's'} · set a bank balance to project</div>
+            </>
+          )}
+        </div>
+
+        {/* Net cash position — total company cash less genuine owner capital.
+            NOT the P&L net position; owner capital excludes loans/reimbursements. */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500">
+            <PiggyBank size={14} className="text-emerald-500" /> Net cash position
+          </div>
+          {cashPosition.hasBalance ? (
+            <>
+              <div className="mt-2 text-3xl font-bold tracking-tight tabular-nums text-sage-800">{money0(cashPosition.netOfOwnerFunding)}</div>
+              <div className="mt-1 text-xs text-sage-400 tabular-nums">
+                {money0(cashPosition.totalCash)} cash − {money0(cashPosition.ownerCapital)} owner capital
+              </div>
+              <div className="mt-0.5 text-[11px] text-sage-400">above genuine owner funding</div>
+            </>
+          ) : (
+            <>
+              <div className="mt-2 text-lg font-semibold text-sage-400">Not set yet</div>
+              <div className="mt-1 text-[11px] text-sage-400">set a bank balance to show cash net of owner funding</div>
             </>
           )}
         </div>

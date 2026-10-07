@@ -12,6 +12,7 @@ import { getMileageRateConfigs } from '@/lib/mileage-rate-data'
 import { MileageLogForm } from './_components/MileageLogForm'
 import { DeleteMileageButton } from './_components/DeleteMileageButton'
 import { ApproveMileageButton } from './_components/ApproveMileageButton'
+import { AssignMileageButton } from './_components/AssignMileageButton'
 import { formatCurrency, formatDate } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
@@ -31,7 +32,7 @@ export default async function MileagePage() {
   const [{ data: rows }, { data: employeeRows }, rateConfigs] = await Promise.all([
     supabase
       .from('mileage_logs')
-      .select('id, log_date, person_label, stops, distance_km, notes, business_purpose, vehicle_type, tier, rate_per_km, reimbursement_amount, status')
+      .select('id, log_date, person_label, contractor_id, stops, distance_km, notes, business_purpose, vehicle_type, tier, rate_per_km, reimbursement_amount, status')
       .order('log_date', { ascending: false }),
     supabase
       .from('contractors')
@@ -54,6 +55,7 @@ export default async function MileagePage() {
     businessPurpose: (r.business_purpose as string | null) ?? null,
     reimbursement: r.reimbursement_amount != null ? Number(r.reimbursement_amount) : null,
     status: (r.status as string | null) ?? 'draft',
+    contractorId: (r.contractor_id as string | null) ?? null,
   }))
   const totalKm = roundKm(logs.reduce((s, l) => s + l.distanceKm, 0))
   const totalReimbursement = Math.round(logs.reduce((s, l) => s + (l.reimbursement ?? 0), 0) * 100) / 100
@@ -102,6 +104,7 @@ export default async function MileagePage() {
                   <span className="text-sm font-semibold text-sage-800">{formatDate(l.logDate)}</span>
                   {l.personLabel && <span className="text-[11px] text-sage-400">· {l.personLabel}</span>}
                   <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full capitalize ${STATUS_STYLE[l.status] ?? STATUS_STYLE.draft}`}>{l.status}</span>
+                  {!l.contractorId && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Unassigned — won&rsquo;t pay</span>}
                 </div>
                 {l.businessPurpose && <p className="text-xs text-sage-600 mt-1">{l.businessPurpose}</p>}
                 <div className="text-xs text-sage-500 mt-1 flex items-start gap-1.5">
@@ -113,7 +116,8 @@ export default async function MileagePage() {
               <div className="flex flex-col items-end gap-1.5 shrink-0">
                 <span className="text-sm font-bold text-sage-800 tabular-nums">{l.distanceKm} km</span>
                 {l.reimbursement != null && <span className="text-xs font-semibold text-sage-600 tabular-nums">{formatCurrency(l.reimbursement)}</span>}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {canEdit && !l.contractorId && employees.length > 0 && <AssignMileageButton id={l.id} employees={employees} />}
                   {canEdit && l.status === 'draft' && <ApproveMileageButton id={l.id} />}
                   {canEdit && <DeleteMileageButton id={l.id} />}
                 </div>

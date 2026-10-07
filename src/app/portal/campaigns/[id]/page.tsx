@@ -2,21 +2,32 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
 import { ArrowLeft, Eye, MousePointerClick, MailCheck, Send as SendIcon } from 'lucide-react'
-import { renderCommercialIntro } from '@/lib/campaigns/template'
+import { renderCommercialIntro, hasUsableFullName } from '@/lib/campaigns/template'
+import { checkSenderReadiness } from '@/lib/campaigns/sender-readiness'
 import { QUALITY_RANK_BADGE, type QualityRank } from '@/lib/campaigns/constants'
-import { SendCampaignButton, MarkRepliedButton } from '../_components/CampaignActions'
+import { SendCampaignButton, MarkRepliedButton, OptOutButton, TestSendBox, DeleteCampaignButton, FollowupToggle, PauseResumeButton } from '../_components/CampaignActions'
+import { NameReviewPanel } from '../_components/NameReviewPanel'
+import { PreLaunchSummary } from '../_components/PreLaunchSummary'
+import { RecipientPreview } from '../_components/RecipientPreview'
+import { EditScheduleCard } from '../_components/EditScheduleCard'
+import { SentContactsCard, type SentContact } from '../_components/SentContactsCard'
+import { reviewCampaignCompanyNames } from '../_actions'
+import { estimateCompletion } from '@/lib/campaigns/send-batch'
+import { isAdminUser } from '@/lib/is-admin'
 
 export default async function CampaignDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
 
-  const [{ data: campaign }, { data: recipients }] = await Promise.all([
+  const [{ data: campaign }, { data: recipients }, { data: { user } }] = await Promise.all([
     supabase.from('sales_campaigns').select('*').eq('id', params.id).single(),
     supabase
       .from('sales_campaign_recipients')
-      .select('id, status, sent_at, opened_at, first_clicked_at, click_count, responded_at, error, lead:sales_leads(id, company, contact_name, email, quality_rank)')
+      .select('id, status, sent_at, opened_at, first_clicked_at, click_count, responded_at, error, subject_variant, bounced_at, followup_sent_at, lead:sales_leads(id, company, contact_name, email, quality_rank)')
       .eq('campaign_id', params.id)
       .order('created_at'),
+    supabase.auth.getUser(),
   ])
+  const isAdmin = isAdminUser(user)
 
   if (!campaign) notFound()
 
@@ -32,12 +43,67 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
   const replied = recs.filter((r) => r.responded_at).length
   const pct = (n: number) => (sent > 0 ? `${Math.round((n / sent) * 100)}%` : '—')
 
-  // Live template preview with a sample lead.
-  const preview = renderCommercialIntro({
-    lead: { company: 'Acme Legal', contact_name: 'Sam Example' },
-    token: 'preview',
-    siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'https://sano.nz',
-    subject: campaign.subject,
+  // Sender-readiness (SPF/DKIM/alignment) for the campaign's from-address.
+  const readiness = await checkSenderReadiness((campaign.from_email as string | null) || 'noreply@sano.nz')
+
+  // Company-name quality review of pending recipients (pre-launch gate).
+  const nameReview = await reviewCampaignCompanyNames(supabase, params.id)
+  const followupsEnabled = !!(campaign as { followups_enabled?: boolean }).followups_enabled
+
+  // Scheduling + pre-launch estimate.
+  const sendingDays = ((campaign as { sending_days?: number[] | null }).sending_days ?? [1, 2, 3, 4])
+  const dailyCap = Number((campaign as { daily_send_cap?: number | null }).daily_send_cap ?? 15)
+  const startDate = (campaign as { start_date?: string | null }).start_date ?? null
+  const sendTimeNz = (campaign as { send_time_nz?: string | null }).send_time_nz ?? '08:30'
+  const leadGroup = (campaign as { lead_group?: string | null }).lead_group ?? null
+  const est = estimateCompletion({ recipients: pending, dailyCap, sendingDays, startDate, now: new Date() })
+  const fmtNzDate = (ymd: string | null) =>
+    ymd ? new Date(`${ymd}T00:00:00+12:00`).toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : null
+
+  // Everyone actually emailed, newest first — for the "emails sent" card.
+  const sentContacts: SentContact[] = recs
+    .filter((r) => r.status === 'sent')
+    .sort((a, b) => String(b.sent_at ?? '').localeCompare(String(a.sent_at ?? '')))
+    .map((r) => ({
+      company: r.lead?.company ?? '—',
+      email: r.lead?.email ?? null,
+      sentAtDisplay: r.sent_at ? new Date(r.sent_at as string).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : null,
+      replied: !!r.responded_at,
+      bounced: !!(r as { bounced_at?: string | null }).bounced_at,
+    }))
+
+  // A/B subject reporting: delivery / reply rate per variant.
+  const abStats = ['A', 'B'].map((v) => {
+    const inV = recs.filter((r) => (r as { subject_variant?: string | null }).subject_variant === v)
+    const sentV = inV.filter((r) => r.status === 'sent').length
+    const repliedV = inV.filter((r) => r.responded_at).length
+    const bouncedV = inV.filter((r) => (r as { bounced_at?: string | null }).bounced_at).length
+    return { v, total: inV.length, sent: sentV, replied: repliedV, bounced: bouncedV, replyPct: sentV > 0 ? Math.round((repliedV / sentV) * 100) : 0 }
+  }).filter((s) => s.total > 0)
+  const followupsSent = recs.filter((r) => (r as { followup_sent_at?: string | null }).followup_sent_at).length
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://sano.nz'
+  const senderName = (campaign.signature_name as string | null) || (campaign.from_name as string | null) || 'Carol Browne'
+  const senderEmail = (campaign.reply_to as string | null) || (campaign.from_email as string | null) || null
+  const bannerUrl = (campaign.signature_banner_url as string | null) || null
+
+  // How the two templates split across THIS campaign's recipients — so you can
+  // see exactly how many get "Hi Jane" vs "Hi team" before launching.
+  const namedCount = recs.filter((r) => hasUsableFullName(r.lead?.contact_name)).length
+  const teamCount = recs.length - namedCount
+
+  // Preview BOTH variants with realistic sample email business names, with
+  // {company} interpolated into the subject exactly as a real send would.
+  const previewSubject = (sample: string) => ((campaign.subject as string) || 'Cleaning at {company}').replace(/\{company\}/gi, sample)
+  const previewNamed = renderCommercialIntro({
+    lead: { company: 'Acme Legal', contact_name: 'Jane Smith', email: 'jane.smith@acmelegal.co.nz' },
+    token: 'preview', siteUrl, subject: previewSubject('Acme Legal'),
+    sender: { name: senderName, email: senderEmail, bannerUrl },
+  })
+  const previewTeam = renderCommercialIntro({
+    lead: { company: 'Northside Accounting', contact_name: null, email: 'info@northside.co.nz' },
+    token: 'preview', siteUrl, subject: previewSubject('Northside Accounting'),
+    sender: { name: senderName, email: senderEmail, bannerUrl },
   })
 
   return (
@@ -60,8 +126,89 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
             )}
           </p>
         </div>
-        <SendCampaignButton campaignId={campaign.id} pendingCount={pending} />
+        <div className="flex items-center gap-4 flex-wrap">
+          <SendCampaignButton campaignId={campaign.id} pendingCount={pending} />
+          <PauseResumeButton campaignId={campaign.id} status={campaign.status as string} />
+          {isAdmin && <DeleteCampaignButton campaignId={campaign.id} redirectTo="/portal/campaigns" variant="full" />}
+        </div>
       </div>
+
+      {/* Sender readiness — SPF/DKIM/alignment before launch */}
+      {pending > 0 && (
+        <div className={`mb-6 rounded-xl border p-4 ${readiness.ready ? 'border-emerald-200 bg-emerald-50/60' : 'border-red-200 bg-red-50'}`}>
+          <p className={`text-sm font-semibold ${readiness.ready ? 'text-emerald-800' : 'text-red-800'}`}>
+            {readiness.ready ? 'Sender authentication verified' : 'Sender not verified — do not launch yet'}
+          </p>
+          <ul className="mt-2 space-y-1">
+            {readiness.checks.map((c) => (
+              <li key={c.label} className="text-[12px] flex items-start gap-1.5">
+                <span className={c.ok ? 'text-emerald-600' : 'text-red-600'}>{c.ok ? '✓' : '✕'}</span>
+                <span className="text-sage-700"><span className="font-medium">{c.label}:</span> {c.detail}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-sage-500 mt-2">{readiness.note}</p>
+        </div>
+      )}
+
+      {/* Pre-launch plain-English summary */}
+      {pending > 0 && (
+        <PreLaunchSummary
+          name={campaign.name as string}
+          recipients={pending}
+          leadGroup={leadGroup}
+          startDateDisplay={fmtNzDate(startDate) ?? 'as soon as armed'}
+          sendTimeNz={sendTimeNz}
+          sendingDays={sendingDays}
+          dailyCap={dailyCap}
+          followupsEnabled={followupsEnabled}
+          sendingDaysNeeded={est.sendingDaysNeeded}
+          completionDisplay={fmtNzDate(est.completionYmd)}
+        />
+      )}
+
+      {/* Company-name quality review — blocks launch on unsafe interpolation */}
+      {pending > 0 && (
+        <NameReviewPanel campaignId={campaign.id} flagged={nameReview.flagged} blocking={nameReview.blocking} />
+      )}
+
+      {/* Test send — verify deliverability + look before the real send */}
+      {pending > 0 && (
+        <div className="mb-8 max-w-md">
+          <TestSendBox campaignId={campaign.id} />
+        </div>
+      )}
+
+      {/* Automatic follow-up toggle (defaults OFF) */}
+      <div className="mb-8 max-w-md">
+        <FollowupToggle campaignId={campaign.id} enabled={followupsEnabled} />
+      </div>
+
+      {/* Edit schedule (name / start / time / days / cap). Recipient list stays locked. */}
+      <EditScheduleCard
+        campaignId={campaign.id}
+        status={campaign.status as string}
+        initial={{ name: campaign.name as string, startDate: startDate, sendTimeNz, sendingDays, dailyCap }}
+      />
+
+      {/* Emails sent — click to see everyone emailed */}
+      <SentContactsCard contacts={sentContacts} />
+
+      {/* A/B subject results */}
+      {abStats.length > 1 && (
+        <div className="mb-8 bg-white border border-sage-100 rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-sage-500 uppercase tracking-wide mb-3">Subject A/B results</h2>
+          <div className="grid grid-cols-2 gap-4">
+            {abStats.map((s) => (
+              <div key={s.v} className="rounded-lg border border-sage-100 p-3">
+                <p className="text-xs font-semibold text-sage-700 mb-1">Subject {s.v}</p>
+                <p className="text-sm text-sage-600 tabular-nums">{s.sent} sent · {s.replied} replied ({s.replyPct}%){s.bounced ? ` · ${s.bounced} bounced` : ''}</p>
+              </div>
+            ))}
+          </div>
+          {followupsSent > 0 && <p className="text-[11px] text-sage-400 mt-2">{followupsSent} follow-up{followupsSent === 1 ? '' : 's'} sent.</p>}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
@@ -90,17 +237,14 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
               {recs.map((r) => (
                 <tr key={r.id} className="hover:bg-[#fafcfa]">
                   <td className="px-5 py-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-start gap-2">
                       {r.lead && (
-                        <span className={`inline-block text-[10px] font-bold rounded px-1.5 py-0.5 ${QUALITY_RANK_BADGE[(r.lead.quality_rank ?? 'C') as QualityRank]}`}>
+                        <span className={`inline-block text-[10px] font-bold rounded px-1.5 py-0.5 mt-0.5 ${QUALITY_RANK_BADGE[(r.lead.quality_rank ?? 'C') as QualityRank]}`}>
                           {r.lead.quality_rank}
                         </span>
                       )}
-                      <Link href={`/portal/leads/${r.lead?.id}`} className="font-medium text-sage-800 hover:underline">
-                        {r.lead?.company ?? '—'}
-                      </Link>
+                      <RecipientPreview recipientId={r.id} company={r.lead?.company ?? '—'} email={r.lead?.email ?? null} />
                     </div>
-                    <p className="text-[11px] text-sage-400 mt-0.5">{r.lead?.email}</p>
                   </td>
                   <td className="px-3 py-3">
                     <span className={
@@ -122,7 +266,12 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
                     </div>
                   </td>
                   <td className="px-5 py-3 text-right">
-                    {r.status === 'sent' && !r.responded_at && <MarkRepliedButton recipientId={r.id} />}
+                    {r.status === 'sent' && !r.responded_at && (
+                      <span className="inline-flex items-center gap-3">
+                        <MarkRepliedButton recipientId={r.id} />
+                        <OptOutButton recipientId={r.id} />
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -135,20 +284,26 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
           </table>
         </section>
 
-        {/* Email preview */}
+        {/* Email preview — both templates + the split across recipients */}
         <section className="bg-white border border-sage-100 rounded-xl p-5">
           <h2 className="text-sm font-semibold text-sage-500 uppercase tracking-wide mb-1">Email preview</h2>
-          <p className="text-[11px] text-sage-400 mb-4">
-            Rendered with a sample lead (Sam Example at Acme Legal). Each recipient gets their own name + company.
+          <p className="text-[11px] text-sage-400 mb-3">
+            Two versions are sent automatically depending on whether we have a reliable name. Each recipient gets their own name + company.
           </p>
-          <p className="text-xs text-sage-500 mb-3">
-            <span className="font-semibold text-sage-700">Subject:</span> {preview.subject}
-          </p>
-          <div
-            className="border border-sage-100 rounded-lg p-1 bg-[#fafcfa] [&_p]:!text-[13px]"
-            // Template HTML is generated by our own code from constants — no user input.
-            dangerouslySetInnerHTML={{ __html: preview.html }}
-          />
+          <div className="flex gap-2 flex-wrap mb-4 text-xs">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-sage-50 border border-sage-200 px-3 py-1 font-medium text-sage-700">{namedCount} named &rarr; &ldquo;Hi [name]&rdquo;</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-sage-50 border border-sage-200 px-3 py-1 font-medium text-sage-700">{teamCount} team &rarr; &ldquo;Hi team&rdquo;</span>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <p className="text-xs text-sage-500 mb-2"><span className="font-semibold text-sage-700">Named</span> &middot; subject: {previewNamed.subject}</p>
+              <div className="border border-sage-100 rounded-lg p-1 bg-[#fafcfa] [&_p]:!text-[13px]" dangerouslySetInnerHTML={{ __html: previewNamed.html }} />
+            </div>
+            <div>
+              <p className="text-xs text-sage-500 mb-2"><span className="font-semibold text-sage-700">Team</span> (no reliable name) &middot; subject: {previewTeam.subject}</p>
+              <div className="border border-sage-100 rounded-lg p-1 bg-[#fafcfa] [&_p]:!text-[13px]" dangerouslySetInnerHTML={{ __html: previewTeam.html }} />
+            </div>
+          </div>
         </section>
       </div>
     </div>

@@ -1,3 +1,14 @@
+// Historical payment statements — READ-ONLY (Phase 2, 2026-08-17).
+//
+// Statements are retired as an active workflow. Contractors are no longer asked
+// to review, confirm, acknowledge or query anything before they get paid: pay
+// now flows straight from approved work to a remittance, and the remittance
+// advice arrives after payment as a record.
+//
+// This page is kept only so any statement a contractor was previously sent
+// stays reachable. Production has 0 issued statements, so in practice every
+// contractor sees the empty state. Nothing here asks the contractor to act.
+
 import { getContractor } from '../_lib/get-contractor'
 import Link from 'next/link'
 import { FileText, ArrowRight } from 'lucide-react'
@@ -28,12 +39,21 @@ export default async function ContractorStatementsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-sage-800 mb-1">Payment statements</h1>
-      <p className="text-sm text-sage-500 mb-6">Your Sano payment statements. These are not tax invoices.</p>
+      <h1 className="text-2xl font-bold text-sage-800 mb-1">Past payment statements</h1>
+      <p className="text-sm text-sage-500 mb-6">
+        Older payment records, kept for your reference. Nothing here needs your
+        attention — you don&rsquo;t need to review or confirm anything to be paid.
+        These are not tax invoices.
+      </p>
 
       {statements.length === 0 ? (
         <div className="bg-white rounded-xl border border-sage-100 p-8 text-center text-sage-500 text-sm">
-          You have no payment statements yet.
+          <p>You have no past payment statements.</p>
+          <p className="mt-2 text-xs text-sage-400">
+            Your pay and payment history live on the{' '}
+            <Link href="/contractor/payroll" className="underline hover:text-sage-600">Pay</Link>{' '}
+            page.
+          </p>
         </div>
       ) : (
         <div className="space-y-3">

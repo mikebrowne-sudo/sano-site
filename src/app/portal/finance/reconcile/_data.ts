@@ -2,7 +2,8 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { extractInvoiceRefs, extractNumberRefs, type BankTxn } from '@/lib/asb-import'
-import type { ReconInvoice, ReconExpense } from '@/lib/bank-reconcile'
+import type { ReconInvoice, ReconExpense, ReconPaymentRecord } from '@/lib/bank-reconcile'
+import { invoicePayableTotal } from './_apply'
 
 /** A live (un-reversed) allocation of bank money to an invoice. */
 export interface AllocationRow {
@@ -12,12 +13,27 @@ export interface AllocationRow {
   invoiceNumber: string
   amount: number
   method: string
+  /** "auto: …" when made by auto-reconcile. */
+  matchReason: string | null
   reconciledAt: string | null
+}
+
+/** What an outgoing debit was reconciled against (remittance, expense, pay run, transfer). */
+export interface DebitLinkRow {
+  id: string
+  /** 'remittance' rows are reversed on the money-out screen; the rest here. */
+  kind: 'remittance' | 'expense' | 'pay_run' | 'internal_transfer' | 'created_expense'
+  label: string
+  amount: number
+  auto: boolean
+  matchReason: string | null
 }
 
 export interface StoredTxnMeta {
   id: string
   cleared: boolean
+  /** Money-out links for this line (empty for credits). */
+  debitLinks: DebitLinkRow[]
   /** Live allocations against this bank line (for display + reversal). */
   allocations: AllocationRow[]
   /** Sum of live allocations on this line. */
@@ -30,6 +46,29 @@ export interface ReconcileData {
   meta: Map<string, StoredTxnMeta>
   invoices: ReconInvoice[]
   expenses: ReconExpense[]
+  /**
+   * Contractor remittances + employee pay runs. A bank debit matching one of
+   * these is already recorded — entering it as an expense would double-count
+   * the cost and double-claim its GST.
+   */
+  paymentRecords: ReconPaymentRecord[]
+  /**
+   * Jobs with no invoice yet — a payment that quotes a quote/job number, or
+   * comes from a known customer, may be paying one of these (deposit, or the
+   * invoice was never raised). Surfaced so the job can be invoiced, then matched.
+   */
+  uninvoicedJobs: UninvoicedJob[]
+}
+
+export interface UninvoicedJob {
+  id: string
+  jobNumber: string
+  quoteNumber: string | null
+  clientId: string | null
+  status: string
+  date: string | null
+  address: string
+  price: number | null
 }
 
 interface TxnRow {
@@ -58,7 +97,7 @@ export async function getReconcileData(): Promise<ReconcileData> {
       .order('txn_date', { ascending: false }),
     supabase
       .from('invoices')
-      .select('id, invoice_number, status, base_price, discount, date_paid, service_address, clients ( name ), invoice_items ( price )')
+      .select('id, invoice_number, status, base_price, discount, gst_included, date_paid, date_issued, scheduled_clean_date, service_address, client_id, bill_to_name, clients ( name, company_name, branch_name ), invoice_items ( price )')
       .neq('status', 'cancelled')
       .is('deleted_at', null)
       .not('is_test', 'is', true),
@@ -68,7 +107,7 @@ export async function getReconcileData(): Promise<ReconcileData> {
     // Live (un-reversed) allocations — the durable bank↔invoice link.
     supabase
       .from('invoice_payment_allocations')
-      .select('id, bank_transaction_id, invoice_id, amount_allocated, method, reconciled_at, invoices ( invoice_number )')
+      .select('id, bank_transaction_id, invoice_id, amount_allocated, method, match_reason, reconciled_at, invoices ( invoice_number )')
       .is('reversed_at', null),
   ])
 
@@ -84,6 +123,7 @@ export async function getReconcileData(): Promise<ReconcileData> {
       invoiceNumber: invNum,
       amount: Number(a.amount_allocated ?? 0),
       method: (a.method as string) ?? 'manual',
+      matchReason: (a.match_reason as string | null) ?? null,
       reconciledAt: (a.reconciled_at as string | null) ?? null,
     }
     const list = allocByTxn.get(row.bankTransactionId) ?? []
@@ -92,13 +132,51 @@ export async function getReconcileData(): Promise<ReconcileData> {
     allocatedByInvoice.set(row.invoiceId, (allocatedByInvoice.get(row.invoiceId) ?? 0) + row.amount)
   }
 
+  // Money-out links: remittance allocations + bank_debit_links (the latter may
+  // not exist until its migration has run — treat a missing table as empty).
+  const [{ data: remitLinkData }, debitLinkRes] = await Promise.all([
+    supabase
+      .from('remittance_payment_allocations')
+      .select('id, bank_transaction_id, amount_allocated, match_reason, contractor_remittances ( remittance_number, payee_label )')
+      .is('reversed_at', null),
+    supabase
+      .from('bank_debit_links')
+      .select('id, bank_transaction_id, kind, amount, method, match_reason, expenses ( vendor, category ), pay_runs ( pay_date )')
+      .is('reversed_at', null),
+  ])
+  const linksByTxn = new Map<string, DebitLinkRow[]>()
+  const pushLink = (txnId: string, row: DebitLinkRow) => linksByTxn.set(txnId, [...(linksByTxn.get(txnId) ?? []), row])
+  for (const r of (remitLinkData ?? []) as Array<Record<string, unknown>>) {
+    const rem = r.contractor_remittances as { remittance_number?: string; payee_label?: string } | null
+    pushLink(r.bank_transaction_id as string, {
+      id: r.id as string,
+      kind: 'remittance',
+      label: [rem?.remittance_number, rem?.payee_label].filter(Boolean).join(' · ') || 'Remittance',
+      amount: Number(r.amount_allocated ?? 0),
+      auto: String(r.match_reason ?? '').startsWith('auto:'),
+      matchReason: (r.match_reason as string | null) ?? null,
+    })
+  }
+  for (const r of ((debitLinkRes.error ? [] : debitLinkRes.data) ?? []) as Array<Record<string, unknown>>) {
+    const kind = r.kind as DebitLinkRow['kind']
+    const exp = r.expenses as { vendor?: string | null; category?: string | null } | null
+    const run = r.pay_runs as { pay_date?: string | null } | null
+    const label = kind === 'pay_run' ? `Pay run ${run?.pay_date ?? ''}`.trim()
+      : kind === 'internal_transfer' ? 'Transfer to tax savings'
+      : `${kind === 'created_expense' ? 'Recorded: ' : 'Expense: '}${exp?.vendor || exp?.category || 'expense'}`
+    pushLink(r.bank_transaction_id as string, {
+      id: r.id as string, kind, label, amount: Number(r.amount ?? 0),
+      auto: r.method === 'auto', matchReason: (r.match_reason as string | null) ?? null,
+    })
+  }
+
   const meta = new Map<string, StoredTxnMeta>()
   const transactions: BankTxn[] = (txnData as TxnRow[] ?? []).map((r) => {
     const payee = r.payee ?? ''
     const memo = r.memo ?? ''
     const allocations = allocByTxn.get(r.id) ?? []
     const allocatedTotal = round2(allocations.reduce((s, a) => s + a.amount, 0))
-    meta.set(r.unique_id, { id: r.id, cleared: !!r.cleared, allocations, allocatedTotal })
+    meta.set(r.unique_id, { id: r.id, cleared: !!r.cleared, allocations, allocatedTotal, debitLinks: linksByTxn.get(r.id) ?? [] })
     return {
       uniqueId: r.unique_id,
       date: r.txn_date ?? '',
@@ -114,18 +192,24 @@ export async function getReconcileData(): Promise<ReconcileData> {
   })
 
   const invoices: ReconInvoice[] = (invoiceData ?? []).map((i) => {
-    const items = (i.invoice_items ?? []) as { price: number }[]
-    const addons = items.reduce((s, it) => s + (it.price ?? 0), 0)
-    const client = (i.clients as unknown as { name: string } | null)?.name ?? ''
+    const c = i.clients as unknown as { name: string | null; company_name: string | null; branch_name: string | null } | null
+    const client = c?.name ?? ''
     return {
       id: i.id as string,
       invoiceNumber: (i.invoice_number as string | null) ?? '',
       status: (i.status as string | null) ?? 'draft',
-      total: (i.base_price ?? 0) + addons - (i.discount ?? 0),
+      // GST-inclusive — what the client actually pays (GST-exclusive invoices add 15%).
+      total: invoicePayableTotal(i),
       datePaid: (i.date_paid as string | null) ?? null,
       client,
       address: (i.service_address as string | null) ?? '',
       allocatedTotal: round2(allocatedByInvoice.get(i.id as string) ?? 0),
+      clientId: (i.client_id as string | null) ?? null,
+      // "Barfoot & Thompson Henderson" — company + branch, for payer matching.
+      clientLabel: `${c?.company_name || c?.name || ''} ${c?.branch_name ?? ''}`.trim(),
+      billTo: (i.bill_to_name as string | null) ?? null,
+      dateIssued: (i.date_issued as string | null) ?? null,
+      serviceDate: (i.scheduled_clean_date as string | null) ?? null,
     }
   })
   const expenses: ReconExpense[] = (expenseData ?? []).map((e) => ({
@@ -133,5 +217,64 @@ export async function getReconcileData(): Promise<ReconcileData> {
     expenseDate: (e.expense_date as string | null) ?? null,
   }))
 
-  return { transactions, meta, invoices, expenses }
+  // Contractor remittances (payee + total from their frozen items) and
+  // employee pay runs (net pay actually transferred).
+  const [{ data: remitData }, { data: payRunData }] = await Promise.all([
+    supabase
+      .from('contractor_remittances')
+      .select('remittance_number, payee_label, payment_date, contractor_remittance_items ( amount )'),
+    supabase
+      .from('pay_runs')
+      .select('pay_date, status, pay_run_lines ( net_pay, mileage_reimbursement )')
+      .eq('status', 'paid'),
+  ])
+
+  const paymentRecords: ReconPaymentRecord[] = []
+
+  for (const r of remitData ?? []) {
+    const items = (r.contractor_remittance_items as { amount: number | null }[] | null) ?? []
+    const total = round2(items.reduce((sum, i) => sum + Number(i.amount ?? 0), 0))
+    if (total <= 0) continue
+    const number = (r.remittance_number as string | null) ?? 'Remittance'
+    const payee = (r.payee_label as string | null) ?? ''
+    paymentRecords.push({
+      kind: 'remittance',
+      label: payee ? `${number} · ${payee}` : number,
+      amount: total,
+      paymentDate: (r.payment_date as string | null) ?? null,
+    })
+  }
+
+  for (const pr of payRunData ?? []) {
+    // What was actually transferred: net pay + mileage reimbursement.
+    const lines = (pr.pay_run_lines as { net_pay: number | null; mileage_reimbursement: number | null }[] | null) ?? []
+    const net = round2(lines.reduce((sum, l) => sum + Number(l.net_pay ?? 0) + Number(l.mileage_reimbursement ?? 0), 0))
+    if (net <= 0) continue
+    const date = (pr.pay_date as string | null) ?? null
+    paymentRecords.push({
+      kind: 'pay_run',
+      label: date ? `Pay run ${date}` : 'Pay run',
+      amount: net,
+      paymentDate: date,
+    })
+  }
+
+  const { data: jobData } = await supabase
+    .from('jobs')
+    .select('id, job_number, client_id, status, scheduled_date, address, job_price, quotes ( quote_number )')
+    .is('invoice_id', null)
+    .is('deleted_at', null)
+    .neq('status', 'cancelled')
+  const uninvoicedJobs: UninvoicedJob[] = ((jobData ?? []) as Array<Record<string, unknown>>).map((j) => ({
+    id: j.id as string,
+    jobNumber: (j.job_number as string | null) ?? '',
+    quoteNumber: (j.quotes as { quote_number?: string | null } | null)?.quote_number ?? null,
+    clientId: (j.client_id as string | null) ?? null,
+    status: (j.status as string | null) ?? '',
+    date: (j.scheduled_date as string | null) ?? null,
+    address: (j.address as string | null) ?? '',
+    price: j.job_price == null ? null : Number(j.job_price),
+  }))
+
+  return { transactions, meta, invoices, expenses, paymentRecords, uninvoicedJobs }
 }

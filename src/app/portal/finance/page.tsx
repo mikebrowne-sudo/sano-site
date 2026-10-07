@@ -4,6 +4,9 @@ import { DollarSign, TrendingUp, Receipt, Briefcase, AlertTriangle, FileText } f
 import { PeriodFilter } from './_components/PeriodFilter'
 import { JobsNeedingAttention } from './_components/JobsNeedingAttention'
 import { resolvePeriod, getMonthsBetween } from './_lib/periods'
+import { buildProfitLoss } from './_lib/profit-loss'
+import { loadProfitLossInputs } from './_lib/profit-loss-data'
+import { computeDocumentTotals } from '@/lib/doc-totals'
 import { getJobLabourCost } from '@/lib/job-cost'
 import {
   buildFinanceAttentionRows,
@@ -22,9 +25,11 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-function calcInvoiceTotal(inv: { base_price: number; discount: number; items: { price: number }[] }) {
+/** GST-inclusive total the client pays (same maths as the invoice PDF). */
+function calcInvoiceTotal(inv: { base_price: number; discount: number; gst_included: boolean | null; items: { price: number }[] }) {
   const addons = inv.items.reduce((sum, i) => sum + (i.price ?? 0), 0)
-  return (inv.base_price ?? 0) + addons - (inv.discount ?? 0)
+  const lineTotal = (inv.base_price ?? 0) + addons - (inv.discount ?? 0)
+  return Math.round(computeDocumentTotals(lineTotal, !!inv.gst_included).total * 100) / 100
 }
 
 export default async function FinancePage({
@@ -40,10 +45,10 @@ export default async function FinancePage({
   // Exclude archived (soft-deleted) and test invoices — they must never count
   // toward live financial totals. Without these filters the dashboard was
   // counting binned drafts/sent invoices as if they were live money.
-  const [{ data: invoices }, { data: jobs }, { data: contractorPaidExpenses }] = await Promise.all([
+  const [{ data: invoices }, { data: jobs }, plInputs] = await Promise.all([
     supabase
       .from('invoices')
-      .select('id, invoice_number, status, base_price, discount, date_issued, due_date, date_paid, created_at, clients ( name ), invoice_items ( price )')
+      .select('id, invoice_number, status, base_price, discount, gst_included, date_issued, due_date, date_paid, created_at, clients ( name ), invoice_items ( price )')
       .neq('status', 'cancelled')
       .is('deleted_at', null)
       .not('is_test', 'is', true)
@@ -86,17 +91,14 @@ export default async function FinancePage({
       .gte('scheduled_date', from)
       .lte('scheduled_date', to)
       .order('scheduled_date', { ascending: false }),
-    // Actual contractor cost = the bank-matched contractor payments recorded
-    // as expenses under the wages/payroll category, by expense date. This is
-    // the real cash paid (ties to the bank / the P&L), not the per-job
-    // hours×rate estimate used in the per-job table further down.
-    supabase
-      .from('expenses')
-      .select('amount, expense_date')
-      .eq('category', 'wages_payroll')
-      .gte('expense_date', from)
-      .lte('expense_date', to),
+    // Actual contractor cost = the P&L's cost of sales (paid remittances +
+    // contractor-payment expenses not duplicating one). This is the real cash
+    // paid (ties to the bank / the P&L), not the per-job hours×rate estimate
+    // used in the per-job table further down.
+    loadProfitLossInputs(supabase, { from, to }),
   ])
+  const contractorCostBetween = (f: string, t: string) =>
+    buildProfitLoss({ ...plInputs, from: f, to: t }).costOfSales
 
   // Phase G.2 step 2 — fan out the supplemental queries reconcileJob
   // needs in parallel: invoice totals for any linked invoices (not
@@ -121,7 +123,7 @@ export default async function FinancePage({
     jobInvoiceIds.length > 0
       ? supabase
           .from('invoices')
-          .select('id, base_price, discount, invoice_items ( price )')
+          .select('id, base_price, discount, invoice_items ( price ), linked_jobs:jobs!jobs_invoice_id_fkey ( id )')
           .in('id', jobInvoiceIds)
       : Promise.resolve({ data: [] as Array<{ id: string; base_price: number; discount: number; invoice_items: { price: number }[] }> }),
     jobIds.length > 0
@@ -144,7 +146,11 @@ export default async function FinancePage({
     base_price: number
     discount: number
     invoice_items: { price: number }[] | null
+    linked_jobs?: { id: string }[] | null
   }>) {
+    // Monthly invoices cover several visits — their total never equals one
+    // job's price, so leave them out of the per-job total comparison.
+    if ((inv.linked_jobs ?? []).length > 1) continue
     const items = inv.invoice_items ?? []
     const addons = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
     const total = (inv.base_price ?? 0) + addons - (inv.discount ?? 0)
@@ -163,7 +169,7 @@ export default async function FinancePage({
   const invoiceRows = (invoices ?? []).map((inv) => {
     const client = inv.clients as unknown as { name: string } | null
     const items = (inv.invoice_items ?? []) as { price: number }[]
-    const total = calcInvoiceTotal({ base_price: inv.base_price, discount: inv.discount, items })
+    const total = calcInvoiceTotal({ base_price: inv.base_price, discount: inv.discount, gst_included: inv.gst_included, items })
     return {
       id: inv.id,
       invoiceNumber: inv.invoice_number,
@@ -194,8 +200,8 @@ export default async function FinancePage({
   const today = new Date().toISOString().slice(0, 10)
   const overdueInvoices = invoiceRows.filter((i) => i.status === 'sent' && i.dueDate && i.dueDate < today)
 
-  // Actual contractor cost (bank-matched, from wages/payroll expenses).
-  const contractorActualCost = (contractorPaidExpenses ?? []).reduce((s, e) => s + ((e.amount as number | null) ?? 0), 0)
+  // Actual contractor cost (same definition as the P&L cost of sales).
+  const contractorActualCost = contractorCostBetween(from, to)
 
   // Contractor costs — Phase G.1.
   // Cost is the sum of (rate × payable hours) across all job_workers
@@ -255,9 +261,7 @@ export default async function FinancePage({
     const monthJobs = jobRows.filter((j) => j.scheduledDate && j.scheduledDate >= m.from && j.scheduledDate <= m.to)
     const rev = monthInvoices.reduce((s, i) => s + i.total, 0)
     const paid = monthInvoices.filter((i) => i.status === 'paid').reduce((s, i) => s + i.total, 0)
-    const cost = (contractorPaidExpenses ?? [])
-      .filter((e) => { const d = e.expense_date as string | null; return d != null && d >= m.from && d <= m.to })
-      .reduce((s, e) => s + ((e.amount as number | null) ?? 0), 0)
+    const cost = contractorCostBetween(m.from, m.to)
     return {
       label: m.label,
       revenue: rev,

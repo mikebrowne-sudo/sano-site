@@ -11,6 +11,7 @@ import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { getCustomerReplyToEmail } from '@/lib/email-reply-to'
 import {
   assertCanAmend,
+  assertNotAcceptedInPlace,
   findLockingInvoiceForQuote,
   writeAmendmentAudit,
 } from '@/lib/amendment-lock'
@@ -124,13 +125,20 @@ export async function updateQuote(input: UpdateQuoteInput) {
   // override is unchanged (or stamp them when it transitions from off to on).
   const { data: existing, error: existingErr } = await supabase
     .from('quotes')
-    .select('is_price_overridden, override_confirmed_by, override_confirmed_at, base_price, discount, share_token')
+    .select('is_price_overridden, override_confirmed_by, override_confirmed_at, base_price, discount, share_token, status')
     .eq('id', input.id)
     .single()
 
   if (existingErr || !existing) {
     return { error: `Quote not found or could not be loaded: ${existingErr?.message ?? 'missing row'}` }
   }
+
+  // Server-side backstop: an accepted quote must be forked, never mutated
+  // in place. See assertNotAcceptedInPlace for the full rationale. On the
+  // supported flow EditQuoteForm has already forked, so the row seen here
+  // is the new draft and this does not fire.
+  const acceptedGuard = assertNotAcceptedInPlace(existing.status as string | null)
+  if (acceptedGuard) return acceptedGuard
 
   const wasOverridden = existing?.is_price_overridden ?? false
   const isOverridden = input.is_price_overridden ?? false
@@ -300,7 +308,7 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
   // are all read at the same moment.
   const { data: quote, error: loadErr } = await supabase
     .from('quotes')
-    .select('date_issued, valid_until, sent_at, share_token, quote_number')
+    .select('date_issued, valid_until, sent_at, share_token, quote_number, status, service_category')
     .eq('id', input.quote_id)
     .single()
 
@@ -369,7 +377,11 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
     }
   }
 
-  const pdfFilename = `${sanitizePdfFilename(`Sano Quote - ${quote.quote_number}`)}.pdf`
+  // Commercial quotes go out as a proposal — the share page renders the
+  // proposal document for them, so the attachment must be named to match what
+  // the client actually opens.
+  const docLabel = quote.service_category === 'commercial' ? 'Proposal' : 'Quote'
+  const pdfFilename = `${sanitizePdfFilename(`Sano ${docLabel} - ${quote.quote_number}`)}.pdf`
 
   const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -400,14 +412,33 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
     return { error: `Failed to send email: ${emailErr.message}` }
   }
 
-  // Email sent → flip status + stamp sent_at. Dates are already
-  // stamped above, so they're not re-set here.
+  // Email sent → stamp sent_at, and advance status only when that is
+  // actually a step forward. Dates are already stamped above, so they're
+  // not re-set here.
+  //
+  // Re-sending a quote the client has already ACCEPTED must not demote it
+  // back to 'sent'. Doing so would erase the acceptance from the workflow
+  // bar, re-arm "Mark as accepted", and make an agreed quote look like it
+  // was still awaiting a reply. `accepted_at` would survive but the status
+  // would contradict it. Same reasoning for a quote already 'converted' —
+  // its downstream job/invoice is the source of truth and the Phase 5B lock
+  // governs it.
+  //
+  // 'viewed' is also preserved: the client having opened the quote is
+  // strictly more information than 'sent', so a re-send shouldn't discard
+  // it. Only draft / sent / declined advance to 'sent' here.
   const sentAtIso = new Date().toISOString()
+
+  const currentStatus = (quote.status as string | null) ?? 'draft'
+  const PRESERVED_ON_RESEND = new Set(['accepted', 'converted', 'viewed'])
+  const statusPatch = PRESERVED_ON_RESEND.has(currentStatus)
+    ? {}
+    : { status: 'sent' }
 
   const { error: updateErr } = await supabase
     .from('quotes')
     .update({
-      status: 'sent',
+      ...statusPatch,
       sent_at: sentAtIso,
     })
     .eq('id', input.quote_id)
@@ -454,7 +485,7 @@ export async function sendQuoteTestEmail(input: SendTestQuoteEmailInput) {
 
   const { data: quote, error: loadErr } = await supabase
     .from('quotes')
-    .select('date_issued, valid_until, share_token, quote_number')
+    .select('date_issued, valid_until, share_token, quote_number, service_category')
     .eq('id', input.quote_id)
     .single()
 
@@ -508,7 +539,9 @@ export async function sendQuoteTestEmail(input: SendTestQuoteEmailInput) {
     }
   }
 
-  const pdfFilename = `${sanitizePdfFilename(`Sano Quote - ${quote.quote_number}`)}.pdf`
+  // Match the customer-facing naming so a test send previews the real thing.
+  const docLabel = quote.service_category === 'commercial' ? 'Proposal' : 'Quote'
+  const pdfFilename = `${sanitizePdfFilename(`Sano ${docLabel} - ${quote.quote_number}`)}.pdf`
   const resend = new Resend(process.env.RESEND_API_KEY)
 
   // Clear internal markers so the review email can never be mistaken for

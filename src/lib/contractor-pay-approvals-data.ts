@@ -4,9 +4,11 @@
 // the "what still needs authorising" list is computed one way.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { resolveWorkerHours } from '@/lib/job-hours-split'
 import { getWorkerPayableHours } from './job-cost'
 import { classifyApprovalRow } from './pending-approvals'
 import type { ApprovalRow } from '@/app/portal/contractor-invoices/pending-approvals/_components/PendingApprovalsList'
+import { queueSignal, isHoursConfirmedStatus } from '@/lib/hours-confirmation'
 
 interface JWRow {
   contractor_id: string
@@ -17,10 +19,12 @@ interface JWRow {
   actual_hours: number | null
   extra_hours: number | null
   extra_hours_status: string | null
+  hours_confirmed_status: string | null
+  hours_confirmed_note: string | null
   contractors: { full_name: string | null; hourly_rate: number | null } | null
   jobs: {
     id: string; job_number: string | null; address: string | null; status: string | null
-    completed_at: string | null; allowed_hours: number | null; description: string | null; deleted_at: string | null
+    completed_at: string | null; scheduled_date?: string | null; allowed_hours: number | null; description: string | null; deleted_at: string | null
   } | null
 }
 
@@ -39,15 +43,19 @@ export async function loadApprovalRows(
     .from('job_workers')
     .select(`
       contractor_id, job_id, pay_rate, pay_type, hours_allocated, actual_hours, extra_hours, extra_hours_status,
+      hours_confirmed_status, hours_confirmed_note,
       contractors ( full_name, hourly_rate ),
-      jobs ( id, job_number, address, status, completed_at, allowed_hours, description, deleted_at )
+      jobs ( id, job_number, address, status, completed_at, scheduled_date, allowed_hours, description, deleted_at )
     `)
 
   const all = (jwRaw ?? []) as unknown as JWRow[]
   let live = all.filter((r) => r.jobs && !r.jobs.deleted_at && (r.jobs.status === 'completed' || r.jobs.status === 'invoiced'))
-  // Period window on the job completion date (the pay-run's completion basis).
-  if (opts.from) live = live.filter((r) => (r.jobs!.completed_at ?? '').slice(0, 10) >= opts.from!)
-  if (opts.to) live = live.filter((r) => (r.jobs!.completed_at ?? '').slice(0, 10) <= opts.to!)
+  // Period window on the day the work was done (scheduled date), falling back
+  // to completion — the same date approval stamps as the payable's service_date,
+  // so a job lands in the same period before and after it's approved.
+  const visitDate = (j: NonNullable<JWRow['jobs']>) => (j.scheduled_date ?? j.completed_at ?? '').slice(0, 10)
+  if (opts.from) live = live.filter((r) => visitDate(r.jobs!) >= opts.from!)
+  if (opts.to) live = live.filter((r) => visitDate(r.jobs!) <= opts.to!)
 
   const workersPerJob = new Map<string, number>()
   for (const r of live) workersPerJob.set(r.job_id, (workersPerJob.get(r.job_id) ?? 0) + 1)
@@ -61,10 +69,25 @@ export async function loadApprovalRows(
     if (ci.job_id && ci.contractor_id) ciByKey.set(`${ci.job_id}::${ci.contractor_id}`, { id: ci.id, invoice_number: ci.invoice_number, status: ci.status })
   }
 
+  // Worker count per job — the allowed-hours fallback below must be SPLIT
+  // across the job's workers. Returning the full jobs.allowed_hours to each
+  // worker double-counted labour on multi-cleaner jobs.
+  const { data: rosterRaw } = jobIds.length > 0
+    ? await supabase.from('job_workers').select('job_id, contractor_id').in('job_id', jobIds)
+    : { data: [] as unknown[] }
+  const workerCountByJob = new Map<string, number>()
+  for (const w of (rosterRaw ?? []) as Array<{ job_id: string }>) {
+    workerCountByJob.set(w.job_id, (workerCountByJob.get(w.job_id) ?? 0) + 1)
+  }
+
   const rows: ApprovalRow[] = live.map((r) => {
     const job = r.jobs!
     const rate = r.pay_rate ?? r.contractors?.hourly_rate ?? null
-    const allowedHours = r.hours_allocated ?? job.allowed_hours ?? null
+    const allowedHours = resolveWorkerHours(
+      r.hours_allocated,
+      job.allowed_hours,
+      Math.max(workerCountByJob.get(r.job_id) ?? 1, 1),
+    )
     const payableHours = getWorkerPayableHours({
       pay_rate: r.pay_rate, approved_hours: null, actual_hours: null,
       hours_allocated: r.hours_allocated, extra_hours: r.extra_hours, extra_hours_status: r.extra_hours_status,
@@ -81,6 +104,17 @@ export async function loadApprovalRows(
       allowedHours, submittedHours: r.actual_hours, defaultApprovedHours: payableHours, rate,
       mode: computed.mode, computedAmount: computed.computedAmount, flags: computed.flags,
       readiness: computed.readiness, existingCI,
+      // The contractor's own answer on whether the job went to plan. Lets Carol
+      // bulk-approve the confirmed rows and look only at the flagged ones,
+      // instead of approving every row blind.
+      confirmation: queueSignal({
+        jobId: r.job_id, contractorId: r.contractor_id,
+        hoursAllocated: r.hours_allocated,
+        hoursConfirmedStatus: isHoursConfirmedStatus(r.hours_confirmed_status)
+          ? r.hours_confirmed_status
+          : 'unconfirmed',
+      }),
+      confirmationNote: r.hours_confirmed_note?.trim() || null,
     }
   })
   rows.sort((a, b) => {

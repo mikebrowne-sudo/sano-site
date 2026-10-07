@@ -38,6 +38,13 @@ export interface StructuredScope {
   /** Quote-specific service days (Residential Housekeeping). Blank by default;
    *  descriptive only. e.g. "Monday, Wednesday and Friday". */
   serviceDays?: string
+  /** Custom quote — optional labelled reference pairs printed in the document
+   *  header where the service address normally sits. Deliberately free-form
+   *  label/value rather than named columns, so one field serves a vehicle
+   *  registration, an asset tag, a site reference or a serial number without a
+   *  schema change per job type. Stored inside structured_scope so no
+   *  migration is needed. */
+  referenceFields?: { label: string; value: string }[]
 }
 
 export const FULL_PROPERTY_RESET_TITLE = 'Full Property Reset'
@@ -378,8 +385,35 @@ export function buildDefaultHousekeepingScope(): StructuredScope {
   }
 }
 
+/**
+ * Custom quote — a deliberately EMPTY structured scope.
+ *
+ * Full Property Reset and Residential Housekeeping ship a standard task list
+ * because the service is standard. A custom quote is by definition a one-off,
+ * so seeding it with cleaning tasks would mean the operator deletes more than
+ * they write. Everything here is blank and fully editable, and the document
+ * renders through the same QuoteDocument + PDF pipeline as every other quote,
+ * which is the point: correct A4 pagination without hand-rolled print CSS.
+ */
+export function buildEmptyCustomScope(): StructuredScope {
+  return {
+    referenceFields: [],
+    title: '',
+    expectedDuration: '',
+    intro: '',
+    sections: [{ heading: '', items: [''] }],
+    completion: '',
+    notes: [],
+    exclusions: [],
+  }
+}
+
 /** Service-type codes that use the structured-scope editor + manual pricing. */
-export const STRUCTURED_SCOPE_CODES = ['full_property_reset', 'residential_housekeeping'] as const
+export const STRUCTURED_SCOPE_CODES = [
+  'full_property_reset',
+  'residential_housekeeping',
+  'custom_quote',
+] as const
 
 /** True when a service_type_code uses the structured-scope editor (FPR-style). */
 export function isStructuredScopeType(code?: string | null): boolean {
@@ -392,6 +426,7 @@ export function buildDefaultScopeFor(
   input?: { property_category?: string | null; service_address?: string | null },
 ): StructuredScope {
   if (code === 'residential_housekeeping') return buildDefaultHousekeepingScope()
+  if (code === 'custom_quote') return buildEmptyCustomScope()
   return buildDefaultResetScope(input)
 }
 
@@ -417,8 +452,29 @@ export function normaliseStructuredScope(v: unknown): StructuredScope | null {
         }
       })
     : []
+  // Reference pairs: only kept when both halves have content, so a half-filled
+  // row never prints an orphan label or a floating value.
+  const referenceFields = Array.isArray(o.referenceFields)
+    ? (o.referenceFields as unknown[])
+        .map((r) => {
+          const row = (r ?? {}) as Record<string, unknown>
+          return {
+            label: typeof row.label === 'string' ? row.label.trim() : '',
+            value: typeof row.value === 'string' ? row.value.trim() : '',
+          }
+        })
+        .filter((r) => r.label !== '' && r.value !== '')
+    : []
+
   return {
-    title: typeof o.title === 'string' && o.title.trim() ? o.title : FULL_PROPERTY_RESET_TITLE,
+    // A custom quote carries its own title and must never inherit the Full
+    // Property Reset default — an empty title on a car groom quote reading
+    // "Full Property Reset" is worse than no title at all. Detected by the
+    // presence of referenceFields or an explicitly empty sections list.
+    title: typeof o.title === 'string' && o.title.trim()
+      ? o.title
+      : (referenceFields.length > 0 ? '' : FULL_PROPERTY_RESET_TITLE),
+    referenceFields,
     expectedDuration: typeof o.expectedDuration === 'string' ? o.expectedDuration : '',
     intro: typeof o.intro === 'string' ? o.intro : '',
     sections,

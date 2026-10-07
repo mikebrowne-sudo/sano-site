@@ -5,10 +5,14 @@ import { PortalPageHeader } from '../_components/PortalPageHeader'
 import { buttonClasses } from '../_components/Button'
 import { EmptyState } from '../_components/EmptyState'
 import { PortalListTable, type ListColumnDef } from '../_components/PortalListTable'
+import { isAdminUser } from '@/lib/is-admin'
+import { DeleteCampaignButton } from './_components/CampaignActions'
 
 const STATUS_BADGE: Record<string, string> = {
   draft: 'bg-sage-100 text-sage-700',
+  scheduled: 'bg-blue-100 text-blue-700',
   sending: 'bg-amber-100 text-amber-700',
+  paused: 'bg-orange-100 text-orange-700',
   sent: 'bg-green-100 text-green-700',
   archived: 'bg-gray-200 text-gray-600',
 }
@@ -16,7 +20,7 @@ const STATUS_BADGE: Record<string, string> = {
 export default async function CampaignsPage() {
   const supabase = createClient()
 
-  const [{ data: campaigns, error }, { data: recipients }] = await Promise.all([
+  const [{ data: campaigns, error }, { data: recipients }, { data: { user } }] = await Promise.all([
     supabase
       .from('sales_campaigns')
       .select('id, name, subject, status, created_at, sent_at')
@@ -25,7 +29,9 @@ export default async function CampaignsPage() {
     supabase
       .from('sales_campaign_recipients')
       .select('campaign_id, status, opened_at, first_clicked_at, responded_at'),
+    supabase.auth.getUser(),
   ])
+  const isAdmin = isAdminUser(user)
 
   if (error) {
     return (
@@ -108,6 +114,14 @@ export default async function CampaignsPage() {
         return <span className={s && s.replied > 0 ? 'text-green-700 font-semibold' : 'text-sage-600'}>{s ? s.replied : '—'}</span>
       },
     },
+    // Admin-only delete (Michael / Carol) — for clearing out test campaigns.
+    ...(isAdmin
+      ? [{
+          key: 'delete',
+          label: '',
+          cell: (c: Row) => <DeleteCampaignButton campaignId={c.id} />,
+        } as ListColumnDef<Row>]
+      : []),
   ]
 
   return (

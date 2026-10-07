@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Pencil, Smartphone, ClipboardList } from 'lucide-react'
+import { ArrowLeft, Pencil, Smartphone, ClipboardList, Wallet } from 'lucide-react'
 import { DocumentUpload } from '../_components/DocumentUpload'
 import { DocumentList } from '../_components/DocumentList'
 import { PayPreview } from '../_components/PayPreview'
@@ -78,7 +78,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
     supabase.auth.getUser(),
     supabase
       .from('contractors')
-      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, employment_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_status, kiwisaver_ks3_provided, kiwisaver_optout_filed, kiwisaver_employee_rate, kiwisaver_employer_rate, kiwisaver_ks2_completed, kiwisaver_ks2_completed_date, kiwisaver_auto_enrolment_date, kiwisaver_info_pack_delivered_date, kiwisaver_ks10_signed_date, kiwisaver_ks10_received_date, kiwisaver_optout_submitted_to_ird_date, kiwisaver_ird_approval_reference, kiwisaver_ird_approval_date, kiwisaver_payroll_stop_effective_date, kiwisaver_savings_suspension_ref, kiwisaver_savings_suspension_from, kiwisaver_savings_suspension_to, kiwisaver_optout_intention_note, kiwisaver_optout_intention_recorded_at, insurance_provider, insurance_policy_number, insurance_expiry, insurance_liability_cover, company_name, business_structure, nzbn, gst_registered, gst_number, bank_account_name, bank_account_number, payment_terms_days, contract_signed_date, right_to_work_required, right_to_work_expiry, service_areas, approved_services, availability_notes, has_vehicle, provides_own_equipment, key_holding_approved, alarm_access_approved, pet_friendly, experience_level, can_lead_jobs, can_work_solo, can_supervise_others, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, portal_access_active, auth_user_id, onboarding_status, onboarding_started_at, onboarding_completed_at, trial_required, trial_status, trial_scheduled_for, trial_outcome_note, source_applicant_id, legal_name, company_number, tax_review_status, tax_review_notes, ir330c_requested, onboarding_grandfathered, competency_confirmed_at, competency_confirmed_by, competency_assessment_date, competency_limitations, competency_notes')
+      .select('id, full_name, email, phone, hourly_rate, base_hourly_rate, loaded_hourly_rate, holiday_pay_percent, status, worker_type, employment_type, notes, created_at, start_date, end_date, pay_frequency, standard_hours, holiday_pay_method, ird_number, tax_code, ir330_received, kiwisaver_enrolled, kiwisaver_status, kiwisaver_ks3_provided, kiwisaver_optout_filed, kiwisaver_employee_rate, kiwisaver_employer_rate, kiwisaver_ks2_completed, kiwisaver_ks2_completed_date, kiwisaver_auto_enrolment_date, kiwisaver_info_pack_delivered_date, kiwisaver_ks10_signed_date, kiwisaver_ks10_received_date, kiwisaver_optout_submitted_to_ird_date, kiwisaver_ird_approval_reference, kiwisaver_ird_approval_date, kiwisaver_payroll_stop_effective_date, kiwisaver_savings_suspension_ref, kiwisaver_savings_suspension_from, kiwisaver_savings_suspension_to, kiwisaver_optout_intention_note, kiwisaver_optout_intention_recorded_at, insurance_provider, insurance_policy_number, insurance_expiry, insurance_liability_cover, company_name, business_structure, nzbn, gst_registered, gst_number, bank_account_name, bank_account_number, payment_terms_days, contract_signed_date, right_to_work_required, right_to_work_expiry, service_areas, approved_services, availability_notes, has_vehicle, provides_own_equipment, key_holding_approved, alarm_access_approved, pet_friendly, experience_level, can_lead_jobs, can_work_solo, can_supervise_others, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, portal_access_active, auth_user_id, onboarding_status, onboarding_started_at, onboarding_completed_at, trial_required, trial_status, trial_scheduled_for, trial_outcome_note, source_applicant_id, legal_name, company_number, tax_review_status, tax_review_notes, ir330c_requested, onboarding_grandfathered, competency_confirmed_at, competency_confirmed_by, competency_assessment_date, competency_limitations, competency_notes, preferred_name, address, date_of_birth, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship, id_sighted')
       .eq('id', params.id)
       .single(),
     supabase
@@ -262,6 +262,20 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
             Setup
           </Link>
           <Link
+            href={`/portal/contractors/${params.id}/pay`}
+            className="inline-flex items-center gap-2 bg-white border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
+          >
+            <Wallet size={14} />
+            Pay
+          </Link>
+          <Link
+            href={`/portal/contractors/${params.id}/rates`}
+            className="inline-flex items-center gap-2 bg-white border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
+          >
+            <Wallet size={14} />
+            Rates
+          </Link>
+          <Link
             href={`/portal/contractors/${params.id}/tax`}
             className="inline-flex items-center gap-2 bg-white border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
           >
@@ -393,7 +407,48 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
               <span className="text-sage-500">Phone</span>
               <p className="text-sage-800 font-medium">{contractor.phone || '—'}</p>
             </div>
+            {contractor.preferred_name && (
+              <div>
+                <span className="text-sage-500">Preferred name</span>
+                <p className="text-sage-800 font-medium">{contractor.preferred_name}</p>
+              </div>
+            )}
+            {contractor.address && (
+              <div className="sm:col-span-2">
+                <span className="text-sage-500">Address</span>
+                <p className="text-sage-800 font-medium whitespace-pre-line">{contractor.address}</p>
+              </div>
+            )}
           </div>
+        </Section>
+
+        {/* Personal & emergency contact — the info you'd need in an emergency. */}
+        <Section title="Personal & emergency contact">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-sage-500">Emergency contact</span>
+              <p className="text-sage-800 font-medium">{contractor.emergency_contact_name || '—'}</p>
+            </div>
+            <div>
+              <span className="text-sage-500">Emergency phone</span>
+              <p className="text-sage-800 font-medium">{contractor.emergency_contact_phone || '—'}</p>
+            </div>
+            <div>
+              <span className="text-sage-500">Relationship</span>
+              <p className="text-sage-800 font-medium">{contractor.emergency_contact_relationship || '—'}</p>
+            </div>
+            <div>
+              <span className="text-sage-500">Date of birth</span>
+              <p className="text-sage-800 font-medium">{contractor.date_of_birth || '—'}</p>
+            </div>
+            <div>
+              <span className="text-sage-500">ID sighted</span>
+              <p className="text-sage-800 font-medium">{contractor.id_sighted ? 'Yes' : 'No'}</p>
+            </div>
+          </div>
+          {!contractor.emergency_contact_name && !contractor.emergency_contact_phone && (
+            <p className="text-[12px] text-amber-700 mt-2">No emergency contact on file — add one via Edit (important for anyone working on-site).</p>
+          )}
         </Section>
 
         {/* Business identity — contractor only */}
@@ -486,6 +541,16 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
               <div><span className="text-sage-500">Account name</span><p className="text-sage-800 font-medium">{contractor.bank_account_name || '—'}</p></div>
               <div><span className="text-sage-500">Account number</span><p className="text-sage-800 font-medium">{contractor.bank_account_number || '—'}</p></div>
               <div><span className="text-sage-500">Payment terms</span><p className="text-sage-800 font-medium">{contractor.payment_terms_days != null ? `${contractor.payment_terms_days} days` : '—'}</p></div>
+            </div>
+          </Section>
+        )}
+
+        {/* Bank account — employees (captured at agreement signing; pay goes here) */}
+        {workerType === 'employee' && (contractor.bank_account_number || contractor.bank_account_name) && (
+          <Section title="Bank account">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div><span className="text-sage-500">Account name</span><p className="text-sage-800 font-medium">{contractor.bank_account_name || '—'}</p></div>
+              <div><span className="text-sage-500">Account number</span><p className="text-sage-800 font-medium">{contractor.bank_account_number || '—'}</p></div>
             </div>
           </Section>
         )}

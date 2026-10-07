@@ -69,6 +69,16 @@ export function QuoteNextStepPanel({ quoteId, isConvertible, isCommercial, jobSe
         </div>
       </div>
 
+      {/* Something changed? The accepted quote can't be edited in place —
+          saving forks a new draft. Say so here, because this panel is where
+          the operator looks after acceptance, and nothing else on the page
+          explained how to get from "agreed" to "revised and sent". */}
+      <p className="mt-4 text-xs text-sage-600 leading-relaxed">
+        Need to change something first? Use <strong>Revise &amp; resend</strong> at the
+        bottom of this page — it creates a new draft version to edit and send,
+        and keeps this accepted version on file unchanged.
+      </p>
+
       {/* More options disclosure */}
       <div className="mt-4 border-t border-sage-100 pt-3">
         <button

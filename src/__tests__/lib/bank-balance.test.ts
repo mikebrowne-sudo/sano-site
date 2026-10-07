@@ -67,10 +67,23 @@ describe('saveBankBalanceFromImport — monotonic (never regress to an older sta
     expect(upserts).toHaveLength(0)
   })
 
-  it('is a no-op for the same date (idempotent re-import)', async () => {
+  // A SAME-DAY statement must win. This previously asserted a no-op in the name
+  // of idempotency, but that silently discarded the correct figure: exporting
+  // again later the same day (after more transactions clear) kept the stale
+  // morning balance while reporting success. Real case — ASB stated 8734.75 as
+  // of 2026-08-17 while the dashboard held 13430.05, also dated 2026-08-17.
+  it('a same-date statement UPDATES the balance (later export is more complete)', async () => {
+    const { client, upserts } = fakeSupabase({ amount: 13430.05, as_at: '2026-08-17' })
+    const res = await saveBankBalanceFromImport(client, { amount: 8734.75, asAt: '2026-08-17' }, 'u1')
+    expect(res.updated).toBe(true)
+    expect(res.effective).toEqual({ amount: 8734.75, asAt: '2026-08-17' })
+    expect(upserts).toHaveLength(1)
+  })
+
+  it('re-importing the identical statement is harmless (same value written back)', async () => {
     const { client, upserts } = fakeSupabase({ amount: 750, as_at: '2026-07-31' })
     const res = await saveBankBalanceFromImport(client, { amount: 750, asAt: '2026-07-31' }, 'u1')
-    expect(res.updated).toBe(false)
-    expect(upserts).toHaveLength(0)
+    expect(res.effective).toEqual({ amount: 750, asAt: '2026-07-31' })
+    expect(upserts).toHaveLength(1)
   })
 })

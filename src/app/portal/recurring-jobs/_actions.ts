@@ -7,6 +7,7 @@ import { notifyContractorAssigned } from '@/lib/notify-contractor'
 import { computeNextInvoiceDate } from '@/lib/recurring-invoice'
 import { resolveAllowedHours } from '@/lib/allowed-hours'
 import { buildRecurringWorkerRow, type RecurringPayType } from '@/lib/recurring-worker'
+import { loadRateCandidates, todayIso } from '@/lib/contractor-client-rate-data'
 import { rollbackOrphanOccurrence } from '@/lib/recurring-rollback'
 
 interface RecurringJobInput {
@@ -26,8 +27,16 @@ interface RecurringJobInput {
   status?: string
   monthly_value?: number
   invoice_auto_send?: boolean
+  /** Printed in the Notes of every invoice this schedule raises. Never copied to jobs. */
+  invoice_note?: string | null
   invoice_send_day?: number
   contractor_monthly_pay?: number
+  billing_mode?: string
+  per_visit_rate?: number
+  service_days_of_week?: number[]
+  contractor_rate_override?: number
+  contractor_pay_mode?: string
+  contractor_per_visit_rate?: number
 }
 
 function calcNextDueDate(startDate: string, frequency: string, after?: string | null): string | null {
@@ -77,7 +86,14 @@ export async function createRecurringJob(input: RecurringJobInput) {
       monthly_value: input.monthly_value ?? null,
       contractor_monthly_pay: input.contractor_monthly_pay ?? null,
       invoice_auto_send: input.invoice_auto_send ?? false,
+      invoice_note: (input.invoice_note ?? '').trim() || null,
       invoice_send_day: input.invoice_send_day ?? null,
+      billing_mode: input.billing_mode ?? 'fixed',
+      per_visit_rate: input.per_visit_rate ?? null,
+      service_days_of_week: input.service_days_of_week ?? null,
+      contractor_rate_override: input.contractor_rate_override ?? null,
+      contractor_pay_mode: input.contractor_pay_mode ?? 'fixed',
+      contractor_per_visit_rate: input.contractor_per_visit_rate ?? null,
       next_invoice_date: input.invoice_send_day
         ? computeNextInvoiceDate(input.start_date, input.invoice_send_day)
         : null,
@@ -131,7 +147,14 @@ export async function updateRecurringJob(id: string, input: RecurringJobInput) {
       monthly_value: input.monthly_value ?? null,
       contractor_monthly_pay: input.contractor_monthly_pay ?? null,
       invoice_auto_send: input.invoice_auto_send ?? false,
+      invoice_note: (input.invoice_note ?? '').trim() || null,
       invoice_send_day: input.invoice_send_day ?? null,
+      billing_mode: input.billing_mode ?? 'fixed',
+      per_visit_rate: input.per_visit_rate ?? null,
+      service_days_of_week: input.service_days_of_week ?? null,
+      contractor_rate_override: input.contractor_rate_override ?? null,
+      contractor_pay_mode: input.contractor_pay_mode ?? 'fixed',
+      contractor_per_visit_rate: input.contractor_per_visit_rate ?? null,
       // Keep an existing schedule; only (re)seed when a day is set and none exists.
       next_invoice_date: input.invoice_send_day
         ? (current?.next_invoice_date ?? computeNextInvoiceDate(new Date().toISOString().slice(0, 10), input.invoice_send_day))
@@ -222,10 +245,29 @@ export async function generateNextJob(recurringId: string) {
       .select('hourly_rate')
       .eq('id', rec.contractor_id)
       .single()
+    // Per-contract override wins over everything when set; it is the most
+    // specific instruction there is. Otherwise a per-client agreed rate wins
+    // over the contractor's flat profile rate.
+    const overrideRate = (rec as { contractor_rate_override?: number | null }).contractor_rate_override
+    const occurrenceDate = (rec.next_due_date as string | null) || todayIso()
+    const candidates = overrideRate != null
+      ? {}
+      : await loadRateCandidates(
+          supabase as never,
+          [rec.contractor_id as string],
+          (rec.client_id as string | null) ?? null,
+          occurrenceDate,
+        )
     const workerRow = buildRecurringWorkerRow({
       jobId: newJob.id as string,
       contractorId: rec.contractor_id as string,
-      contractorRate: (c?.hourly_rate as number | null) ?? null,
+      contractorRate: (overrideRate != null ? Number(overrideRate) : (c?.hourly_rate as number | null)) ?? null,
+      clientRate: candidates[rec.contractor_id as string]?.clientRate ?? null,
+      // A per-visit contract pays a SET AMOUNT per occurrence, never
+      // hours x rate (NZCL: $126 per clean).
+      perVisitRate: (rec as { contractor_pay_mode?: string | null }).contractor_pay_mode === 'per_visit'
+        ? ((rec as { contractor_per_visit_rate?: number | null }).contractor_per_visit_rate ?? null)
+        : null,
       allowedHours: resolveAllowedHours(null, rec.duration_estimate as string | null),
       payType: (rec.contractor_pay_type as RecurringPayType) === 'fixed' ? 'fixed' : 'hourly',
     })

@@ -26,7 +26,9 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { assertQuoteConvertible } from '@/lib/quote-conversion-guard'
+import { computeQuoteTotal } from '@/lib/quote-total'
 import { computeInvoiceDueDate, resolveServiceDate } from '@/lib/invoice-dates'
+import { copyQuoteItemsToJob } from '@/lib/job-items-from-quote'
 
 type ResidentialItemRow = {
   label: string | null
@@ -221,10 +223,10 @@ export async function createJobAndInvoiceFromQuote(quoteId: string) {
   // Phase 5.5.16 — also carry job_price across so the job is fully
   // priced from the moment of creation (matches the invoice that just
   // shipped to the client).
-  const jobPrice =
-    quote.base_price != null
-      ? Math.max(0, Number(quote.base_price) - Number(quote.discount ?? 0))
-      : null
+  // Includes the quote's add-on lines so job_price matches the invoice this
+  // path just created — that invoice DOES carry the add-ons as invoice_items,
+  // so a base-only job_price left the two disagreeing. See lib/quote-total.
+  const jobPrice = computeQuoteTotal(quote, residentialItems)
 
   const { data: job, error: jErr } = await supabase
     .from('jobs')
@@ -252,6 +254,24 @@ export async function createJobAndInvoiceFromQuote(quoteId: string) {
 
   if (jErr || !job) {
     return { error: `Invoice created but job failed: ${jErr?.message ?? 'insert returned no row'}` }
+  }
+
+  // Carry the quote's add-ons onto the job as job_items (source = 'quote').
+  // Their CHARGE is already inside job_price / the invoice, so they are not
+  // billed again — they exist so a quoted extra (a carpet clean) can be given a
+  // contractor and a set amount on the job page. Best-effort: never fail the
+  // conversion over the pay-side copy.
+  {
+    const { data: { user: itemUser } } = await supabase.auth.getUser()
+    const copyRes = await copyQuoteItemsToJob(
+      supabase as never,
+      job.id as string,
+      residentialItems as never,
+      itemUser?.id ?? null,
+    )
+    if (copyRes.error) {
+      console.error('[quote->job] could not copy quote add-ons to job_items:', copyRes.error)
+    }
   }
 
   // 7. Mark quote as converted + audit log.

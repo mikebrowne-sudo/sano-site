@@ -9,7 +9,9 @@
 // output should expose backend field names (quantity_type, unit_minutes,
 // production_rate, margin tier internals, etc).
 
+import { parseManualScopeSections } from '@/lib/commercialQuote'
 import type {
+  ManualScopeSection,
   CommercialQuoteDetails,
   CommercialScopeItem,
   ScopeFrequency,
@@ -33,6 +35,7 @@ const SECTOR_LABEL: Record<SectorCategory, string> = {
   office:     'Office',
   education:  'Education',
   medical:    'Medical / Healthcare',
+  hospitality:'Hospitality',
   industrial: 'Industrial / Warehouse',
   mixed_use:  'Mixed-use',
   custom:     'Commercial',
@@ -110,18 +113,24 @@ export function fmtCount(n: number | null | undefined, singular: string, plural?
 
 export type ProposalGroupKey =
   | 'general_areas'
+  | 'dining_public'
+  | 'bar_service'
   | 'offices_workstations'
   | 'kitchens_breakout'
   | 'bathrooms_washrooms'
   | 'common_areas'
+  | 'outdoor_areas'
   | 'specialist_areas'
 
 export const PROPOSAL_GROUP_LABEL: Record<ProposalGroupKey, string> = {
   general_areas:         'General Areas',
+  dining_public:         'Dining & Public Areas',
+  bar_service:           'Bar & Service Areas',
   offices_workstations:  'Workstations',
   kitchens_breakout:     'Kitchens & Breakout Areas',
   bathrooms_washrooms:   'Bathrooms & Washrooms',
   common_areas:          'Common Areas',
+  outdoor_areas:         'Outdoor Areas',
   specialist_areas:      'Specialist Areas',
 }
 
@@ -129,10 +138,13 @@ export const PROPOSAL_GROUP_LABEL: Record<ProposalGroupKey, string> = {
 // with zero rows are not rendered at all.
 export const PROPOSAL_GROUP_ORDER: readonly ProposalGroupKey[] = [
   'general_areas',
+  'dining_public',
+  'bar_service',
   'offices_workstations',
   'kitchens_breakout',
   'bathrooms_washrooms',
   'common_areas',
+  'outdoor_areas',
   'specialist_areas',
 ]
 
@@ -142,6 +154,19 @@ export const PROPOSAL_GROUP_ORDER: readonly ProposalGroupKey[] = [
 // wins. Anything unmatched falls into general_areas.
 const KEYWORD_PATTERNS: readonly [ProposalGroupKey, RegExp][] = [
   ['bathrooms_washrooms',  /bath|toilet|washroom|shower|urinal|lavatory|restroom/i],
+  // Hospitality groups sit above the kitchen and office patterns: a brewery
+  // row like "wet area beside kitchen" would otherwise be filed under
+  // "Kitchens & Breakout Areas", and the bar, beer garden and playground all
+  // fell through to "General Areas" — office vocabulary on a venue proposal.
+  //
+  // `bar` also matches rows that merely mention the kitchen as a location
+  // ("bar surfaces and wet area beside kitchen"). That is deliberate: the row
+  // describes BAR work, and the commercial kitchen itself is usually excluded
+  // on a venue contract, so the bar reading is the correct one. A genuine
+  // kitchen row would not name the bar.
+  ['bar_service',          /\bbar\b|\bbars\b|beer|keg|tap(?:s|room)?|cellar|barista|service\s*area|counter|wet\s*area/i],
+  ['outdoor_areas',        /outdoor|external|courtyard|garden|patio|deck|paving|limestone|gravel|playground|bark|car\s*park|forecourt|smoking/i],
+  ['dining_public',        /dining|restaurant|table|seating|booth|front\s*of\s*house|customer\s*area|public\s*area/i],
   ['kitchens_breakout',    /kitchen|breakroom|break\s*room|pantry|tea\s*point|cafe|caf[ée]|staff\s*room|staffroom|lunch/i],
   ['offices_workstations', /office|workstation|desk|cubicle|meeting\s*room|board\s*room|boardroom|conference/i],
   ['common_areas',         /reception|lobby|foyer|hall|hallway|corridor|stair|entry|entrance|lift|elevator|lounge|waiting/i],
@@ -240,6 +265,12 @@ export interface SiteProfileView {
   traffic: string
   occupancy: string
   fixtures_summary: string
+  /** True when the quote is a single one-off clean rather than
+   *  ongoing recurring service. Drives one-off proposal wording. */
+  is_one_off: boolean
+  /** Operator-written scope sections, appended to the generated scope
+   *  groups on the Scope of Works page. Presentational only. */
+  manual_scope_sections: ManualScopeSection[]
 }
 
 export function buildSiteProfile(
@@ -255,6 +286,8 @@ export function buildSiteProfile(
     traffic: trafficLabel(details.traffic_level),
     occupancy: occupancyLabel(details.occupancy_level),
     fixtures_summary: buildFixturesSummary(details),
+    is_one_off: details.is_one_off ?? false,
+    manual_scope_sections: parseManualScopeSections(details.manual_scope_sections),
   }
 }
 
@@ -451,6 +484,103 @@ export function buildSiteUnderstanding(
   if (deskSanitation) rhythmBits.push('desk-touchpoint sanitisation as part of the routine')
   if (rhythmBits.length > 0) {
     sentences.push(`The programme accounts for ${joinList(rhythmBits)}.`)
+  }
+
+  // 2b. Hospitality specifics.
+  //
+  // Written to answer, in the client's own terms, the things a venue operator
+  // actually worries about when they read a cleaning proposal: are you working
+  // around my service, do you understand my kitchen is not your job, and have
+  // you actually priced my outdoor area rather than discovering it later.
+  //
+  // Every sentence is built only from a field that was captured. Nothing is
+  // asserted on the client's behalf — an unanswered field simply produces no
+  // sentence, which is the same discipline as the rest of this builder.
+  const venueType   = readSectorString(details, 'hospitality_type')
+  const covers      = readSectorNumber(details, 'covers_seated')
+  const licensed    = readSectorBool(details, 'licensed_premises')
+  const kitchen     = readSectorString(details, 'commercial_kitchen_in_scope')
+  const barAreas    = readSectorNumber(details, 'bar_areas_count')
+  const access      = readSectorString(details, 'access_timing')
+  const outdoor     = readSectorBool(details, 'outdoor_areas_in_scope')
+  const surfaces    = readSectorChips(details, 'outdoor_surface_types')
+  const playground  = readSectorBool(details, 'playground_present')
+  const seasonal    = readSectorString(details, 'seasonal_variation_notes')
+  const consumables = readSectorString(details, 'consumables_scope')
+
+  const venueBits: string[] = []
+  if (venueType) {
+    const vt = venueType.replace(/_/g, ' ')
+    venueBits.push(licensed ? `The site operates as a licensed ${vt}` : `The site operates as a ${vt}`)
+  } else if (licensed) {
+    venueBits.push('The site operates as a licensed venue')
+  }
+  if (covers && covers > 0) {
+    venueBits.push(venueBits.length === 0
+      ? `The venue seats around ${covers} covers`
+      : `seating around ${covers} covers`)
+  }
+  if (barAreas && barAreas > 0) {
+    venueBits.push(`with ${fmtCount(barAreas, 'bar or service area')} covered in the programme`)
+  }
+  if (venueBits.length > 0) sentences.push(venueBits.join(' ') + '.')
+
+  // Access — the single biggest operational question on a venue.
+  if (access) {
+    const ACCESS_PHRASE: Record<string, string> = {
+      pre_open_morning:  'before opening each morning, so the venue is presented ready for first service',
+      between_service:   'between service periods, worked around your trading hours',
+      post_close_evening:'after close each evening, so the site is reset overnight',
+      overnight:         'overnight, entirely outside your trading hours',
+      flexible:          'at times agreed with your management, worked around trading',
+    }
+    const phrase = ACCESS_PHRASE[access]
+    if (phrase) sentences.push(`Cleaning is scheduled ${phrase}.`)
+  }
+
+  // Kitchen boundary — stated plainly so it can never be assumed either way.
+  if (kitchen) {
+    const KITCHEN_PHRASE: Record<string, string> = {
+      excluded:
+        'The commercial kitchen remains the responsibility of your own team. Our work covers the adjacent wet and service areas, and the boundary is set out in the exclusions below.',
+      floors_only:
+        'Within the commercial kitchen our scope covers floors only. Surfaces, equipment and extraction remain with your team, as set out in the exclusions below.',
+      full:
+        'The commercial kitchen is included in this programme, covering floors, surfaces and accessible fixtures. Extraction and canopy servicing is treated separately.',
+    }
+    const phrase = KITCHEN_PHRASE[kitchen]
+    if (phrase) sentences.push(phrase)
+  }
+
+  // Outdoor areas — routinely under-scoped on NZ venue sites.
+  if (outdoor) {
+    const outdoorBits: string[] = []
+    if (surfaces.length > 0) {
+      outdoorBits.push(`covering ${joinList(surfaces.map((x) => x.replace(/_/g, ' ')))}`)
+    }
+    if (playground) outdoorBits.push('including the playground area')
+    sentences.push(outdoorBits.length > 0
+      ? `Outdoor areas are included in the programme, ${joinList(outdoorBits)}.`
+      : 'Outdoor areas are included in the programme.')
+    if (playground) {
+      sentences.push('Playground upkeep covers tidying and rubbish removal. A formal playground safety inspection is a separate, specialist service and is not included.')
+    }
+  }
+
+  if (consumables) {
+    const CONSUMABLE_PHRASE: Record<string, string> = {
+      sano_supplies:                'Washroom consumables are supplied and restocked by Sano.',
+      client_supplies:              'Washroom consumables are supplied by you; our team restocks from your stock on each visit.',
+      sano_restocks_client_supplies:'Washroom consumables are supplied by you and restocked by our team on each visit.',
+    }
+    const phrase = CONSUMABLE_PHRASE[consumables]
+    if (phrase) sentences.push(phrase)
+  }
+
+  // Seasonal rhythm — recorded on the quote so the arrangement is explicit
+  // rather than remembered.
+  if (seasonal) {
+    sentences.push(`Service frequency varies through the year: ${seasonal.trim().replace(/\.$/, '')}. Pricing below reflects the base schedule, with additional visits charged per visit.`)
   }
 
   // 3. Constraint flags (operational reality) — keep client-safe.

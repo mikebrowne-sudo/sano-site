@@ -56,6 +56,12 @@ export interface ProposalSiteContext {
   contractTermMonths: number  // from settings
   paymentTermDays: number     // from settings
   noticePeriodDays: number    // from settings
+
+  // True when the quote is a single one-off clean rather than ongoing
+  // recurring service. Content-builders switch to one-off wording:
+  // no cadence sentence, no contract-term / monthly-invoicing lines,
+  // and the pricing hero reads as a total service fee.
+  isOneOff: boolean
 }
 
 export interface ProposalTemplatePayload {
@@ -87,6 +93,17 @@ export interface ProposalTemplatePayload {
   // Scope
   scopeSections: ProposalScopeSection[]
 
+  // Assumptions, exclusions and compliance.
+  //
+  // These were captured on the quote and carried this far, but no page
+  // rendered them — so operator-written exclusions never reached the client.
+  // On a commercial tender that is the section that defines the boundary of
+  // the job, so it has to be visible rather than implied by "only tasks
+  // listed are included" in the terms.
+  assumptions: string[]
+  exclusions: string[]
+  complianceNotes: string
+
   // Pricing
   monthlyServiceFee: string     // pre-formatted hero amount, e.g. "$2,450"
   pricingNote: string
@@ -112,7 +129,7 @@ export interface ProposalTemplatePayload {
 export const SANO_PROPOSAL_CONTACT: ProposalContact = {
   email: 'hello@sano.nz',
   website: 'sano.nz',
-  phone: '0800 726 664',
+  phone: '0800 726 686',
 }
 
 // ── Fixture ──────────────────────────────────────────────────────
@@ -154,6 +171,16 @@ export function proposalFixture(settings: ProposalSettings = DEFAULT_PROPOSAL_SE
       'Bathrooms (×6) and end-of-trip facilities',
       'Stairwells, lifts, and corridors',
     ],
+
+    assumptions: [
+      'Bin liners and washroom consumables are supplied by the client.',
+      'Access is available within the agreed service window.',
+    ],
+    exclusions: [
+      'External glass above ground-floor level.',
+      'Carpet deep cleaning and specialist surface restoration.',
+    ],
+    complianceNotes: '',
 
     scopeSections: [
       {
@@ -213,6 +240,7 @@ export function proposalFixture(settings: ProposalSettings = DEFAULT_PROPOSAL_SE
       contractTermMonths: settings.terms.default_contract_term_months,
       paymentTermDays:    settings.terms.default_payment_term_days,
       noticePeriodDays:   settings.terms.default_notice_period_days,
+      isOneOff:           false,
     },
 
     contact: {
@@ -240,13 +268,32 @@ export function fromCommercialProposalPayload(
   // each task carries task_name + frequency_label. Frequency is
   // rendered as a lowercase parenthesised suffix — "Vacuum carpets
   // (weekly)" — so the scope reads as prose, not raw data.
-  const scopeSections: ProposalScopeSection[] = p.scope_groups.map((g) => ({
+  // Frequency suffixes ("(weekly)", "(each visit)") describe a repeat,
+  // so they're suppressed on a one-off: there is only one visit, and
+  // "Clean and restock bathrooms (weekly)" on a single-visit quote
+  // reads as a contract the client isn't buying.
+  const oneOff = p.site_profile.is_one_off ?? false
+
+  const generatedSections: ProposalScopeSection[] = p.scope_groups.map((g) => ({
     title: g.label,
     items: g.tasks.map((t) => {
+      if (oneOff) return t.task_name
       const freq = formatScopeFrequency(t.frequency_label ?? '')
       return freq ? `${t.task_name} ${freq}` : t.task_name
     }),
   }))
+
+  // Operator-written sections render after the generated ones, so the
+  // costed scope leads and the hand-written extras follow. They carry
+  // no frequency suffix — they aren't costed rows, so there's no
+  // frequency to state. An untitled manual section falls back to a
+  // neutral heading rather than rendering a blank <h3>.
+  const manualSections: ProposalScopeSection[] = p.site_profile.manual_scope_sections.map((m) => ({
+    title: m.title || 'Additional scope',
+    items: m.items,
+  }))
+
+  const scopeSections: ProposalScopeSection[] = [...generatedSections, ...manualSections]
 
   // Service schedule one-liners.
   const ss = p.service_schedule
@@ -258,9 +305,11 @@ export function fromCommercialProposalPayload(
   const startRow = p.commercial_terms?.rows?.find((r) => /start/i.test(r.label))
   const serviceStartDate = startRow?.value?.trim() || '—'
 
-  // Areas covered = the scope group titles; fits the "What's in scope"
-  // checklist on the Service Overview page.
-  const areasCovered = scopeSections.map((s) => s.title)
+  // Areas covered = the GENERATED scope group titles only. Manual
+  // sections are extra tasks, not areas of the site, so including them
+  // here would put "Deep Clean Extras" in the Service Overview's
+  // "Areas covered" cell.
+  const areasCovered = generatedSections.map((s) => s.title)
 
   // Pricing — single hero figure (just the dollar amount). The
   // template renders the GST + monthly suffixes from settings.
@@ -308,6 +357,9 @@ export function fromCommercialProposalPayload(
     areasCovered,
 
     scopeSections,
+    assumptions:      p.assumptions,
+    exclusions:       p.exclusions,
+    complianceNotes:  p.compliance_notes ?? '',
 
     monthlyServiceFee,
     pricingNote,
@@ -335,6 +387,7 @@ export function fromCommercialProposalPayload(
       contractTermMonths: settings.terms.default_contract_term_months,
       paymentTermDays:    settings.terms.default_payment_term_days,
       noticePeriodDays:   settings.terms.default_notice_period_days,
+      isOneOff:           oneOff,
     },
 
     contact: {
