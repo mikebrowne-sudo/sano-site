@@ -20,8 +20,9 @@ import type {
   ScopeFrequency,
   ScopeInputMode,
 } from '@/lib/commercialQuote'
-import { isMarginTier, isSectorCategory, isContractTerm, isCleaningStandard } from '@/lib/commercialQuote'
-import { assertCanAmend, findLockingInvoiceForQuote } from '@/lib/amendment-lock'
+import { isMarginTier, isSectorCategory, isContractTerm, isCleaningStandard, parseManualScopeSections } from '@/lib/commercialQuote'
+import type { ManualScopeSection } from '@/lib/commercialQuote'
+import { assertCanAmend, assertNotAcceptedInPlace, findLockingInvoiceForQuote } from '@/lib/amendment-lock'
 
 // ── saveCommercialDetails ──────────────────────────────────────────
 
@@ -74,6 +75,13 @@ export interface CommercialDetailsInput {
   notice_period_days?: number | null
   service_start_date?: string | null
 
+  // One-off clean (single visit). Default false = recurring service.
+  is_one_off?: boolean | null
+
+  // Free-text scope sections for the proposal Scope of Works page.
+  // Presentational only — never costed, never fed to the estimator.
+  manual_scope_sections?: ManualScopeSection[] | null
+
   cleaning_standard?: string | null
 
   security_sensitive?: boolean | null
@@ -112,7 +120,7 @@ export async function saveCommercialDetails(
   // Verify the quote exists, is commercial, and isn't soft-deleted.
   const { data: quote, error: quoteErr } = await supabase
     .from('quotes')
-    .select('id, service_category, deleted_at')
+    .select('id, service_category, deleted_at, status')
     .eq('id', quote_id)
     .single()
   if (quoteErr || !quote) return { error: 'Quote not found.' }
@@ -120,6 +128,13 @@ export async function saveCommercialDetails(
   if (quote.service_category !== 'commercial') {
     return { error: 'saveCommercialDetails requires a commercial quote (service_category=commercial).' }
   }
+
+  // Same accepted-quote invariant as updateQuote. Commercial details are
+  // material (sector / area / margin tier all drive price), so an accepted
+  // commercial quote must be forked rather than amended in place — otherwise
+  // the quote row would be protected while its pricing inputs were not.
+  const acceptedGuard = assertNotAcceptedInPlace(quote.status as string | null)
+  if (acceptedGuard) return acceptedGuard
 
   // Phase 5B — invoice-existence lock. Commercial-details writes are
   // material (sector / building / area / margin tier all affect price
@@ -173,6 +188,10 @@ export async function saveCommercialDetails(
     contract_term:          input.contract_term          ?? null,
     notice_period_days:     input.notice_period_days     ?? null,
     service_start_date:     input.service_start_date     ?? null,
+    is_one_off:             input.is_one_off             ?? false,
+    // Re-parsed server-side: this is a jsonb column and the client is
+    // not the authority on its shape.
+    manual_scope_sections:  parseManualScopeSections(input.manual_scope_sections ?? []),
     cleaning_standard:      input.cleaning_standard      ?? null,
     security_sensitive:     input.security_sensitive     ?? false,
     induction_required:     input.induction_required     ?? false,
@@ -231,11 +250,16 @@ export async function saveCommercialScope(
   // Verify quote exists and isn't deleted.
   const { data: quote, error: quoteErr } = await supabase
     .from('quotes')
-    .select('id, deleted_at')
+    .select('id, deleted_at, status')
     .eq('id', quote_id)
     .single()
   if (quoteErr || !quote) return { error: 'Quote not found.' }
   if (quote.deleted_at) return { error: 'Quote has been deleted and cannot be edited.' }
+
+  // Same accepted-quote invariant as updateQuote — scope defines what was
+  // agreed, so it must be forked rather than rewritten under an acceptance.
+  const acceptedGuard = assertNotAcceptedInPlace(quote.status as string | null)
+  if (acceptedGuard) return acceptedGuard
 
   // Validate inputs minimally
   for (const item of items) {

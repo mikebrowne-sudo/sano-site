@@ -4,7 +4,8 @@ import { useEffect, useState, useTransition } from 'react'
 import { ChevronDown, Trash2, UploadCloud, FileText, X } from 'lucide-react'
 import { createExpense, updateExpense, deleteExpense } from '../_actions'
 import { uploadExpenseReceipt, removeExpenseReceipt } from '../_actions-receipt'
-import { EXPENSE_CATEGORIES, isAccountantConfirmCategory } from '@/lib/expense-categories'
+import clsx from 'clsx'
+import { SELECTABLE_EXPENSE_CATEGORIES, isAccountantConfirmCategory, isNeverGstCategory } from '@/lib/expense-categories'
 import { RECEIPT_ACCEPT, RECEIPT_MAX_BYTES, isAllowedReceiptType, receiptIsPdf } from '@/lib/expense-receipts'
 import type { VendorSuggestion } from '../_data'
 
@@ -25,10 +26,20 @@ export function ExpenseForm({
   expense,
   vendorSuggestions = [],
   receiptUrl = null,
+  returnTo = '/portal/expenses',
+  recognisedVendor = null,
 }: {
   expense?: ExpenseData
   vendorSuggestions?: VendorSuggestion[]
   receiptUrl?: string | null
+  /** Where to go after saving — the origin the user came from (e.g. reconcile). */
+  returnTo?: string
+  /**
+   * Vendor recognised from the bank payee, whose usual category + GST have been
+   * prefilled. Shown so the prefill is visible and checkable rather than silent
+   * — these values reach a GST return.
+   */
+  recognisedVendor?: string | null
 }) {
   const isEdit = !!expense?.id
 
@@ -53,6 +64,9 @@ export function ExpenseForm({
   const [error, setError] = useState<string | null>(null)
 
   const accountantConfirm = isAccountantConfirmCategory(category)
+  // Categories that can never carry a GST input credit (employee wages, IRD
+  // remittances, owner capital, director loans). The server enforces this too.
+  const neverGst = isNeverGstCategory(category)
   const hasExistingReceipt = isEdit && !!expense?.receipt_path && !!receiptUrl && !removeExisting && !receiptFile
 
   // Object URL for image previews of a staged file; revoked on change/unmount.
@@ -123,7 +137,7 @@ export function ExpenseForm({
         }
       }
 
-      window.location.href = '/portal/expenses'
+      window.location.href = returnTo
     })
   }
 
@@ -139,6 +153,12 @@ export function ExpenseForm({
 
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-8">
+      {recognisedVendor && !isEdit && (
+        <p className="text-sm text-sage-800 bg-sage-50 border border-sage-200 rounded-md px-3 py-2">
+          Recognised <span className="font-semibold">{recognisedVendor}</span> from the bank payee —
+          category and GST are filled in from the last time. Change them if this one is different.
+        </p>
+      )}
       <Section title="Expense">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="block">
@@ -156,7 +176,7 @@ export function ExpenseForm({
             <span className="block text-sm font-semibold text-sage-800 mb-1.5">Category <span className="text-red-500">*</span></span>
             <div className="relative">
               <select value={category} onChange={(e) => { setCategory(e.target.value); setCategoryTouched(true) }} className={`${inputCls} appearance-none pr-10 bg-white`}>
-                {EXPENSE_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                {SELECTABLE_EXPENSE_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
               <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-sage-400 pointer-events-none" />
             </div>
@@ -181,10 +201,24 @@ export function ExpenseForm({
             <span className="block text-sm font-semibold text-sage-800 mb-1.5">Payment reference</span>
             <input value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} placeholder="Bank reference, for matching" className={inputCls} />
           </label>
-          <label className="flex items-center gap-2 mt-7">
-            <input type="checkbox" checked={gstInclusive} onChange={(e) => setGstInclusive(e.target.checked)} className="h-4 w-4 rounded border-sage-300 text-sage-500 focus:ring-sage-500" />
-            <span className="text-sm text-sage-700">Amount is GST-inclusive</span>
-          </label>
+          <div className="mt-7">
+            <label className={clsx('flex items-center gap-2', neverGst && 'opacity-50')}>
+              <input
+                type="checkbox"
+                checked={neverGst ? false : gstInclusive}
+                disabled={neverGst}
+                onChange={(e) => setGstInclusive(e.target.checked)}
+                className="h-4 w-4 rounded border-sage-300 text-sage-500 focus:ring-sage-500 disabled:cursor-not-allowed"
+              />
+              <span className="text-sm text-sage-700">Amount is GST-inclusive</span>
+            </label>
+            {neverGst && (
+              <p className="text-xs text-sage-500 mt-1">
+                No GST on this category — it isn&rsquo;t a supply to the business, so there is
+                nothing to claim.
+              </p>
+            )}
+          </div>
         </div>
 
         <label className="block mt-4">

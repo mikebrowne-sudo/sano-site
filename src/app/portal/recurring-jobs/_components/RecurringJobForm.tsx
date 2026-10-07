@@ -26,8 +26,15 @@ interface RecurringJobData {
   status: string
   monthly_value?: number | null
   invoice_auto_send?: boolean | null
+  invoice_note?: string | null
   invoice_send_day?: number | null
   contractor_monthly_pay?: number | null
+  billing_mode?: string | null
+  per_visit_rate?: number | null
+  service_days_of_week?: number[] | null
+  contractor_rate_override?: number | null
+  contractor_pay_mode?: string | null
+  contractor_per_visit_rate?: number | null
 }
 
 function toNum(v: string) {
@@ -56,14 +63,22 @@ export function RecurringJobForm({
   const [contractorPayType, setContractorPayType] = useState(recurringJob?.contractor_pay_type ?? 'hourly')
   const [assignedTo, setAssignedTo] = useState(recurringJob?.assigned_to ?? '')
   const [contractorPrice, setContractorPrice] = useState(recurringJob?.contractor_price != null ? String(recurringJob.contractor_price) : '')
+  const [contractorRateOverride, setContractorRateOverride] = useState(recurringJob?.contractor_rate_override != null ? String(recurringJob.contractor_rate_override) : '')
   const [frequency, setFrequency] = useState(recurringJob?.frequency ?? 'weekly')
   const [startDate, setStartDate] = useState(recurringJob?.start_date ?? '')
   const [endDate, setEndDate] = useState(recurringJob?.end_date ?? '')
   const [status, setStatus] = useState(recurringJob?.status ?? 'active')
   const [monthlyValue, setMonthlyValue] = useState(recurringJob?.monthly_value != null ? String(recurringJob.monthly_value) : '')
+  const [billingMode, setBillingMode] = useState<'fixed' | 'per_visit' | 'completed_visits'>((recurringJob?.billing_mode as 'fixed' | 'per_visit' | 'completed_visits') ?? 'fixed')
+  const billsPerVisitRate = billingMode === 'per_visit' || billingMode === 'completed_visits'
+  const [perVisitRate, setPerVisitRate] = useState(recurringJob?.per_visit_rate != null ? String(recurringJob.per_visit_rate) : '')
+  const [serviceDays, setServiceDays] = useState<Set<number>>(new Set(recurringJob?.service_days_of_week ?? []))
   const [invoiceSendDay, setInvoiceSendDay] = useState(recurringJob?.invoice_send_day != null ? String(recurringJob.invoice_send_day) : '')
   const [invoiceAutoSend, setInvoiceAutoSend] = useState(recurringJob?.invoice_auto_send ?? false)
+  const [invoiceNote, setInvoiceNote] = useState(recurringJob?.invoice_note ?? '')
   const [contractorMonthlyPay, setContractorMonthlyPay] = useState(recurringJob?.contractor_monthly_pay != null ? String(recurringJob.contractor_monthly_pay) : '')
+  const [contractorPayMode, setContractorPayMode] = useState<'fixed' | 'per_visit'>((recurringJob?.contractor_pay_mode as 'fixed' | 'per_visit') ?? 'fixed')
+  const [contractorPerVisitRate, setContractorPerVisitRate] = useState(recurringJob?.contractor_per_visit_rate != null ? String(recurringJob.contractor_per_visit_rate) : '')
 
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -92,6 +107,9 @@ export function RecurringJobForm({
       contractor_pay_type: contractorPayType || 'hourly',
       assigned_to: assignedTo.trim() || undefined,
       contractor_price: toNum(contractorPrice),
+      contractor_rate_override: toNum(contractorRateOverride),
+      contractor_pay_mode: contractorPayMode,
+      contractor_per_visit_rate: contractorPayMode === 'per_visit' ? toNum(contractorPerVisitRate) : undefined,
       frequency,
       start_date: startDate,
       end_date: endDate || undefined,
@@ -100,7 +118,17 @@ export function RecurringJobForm({
       contractor_monthly_pay: toNum(contractorMonthlyPay),
       invoice_send_day: toNum(invoiceSendDay),
       invoice_auto_send: invoiceAutoSend,
+      invoice_note: invoiceNote.trim() || null,
+      billing_mode: billingMode,
+      per_visit_rate: billsPerVisitRate ? toNum(perVisitRate) : undefined,
+      // Service days are needed whenever EITHER billing or contractor pay is per-visit.
+      service_days_of_week: (billingMode === 'per_visit' || contractorPayMode === 'per_visit') ? Array.from(serviceDays).sort() : undefined,
     }
+
+    const anyPerVisit = billingMode === 'per_visit' || contractorPayMode === 'per_visit'
+    if (billsPerVisitRate && !(Number(perVisitRate) > 0)) { setError('Rate per visit is required for this billing mode.'); return }
+    if (contractorPayMode === 'per_visit' && !(Number(contractorPerVisitRate) > 0)) { setError('Contractor per-visit rate is required for per-visit contractor pay.'); return }
+    if (anyPerVisit && serviceDays.size === 0) { setError('Pick the service days (needed for per-visit billing or pay).'); return }
 
     startTransition(async () => {
       const result = isEdit
@@ -155,25 +183,102 @@ export function RecurringJobForm({
           <Field label="Contractor price ($)" type="number" step="0.01" min="0" value={contractorPrice} onChange={setContractorPrice} />
         </div>
         {contractorId && (
-          <div className="mt-4 max-w-xs">
-            <Select label="Contractor pay basis" value={contractorPayType} onChange={setContractorPayType} options={[{ value: 'hourly', label: 'Hourly / allocated hours' }, { value: 'fixed', label: 'Fixed per occurrence' }]} />
-          </div>
+          <>
+            <div className="mt-4 max-w-xs">
+              <Select label="Contractor pay basis" value={contractorPayType} onChange={setContractorPayType} options={[{ value: 'hourly', label: 'Hourly / allocated hours' }, { value: 'fixed', label: 'Fixed per occurrence' }]} />
+            </div>
+            <div className="mt-4 max-w-xs">
+              <Field label="Contractor rate override ($/hr)" type="number" step="0.01" min="0" value={contractorRateOverride} onChange={setContractorRateOverride} placeholder="Leave blank = their normal rate" />
+              <p className="text-[12px] text-sage-500 mt-1">Only set this if this job pays a different rate than the contractor&rsquo;s usual one. Blank uses their profile rate.</p>
+            </div>
+          </>
         )}
       </Section>
 
       {/* Invoicing */}
       <Section title="Invoicing">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Monthly value ($)" type="number" step="0.01" min="0" value={monthlyValue} onChange={setMonthlyValue} placeholder="e.g. 2740" />
-          <Field label="Invoice on day of month (1–31; 31 = end of month)" type="number" min="1" value={invoiceSendDay} onChange={setInvoiceSendDay} placeholder="e.g. 31" />
-          <Field label="Contractor monthly pay ($)" type="number" step="0.01" min="0" value={contractorMonthlyPay} onChange={setContractorMonthlyPay} placeholder="e.g. 1500" />
+        {/* Billing mode */}
+        <div className="mb-4">
+          <span className="block text-sm font-semibold text-sage-800 mb-1.5">Billing</span>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setBillingMode('fixed')} className={clsx('px-3 py-1.5 rounded-md text-sm font-medium border', billingMode === 'fixed' ? 'bg-sage-600 text-white border-sage-600' : 'bg-white text-sage-600 border-sage-200 hover:border-sage-300')}>Fixed monthly</button>
+            <button type="button" onClick={() => setBillingMode('per_visit')} className={clsx('px-3 py-1.5 rounded-md text-sm font-medium border', billingMode === 'per_visit' ? 'bg-sage-600 text-white border-sage-600' : 'bg-white text-sage-600 border-sage-200 hover:border-sage-300')}>Per scheduled day</button>
+            <button type="button" onClick={() => setBillingMode('completed_visits')} className={clsx('px-3 py-1.5 rounded-md text-sm font-medium border', billingMode === 'completed_visits' ? 'bg-sage-600 text-white border-sage-600' : 'bg-white text-sage-600 border-sage-200 hover:border-sage-300')}>Completed visits</button>
+          </div>
+          <span className="block text-[11px] text-sage-500 mt-1.5">
+            {billingMode === 'fixed'
+              ? 'Same amount every month (the monthly value below).'
+              : billingMode === 'per_visit'
+                ? 'The invoice = rate per visit × the number of service days in that month, so it varies month to month.'
+                : 'On the invoice day, bills last month’s COMPLETED visits for this client (rate per visit × visits done), with the visit dates on one line. Visits are marked invoiced so they’re never billed twice; any marked complete late go on the next run.'}
+          </span>
         </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {!billsPerVisitRate ? (
+            <Field label="Monthly value ($)" type="number" step="0.01" min="0" value={monthlyValue} onChange={setMonthlyValue} placeholder="e.g. 2740" />
+          ) : (
+            <Field label="Rate per visit ($, ex GST)" type="number" step="0.01" min="0" value={perVisitRate} onChange={setPerVisitRate} placeholder="e.g. 100" />
+          )}
+          <Field label="Invoice on day of month (1–31; 31 = end of month)" type="number" min="1" value={invoiceSendDay} onChange={setInvoiceSendDay} placeholder="e.g. 1" />
+        </div>
+
+        {/* Contractor pay — fixed monthly OR per visit (rate × cleans that month). */}
+        {contractorId && (
+          <div className="mt-4">
+            <span className="block text-sm font-semibold text-sage-800 mb-1.5">Contractor pay</span>
+            <div className="flex flex-wrap gap-2 mb-3">
+              <button type="button" onClick={() => setContractorPayMode('fixed')} className={clsx('px-3 py-1.5 rounded-md text-sm font-medium border', contractorPayMode === 'fixed' ? 'bg-sage-600 text-white border-sage-600' : 'bg-white text-sage-600 border-sage-200 hover:border-sage-300')}>Fixed monthly</button>
+              <button type="button" onClick={() => setContractorPayMode('per_visit')} className={clsx('px-3 py-1.5 rounded-md text-sm font-medium border', contractorPayMode === 'per_visit' ? 'bg-sage-600 text-white border-sage-600' : 'bg-white text-sage-600 border-sage-200 hover:border-sage-300')}>Per visit</button>
+            </div>
+            <div className="max-w-xs">
+              {contractorPayMode === 'fixed' ? (
+                <Field label="Contractor monthly pay ($)" type="number" step="0.01" min="0" value={contractorMonthlyPay} onChange={setContractorMonthlyPay} placeholder="e.g. 1500" />
+              ) : (
+                <Field label="Contractor pay per visit ($)" type="number" step="0.01" min="0" value={contractorPerVisitRate} onChange={setContractorPerVisitRate} placeholder="e.g. 60" />
+              )}
+            </div>
+            <span className="block text-[12px] text-sage-500 mt-1.5">
+              {contractorPayMode === 'fixed'
+                ? 'Same amount paid each month.'
+                : 'Pays rate × the number of service days that month (uses the service days set above). Set service days under the billing section.'}
+            </span>
+            <span className="block text-[12px] text-sage-500 mt-1">
+              This is the total the contractor is paid. Nothing is added for GST &mdash; if they&rsquo;re GST registered, it&rsquo;s their full amount.
+            </span>
+          </div>
+        )}
+
+        {(billingMode === 'per_visit' || contractorPayMode === 'per_visit') && (
+          <div className="mt-4">
+            <span className="block text-sm font-semibold text-sage-800 mb-1.5">Service days</span>
+            <div className="flex flex-wrap gap-2">
+              {[{ d: 1, l: 'Mon' }, { d: 2, l: 'Tue' }, { d: 3, l: 'Wed' }, { d: 4, l: 'Thu' }, { d: 5, l: 'Fri' }, { d: 6, l: 'Sat' }, { d: 7, l: 'Sun' }].map(({ d, l }) => {
+                const on = serviceDays.has(d)
+                return (
+                  <button type="button" key={d}
+                    onClick={() => setServiceDays((prev) => { const n = new Set(prev); if (n.has(d)) n.delete(d); else n.add(d); return n })}
+                    className={clsx('px-3 py-1.5 rounded-md text-sm font-medium border', on ? 'bg-sage-600 text-white border-sage-600' : 'bg-white text-sage-600 border-sage-200 hover:border-sage-300')}
+                  >{l}</button>
+                )
+              })}
+            </div>
+            <span className="block text-[11px] text-sage-500 mt-1.5">Which days the clean happens. The invoice counts these in the billing month × the rate.</span>
+          </div>
+        )}
         <label className="flex items-start gap-2 mt-4 text-sm text-sage-700">
           <input type="checkbox" checked={invoiceAutoSend} onChange={(e) => setInvoiceAutoSend(e.target.checked)} className="mt-0.5 rounded border-sage-300" />
           <span>
             Auto-send the invoice to the client
             <span className="block text-[11px] text-sage-400">Leave off to raise a <span className="font-medium">draft</span> each month (it lands in your To-do to review + send). Turn on to email it automatically on the invoice day.</span>
           </span>
+        </label>
+        <label className="block mt-4">
+          <span className="block text-sm font-semibold text-sage-800 mb-1.5">Note on every invoice</span>
+          <textarea value={invoiceNote} onChange={(e) => setInvoiceNote(e.target.value)} rows={2}
+            placeholder="e.g. Contract rate: $630.00 + GST per week ($724.50 incl. GST)"
+            className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm resize-y" />
+          <span className="block text-[11px] text-sage-500 mt-1">Printed in the Notes box of each invoice. Customer-facing only — it is not shown on jobs or to the contractor.</span>
         </label>
         <p className="text-[11px] text-sage-400 mt-2">
           With a monthly value + invoice day set, the monthly invoice is raised automatically — no per-month clicking.

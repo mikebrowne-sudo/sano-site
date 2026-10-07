@@ -14,6 +14,7 @@ import { isAdminEmail } from '@/lib/is-admin'
 import { loadJobSettings } from '@/lib/job-settings'
 import { resolveAllowedHours } from '@/lib/allowed-hours'
 import { buildRecurringWorkerRow, type RecurringPayType } from '@/lib/recurring-worker'
+import { pickClientRate, type ClientRateRecord } from '@/lib/contractor-client-rate'
 import { rollbackOrphanOccurrence } from '@/lib/recurring-rollback'
 
 // ─── Helpers ─────────────────────────────────────────────────────
@@ -115,6 +116,18 @@ export async function createRecurringJobFromQuote(quoteId: string): Promise<{ er
 
   const monthlyValue = quote.base_price ?? null
 
+  // Carry the quote's service days into the recurring job's ISO weekday set, so
+  // per-visit billing / contractor pay can be switched on without re-entering
+  // them. commercial_quote_details.service_days is a text[] like ['mon','tue'].
+  const DAY_TO_ISO: Record<string, number> = {
+    mon: 1, monday: 1, tue: 2, tues: 2, tuesday: 2, wed: 3, weds: 3, wednesday: 3,
+    thu: 4, thur: 4, thurs: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6, sun: 7, sunday: 7,
+  }
+  const rawDays = (commercialDetails?.service_days as string[] | null) ?? null
+  const serviceDaysOfWeek = Array.isArray(rawDays)
+    ? Array.from(new Set(rawDays.map((d) => DAY_TO_ISO[String(d).trim().toLowerCase()]).filter((n): n is number => !!n))).sort()
+    : []
+
   const title = quote.quote_number
     ? `${isCommercial ? 'Commercial contract' : 'Recurring service'} — ${quote.quote_number}`
     : (isCommercial ? 'Commercial contract' : 'Recurring service')
@@ -137,6 +150,11 @@ export async function createRecurringJobFromQuote(quoteId: string): Promise<{ er
       contract_term_months: termMonths,
       notice_period_days: noticeDays,
       monthly_value: monthlyValue,
+      // Seed the per-visit weekday set from the quote's service days so billing
+      // or contractor pay can be switched to per-visit without re-entering them.
+      // billing_mode stays 'fixed' (the quote's price is a monthly figure) —
+      // staff switch it deliberately if this contract bills per clean.
+      service_days_of_week: serviceDaysOfWeek.length > 0 ? serviceDaysOfWeek : null,
       scope_snapshot: scopeSnapshot,
       status: 'active',
       renewal_status: 'not_started',
@@ -200,7 +218,7 @@ export async function generateUpcomingRecurringJobs(input: {
 
   const { data: rec, error: readErr } = await supabase
     .from('recurring_jobs')
-    .select('id, client_id, title, description, address, scheduled_time, duration_estimate, contractor_id, contractor_pay_type, assigned_to, frequency, start_date, end_date, next_due_date, status, scope_snapshot')
+    .select('id, client_id, title, description, address, scheduled_time, duration_estimate, contractor_id, contractor_pay_type, assigned_to, frequency, start_date, end_date, next_due_date, status, scope_snapshot, contractor_rate_override, contractor_pay_mode, contractor_per_visit_rate')
     .eq('id', recurringJobId)
     .single()
   if (readErr || !rec) return { error: 'Recurring contract not found.' }
@@ -214,13 +232,45 @@ export async function generateUpcomingRecurringJobs(input: {
   const allowedHours = resolveAllowedHours(null, rec.duration_estimate as string | null)
   const payType: RecurringPayType = (rec.contractor_pay_type as RecurringPayType) === 'fixed' ? 'fixed' : 'hourly'
   let contractorRate: number | null = null
+  // The per-client agreed rate history for this worker at this contract's
+  // client. Resolved PER OCCURRENCE below, because this path generates a run of
+  // dates and a rate change mid-run must apply from its effective date on.
+  let clientRateHistory: ClientRateRecord[] = []
   if (rec.contractor_id) {
-    const { data: c } = await supabase
-      .from('contractors')
-      .select('hourly_rate')
-      .eq('id', rec.contractor_id)
-      .single()
-    contractorRate = (c?.hourly_rate as number | null) ?? null
+    // Per-contract override wins over everything when set; it is the most
+    // specific instruction there is.
+    const overrideRate = (rec as { contractor_rate_override?: number | null }).contractor_rate_override
+    if (overrideRate != null) {
+      contractorRate = Number(overrideRate)
+    } else {
+      const { data: c } = await supabase
+        .from('contractors')
+        .select('hourly_rate')
+        .eq('id', rec.contractor_id)
+        .single()
+      contractorRate = (c?.hourly_rate as number | null) ?? null
+
+      if (rec.client_id) {
+        // Falls back to the profile rate if unreadable — an optional rate
+        // refinement must never break occurrence generation.
+        try {
+          const { data: rates } = await supabase
+            .from('contractor_client_rates')
+            .select('hourly_rate, effective_from, effective_to, status')
+            .eq('contractor_id', rec.contractor_id)
+            .eq('client_id', rec.client_id)
+            .eq('status', 'active')
+          clientRateHistory = (rates ?? []).map((r) => ({
+            hourlyRate: r.hourly_rate as number | string | null,
+            effectiveFrom: r.effective_from as string,
+            effectiveTo: (r.effective_to as string | null) ?? null,
+            status: (r.status as string | null) ?? null,
+          }))
+        } catch {
+          clientRateHistory = []
+        }
+      }
+    }
   }
   const horizon = addDaysIso(todayIso(), weeks * 7)
   const stopAt = rec.end_date && rec.end_date < horizon ? rec.end_date : horizon
@@ -305,6 +355,14 @@ export async function generateUpcomingRecurringJobs(input: {
         jobId: newJob.id as string,
         contractorId: rec.contractor_id as string,
         contractorRate,
+        // Resolved against THIS occurrence's date, so a rate change part-way
+        // through the generated run applies from its effective date on.
+        clientRate: pickClientRate(clientRateHistory, date),
+        // A per-visit contract pays a SET AMOUNT per occurrence, never
+        // hours x rate (NZCL: $126 per clean).
+        perVisitRate: rec.contractor_pay_mode === 'per_visit'
+          ? (rec.contractor_per_visit_rate as number | null)
+          : null,
         allowedHours,
         payType,
       })

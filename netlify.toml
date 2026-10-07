@@ -34,3 +34,11 @@
 # netlify/functions/weekly-payroll.mts.
 [functions."weekly-payroll"]
   schedule = "0 21 * * 0"
+
+# Campaign drip — sender warm-up. Runs HOURLY: sends each active campaign's next
+# batch once its per-campaign send time (NZ) has passed that day. At most one
+# batch per NZ day per campaign (guarded by last_batch_at); hourly cadence is
+# what lets a send time like 12:45pm actually fire. Schedule mirrors
+# netlify/functions/campaign-drip.mts.
+[functions."campaign-drip"]
+  schedule = "0 * * * *"

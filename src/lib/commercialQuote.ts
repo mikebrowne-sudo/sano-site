@@ -11,6 +11,7 @@ export type SectorCategory =
   | 'office'
   | 'education'
   | 'medical'
+  | 'hospitality'
   | 'industrial'
   | 'mixed_use'
   | 'custom'
@@ -27,7 +28,7 @@ export type OccupancyLevel = 'low' | 'medium' | 'high'
 export type TrafficLevel = 'low' | 'medium' | 'high'
 export type ConsumablesBy = 'sano' | 'client' | 'shared'
 
-export type MarginTier = 'win_the_work' | 'standard' | 'premium' | 'specialist'
+export type MarginTier = 'competitive' | 'win_the_work' | 'standard' | 'premium' | 'specialist'
 
 // ── Phase 5A — Tender field enums ──────────────────────────────────
 
@@ -118,6 +119,17 @@ export interface CommercialQuoteDetails {
   notice_period_days: number | null
   service_start_date: string | null
 
+  // One-off clean. False (the default) = ongoing recurring service,
+  // which is how most commercial quotes work. True switches the
+  // proposal to single-visit wording — no cadence, no contract term,
+  // a total service fee instead of a monthly one.
+  is_one_off: boolean
+
+  // Operator-written scope sections shown on the proposal Scope of
+  // Works page alongside the generated (costed) groups. Presentational
+  // only — never feeds pricing or estimated hours. Empty = none.
+  manual_scope_sections: ManualScopeSection[]
+
   cleaning_standard: CleaningStandard | null
 
   security_sensitive: boolean
@@ -127,6 +139,43 @@ export interface CommercialQuoteDetails {
 
   created_at: string
   updated_at: string
+}
+
+/** A free-text scope section written by the operator. Rendered on the
+ *  proposal Scope of Works page under its own heading. Not costed. */
+export interface ManualScopeSection {
+  title: string
+  items: string[]
+}
+
+/** Normalise the `manual_scope_sections` jsonb column.
+ *
+ *  The column is jsonb, so anything could be in there — legacy rows
+ *  (missing the column entirely), hand-edited JSON, or a bad write.
+ *  Everything that isn't a well-formed {title, items[]} is dropped
+ *  rather than rendered, so the proposal can never show `[object
+ *  Object]` or a stray null to a client.
+ *
+ *  Blank titles are allowed (an untitled list of extras is valid);
+ *  sections with no non-empty items are dropped, since a heading with
+ *  nothing under it is just noise on the page. */
+export function parseManualScopeSections(raw: unknown): ManualScopeSection[] {
+  if (!Array.isArray(raw)) return []
+  const out: ManualScopeSection[] = []
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue
+    const rec = entry as Record<string, unknown>
+    const title = typeof rec.title === 'string' ? rec.title.trim() : ''
+    const items = Array.isArray(rec.items)
+      ? rec.items
+          .filter((i): i is string => typeof i === 'string')
+          .map((i) => i.trim())
+          .filter(Boolean)
+      : []
+    if (items.length === 0) continue
+    out.push({ title, items })
+  }
+  return out
 }
 
 export interface CommercialScopeItem {
@@ -160,6 +209,18 @@ export interface MarginTierSpec {
 }
 
 export const MARGIN_TIERS: Record<MarginTier, MarginTierSpec> = {
+  // Competitive — for genuinely contested tenders where the margin has to be
+  // thinner than "win the work". Deliberately the lowest tier offered, and
+  // deliberately not the default: at this level a single sick day, an
+  // equipment replacement, or a site running over its modelled hours can wipe
+  // out the job's profit. Use it knowingly, with the true-margin figure in
+  // the pricing preview visible.
+  competitive: {
+    label: 'Competitive tender',
+    min: 0.10,
+    max: 0.15,
+    default: 0.12,
+  },
   win_the_work: {
     label: 'Win the work',
     min: 0.15,
@@ -244,6 +305,41 @@ export const SECTOR_FIELD_PACKS: Record<SectorCategory, readonly SectorFieldDef[
     { key: 'sharps_present', label: 'Sharps present', type: 'boolean' },
     { key: 'between_patient_cleaning_required', label: 'Between-patient cleaning required', type: 'boolean' },
   ],
+  // Hospitality — restaurants, bars, breweries, cafes and function venues.
+  //
+  // The fields here are the ones that actually move the hours on a venue,
+  // learned from quoting them: whether the commercial kitchen is ours (by far
+  // the biggest single cost and risk swing), how late access starts (a venue
+  // that closes at 11pm is a different labour market than a 6am office), and
+  // whether outdoor and playground areas are in scope, which is common in NZ
+  // brewery and garden-bar sites and easy to leave unpriced.
+  //
+  // Seasonal variation is captured as a note rather than a second schedule:
+  // the engine models one visits-per-week figure, so the established practice
+  // is to quote the low season as the contract and price additional visits
+  // per-visit. The field exists so that decision is recorded on the quote
+  // instead of living in someone's memory.
+  hospitality: [
+    { key: 'hospitality_type', label: 'Venue type', type: 'select',
+      options: ['restaurant', 'bar', 'brewery', 'cafe', 'function_venue', 'hotel', 'club', 'other'] },
+    { key: 'licensed_premises', label: 'Licensed premises', type: 'boolean' },
+    { key: 'covers_seated', label: 'Seated covers', type: 'integer', min: 0 },
+    { key: 'commercial_kitchen_in_scope', label: 'Commercial kitchen in scope', type: 'select',
+      options: ['excluded', 'floors_only', 'full'] },
+    { key: 'bar_areas_count', label: 'Bar / service areas', type: 'integer', min: 0 },
+    { key: 'access_timing', label: 'Access timing', type: 'select',
+      options: ['pre_open_morning', 'between_service', 'post_close_evening', 'overnight', 'flexible'] },
+    { key: 'outdoor_areas_in_scope', label: 'Outdoor areas in scope', type: 'boolean' },
+    { key: 'outdoor_surface_types', label: 'Outdoor surfaces', type: 'chips',
+      options: ['decking', 'paving', 'limestone', 'gravel', 'artificial_turf', 'lawn', 'playground_bark'] },
+    { key: 'playground_present', label: 'Playground area', type: 'boolean' },
+    { key: 'seasonal_variation_notes', label: 'Seasonal variation', type: 'textarea',
+      placeholder: 'e.g. 4 cleans per week in winter, 5 per week over summer' },
+    { key: 'consumables_scope', label: 'Consumables', type: 'select',
+      options: ['sano_supplies', 'client_supplies', 'sano_restocks_client_supplies'] },
+    { key: 'waste_streams', label: 'Waste streams', type: 'chips',
+      options: ['general', 'recycling', 'organic', 'glass', 'cooking_oil', 'kegs'] },
+  ],
   industrial: [
     { key: 'industrial_type', label: 'Industrial type', type: 'select',
       options: ['warehouse', 'manufacturing', 'mechanical_workshop', 'food_production', 'logistics', 'other'] },
@@ -294,10 +390,19 @@ export const UNIT_MINUTE_DEFAULTS: Record<string, number> = {
 // Medical is slower because of protocol / PPE / disinfection overhead;
 // industrial slightly slower due to access + safety; education is
 // roughly office + a small uplift for heavier use.
+//
+// Hospitality sits at 1.15: a venue is not technically harder than an office,
+// but it is dirtier per square metre and far less forgiving. Food and drink
+// spillage, grease carry-out from the kitchen, and heavy public bathroom use
+// all mean surfaces need genuine cleaning rather than presentation upkeep,
+// and the work is judged by paying customers the next morning rather than by
+// the staff who work there. Restocking and bin volumes in a licensed venue
+// are also materially higher than an equivalent office footprint.
 export const SECTOR_MULTIPLIER: Record<SectorCategory, number> = {
   office: 1.00,
   education: 1.05,
   medical: 1.20,
+  hospitality: 1.15,
   industrial: 1.15,
   mixed_use: 1.05,
   custom: 1.00,
@@ -322,11 +427,13 @@ export function sectorFieldsFor(sector: SectorCategory): readonly SectorFieldDef
 
 export function isSectorCategory(v: unknown): v is SectorCategory {
   return v === 'office' || v === 'education' || v === 'medical'
+      || v === 'hospitality'
       || v === 'industrial' || v === 'mixed_use' || v === 'custom'
 }
 
 export function isMarginTier(v: unknown): v is MarginTier {
-  return v === 'win_the_work' || v === 'standard' || v === 'premium' || v === 'specialist'
+  return v === 'competitive' || v === 'win_the_work'
+      || v === 'standard' || v === 'premium' || v === 'specialist'
 }
 
 // ── Commercial pricing preview ─────────────────────────────────────
@@ -341,6 +448,21 @@ export const WEEKS_PER_MONTH = 4.33
 
 // Default labour cost basis ($/hr) when the operator hasn't set one.
 export const DEFAULT_LABOUR_COST_BASIS = 65
+
+// Standard contractor rate, GST-INCLUSIVE, as negotiated per contract.
+// $35/hr is the usual rate; individual sites are sometimes agreed lower
+// (e.g. $32.20 on an ongoing contract where volume was traded for rate).
+// Contractor rates in this business are quoted and paid GST-inclusive, so
+// this is the number an operator actually knows and would type.
+export const DEFAULT_CONTRACTOR_RATE_INC_GST = 35
+
+// GST is split out of a contractor rate with 3/23 — never added on top.
+// A GST-registered contractor invoices inclusive of GST, and the GST portion
+// is reclaimed as an input credit, so the TRUE cost of an hour to the business
+// is the exclusive figure.
+export function contractorRateExGst(incGst: number): number {
+  return incGst / 1.15
+}
 
 // How many times a given scope frequency repeats per week. `per_visit`
 // is handled specially (multiplied by visits_per_week); `as_required`
@@ -371,6 +493,12 @@ export interface CommercialPreviewDetails {
   selected_margin_tier: MarginTier | '' | null
   labour_cost_basis: number | null   // $/hr
   service_days: string[] | null
+  /** Optional: what a contractor hour ACTUALLY costs, ex GST. When supplied
+   *  the preview reports true margin over real contractor cost, which is the
+   *  number that decides whether a lean tender is survivable. Distinct from
+   *  `labour_cost_basis`, which is the loaded internal rate the sell price is
+   *  built from and includes on-costs, supervision, equipment and overhead. */
+  contractor_hourly_cost?: number | null
 }
 
 // ── Scope input mode (Phase 1 UI-only) ─────────────────────────────
@@ -417,6 +545,17 @@ export interface CommercialPreview {
   estimated_monthly_sell_price: number
   estimated_weekly_sell_price: number
   estimated_per_visit_sell_price: number
+
+  // True margin over REAL contractor cost (null when no contractor rate given).
+  //
+  // The sell price is built from `labour_cost_basis`, a loaded rate covering
+  // on-costs, supervision, equipment and overhead. That is the right basis for
+  // pricing, but it hides the actual floor: what is left after paying the
+  // person who does the work. On a lean tender that gap is the whole decision,
+  // so it is surfaced rather than left to be worked out on a calculator.
+  contractor_weekly_cost: number | null
+  true_weekly_margin: number | null
+  true_margin_pct: number | null
 
   // Diagnostics
   included_scope_rows: number
@@ -546,6 +685,21 @@ export function computeCommercialPreview(
     ? estimated_weekly_sell_price / visits_per_week
     : 0
 
+  // True margin over real contractor cost. Only computed when a contractor
+  // rate was supplied — a guessed floor is worse than no floor.
+  const contractorRate = details.contractor_hourly_cost && details.contractor_hourly_cost > 0
+    ? details.contractor_hourly_cost
+    : null
+  const contractor_weekly_cost = contractorRate != null
+    ? estimated_weekly_hours * contractorRate
+    : null
+  const true_weekly_margin = contractor_weekly_cost != null
+    ? estimated_weekly_sell_price - contractor_weekly_cost
+    : null
+  const true_margin_pct = true_weekly_margin != null && estimated_weekly_sell_price > 0
+    ? true_weekly_margin / estimated_weekly_sell_price
+    : null
+
   const warnings: string[] = []
   if (included_scope_rows === 0) {
     warnings.push('No complete scope rows yet — add at least one row with a quantity and either unit minutes or a production rate.')
@@ -560,6 +714,16 @@ export function computeCommercialPreview(
   }
   if (!details.sector_category) {
     warnings.push('Pick a sector category to apply the sector multiplier.')
+  }
+  // A thin true margin is the failure mode that does not announce itself:
+  // the quote looks fine, and the job only loses money once someone is sick
+  // or the site runs over. Surface it while it can still be changed.
+  if (true_margin_pct != null && true_margin_pct < 0.30) {
+    warnings.push(
+      true_margin_pct <= 0
+        ? 'This price is at or below what the contractor costs. It cannot be delivered profitably.'
+        : `Only ${Math.round(true_margin_pct * 100)}% is left after contractor cost. That leaves little room for cover, equipment or a site that runs over.`,
+    )
   }
 
   return {
@@ -577,6 +741,9 @@ export function computeCommercialPreview(
     estimated_monthly_sell_price,
     estimated_weekly_sell_price,
     estimated_per_visit_sell_price,
+    contractor_weekly_cost,
+    true_weekly_margin,
+    true_margin_pct,
     included_scope_rows,
     incomplete_scope_rows,
     warnings,

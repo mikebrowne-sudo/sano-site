@@ -23,6 +23,7 @@ import { DownloadPdfButton } from './DownloadPdfButton'
 import { QuoteCopyLinkButton } from './QuoteCopyLinkButton'
 import { SendQuotePanel } from './SendQuotePanel'
 import { MarkAsAcceptedButton } from './MarkAsAcceptedButton'
+import { ReviseQuoteButton } from './ReviseQuoteButton'
 
 export interface QuoteActionBarProps {
   quoteId: string
@@ -30,6 +31,8 @@ export interface QuoteActionBarProps {
   status: string | null
   isArchived: boolean
   isLatestVersion: boolean
+  /** Version number of this row — the fork source for Revise & resend. */
+  versionNumber: number
   isCommercial: boolean
   shareUrl: string
   clientEmail: string
@@ -38,6 +41,9 @@ export interface QuoteActionBarProps {
   primaryContactEmail: string
   accountsEmail: string
   clientReference: string
+  /** 'cash_sale' (prepaid) or 'on_account' — drives the prepaid line in the
+   *  default customer email. */
+  paymentType?: string | null
 }
 
 export function QuoteActionBar({
@@ -46,6 +52,7 @@ export function QuoteActionBar({
   status,
   isArchived,
   isLatestVersion,
+  versionNumber,
   isCommercial,
   shareUrl,
   clientEmail,
@@ -54,13 +61,22 @@ export function QuoteActionBar({
   primaryContactEmail,
   accountsEmail,
   clientReference,
+  paymentType,
 }: QuoteActionBarProps) {
   const s = (status ?? 'draft').toLowerCase()
 
   // Hide in states where the Next Step panel / archive banner owns
   // the primary actions.
+  //
+  // `accepted` used to be hidden here alongside `converted`, on the
+  // assumption that the Next Step panel supplies everything an accepted
+  // quote needs. That panel only offers job/invoice conversion — it has no
+  // Preview, Download or Send. So an accepted quote had NO way to view or
+  // re-send its own document. Accepted now keeps a read-only action set
+  // (preview / download / copy link) minus the send + accept controls,
+  // which belong to the draft and sent states respectively.
   if (isArchived) return null
-  if (s === 'accepted' || s === 'converted') return null
+  if (s === 'converted') return null
   if (!isLatestVersion) return null
 
   const previewUrl = isCommercial
@@ -70,6 +86,7 @@ export function QuoteActionBar({
 
   const isDraft = s === 'draft'
   const isSent = s === 'sent' || s === 'viewed' || s === 'declined'
+  const isAccepted = s === 'accepted'
 
   return (
     <div
@@ -109,6 +126,7 @@ export function QuoteActionBar({
               primaryContactEmail={primaryContactEmail}
               accountsEmail={accountsEmail}
               clientReference={clientReference}
+              paymentType={paymentType}
             />
           </>
         )}
@@ -144,6 +162,63 @@ export function QuoteActionBar({
               primaryContactEmail={primaryContactEmail}
               accountsEmail={accountsEmail}
               clientReference={clientReference}
+              paymentType={paymentType}
+            />
+          </>
+        )}
+
+        {/* Accepted — the client has agreed to this version. Two distinct,
+            deliberately separate send paths, plus no Mark as Accepted
+            (already done):
+              • "Send again"      — re-sends the AGREED document unchanged,
+                                    for a client who lost the email. Keeps the
+                                    accepted status; nothing is revised.
+              • "Revise & resend" — forks a new draft and lands on it, where
+                                    the isDraft branch supplies the full send
+                                    controls for the revised version.
+            They stay separate because a single "Send" here would be
+            ambiguous about whether the client receives the old or a new
+            version. */}
+        {isAccepted && (
+          <>
+            <Link
+              href={previewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
+            >
+              <ExternalLink size={16} />
+              View Proposal
+            </Link>
+            {!isCommercial && (
+              <DownloadPdfButton href={`/api/quotes/${quoteId}/pdf`} />
+            )}
+            <QuoteCopyLinkButton shareUrl={shareUrl} />
+            {/* Plain re-send of the AGREED document, unchanged — for when the
+                client has lost the email. Distinct from Revise & resend, which
+                forks a new version first. Styled as a secondary action and
+                labelled "Send again" so the two can't be confused, and the
+                send action preserves the accepted status rather than
+                demoting the quote back to 'sent'. */}
+            <SendQuotePanel
+              quoteId={quoteId}
+              quoteNumber={quoteDisplayNumber}
+              clientEmail={clientEmail}
+              greeting={greeting}
+              printUrl={shareUrl}
+              staffEmail={staffEmail}
+              primaryContactEmail={primaryContactEmail}
+              accountsEmail={accountsEmail}
+              clientReference={clientReference}
+              paymentType={paymentType}
+              sendLabel="Send again"
+              variant="resend"
+            />
+            <ReviseQuoteButton
+              quoteId={quoteId}
+              versionNumber={versionNumber}
+              status="accepted"
+              isCommercial={isCommercial}
             />
           </>
         )}

@@ -2,8 +2,8 @@ import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { CIForm } from '../../_components/CIForm'
 import { evaluatePayableEdit, flattenRef, type RemittanceRef } from '@/lib/contractor-payable-guard'
-import Link from 'next/link'
-import { ArrowLeft, Lock } from 'lucide-react'
+import { Lock } from 'lucide-react'
+import { BackLink } from '../../../_components/BackLink'
 
 export default async function EditContractorInvoicePage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -23,7 +23,7 @@ export default async function EditContractorInvoicePage({ params }: { params: { 
   const guard = evaluatePayableEdit({ status: ci.status, datePaid: ci.date_paid, remittances })
 
   const back = (
-    <Link href={`/portal/contractor-invoices/${params.id}`} className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"><ArrowLeft size={14} /> Back</Link>
+    <BackLink fallbackHref={`/portal/contractor-invoices/${params.id}`} />
   )
 
   if (!guard.editable) {

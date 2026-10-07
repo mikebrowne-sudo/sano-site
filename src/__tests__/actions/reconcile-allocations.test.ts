@@ -29,7 +29,7 @@ interface Tracked {
  */
 function makeClient(state: {
   bankLine: { id: string; amount: number; direction: string }
-  invoices: Array<{ id: string; invoice_number: string; status: string; base_price: number; discount?: number }>
+  invoices: Array<{ id: string; invoice_number: string; status: string; base_price: number; discount?: number; gst_included?: boolean }>
   txnAllocated?: Array<{ amount_allocated: number }>
   invAllocated?: Array<{ invoice_id: string; amount_allocated: number }>
   allocationRow?: { id: string; bank_transaction_id: string; invoice_id: string; amount_allocated: number; reversed_at: string | null }
@@ -139,7 +139,7 @@ describe('reconcileBankTransaction — allocate a paid invoice (INV-26022)', () 
   it('marks an UNPAID invoice paid on allocation', async () => {
     const { client, tracked } = makeClient({
       bankLine: { id: 'txn2', amount: 650, direction: 'in' },
-      invoices: [{ id: 'invS', invoice_number: 'INV-0100', status: 'sent', base_price: 650, discount: 0 }],
+      invoices: [{ id: 'invS', invoice_number: 'INV-0100', status: 'sent', base_price: 650, discount: 0, gst_included: true }],
     })
     mockedCreate.mockReturnValue(client)
 
@@ -147,6 +147,21 @@ describe('reconcileBankTransaction — allocate a paid invoice (INV-26022)', () 
     expect(r.ok).toBe(true)
     expect(tracked.invoiceUpdates[0]).toMatchObject({ status: 'paid', date_paid: '2026-05-24' })
     expect(r.markedPaid).toBe(1)
+  })
+
+  it('records a PART payment without marking the invoice paid (INV-0308: half of $3,555)', async () => {
+    const { client, tracked } = makeClient({
+      bankLine: { id: 'txnHalf', amount: 1777.5, direction: 'in' },
+      invoices: [{ id: 'inv308', invoice_number: 'INV-0308', status: 'sent', base_price: 3555, discount: 0, gst_included: true }],
+    })
+    mockedCreate.mockReturnValue(client)
+
+    const r = await reconcileBankTransaction('txnHalf', [{ invoiceId: 'inv308', amount: 1777.5 }], '2026-09-21')
+    expect(r.ok).toBe(true)
+    expect(tracked.allocationInserts[0][0]).toMatchObject({ invoice_id: 'inv308', amount_allocated: 1777.5 })
+    expect(tracked.invoiceUpdates).toHaveLength(0) // stays open with $1,777.50 owing
+    expect(r.markedPaid).toBe(0)
+    expect(r.cleared).toBe(true) // the bank line itself is fully used
   })
 
   it('does NOT clear the line on a partial allocation', async () => {

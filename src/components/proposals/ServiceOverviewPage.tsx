@@ -32,6 +32,7 @@ export function ServiceOverviewPage({
   // so the client-facing value is always prose, never raw machine
   // strings like "tue, thu, sat, 1600-2200". Fall back to "Agreed …"
   // when upstream data is missing.
+  const oneOff         = payload.siteContext.isOneOff
   const scheduleValue  = formatServiceDays(payload.serviceDays || '') || 'Agreed schedule'
   const windowValue    = formatServiceWindowRange(payload.serviceTimes || '') || 'Agreed service window'
   const daysPerWeek    = countDaysPerWeek(payload.serviceDays || '')
@@ -50,12 +51,25 @@ export function ServiceOverviewPage({
         ))}
 
         <div className="proposal-meta-grid">
-          <MetaCell icon="location"  label="Site address"       value={payload.siteAddress || '—'} />
-          <MetaCell icon="check-cal" label="Service schedule"   value={scheduleValue} />
-          <MetaCell icon="clock"     label="Service window"     value={windowValue} />
-          <MetaCell icon="calendar"  label="Service frequency"  value={frequencyValue} />
-          <MetaCell icon="building"  label="Areas covered"      value={payload.areasCovered.join(', ') || '—'} />
-          <MetaCell icon="cal-start" label="Service start date" value={payload.serviceStartDate || '—'} />
+          <MetaCell icon="location"  label="Site address"   value={payload.siteAddress || '—'} />
+          {/* One-off: a single visit has no weekly schedule or repeat
+              frequency, so those two cells collapse into one
+              "Single visit" cell and the date reads "Service date". */}
+          {oneOff ? (
+            <MetaCell icon="calendar" label="Service type" value="One-off clean (single visit)" />
+          ) : (
+            <>
+              <MetaCell icon="check-cal" label="Service schedule"  value={scheduleValue} />
+              <MetaCell icon="calendar"  label="Service frequency" value={frequencyValue} />
+            </>
+          )}
+          <MetaCell icon="clock"     label="Service window" value={windowValue} />
+          <MetaCell icon="building"  label="Areas covered"  value={payload.areasCovered.join(', ') || '—'} />
+          <MetaCell
+            icon="cal-start"
+            label={oneOff ? 'Service date' : 'Service start date'}
+            value={payload.serviceStartDate || '—'}
+          />
         </div>
       </div>
     </ProposalLayout>

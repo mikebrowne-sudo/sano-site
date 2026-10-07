@@ -21,7 +21,7 @@ export function ScopeOfWorksPage({
   pageNumber: number
   totalPages: number
 }) {
-  const { lead, follow } = buildScopeIntro()
+  const { lead, follow } = buildScopeIntro(payload)
   return (
     <ProposalLayout
       headerTitle="Scope of works"

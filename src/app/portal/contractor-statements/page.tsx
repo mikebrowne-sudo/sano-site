@@ -7,8 +7,6 @@ import {
 import { listStatementsForPeriod, type StatementCardRow } from '@/lib/contractor-statement-data'
 import { statementDisplayStatus, STATEMENT_STATUS_LABEL } from '@/lib/contractor-statement-status'
 import { statementBucket, BUCKET_LABEL, BUCKET_ORDER, type StatementBucket } from '@/lib/contractor-statement-bucket'
-import { GeneratePanel } from './_components/GeneratePanel'
-import { WorkflowPanel } from './_components/WorkflowPanel'
 
 const STATUS_CHIP: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-600', not_viewed: 'bg-blue-50 text-blue-700', viewed: 'bg-violet-50 text-violet-700',
@@ -28,8 +26,6 @@ export default async function ContractorStatementsPage({ searchParams }: { searc
   let p = mostRecentlyClosedPeriod(nzToday)
   for (let i = 0; i < 8; i++) { recent.push(p); p = previousPeriod(p) }
   const selected: StatementPeriod = searchParams.ps && searchParams.pe ? { period_start: searchParams.ps, period_end: searchParams.pe } : recent[0]
-  const options = recent.map((r) => ({ value: `${r.period_start}|${r.period_end}`, label: periodLabel(r) }))
-  const selectedValue = `${selected.period_start}|${selected.period_end}`
 
   const cards = await listStatementsForPeriod(supabase, selected)
   const nowIso = new Date().toISOString()
@@ -45,29 +41,29 @@ export default async function ContractorStatementsPage({ searchParams }: { searc
   const count = (b: StatementBucket) => grouped.get(b)?.length ?? 0
   const total = (b: StatementBucket) => (grouped.get(b) ?? []).reduce((s, c) => s + c.total_payable, 0)
 
-  const unpaidRemittances = (grouped.get('remittance_unpaid') ?? []).filter((c) => c.remittance_id).map((c) => ({ remittance_id: c.remittance_id as string, remittance_number: c.remittance_number, contractor_name: c.contractor_name, total: c.total_payable }))
-  const paidUnsentRemittances = (grouped.get('paid') ?? []).filter((c) => c.remittance_id && !c.remittance_sent_at).map((c) => ({ remittance_id: c.remittance_id as string, remittance_number: c.remittance_number, contractor_name: c.contractor_name, total: c.total_payable }))
-
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-sage-800">Contractor statements</h1>
-        <p className="text-sm text-sage-500 mt-1">Bulk-first period payments. Manage exceptions, then issue and pay in bulk. Not tax invoices.</p>
+        <h1 className="text-2xl font-bold text-sage-800">Contractor statements <span className="align-middle ml-2 text-[11px] uppercase tracking-wide bg-sage-100 text-sage-600 px-2 py-0.5 rounded-full">Historical</span></h1>
+        <p className="text-sm text-sage-500 mt-1">Read-only records. Not tax invoices.</p>
       </div>
 
-      <GeneratePanel periods={options} selected={selectedValue} />
-
-      <WorkflowPanel
-        period={selected}
-        readyToIssue={count('ready_to_issue')}
-        readyToPay={count('ready_to_pay')}
-        unpaidRemittances={unpaidRemittances}
-        paidUnsentRemittances={paidUnsentRemittances}
-      />
+      <div className="rounded-xl border border-sage-200 bg-sage-50 p-4 mb-6 text-sm text-sage-700">
+        <p>
+          <span className="font-semibold">This workflow is retired.</span> Contractor pay
+          runs entirely through{' '}
+          <Link href="/portal/contractor-invoices/pay-run" className="underline hover:text-sage-900">Pay run</Link>
+          {' '}— approved payables become a remittance directly, with no statement to
+          generate, issue or have confirmed.
+        </p>
+        <p className="mt-2 text-xs text-sage-500">
+          Existing statements below stay viewable as records. New ones can no longer be created.
+        </p>
+      </div>
 
       {cards.length === 0 ? (
         <div className="bg-white rounded-xl border border-sage-100 p-8 text-center text-sage-500 text-sm">
-          No statements for {periodLabel(selected)} yet. Use “Generate / refresh drafts”, then “Issue all ready”.
+          No statements for {periodLabel(selected)}.
         </div>
       ) : (
         BUCKET_ORDER.filter((b) => count(b) > 0).map((b) => (

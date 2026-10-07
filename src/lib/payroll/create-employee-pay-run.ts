@@ -19,6 +19,15 @@ export interface CreatePayRunInput {
   pay_date: string
   pay_frequency: 'weekly' | 'fortnightly'
   notes?: string | null
+  /** Mileage catch-up: pay ONLY the period's approved mileage (0 hours, 0 wages,
+   *  0 PAYE/KiwiSaver). Used to release mileage that predates the normal cycle
+   *  without double-paying wages. Mileage is non-taxable, so nothing is withheld. */
+  mileage_only?: boolean
+  /** Wages are paid in ADVANCE but mileage is reimbursed in ARREARS. When true,
+   *  the run pulls mileage from the PERIOD BEFORE its wage period (one cycle
+   *  earlier) instead of its own period — so an advance wage run for 10–16 Aug
+   *  sweeps in the previous week's (3–9 Aug) approved mileage. */
+  mileage_from_prior_week?: boolean
 }
 
 /** A pay-run line that needs staff review before finalising (never a silent
@@ -56,7 +65,15 @@ export async function createEmployeePayRun(
     // 23505 = unique violation → the double-pay guard: one employee run per
     // cycle per period. A manual run and the cron can't both pay the same week.
     if (error?.code === '23505') {
-      return { duplicate: true, error: `A ${input.pay_frequency} pay run already exists for this period.` }
+      // Unique on (pay_frequency, pay_period_end). A catch-up sharing an end
+      // date with an existing run trips this — tell the operator to change the
+      // period end, not that "the weekly run exists".
+      return {
+        duplicate: true,
+        error: input.mileage_only
+          ? 'A run already ends on this date. For a mileage catch-up, set the period to the mileage dates (e.g. 1–31 Jul) so it doesn’t clash with a weekly run.'
+          : `A ${input.pay_frequency} pay run already exists for this period.`,
+      }
     }
     return { error: `Failed to create: ${error?.message}` }
   }
@@ -72,23 +89,74 @@ export async function createEmployeePayRun(
   if (employees?.length) {
     // Approved, unreimbursed mileage in this period → non-taxable reimbursement
     // per employee (kept out of gross/PAYE/ACC/KiwiSaver; settled at completion).
+    // pay_run_id IS NULL excludes mileage already consumed by an earlier run —
+    // so we must stamp these logs with this run's id below, or the same mileage
+    // would be re-pulled (and re-paid) on every subsequent run.
+    // Mileage window: everything OUTSTANDING up to the end of this run's
+    // period. There is deliberately no lower bound.
+    //
+    // This used to be a one-cycle window (the run's own period, shifted back a
+    // week when wages are paid in advance). Anything older than that window
+    // — mileage logged late, or approved after its run was created — fell
+    // outside it and was stranded permanently: no future run would ever look
+    // that far back, so it could only be released by a separate mileage-only
+    // catch-up run. That stranded $490.20 across two pay cycles.
+    //
+    // An upper bound is still right: mileage driven AFTER this pay period
+    // belongs to the next run, not this one. `pay_run_id is null` already
+    // guarantees nothing is paid twice.
+    // Date-only UTC maths so there is no TZ drift.
+    const shiftIso = (ymd: string, days: number) => {
+      const d = new Date(`${ymd}T00:00:00Z`)
+      d.setUTCDate(d.getUTCDate() - days)
+      return d.toISOString().slice(0, 10)
+    }
+    const mileageTo = input.mileage_from_prior_week
+      ? shiftIso(input.pay_period_end, input.pay_frequency === 'fortnightly' ? 14 : 7)
+      : input.pay_period_end
+
     const { data: mileage } = await supabase
       .from('mileage_logs')
-      .select('contractor_id, reimbursement_amount')
+      .select('id, contractor_id, reimbursement_amount')
       .in('contractor_id', employees.map((e) => e.id))
       .eq('status', 'approved')
       .is('pay_run_id', null)
-      .gte('log_date', input.pay_period_start)
-      .lte('log_date', input.pay_period_end)
+      .lte('log_date', mileageTo)
     const mileageByContractor = new Map<string, number>()
+    const consumedMileageLogIds: string[] = []
     for (const m of mileage ?? []) {
       const cid = m.contractor_id as string
       mileageByContractor.set(cid, (mileageByContractor.get(cid) ?? 0) + Number(m.reimbursement_amount ?? 0))
+      consumedMileageLogIds.push(m.id as string)
     }
 
     const warnings: PayRunWarning[] = []
 
     const lines = employees.map((emp) => {
+      const mileageAmt = Math.round((mileageByContractor.get(emp.id) ?? 0) * 100) / 100
+
+      // Mileage catch-up: pay only the period's mileage. Zero wages/PAYE/KiwiSaver
+      // (mileage is a non-taxable reimbursement, so nothing is withheld).
+      if (input.mileage_only) {
+        return {
+          pay_run_id: data.id,
+          contractor_id: emp.id,
+          hours_worked: 0,
+          hourly_rate: 0,
+          gross_pay: 0,
+          holiday_pay: 0,
+          paye: 0,
+          student_loan: 0,
+          kiwisaver_employee: 0,
+          kiwisaver_employer: 0,
+          esct: 0,
+          kiwisaver_employer_net: 0,
+          net_pay: 0,
+          mileage_reimbursement: mileageAmt,
+          tax_code: emp.tax_code || 'M',
+        }
+      }
+
       const isPaygo = emp.holiday_pay_method === 'pay_as_you_go_8_percent'
       const rate = isPaygo ? (emp.loaded_hourly_rate ?? emp.hourly_rate ?? 0) : (emp.hourly_rate ?? 0)
       const hours = emp.standard_hours ?? 0
@@ -130,12 +198,21 @@ export async function createEmployeePayRun(
         esct: preview.employerEsct,
         kiwisaver_employer_net: preview.employerKiwisaverNet,
         net_pay: preview.netPay,
-        mileage_reimbursement: Math.round((mileageByContractor.get(emp.id) ?? 0) * 100) / 100,
+        mileage_reimbursement: mileageAmt,
         tax_code: emp.tax_code || 'M',
       }
     })
 
     await supabase.from('pay_run_lines').insert(lines)
+
+    // Stamp the mileage logs this run consumed with its id, so they are not
+    // re-pulled (and re-paid) on the next run. The delete-draft flow un-stamps
+    // (sets pay_run_id back to null) if this run is discarded. Best-effort: a
+    // stamping failure must not roll back an otherwise-created run, but it is the
+    // guard against double-paying mileage — see the audit's double-pay concern.
+    if (consumedMileageLogIds.length) {
+      await supabase.from('mileage_logs').update({ pay_run_id: data.id }).in('id', consumedMileageLogIds)
+    }
 
     // Stamp the effective pay-terms snapshot when the run covers exactly one
     // employee (the advance-weekly norm), so the run is reproducible and PR C's

@@ -14,6 +14,9 @@ import { revalidatePath } from 'next/cache'
 import { buildRemittanceReference, groupContractorsForRemittance, type RemittanceContractor } from '@/lib/remittance-reference'
 import { createContractorRemittance } from '../_actions-remittance-batch'
 import { splitByPeriod, sumInvoices, round2, type EligibleInvoice, type PeriodFilter } from '@/lib/remittance-period'
+import { resolvePayeeBankAccount, type PayeeBankResolution } from '@/lib/bank-account'
+import { resolveContractorServiceDate } from '@/lib/contractor-service-date'
+import { toNzCalendarDate } from '@/lib/contractor-statement-period'
 
 export interface Period { period_start?: string; period_end?: string }
 
@@ -25,6 +28,16 @@ export interface PlanLine {
   hours: number | null
   amount: number
   gstAmount: number
+  /** Job context for the pay workspace breakdown (null for jobless payables). */
+  jobNumber: string | null
+  jobAddress: string | null
+  /**
+   * How many contractors are assigned to this job. A job legitimately worked by
+   * two cleaners produces two payables — surfacing the count as context stops
+   * that reading as a duplicate. Informational only; the authoritative duplicate
+   * guard is the job_id + contractor_id check in approveContractorPay.
+   */
+  workersOnJob: number
 }
 
 export interface GroupPlan {
@@ -41,6 +54,12 @@ export interface GroupPlan {
   lines: PlanLine[]
   /** Undated (null service_date) invoices excluded when a period filter is set. */
   undatedCount: number
+  /**
+   * The bank account this payee should be paid on, resolved across everyone in
+   * the group. Display + verification only — remittances deliberately store no
+   * bank details, and this never picks a winner when members disagree.
+   */
+  bank: PayeeBankResolution
 }
 
 interface EligibleCi {
@@ -50,7 +69,10 @@ interface EligibleCi {
   pay_hours: number | null
   gst_amount: number | null
   service_date: string | null
+  gst_supply_date: string | null
+  job_id: string | null
   invoice_number: string | null
+  jobs: { completed_at: string | null; job_number: string | null; address: string | null } | null
 }
 
 async function loadPlan(
@@ -64,22 +86,42 @@ async function loadPlan(
 
   const { data: contractors } = await supabase
     .from('contractors')
-    .select('id, full_name, company_name, gst_number')
+    .select('id, full_name, company_name, gst_number, bank_account_name, bank_account_number')
     .in('id', ids)
 
-  // Approved, not-yet-remitted pay for these contractors.
+  // Approved, not-yet-remitted pay for these contractors. Join the job so a
+  // job-derived CI (which has no explicit service_date) resolves its effective
+  // date from job.completed_at — the same rule the statement/remittance pipeline
+  // uses. Without this, every job-based payable is "undated" and a period run
+  // silently excludes it.
   const { data: ciRaw } = await supabase
     .from('contractor_invoices')
-    .select('id, contractor_id, amount, pay_hours, gst_amount, service_date, invoice_number')
+    .select('id, contractor_id, amount, pay_hours, gst_amount, service_date, gst_supply_date, job_id, invoice_number, jobs ( completed_at, job_number, address )')
     .in('contractor_id', ids)
     .eq('status', 'approved')
-  const cis = (ciRaw ?? []) as EligibleCi[]
+  const cis = (ciRaw ?? []) as unknown as EligibleCi[]
 
   const { data: remitted } = await supabase
     .from('contractor_remittance_items')
     .select('contractor_invoice_id')
     .not('contractor_invoice_id', 'is', null)
   const remittedSet = new Set((remitted ?? []).map((r) => r.contractor_invoice_id as string))
+
+  // How many contractors are assigned to each job in this plan. Counted across
+  // ALL contractors (not just the selected ones), because the point is "how many
+  // cleaners worked this job" — a job with two cleaners legitimately produces
+  // two payables, and showing that count stops it reading as a duplicate.
+  const planJobIds = Array.from(new Set(cis.map((c) => c.job_id).filter(Boolean) as string[]))
+  const workersByJob = new Map<string, number>()
+  if (planJobIds.length > 0) {
+    const { data: jw } = await supabase
+      .from('job_workers')
+      .select('job_id')
+      .in('job_id', planJobIds)
+    for (const r of (jw ?? []) as Array<{ job_id: string }>) {
+      workersByJob.set(r.job_id, (workersByJob.get(r.job_id) ?? 0) + 1)
+    }
+  }
 
   // Not-yet-remitted, normalised for the pure period splitter.
   const eligible: EligibleInvoice[] = cis
@@ -90,8 +132,18 @@ async function loadPlan(
       amount: Number(c.amount ?? 0),
       hours: c.pay_hours == null ? null : Number(c.pay_hours),
       gstAmount: c.gst_amount == null ? null : Number(c.gst_amount),
-      serviceDate: c.service_date,
+      // Effective service date: explicit service_date → job completed_at → GST
+      // supply date. Job-based CIs have no service_date, so resolve it here.
+      serviceDate: resolveContractorServiceDate({
+        job_id: c.job_id,
+        job_completed_at_nz: toNzCalendarDate(c.jobs?.completed_at ?? null),
+        service_date: c.service_date,
+        gst_supply_date: c.gst_supply_date,
+      }).date,
       invoiceNumber: c.invoice_number ?? '',
+      jobNumber: c.jobs?.job_number ?? null,
+      jobAddress: c.jobs?.address ?? null,
+      workersOnJob: c.job_id ? (workersByJob.get(c.job_id) ?? 1) : 1,
     }))
 
   const groups = groupContractorsForRemittance((contractors ?? []) as RemittanceContractor[])
@@ -122,10 +174,32 @@ async function loadPlan(
           hours: c.hours,
           amount: round2(c.amount),
           gstAmount: round2(c.gstAmount ?? 0),
+          jobNumber: c.jobNumber ?? null,
+          jobAddress: c.jobAddress ?? null,
+          workersOnJob: c.workersOnJob ?? 1,
         })),
       undatedCount: split.undated.length,
+      // Resolved across every member of the group — a formatting-only
+      // difference normalises away, a genuine difference reports 'conflict'
+      // rather than silently choosing one account.
+      bank: resolvePayeeBankAccount(
+        g.contractorIds.map((cid) => {
+          const c = (contractors ?? []).find((x) => x.id === cid) as
+            { full_name?: string | null; bank_account_name?: string | null; bank_account_number?: string | null } | undefined
+          return {
+            contractorId: cid,
+            contractorName: c?.full_name ?? null,
+            accountName: c?.bank_account_name ?? null,
+            accountNumber: c?.bank_account_number ?? null,
+          }
+        }),
+      ),
     }
   })
+  // Only surface contractors who actually have something in this run — either
+  // eligible jobs to pay, or an undated amount worth flagging. Contractors with
+  // nothing pending (including inactive ones) never appear as $0 "payees".
+  .filter((g) => g.ciCount > 0 || g.undatedCount > 0)
 }
 
 /** Dry-run: one row per company-group with its payee, reference, and a per-invoice breakdown. */
@@ -150,11 +224,30 @@ export async function createRemittancesForContractors(input: {
   paymentDate: string
   markPaid?: boolean
   period?: PeriodFilter
+  /**
+   * Explicit payables to include — the invoice ids staff actually ticked.
+   *
+   * When present, each group pays ONLY the intersection of its derived,
+   * server-verified eligible ids and this list. Intersecting (rather than
+   * trusting the list outright) keeps the server authoritative on eligibility:
+   * a stale tab or tampered payload cannot inject an already-remitted,
+   * unapproved or someone else's invoice. What staff ticked is the ceiling,
+   * never the source of truth for what is payable.
+   *
+   * Omitted = pay every eligible payable in the group (previous behaviour,
+   * still used by any caller that doesn't offer selection).
+   */
+  selectedCiIds?: string[]
 }): Promise<BuildResult> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || !isAdminUser(user)) return { error: 'Admin only.', created: 0, skipped: 0, failed: 0, items: [] }
   if (!input.paymentDate) return { error: 'A payment date is required.', created: 0, skipped: 0, failed: 0, items: [] }
+
+  const selected = input.selectedCiIds ? new Set(input.selectedCiIds) : null
+  if (selected && selected.size === 0) {
+    return { error: 'Select at least one job to pay.', created: 0, skipped: 0, failed: 0, items: [] }
+  }
 
   // Re-derive the plan under the SAME period filter used in the preview so the
   // created remittances match exactly what staff saw (no full-sweep drift).
@@ -163,24 +256,35 @@ export async function createRemittancesForContractors(input: {
   let created = 0, skipped = 0, failed = 0
 
   for (const g of groups) {
-    if (g.ciIds.length === 0) {
+    // Selection narrows the group; it can never widen it.
+    const payIds = selected ? g.ciIds.filter((id) => selected.has(id)) : g.ciIds
+    if (payIds.length === 0) {
       skipped++
-      items.push({ payee: g.payeeName, reference: g.reference, ok: false, ci_count: 0, total: 0, reason: 'no unpaid jobs' })
+      items.push({
+        payee: g.payeeName, reference: g.reference, ok: false, ci_count: 0, total: 0,
+        reason: selected ? 'nothing selected' : 'no unpaid jobs',
+      })
       continue
     }
+    // Totals must reflect what is actually being paid, not the whole group.
+    const paySum = payIds.length === g.ciIds.length
+      ? { count: g.ciCount, total: g.total }
+      : g.lines.filter((l) => payIds.includes(l.ciId))
+          .reduce((acc, l) => ({ count: acc.count + 1, total: round2(acc.total + l.amount) }), { count: 0, total: 0 })
+
     const res = await createContractorRemittance({
       paymentDate: input.paymentDate,
       reference: g.reference,
       payeeLabel: g.payeeName,
-      ciIds: g.ciIds,
+      ciIds: payIds,
       markPaid: input.markPaid === true,
     })
     if ('error' in res && res.error) {
       failed++
-      items.push({ payee: g.payeeName, reference: g.reference, ok: false, ci_count: g.ciCount, total: g.total, reason: res.error })
+      items.push({ payee: g.payeeName, reference: g.reference, ok: false, ci_count: paySum.count, total: paySum.total, reason: res.error })
     } else {
       created++
-      items.push({ payee: g.payeeName, reference: g.reference, ok: true, ci_count: g.ciCount, total: g.total })
+      items.push({ payee: g.payeeName, reference: g.reference, ok: true, ci_count: paySum.count, total: paySum.total })
     }
   }
 

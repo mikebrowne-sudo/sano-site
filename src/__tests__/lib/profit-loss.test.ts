@@ -103,3 +103,88 @@ describe('buildProfitLoss (cash basis)', () => {
     expect(pl.belowLineTotal).toBe(3000)
   })
 })
+
+describe('buildProfitLoss — contractor cost from remittances', () => {
+  it('counts paid remittances in range as cost of sales', () => {
+    const pl = buildProfitLoss({
+      income: [{ total: 5000, datePaid: '2026-05-10' }],
+      expenses: [],
+      remittances: [
+        { amount: 1220, paymentDate: '2026-05-08' },
+        { amount: 830, paymentDate: '2026-05-26' },
+        { amount: 999, paymentDate: '2026-07-02' }, // out of range
+        { amount: 50, paymentDate: null },          // unpaid
+      ],
+      ...RANGE,
+    })
+    expect(pl.remittancesTotal).toBe(2050)
+    expect(pl.remittancesCount).toBe(2)
+    expect(pl.costOfSales).toBe(2050)
+    expect(pl.grossProfit).toBe(2950)
+  })
+
+  it('drops a contractor_payment expense that duplicates a remittance (same cents, within 5 days)', () => {
+    const pl = buildProfitLoss({
+      income: [],
+      expenses: [
+        { amount: 1172.5, category: 'contractor_payment', expenseDate: '2026-06-16' }, // dup of 06-15 remittance
+        { amount: 700, category: 'contractor_payment', expenseDate: '2026-06-08' },    // paid outside remittances
+        { amount: 1220, category: 'contractor_payment', expenseDate: '2026-06-28' },   // same amount, too far away
+      ],
+      remittances: [
+        { amount: 1172.5, paymentDate: '2026-06-15' },
+        { amount: 1220, paymentDate: '2026-06-01' },
+      ],
+      ...RANGE,
+    })
+    expect(pl.duplicatesExcludedCount).toBe(1)
+    expect(pl.duplicatesExcludedTotal).toBe(1172.5)
+    expect(pl.otherContractorTotal).toBe(1920)
+    expect(pl.costOfSales).toBe(2392.5 + 1920)
+  })
+
+  it('matches one-to-one: two identical expenses vs one remittance leaves one counted', () => {
+    const pl = buildProfitLoss({
+      income: [],
+      expenses: [
+        { amount: 500, category: 'contractor_payment', expenseDate: '2026-05-10' },
+        { amount: 500, category: 'contractor_payment', expenseDate: '2026-05-11' },
+      ],
+      remittances: [{ amount: 500, paymentDate: '2026-05-10' }],
+      ...RANGE,
+    })
+    expect(pl.duplicatesExcludedCount).toBe(1)
+    expect(pl.otherContractorCount).toBe(1)
+    expect(pl.costOfSales).toBe(1000)
+  })
+
+  it('matches across a period boundary but only excludes the in-range half', () => {
+    const pl = buildProfitLoss({
+      income: [],
+      expenses: [{ amount: 300, category: 'contractor_payment', expenseDate: '2026-07-01' }],
+      remittances: [{ amount: 300, paymentDate: '2026-06-30' }],
+      ...RANGE,
+    })
+    expect(pl.remittancesTotal).toBe(300)
+    expect(pl.otherContractorTotal).toBe(0) // the July expense is out of range anyway
+    const july = buildProfitLoss({
+      income: [],
+      expenses: [{ amount: 300, category: 'contractor_payment', expenseDate: '2026-07-01' }],
+      remittances: [{ amount: 300, paymentDate: '2026-06-30' }],
+      from: '2026-07-01', to: '2026-07-31',
+    })
+    expect(july.costOfSales).toBe(0) // not double counted in July either
+    expect(july.duplicatesExcludedTotal).toBe(300)
+  })
+
+  it('puts employee wages in operating expenses, not cost of sales', () => {
+    const pl = buildProfitLoss({
+      income: [{ total: 1000, datePaid: '2026-05-10' }],
+      expenses: [{ amount: 505.5, category: 'wages_payroll', expenseDate: '2026-05-12' }],
+      ...RANGE,
+    })
+    expect(pl.costOfSales).toBe(0)
+    expect(pl.operatingExpenses.map((l) => l.category)).toEqual(['wages_payroll'])
+    expect(pl.netProfit).toBe(494.5)
+  })
+})

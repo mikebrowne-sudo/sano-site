@@ -93,7 +93,7 @@ export const DEFAULT_PROPOSAL_SETTINGS: ProposalSettings = {
   footer: {
     footer_email: 'hello@sano.nz',
     footer_website: 'sano.nz',
-    footer_phone: '0800 726 664',
+    footer_phone: '0800 726 686',
   },
   sections: {
     show_executive_summary: true,

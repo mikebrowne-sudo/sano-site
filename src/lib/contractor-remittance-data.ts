@@ -50,6 +50,12 @@ export interface RemittanceBatch {
    *  (PR 9). 0 when no line carries a snapshot. */
   whtTotal: number
   contractorNames: string[]
+  /** Fully matched to outgoing bank money (set only by reconcile-out). */
+  paymentConfirmed: boolean
+  paymentConfirmedAt: string | null
+  /** Sum of live (un-reversed) bank allocations — lets the detail page tell
+   *  "partly confirmed" apart from "nothing matched yet". */
+  allocatedTotal: number
 }
 
 interface Header {
@@ -62,9 +68,23 @@ interface Header {
   notes: string | null
   sent_at: string | null
   paid_at: string | null
+  payment_confirmed?: boolean | null
+  payment_confirmed_at?: string | null
 }
 
 async function build(svc: SupabaseClient, h: Header): Promise<RemittanceBatch> {
+  // Live (un-reversed) bank allocations against this remittance. Read-only —
+  // reconcile-out owns writing these and payment_confirmed.
+  const { data: allocRows } = await svc
+    .from('remittance_payment_allocations')
+    .select('amount_allocated')
+    .eq('remittance_id', h.id)
+    .is('reversed_at', null)
+  const allocated = Math.round(
+    ((allocRows ?? []) as Array<{ amount_allocated: number | null }>)
+      .reduce((s, a) => s + Number(a.amount_allocated ?? 0), 0) * 100,
+  ) / 100
+
   const { data: itemsRaw } = await svc
     .from('contractor_remittance_items')
     .select('kind, contractor_name, job_number, job_address, note, label, hours, amount, contractor_payment_snapshot_id, gross_ex_gst, gst_amount, wht_rate, wht_amount, net_paid, tax_status, sort, contractor_invoices ( job_id, service_date, gst_supply_date, jobs ( completed_at ) )')
@@ -122,10 +142,28 @@ async function build(svc: SupabaseClient, h: Header): Promise<RemittanceBatch> {
     total,
     whtTotal,
     contractorNames,
+    paymentConfirmed: !!h.payment_confirmed,
+    paymentConfirmedAt: h.payment_confirmed_at ?? null,
+    allocatedTotal: allocated,
   }
 }
 
-const HEADER_COLS = 'id, token, remittance_number, payment_date, reference, payee_label, notes, sent_at, paid_at'
+const HEADER_COLS = 'id, token, remittance_number, payment_date, reference, payee_label, notes, sent_at, paid_at, payment_confirmed, payment_confirmed_at'
+
+/**
+ * User-facing payment state. Derived, never stored — the stored truth is
+ * paid_at + payment_confirmed + live allocations, and this only names it.
+ *
+ *  open       — not yet marked paid by staff
+ *  paid       — staff stamped it paid; no bank money matched yet
+ *  partial    — SOME bank money matched, but less than the total. This state is
+ *               real: payment_confirmed only flips true at FULL coverage
+ *               (allocated >= total - 0.005 in reconcile-out/_actions.ts), so a
+ *               partially-matched remittance is otherwise indistinguishable
+ *               from an unmatched one.
+ *  confirmed  — fully matched to outgoing bank debits
+ */
+export type PaymentState = 'open' | 'paid' | 'partial' | 'confirmed'
 
 export interface RemittanceBatchSummary {
   id: string
@@ -142,6 +180,15 @@ export interface RemittanceBatchSummary {
   paymentConfirmed: boolean
   createdAt: string | null
   contractorNames: string[]
+  /** Sum of live (un-reversed) bank allocations against this remittance. */
+  allocatedTotal: number
+  /** Derived label — see PaymentState. */
+  state: PaymentState
+  /** Job numbers + addresses on the frozen items, so history can be searched
+   *  by job without a second round-trip. Snapshotted values, not live joins:
+   *  history must read as it was paid. */
+  jobNumbers: string[]
+  jobAddresses: string[]
 }
 
 /** Summary rows for the saved-remittances list. Totals + contractor
@@ -155,38 +202,75 @@ export async function listRemittanceBatches(): Promise<RemittanceBatchSummary[]>
   if (!headers || headers.length === 0) return []
 
   const ids = headers.map((h) => h.id as string)
-  const { data: items } = await svc
-    .from('contractor_remittance_items')
-    .select('remittance_id, contractor_name, amount')
-    .in('remittance_id', ids)
+  const [{ data: items }, { data: allocs }] = await Promise.all([
+    svc
+      .from('contractor_remittance_items')
+      .select('remittance_id, contractor_name, amount, job_number, job_address')
+      .in('remittance_id', ids),
+    // Live allocations only — a reversed allocation is not bank money.
+    svc
+      .from('remittance_payment_allocations')
+      .select('remittance_id, amount_allocated')
+      .in('remittance_id', ids)
+      .is('reversed_at', null),
+  ])
 
   const totals = new Map<string, number>()
   const names = new Map<string, Set<string>>()
+  const jobNums = new Map<string, Set<string>>()
+  const jobAddrs = new Map<string, Set<string>>()
   for (const it of items ?? []) {
     const rid = it.remittance_id as string
     totals.set(rid, (totals.get(rid) ?? 0) + ((it.amount as number) ?? 0))
-    const name = it.contractor_name as string | null
-    if (name) {
-      const set = names.get(rid) ?? new Set<string>()
-      set.add(name)
-      names.set(rid, set)
+    const add = (m: Map<string, Set<string>>, v: string | null) => {
+      if (!v) return
+      const set = m.get(rid) ?? new Set<string>()
+      set.add(v)
+      m.set(rid, set)
     }
+    add(names, it.contractor_name as string | null)
+    add(jobNums, it.job_number as string | null)
+    add(jobAddrs, it.job_address as string | null)
+  }
+
+  const allocated = new Map<string, number>()
+  for (const a of allocs ?? []) {
+    const rid = a.remittance_id as string
+    allocated.set(rid, (allocated.get(rid) ?? 0) + Number(a.amount_allocated ?? 0))
   }
 
   return headers.map((h) => {
     const id = h.id as string
+    const total = Math.round((totals.get(id) ?? 0) * 100) / 100
+    const alloc = Math.round((allocated.get(id) ?? 0) * 100) / 100
+    const paidAt = (h.paid_at as string | null) ?? null
+    const confirmed = !!(h as { payment_confirmed?: boolean }).payment_confirmed
+
+    // Mirrors refreshConfirmed() in reconcile-out/_actions.ts. Trust the stored
+    // flag for "confirmed" — reconciliation owns it — and only use the
+    // allocation sum to distinguish partial from untouched.
+    const state: PaymentState =
+      !paidAt ? 'open'
+      : confirmed ? 'confirmed'
+      : alloc > 0 ? 'partial'
+      : 'paid'
+
     return {
       id,
       remittanceNumber: h.remittance_number as string,
       paymentDate: (h.payment_date as string | null) ?? null,
       payeeLabel: (h.payee_label as string | null) ?? null,
       reference: (h.reference as string | null) ?? null,
-      total: Math.round((totals.get(id) ?? 0) * 100) / 100,
+      total,
       sentAt: (h.sent_at as string | null) ?? null,
-      paidAt: (h.paid_at as string | null) ?? null,
-      paymentConfirmed: !!(h as { payment_confirmed?: boolean }).payment_confirmed,
+      paidAt,
+      paymentConfirmed: confirmed,
       createdAt: (h.created_at as string | null) ?? null,
       contractorNames: Array.from(names.get(id) ?? []),
+      allocatedTotal: alloc,
+      state,
+      jobNumbers: Array.from(jobNums.get(id) ?? []),
+      jobAddresses: Array.from(jobAddrs.get(id) ?? []),
     }
   })
 }

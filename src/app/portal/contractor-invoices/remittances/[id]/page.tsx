@@ -3,7 +3,8 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ExternalLink, Printer, Download, CheckCircle2, Pencil } from 'lucide-react'
+import { ExternalLink, Download, CheckCircle2, Pencil, Landmark } from 'lucide-react'
+import clsx from 'clsx'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { getRemittanceBatchById } from '@/lib/contractor-remittance-data'
@@ -12,7 +13,8 @@ import { PrintButton } from '@/components/PrintButton'
 import { SendRemittanceButton } from '@/components/SendRemittanceButton'
 import { VoidControl } from '../../_components/VoidControl'
 import { RemittancePaidControl } from '../../_components/RemittancePaidControl'
-import { formatCurrency, formatDateTime } from '@/lib/format'
+import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
+import { BackLink } from '../../../_components/BackLink'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,9 +28,7 @@ export default async function RemittanceBatchViewPage({ params }: { params: { id
 
   return (
     <div className="max-w-4xl mx-auto">
-      <Link href="/portal/contractor-invoices" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 mb-4">
-        <ArrowLeft size={14} /> Back to contractor invoices
-      </Link>
+      <BackLink fallbackHref="/portal/contractor-invoices" label="Back to contractor invoices" />
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
@@ -48,6 +48,8 @@ export default async function RemittanceBatchViewPage({ params }: { params: { id
               className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
               <Pencil size={15} /> Edit
             </Link>
+            {/* Browser Print adds page headers/footers unless they're turned
+                off in More settings — Download PDF gives a clean file. */}
             <PrintButton label="Print" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors" />
             <a href={`/api/contractor-invoices/remittances/${data.id}/pdf`} target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors">
@@ -55,28 +57,62 @@ export default async function RemittanceBatchViewPage({ params }: { params: { id
             </a>
             <SendRemittanceButton id={data.id} sentAt={data.sentAt} />
           </div>
-          <p className="inline-flex items-start gap-1.5 text-[11px] text-sage-500 max-w-[340px] text-left leading-snug">
-            <Printer size={13} className="mt-0.5 shrink-0 text-sage-400" />
-            <span><span className="font-medium text-sage-600">Download PDF</span> gives a clean file with no browser headers. Browser <span className="font-medium">Print</span> adds them unless you turn off <span className="font-medium">Headers and footers</span> in More settings.</span>
-          </p>
         </div>
       </div>
 
-      {data.sentAt && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mb-5 text-xs text-emerald-800 flex items-center gap-2">
-          <CheckCircle2 size={14} /> Sent to the contractor on {formatDateTime(data.sentAt)}.
-        </div>
-      )}
-
-      {/* Paid state — created unpaid; mark paid once the money leaves the bank. */}
-      <div className="mb-5">
+      {/* ONE status row — paid state, bank confirmation, sent state and the
+          void escape hatch on a single line. These were four stacked
+          full-width banners, which pushed the actual remittance document
+          below the fold on every visit. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-gray-100 bg-white px-4 py-2.5 mb-5">
         <RemittancePaidControl id={data.id} paidAt={data.paidAt} paymentDate={data.paymentDate} />
+
+        {/* Bank confirmation — a DIFFERENT fact from "paid". Read-only here;
+            matching happens only in /portal/finance/reconcile-out. */}
+        {data.paidAt && (
+          data.paymentConfirmed ? (
+            <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-medium whitespace-nowrap"
+              title={`Matched to outgoing bank payment${data.paymentConfirmedAt ? ` on ${formatDate(data.paymentConfirmedAt)}` : ''}`}>
+              <Landmark size={13} /> Bank confirmed
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-xs whitespace-nowrap">
+              <span className={clsx(
+                'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium',
+                data.allocatedTotal > 0 ? 'bg-amber-50 text-amber-800' : 'bg-sage-100 text-sage-600',
+              )}>
+                <Landmark size={13} />
+                {data.allocatedTotal > 0
+                  ? `Partly confirmed · ${formatCurrency(data.allocatedTotal)} of ${formatCurrency(data.total)}`
+                  : 'Awaiting bank confirmation'}
+              </span>
+              <Link href="/portal/finance/reconcile-out" className="text-sage-500 hover:text-sage-700 underline">
+                Reconcile
+              </Link>
+            </span>
+          )
+        )}
+
+        {data.sentAt && (
+          <span className="inline-flex items-center gap-1.5 text-xs text-sage-500 whitespace-nowrap"
+            title={`Sent to the contractor on ${formatDateTime(data.sentAt)}`}>
+            <CheckCircle2 size={13} className="text-emerald-600" /> Sent
+          </span>
+        )}
       </div>
 
-      {/* Reversal — void this batch (reverts its payables to approved so
-          they can be corrected). Use only when no money has left the bank. */}
-      <div className="mb-5">
-        <VoidControl kind="remittance" id={data.id} redirectTo="/portal/contractor-invoices" />
+      {/* Void gets its own row, not a cramped ml-auto slot in the status strip.
+          Squeezing it in there let it wrap out of view on a narrow window —
+          staff reported being unable to find it at all. It is a destructive,
+          occasionally-needed action, so it needs to be findable but not
+          competing with the primary actions in the header. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 mb-5">
+        <span className="text-xs text-sage-500">
+          {data.paidAt
+            ? 'Voiding reverts this payment and returns its jobs to Ready to pay.'
+            : 'Not paid yet — voiding removes this remittance and returns its jobs to Ready to pay.'}
+        </span>
+        <VoidControl kind="remittance" id={data.id} redirectTo="/portal/contractor-invoices/pay-run" />
       </div>
 
       {/* Branded document preview */}

@@ -103,6 +103,12 @@ describe('parseAsbCsv', () => {
     expect(parsed.account).toMatch(/Business Account/)
   })
 
+  it('captures the ASB ledger balance + its "as of" date from the preamble', () => {
+    // "Ledger Balance : 6790.45 as of 20260623" — the dashboard bank balance source.
+    expect(parsed.ledgerBalance).toBe(6790.45)
+    expect(parsed.ledgerBalanceDate).toBe('2026-06-23')
+  })
+
   it('skips the zero-value opening line but keeps real transactions', () => {
     // 7 data lines, minus the CREDIT 0 line = 6; but parser keeps amount 0
     // rows (filtering happens in reconcile). Count parsed rows here:

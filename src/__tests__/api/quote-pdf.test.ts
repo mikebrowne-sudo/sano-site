@@ -55,15 +55,21 @@ describe('GET /api/quotes/[id]/pdf', () => {
     expect(res.status).toBe(401)
   })
 
+  it('returns 403 for a signed-in non-admin account', async () => {
+    mockedCreate.mockReturnValue(makeSupabaseStub({ user: { id: 'u', email: 'john@taxaction.co.nz' } }))
+    const res = await getStaffQuotePdf(fakeRequest(), { params: { id: 'abc' } })
+    expect(res.status).toBe(403)
+  })
+
   it('returns 404 when quote is missing or soft-deleted', async () => {
-    mockedCreate.mockReturnValue(makeSupabaseStub({ user: { id: 'u', email: 'x@x' }, quote: null }))
+    mockedCreate.mockReturnValue(makeSupabaseStub({ user: { id: 'u', email: 'michael@sano.nz' }, quote: null }))
     const res = await getStaffQuotePdf(fakeRequest(), { params: { id: 'abc' } })
     expect(res.status).toBe(404)
   })
 
   it('returns 400 with redirect message when quote is commercial', async () => {
     mockedCreate.mockReturnValue(makeSupabaseStub({
-      user: { id: 'u', email: 'x@x' },
+      user: { id: 'u', email: 'michael@sano.nz' },
       quote: { quote_number: 'QT-1', service_category: 'commercial', deleted_at: null },
     }))
     const res = await getStaffQuotePdf(fakeRequest(), { params: { id: 'abc' } })
@@ -74,7 +80,7 @@ describe('GET /api/quotes/[id]/pdf', () => {
 
   it('returns 200 with proper Content-Disposition on success', async () => {
     mockedCreate.mockReturnValue(makeSupabaseStub({
-      user: { id: 'u', email: 'x@x' },
+      user: { id: 'u', email: 'michael@sano.nz' },
       quote: { quote_number: 'QT-1234', service_category: 'residential', deleted_at: null },
     }))
     mockedRender.mockResolvedValue(Buffer.from('PDF'))

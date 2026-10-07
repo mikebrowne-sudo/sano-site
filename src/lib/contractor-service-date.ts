@@ -6,9 +6,14 @@
 // created_at (a booking timestamp is not a service date).
 //
 // Priority:
-//   1. Job-derived CI (job_id set)  → linked job completed_at (NZ local).
-//        If the job isn't completed → none (excluded + flagged); we do NOT
-//        borrow the tax field for a job-derived line.
+//   1. Job-derived CI (job_id set)  → the CI's service_date, which approval
+//        stamps from the job's SCHEDULED date (the day the clean was done) →
+//        else the linked job completed_at (NZ local), for older CIs approved
+//        before service_date was stamped. Completion is only a fallback: a
+//        clean done on the 9th but marked complete on the 16th was showing —
+//        and being periodised — as the 16th (157 Celtic Crescent, Sep 2026).
+//        No service date and no completion → none (excluded + flagged); we do
+//        NOT borrow the tax field for a job-derived line.
 //   2. Jobless CI (manual / fixed / adjustment) →
 //        explicit service_date → else gst_supply_date (an explicit,
 //        staff-confirmed value) → else none.
@@ -33,7 +38,9 @@ export interface ResolvedServiceDate {
 
 export function resolveContractorServiceDate(ci: ServiceDateInput): ResolvedServiceDate {
   if (ci.job_id) {
-    // Job-derived: only the job completion date is authoritative. No bridge.
+    // Job-derived: the visit date stamped at approval, else completion. No
+    // bridge to the tax field.
+    if (ci.service_date) return { date: ci.service_date, source: 'service_date' }
     return ci.job_completed_at_nz
       ? { date: ci.job_completed_at_nz, source: 'job_completed_at' }
       : { date: null, source: 'none' }

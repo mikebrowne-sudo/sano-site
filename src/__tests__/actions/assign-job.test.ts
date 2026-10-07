@@ -68,14 +68,29 @@ function makeFrom(options: FromMockOptions) {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({ data: options.existingJobWorker ?? null, error: null }),
+        // The hours re-split reads the roster via .eq().order().
+        order: jest.fn().mockResolvedValue({ data: [{ contractor_id: 'c-1', hours_allocated: null, pay_status: 'pending' }], error: null }),
+        update: jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) }) }),
         upsert: jobWorkersUpsert,
+      }
+    }
+    if (table === 'contractor_invoices') {
+      // The hours re-split checks for payables (which freeze a worker's hours).
+      return {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        neq: jest.fn().mockResolvedValue({ data: [], error: null }),
+        maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
       }
     }
     return {
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
+      neq: jest.fn().mockResolvedValue({ data: [], error: null }),
+      order: jest.fn().mockResolvedValue({ data: [], error: null }),
       single: jest.fn().mockResolvedValue({ data: null, error: null }),
       maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+      update: jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) }) }),
       insert: jest.fn().mockResolvedValue({ error: null }),
     }
   })

@@ -1,6 +1,6 @@
 // Phase 4C — Invoices list page config. See types.ts for shape rules.
 
-import { FilePlus2 } from 'lucide-react'
+import { CalendarRange, FilePlus2 } from 'lucide-react'
 import type { ListPageConfig, ListPageTabConfig } from './types'
 
 export type InvoiceTab = 'needs_attention' | 'outstanding' | 'paid' | 'draft' | 'all'
@@ -17,6 +17,13 @@ export const INVOICES_LIST_CONFIG: ListPageConfig<InvoiceTab> = {
   entity: 'invoices',
   pageTitle: 'Invoices',
   actions: [
+    {
+      label: 'Monthly invoice',
+      href: '/portal/invoices/monthly/new',
+      variant: 'secondary',
+      icon: CalendarRange,
+      adminOnly: true,
+    },
     {
       label: 'Create custom invoice',
       href: '/portal/invoices/custom/new',

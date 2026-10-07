@@ -8,7 +8,19 @@
 //
 //   1. Quote must exist + not be archived.
 //   2. Quote.status must NOT be 'converted'.
-//   3. No live (non-archived) child of the requested kind may exist.
+//   3. Quote.status MUST be 'accepted' and it must be the latest
+//      version of its chain.
+//   4. No live (non-archived) child of the requested kind may exist.
+//
+// Check 3 was added after a production audit found the rule was
+// enforced only by UI convention on the invoice path. The two job
+// actions already re-checked status + is_latest_version themselves
+// after calling this guard, but `convertToInvoice` did not — so a
+// direct server-action call could invoice a draft, a sent-but-
+// unaccepted quote, or a superseded accepted version. The job
+// actions keep their own checks (harmless belt-and-braces; their
+// job-specific wording still reads better when it fires first),
+// and this guard now makes the same rule hold for every caller.
 //
 // Returning a single discriminated union keeps the call-sites tidy:
 //   const guard = await assertQuoteConvertible(supabase, quoteId, 'job')
@@ -27,6 +39,7 @@ export interface ConvertibleQuoteSnapshot {
   status: string | null
   accepted_at: string | null
   deleted_at: string | null
+  is_latest_version: boolean | null
 }
 
 /** When the guard rejects because a downstream record already exists,
@@ -54,7 +67,7 @@ export async function assertQuoteConvertible(
   // 1. Quote must exist and not be archived.
   const { data: quote, error: qErr } = await supabase
     .from('quotes')
-    .select('id, status, accepted_at, deleted_at')
+    .select('id, status, accepted_at, deleted_at, is_latest_version')
     .eq('id', quoteId)
     .maybeSingle()
 
@@ -75,7 +88,29 @@ export async function assertQuoteConvertible(
     }
   }
 
-  // 3. Reject if the requested child already exists. Surface its
+  // 3. The quote must actually be accepted, and must be the version
+  //    that acceptance applies to. Without this, a direct call could
+  //    bill a client for a draft they never agreed to, or for a
+  //    superseded version whose figures have since been revised.
+  //
+  //    `is_latest_version` is treated as latest only when explicitly
+  //    false — a null (pre-versioning row) is grandfathered in, since
+  //    those rows predate the version chain and are the only version
+  //    that exists.
+  if (quote.status !== 'accepted') {
+    return {
+      error:
+        'Only an accepted quote can be converted. Send this quote and have it accepted first.',
+    }
+  }
+  if (quote.is_latest_version === false) {
+    return {
+      error:
+        'This is a superseded version of the quote. Open the latest version and convert that instead.',
+    }
+  }
+
+  // 4. Reject if the requested child already exists. Surface its
   //    id + number so the UI can render an Open-existing CTA.
   if (kind === 'job' || kind === 'both') {
     const { data: existingJobs, error: jErr } = await supabase

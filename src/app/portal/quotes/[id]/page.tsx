@@ -10,6 +10,7 @@ import { loadPricingSettings } from '@/lib/pricingSettings'
 import { loadResidentialPricingSettings } from '@/lib/residentialPricingSettings'
 import { loadVersionChain } from '../_actions-versioning'
 import { NotLatestBanner, ArchivedBanner } from './_components/NotLatestBanner'
+import { RevisionCreatedBanner } from './_components/RevisionCreatedBanner'
 import { VersionHistoryPanel } from './_components/VersionHistoryPanel'
 import { ArchiveQuoteButton } from './_components/ArchiveQuoteButton'
 import { LifecycleActions } from '../../_components/LifecycleActions'
@@ -23,6 +24,7 @@ import { QuoteStatusMessage } from './_components/QuoteStatusMessage'
 import { QuoteActionBar } from './_components/QuoteActionBar'
 import { QuoteNextStepPanel } from './_components/QuoteNextStepPanel'
 import { QuoteLinkedRecords } from './_components/QuoteLinkedRecords'
+import { EmailAcceptBlock } from './_components/EmailAcceptBlock'
 import { BackToTopButton } from './_components/BackToTopButton'
 import { isAdminUser } from '@/lib/is-admin'
 import { LockBanner } from '../../_components/LockBanner'
@@ -34,7 +36,7 @@ export default async function QuoteDetailPage({
   searchParams,
 }: {
   params: { id: string }
-  searchParams?: { override?: string }
+  searchParams?: { override?: string; revised_from?: string; revised_status?: string }
 }) {
   const supabase = createClient()
   // Perf — auth + cleanup gate are independent, so run them concurrently.
@@ -204,6 +206,26 @@ export default async function QuoteDetailPage({
   const itemCount = (items?.length ?? 0) + (commercialScope?.length ?? 0)
   const isAccepted = quoteStatus === 'accepted'
 
+  // Post-fork confirmation. Set by the redirect after a save that forked a
+  // new version. Only trusted to render the banner when the params are
+  // internally consistent with the row we actually loaded — this row must be
+  // the latest draft, and its version must be exactly one above the source.
+  // That keeps a hand-edited / stale / shared URL from claiming a version was
+  // created when it wasn't.
+  const revisedFromRaw = searchParams?.revised_from
+  const revisedFrom = revisedFromRaw ? Number.parseInt(revisedFromRaw, 10) : NaN
+  const currentVersionNumber = (quote.version_number as number | null) ?? 1
+  const showRevisionBanner =
+    Number.isFinite(revisedFrom) &&
+    revisedFrom > 0 &&
+    currentVersionNumber === revisedFrom + 1 &&
+    quote.is_latest_version === true &&
+    quoteStatus === 'draft' &&
+    !isArchived
+  const revisedFromVersionRow = showRevisionBanner
+    ? versionChain.find((v) => v.version_number === revisedFrom) ?? null
+    : null
+
   // Phase 5B — invoice-existence lock + admin override.
   // The form is locked when any invoice exists on this quote's chain.
   // Admin can opt into override via ?override=1; the banner renders
@@ -317,7 +339,12 @@ export default async function QuoteDetailPage({
       )}
 
       <QuoteWorkflowBar status={quoteStatus} itemCount={itemCount} />
-      <QuoteStatusMessage status={quoteStatus} itemCount={itemCount} isArchived={isArchived} />
+      <QuoteStatusMessage
+        status={quoteStatus}
+        itemCount={itemCount}
+        isArchived={isArchived}
+        versionNumber={currentVersionNumber}
+      />
 
       {/* Phase quote-flow-clarity: clickable linked-record badges
           (job + invoice) — visible whenever either downstream record
@@ -340,6 +367,15 @@ export default async function QuoteDetailPage({
       />
 
       {isArchived && <ArchivedBanner deletedAt={quote.deleted_at as string} />}
+      {showRevisionBanner && (
+        <RevisionCreatedBanner
+          fromVersion={revisedFrom}
+          fromStatus={searchParams?.revised_status ?? ''}
+          newVersion={currentVersionNumber}
+          fromVersionId={(revisedFromVersionRow?.id as string | undefined) ?? null}
+          isCommercial={isCommercial}
+        />
+      )}
       {!quote.is_latest_version && latestVersion && (
         <NotLatestBanner
           currentVersion={quote.version_number as number}
@@ -432,6 +468,7 @@ export default async function QuoteDetailPage({
         status={quoteStatus}
         isArchived={isArchived}
         isLatestVersion={quote.is_latest_version as boolean}
+        versionNumber={currentVersionNumber}
         isCommercial={isCommercial}
         shareUrl={shareUrl}
         clientEmail={currentClient?.email ?? ''}
@@ -440,7 +477,13 @@ export default async function QuoteDetailPage({
         primaryContactEmail={quote.contact_email ?? ''}
         accountsEmail={quote.accounts_email ?? ''}
         clientReference={quote.client_reference ?? ''}
+        paymentType={(quote as { payment_type?: string | null }).payment_type ?? null}
       />
+
+      {/* Copy-paste email accept-block (for sending from your own inbox). */}
+      <div className="mt-6">
+        <EmailAcceptBlock shareUrl={shareUrl} quoteNumber={displayNumber} clientName={currentClient?.name ?? null} />
+      </div>
 
       {/* Phase 5B — read-only audit timeline (includes amendment events). */}
       <AuditTimelinePanel

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Download, Printer } from 'lucide-react'
+import { ArrowLeft, Download, Printer, AlertTriangle } from 'lucide-react'
 import { SendInvoicePanel } from './_components/SendInvoicePanel'
 import { EditInvoiceDetailsButton } from './_components/EditInvoiceDetailsButton'
 import { EditInvoiceFinancials } from './_components/EditInvoiceFinancials'
@@ -21,6 +21,7 @@ import { StatusBadge } from '../../_components/StatusBadge'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 import { CustomInvoiceBadge } from '../_components/CustomInvoiceBadge'
 import clsx from 'clsx'
+import { stripeModeWarning } from '@/lib/stripe'
 
 function fmt(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
@@ -52,6 +53,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         override_confirmed_by, override_confirmed_at, calculated_price,
         contact_id, contact_name, contact_email, contact_phone,
         accounts_contact_name, accounts_email,
+        bill_to_name, bill_to_attention,
         client_reference, requires_po,
         job_id, source,
         deleted_at,
@@ -83,13 +85,17 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   const [{ data: clientRecord }, { data: linkedJob }, { data: linkedQuote }, { data: candidateJobs }] = await Promise.all([
     supabase
       .from('clients')
-      .select('name, email')
+      .select('name, email, accounts_email')
       .eq('id', invoice.client_id)
       .single(),
     supabase
       .from('jobs')
       .select('id, job_number, status, scheduled_date')
       .eq('invoice_id', params.id)
+      // A monthly invoice links many jobs; limit(1) keeps maybeSingle() from
+      // erroring to null (which would offer "Create job" and duplicate one).
+      .order('scheduled_date')
+      .limit(1)
       .maybeSingle(),
     // Phase 1 follow-up: fetch the source quote for the linked-record
     // strip near the header. invoice.quote_id is the one-way pointer
@@ -122,6 +128,9 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
   const shareUrl = `${siteUrl}/share/invoice/${invoice.share_token}`
+
+  // Null when Stripe can take real cards; a sentence explaining why not otherwise.
+  const stripeWarning = stripeModeWarning()
 
   // Email greeting — greet the contact PERSON, never the company/account
   // name. Prefer the linked contact, then the invoice's snapshot contact,
@@ -238,13 +247,26 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             clientEmail={clientRecord?.email ?? ''}
             greeting={greeting}
             printUrl={shareUrl}
-            accountsEmail={invoice.accounts_email ?? ''}
+            // Invoice snapshot first, then the client's standing accounts
+            // email, so "send all their invoices to X" is a one-field change.
+            accountsEmail={invoice.accounts_email || clientRecord?.accounts_email || ''}
             primaryContactEmail={invoice.contact_email ?? ''}
             clientReference={invoice.client_reference ?? ''}
             requiresPo={invoice.requires_po ?? false}
           />
         </div>
       </div>
+      {/* Card payment only works against a LIVE Stripe key. A test key produces
+          a Pay button that looks fine and declines every real card, which is
+          invisible until a customer tries. Surface it before staff tell someone
+          to pay that way. Unpaid invoices only — a paid one is moot. */}
+      {stripeWarning && invoice.status !== 'paid' && !invoice.deleted_at && (
+        <div className="mb-6 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+          <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+          <span>{stripeWarning}</span>
+        </div>
+      )}
+
       <div className="flex justify-end mb-6 gap-2">
         <RegenerateShareLink table="invoices" id={invoice.id} />
         {isAdmin && !invoice.deleted_at && (
@@ -281,6 +303,13 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         <Section title="Client">
           <p className="font-medium text-sage-800">{client?.name ?? '—'}</p>
           {client?.company_name && <p className="text-sage-600 text-sm">{client.company_name}</p>}
+          {(invoice.bill_to_name || invoice.bill_to_attention) && (
+            <p className="mt-2 text-sm text-sage-700">
+              <span className="text-sage-500">Invoice addressed to: </span>
+              <span className="font-medium">{invoice.bill_to_name || client?.name}</span>
+              {invoice.bill_to_attention && <> · Attn: {invoice.bill_to_attention}</>}
+            </p>
+          )}
 
           {(invoice.contact_name || invoice.contact_email || invoice.accounts_email || invoice.client_reference || invoice.requires_po) && (
             <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
@@ -327,10 +356,12 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             <EditInvoiceDetailsButton
               invoiceId={invoice.id}
               isSent={['sent', 'paid', 'overdue'].includes(invoice.status ?? '')}
+              client={{ name: client?.name ?? null, company_name: client?.company_name ?? null }}
               values={{
                 notes: invoice.notes ?? null,
                 service_description: invoice.service_description ?? null,
                 service_address: invoice.service_address ?? null,
+                type_of_clean: (invoice.type_of_clean as string | null) ?? null,
                 client_reference: invoice.client_reference ?? null,
                 requires_po: invoice.requires_po ?? false,
                 contact_name: invoice.contact_name ?? null,
@@ -338,6 +369,8 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
                 contact_phone: invoice.contact_phone ?? null,
                 accounts_contact_name: invoice.accounts_contact_name ?? null,
                 accounts_email: invoice.accounts_email ?? null,
+                bill_to_name: invoice.bill_to_name ?? null,
+                bill_to_attention: invoice.bill_to_attention ?? null,
                 date_issued: invoice.date_issued ?? null,
                 due_date: invoice.due_date ?? null,
               }}

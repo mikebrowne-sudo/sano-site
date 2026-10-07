@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
 import { computeDocumentTotals } from '@/lib/doc-totals'
 import { normaliseStructuredScope } from '@/lib/full-property-reset-scope'
+import { sanoPaymentDetails } from '@/lib/sano-bank-details'
 import {
   DocumentLayout,
   type DocumentLineItem,
@@ -151,7 +152,10 @@ export function QuoteDocument({
   // the address block as well would render the value twice.
   const toParty: DocumentParty = {
     name: client?.name ?? '—',
-    company: client?.company_name ?? null,
+    // Drop the company line when it just repeats the name.
+    company: client?.company_name && client.company_name.trim().toLowerCase() !== (client?.name ?? '').trim().toLowerCase()
+      ? client.company_name
+      : null,
     address: client?.service_address ?? null,
     attn: quote.contact_name ?? null,
     phone: quote.contact_phone ?? client?.phone ?? null,
@@ -194,6 +198,13 @@ export function QuoteDocument({
 
   const primarySubBlocks: { label: string; value: string }[] = []
   if (address) primarySubBlocks.push({ label: 'Service address', value: address })
+  // Custom-quote reference pairs (registration, make/model, asset tag, serial).
+  // They sit alongside the service address because they answer the same
+  // question for the reader: which thing is this quote about. Normalisation
+  // has already dropped any row missing a label or a value.
+  for (const ref of structuredScope?.referenceFields ?? []) {
+    primarySubBlocks.push({ label: ref.label, value: ref.value })
+  }
   if (!structuredScope && descBlockValue) {
     primarySubBlocks.push({ label: 'Service description', value: descBlockValue })
   }
@@ -255,6 +266,18 @@ export function QuoteDocument({
     ? 'Prices are in New Zealand Dollars and include GST.'
     : 'Prices are in New Zealand Dollars and exclude GST; GST is added to the total.'
   const paymentSentence = isCashSale ? 'Payment is required prior to the clean.' : 'Payment is due within 14 days of the invoice date.'
+
+  // A cash sale asks for payment BEFORE the clean, so the quote has to say where
+  // to send it — the customer may never see an invoice first. An on-account quote
+  // deliberately shows nothing: payment isn't due yet, and the invoice that
+  // follows carries the details.
+  const paymentDetails = isCashSale ? sanoPaymentDetails(quote.quote_number) : undefined
+  // Stated where the customer is already looking at how to pay, not only in the
+  // terms paragraph at the foot of the page.
+  const paymentCallout = isCashSale
+    ? 'Payment is required before the clean. Once you accept, please pay using the details below and we will confirm your booking.'
+    : undefined
+
   const termsBody = `This quote is valid for 30 days from the issue date. ${gstSentence} ${paymentSentence} Sano Property Services Limited is GST registered (GST No. 148-387-648). No lock-in contracts — you can pause or cancel any time.`
 
   return (
@@ -275,6 +298,8 @@ export function QuoteDocument({
       lineItems={lineItems}
       amountLabel={amountLabel}
       notes={housekeepingNotes}
+      paymentDetails={paymentDetails}
+      paymentCallout={paymentCallout}
       totals={{
         subtotalExGstDisplay: fmt(subtotalExGst),
         gstDisplay: fmt(gstAmount),

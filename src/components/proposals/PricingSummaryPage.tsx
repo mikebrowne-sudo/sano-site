@@ -22,6 +22,16 @@ export function PricingSummaryPage({
 }) {
   const { intro, inclusionsNote, positioningNote, included, closingNote } = buildPricingSummaryText(payload)
 
+  // One-off quotes price a single visit, so the hero can't say
+  // "Monthly service fee ... per month". The GST suffix still applies;
+  // only the recurrence wording is suppressed.
+  const oneOff = payload.siteContext.isOneOff
+  const feeLabel = oneOff ? 'Total service fee' : 'Monthly service fee'
+  const feeSuffix = oneOff ? '' : payload.monthlyFeeSuffix
+  const feeNote = oneOff
+    ? 'Based on the agreed scope for this clean.'
+    : 'Based on agreed scope and service frequency.'
+
   return (
     <ProposalLayout
       headerTitle="Pricing summary"
@@ -32,16 +42,16 @@ export function PricingSummaryPage({
       <div className="proposal-content">
         <div className="proposal-pricing-wrap">
           <div className="proposal-pricing-card">
-            <div className="proposal-pricing-card__label">Monthly service fee</div>
+            <div className="proposal-pricing-card__label">{feeLabel}</div>
             <div className="proposal-pricing-card__amount">{payload.monthlyServiceFee}</div>
             {payload.gstSuffix && (
               <div className="proposal-pricing-card__suffix">
                 {payload.gstSuffix}
-                {payload.monthlyFeeSuffix ? ` · ${payload.monthlyFeeSuffix}` : ''}
+                {feeSuffix ? ` · ${feeSuffix}` : ''}
               </div>
             )}
             <div className="proposal-pricing-card__note">
-              Based on agreed scope and service frequency.
+              {feeNote}
             </div>
           </div>
         </div>

@@ -41,6 +41,11 @@ function batch(lines: RemittanceBatchLine[]): RemittanceBatch {
     total: lines.reduce((s, l) => s + l.amount, 0),
     whtTotal: lines.reduce((s, l) => s + (l.whtAmount ?? 0), 0),
     contractorNames: Array.from(new Set(lines.map((l) => l.contractorName).filter(Boolean) as string[])),
+    // Bank-confirmation fields (Phase 4). The remittance DOCUMENT never renders
+    // these — reconciliation is internal — but the type requires them.
+    paymentConfirmed: false,
+    paymentConfirmedAt: null,
+    allocatedTotal: 0,
   }
 }
 
