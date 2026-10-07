@@ -54,16 +54,22 @@ export function invoiceCardPayable(i: CardFields & { status?: string | null }): 
   return !['draft', 'cancelled', 'paid'].includes(i.status ?? '')
 }
 
-export function quoteCardPayable(q: {
+type QuoteCardFields = {
   payment_type?: string | null
   status?: string | null
   frequency?: string | null
   service_category?: string | null
-}): boolean {
+}
+
+/** The kind of quote that can be paid by card once accepted (status aside). */
+export function quoteCardEligible(q: QuoteCardFields): boolean {
   if (isOnAccount(q.payment_type)) return false
   if (q.service_category === 'commercial') return false
-  if (!isOneOff(q.frequency)) return false
-  return q.status === 'accepted' || q.status === 'converted'
+  return isOneOff(q.frequency)
+}
+
+export function quoteCardPayable(q: QuoteCardFields): boolean {
+  return quoteCardEligible(q) && (q.status === 'accepted' || q.status === 'converted')
 }
 
 /**

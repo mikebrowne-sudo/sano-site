@@ -1,4 +1,4 @@
-import { applyQuoteCardPayment, clientCardSetting, invoiceCardPayable, invoiceOffersCard, isOnAccount, isOneOff, quoteCardPayable } from '@/lib/card-payments'
+import { applyQuoteCardPayment, clientCardSetting, invoiceCardPayable, invoiceOffersCard, isOnAccount, isOneOff, quoteCardEligible, quoteCardPayable } from '@/lib/card-payments'
 
 describe('card payment eligibility', () => {
   it('never offers a card to on-account customers', () => {
@@ -44,6 +44,9 @@ describe('card payment eligibility', () => {
     expect(quoteCardPayable({ ...base, status: 'sent' })).toBe(false)
     expect(quoteCardPayable({ ...base, frequency: 'weekly' })).toBe(false)
     expect(quoteCardPayable({ ...base, service_category: 'commercial' })).toBe(false)
+    // The email mentions paying online before acceptance, so eligibility ignores status.
+    expect(quoteCardEligible({ ...base, status: 'sent' })).toBe(true)
+    expect(quoteCardEligible({ ...base, payment_type: 'on_account' })).toBe(false)
   })
 })
 

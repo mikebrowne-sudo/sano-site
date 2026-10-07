@@ -1,5 +1,8 @@
 'use server'
 
+import { canTakeRealPayments } from '@/lib/stripe'
+import { quoteCardEligible } from '@/lib/card-payments'
+
 import { createClient } from '@/lib/supabase-server'
 import { Resend } from 'resend'
 import { revalidatePath } from 'next/cache'
@@ -308,7 +311,7 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
   // are all read at the same moment.
   const { data: quote, error: loadErr } = await supabase
     .from('quotes')
-    .select('date_issued, valid_until, sent_at, share_token, quote_number, status, service_category')
+    .select('date_issued, valid_until, sent_at, share_token, quote_number, status, service_category, payment_type, frequency')
     .eq('id', input.quote_id)
     .single()
 
@@ -385,9 +388,15 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
 
   const resend = new Resend(process.env.RESEND_API_KEY)
 
+  // Cash-sale one-off quotes can be paid by card once accepted — say so, but
+  // only when Stripe can actually take a real card.
+  const payOnlineLine = canTakeRealPayments() && quoteCardEligible(quote)
+    ? '<p>You can accept and pay securely by card from the quote link.</p>'
+    : ''
   const html = `
     <p>${esc(input.message).replace(/\n/g, '<br>')}</p>
     <p><a href="${esc(input.print_url)}" style="display:inline-block;padding:10px 20px;background:#076653;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">View Quote</a></p>
+    ${payOnlineLine}
     <p style="color:#888;font-size:13px;margin-top:24px;">Sano Property Services Limited</p>
   `
 
