@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { payerKey, proposeAutoReconcile, type ArCredit, type ArHistory, type ArInvoice } from '@/lib/auto-reconcile'
 import { round2 } from '@/lib/payment-allocation'
 import { applyBankAllocation, invoicePayableTotal } from './_apply'
+import { runAutoReconcileOut, type AutoReconcileOutSummary } from './_auto-out'
 
 export interface AutoReconcileSummary {
   /** Uncleared payments now fully reconciled. */
@@ -18,6 +19,9 @@ export interface AutoReconcileSummary {
   /** Uncleared payments still needing a human. */
   needsReview: number
   failures: string[]
+  /** Money-out run (remittances, expenses, pay runs, IRD, transfers). */
+  out: AutoReconcileOutSummary | null
+  outError: string | null
 }
 
 type Rec = Record<string, unknown>
@@ -82,7 +86,7 @@ export async function runAutoReconcile(supabase: SupabaseClient, userId: string 
   const { proposals, review } = proposeAutoReconcile({ credits, invoices, history })
   const creditById = new Map(credits.map((c) => [c.id, c]))
 
-  const summary: AutoReconcileSummary = { matched: 0, matchedAmount: 0, markedPaid: 0, backfilled: 0, needsReview: 0, failures: [] }
+  const summary: AutoReconcileSummary = { matched: 0, matchedAmount: 0, markedPaid: 0, backfilled: 0, needsReview: 0, failures: [], out: null, outError: null }
   for (const p of proposals) {
     const credit = creditById.get(p.creditId)
     const res = await applyBankAllocation(supabase, {
@@ -106,5 +110,12 @@ export async function runAutoReconcile(supabase: SupabaseClient, userId: string 
     }
   }
   summary.needsReview = review.filter((r) => !creditById.get(r.creditId)?.cleared).length
+
+  // Money out — independent of money in; a failure here never undoes the above.
+  try {
+    summary.out = await runAutoReconcileOut(supabase, userId)
+  } catch (e) {
+    summary.outError = e instanceof Error ? e.message : 'Money-out auto-reconcile failed.'
+  }
   return summary
 }

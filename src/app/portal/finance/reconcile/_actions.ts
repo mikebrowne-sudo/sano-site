@@ -331,3 +331,61 @@ export async function setCleared(id: string, cleared: boolean): Promise<{ ok: bo
   revalidatePath('/portal/finance/reconcile')
   return { ok: true }
 }
+
+/**
+ * Undo a money-out link (expense / pay run / transfer / auto-recorded expense).
+ * Soft-reverses the link, un-clears the bank line so it reappears, and — when
+ * the link created its own expense (IRD payment, repeat bill) — deletes that
+ * expense so nothing is left orphaned. Remittance allocations are reversed on
+ * the money-out screen instead. Admin-gated, audited.
+ */
+export async function reverseDebitLink(linkId: string, reason: string | null): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!isAdminUser(user)) return { ok: false, error: 'Not authorised.' }
+
+    const { data: link, error: lErr } = await supabase
+      .from('bank_debit_links')
+      .select('id, bank_transaction_id, kind, expense_id, pay_run_id, amount, reversed_at')
+      .eq('id', linkId)
+      .single()
+    if (lErr || !link) return { ok: false, error: `Link not found: ${lErr?.message ?? 'missing'}` }
+    if (link.reversed_at) return { ok: false, error: 'This link has already been undone.' }
+
+    const nowIso = new Date().toISOString()
+    const { error: revErr } = await supabase
+      .from('bank_debit_links')
+      .update({ reversed_at: nowIso, reversed_by: user?.id ?? null, reversal_reason: reason || null })
+      .eq('id', linkId)
+      .is('reversed_at', null)
+    if (revErr) return { ok: false, error: revErr.message }
+
+    if (link.kind === 'created_expense' && link.expense_id) {
+      const { error: delErr } = await supabase.from('expenses').delete().eq('id', link.expense_id as string)
+      if (delErr) return { ok: false, error: `Link undone, but removing the auto-recorded expense failed: ${delErr.message}` }
+    }
+
+    await supabase.from('bank_transactions').update({ cleared: false, cleared_at: null, cleared_by: null }).eq('id', link.bank_transaction_id as string)
+
+    try {
+      await supabase.from('audit_log').insert({
+        actor_id: user?.id ?? null,
+        actor_role: 'admin',
+        action: 'bank.debit_link_reversed',
+        entity_table: 'bank_debit_links',
+        entity_id: linkId,
+        before: { kind: link.kind, expense_id: link.expense_id, pay_run_id: link.pay_run_id, amount: Number(link.amount ?? 0) },
+        after: { reversal_reason: reason || null, expense_deleted: link.kind === 'created_expense' },
+      })
+    } catch (err) {
+      console.warn('[reconcile] debit-link reversal audit failed:', err)
+    }
+
+    revalidatePath('/portal/finance/reconcile')
+    revalidatePath('/portal/expenses')
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Unexpected error.' }
+  }
+}

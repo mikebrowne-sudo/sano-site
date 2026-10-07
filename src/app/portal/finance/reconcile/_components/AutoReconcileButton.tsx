@@ -15,7 +15,17 @@ export function autoSummaryText(s: AutoReconcileSummary): string {
     parts.push('No new payments could be matched automatically')
   }
   if (s.backfilled > 0) parts.push(`linked ${s.backfilled} earlier payment${s.backfilled !== 1 ? 's' : ''} to their invoices`)
-  parts.push(s.needsReview > 0 ? `${s.needsReview} left for you to check` : 'nothing left to check')
+  parts.push(s.needsReview > 0 ? `${s.needsReview} payment${s.needsReview !== 1 ? 's' : ''} in left for you to check` : 'money in all done')
+  if (s.out) {
+    const o = s.out
+    parts.push(o.matched > 0
+      ? `money out: reconciled ${o.matched} (${o.matchedAmount.toLocaleString('en-NZ', { minimumFractionDigits: 2 })})${o.createdExpenses ? `, recording ${o.createdExpenses} IRD payment${o.createdExpenses !== 1 ? 's' : ''}/repeat bill${o.createdExpenses !== 1 ? 's' : ''}` : ''}`
+      : 'money out: nothing new to match')
+    parts.push(o.needsReview > 0 ? `${o.needsReview} payment${o.needsReview !== 1 ? 's' : ''} out left for you` : 'money out all done')
+    if (o.setupNeeded) parts.push(o.setupNeeded)
+    if (o.failures.length) parts.push(`${o.failures.length} money-out match${o.failures.length !== 1 ? 'es' : ''} couldn't be saved: ${o.failures.join('; ')}`)
+  }
+  if (s.outError) parts.push(`Money out didn't run: ${s.outError}`)
   return parts.join(' · ') + '.'
 }
 
@@ -47,7 +57,7 @@ export function AutoReconcileButton() {
         <Wand2 size={16} /> {isPending ? 'Reconciling…' : 'Auto-reconcile now'}
       </button>
       <p className="text-xs text-sage-400 mt-1.5">
-        Matches payments by invoice reference, known payer (incl. recurring clients) and exact bundles. Anything uncertain is left for you. Runs automatically after every import; every match can be reversed.
+        Money in: invoice references, known payers (incl. recurring clients) and exact bundles. Money out: remittances, recorded expenses, pay runs, IRD payments, tax-savings transfers and repeat bills. Anything uncertain is left for you. Runs automatically after every import; every match can be reversed.
       </p>
       {msg && <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg px-4 py-3 mt-2">{msg}</p>}
       {err && <p className="text-red-600 text-sm bg-red-50 rounded-lg px-4 py-3 mt-2">{err}</p>}

@@ -18,9 +18,22 @@ export interface AllocationRow {
   reconciledAt: string | null
 }
 
+/** What an outgoing debit was reconciled against (remittance, expense, pay run, transfer). */
+export interface DebitLinkRow {
+  id: string
+  /** 'remittance' rows are reversed on the money-out screen; the rest here. */
+  kind: 'remittance' | 'expense' | 'pay_run' | 'internal_transfer' | 'created_expense'
+  label: string
+  amount: number
+  auto: boolean
+  matchReason: string | null
+}
+
 export interface StoredTxnMeta {
   id: string
   cleared: boolean
+  /** Money-out links for this line (empty for credits). */
+  debitLinks: DebitLinkRow[]
   /** Live allocations against this bank line (for display + reversal). */
   allocations: AllocationRow[]
   /** Sum of live allocations on this line. */
@@ -102,13 +115,51 @@ export async function getReconcileData(): Promise<ReconcileData> {
     allocatedByInvoice.set(row.invoiceId, (allocatedByInvoice.get(row.invoiceId) ?? 0) + row.amount)
   }
 
+  // Money-out links: remittance allocations + bank_debit_links (the latter may
+  // not exist until its migration has run — treat a missing table as empty).
+  const [{ data: remitLinkData }, debitLinkRes] = await Promise.all([
+    supabase
+      .from('remittance_payment_allocations')
+      .select('id, bank_transaction_id, amount_allocated, match_reason, contractor_remittances ( remittance_number, payee_label )')
+      .is('reversed_at', null),
+    supabase
+      .from('bank_debit_links')
+      .select('id, bank_transaction_id, kind, amount, method, match_reason, expenses ( vendor, category ), pay_runs ( pay_date )')
+      .is('reversed_at', null),
+  ])
+  const linksByTxn = new Map<string, DebitLinkRow[]>()
+  const pushLink = (txnId: string, row: DebitLinkRow) => linksByTxn.set(txnId, [...(linksByTxn.get(txnId) ?? []), row])
+  for (const r of (remitLinkData ?? []) as Array<Record<string, unknown>>) {
+    const rem = r.contractor_remittances as { remittance_number?: string; payee_label?: string } | null
+    pushLink(r.bank_transaction_id as string, {
+      id: r.id as string,
+      kind: 'remittance',
+      label: [rem?.remittance_number, rem?.payee_label].filter(Boolean).join(' · ') || 'Remittance',
+      amount: Number(r.amount_allocated ?? 0),
+      auto: String(r.match_reason ?? '').startsWith('auto:'),
+      matchReason: (r.match_reason as string | null) ?? null,
+    })
+  }
+  for (const r of ((debitLinkRes.error ? [] : debitLinkRes.data) ?? []) as Array<Record<string, unknown>>) {
+    const kind = r.kind as DebitLinkRow['kind']
+    const exp = r.expenses as { vendor?: string | null; category?: string | null } | null
+    const run = r.pay_runs as { pay_date?: string | null } | null
+    const label = kind === 'pay_run' ? `Pay run ${run?.pay_date ?? ''}`.trim()
+      : kind === 'internal_transfer' ? 'Transfer to tax savings'
+      : `${kind === 'created_expense' ? 'Recorded: ' : 'Expense: '}${exp?.vendor || exp?.category || 'expense'}`
+    pushLink(r.bank_transaction_id as string, {
+      id: r.id as string, kind, label, amount: Number(r.amount ?? 0),
+      auto: r.method === 'auto', matchReason: (r.match_reason as string | null) ?? null,
+    })
+  }
+
   const meta = new Map<string, StoredTxnMeta>()
   const transactions: BankTxn[] = (txnData as TxnRow[] ?? []).map((r) => {
     const payee = r.payee ?? ''
     const memo = r.memo ?? ''
     const allocations = allocByTxn.get(r.id) ?? []
     const allocatedTotal = round2(allocations.reduce((s, a) => s + a.amount, 0))
-    meta.set(r.unique_id, { id: r.id, cleared: !!r.cleared, allocations, allocatedTotal })
+    meta.set(r.unique_id, { id: r.id, cleared: !!r.cleared, allocations, allocatedTotal, debitLinks: linksByTxn.get(r.id) ?? [] })
     return {
       uniqueId: r.unique_id,
       date: r.txn_date ?? '',
