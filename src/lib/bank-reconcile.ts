@@ -40,6 +40,8 @@ export interface ReconInvoice {
   dateIssued?: string | null
   /** The job's clean date. */
   serviceDate?: string | null
+  /** Quote / job numbers a customer might quote instead of the invoice number. */
+  altNumbers?: string[]
 }
 export interface ReconExpense {
   amount: number

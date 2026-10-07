@@ -236,3 +236,23 @@ describe('suggestCreditMatches — the reconcile screen', () => {
     expect(sameDocNumber('QUO-0414', 'JOB-0491')).toBe(false)
   })
 })
+
+describe('payments that quote the QUOTE or JOB number', () => {
+  it('finds the invoice through its quote number and offers a part payment', () => {
+    const r = suggestCreditMatches({
+      credit: credit({ amount: 240, payee: 'D/C FROM L M M ABRAHAM', memo: 'QUO-0491' }),
+      invoices: [inv({ number: 'INV-0512', total: 480, altNumbers: ['QUO-0491', 'JOB-0491'] })],
+      history: [],
+    })
+    expect(r.suggestions[0]).toMatchObject({ kind: 'part_payment', allocations: [{ invoiceId: 'INV-0512', amount: 240 }] })
+  })
+
+  it('a real invoice number wins over another invoice’s quote number', () => {
+    const r = suggestCreditMatches({
+      credit: credit({ amount: 100, memo: 'INV-0491' }),
+      invoices: [inv({ number: 'INV-0491', total: 100 }), inv({ number: 'INV-0700', total: 100, altNumbers: ['QUO-0491'] })],
+      history: [],
+    })
+    expect(r.suggestions[0].allocations[0].invoiceId).toBe('INV-0491')
+  })
+})

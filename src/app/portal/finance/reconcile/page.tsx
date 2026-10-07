@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowDownLeft, ArrowUpRight, CheckCircle2 } from 'lucide-rea
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser, isFinanceUser } from '@/lib/is-admin'
 import { notFound } from 'next/navigation'
-import { reconcile, type CreditStatus, type DebitStatus, type ReconInvoice } from '@/lib/bank-reconcile'
+import { reconcile, type ReconInvoice } from '@/lib/bank-reconcile'
 import { payerKey, referencedNumbers, sameDocNumber, suggestCreditMatches, type ArHistory, type ArInvoice } from '@/lib/auto-reconcile'
 import { getReconcileData, type UninvoicedJob } from './_data'
 import { Uploader } from './_components/Uploader'
@@ -12,6 +12,8 @@ import { ReverseDebitLink } from './_components/ReverseDebitLink'
 import { ClearToggle } from './_components/ClearToggle'
 import { MatchPanel, type MatchInvoice, type PanelSuggestion } from './_components/MatchPanel'
 import { ConfirmMatch } from './_components/ConfirmMatch'
+import { RowMenu, MenuSection } from './_components/RowMenu'
+import { cleanPayee as stripPayeePrefix } from '@/lib/payee-match'
 import { ReverseAllocation } from './_components/ReverseAllocation'
 import clsx from 'clsx'
 
@@ -82,6 +84,12 @@ function buildAssist(
 
 export const dynamic = 'force-dynamic'
 
+/** Readable payee: drop ASB prefixes like "D/C FROM" / "PMT TO FC12-3051-…". */
+function cleanPayee(raw: string): string {
+  const s = stripPayeePrefix(raw).replace(/^(from|pmt to)\s+/i, '').replace(/^fc[\d-]+\s*/i, '').trim()
+  return s ? s.replace(/\b([a-z])/g, (ch) => ch.toUpperCase()) : raw
+}
+
 function round2(n: number) {
   return Math.round((n + Number.EPSILON) * 100) / 100
 }
@@ -96,24 +104,6 @@ function fmtDate(iso: string) {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-const CREDIT_LABEL: Record<CreditStatus, string> = {
-  reconciled: 'Reconciled', unpaid_match: 'Not marked paid', allocate_match: 'Paid — allocate', amount_match: 'Likely match', financing: 'Owner / transfer', unmatched: 'No match',
-  likely_bundle: 'Likely bundle', likely_match: 'Likely match',
-}
-const CREDIT_TONE: Record<CreditStatus, string> = {
-  reconciled: 'bg-emerald-50 text-emerald-700', unpaid_match: 'bg-amber-50 text-amber-700', allocate_match: 'bg-sky-50 text-sky-700', amount_match: 'bg-amber-50 text-amber-700', financing: 'bg-sage-100 text-sage-600', unmatched: 'bg-red-50 text-red-700',
-  likely_bundle: 'bg-amber-50 text-amber-700', likely_match: 'bg-amber-50 text-amber-700',
-}
-const DEBIT_LABEL: Record<DebitStatus, string> = {
-  recorded: 'Recorded',
-  already_paid_elsewhere: 'Paid via payroll',
-  not_recorded: 'Not recorded',
-}
-const DEBIT_TONE: Record<DebitStatus, string> = {
-  recorded: 'bg-emerald-50 text-emerald-700',
-  already_paid_elsewhere: 'bg-sage-100 text-sage-700',
-  not_recorded: 'bg-amber-50 text-amber-700',
-}
 
 export default async function ReconcilePage() {
   const supabase = createClient()
@@ -131,6 +121,7 @@ export default async function ReconcilePage() {
   const arInvoices: ArInvoice[] = invoices.map((i) => ({
     id: i.id, number: i.invoiceNumber, status: i.status, total: i.total, allocated: i.allocatedTotal ?? 0,
     dateIssued: i.dateIssued ?? null, datePaid: i.datePaid, clientId: i.clientId ?? null, clientLabel: i.clientLabel ?? '',
+    altNumbers: i.altNumbers ?? [],
   }))
   const invById = new Map(invoices.map((i) => [i.id, i]))
   // Payers learned from earlier matches: bank payee → the client it paid.
@@ -168,40 +159,68 @@ export default async function ReconcilePage() {
   const debitsOut = result.debits.filter((d) => !isDebitDone(d))
   const debitsDone = result.debits.filter(isDebitDone)
 
+  // Short, scannable text for the Match column.
+  const listNumbers = (nums: string[]) => (nums.length <= 2 ? nums.join(', ') : `${nums[0]} +${nums.length - 1}`)
+
   const renderCreditRow = (c: (typeof result.credits)[number], i: number) => {
     const m = meta.get(c.txn.uniqueId)
     const cm = creditMatch.get(c.txn.uniqueId)
-    const display: CreditStatus =
-      c.status === 'unmatched' && cm?.scoped && cm.suggestions.length > 0
-        ? (cm.suggestions[0].allocations.length >= 2 ? 'likely_bundle' : 'likely_match')
-        : c.status
+    const best = cm?.confirmable ? cm.suggestions[0] : null
+    const bestNumbers = best ? best.allocations.map((a) => invById.get(a.invoiceId)?.invoiceNumber ?? '?') : []
+    const partial = !!best && best.allocations.some((a) => {
+      const inv = invById.get(a.invoiceId)
+      return !!inv && a.amount < inv.total - (inv.allocatedTotal ?? 0) - 0.005
+    })
+    const job = cm?.jobs[0]
+    const done = !cm
+    const doubleWarning = !!cm?.notes.some((n) => n.includes('already paid in full'))
+    // IRD refunds / owner money: ticking off IS the answer, so make it the primary action.
+    const notIncome = !!cm?.notes.some((n) => n.startsWith('From IRD') || n.startsWith('Owner'))
+
+    // One status per row, in plain words.
+    const status: { label: string; tone: string } =
+      done ? { label: c.status === 'financing' ? 'Owner / transfer' : 'Reconciled', tone: 'bg-emerald-50 text-emerald-700' }
+      : best && partial ? { label: 'Part payment', tone: 'bg-amber-50 text-amber-700' }
+      : best ? { label: best.allocations.length > 1 ? 'Likely bundle' : 'Likely match', tone: 'bg-sky-50 text-sky-700' }
+      : job && job.price != null && c.txn.amount < job.price - 0.005 ? { label: 'Part payment', tone: 'bg-amber-50 text-amber-700' }
+      : job ? { label: 'Job not invoiced', tone: 'bg-amber-50 text-amber-700' }
+      : doubleWarning ? { label: 'Check', tone: 'bg-red-50 text-red-700' }
+      : notIncome ? { label: 'Not income', tone: 'bg-sage-100 text-sage-600' }
+      : { label: 'No match', tone: 'bg-gray-100 text-gray-600' }
+
+    // What it matches (or matched).
+    const matchText =
+      m && m.allocations.length > 0 ? listNumbers(m.allocations.map((a) => a.invoiceNumber))
+      : best ? listNumbers(bestNumbers) + (partial ? ' (part)' : '')
+      : job ? job.jobNumber
+      : '—'
+    const autoMatched = !!m?.allocations.some((a) => a.matchReason?.startsWith('auto:'))
+
     return (
-      <tr key={`${c.txn.uniqueId}-${i}`} className={clsx('border-b border-gray-50', m?.cleared && 'opacity-45')}>
-        <Td className="whitespace-nowrap">{fmtDate(c.txn.date)}</Td>
-        <Td className="max-w-[260px] truncate" title={c.txn.payee}>{c.txn.payee}</Td>
-        <Td className="max-w-[220px] truncate text-sage-500" title={c.invoice?.invoiceNumber ?? c.txn.memo}>{c.invoice?.invoiceNumber ?? c.txn.memo}</Td>
-        <Td><Badge tone={CREDIT_TONE[display]}>{CREDIT_LABEL[display]}</Badge></Td>
-        <Td className="text-right font-medium">{fmt(c.txn.amount)}</Td>
-        <Td className="text-right">
-          {/* Best match in one click. Replaces the old "Mark paid →" link, which
-              forced the full invoice amount and skipped the bank link. */}
-          {canEdit && m && cm && cm.confirmable && (
-            <ConfirmMatch
-              lineId={m.id}
-              date={c.txn.date}
-              suggestion={{
-                label: cm.suggestions[0].label,
-                allocations: cm.suggestions[0].allocations,
-                numbers: cm.suggestions[0].allocations.map((a) => invById.get(a.invoiceId)?.invoiceNumber ?? '?'),
-                partial: cm.suggestions[0].allocations.some((a) => {
-                  const inv = invById.get(a.invoiceId)
-                  return !!inv && a.amount < inv.total - (inv.allocatedTotal ?? 0) - 0.005
-                }),
-              }}
-            />
-          )}
-          {canEdit && m && cm && (
-            <div className={clsx(cm.suggestions[0] && 'mt-1')}>
+      <tr key={`${c.txn.uniqueId}-${i}`} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
+        <Td className="whitespace-nowrap text-sage-500">{fmtDate(c.txn.date)}</Td>
+        <Td>
+          <div className="truncate font-medium text-sage-800" title={c.txn.payee}>{cleanPayee(c.txn.payee)}</div>
+          {c.txn.memo && <div className="truncate text-xs text-sage-400" title={c.txn.memo}>{c.txn.memo}</div>}
+        </Td>
+        <Td>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="truncate text-sage-700" title={best?.label ?? matchText}>{matchText}</span>
+            {autoMatched && <span className="shrink-0 rounded bg-sage-100 px-1 text-[10px] font-semibold uppercase text-sage-500">auto</span>}
+          </div>
+        </Td>
+        <Td><Badge tone={status.tone}>{status.label}</Badge></Td>
+        <Td className="text-right font-medium tabular-nums whitespace-nowrap">{fmt(c.txn.amount)}</Td>
+        <Td className="overflow-visible">
+          <div className="flex items-center justify-end gap-1.5">
+            {canEdit && m && cm && best && (
+              <ConfirmMatch lineId={m.id} date={c.txn.date} suggestion={{ label: best.label, allocations: best.allocations, numbers: bestNumbers, partial }} />
+            )}
+            {canEdit && m && cm && !best && job && (
+              <Link href={`/portal/jobs/${job.id}`} className="inline-flex h-7 items-center rounded-md border border-amber-200 bg-amber-50 px-2.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 whitespace-nowrap">Invoice job</Link>
+            )}
+            {canEdit && m && cm && notIncome && <ClearToggle id={m.id} cleared={m.cleared} variant="button" />}
+            {canEdit && m && cm && !best && !job && !notIncome && (
               <MatchPanel
                 lineId={m.id}
                 amount={round2(c.txn.amount - m.allocatedTotal)}
@@ -212,93 +231,148 @@ export default async function ReconcilePage() {
                 scoped={cm.scoped}
                 scopeLabel={cm.scopeLabel}
                 suggestions={cm.suggestions}
-                triggerLabel={cm.confirmable ? 'Other options' : 'Match →'}
+                triggerLabel="Match"
               />
-            </div>
-          )}
-          {/* Jobs never invoiced that this payment may be for, and any warnings. */}
-          {m && cm && (cm.jobs.length > 0 || cm.notes.length > 0) && (
-            <div className="mt-1 space-y-0.5 text-right">
-              {cm.jobs.map((j) => (
-                <div key={j.id} className="text-xs text-amber-700">
-                  {j.jobNumber}{j.quoteNumber ? ` (${j.quoteNumber})` : ''} · {j.status}{j.price != null ? ` · ${fmt(j.price)}` : ''} · not invoiced{' '}
-                  {canEdit && <Link href={`/portal/jobs/${j.id}`} className="underline hover:text-amber-900">Invoice it →</Link>}
-                </div>
-              ))}
-              {cm.notes.map((n, k) => <div key={k} className="text-xs text-sage-500 max-w-[320px] ml-auto">{n}</div>)}
-            </div>
-          )}
-          {/* Existing allocations on this line, each reversible. */}
-          {m && m.allocations.length > 0 && (
-            <div className="mt-1 space-y-0.5">
-              {m.allocations.map((a) => (
-                <div key={a.id} className="flex items-center justify-end gap-2 text-xs text-sage-500">
-                  <span className="tabular-nums">{a.invoiceNumber} · {fmt(a.amount)}</span>
-                  {a.matchReason?.startsWith('auto:') && (
-                    <span title={a.matchReason} className="rounded bg-sage-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sage-600">auto</span>
-                  )}
-                  {canEdit && <ReverseAllocation allocationId={a.id} invoiceNumber={a.invoiceNumber} amount={a.amount} />}
-                </div>
-              ))}
-            </div>
-          )}
+            )}
+            {m && (
+              <RowMenu attention={!!cm && (cm.notes.length > 0 || cm.jobs.length > 0)}>
+                {best && (
+                  <MenuSection title="Suggested">
+                    <p>{best.label}</p>
+                    {best.allocations.map((a, k) => (
+                      <p key={a.invoiceId} className="flex justify-between text-xs text-sage-500"><span>{bestNumbers[k]}</span><span className="tabular-nums">{fmt(a.amount)}</span></p>
+                    ))}
+                  </MenuSection>
+                )}
+                {cm && cm.jobs.length > 0 && (
+                  <MenuSection title="Not invoiced yet">
+                    {job && job.price != null && c.txn.amount < job.price - 0.005 && (
+                      <p className="text-xs text-amber-800">Paid {fmt(c.txn.amount)} of {fmt(job.price)}. Invoice the job, then Confirm the part payment here.</p>
+                    )}
+                    {cm.jobs.map((j) => (
+                      <Link key={j.id} href={`/portal/jobs/${j.id}`} className="flex items-center justify-between rounded-md px-1 py-1 hover:bg-sage-50">
+                        <span>{j.jobNumber}{j.quoteNumber ? <span className="text-sage-400"> · {j.quoteNumber}</span> : null}<span className="block text-xs text-sage-400">{j.status}{j.date ? ` · ${fmtDate(j.date)}` : ''}</span></span>
+                        <span className="text-xs font-semibold text-sage-600">Invoice →</span>
+                      </Link>
+                    ))}
+                  </MenuSection>
+                )}
+                {cm && cm.notes.length > 0 && (
+                  <MenuSection title="Note">
+                    {cm.notes.map((n, k) => <p key={k} className="text-xs leading-snug text-amber-800">{n}</p>)}
+                  </MenuSection>
+                )}
+                {m.allocations.length > 0 && (
+                  <MenuSection title="Matched to">
+                    {m.allocations.map((a) => (
+                      <div key={a.id} className="flex items-center justify-between gap-2 text-xs">
+                        <span title={a.matchReason ?? undefined}>{a.invoiceNumber}{a.matchReason?.startsWith('auto:') ? <span className="text-sage-400"> · auto</span> : null}</span>
+                        <span className="flex items-center gap-2 tabular-nums">{fmt(a.amount)}{canEdit && <ReverseAllocation allocationId={a.id} invoiceNumber={a.invoiceNumber} amount={a.amount} />}</span>
+                      </div>
+                    ))}
+                  </MenuSection>
+                )}
+                {canEdit && (
+                  <MenuSection>
+                    {cm && (best || job) && (
+                      <MatchPanel
+                        lineId={m.id}
+                        amount={round2(c.txn.amount - m.allocatedTotal)}
+                        date={c.txn.date}
+                        payee={`${c.txn.payee} ${c.txn.memo}`.trim()}
+                        candidates={cm.candidates}
+                        allCandidates={cm.allCandidates}
+                        scoped={cm.scoped}
+                        scopeLabel={cm.scopeLabel}
+                        suggestions={cm.suggestions}
+                        triggerLabel="Choose invoices…"
+                        triggerClassName="flex w-full items-center rounded-md px-1 py-1 text-left text-sm text-sage-700 hover:bg-sage-50"
+                      />
+                    )}
+                    <ClearToggle id={m.id} cleared={m.cleared} />
+                  </MenuSection>
+                )}
+              </RowMenu>
+            )}
+          </div>
         </Td>
-        <Td className="text-right">{canEdit && m && <ClearToggle id={m.id} cleared={m.cleared} />}</Td>
       </tr>
     )
   }
 
   const renderDebitRow = (d: (typeof result.debits)[number], i: number) => {
     const m = meta.get(d.txn.uniqueId)
+    const links = m?.debitLinks ?? []
+    const isDone = d.status === 'recorded' || d.status === 'already_paid_elsewhere' || !!m?.cleared || links.length > 0
+    const matchText =
+      links.length > 0 ? (links.length === 1 ? links[0].label : `${links[0].label} +${links.length - 1}`)
+      : d.status === 'already_paid_elsewhere' && d.paymentRecord ? d.paymentRecord.label
+      : d.status === 'recorded' ? 'Expense on file'
+      : '—'
+    const status = isDone
+      ? { label: links.some((l) => l.kind === 'internal_transfer') ? 'Transfer' : d.status === 'already_paid_elsewhere' || links.some((l) => l.kind === 'remittance' || l.kind === 'pay_run') ? 'Paid via payroll' : 'Recorded', tone: 'bg-emerald-50 text-emerald-700' }
+      : { label: 'Not recorded', tone: 'bg-amber-50 text-amber-700' }
+    const addExpenseHref = `/portal/expenses/new?amount=${Math.abs(d.txn.amount)}&date=${d.txn.date}&ref=${encodeURIComponent(d.txn.memo || d.txn.payee)}&payee=${encodeURIComponent(d.txn.payee || '')}&returnTo=${encodeURIComponent('/portal/finance/reconcile')}`
+
     return (
-      <tr key={`${d.txn.uniqueId}-${i}`} className={clsx('border-b border-gray-50', m?.cleared && 'opacity-45')}>
-        <Td className="whitespace-nowrap">{fmtDate(d.txn.date)}</Td>
-        <Td className="max-w-[420px] truncate" title={d.txn.memo || d.txn.payee}>{d.txn.memo || d.txn.payee}</Td>
-        <Td><Badge tone={DEBIT_TONE[d.status]}>{DEBIT_LABEL[d.status]}</Badge></Td>
-        <Td className="text-right font-medium">{fmt(Math.abs(d.txn.amount))}</Td>
-        <Td className="text-right">
-          {d.status === 'already_paid_elsewhere' && d.paymentRecord && !(m && m.debitLinks.length > 0) && (
-            // Recorded as a remittance or pay run — NOT an expense. Showing the
-            // source here is what stops the cost being entered a second time.
-            <span className="text-xs text-sage-600 whitespace-nowrap" title="Already recorded — do not add as an expense">
-              {d.paymentRecord.label}
-            </span>
-          )}
-          {/* What this debit was reconciled against, each undoable. */}
-          {m && m.debitLinks.length > 0 && (
-            <div className="space-y-0.5">
-              {m.debitLinks.map((l) => (
-                <div key={l.id} className="flex items-center justify-end gap-2 text-xs text-sage-500">
-                  <span className="whitespace-nowrap">{l.label}</span>
-                  {l.auto && (
-                    <span title={l.matchReason ?? undefined} className="rounded bg-sage-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sage-600">auto</span>
-                  )}
-                  {canEdit && l.kind !== 'remittance' && <ReverseDebitLink linkId={l.id} label={l.label} createdExpense={l.kind === 'created_expense'} />}
-                  {canEdit && l.kind === 'remittance' && (
-                    <Link href="/portal/finance/reconcile-out" className="text-sage-400 hover:text-sage-700 underline">undo</Link>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-          {canEdit && d.status === 'not_recorded' && !(m && m.debitLinks.length > 0) && (
-            <Link
+      <tr key={`${d.txn.uniqueId}-${i}`} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
+        <Td className="whitespace-nowrap text-sage-500">{fmtDate(d.txn.date)}</Td>
+        <Td>
+          <div className="truncate font-medium text-sage-800" title={d.txn.payee}>{cleanPayee(d.txn.payee)}</div>
+          {d.txn.memo && <div className="truncate text-xs text-sage-400" title={d.txn.memo}>{d.txn.memo}</div>}
+        </Td>
+        <Td>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="truncate text-sage-700" title={matchText}>{matchText}</span>
+            {links.some((l) => l.auto) && <span className="shrink-0 rounded bg-sage-100 px-1 text-[10px] font-semibold uppercase text-sage-500">auto</span>}
+          </div>
+        </Td>
+        <Td><Badge tone={status.tone}>{status.label}</Badge></Td>
+        <Td className="text-right font-medium tabular-nums whitespace-nowrap">{fmt(Math.abs(d.txn.amount))}</Td>
+        <Td className="overflow-visible">
+          <div className="flex items-center justify-end gap-1.5">
+            {canEdit && !isDone && (
               // `payee` is passed separately from `ref` so the expense form can
               // recognise a recurring vendor and prefill its category + GST.
-              // The reference shown to staff is still memo-first, but the vendor
-              // signal lives in the payee ("GOOGLE WORKSPACE_SANO.NZ AUCKLAND").
-              href={`/portal/expenses/new?amount=${Math.abs(d.txn.amount)}&date=${d.txn.date}&ref=${encodeURIComponent(d.txn.memo || d.txn.payee)}&payee=${encodeURIComponent(d.txn.payee || '')}&returnTo=${encodeURIComponent('/portal/finance/reconcile')}`}
-              className="text-sage-600 hover:text-sage-800 underline whitespace-nowrap"
-            >Add expense →</Link>
-          )}
+              <Link href={addExpenseHref} className="inline-flex h-7 items-center rounded-md border border-gray-200 px-2.5 text-xs font-semibold text-sage-700 hover:border-sage-300 hover:bg-sage-50 whitespace-nowrap">Add expense</Link>
+            )}
+            {m && (
+              <RowMenu>
+                {links.length > 0 && (
+                  <MenuSection title="Matched to">
+                    {links.map((l) => (
+                      <div key={l.id} className="flex items-center justify-between gap-2 text-xs">
+                        <span title={l.matchReason ?? undefined}>{l.label}{l.auto ? <span className="text-sage-400"> · auto</span> : null}</span>
+                        <span className="flex items-center gap-2 tabular-nums">
+                          {fmt(l.amount)}
+                          {canEdit && l.kind !== 'remittance' && <ReverseDebitLink linkId={l.id} label={l.label} createdExpense={l.kind === 'created_expense'} />}
+                          {canEdit && l.kind === 'remittance' && <Link href="/portal/finance/reconcile-out" className="text-sage-400 hover:text-sage-700 underline">undo</Link>}
+                        </span>
+                      </div>
+                    ))}
+                  </MenuSection>
+                )}
+                {links.length === 0 && d.status === 'already_paid_elsewhere' && d.paymentRecord && (
+                  <MenuSection title="Already recorded">
+                    <p className="text-xs">{d.paymentRecord.label} — don&apos;t add it as an expense.</p>
+                  </MenuSection>
+                )}
+                {canEdit && (
+                  <MenuSection>
+                    <ClearToggle id={m.id} cleared={m.cleared} />
+                  </MenuSection>
+                )}
+              </RowMenu>
+            )}
+          </div>
         </Td>
-        <Td className="text-right">{canEdit && m && <ClearToggle id={m.id} cleared={m.cleared} />}</Td>
       </tr>
     )
   }
 
-  const CREDIT_HEAD = ['Date', 'From', 'Reference', 'Status', 'Amount', 'Action', '']
-  const DEBIT_HEAD = ['Date', 'Detail', 'Status', 'Amount', 'Action', '']
+  const CREDIT_COLS = ['w-[6.5rem]', '', 'w-[8rem]', 'w-[8.5rem]', 'w-[7rem]', 'w-[11rem]']
+  const CREDIT_HEAD = ['Date', 'From', 'Match', 'Status', 'Amount', '']
+  const DEBIT_HEAD = ['Date', 'Paid to', 'Match', 'Status', 'Amount', '']
 
   return (
     <div className="max-w-6xl">
@@ -325,11 +399,11 @@ export default async function ReconcilePage() {
             {creditsOut.length === 0 ? (
               <AllClear label="Every credit is reconciled. Nothing to action." />
             ) : (
-              <Table head={CREDIT_HEAD}>{creditsOut.map(renderCreditRow)}</Table>
+              <Table head={CREDIT_HEAD} cols={CREDIT_COLS}>{creditsOut.map(renderCreditRow)}</Table>
             )}
             {creditsDone.length > 0 && (
               <DoneSection count={creditsDone.length}>
-                <Table head={CREDIT_HEAD}>{creditsDone.map(renderCreditRow)}</Table>
+                <Table head={CREDIT_HEAD} cols={CREDIT_COLS}>{creditsDone.map(renderCreditRow)}</Table>
               </DoneSection>
             )}
           </Panel>
@@ -338,21 +412,19 @@ export default async function ReconcilePage() {
             {debitsOut.length === 0 ? (
               <AllClear label="Every debit is recorded. Nothing to action." />
             ) : (
-              <Table head={DEBIT_HEAD}>{debitsOut.map(renderDebitRow)}</Table>
+              <Table head={DEBIT_HEAD} cols={CREDIT_COLS}>{debitsOut.map(renderDebitRow)}</Table>
             )}
             {debitsDone.length > 0 && (
               <DoneSection count={debitsDone.length}>
-                <Table head={DEBIT_HEAD}>{debitsDone.map(renderDebitRow)}</Table>
+                <Table head={DEBIT_HEAD} cols={CREDIT_COLS}>{debitsDone.map(renderDebitRow)}</Table>
               </DoneSection>
             )}
           </Panel>
 
           <p className="text-xs text-sage-400">
-            Matches are recomputed live against your current invoices and expenses, so they stay correct as records change.
-            Credits tie to invoices by the INV-number in the memo, or by a unique amount; debits tie to expenses by amount and
-            date. Reconciled credits and recorded debits file themselves into <span className="font-medium">Done</span>
-            {' '}automatically; tick <span className="font-medium">Clear</span> to file away anything else you&apos;ve handled
-            (an owner transfer, a matched-but-odd line). The totals above always cover every transaction.
+            Confirm accepts the suggested match; part payments leave the rest of the invoice owing. Everything else — why it
+            matched, jobs not yet invoiced, undo, tick off — is in each row&apos;s <span className="font-medium">⋯</span> menu.
+            Handled lines file themselves into <span className="font-medium">Done</span>.
           </p>
         </div>
       )}
@@ -374,17 +446,17 @@ function Panel({ icon: Icon, title, children }: { icon: React.ElementType; title
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
       <h2 className="flex items-center gap-2 text-lg font-semibold text-sage-800 mb-4"><Icon size={18} className="text-sage-400" />{title}</h2>
-      <div className="overflow-x-auto">{children}</div>
+      <div className="overflow-x-auto md:overflow-visible">{children}</div>
     </div>
   )
 }
 
-function Table({ head, children }: { head: string[]; children: React.ReactNode }) {
+function Table({ head, cols, children }: { head: string[]; cols?: string[]; children: React.ReactNode }) {
   return (
-    <table className="w-full text-sm">
+    <table className="w-full min-w-[760px] md:min-w-0 table-fixed text-sm">
       <thead>
-        <tr className="border-b border-gray-100 text-left text-sage-600">
-          {head.map((h, i) => <th key={i} className={clsx('px-3 py-2 font-semibold', h === 'Amount' && 'text-right')}>{h}</th>)}
+        <tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-sage-400">
+          {head.map((h, i) => <th key={i} className={clsx('px-3 py-2 font-semibold', cols?.[i], h === 'Amount' && 'text-right')}>{h}</th>)}
         </tr>
       </thead>
       <tbody>{children}</tbody>
@@ -393,11 +465,11 @@ function Table({ head, children }: { head: string[]; children: React.ReactNode }
 }
 
 function Td({ children, className, title }: { children: React.ReactNode; className?: string; title?: string }) {
-  return <td className={clsx('px-3 py-2 text-sage-700', className)} title={title}>{children}</td>
+  return <td className={clsx('px-3 py-2.5 align-middle text-sage-700 overflow-hidden', className)} title={title}>{children}</td>
 }
 
 function Badge({ tone, children }: { tone: string; children: React.ReactNode }) {
-  return <span className={clsx('inline-block px-2 py-0.5 rounded-full text-xs font-medium', tone)}>{children}</span>
+  return <span className={clsx('inline-block max-w-full truncate px-2 py-0.5 rounded-full text-xs font-medium', tone)}>{children}</span>
 }
 
 function AllClear({ label }: { label: string }) {
@@ -416,7 +488,7 @@ function DoneSection({ count, children }: { count: number; children: React.React
       <summary className="cursor-pointer text-xs font-medium text-sage-500 hover:text-sage-700 select-none">
         Done · {count} reconciled or cleared
       </summary>
-      <div className="mt-3 overflow-x-auto">{children}</div>
+      <div className="mt-3 overflow-x-auto md:overflow-visible">{children}</div>
     </details>
   )
 }

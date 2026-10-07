@@ -62,6 +62,22 @@ export interface ArInvoice {
   clientId: string | null
   /** Display label used for name matching: "Barfoot & Thompson Henderson", "Good Oil Films". */
   clientLabel: string
+  /** Other numbers customers quote for this invoice: its quote + job numbers
+   *  ("QUO-0491", "JOB-0491"). Used only where no invoice has that number. */
+  altNumbers?: string[]
+}
+
+/** Invoice lookup by number, falling back to the quote / job numbers customers often quote. */
+function indexByNumber(invoices: ArInvoice[]): Map<string, ArInvoice> {
+  const map = new Map<string, ArInvoice>()
+  for (const inv of invoices) map.set(numKey(inv.number), inv)
+  for (const inv of invoices) {
+    for (const alt of inv.altNumbers ?? []) {
+      const k = numKey(alt)
+      if (!map.has(k)) map.set(k, inv)
+    }
+  }
+  return map
 }
 
 /** One past allocation: who paid (normalised payer key) → which client. */
@@ -165,8 +181,7 @@ export function proposeAutoReconcile(args: {
   // Mutable open balances, so two credits can't claim the same money.
   const open = new Map<string, number>()
   for (const inv of args.invoices) open.set(inv.id, Math.max(0, cents(inv.total) - cents(inv.allocated)))
-  const byNum = new Map<string, ArInvoice>()
-  for (const inv of args.invoices) byNum.set(numKey(inv.number), inv)
+  const byNum = indexByNumber(args.invoices)
 
   // Learned payers: payer key → client ids it has paid before.
   const learned = new Map<string, Set<string>>()
@@ -320,12 +335,12 @@ export function suggestCreditMatches(args: {
   if (due <= 0) return { clientIds: [], suggestions, notes }
   if (NON_INCOME_RE.test(text)) {
     notes.push(/i\.?\s?r\.?\s?d|inland\s+revenue/i.test(text)
-      ? 'From IRD — a tax refund, not customer income. Tick it off.'
+      ? 'From IRD — a tax refund (e.g. PAYE overpaid), not customer income. No invoice needed: tick it off.'
       : 'Owner money / transfer — not customer income. Tick it off.')
     return { clientIds: [], suggestions, notes }
   }
 
-  const byNum = new Map(args.invoices.map((i) => [numKey(i.number), i]))
+  const byNum = indexByNumber(args.invoices)
   const usable = (inv: ArInvoice) => !['draft', 'cancelled', 'void'].includes(inv.status) && openOf(inv) > 0
 
   // 1. Reference(s) in the bank text.

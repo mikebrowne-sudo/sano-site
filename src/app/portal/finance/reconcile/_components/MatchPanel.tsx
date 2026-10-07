@@ -62,7 +62,8 @@ export function MatchPanel({
   scoped = false,
   scopeLabel,
   suggestions,
-  triggerLabel = 'Match →',
+  triggerLabel = 'Match',
+  triggerClassName,
 }: {
   lineId: string
   amount: number
@@ -77,6 +78,8 @@ export function MatchPanel({
   suggestions: PanelSuggestion[]
   /** Trigger link text — "Match →" for unmatched, "Allocate →" for paid lines. */
   triggerLabel?: string
+  /** Override the trigger's look (e.g. a plain menu item inside the row menu). */
+  triggerClassName?: string
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -161,7 +164,13 @@ export function MatchPanel({
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="text-sage-600 hover:text-sage-800 underline whitespace-nowrap">{triggerLabel}</button>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={triggerClassName ?? 'inline-flex h-7 items-center rounded-md border border-gray-200 px-2.5 text-xs font-semibold text-sage-700 hover:border-sage-300 hover:bg-sage-50 whitespace-nowrap'}
+      >
+        {triggerLabel}
+      </button>
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 overflow-y-auto" onClick={() => setOpen(false)}>
