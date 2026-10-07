@@ -1,4 +1,4 @@
-import { applyQuoteCardPayment, invoiceCardPayable, isOnAccount, isOneOff, quoteCardPayable } from '@/lib/card-payments'
+import { applyQuoteCardPayment, invoiceCardPayable, invoiceOffersCard, isOnAccount, isOneOff, quoteCardPayable } from '@/lib/card-payments'
 
 describe('card payment eligibility', () => {
   it('never offers a card to on-account customers', () => {
@@ -13,6 +13,13 @@ describe('card payment eligibility', () => {
     for (const status of ['draft', 'cancelled', 'paid']) {
       expect(invoiceCardPayable({ payment_type: 'cash_sale', status })).toBe(false)
     }
+  })
+
+  it('lets staff override the default either way', () => {
+    expect(invoiceOffersCard({ payment_type: 'on_account', allow_card_payment: null })).toBe(false)
+    expect(invoiceOffersCard({ payment_type: 'on_account', allow_card_payment: true })).toBe(true)
+    expect(invoiceOffersCard({ payment_type: 'cash_sale', allow_card_payment: false })).toBe(false)
+    expect(invoiceCardPayable({ payment_type: 'on_account', allow_card_payment: true, status: 'sent' })).toBe(true)
   })
 
   it('treats null / One-off / one_off frequency as one-off', () => {

@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     } else {
       const { data: invoice, error } = await supabase
         .from('invoices')
-        .select('id, invoice_number, status, payment_type, base_price, discount, gst_included, share_token, clients ( name, email ), invoice_items ( price )')
+        .select('id, invoice_number, status, payment_type, allow_card_payment, base_price, discount, gst_included, share_token, clients ( name, email ), invoice_items ( price )')
         .eq('share_token', share_token)
         .is('deleted_at', null)
         .single()

@@ -1,8 +1,10 @@
 // Who gets offered card payment (Stripe "Pay now"), and how a card payment
 // taken on a quote carries across to the invoice made from it.
 //
-//   • On-account customers are invoiced and pay on terms — never offered a card.
-//   • Invoices: any other (cash-sale) invoice that is issued and not yet paid.
+//   • Invoices: cash-sale invoices offer a card by default; on-account ones
+//     don't — unless staff tick "Show Pay now" on that invoice
+//     (invoices.allow_card_payment: null = the default, true/false = override).
+//     Only issued, unpaid invoices are payable.
 //   • Quotes: only a residential-style, ONE-OFF, cash-sale quote the customer
 //     has accepted. Recurring quotes are priced per visit, so one payment would
 //     only cover the first visit; commercial work is sold as a proposal on terms.
@@ -24,8 +26,14 @@ export function isOneOff(frequency: string | null | undefined): boolean {
   return f === '' || f === 'one_off'
 }
 
-export function invoiceCardPayable(i: { payment_type?: string | null; status?: string | null }): boolean {
-  if (isOnAccount(i.payment_type)) return false
+/** Does this invoice offer card payment at all (ignoring its status)? */
+export function invoiceOffersCard(i: { payment_type?: string | null; allow_card_payment?: boolean | null }): boolean {
+  if (i.allow_card_payment === true || i.allow_card_payment === false) return i.allow_card_payment
+  return !isOnAccount(i.payment_type)
+}
+
+export function invoiceCardPayable(i: { payment_type?: string | null; allow_card_payment?: boolean | null; status?: string | null }): boolean {
+  if (!invoiceOffersCard(i)) return false
   return !['draft', 'cancelled', 'paid'].includes(i.status ?? '')
 }
 

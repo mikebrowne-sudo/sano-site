@@ -7,7 +7,7 @@ import { SharePdfButton } from '../../_components/SharePdfButton'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { InvoiceDocument } from '@/components/document/InvoiceDocument'
 import { canTakeRealPayments } from '@/lib/stripe'
-import { isOnAccount } from '@/lib/card-payments'
+import { invoiceOffersCard } from '@/lib/card-payments'
 import { invoiceBalanceDue, loadAllocatedByInvoice } from '@/lib/invoice-balance'
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
@@ -55,7 +55,7 @@ export default async function PublicInvoicePage({
       id, invoice_number, status, date_paid, date_issued, due_date, created_at,
       property_category, type_of_clean, frequency, scope_size,
       service_address, scheduled_clean_date, notes, service_description,
-      base_price, discount, gst_included, payment_type,
+      base_price, discount, gst_included, payment_type, allow_card_payment,
       contact_name, contact_email, contact_phone,
       accounts_contact_name, accounts_email,
       bill_to_name, bill_to_attention,
@@ -76,8 +76,9 @@ export default async function PublicInvoicePage({
 
   // Amount shown on the Pay button = what is still owed (grand total incl.
   // GST less any part payment) — the same figure create-checkout charges.
-  // On-account customers pay on terms and are never offered a card.
-  const showPay = !isPdfRender && canTakeRealPayments() && !isOnAccount(invoice.payment_type)
+  // On-account customers pay on terms and aren't offered a card unless staff
+  // ticked "Show Pay now" on this invoice (lib/card-payments).
+  const showPay = !isPdfRender && canTakeRealPayments() && invoiceOffersCard(invoice)
   let totalDisplay = ''
   if (showPay) {
     const allocated = (await loadAllocatedByInvoice(supabase, [invoice.id])).get(invoice.id) ?? 0
