@@ -38,7 +38,8 @@ import { loadPendingKs10Submissions, type PendingKs10 } from '@/lib/kiwisaver-ks
 import { loadStaffTaskCounts } from './_lib/staff-tasks-data'
 import { buildStaffTasks } from '@/lib/staff-tasks'
 import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
-import { buildDashboardFinance, buildIncomeProjection } from './_lib/dashboard-finance'
+import { buildDashboardFinance, buildIncomeProjection, buildBookedJobs } from './_lib/dashboard-finance'
+import { BookedJobsChart } from './_components/BookedJobsChart'
 import { getBankBalance } from '@/lib/bank-balance'
 import { invoiceBalanceDue, invoiceTotalInclGst, loadAllocatedByInvoice, type InvoiceAmountFields } from '@/lib/invoice-balance'
 import { buildCashPosition } from '@/lib/cash-position'
@@ -117,6 +118,20 @@ export default async function PortalDashboard() {
   //    this-month operational stats. Admin-only page, so no extra gate needed.
   const finance = await buildDashboardFinance(supabase, today, 12)
   const projection = await buildIncomeProjection(supabase, today, 3)
+  const bookedJobs = await buildBookedJobs(supabase, today, 12, 3)
+  // Headline: the last full month vs the first month with bookings in the window.
+  const bookedPast = bookedJobs.filter((m) => !m.future && !m.current)
+  const lastFull = bookedPast[bookedPast.length - 1]
+  const firstWithJobs = bookedPast.find((m) => m.jobs > 0)
+  const bookedHeadline = lastFull && lastFull.jobs > 0
+    ? {
+        main: `${lastFull.jobs} jobs in ${lastFull.label} · ${money0(lastFull.value)}`,
+        sub: firstWithJobs && firstWithJobs !== lastFull ? `from ${firstWithJobs.jobs} in ${firstWithJobs.label}` : '',
+        growthPct: firstWithJobs && firstWithJobs !== lastFull && firstWithJobs.jobs > 0
+          ? Math.round(((lastFull.jobs - firstWithJobs.jobs) / firstWithJobs.jobs) * 100)
+          : null,
+      }
+    : null
 
   // Bank balance = ASB's stated ledger balance, captured from the last CSV
   // imported into reconciliation (no live feed). Null until a statement with a
@@ -322,6 +337,24 @@ export default async function PortalDashboard() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* ── Jobs booked per month: growth + what's already booked ahead ── */}
+      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-1">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500">Jobs booked — last 12 months + ahead</h2>
+          {bookedHeadline && (
+            <p className="flex items-center gap-2 text-sm text-sage-700">
+              <span className="font-semibold">{bookedHeadline.main}</span>
+              {bookedHeadline.growthPct != null && bookedHeadline.growthPct > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100" title={bookedHeadline.sub}>
+                  ▲ {bookedHeadline.growthPct}% <span className="font-normal text-emerald-600">{bookedHeadline.sub}</span>
+                </span>
+              )}
+            </p>
+          )}
+        </div>
+        <BookedJobsChart months={bookedJobs} />
       </section>
 
       {/* ── Cash position: bank balance + projected + net-of-owner-funding ── */}
