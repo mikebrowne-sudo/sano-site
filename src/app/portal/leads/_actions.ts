@@ -99,6 +99,51 @@ export async function addLeadNoteAction(id: string, kind: 'note' | 'call' | 'ema
   return { success: true }
 }
 
+/**
+ * One-box "log feedback / next step" — write a note, status, follow-up date and
+ * renewal date in a single save. Only the fields provided are changed. Writes to
+ * the ONE sales_leads row, so it reflects everywhere (leads list, campaign
+ * recipient view, Alerts). Usable from both the lead page and the campaign page.
+ */
+export async function quickLogAction(input: {
+  leadId: string
+  note?: string
+  status?: string
+  followUp?: string | null
+  renewalDate?: string | null
+  fromCampaignId?: string // to revalidate the campaign page too
+}) {
+  const supabase = createClient()
+  const nowIso = new Date().toISOString()
+
+  const patch: Record<string, unknown> = { updated_at: nowIso }
+  if (input.status) patch.status = input.status
+  if (input.followUp !== undefined) patch.next_follow_up = input.followUp || null
+  if (input.renewalDate !== undefined) patch.renewal_date = input.renewalDate || null
+
+  if (Object.keys(patch).length > 1) {
+    const { error } = await supabase.from('sales_leads').update(patch).eq('id', input.leadId)
+    if (error) return { error: `Failed to save: ${error.message}` }
+  }
+
+  const note = (input.note ?? '').trim()
+  if (note) {
+    await supabase.from('sales_lead_activities').insert({ lead_id: input.leadId, kind: 'note', body: note })
+  }
+  if (input.status) {
+    await supabase.from('sales_lead_activities').insert({ lead_id: input.leadId, kind: 'status_change', body: `Status → ${input.status}` })
+  }
+  if (input.followUp) {
+    await supabase.from('sales_lead_activities').insert({ lead_id: input.leadId, kind: 'follow_up', body: `Follow-up set for ${input.followUp}` })
+  }
+
+  revalidatePath(`/portal/leads/${input.leadId}`)
+  revalidatePath('/portal/leads')
+  revalidatePath('/portal/alerts')
+  if (input.fromCampaignId) revalidatePath(`/portal/campaigns/${input.fromCampaignId}`)
+  return { success: true }
+}
+
 export async function setFollowUpAction(id: string, date: string | null) {
   const supabase = createClient()
   const { error } = await supabase

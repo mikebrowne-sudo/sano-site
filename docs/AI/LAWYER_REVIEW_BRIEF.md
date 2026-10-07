@@ -84,6 +84,33 @@ handling of ID / right-to-work evidence, privacy).
 
 ---
 
+## 8. Structure-aware entity details + authorised signatory (recent change)
+The contractor agreement now captures the **contracting structure** (sole trader /
+company / partnership / trust) and, for an entity, the **authorised signatory and
+their capacity** (e.g. Director, Trustee, Partner). The signed agreement + PDF show
+the full legal entity identity (legal name, company number, NZBN) and, in the
+signature block, who signed and in what capacity on the entity's behalf. A sole
+trader still signs personally. The e-signature must match the signatory's name.
+
+**Important:** this change is to the **captured fields and the signature block only** —
+**no clause wording was added or altered.** Whether the 18 clauses need any
+entity-specific wording (e.g. an authorised-signing / entity-liability clause for a
+company or trust) is left to you.
+
+For company/partnership/trust signatories, the signer must also actively tick an
+**authority-to-bind declaration**: *"I confirm that I am authorised to enter into
+and sign this agreement on behalf of the contracting entity."* This is mandatory
+for entities (not shown to a sole trader), enforced server-side, and the exact
+wording + version + timestamp are frozen onto the signed agreement and shown in the
+signing record. It is a **declaration by the signatory, not a Sano-verified fact**
+(a separate staff verification workflow is reserved for later).
+
+**Please confirm:** capturing the authorised signatory + capacity + authority-to-bind
+declaration and showing the entity identity on the signed agreement is appropriate,
+and advise whether any structure-specific clause wording should be added.
+
+---
+
 ### What we need back
-A confirm/mark-up on items 1–7. We will not change any legal wording without your
+A confirm/mark-up on items 1–8. We will not change any legal wording without your
 direction.

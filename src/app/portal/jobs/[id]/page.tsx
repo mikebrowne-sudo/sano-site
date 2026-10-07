@@ -1,7 +1,10 @@
 import { createClient } from '@/lib/supabase-server'
+import { resolveWorkerHours } from '@/lib/job-hours-split'
+import { isPayablePerOccurrence, isSetAmountPerVisit } from '@/lib/job-worker-pay-basis'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Pencil } from 'lucide-react'
+import { Pencil } from 'lucide-react'
+import { BackLink } from '../../_components/BackLink'
 import { JobInvoiceButton } from './_components/JobInvoiceButton'
 import { JobStatusActions } from './_components/JobStatusActions'
 import { AssignJobSlot } from './_components/AssignJobSlot'
@@ -25,6 +28,7 @@ import { LifecycleActions } from '../../_components/LifecycleActions'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
 import { JobNextStepCard } from './_components/JobNextStepCard'
 import { ScopeSnapshotPanel } from './_components/ScopeSnapshotPanel'
+import JobExtras from './_components/JobExtras'
 import { JobVersionHistoryPanel } from './_components/JobVersionHistoryPanel'
 import { isAdminUser } from '@/lib/is-admin'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
@@ -167,7 +171,7 @@ export default async function JobDetailPage({
     job.invoice_id
       ? supabase
           .from('invoices')
-          .select('invoice_number, status, base_price, discount, invoice_items ( price )')
+          .select('invoice_number, status, base_price, discount, invoice_items ( price ), linked_jobs:jobs!jobs_invoice_id_fkey ( id )')
           .eq('id', job.invoice_id)
           .single()
       : Promise.resolve({
@@ -211,6 +215,81 @@ export default async function JobDetailPage({
     : { data: null as { id: string; full_name: string }[] | null }
   const unassignedContractors = (activeContractors ?? []).filter((c) => !assignedContractorIds.has(c.id))
 
+  // Extras (job_items) — work on top of the job. Loaded for STAFF, not just
+  // admin: adding an extra is ordinary operational work.
+  //
+  // The contractor list here is its own fetch rather than reusing
+  // `activeContractors`, which is admin-gated and already filtered to the
+  // UNASSIGNED. An extra is frequently done by someone who IS on the roster
+  // (the cleaner also did the oven) and just as frequently by a specialist who
+  // is not, so the picker needs everyone, with the roster flagged.
+  const [jobItemsRes, extrasContractorsRes] = await Promise.all([
+    // in_house is selected via a second attempt below when the column exists;
+    // see the fallback under jobItemsRes. Keeping it out of this select means a
+    // pre-migration database still renders the panel instead of erroring.
+    supabase
+      .from('job_items')
+      .select('id, label, description, price, contractor_id, cost_amount, cost_basis, cost_hours, source, sort_order, in_house, contractors ( full_name )')
+      .eq('job_id', params.id)
+      .order('sort_order'),
+    supabase.from('contractors').select('id, full_name, hourly_rate').eq('status', 'active').order('full_name'),
+  ])
+
+  // The in_house column is added by a hand-run migration
+  // (docs/db/2026-09-18-job-items-in-house.sql), so the code may deploy first.
+  // Retry without it rather than losing the whole panel in that window.
+  const jobItems = jobItemsRes.error
+    ? await supabase
+      .from('job_items')
+      .select('id, label, description, price, contractor_id, cost_amount, cost_basis, cost_hours, source, sort_order, contractors ( full_name )')
+      .eq('job_id', params.id)
+      .order('sort_order')
+    : jobItemsRes
+
+  // Payables keyed by the item they pay for, so a committed extra can be locked
+  // in the UI instead of failing on save.
+  const itemIds = (jobItems.data ?? []).map((i) => i.id as string)
+  const { data: itemPayables } = itemIds.length > 0
+    ? await supabase
+      .from('contractor_invoices')
+      .select('job_item_id, invoice_number, status')
+      .in('job_item_id', itemIds)
+      .neq('status', 'void')
+    : { data: null as { job_item_id: string; invoice_number: string | null; status: string | null }[] | null }
+  const payableByItem = new Map<string, { invoice_number: string | null; status: string | null }>()
+  for (const p of (itemPayables ?? []) as { job_item_id: string; invoice_number: string | null; status: string | null }[]) {
+    if (p.job_item_id) payableByItem.set(p.job_item_id, { invoice_number: p.invoice_number, status: p.status })
+  }
+
+  const jobExtras = ((jobItems.data ?? []) as unknown as Array<{
+    id: string; label: string; description: string | null; price: number | null
+    contractor_id: string | null; cost_amount: number | null; cost_basis: string | null
+    cost_hours: number | null; source: string | null; in_house?: boolean | null
+    contractors: { full_name: string | null } | null
+  }>).map((i) => ({
+    id: i.id,
+    label: i.label,
+    description: i.description,
+    price: i.price,
+    contractor_id: i.contractor_id,
+    contractor_name: i.contractors?.full_name ?? null,
+    cost_amount: i.cost_amount,
+    cost_basis: i.cost_basis,
+    cost_hours: i.cost_hours,
+    source: i.source,
+    in_house: i.in_house ?? false,
+    payable_number: payableByItem.get(i.id)?.invoice_number ?? null,
+    payable_status: payableByItem.get(i.id)?.status ?? null,
+  }))
+
+  const extrasContractors = ((extrasContractorsRes.data ?? []) as { id: string; full_name: string | null; hourly_rate: number | null }[])
+    .map((c) => ({
+      id: c.id,
+      name: c.full_name ?? 'Unnamed',
+      onJob: assignedContractorIds.has(c.id),
+      hourlyRate: c.hourly_rate,
+    }))
+
   // Edit history (reversible amendment snapshots). Tolerates the table not
   // existing yet (pre-migration) — the query errors, data is null, panel hides.
   const { data: jobVersionsData } = await supabase
@@ -233,6 +312,9 @@ export default async function JobDetailPage({
   const linkedInvoiceRow = linkedInvoiceRes.data
   const linkedInvoiceTotal = (() => {
     if (!linkedInvoiceRow) return null
+    // A monthly invoice covers several visits, so its total is never meant to
+    // equal one job's price — skip the "invoice total differs" comparison.
+    if (((linkedInvoiceRow as { linked_jobs?: unknown[] | null }).linked_jobs ?? []).length > 1) return null
     const items = (linkedInvoiceRow.invoice_items ?? []) as { price: number | null }[]
     const addons = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
     return (linkedInvoiceRow.base_price ?? 0) + addons - (linkedInvoiceRow.discount ?? 0)
@@ -287,13 +369,11 @@ export default async function JobDetailPage({
 
   return (
     <div>
-      <Link
-        href="/portal/jobs"
-        className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"
-      >
-        <ArrowLeft size={14} />
-        Back to jobs
-      </Link>
+      {/* History-aware: jobs are reached from several places (the jobs list,
+          a remittance breakdown, the calendar), so Back should return to
+          whichever one you came from rather than always the jobs list. Falls
+          back to /portal/jobs on a fresh tab or direct link. */}
+      <BackLink fallbackHref="/portal/jobs" label="Back" />
 
       {isAdmin && hasClientMismatch && (
         <JobMismatchBanner jobId={job.id as string} quoteNumber={quoteNumber} />
@@ -535,6 +615,16 @@ export default async function JobDetailPage({
             when the column is null. */}
         <ScopeSnapshotPanel snapshot={(job as { scope_snapshot?: unknown }).scope_snapshot ?? null} />
 
+        {/* Extras — work on top of the job (carpet, oven, windows). Charged to
+            the client and paid to whoever actually did it, which is often NOT
+            one of the job's assigned cleaners. */}
+        <JobExtras
+          jobId={job.id}
+          items={jobExtras}
+          contractors={extrasContractors}
+          jobCompleted={job.status === 'completed' || job.status === 'invoiced'}
+        />
+
         {/* Phase D.1 — access instructions captured during assignment.
             Only rendered when set so jobs without access notes stay
             uncluttered. */}
@@ -694,9 +784,17 @@ export default async function JobDetailPage({
                             const extraHrs = (w?.extra_hours as number | null) ?? 0
                             const approvedExtra = extraStatus === 'approved' ? extraHrs : 0
                             const payableHrs = allowedHrs != null ? allowedHrs + approvedExtra : null
-                            const isFixed = ((w?.pay_type as string | null) ?? null) === 'fixed'
-                            // Fixed-contract workers are not payable per occurrence.
-                            const pay = !isFixed && payableHrs != null ? payableHrs * payRate : null
+                            const wPayType = (w?.pay_type as string | null) ?? null
+                            // A RETAINER is not payable per occurrence. A SET
+                            // AMOUNT PER VISIT is — pay_rate is the whole
+                            // payable, never multiplied by hours.
+                            const isRetainer = !isPayablePerOccurrence(wPayType)
+                            const isPerVisit = isSetAmountPerVisit(wPayType)
+                            const pay = isRetainer
+                              ? null
+                              : isPerVisit
+                                ? payRate
+                                : payableHrs != null ? payableHrs * payRate : null
                             const locked = payStatus === 'included_in_pay_run' || payStatus === 'paid'
                             return (
                               <tr key={ew.contractorId} className="border-b border-gray-50">
@@ -752,10 +850,10 @@ export default async function JobDetailPage({
                                   </span>
                                 </td>
                                 <td className="py-2 pr-2 text-right">
-                                  {isFixed
+                                  {isRetainer
                                     ? (
-                                      <span className="text-[10px] font-semibold uppercase tracking-wide text-sage-500 bg-sage-50 px-1.5 py-0.5 rounded" title="Fixed-contract worker — paid via the fixed-contract contractor-invoice process, not payable per occurrence.">
-                                        Fixed contract
+                                      <span className="text-[10px] font-semibold uppercase tracking-wide text-sage-500 bg-sage-50 px-1.5 py-0.5 rounded" title="Retainer — paid a flat sum for the period via the fixed-contract contractor-invoice process, not payable per occurrence.">
+                                        Retainer
                                       </span>
                                     )
                                     : pay != null
@@ -817,7 +915,10 @@ export default async function JobDetailPage({
                     <p className="text-[11px] text-sage-400 mt-0.5">Approving creates an approved contractor invoice that flows into a remittance. Same as the Pending approvals worklist.</p>
                     <div className="mt-2 space-y-2">
                       {workers.map((w) => {
-                        const allowed = w.hours_allocated ?? job.allowed_hours ?? null
+                        // Fallback must be SPLIT — `workers` is the full
+                        // roster, so a 2-cleaner 8h job falls back to 4h each,
+                        // not 8h each.
+                        const allowed = resolveWorkerHours(w.hours_allocated, job.allowed_hours, Math.max(workers.length, 1))
                         const approvedExtra = w.extra_hours_status === 'approved' ? (w.extra_hours ?? 0) : 0
                         const payableHours = allowed != null ? Math.round((allowed + approvedExtra) * 100) / 100 : null
                         const rate = (w.pay_rate as number | null) ?? w.hourly_rate ?? null

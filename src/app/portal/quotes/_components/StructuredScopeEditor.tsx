@@ -14,18 +14,26 @@ import {
   type ScopeSection,
   buildResetIntro,
   buildResetCompletion,
+  buildHousekeepingIntro,
 } from '@/lib/full-property-reset-scope'
 
 export function StructuredScopeEditor({
   value,
   onChange,
   disabled = false,
+  serviceTypeCode,
 }: {
   value: StructuredScope
   onChange: (next: StructuredScope) => void
   disabled?: boolean
+  /** Drives service-specific fields + intro generation. 'residential_housekeeping'
+   *  shows the weekly-hours + service-days inputs and regenerates the housekeeping
+   *  intro; anything else keeps the Full Property Reset behaviour. */
+  serviceTypeCode?: string | null
 }) {
   const set = (patch: Partial<StructuredScope>) => onChange({ ...value, ...patch })
+  const isHousekeeping = serviceTypeCode === 'residential_housekeeping'
+  const isCustom = serviceTypeCode === 'custom_quote'
 
   // ── Sections ──────────────────────────────────────────────
   function updateSection(i: number, patch: Partial<ScopeSection>) {
@@ -76,7 +84,22 @@ export function StructuredScopeEditor({
 
   // ── Regenerate intro (intro only) ─────────────────────────
   function regenerateIntro() {
-    set({ intro: buildResetIntro({ title: value.title, expectedDuration: value.expectedDuration, sections: value.sections }) })
+    const intro = isHousekeeping
+      ? buildHousekeepingIntro({ weeklyHours: value.weeklyHours, serviceDays: value.serviceDays })
+      : buildResetIntro({ title: value.title, expectedDuration: value.expectedDuration, sections: value.sections })
+    set({ intro })
+  }
+  // Housekeeping: keep the intro in sync as weekly hours / service days change,
+  // but only while the operator hasn't hand-edited the intro away from a
+  // generated form (so manual wording is never clobbered). Descriptive only —
+  // these fields never affect price.
+  function onHousekeepingFieldChange(patch: { weeklyHours?: string; serviceDays?: string }) {
+    const nextHours = patch.weeklyHours ?? value.weeklyHours ?? ''
+    const nextDays = patch.serviceDays ?? value.serviceDays ?? ''
+    const wasGenerated = value.intro === buildHousekeepingIntro({ weeklyHours: value.weeklyHours, serviceDays: value.serviceDays })
+    const next: Partial<StructuredScope> = { ...patch }
+    if (wasGenerated) next.intro = buildHousekeepingIntro({ weeklyHours: nextHours, serviceDays: nextDays })
+    set(next)
   }
   // Keep the completion clause's duration in sync when the field changes, but
   // only if the operator hasn't hand-edited completion away from a generated
@@ -97,25 +120,108 @@ export function StructuredScopeEditor({
   return (
     <div className="space-y-6">
       <p className="text-xs text-sage-500 -mt-1">
-        The standard Full Property Reset scope is loaded below. Remove anything that doesn’t apply,
-        add job-specific items, then save. This is the description shown to the customer — pricing is
-        added separately as priced lines.
+        {isCustom
+          ? 'Write the scope for this job. Add a section per stage of work, with a line per task. This is the description shown to the customer — the price is set manually below.'
+          : 'The standard scope for this service is loaded below. Remove anything that doesn’t apply, add job-specific items, then save. This is the description shown to the customer — pricing is added separately as priced lines.'}
       </p>
 
-      {/* Title + expected duration */}
+      {/* Title + (FPR) expected duration */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label className="block">
           <span className="block text-sm font-semibold text-sage-800 mb-1.5">Service title</span>
           <input className={inputCls} value={value.title} disabled={disabled}
             onChange={(e) => set({ title: e.target.value })} />
         </label>
-        <label className="block">
-          <span className="block text-sm font-semibold text-sage-800 mb-1.5">Expected duration (optional)</span>
-          <input className={inputCls} value={value.expectedDuration} disabled={disabled}
-            placeholder="e.g. two days"
-            onChange={(e) => onDurationChange(e.target.value)} />
-        </label>
+        {!isHousekeeping && !isCustom && (
+          <label className="block">
+            <span className="block text-sm font-semibold text-sage-800 mb-1.5">Expected duration (optional)</span>
+            <input className={inputCls} value={value.expectedDuration} disabled={disabled}
+              placeholder="e.g. two days"
+              onChange={(e) => onDurationChange(e.target.value)} />
+          </label>
+        )}
       </div>
+
+      {/* Custom quote: optional labelled reference pairs. Free-form label and
+          value rather than named columns, so one control serves a vehicle
+          registration, an asset tag, a site reference or a serial number
+          without a new field per job type. Printed in the quote header beside
+          the service address. */}
+      {isCustom && (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="block text-sm font-semibold text-sage-800">Reference details (optional)</span>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => set({ referenceFields: [...(value.referenceFields ?? []), { label: '', value: '' }] })}
+              className="text-xs font-medium text-sage-600 hover:text-sage-800 disabled:opacity-40"
+            >
+              + Add detail
+            </button>
+          </div>
+          <p className="text-xs text-sage-500 mb-2">
+            Shown in the quote header, e.g. Registration / HWP513, or Vehicle / 2015 Holden Captiva.
+          </p>
+          <div className="space-y-2">
+            {(value.referenceFields ?? []).map((row, i) => (
+              <div key={i} className="flex gap-2">
+                <input
+                  className={inputCls + ' max-w-[38%]'}
+                  placeholder="Label"
+                  value={row.label}
+                  disabled={disabled}
+                  onChange={(e) => {
+                    const next = [...(value.referenceFields ?? [])]
+                    next[i] = { ...next[i], label: e.target.value }
+                    set({ referenceFields: next })
+                  }}
+                />
+                <input
+                  className={inputCls}
+                  placeholder="Value"
+                  value={row.value}
+                  disabled={disabled}
+                  onChange={(e) => {
+                    const next = [...(value.referenceFields ?? [])]
+                    next[i] = { ...next[i], value: e.target.value }
+                    set({ referenceFields: next })
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={disabled}
+                  aria-label="Remove detail"
+                  className={iconBtn}
+                  onClick={() => set({ referenceFields: (value.referenceFields ?? []).filter((_, j) => j !== i) })}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Housekeeping: quote-specific weekly hours + service days (descriptive
+          only — these feed the intro wording and NEVER the price). */}
+      {isHousekeeping && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="block text-sm font-semibold text-sage-800 mb-1.5">Weekly hours (optional)</span>
+            <input className={inputCls} value={value.weeklyHours ?? ''} disabled={disabled}
+              inputMode="numeric" placeholder="e.g. 20"
+              onChange={(e) => onHousekeepingFieldChange({ weeklyHours: e.target.value })} />
+            <span className="block text-[11px] text-sage-400 mt-1">Shown in the description only. Does not affect the price.</span>
+          </label>
+          <label className="block">
+            <span className="block text-sm font-semibold text-sage-800 mb-1.5">Service days (optional)</span>
+            <input className={inputCls} value={value.serviceDays ?? ''} disabled={disabled}
+              placeholder="e.g. Monday, Wednesday and Friday"
+              onChange={(e) => onHousekeepingFieldChange({ serviceDays: e.target.value })} />
+          </label>
+        </div>
+      )}
 
       {/* Introduction */}
       <div>

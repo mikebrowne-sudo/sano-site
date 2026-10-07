@@ -19,8 +19,8 @@ export default function HowickServiceAreaPage() {
           'From regular upkeep to deeper cleans and end-of-tenancy resets, Sano helps Howick households keep homes, townhouses, and rentals properly looked after.',
         heroImage: '/images/heroes/regular-house-cleaning-hero.jpg',
         introParagraphs: [
-          'In Howick, Sano looks after family homes, townhouses, and rentals, whether that’s a regular clean, a deeper one, or an end-of-tenancy reset before new tenants arrive.',
-          'We agree what needs doing before the clean, work around the household’s layout and timing, and leave the home clean, settled, and ready.',
+          'For family homes, townhouses, and rentals across Howick, Sano covers everything from regular upkeep to deeper one-off cleans and end-of-tenancy resets between tenancies.',
+          'Each visit is planned around the household’s routine and the layout of the home, with the scope settled beforehand so the result is a place left clean and ready to enjoy.',
         ],
         introImage: '/images/cleaned-by-sano.jpg',
         introImageAlt: 'A clean, well-kept family home in Auckland',

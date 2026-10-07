@@ -41,6 +41,23 @@ export const SERVICE_TYPES_BY_CATEGORY: Record<ServiceCategory, { value: string;
     // manual override pricing (staff enter the price). Selecting it loads the
     // standard structured scope (see lib/full-property-reset-scope).
     { value: 'full_property_reset', label: 'Full Property Reset' },
+    // Residential Housekeeping — a flexible, structured-scope housekeeping
+    // service (broader than a standard clean: laundry, linen, tidying,
+    // rotational tasks). Like Full Property Reset it is a structured-scope,
+    // manual-priced service — deliberately NOT in service_multipliers or
+    // SERVICE_VOCAB, and NOT recurring. The "weekly" nature is communicated in
+    // the editable scope wording only. Selecting it loads the default
+    // housekeeping scope (see lib/full-property-reset-scope).
+    { value: 'residential_housekeeping', label: 'Residential Housekeeping' },
+    // Custom Quote is offered under BOTH categories. It was commercial-only at
+    // first, which forced a one-off job (vehicle work, specialist remediation)
+    // down the commercial path: the proposal document, the sector/margin block
+    // and the commercial share-page branch all key off
+    // service_category === 'commercial'. None of that applies to a job with no
+    // site, no sector and no recurring schedule, so the residential category —
+    // which renders the plain quote document — is the right home for most
+    // custom work.
+    { value: 'custom_quote',       label: 'Custom Quote' },
   ],
   property_management: [
     { value: 'routine',        label: 'Routine Clean' },
@@ -53,6 +70,12 @@ export const SERVICE_TYPES_BY_CATEGORY: Record<ServiceCategory, { value: string;
     { value: 'deep_reset', label: 'Deep Reset Clean' },
   ],
   commercial: [
+    // Custom quote — a free-form structured-scope service for one-off jobs
+    // that do not fit an existing type (specialist remediation, vehicle work,
+    // unusual site work). Pricing-ineligible like Full Property Reset, so the
+    // operator sets the price manually, and the scope is written per quote
+    // rather than seeded from a template.
+    { value: 'custom_quote',  label: 'Custom Quote' },
     { value: 'maintenance',  label: 'Maintenance Clean' },
     { value: 'detailed',     label: 'Detailed Clean' },
     { value: 'initial',      label: 'Initial Clean' },

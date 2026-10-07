@@ -1,13 +1,14 @@
 // Invoice register CSV export — admin-only. Optional ?from=&to= on issue date.
 //
-// Read-only over existing invoices; no invoice logic touched. Total =
-// base_price - discount + sum(invoice_items.price), matching the portal's
-// invoice total convention.
+// Read-only over existing invoices. Line total = base_price - discount +
+// sum(invoice_items.price); the GST split uses computeDocumentTotals, the same
+// maths as the invoice PDF, so a GST-exclusive invoice shows +15% on top.
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { isFinanceEmail } from '@/lib/is-admin'
 import { buildCsv, csvResponse, fmtCsvDate } from '@/lib/csv'
+import { computeDocumentTotals } from '@/lib/doc-totals'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +17,7 @@ interface Row {
   status: string | null
   base_price: number | null
   discount: number | null
+  gst_included: boolean | null
   date_issued: string | null
   due_date: string | null
   date_paid: string | null
@@ -35,7 +37,7 @@ export async function GET(request: Request) {
 
   let query = supabase
     .from('invoices')
-    .select('invoice_number, status, base_price, discount, date_issued, due_date, date_paid, clients ( name, company_name ), invoice_items ( price )')
+    .select('invoice_number, status, base_price, discount, gst_included, date_issued, due_date, date_paid, clients ( name, company_name ), invoice_items ( price )')
     .is('deleted_at', null)
     .neq('is_test', true)
     .order('date_issued', { ascending: false })
@@ -48,10 +50,11 @@ export async function GET(request: Request) {
   const today = new Date().toISOString().slice(0, 10)
   const rows = (data as unknown as Row[] ?? [])
   const csv = buildCsv(
-    ['Invoice #', 'Client', 'Issued', 'Due', 'Status', 'Paid date', 'Total'],
+    ['Invoice #', 'Client', 'Issued', 'Due', 'Status', 'Paid date', 'Prices entered', 'Ex GST', 'GST', 'Total incl GST'],
     rows.map((r) => {
       const items = (r.invoice_items ?? []).reduce((s, i) => s + (i.price ?? 0), 0)
-      const total = Math.round(((r.base_price ?? 0) - (r.discount ?? 0) + items) * 100) / 100
+      const t = computeDocumentTotals((r.base_price ?? 0) - (r.discount ?? 0) + items, !!r.gst_included)
+      const r2 = (n: number) => Math.round(n * 100) / 100
       const status = r.status === 'sent' && r.due_date && r.due_date < today ? 'overdue' : (r.status ?? '')
       return [
         r.invoice_number ?? '',
@@ -60,7 +63,10 @@ export async function GET(request: Request) {
         fmtCsvDate(r.due_date),
         status,
         fmtCsvDate(r.date_paid),
-        total,
+        r.gst_included ? 'Incl GST' : 'Excl GST',
+        r2(t.subtotalExGst),
+        r2(t.gstAmount),
+        r2(t.total),
       ]
     }),
   )

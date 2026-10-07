@@ -20,32 +20,32 @@ export default function PapakuraServiceAreaPage() {
         heroImage: '/images/heroes/regular-house-cleaning-hero.jpg',
         introParagraphs: [
           'Sano cleans family homes, newer builds, townhouses, and rentals across Papakura, from regular upkeep to deeper cleans and move-in or move-out work.',
-          'We sort the details before the first visit, work around each property’s layout and timing, and leave the home clean, presentable, and ready.',
+          'A regular clean is an easy place to start for a Papakura home, with a deeper reset added when it is needed. Bookings hold to a steady day and time, and the scope stays matched to how the home is actually used.',
         ],
         introImage: '/images/deep-cleaning.jpg',
         introImageAlt: 'A thoroughly cleaned home interior in Auckland',
         servicesLead:
-          'From regular home cleaning and deeper resets to move cleans, carpets, and windows, the full range of Sano services is available across Papakura. Pick a service to read its full scope.',
+          'Regular home upkeep, deep cleans, move cleans, carpets, and windows are all available across Papakura, whether you need one visit or an ongoing schedule. Pick a service to read its full scope.',
         serviceGroups: [HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP],
         cover: [
           {
             title: 'Family homes and new builds',
-            body: 'Regular and deep cleaning for houses of all sizes, keeping finishes, kitchens, and bathrooms consistently done.',
+            body: 'Ongoing upkeep on a steady schedule, with kitchens, bathrooms, and high-traffic floors kept on top of visit to visit.',
             icon: Home,
           },
           {
             title: 'Townhouses and units',
-            body: 'Cleaning scoped to multi-level layouts and shared access, with kitchens, bathrooms, and glass a regular focus.',
+            body: 'A cleaning plan built around stairs, tighter footprints, and shared entries, so multi-level homes stay easy to keep up.',
             icon: Building2,
           },
           {
             title: 'Carpets and soft furnishings',
-            body: 'Carpet and upholstery cleaning to lift built-up dirt, marks, and odours between deeper household cleans.',
+            body: 'Deeper carpet and upholstery work when regular vacuuming has stopped shifting the marks, ground-in dirt, and lingering smells.',
             icon: Sofa,
           },
           {
             title: 'Rentals and move cleans',
-            body: 'Move-in and move-out cleans booked to the handover and scoped around what owners and property managers check.',
+            body: 'End-of-tenancy and move cleans timed to the handover date and worked to the checklist owners and property managers inspect against.',
             icon: KeyRound,
           },
         ],

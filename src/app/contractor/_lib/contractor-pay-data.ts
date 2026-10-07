@@ -39,8 +39,9 @@ export async function loadContractorPayStatement(contractorId: string): Promise<
   const { data: ciRaw } = await svc
     .from('contractor_invoices')
     .select(`
-      id, amount, status, date_paid, date_submitted, job_id,
-      jobs ( job_number, title, completed_at, deleted_at )
+      id, amount, status, date_paid, date_submitted, service_date, job_id,
+      jobs ( job_number, title, completed_at, deleted_at ),
+      job_items ( label )
     `)
     .eq('contractor_id', contractorId)
 
@@ -50,21 +51,26 @@ export async function loadContractorPayStatement(contractorId: string): Promise<
     status: string | null
     date_paid: string | null
     date_submitted: string | null
+    service_date: string | null
     job_id: string | null
     jobs: { job_number: string | null; title: string | null; completed_at: string | null; deleted_at: string | null } | Array<{ job_number: string | null; title: string | null; completed_at: string | null; deleted_at: string | null }> | null
+    job_items: { label: string | null } | Array<{ label: string | null }> | null
   }>).map((c) => {
     const j = flattenOne(c.jobs)
+    const it = flattenOne(c.job_items)
     return {
       id: c.id,
       amount: c.amount,
       status: c.status,
       date_paid: c.date_paid,
       date_submitted: c.date_submitted,
+      service_date: c.service_date,
       jobId: c.job_id,
       jobNumber: j?.job_number ?? null,
       title: j?.title ?? null,
       jobCompletedAt: j?.completed_at ?? null,
       jobDeletedAt: j?.deleted_at ?? null,
+      jobItemLabel: it?.label ?? null,
     }
   })
 

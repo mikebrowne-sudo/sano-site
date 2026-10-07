@@ -19,8 +19,8 @@ export default function EllerslieServiceAreaPage() {
           'From homes and townhouses to rentals and small workplaces, Sano matches the clean to the property across Ellerslie.',
         heroImage: '/images/heroes/end-of-tenancy-hero.jpg',
         introParagraphs: [
-          'In Ellerslie, Sano looks after homes, townhouses, rentals, and smaller workplaces, whether that’s a regular clean, a deeper one, or an end-of-tenancy reset before new tenants arrive.',
-          'We agree what needs doing before the clean, fit the work around each property’s layout and timing, and leave it clean, settled, and ready.',
+          'Sano cleans homes, townhouses, rentals, and smaller workplaces across Ellerslie. Bookings range from regular upkeep to a deeper one-off clean or an end-of-tenancy reset between tenants.',
+          'What needs doing is agreed ahead of time, the clean fits around the layout and hours of each place, and the result is left clean, settled, and ready.',
         ],
         introImage: '/images/sano-auckland-team.jpeg',
         introImageAlt: 'A Sano cleaner at work in an Auckland property',

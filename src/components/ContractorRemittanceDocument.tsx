@@ -69,6 +69,38 @@ function formatHours(h: number | null): string {
   return Number.isInteger(h) ? String(h) : String(Number(h.toFixed(2)))
 }
 
+// A tax-bearing line carries a frozen schedular breakdown (PR 9). Shown in plain
+// wording under the line; ordinary lines render exactly as before. Shows only the
+// contractor-facing amounts — no IRD number, no internal review metadata.
+function LineTaxBreakdown({ line }: { line: import('@/lib/contractor-remittance-data').RemittanceBatchLine }) {
+  if (line.contractorPaymentSnapshotId == null && line.whtAmount == null) return null
+  const gstEx = line.grossExGst
+  const gst = line.gstAmount
+  const grossIncl = gstEx != null ? Math.round((gstEx + (gst ?? 0)) * 100) / 100 : null
+  const rate = line.whtRate
+  const row = (label: string, value: string) => (
+    <div className="flex justify-between gap-4">
+      <span className="text-sage-500">{label}</span>
+      <span className="text-sage-700 tabular-nums">{value}</span>
+    </div>
+  )
+  return (
+    <div className="mt-1.5 rounded-md bg-sage-50 px-3 py-2 text-[11px] space-y-0.5 max-w-xs">
+      {gstEx != null && row('Gross fee (excl GST)', formatCurrency(gstEx))}
+      {gst != null && row('GST', formatCurrency(gst))}
+      {grossIncl != null && row('Gross (incl GST)', formatCurrency(grossIncl))}
+      {rate != null && row('Withholding rate', `${Math.round(rate * 1000) / 10}%`)}
+      {line.whtAmount != null && row('Withholding to IRD', `− ${formatCurrency(line.whtAmount)}`)}
+      {line.netPaid != null && (
+        <div className="flex justify-between gap-4 pt-0.5 border-t border-sage-200 mt-0.5">
+          <span className="text-sage-700 font-medium">Net paid to you</span>
+          <span className="text-sage-800 font-semibold tabular-nums">{formatCurrency(line.netPaid)}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ContractorRemittanceDocument({ data }: { data: RemittanceBatch }) {
   const payee = data.payeeLabel || data.contractorNames.join(' & ') || 'Contractor'
   const multi = data.contractorNames.length > 1
@@ -155,6 +187,7 @@ export function ContractorRemittanceDocument({ data }: { data: RemittanceBatch }
                           {detail && <span className="text-sage-500 font-normal"> · {detail}</span>}
                         </div>
                         {noteLine && <div className="text-[11px] text-sage-400 italic mt-0.5">{noteLine}</div>}
+                        <LineTaxBreakdown line={l} />
                       </td>
                       {showDate && <td className="py-2.5 pr-3 align-top text-sage-600 whitespace-nowrap">{l.date ? formatDate(l.date) : ''}</td>}
                       {multi && <td className="py-2.5 pr-3 align-top text-sage-600">{l.contractorName ?? '—'}</td>}
@@ -167,12 +200,27 @@ export function ContractorRemittanceDocument({ data }: { data: RemittanceBatch }
             </tbody>
           </table>
 
+          {/* Withholding summary — only when a tax-bearing line retained
+              schedular withholding to IRD. Plain wording for the contractor. */}
+          {data.whtTotal > 0 && (
+            <div className="remit-total mt-4 flex items-baseline justify-between text-sm text-sage-600">
+              <span>Total schedular withholding retained to IRD</span>
+              <span className="tabular-nums">− {formatCurrency(data.whtTotal)}</span>
+            </div>
+          )}
+
           {/* Total — kept once at the end of the document (never repeated
               mid-document on a multi-page print). */}
-          <div className="remit-total mt-4 flex items-baseline justify-between border-t-2 border-sage-800 pt-3">
+          <div className="remit-total mt-2 flex items-baseline justify-between border-t-2 border-sage-800 pt-3">
             <span className="font-semibold text-sage-800">Total paid</span>
             <span className="text-xl font-bold text-sage-800">{formatCurrency(data.total)}</span>
           </div>
+          {data.whtTotal > 0 && (
+            <p className="text-[11px] text-sage-400 mt-2 leading-relaxed">
+              Withholding shown has been deducted and paid to Inland Revenue on your behalf. This is a
+              contractor payment statement, not a tax invoice.
+            </p>
+          )}
 
           {data.notes && <p className="text-xs text-sage-600 mt-4 whitespace-pre-wrap">{data.notes}</p>}
 

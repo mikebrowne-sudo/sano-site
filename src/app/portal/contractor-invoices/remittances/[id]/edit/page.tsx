@@ -3,10 +3,9 @@
 // match the contractor" escape hatch (see _actions-remittance-edit.ts).
 
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
+import { BackLink } from '../../../../_components/BackLink'
 import { RemittanceEditForm } from './_components/RemittanceEditForm'
 
 export const dynamic = 'force-dynamic'
@@ -33,12 +32,7 @@ export default async function EditRemittancePage({ params }: { params: { id: str
 
   return (
     <div className="max-w-4xl mx-auto">
-      <Link
-        href={`/portal/contractor-invoices/remittances/${params.id}`}
-        className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 mb-4"
-      >
-        <ArrowLeft size={14} /> Back to remittance
-      </Link>
+      <BackLink fallbackHref={`/portal/contractor-invoices/remittances/${params.id}`} label="Back to remittance" />
 
       <h1 className="text-2xl font-bold text-sage-800 tracking-tight mb-1">
         Edit {header.remittance_number}

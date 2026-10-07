@@ -58,6 +58,30 @@ describe('buildIssuedSnapshot', () => {
     expect(snap.lines.find((l) => l.contractor_invoice_id === '1')!.carried_forward).toBe(false)
   })
 
+  it('sums frozen withholding into wht_total; 0 when no line is schedular (PR 9)', () => {
+    const noWht = buildIssuedSnapshot({
+      statement_number: 'STMT-0003', contractor_id: 'k', supplier,
+      period_start: '2026-07-01', period_end: '2026-07-15',
+      issued_at: '2026-07-21T00:00:00Z', review_due_at: '2026-07-26T00:00:00Z',
+      lines: [line({ contractor_invoice_id: '1', amount: 200, service_date: '2026-07-02' })],
+    })
+    expect(noWht.wht_total).toBe(0)
+
+    const withWht = buildIssuedSnapshot({
+      statement_number: 'STMT-0004', contractor_id: 'k', supplier,
+      period_start: '2026-07-01', period_end: '2026-07-15',
+      issued_at: '2026-07-21T00:00:00Z', review_due_at: '2026-07-26T00:00:00Z',
+      lines: [
+        line({ contractor_invoice_id: '1', amount: 1500, service_date: '2026-07-02', wht_amount: 375, wht_rate: 0.2, gross_ex_gst: 1875, net_paid: 1500, contractor_payment_snapshot_id: 's1' }),
+        line({ contractor_invoice_id: '2', amount: 100, service_date: '2026-07-03' }), // ordinary, no wht
+      ],
+    })
+    expect(withWht.wht_total).toBe(375)
+    // the frozen fields survive onto the snapshot line
+    expect(withWht.lines.find((l) => l.contractor_invoice_id === '1')!.wht_amount).toBe(375)
+    expect(withWht.lines.find((l) => l.contractor_invoice_id === '1')!.contractor_payment_snapshot_id).toBe('s1')
+  })
+
   it('orders lines by service date', () => {
     const snap = buildIssuedSnapshot({
       statement_number: 'STMT-0002', contractor_id: 'k', supplier,

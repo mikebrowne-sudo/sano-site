@@ -28,7 +28,7 @@ export default function MountEdenServiceAreaPage() {
         heroImage: '/images/heroes/regular-house-cleaning-hero.jpg',
         introParagraphs: [
           'Sano handles cleaning for family homes, character homes, apartments, townhouses, and rentals across Mount Eden, from weekly or fortnightly upkeep to one-off deep cleans and move-outs.',
-          'We confirm what needs doing upfront, plan around the layout and access of the property, and leave it clean, tidy, and ready to use.',
+          'The clean is planned around the layout and access of each property, with the scope agreed beforehand, so the place is left clean, tidy, and ready to use.',
         ],
         introImage: '/images/herne-bay-residential.jpg',
         introImageAlt: 'A residential Auckland home cared for by Sano',

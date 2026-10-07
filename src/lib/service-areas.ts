@@ -175,6 +175,15 @@ export const SUBURB_LANDING_SLUGS: ReadonlySet<string> = new Set([
   'papatoetoe',
   'takanini',
   'panmure',
+  // Fifth wave (2026-07-29)
+  'beach-haven',
+  'glen-eden',
+  'mangere',
+  'meadowbank',
+  'orakei',
+  'otahuhu',
+  'green-bay',
+  'te-atatu-south',
 ])
 
 /** Does this suburb slug have a dedicated landing page? */

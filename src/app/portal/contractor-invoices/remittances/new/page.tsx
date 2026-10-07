@@ -4,10 +4,9 @@
 // Does not send anything.
 
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
+import { BackLink } from '../../../_components/BackLink'
 import { RemittanceBatchBuilder, type BuilderCI } from './_components/RemittanceBatchBuilder'
 
 export const dynamic = 'force-dynamic'
@@ -53,9 +52,7 @@ export default async function NewRemittanceBatchPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <Link href="/portal/contractor-invoices" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 mb-4">
-        <ArrowLeft size={14} /> Back to contractor invoices
-      </Link>
+      <BackLink fallbackHref="/portal/contractor-invoices" label="Back to contractor invoices" />
       <h1 className="text-3xl font-bold text-sage-800 tracking-tight mb-1">New remittance batch</h1>
       <p className="text-sm text-sage-500 mb-6">Select the invoices paid in one bank payment, set the date + reference, and add any adjustment lines. Nothing is sent — this creates a preview you can review.</p>
 

@@ -18,6 +18,9 @@ import { AGREEMENT_DOC_TYPE_VALUES } from '@/lib/agreement-documents'
 import { deriveInitialTaxReview } from '@/lib/tax-review'
 import { autoAssignInductionModules } from '@/lib/induction-modules'
 import { recordTaxDeclaration, validateTaxDeclaration } from '@/lib/tax-declaration'
+import { buildAgreementScheduleSnapshot } from '@/lib/agreement-schedule-snapshot'
+import { evaluateSendGuard } from '@/lib/agreement-send-guard'
+import { validateStructureSubmission, AUTHORITY_TO_BIND_DECLARATION, AUTHORITY_TO_BIND_VERSION, type ContractingStructure } from '@/lib/contractor-structure-fields'
 
 export interface SignAgreementInput {
   token: string
@@ -45,6 +48,9 @@ export interface SignAgreementInput {
   companyNumber?: string
   gstRegistered?: boolean
   gstNumber?: string
+  signatoryName?: string
+  signatoryCapacity?: string
+  authorityConfirmed?: boolean
   insurerName?: string
   insuranceCover?: string
   insuranceExpiry?: string
@@ -55,14 +61,33 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
   if (!input.token) return { error: 'Invalid link.' }
   if (!input.fullName?.trim()) return { error: 'Your full name is required.' }
   if (!input.signedName?.trim()) return { error: 'Type your name to sign.' }
-  if (input.signedName.trim().toLowerCase() !== input.fullName.trim().toLowerCase()) {
+  // Signature match: for an entity contractor it matches the authorised signatory;
+  // otherwise the individual's own full legal name. The structure-aware validator
+  // also enforces the required entity fields (legal name, company number,
+  // signatory + capacity). Employees keep the simple name match.
+  const structure = (input.businessStructure as ContractingStructure | undefined) ?? 'sole_trader'
+  const isContractorEntity = !!input.businessStructure && structure !== 'sole_trader'
+  if (isContractorEntity) {
+    const err = validateStructureSubmission({
+      structure,
+      fullName: input.fullName,
+      legalName: input.legalName ?? null,
+      companyNumber: input.companyNumber ?? null,
+      nzbn: input.nzbn ?? null,
+      signatoryName: input.signatoryName ?? null,
+      signatoryCapacity: input.signatoryCapacity ?? null,
+      authorityConfirmed: input.authorityConfirmed === true,
+      signedName: input.signedName,
+    })
+    if (err) return { error: err }
+  } else if (input.signedName.trim().toLowerCase() !== input.fullName.trim().toLowerCase()) {
     return { error: 'The signature must match your full legal name above.' }
   }
 
   const svc = getServiceSupabase()
   const { data: agreement } = await svc
     .from('employment_agreements')
-    .select('id, status, agreement_type, position, hourly_rate, start_date, contractor_id, employee_id, is_test')
+    .select('id, status, agreement_type, position, hourly_rate, start_date, contractor_id, employee_id, is_test, service_schedules_snapshot, selected_service_schedule_ids, no_service_schedules, no_service_schedules_reason')
     .eq('token', input.token)
     .maybeSingle()
   if (!agreement) return { error: 'Agreement not found.' }
@@ -86,9 +111,36 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
     if (decErr) return { error: decErr }
   }
 
+  // Belt-and-braces: if a contractor agreement reaches signing without a
+  // schedule snapshot (e.g. created + signed without a send step), freeze the
+  // current active schedules now so the signed document + PDF are stable.
+  let scheduleSnapshot: unknown | undefined
+  if (isContractor && agreement.contractor_id && !agreement.service_schedules_snapshot) {
+    const selected = (agreement.selected_service_schedule_ids as string[] | null) ?? []
+    // Same send-guard at sign time: an agreement reaching signing without a
+    // snapshot must still have either a selection or the explicit no-schedule
+    // exception — never a silent legacy-rate fallback.
+    const { count: eligibleCount } = await svc
+      .from('contractor_service_schedules')
+      .select('id', { count: 'exact', head: true })
+      .eq('contractor_id', agreement.contractor_id as string)
+      .in('status', ['draft', 'active'])
+    const guard = evaluateSendGuard({
+      eligibleCount: eligibleCount ?? 0,
+      selectedCount: selected.length,
+      noScheduleException: !!agreement.no_service_schedules,
+      noScheduleReason: (agreement.no_service_schedules_reason as string | null) ?? null,
+    })
+    if (!guard.ok) return { error: guard.error }
+    scheduleSnapshot = await buildAgreementScheduleSnapshot(svc, agreement.contractor_id as string, selected)
+  }
+
   const { error: updErr } = await svc
     .from('employment_agreements')
     .update({
+      ...(scheduleSnapshot !== undefined
+        ? { service_schedules_snapshot: scheduleSnapshot, service_schedules_snapshot_at: new Date().toISOString() }
+        : {}),
       employee_full_name: name,
       preferred_name: input.preferredName?.trim() || null,
       employee_phone: input.phone?.trim() || null,
@@ -107,6 +159,22 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
       emergency_contact_relationship: input.emergencyRelationship?.trim() || null,
       contractor_trading_name: input.tradingName?.trim() || null,
       contractor_gst_number: input.gstNumber?.trim() || null,
+      // Structure-aware entity + authorised-signatory snapshot onto the agreement
+      // so the signed record + PDF show the contracting entity and who signed for
+      // it. Sole traders sign personally (no signatory). Contractor path only.
+      contractor_business_structure: isContractor ? (input.businessStructure?.trim() || null) : null,
+      contractor_legal_name: isContractor ? (input.legalName?.trim() || null) : null,
+      contractor_nzbn: isContractor ? (input.nzbn?.trim() || null) : null,
+      contractor_company_number: isContractor ? (input.companyNumber?.trim() || null) : null,
+      authorised_signatory_name: isContractor ? (input.signatoryName?.trim() || null) : null,
+      authorised_signatory_capacity: isContractor ? (input.signatoryCapacity?.trim() || null) : null,
+      // Authority-to-bind declaration snapshot (entities only). Freeze the exact
+      // wording + version + timestamp confirmed at signing. Sole traders and
+      // employees: not applicable (false, null text/version).
+      authority_confirmed: isContractorEntity && input.authorityConfirmed === true,
+      authority_declaration_text: isContractorEntity && input.authorityConfirmed === true ? AUTHORITY_TO_BIND_DECLARATION : null,
+      authority_declaration_version: isContractorEntity && input.authorityConfirmed === true ? AUTHORITY_TO_BIND_VERSION : null,
+      authority_confirmed_at: isContractorEntity && input.authorityConfirmed === true ? new Date().toISOString() : null,
       insurer_name: input.insurerName?.trim() || null,
       insurance_cover: input.insuranceCover?.trim() || null,
       insurance_expiry: input.insuranceExpiry || null,
@@ -417,6 +485,46 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
 // contractor_id. Employees upload photo ID / right-to-work; contractors also
 // upload insurance etc. Signers never get a staff document surface — only the
 // upload/remove of their own pre-sign files.
+
+/**
+ * Contractor flags a schedule term on the agreement as incorrect. Records the
+ * concern for staff (audit_log) — it does NOT edit the schedule, the rate, or
+ * anything on the agreement, and it never touches the signature. The contractor
+ * can still choose to sign or wait; corrections are actioned by Sano.
+ */
+export async function requestAgreementScheduleCorrection(
+  token: string,
+  scheduleId: string,
+  note: string,
+): Promise<{ ok?: true; error?: string }> {
+  if (!token) return { error: 'Invalid link.' }
+  if (!note?.trim()) return { error: 'Add a short note describing what looks wrong.' }
+  const svc = getServiceSupabase()
+  const { data: agreement } = await svc
+    .from('employment_agreements')
+    .select('id, status, contractor_id, service_schedules_snapshot')
+    .eq('token', token)
+    .maybeSingle()
+  if (!agreement) return { error: 'Invalid link.' }
+  if (agreement.status === 'signed') return { error: 'This agreement is already signed.' }
+
+  // The contractor may only flag a schedule that is actually IN this agreement's
+  // snapshot — never an arbitrary or other-agreement schedule.
+  const snapshot = (agreement.service_schedules_snapshot as Array<{ id: string; label: string; name: string }> | null) ?? []
+  const block = snapshot.find((b) => b.id === scheduleId)
+  if (!block) return { error: 'That schedule is not part of this agreement.' }
+
+  await svc.from('audit_log').insert({
+    actor_id: null,
+    actor_role: 'contractor',
+    action: 'agreement.schedule_correction_requested',
+    entity_table: 'employment_agreements',
+    entity_id: agreement.id,
+    before: null,
+    after: { contractor_id: agreement.contractor_id, schedule_id: block.id, schedule: `${block.label} — ${block.name}`, note: note.trim() },
+  })
+  return { ok: true }
+}
 
 const AGREEMENT_DOC_BUCKET = 'worker-documents'
 

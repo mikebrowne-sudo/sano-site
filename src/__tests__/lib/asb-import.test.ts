@@ -1,4 +1,4 @@
-import { parseAsbCsv, splitCsvLine, parseAsbDate, extractInvoiceRefs } from '@/lib/asb-import'
+import { parseAsbCsv, splitCsvLine, parseAsbDate, extractInvoiceRefs, extractNumberRefs } from '@/lib/asb-import'
 
 const SAMPLE = `Created date / time : 23 June 2026 / 18:36:55,,,,,,
 Bank 12; Branch 3627; Account 0005597-00 (Business Account),,,,,,
@@ -74,6 +74,26 @@ describe('extractInvoiceRefs', () => {
   })
 })
 
+describe('extractNumberRefs — bare invoice numbers (no INV token)', () => {
+  it('extracts a bare 4–6 digit number as a candidate INV ref (the INV-26022 memo)', () => {
+    expect(extractNumberRefs('Sue Bunce  26022')).toContain('INV-26022')
+    expect(extractNumberRefs('78 Browns Rd cleaning 0053')).toContain('INV-0053')
+  })
+  it('does not double-count an already INV-prefixed number', () => {
+    // "INV-0033" is high-confidence and handled by extractInvoiceRefs; the bare
+    // extractor strips it so it is not re-emitted here.
+    expect(extractNumberRefs('INV-0033')).toEqual([])
+  })
+  it('skips 4-digit years to avoid matching dates in the memo', () => {
+    expect(extractNumberRefs('payment 2026 for cleaning')).toEqual([])
+    // A 5-digit number is never a year, so it is kept.
+    expect(extractNumberRefs('ref 20260')).toContain('INV-20260')
+  })
+  it('ignores short numbers (< 4 digits)', () => {
+    expect(extractNumberRefs('unit 12 apt 3')).toEqual([])
+  })
+})
+
 describe('parseAsbCsv', () => {
   const parsed = parseAsbCsv(SAMPLE)
 
@@ -81,6 +101,12 @@ describe('parseAsbCsv', () => {
     expect(parsed.fromDate).toBe('2026-04-01')
     expect(parsed.toDate).toBe('2026-06-23')
     expect(parsed.account).toMatch(/Business Account/)
+  })
+
+  it('captures the ASB ledger balance + its "as of" date from the preamble', () => {
+    // "Ledger Balance : 6790.45 as of 20260623" — the dashboard bank balance source.
+    expect(parsed.ledgerBalance).toBe(6790.45)
+    expect(parsed.ledgerBalanceDate).toBe('2026-06-23')
   })
 
   it('skips the zero-value opening line but keeps real transactions', () => {

@@ -4,6 +4,10 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { parseAsbCsv } from '@/lib/asb-import'
+import { saveBankBalanceFromImport } from '@/lib/bank-balance'
+import { isFullyAllocated, round2 } from '@/lib/payment-allocation'
+import { applyBankAllocation } from './_apply'
+import { runAutoReconcile, type AutoReconcileSummary } from './_auto'
 
 export interface ImportResponse {
   ok: boolean
@@ -14,6 +18,13 @@ export interface ImportResponse {
   fromDate?: string | null
   toDate?: string | null
   skipped?: number
+  /** ASB ledger balance captured from this CSV, and whether it updated the stored figure. */
+  bankBalance?: number | null
+  bankBalanceDate?: string | null
+  bankBalanceUpdated?: boolean
+  /** Result of the automatic reconcile run straight after the import. */
+  autoReconcile?: AutoReconcileSummary | null
+  autoReconcileError?: string | null
 }
 
 /**
@@ -65,15 +76,54 @@ export async function importTransactions(csvText: string): Promise<ImportRespons
       if (error) return { ok: false, error: error.message }
     }
 
+    // Capture ASB's stated ledger balance for the dashboard. Monotonic: an
+    // older statement never overwrites a newer balance. Non-fatal if it can't
+    // save — the transactions are already in.
+    let bankBalance: number | null = null
+    let bankBalanceDate: string | null = null
+    let bankBalanceUpdated = false
+    if (parsed.ledgerBalance != null && parsed.ledgerBalanceDate) {
+      const res = await saveBankBalanceFromImport(
+        supabase,
+        { amount: parsed.ledgerBalance, asAt: parsed.ledgerBalanceDate },
+        user?.id ?? null,
+      )
+      bankBalance = res.effective.amount
+      bankBalanceDate = res.effective.asAt
+      bankBalanceUpdated = res.updated
+    }
+
+    // Revalidate the dashboard on EVERY import, not just when the balance moved
+    // forward. An import always adds transactions, which shift the net position
+    // and the reconciliation counts even when the ledger balance is unchanged —
+    // and gating this on `res.updated` meant a re-import left a stale dashboard.
+    // Reconcile whatever can be matched with certainty straight away, so only
+    // the genuinely ambiguous payments are left for a human. Non-fatal: the
+    // import itself has already succeeded.
+    let autoReconcile: AutoReconcileSummary | null = null
+    let autoReconcileError: string | null = null
+    try {
+      autoReconcile = await runAutoReconcile(supabase, user?.id ?? null)
+    } catch (e) {
+      autoReconcileError = e instanceof Error ? e.message : 'Auto-reconcile failed.'
+    }
+
+    revalidatePath('/portal')
     revalidatePath('/portal/finance/reconcile')
+    revalidatePath('/portal/invoices')
     return {
       ok: true,
+      autoReconcile,
+      autoReconcileError,
       newCount: fresh.length,
       dupCount: rows.length - fresh.length,
       account: parsed.account,
       fromDate: parsed.fromDate,
       toDate: parsed.toDate,
       skipped: parsed.skipped,
+      bankBalance,
+      bankBalanceDate,
+      bankBalanceUpdated,
     }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Unexpected error importing the file.' }
@@ -122,6 +172,150 @@ export async function matchCreditToInvoices(
   }
 }
 
+export interface AllocationInput {
+  invoiceId: string
+  amount: number
+}
+
+/**
+ * Durably reconcile a bank credit to one or more invoices by recording payment
+ * ALLOCATIONS (invoice_payment_allocations). Supports partial / split
+ * allocations. This is the correct replacement for the old cleared-only flow:
+ *   - creates a live allocation row per invoice (the durable bank↔invoice link)
+ *   - re-validates against current live allocations (no double-allocation of
+ *     the same money, no over-allocating an invoice or the payment)
+ *   - marks any not-yet-paid target invoices as paid (already-paid invoices,
+ *     e.g. INV-26022, STAY paid — only the allocation is recorded)
+ *   - marks the bank line cleared once it is fully allocated
+ *   - writes an audit_log row
+ * Admin-gated. The DB also enforces amount>0 and one-live-allocation-per-pair.
+ */
+export async function reconcileBankTransaction(
+  lineId: string,
+  allocations: AllocationInput[],
+  paidDate: string | null,
+): Promise<{ ok: boolean; error?: string; allocated?: number; markedPaid?: number; cleared?: boolean }> {
+  try {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!isAdminUser(user)) return { ok: false, error: 'Not authorised.' }
+    if (!allocations.length) return { ok: false, error: 'Select at least one invoice to allocate to.' }
+
+    const res = await applyBankAllocation(supabase, {
+      lineId,
+      allocations,
+      paidDate,
+      method: 'manual',
+      matchReason: null,
+      userId: user?.id ?? null,
+    })
+    if (!res.ok) return res
+
+    revalidatePath('/portal/finance/reconcile')
+    return res
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Unexpected error.' }
+  }
+}
+
+/**
+ * Run automatic reconciliation on demand: allocates every bank credit that
+ * can be matched with certainty (reference, recurring / known payer, unique
+ * bundle) and backfills the invoice link on lines cleared without one.
+ * Ambiguous payments are left for the screen. Admin-gated.
+ */
+export async function autoReconcileBank(): Promise<{ ok: boolean; error?: string; summary?: AutoReconcileSummary }> {
+  try {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!isAdminUser(user)) return { ok: false, error: 'Not authorised.' }
+    const summary = await runAutoReconcile(supabase, user?.id ?? null)
+    revalidatePath('/portal/finance/reconcile')
+    revalidatePath('/portal/invoices')
+    revalidatePath('/portal')
+    return { ok: true, summary }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Unexpected error.' }
+  }
+}
+
+/**
+ * Reverse a single live allocation (soft — the row stays for audit). If the
+ * bank line was cleared and reversing this drops it below fully-allocated, the
+ * cleared flag is lifted so it re-appears for reconciliation. The invoice's
+ * paid status is intentionally left as-is (reversing an allocation is a
+ * bank-side correction, not an un-payment — flip the invoice separately if it
+ * truly wasn't paid).
+ */
+export async function reverseAllocation(
+  allocationId: string,
+  reason: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!isAdminUser(user)) return { ok: false, error: 'Not authorised.' }
+
+    const { data: alloc, error: aErr } = await supabase
+      .from('invoice_payment_allocations')
+      .select('id, bank_transaction_id, invoice_id, amount_allocated, reversed_at')
+      .eq('id', allocationId)
+      .single()
+    if (aErr || !alloc) return { ok: false, error: `Allocation not found: ${aErr?.message ?? 'missing'}` }
+    if (alloc.reversed_at) return { ok: false, error: 'This allocation has already been reversed.' }
+
+    const nowIso = new Date().toISOString()
+    const { error: revErr } = await supabase
+      .from('invoice_payment_allocations')
+      .update({ reversed_at: nowIso, reversed_by: user?.id ?? null, reversal_reason: reason || null })
+      .eq('id', allocationId)
+      .is('reversed_at', null)
+    if (revErr) return { ok: false, error: revErr.message }
+
+    // Re-evaluate the bank line: if it's no longer fully allocated, un-clear it.
+    const lineId = alloc.bank_transaction_id as string
+    const { data: line } = await supabase
+      .from('bank_transactions')
+      .select('amount')
+      .eq('id', lineId)
+      .single()
+    const { data: remainingAllocs } = await supabase
+      .from('invoice_payment_allocations')
+      .select('amount_allocated')
+      .eq('bank_transaction_id', lineId)
+      .is('reversed_at', null)
+    const txnAmount = round2(Math.abs(Number(line?.amount ?? 0)))
+    const stillAllocated = round2(
+      ((remainingAllocs ?? []) as Array<{ amount_allocated: number }>).reduce((s, r) => s + Number(r.amount_allocated ?? 0), 0),
+    )
+    if (!isFullyAllocated(txnAmount, stillAllocated)) {
+      await supabase
+        .from('bank_transactions')
+        .update({ cleared: false, cleared_at: null, cleared_by: null })
+        .eq('id', lineId)
+    }
+
+    try {
+      await supabase.from('audit_log').insert({
+        actor_id: user?.id ?? null,
+        actor_role: 'admin',
+        action: 'bank.allocation_reversed',
+        entity_table: 'invoice_payment_allocations',
+        entity_id: allocationId,
+        before: { amount: Number(alloc.amount_allocated ?? 0), invoice_id: alloc.invoice_id, bank_transaction_id: lineId },
+        after: { reversal_reason: reason || null },
+      })
+    } catch (err) {
+      console.warn('[reconcile] reversal audit insert failed:', err)
+    }
+
+    revalidatePath('/portal/finance/reconcile')
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Unexpected error.' }
+  }
+}
+
 /** Toggle the user-controlled "cleared" flag on a stored bank line. */
 export async function setCleared(id: string, cleared: boolean): Promise<{ ok: boolean; error?: string }> {
   const supabase = createClient()
@@ -136,4 +330,62 @@ export async function setCleared(id: string, cleared: boolean): Promise<{ ok: bo
 
   revalidatePath('/portal/finance/reconcile')
   return { ok: true }
+}
+
+/**
+ * Undo a money-out link (expense / pay run / transfer / auto-recorded expense).
+ * Soft-reverses the link, un-clears the bank line so it reappears, and — when
+ * the link created its own expense (IRD payment, repeat bill) — deletes that
+ * expense so nothing is left orphaned. Remittance allocations are reversed on
+ * the money-out screen instead. Admin-gated, audited.
+ */
+export async function reverseDebitLink(linkId: string, reason: string | null): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!isAdminUser(user)) return { ok: false, error: 'Not authorised.' }
+
+    const { data: link, error: lErr } = await supabase
+      .from('bank_debit_links')
+      .select('id, bank_transaction_id, kind, expense_id, pay_run_id, amount, reversed_at')
+      .eq('id', linkId)
+      .single()
+    if (lErr || !link) return { ok: false, error: `Link not found: ${lErr?.message ?? 'missing'}` }
+    if (link.reversed_at) return { ok: false, error: 'This link has already been undone.' }
+
+    const nowIso = new Date().toISOString()
+    const { error: revErr } = await supabase
+      .from('bank_debit_links')
+      .update({ reversed_at: nowIso, reversed_by: user?.id ?? null, reversal_reason: reason || null })
+      .eq('id', linkId)
+      .is('reversed_at', null)
+    if (revErr) return { ok: false, error: revErr.message }
+
+    if (link.kind === 'created_expense' && link.expense_id) {
+      const { error: delErr } = await supabase.from('expenses').delete().eq('id', link.expense_id as string)
+      if (delErr) return { ok: false, error: `Link undone, but removing the auto-recorded expense failed: ${delErr.message}` }
+    }
+
+    await supabase.from('bank_transactions').update({ cleared: false, cleared_at: null, cleared_by: null }).eq('id', link.bank_transaction_id as string)
+
+    try {
+      await supabase.from('audit_log').insert({
+        actor_id: user?.id ?? null,
+        actor_role: 'admin',
+        action: 'bank.debit_link_reversed',
+        entity_table: 'bank_debit_links',
+        entity_id: linkId,
+        before: { kind: link.kind, expense_id: link.expense_id, pay_run_id: link.pay_run_id, amount: Number(link.amount ?? 0) },
+        after: { reversal_reason: reason || null, expense_deleted: link.kind === 'created_expense' },
+      })
+    } catch (err) {
+      console.warn('[reconcile] debit-link reversal audit failed:', err)
+    }
+
+    revalidatePath('/portal/finance/reconcile')
+    revalidatePath('/portal/expenses')
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Unexpected error.' }
+  }
 }

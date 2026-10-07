@@ -20,11 +20,12 @@ describe('addJobWorker — snapshots the contractor rate', () => {
     const jobWorkersInsert = jest.fn().mockResolvedValue({ error: null })
     const auditInsert = jest.fn().mockResolvedValue({ error: null })
     const from = jest.fn().mockImplementation((table: string) => {
-      if (table === 'jobs') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), single: jest.fn().mockResolvedValue({ data: { id: 'j-1', allowed_hours: 4 }, error: null }) }
+      if (table === 'jobs') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), single: jest.fn().mockResolvedValue({ data: { id: 'j-1', allowed_hours: 4 }, error: null }), maybeSingle: jest.fn().mockResolvedValue({ data: { id: 'j-1', allowed_hours: 4 }, error: null }) }
       if (table === 'contractors') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), single: jest.fn().mockResolvedValue({ data: { id: 'c-1', full_name: 'Test', hourly_rate: 50 }, error: null }) }
-      if (table === 'job_workers') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }), insert: jobWorkersInsert }
+      if (table === 'job_workers') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }), order: jest.fn().mockResolvedValue({ data: [{ contractor_id: 'c-1', hours_allocated: null, pay_status: 'pending' }], error: null }), update: jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) }) }), insert: jobWorkersInsert }
       if (table === 'audit_log') return { insert: auditInsert }
-      return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }) }
+      if (table === 'contractor_invoices') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), neq: jest.fn().mockResolvedValue({ data: [], error: null }), maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }) }
+      return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), neq: jest.fn().mockResolvedValue({ data: [], error: null }), order: jest.fn().mockResolvedValue({ data: [], error: null }), update: jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) }) }), insert: jest.fn().mockResolvedValue({ error: null }), maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }) }
     })
     mockedCreate.mockReturnValue({ from, auth: adminAuth })
 
@@ -36,10 +37,10 @@ describe('addJobWorker — snapshots the contractor rate', () => {
   it('snapshots null (not 0) for a rate-less contractor — job-cost fallback still works', async () => {
     const jobWorkersInsert = jest.fn().mockResolvedValue({ error: null })
     const from = jest.fn().mockImplementation((table: string) => {
-      if (table === 'jobs') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), single: jest.fn().mockResolvedValue({ data: { id: 'j-1', allowed_hours: 4 }, error: null }) }
+      if (table === 'jobs') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), single: jest.fn().mockResolvedValue({ data: { id: 'j-1', allowed_hours: 4 }, error: null }), maybeSingle: jest.fn().mockResolvedValue({ data: { id: 'j-1', allowed_hours: 4 }, error: null }) }
       if (table === 'contractors') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), single: jest.fn().mockResolvedValue({ data: { id: 'c-1', full_name: 'Test', hourly_rate: null }, error: null }) }
-      if (table === 'job_workers') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }), insert: jobWorkersInsert }
-      return { insert: jest.fn().mockResolvedValue({ error: null }) }
+      if (table === 'job_workers') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }), order: jest.fn().mockResolvedValue({ data: [{ contractor_id: 'c-1', hours_allocated: null, pay_status: 'pending' }], error: null }), update: jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) }) }), insert: jobWorkersInsert }
+      return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), neq: jest.fn().mockResolvedValue({ data: [], error: null }), order: jest.fn().mockResolvedValue({ data: [], error: null }), update: jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) }) }), insert: jest.fn().mockResolvedValue({ error: null }) }
     })
     mockedCreate.mockReturnValue({ from, auth: adminAuth })
 
@@ -59,7 +60,8 @@ describe('setJobWorkerPayRate — explicit audited override', () => {
       if (table === 'job_workers') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), single: jest.fn().mockResolvedValue({ data: opts.worker, error: null }), update: jwUpdate }
       if (table === 'contractor_invoices') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), neq: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: opts.ci ?? null, error: null }) }
       if (table === 'audit_log') return { insert: auditInsert }
-      return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }) }
+      if (table === 'contractor_invoices') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), neq: jest.fn().mockResolvedValue({ data: [], error: null }), maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }) }
+      return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), neq: jest.fn().mockResolvedValue({ data: [], error: null }), order: jest.fn().mockResolvedValue({ data: [], error: null }), update: jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) }) }), insert: jest.fn().mockResolvedValue({ error: null }), maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }) }
     })
     return { client: { from, auth: adminAuth }, spies: { jwUpdate, auditInsert } }
   }

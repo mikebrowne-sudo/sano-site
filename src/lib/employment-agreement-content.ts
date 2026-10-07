@@ -33,8 +33,22 @@ export function agreementTitle(type: AgreementType): string {
   return 'Casual Employment Agreement'
 }
 
-export function agreementSections(type: AgreementType): AgreementSection[] {
-  if (type === 'contractor') return CONTRACTOR_AGREEMENT_SECTIONS
+export type InsuranceMode = 'own_required' | 'covered_by_sano' | 'not_required' | 'pending_review'
+
+/** Flags that make specific contractor clauses conditional. Employee agreements
+ *  ignore these (their clauses are unaffected). */
+export interface AgreementClauseOptions {
+  /** True when an ongoing service schedule is attached — 2.1/2.2 must reflect the
+   *  accepted ongoing commitment rather than "no guaranteed or regular work". */
+  hasOngoingSchedule?: boolean
+  /** The effective contractor insurance arrangement — drives clause 9. */
+  insuranceMode?: InsuranceMode | null
+  /** Minimum cover (own_required only) — surfaced in the own-insurance clause. */
+  insuranceMinCover?: number | null
+}
+
+export function agreementSections(type: AgreementType, opts: AgreementClauseOptions = {}): AgreementSection[] {
+  if (type === 'contractor') return buildContractorSections(opts)
   if (type === 'permanent_employee') return PERMANENT_AGREEMENT_SECTIONS
   return CASUAL_AGREEMENT_SECTIONS
 }
@@ -277,6 +291,128 @@ export const PERMANENT_AGREEMENT_SECTIONS: AgreementSection[] = [
     ],
   },
 ]
+
+// ── Conditional contractor clauses ──────────────────────────────────────────
+// The base CONTRACTOR_AGREEMENT_SECTIONS below is the DEFAULT text (own-insurance,
+// no ongoing schedule). buildContractorSections swaps in the correct 2.x / 5.1 /
+// 9.x wording for the actual arrangement so a sent agreement never contradicts
+// the attached schedules or the recorded insurance. Money is $ formatted plainly.
+
+function fmtCover(n: number | null | undefined): string {
+  if (n == null) return '$1,000,000'
+  return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD', maximumFractionDigits: 0 }).format(n)
+}
+
+/** Clause 2 (Availability) — reflects an accepted ongoing schedule when present. */
+function availabilitySection(hasOngoing: boolean): AgreementSection {
+  if (hasOngoing) {
+    return {
+      title: '2. Availability, Accepting and Declining Work',
+      body: [
+        '2.1 The Services and any ongoing commitments accepted by the Contractor are set out in the service schedules attached to this Agreement. Once a service schedule is accepted, the Contractor will provide those Services in accordance with its agreed frequency, scope and term, unless the schedule is varied or ended in writing.',
+        '2.2 The Principal may also offer additional jobs from time to time. The Contractor may accept or decline any additional job, and the Principal is not required to offer any minimum amount of additional work. Declining additional work will not, by itself, result in any penalty or termination of this Agreement.',
+        '2.3 Once the Contractor accepts a job, they are responsible for completing it to the agreed scope, standard and timeframe. If running late or unable to attend an accepted job, the Contractor must notify the Principal as soon as possible (and immediately where less than 24 hours remain before the job).',
+      ],
+    }
+  }
+  // Default (no ongoing schedule): the original ad-hoc, no-guaranteed-work wording.
+  return {
+    title: '2. Availability, Accepting and Declining Work',
+    body: [
+      '2.1 The Contractor determines their own availability and may accept or decline any job offered by the Principal. The Principal is under no obligation to offer any minimum amount of work, and there is no guaranteed or regular work.',
+      '2.2 The date and completion time for an accepted job will be mutually agreed. Declining a job, or making themselves unavailable, will not by itself result in termination of this Agreement or in any penalty.',
+      '2.3 Once the Contractor accepts a job, they are responsible for completing it to the agreed scope, standard and timeframe. If running late or unable to attend an accepted job, the Contractor must notify the Principal as soon as possible (and immediately where less than 24 hours remain before the job).',
+    ],
+  }
+}
+
+/** Clause 5 (Fees) — 5.1 defers to the schedule for GST; 5.2–5.4 unchanged. */
+function feesSection(): AgreementSection {
+  return {
+    title: '5. Fees and Payment',
+    body: [
+      '5.1 The Principal will pay the Contractor the fee and on the basis stated in the applicable service schedule or job confirmation. Each schedule will state whether the fee is GST-inclusive or GST-exclusive. GST is payable only where the Contractor is registered for GST and GST is required to be charged on the relevant supply.',
+      '5.2 The Contractor must submit a valid invoice following completion of each job or, for recurring Services, at the invoicing interval stated in the applicable service schedule or otherwise agreed in writing. The Principal will pay a valid invoice within 20 working days of receipt, subject to any withholding deductions required by law.',
+      '5.3 The Contractor is responsible for their own income tax, GST, ACC levies, business registrations, vehicle costs and other business obligations. Where the payments are schedular payments under the Income Tax Act 2007, the Contractor must provide a completed IR330C (or a valid exemption or special tax rate certificate) before payment, and the Principal will deduct and account for withholding tax where required by law. Without a completed IR330C, the Principal may be required to deduct tax at the no-notification rate.',
+      '5.4 The Contractor is responsible for any KiwiSaver contributions applicable to them as a self-employed person, and for obtaining any licences, permits or work rights required to provide the Services.',
+    ],
+  }
+}
+
+/** Clause 6 (Equipment) — 6.1 defers to the applicable schedule / job confirmation. */
+function equipmentSection(): AgreementSection {
+  return {
+    title: '6. Equipment and Supplies',
+    body: [
+      '6.1 The equipment, tools and cleaning products to be supplied by each party are stated in the applicable service schedule or job confirmation. Any equipment supplied by the Contractor must be safe, fit for purpose and maintained in good working order.',
+      '6.2 The Contractor is responsible for compliance with all health and safety and product-handling requirements relating to the equipment and products they use.',
+    ],
+  }
+}
+
+/** Clause 16 (Term and Termination) — 16.2's insurance ground varies by the
+ *  recorded arrangement. covered_by_sano → compliance/reporting; own_required →
+ *  the clause-9 cover; not_required → no insurance-maintenance ground at all. */
+function terminationSection(mode: InsuranceMode | null | undefined): AgreementSection {
+  const insuranceGround =
+    mode === 'covered_by_sano'
+      ? 'materially fails to comply with the applicable insurance conditions or reporting obligations under clause 9; '
+      : mode === 'not_required'
+        ? ''
+        : 'fails to maintain the insurance required under clause 9; '
+  return {
+    title: '16. Term and Termination',
+    body: [
+      '16.1 This Agreement commences on the date set out above and continues until terminated. Either party may terminate on 10 working days’ written notice.',
+      `16.2 The Principal may terminate immediately by written notice if the Contractor: materially breaches this Agreement and (where capable of remedy) fails to remedy it within 5 working days; ${insuranceGround}engages in theft, dishonesty, violence, a serious health and safety breach, deliberate property damage, a serious privacy breach or unauthorised entry; engages in conduct that has caused, or is reasonably likely to cause, material damage to the Principal’s reputation; is convicted of a relevant offence; or becomes insolvent.`,
+      '16.3 On termination the Contractor must return any Principal or client property. Termination does not affect the Principal’s obligation to pay for Services properly completed before termination. The confidentiality, security and non-solicitation obligations continue.',
+    ],
+  }
+}
+
+/** Clause 9 (Insurance) — reflects the recorded arrangement. Never exposes
+ *  insurer, policy numbers, limits or internal notes. */
+function insuranceSection(mode: InsuranceMode | null | undefined, minCover: number | null | undefined): AgreementSection {
+  if (mode === 'covered_by_sano') {
+    return {
+      title: '9. Insurance',
+      body: [
+        '9.1 For the Services covered by the applicable service schedule, the Contractor is included under the Principal’s insurance arrangement to the extent recorded and confirmed by the Principal. The Contractor is not required to maintain separate public liability insurance for those Services unless the Principal gives written notice that separate cover is required.',
+        '9.2 The Contractor must comply with all reasonable conditions of the Principal’s insurance arrangement, promptly report any incident, claim, loss or damage, and provide any information reasonably required for insurance purposes. The Contractor remains responsible for any loss arising from conduct outside the scope of that cover or from a breach of this Agreement.',
+      ],
+    }
+  }
+  if (mode === 'not_required') {
+    return {
+      title: '9. Insurance',
+      body: [
+        '9.1 Separate public liability insurance is not currently required from the Contractor for the Services covered by the applicable service schedule. This position is subject to written review, and the Principal may require the Contractor to obtain and maintain cover on reasonable written notice.',
+        '9.2 The Contractor must promptly report any incident, claim, loss or damage arising from the Services, and remains responsible for any loss arising from their own conduct or a breach of this Agreement.',
+      ],
+    }
+  }
+  // own_required (default). pending_review never reaches send (blocked), but if a
+  // draft renders it, show the own-insurance requirement rather than guessing.
+  return {
+    title: '9. Insurance',
+    body: [
+      `9.1 The Contractor must hold and maintain current public liability insurance appropriate to the Services — the Principal’s minimum requirement is ${fmtCover(minCover)} for residential work and $2,000,000 for commercial work — and must provide evidence of cover on request and before commencing Services. The Principal may suspend or terminate this Agreement if the Contractor fails to maintain adequate cover.`,
+      '9.2 The Contractor acknowledges the Principal’s insurance does not extend to the Contractor, their personnel, subcontractors or equipment.',
+    ],
+  }
+}
+
+/** Assemble the contractor sections, swapping the conditional 2 / 5 / 9. */
+export function buildContractorSections(opts: AgreementClauseOptions = {}): AgreementSection[] {
+  return CONTRACTOR_AGREEMENT_SECTIONS.map((s) => {
+    if (s.title.startsWith('2. ')) return availabilitySection(!!opts.hasOngoingSchedule)
+    if (s.title.startsWith('5. ')) return feesSection()
+    if (s.title.startsWith('6. ')) return equipmentSection()
+    if (s.title.startsWith('9. ')) return insuranceSection(opts.insuranceMode, opts.insuranceMinCover)
+    if (s.title.startsWith('16. ')) return terminationSection(opts.insuranceMode)
+    return s
+  })
+}
 
 export const CONTRACTOR_AGREEMENT_SECTIONS: AgreementSection[] = [
   {

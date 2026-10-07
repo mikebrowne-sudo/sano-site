@@ -1,3 +1,4 @@
+import { computeDocumentTotals } from '@/lib/doc-totals'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { Receipt, FlaskConical, Archive } from 'lucide-react'
@@ -100,7 +101,7 @@ export default async function InvoicesPage({
   let query = supabase
     .from('invoices')
     .select(`
-      id, invoice_number, status, base_price, discount,
+      id, invoice_number, status, base_price, discount, gst_included,
       service_address, payment_type, client_reference,
       date_issued, due_date, created_at,
       is_test, deleted_at, source,
@@ -204,7 +205,9 @@ export default async function InvoicesPage({
   const allRows = (invoices ?? []).map((inv) => {
     const client = inv.clients as unknown as { name: string; company_name: string | null } | null
     const addOns = addOnsByInvoiceId.get(inv.id as string) ?? 0
-    const total = (inv.base_price ?? 0) + addOns - (inv.discount ?? 0)
+    const lineTotal = (inv.base_price ?? 0) + addOns - (inv.discount ?? 0)
+    // GST-inclusive — what the customer pays (GST-exclusive invoices add 15%).
+    const total = Math.round(computeDocumentTotals(lineTotal, !!inv.gst_included).total * 100) / 100
 
     // PostgREST returns embedded relations as arrays unless the FK
     // is declared 1:1 — pick element [0] for both. Same defensive

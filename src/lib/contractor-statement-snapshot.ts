@@ -66,6 +66,17 @@ export interface SnapshotLineInput {
   amount: number
   gst_status: string | null
   gst_amount: number | null
+  // Frozen schedular tax breakdown (PR 9) — populated only when the payable
+  // carried an explicit approved snapshot id; null on ordinary/non-schedular
+  // lines. Copied from the snapshot, never recomputed. gst_amount_frozen is the
+  // snapshot's authoritative GST (kept separate from the display `gst_amount`).
+  contractor_payment_snapshot_id?: string | null
+  gross_ex_gst?: number | null
+  gst_amount_frozen?: number | null
+  wht_rate?: number | null
+  wht_amount?: number | null
+  net_paid?: number | null
+  tax_declaration_id?: string | null
 }
 
 export interface SnapshotLine extends SnapshotLineInput {
@@ -91,6 +102,9 @@ export interface IssuedSnapshot {
   gst_total: number
   total_payable: number
   gst_review_count: number
+  // Frozen schedular totals (PR 9) — the withholding retained to IRD across lines
+  // that carried an approved snapshot. 0 when no line is schedular.
+  wht_total: number
 }
 
 export interface BuildSnapshotInput {
@@ -120,6 +134,7 @@ export function buildIssuedSnapshot(input: BuildSnapshotInput): IssuedSnapshot {
   const gst_total = round2(
     lines.reduce((s, l) => (l.gst_status === GST_CONFIRMED_STATUS ? s + (l.gst_amount ?? 0) : s), 0),
   )
+  const wht_total = round2(lines.reduce((s, l) => s + (l.wht_amount ?? 0), 0))
 
   return {
     snapshot_version: 1,
@@ -139,5 +154,6 @@ export function buildIssuedSnapshot(input: BuildSnapshotInput): IssuedSnapshot {
     gst_total,
     total_payable: subtotal,
     gst_review_count: lines.filter((l) => isGstReviewRequired(l.gst_status)).length,
+    wht_total,
   }
 }

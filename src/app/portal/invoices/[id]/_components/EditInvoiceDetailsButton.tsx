@@ -9,11 +9,15 @@ import { useRouter } from 'next/navigation'
 import { Pencil, X, Loader2, AlertTriangle } from 'lucide-react'
 import clsx from 'clsx'
 import { updateInvoiceDetails } from '../_actions-edit'
+import {
+  cleanTypeLabels, splitCleanType, resolveCleanType, CUSTOM_CLEAN_TYPE,
+} from '@/lib/clean-type-options'
 
 export interface InvoiceDetailValues {
   notes: string | null
   service_description: string | null
   service_address: string | null
+  type_of_clean: string | null
   client_reference: string | null
   requires_po: boolean
   contact_name: string | null
@@ -21,6 +25,8 @@ export interface InvoiceDetailValues {
   contact_phone: string | null
   accounts_contact_name: string | null
   accounts_email: string | null
+  bill_to_name: string | null
+  bill_to_attention: string | null
   date_issued: string | null
   due_date: string | null
 }
@@ -28,15 +34,25 @@ export interface InvoiceDetailValues {
 export function EditInvoiceDetailsButton({
   invoiceId,
   isSent,
+  client,
   values,
 }: {
   invoiceId: string
   isSent: boolean
+  /** The linked client — powers the one-click "Bill to company" swap. */
+  client?: { name: string | null; company_name: string | null }
   values: InvoiceDetailValues
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [v, setV] = useState<InvoiceDetailValues>(values)
+  // Clean type is stored as a free-text LABEL, so the editor offers the
+  // canonical list plus a "Custom…" box. A value that isn't canonical (legacy
+  // "End of Tenancy", or anything hand-typed) opens as Custom with the text
+  // pre-filled, so opening the editor never rewrites what's on the invoice.
+  const initialClean = splitCleanType(values.type_of_clean)
+  const [cleanSelect, setCleanSelect] = useState(initialClean.select)
+  const [cleanCustom, setCleanCustom] = useState(initialClean.custom)
   const [reason, setReason] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
@@ -53,6 +69,7 @@ export function EditInvoiceDetailsButton({
       const res = await updateInvoiceDetails({
         invoiceId,
         ...v,
+        type_of_clean: resolveCleanType(cleanSelect, cleanCustom),
         date_issued: v.date_issued || null,
         due_date: v.due_date || null,
         reason: reason || null,
@@ -72,6 +89,10 @@ export function EditInvoiceDetailsButton({
       </button>
     )
   }
+
+  const clientName = (client?.name ?? '').trim()
+  const companyName = (client?.company_name ?? '').trim()
+  const canBillToCompany = !!companyName && !!clientName
 
   const input = 'w-full rounded-lg border border-sage-200 px-3 py-2 text-sm text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500'
   const text = (k: keyof InvoiceDetailValues, label: string, type = 'text') => (
@@ -95,6 +116,33 @@ export function EditInvoiceDetailsButton({
         </div>
       )}
 
+      <div className="rounded-lg border border-sage-200 bg-white p-3 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-xs font-semibold text-sage-700">Billed to (as shown on the invoice)</span>
+          <div className="flex flex-wrap gap-2">
+            {canBillToCompany && (
+              <button type="button"
+                onClick={() => setV((p) => ({ ...p, bill_to_name: companyName, bill_to_attention: clientName }))}
+                className="text-xs font-medium text-sage-700 border border-sage-200 rounded-lg px-2.5 py-1 hover:bg-sage-50">
+                Bill to {companyName}, Attn: {clientName}
+              </button>
+            )}
+            {(v.bill_to_name || v.bill_to_attention) && (
+              <button type="button"
+                onClick={() => setV((p) => ({ ...p, bill_to_name: null, bill_to_attention: null }))}
+                className="text-xs text-sage-500 hover:text-sage-700 underline">
+                Reset to client name
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {text('bill_to_name', 'Name on invoice (blank = client name)')}
+          {text('bill_to_attention', 'Attention to (blank = contact)')}
+        </div>
+        <p className="text-[11px] text-sage-500">Only changes this invoice. The client record is not renamed.</p>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {text('contact_name', 'Primary contact')}
         {text('contact_email', 'Primary contact email', 'email')}
@@ -107,6 +155,30 @@ export function EditInvoiceDetailsButton({
         {text('service_address', 'Service address')}
       </div>
 
+      <label className="block">
+        <span className="block text-[11px] font-medium text-sage-500 mb-1">Clean type</span>
+        <select
+          value={cleanSelect}
+          onChange={(e) => setCleanSelect(e.target.value)}
+          className={input}
+        >
+          <option value="">— None —</option>
+          {cleanTypeLabels().map((label) => (
+            <option key={label} value={label}>{label}</option>
+          ))}
+          <option value={CUSTOM_CLEAN_TYPE}>Custom…</option>
+        </select>
+        {cleanSelect === CUSTOM_CLEAN_TYPE && (
+          <input
+            type="text"
+            value={cleanCustom}
+            onChange={(e) => setCleanCustom(e.target.value)}
+            placeholder="Type the clean type as it should appear on the invoice"
+            className={clsx(input, 'mt-2')}
+            autoFocus
+          />
+        )}
+      </label>
       <label className="block">
         <span className="block text-[11px] font-medium text-sage-500 mb-1">Service description</span>
         <textarea value={v.service_description ?? ''} onChange={(e) => set('service_description', e.target.value)} rows={2} className={clsx(input, 'resize-y')} />

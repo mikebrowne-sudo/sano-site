@@ -19,8 +19,8 @@ export default function PakurangaServiceAreaPage() {
           'From family homes and townhouses to rentals and workplaces, Sano matches the clean to the property across Pakuranga.',
         heroImage: '/images/heroes/deep-cleaning-hero.jpg',
         introParagraphs: [
-          'Sano cleans homes and workplaces across Pakuranga, including family homes, townhouses, rentals, and offices. The work runs from regular upkeep and workplace presentation to deeper cleans and move-out or handover jobs.',
-          'We confirm what’s needed before we start, fit around access and the hours that suit the home or business, and leave the space clean, presentable, and ready to use.',
+          'For homes and workplaces across Pakuranga, from family homes and townhouses to rentals and offices, Sano covers regular upkeep, workplace presentation, deep cleans, and cleans timed to a move or handover.',
+          'Sano confirms the scope before the first visit, works around access and the timing that suits each home or workplace, and leaves the space clean, presentable, and ready to use.',
         ],
         introImage: '/images/end-of-tenancy.jpg',
         introImageAlt: 'A property cleaned and ready for handover',

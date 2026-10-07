@@ -16,6 +16,7 @@ import { isAdminUser } from '@/lib/is-admin'
 import { getWorkerPayableHours } from '@/lib/job-cost'
 import { reconcileRemittanceHours } from '@/lib/remittance-hours'
 import { seedRemittanceNote } from '@/lib/remittance-address'
+import { resolveRemittanceLineTax, type ApprovedSnapshotForRemittance } from '@/lib/contractor-remittance-tax'
 import { revalidatePath } from 'next/cache'
 
 export interface RemittanceAdjustmentInput {
@@ -35,6 +36,8 @@ export interface CreateRemittanceBatchInput {
 
 interface CIRow {
   id: string
+  /** Used to name the payable in the already-remitted rejection message. */
+  invoice_number: string | null
   amount: number | null
   note: string | null
   contractor_id: string | null
@@ -44,6 +47,9 @@ interface CIRow {
   pay_hours: number | null
   site_label: string | null
   period_label: string | null
+  // Explicit tax-snapshot link + schedule carried on the payable (PR 9).
+  contractor_payment_snapshot_id: string | null
+  service_schedule_id: string | null
   contractors: { full_name: string | null } | null
   jobs: { job_number: string | null; address: string | null } | null
 }
@@ -74,12 +80,56 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
   const { data: ciRaw, error: ciErr } = ciIds.length > 0
     ? await supabase
         .from('contractor_invoices')
-        .select('id, amount, notes:notes, contractor_id, job_id, payment_type, pay_basis, pay_hours, site_label, period_label, contractors ( full_name ), jobs ( job_number, address )')
+        .select('id, invoice_number, amount, notes:notes, contractor_id, job_id, payment_type, pay_basis, pay_hours, site_label, period_label, contractor_payment_snapshot_id, service_schedule_id, contractors ( full_name ), jobs ( job_number, address )')
         .in('id', ciIds)
     : { data: [] as unknown[], error: null }
   if (ciErr) return { error: `Could not load invoices: ${ciErr.message}` }
   const cis = (ciRaw ?? []) as unknown as Array<CIRow & { notes: string | null }>
   if (cis.length !== ciIds.length) return { error: 'Some selected invoices could not be found.' }
+
+  // ── INVARIANT: one contractor invoice → at most ONE active remittance ──
+  //
+  // A payable must never be payable twice. The Pay Run screen already hides
+  // already-remitted invoices, but that is a DISPLAY filter and ciIds arrives
+  // from the client — a stale tab, a double submit, or a manual selection can
+  // still carry an id that is already on a remittance. That is exactly how
+  // CI-0012 (RA-0001 + RA-0007, $175 paid twice) and CI-0015 (RA-0002 +
+  // RA-0003, $80 paid twice) happened historically.
+  //
+  // Checked BEFORE the header is created so a rejection leaves nothing behind.
+  // A matching DB trigger enforces the same rule for any writer that misses
+  // this — see docs/db/2026-08-17-one-invoice-one-remittance.sql. Neither layer
+  // is load-bearing on its own.
+  //
+  // Superseded lines are ignored: a corrected line is not an active payment.
+  if (ciIds.length > 0) {
+    const { data: existingRaw, error: exErr } = await supabase
+      .from('contractor_remittance_items')
+      .select('contractor_invoice_id, tax_status, contractor_remittances ( remittance_number, payee_label, payment_date, paid_at )')
+      .in('contractor_invoice_id', ciIds)
+    if (exErr) return { error: `Could not verify invoices are unpaid: ${exErr.message}` }
+
+    const clashes = (existingRaw ?? []).filter(
+      (row) => ((row as { tax_status?: string | null }).tax_status ?? 'active') !== 'superseded',
+    )
+    if (clashes.length > 0) {
+      const byId = new Map(cis.map((c) => [c.id, c]))
+      const flat = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null))
+      const detail = clashes.map((row) => {
+        const r = flat((row as { contractor_remittances?: unknown }).contractor_remittances) as
+          { remittance_number: string | null; payee_label: string | null; payment_date: string | null; paid_at: string | null } | null
+        const ci = byId.get((row as { contractor_invoice_id: string }).contractor_invoice_id)
+        const ciLabel = ci?.invoice_number ?? 'This invoice'
+        const payee = r?.payee_label ? ` (${r.payee_label})` : ''
+        const when = r?.payment_date ? ` dated ${r.payment_date}` : ''
+        const state = r?.paid_at ? 'paid' : 'not yet paid'
+        return `${ciLabel} is already on ${r?.remittance_number ?? 'another remittance'}${payee}${when} — ${state}`
+      })
+      return {
+        error: `${detail.join('. ')}. A contractor invoice can only be paid once, so this remittance was not created.`,
+      }
+    }
+  }
 
   // Load the matching job_worker rows so we can snapshot hours for lines
   // that are genuinely hourly. Display-only: we only attach hours when
@@ -117,6 +167,55 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
     return reconcileRemittanceHours(payable, w.pay_rate, ci.amount ?? 0)
   }
 
+  // Freeze the per-line tax breakdown (PR 9) from the EXPLICIT snapshot id the
+  // payable carries (contractor_payment_snapshot_id). No (contractor_id,
+  // supply_date) search: a payable with no snapshot id is an ordinary
+  // amount-only line; a payable WITH a snapshot id must resolve to a valid
+  // approved snapshot or the whole remittance is BLOCKED (never pay a
+  // tax-bearing line off a missing/invalid snapshot). Figures are copied
+  // verbatim, never recomputed.
+  const snapshotIds = Array.from(new Set(cis.map((c) => c.contractor_payment_snapshot_id).filter((x): x is string => !!x)))
+  const snapshotsById = new Map<string, ApprovedSnapshotForRemittance>()
+  if (snapshotIds.length > 0) {
+    const { data: snapRaw } = await supabase
+      .from('contractor_payment_tax_snapshots')
+      .select('id, contractor_id, status, calc_status, service_schedule_id, supply_date, gross_ex_gst, gst_amount, withholding_rate, withholding_amount, net_bank, tax_declaration_id')
+      .in('id', snapshotIds)
+    for (const s of ((snapRaw ?? []) as Array<Record<string, unknown>>)) {
+      snapshotsById.set(s.id as string, {
+        id: s.id as string,
+        contractorId: s.contractor_id as string,
+        status: s.status as string,
+        calcStatus: s.calc_status as string,
+        serviceScheduleId: (s.service_schedule_id as string | null) ?? null,
+        supplyDate: s.supply_date as string,
+        grossExGst: s.gross_ex_gst == null ? null : Number(s.gross_ex_gst),
+        gstAmount: s.gst_amount == null ? null : Number(s.gst_amount),
+        withholdingRate: s.withholding_rate == null ? null : Number(s.withholding_rate),
+        withholdingAmount: s.withholding_amount == null ? null : Number(s.withholding_amount),
+        netBank: s.net_bank == null ? null : Number(s.net_bank),
+        taxDeclarationId: (s.tax_declaration_id as string | null) ?? null,
+      })
+    }
+  }
+
+  // Resolve every line up-front; a single invalid explicit snapshot blocks the
+  // whole batch (fail-fast, no partial tax-bearing remittance).
+  const frozenByCi = new Map<string, ReturnType<typeof resolveRemittanceLineTax>>()
+  for (const ci of cis) {
+    // A schedule-based payable with no snapshot must never be remitted as an
+    // ordinary amount-only line (defence in depth over the DB trigger).
+    if (ci.service_schedule_id && !ci.contractor_payment_snapshot_id) {
+      return { error: `Cannot create remittance: a schedular payable has no payment snapshot. Resolve its tax snapshot first.` }
+    }
+    const r = resolveRemittanceLineTax(
+      { contractorId: ci.contractor_id, serviceScheduleId: ci.service_schedule_id, contractorPaymentSnapshotId: ci.contractor_payment_snapshot_id },
+      snapshotsById,
+    )
+    if (r.kind === 'error') return { error: `Cannot create remittance: ${r.reason}. Resolve the payable's tax snapshot first.` }
+    frozenByCi.set(ci.id, r)
+  }
+
   // Create unpaid by default; only stamp paid_at when explicitly marking paid.
   const markPaid = input.markPaid === true
 
@@ -148,6 +247,8 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
       const isFixed = ci.payment_type === 'fixed_contract'
       const fixedPrimary = isFixed ? (ci.site_label?.trim() || null) : null
       const fixedDetail = isFixed ? (ci.period_label?.trim() || null) : null
+      const fr = frozenByCi.get(ci.id)
+      const tax = fr && fr.kind === 'frozen' ? fr.tax : null
       return {
         remittance_id: header.id,
         kind: 'invoice',
@@ -161,6 +262,18 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
         hours: isFixed ? null : snapshotHours(ci),
         amount: ci.amount ?? 0,
         sort: sort++,
+        // Frozen tax breakdown (PR 9) — null on ordinary/non-schedular lines.
+        contractor_payment_snapshot_id: tax?.contractor_payment_snapshot_id ?? null,
+        gross_ex_gst: tax?.gross_ex_gst ?? null,
+        gst_amount: tax?.gst_amount ?? null,
+        wht_rate: tax?.wht_rate ?? null,
+        wht_amount: tax?.wht_amount ?? null,
+        net_paid: tax?.net_paid ?? null,
+        tax_declaration_id: tax?.tax_declaration_id ?? null,
+        supply_date: tax?.supply_date ?? null,
+        tax_status: 'active',
+        supersedes_item_id: null,
+        correction_reason: null,
       }
     }),
     ...adjustments.map((a) => ({
@@ -176,6 +289,17 @@ export async function createContractorRemittance(input: CreateRemittanceBatchInp
       hours: null,
       amount: Math.round(a.amount * 100) / 100,
       sort: sort++,
+      contractor_payment_snapshot_id: null,
+      gross_ex_gst: null,
+      gst_amount: null,
+      wht_rate: null,
+      wht_amount: null,
+      net_paid: null,
+      tax_declaration_id: null,
+      supply_date: null,
+      tax_status: 'active',
+      supersedes_item_id: null,
+      correction_reason: null,
     })),
   ]
   const { error: iErr } = await supabase.from('contractor_remittance_items').insert(items)

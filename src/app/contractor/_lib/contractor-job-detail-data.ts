@@ -3,6 +3,8 @@
 // canonical basis and pulls their proof-of-completion photos.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { resolveWorkerHours } from '@/lib/job-hours-split'
+import { isHoursConfirmedStatus, type HoursConfirmedStatus } from '@/lib/hours-confirmation'
 import { getWorkerPayableHours, getWorkerLabourCost, getWorkerRate } from '@/lib/job-cost'
 import { getJobPhotos } from '@/lib/job-photos'
 import { getServiceSupabase } from '@/lib/supabase-service'
@@ -20,6 +22,9 @@ export interface ContractorJobDetail {
   allowed_hours: number | null
   access_instructions: string | null
   status: string
+  /** Contractor's confirmation that the job went to plan. */
+  hours_confirmed_status: HoursConfirmedStatus
+  hours_confirmed_note: string | null
   contractor_notes: string | null
   started_at: string | null
   completed_at: string | null
@@ -37,7 +42,7 @@ export async function loadContractorJobDetail(
   jobId: string,
   fallbackRate: number,
 ): Promise<ContractorJobDetail | null> {
-  const [{ data: job }, { data: worker }, photos] = await Promise.all([
+  const [{ data: job }, { data: worker }, { data: roster }, photos] = await Promise.all([
     supabase
       .from('jobs')
       .select(`
@@ -47,16 +52,41 @@ export async function loadContractorJobDetail(
         status, contractor_notes, started_at, completed_at
       `)
       .eq('id', jobId)
-      .eq('contractor_id', contractorId)
       .maybeSingle(),
     supabase
       .from('job_workers')
-      .select('hours_allocated, pay_rate, extra_hours, extra_hours_status')
+      .select('hours_allocated, pay_rate, extra_hours, extra_hours_status, hours_confirmed_status, hours_confirmed_note')
       .eq('job_id', jobId)
       .eq('contractor_id', contractorId)
       .maybeSingle(),
+    // The full roster: needed to size the hours fallback, and to authorise a
+    // NON-PRIMARY worker. Previously the job query filtered on
+    // jobs.contractor_id, so the second cleaner on a two-cleaner job couldn't
+    // open their own job at all.
+    //
+    // SERVICE CLIENT, deliberately. This is the one read here that is NOT the
+    // caller's own row, and job_workers RLS restricts a contractor to their own.
+    // Under the caller's client the roster would collapse to a single row, and
+    // `rosterIds.length` is the DIVISOR for the hours fallback below — so each
+    // cleaner on a 2-cleaner job would see the whole job's hours and pay instead
+    // of their half. That is a silent financial mis-display, not an error.
+    //
+    // Only `contractor_id` is selected — no pay_rate — and the caller is
+    // authorised immediately below, so this widens nothing the contractor can
+    // see. The staff-preview caller already passes a service client, so both
+    // callers now behave identically.
+    getServiceSupabase().from('job_workers').select('contractor_id').eq('job_id', jobId),
     getJobPhotos(jobId),
   ])
+
+  // Authorisation: assigned via job_workers, or the job's primary pointer.
+  const rosterIds = (roster ?? []).map((r) => r.contractor_id as string)
+  const isAssigned = rosterIds.includes(contractorId) || worker != null
+  if (job && !isAssigned) {
+    const { data: primaryCheck } = await supabase
+      .from('jobs').select('id').eq('id', jobId).eq('contractor_id', contractorId).maybeSingle()
+    if (!primaryCheck) return null
+  }
 
   if (!job) return null
 
@@ -101,7 +131,14 @@ export async function loadContractorJobDetail(
     contractor_hourly_rate: fallbackRate,
     approved_hours: null,
     actual_hours: null,
-    hours_allocated: (worker?.hours_allocated as number | null) ?? (job.allowed_hours as number | null) ?? null,
+    // Split the fallback across the roster — returning the job's full
+    // allowed_hours here showed each cleaner on a 2-cleaner 8h job "8h"
+    // instead of their actual 4h share.
+    hours_allocated: resolveWorkerHours(
+      worker?.hours_allocated as number | null,
+      job.allowed_hours as number | null,
+      Math.max(rosterIds.length, 1),
+    ),
     extra_hours: (worker?.extra_hours as number | null) ?? 0,
     extra_hours_status: (worker?.extra_hours_status as string | null) ?? 'none',
   }
@@ -118,6 +155,11 @@ export async function loadContractorJobDetail(
     allowed_hours: (job.allowed_hours as number | null) ?? null,
     access_instructions: (job.access_instructions as string | null) ?? null,
     status: (job.status as string) ?? 'draft',
+    // Contractor's own "did it go to plan?" answer on this job.
+    hours_confirmed_status: isHoursConfirmedStatus(worker?.hours_confirmed_status)
+      ? worker.hours_confirmed_status
+      : 'unconfirmed',
+    hours_confirmed_note: (worker?.hours_confirmed_note as string | null) ?? null,
     contractor_notes: (job.contractor_notes as string | null) ?? null,
     started_at: (job.started_at as string | null) ?? null,
     completed_at: (job.completed_at as string | null) ?? null,

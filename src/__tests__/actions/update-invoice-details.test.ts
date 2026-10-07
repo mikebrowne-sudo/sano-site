@@ -11,7 +11,7 @@ const mockedCreate = createClient as unknown as jest.Mock
 
 const FINANCIAL = ['status', 'base_price', 'discount', 'gst_included', 'date_paid', 'invoice_number', 'sent_at']
 const ALLOWED = new Set([
-  'notes', 'service_description', 'service_address', 'client_reference', 'requires_po',
+  'notes', 'service_description', 'service_address', 'type_of_clean', 'client_reference', 'requires_po',
   'contact_name', 'contact_email', 'contact_phone', 'accounts_contact_name', 'accounts_email',
   'date_issued', 'due_date',
 ])
@@ -31,7 +31,7 @@ function makeSupabase(cfg: { email?: string; invoice: Record<string, unknown> | 
 
 const draftInvoice = {
   id: 'i1', invoice_number: 'INV-0050', status: 'draft',
-  notes: null, service_description: null, service_address: null, client_reference: null, requires_po: false,
+  notes: null, service_description: null, service_address: null, type_of_clean: null, client_reference: null, requires_po: false,
   contact_name: null, contact_email: null, contact_phone: null, accounts_contact_name: null, accounts_email: null,
   date_issued: '2026-05-01', due_date: '2026-05-15',
 }
@@ -104,5 +104,80 @@ describe('updateInvoiceDetails', () => {
 
     expect('error' in res && res.error).toMatch(/no changes/i)
     expect(update).not.toHaveBeenCalled()
+  })
+})
+
+// Clean type ("End of Tenancy Clean" etc.) is copied off the quote at
+// conversion and was previously uneditable, so a wrong service type was stuck
+// on the invoice forever. It is descriptive only — nothing prices off it.
+describe('updateInvoiceDetails — clean type', () => {
+  it('sets the clean type on an unsent invoice', async () => {
+    const { client, update } = makeSupabase({ invoice: { ...draftInvoice } })
+    mockedCreate.mockReturnValue(client)
+
+    const res = await updateInvoiceDetails({ invoiceId: 'i1', type_of_clean: 'End of Tenancy Clean' })
+
+    expect(res).toEqual({ ok: true })
+    expect(update).toHaveBeenCalledWith({ type_of_clean: 'End of Tenancy Clean' })
+  })
+
+  it('corrects a legacy value to the canonical label', async () => {
+    const { client, update } = makeSupabase({ invoice: { ...draftInvoice, type_of_clean: 'End of Tenancy' } })
+    mockedCreate.mockReturnValue(client)
+
+    await updateInvoiceDetails({ invoiceId: 'i1', type_of_clean: 'End of Tenancy Clean' })
+
+    expect(update).toHaveBeenCalledWith({ type_of_clean: 'End of Tenancy Clean' })
+  })
+
+  it('accepts an arbitrary hand-typed clean type', async () => {
+    const { client, update } = makeSupabase({ invoice: { ...draftInvoice } })
+    mockedCreate.mockReturnValue(client)
+
+    await updateInvoiceDetails({ invoiceId: 'i1', type_of_clean: 'Builders clean + window tracks' })
+
+    expect(update).toHaveBeenCalledWith({ type_of_clean: 'Builders clean + window tracks' })
+  })
+
+  it('clears the clean type to null rather than an empty string', async () => {
+    const { client, update } = makeSupabase({ invoice: { ...draftInvoice, type_of_clean: 'Deep Clean' } })
+    mockedCreate.mockReturnValue(client)
+
+    await updateInvoiceDetails({ invoiceId: 'i1', type_of_clean: '' })
+
+    expect(update).toHaveBeenCalledWith({ type_of_clean: null })
+  })
+
+  it('still requires a reason to change it on a SENT invoice', async () => {
+    const { client, update } = makeSupabase({ invoice: { ...draftInvoice, status: 'sent' } })
+    mockedCreate.mockReturnValue(client)
+
+    const res = await updateInvoiceDetails({ invoiceId: 'i1', type_of_clean: 'Deep Clean' })
+
+    expect(res).toEqual({ error: expect.stringContaining('reason') })
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('audits the before/after on a sent invoice with a reason', async () => {
+    const { client, auditInsert } = makeSupabase({ invoice: { ...draftInvoice, status: 'sent', type_of_clean: 'Deep Clean' } })
+    mockedCreate.mockReturnValue(client)
+
+    await updateInvoiceDetails({ invoiceId: 'i1', type_of_clean: 'End of Tenancy Clean', reason: 'Wrong type selected on the quote' })
+
+    const row = auditInsert.mock.calls[0][0] as { before: Record<string, unknown>; after: Record<string, unknown> }
+    expect(row.before.type_of_clean).toBe('Deep Clean')
+    expect(row.after.type_of_clean).toBe('End of Tenancy Clean')
+    expect(row.after._reason).toBe('Wrong type selected on the quote')
+  })
+
+  it('editing the clean type never touches a financial field', async () => {
+    const { client, update } = makeSupabase({ invoice: { ...draftInvoice } })
+    mockedCreate.mockReturnValue(client)
+
+    await updateInvoiceDetails({ invoiceId: 'i1', type_of_clean: 'Deep Clean' })
+
+    const written = Object.keys(update.mock.calls[0][0] as Record<string, unknown>)
+    for (const key of written) expect(ALLOWED.has(key)).toBe(true)
+    for (const f of FINANCIAL) expect(written).not.toContain(f)
   })
 })

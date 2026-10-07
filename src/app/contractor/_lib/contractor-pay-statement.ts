@@ -24,11 +24,19 @@ export interface RawContractorInvoice {
   status: string | null // 'pending' | 'approved' | 'paid'
   date_paid: string | null
   date_submitted: string | null
+  /** Day the work was done (stamped from the job's scheduled date at approval). */
+  service_date?: string | null
   jobId: string | null
   jobNumber: string | null
   title: string | null
   jobCompletedAt: string | null
   jobDeletedAt: string | null
+  /** Set when this payable is for a job EXTRA (a carpet clean etc.) rather than
+   *  the job occurrence. The person who did the extra is often not on the job
+   *  roster at all, so the JOB's title describes work they never touched —
+   *  "End of Tenancy Clean" for someone who only cleaned the carpet. The item
+   *  label is what they actually did, and what they are being paid for. */
+  jobItemLabel?: string | null
 }
 
 export interface RawRemittanceLink {
@@ -142,8 +150,10 @@ export function buildContractorPayData(input: {
         ciId: c.id,
         jobId: c.jobId,
         jobNumber: c.jobNumber,
-        title: c.title,
-        date: c.date_submitted ?? c.jobCompletedAt ?? null,
+        // An extra's own label wins over the job title — see jobItemLabel.
+        title: c.jobItemLabel ?? c.title,
+        // Day the clean was done, not the day it was marked complete.
+        date: c.service_date ?? c.date_submitted ?? c.jobCompletedAt ?? null,
         amount: c.amount ?? 0,
       })
     }

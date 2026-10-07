@@ -3,8 +3,10 @@
 // Google Analytics 4 loader + lightweight event tracking.
 //
 // - Renders nothing (and loads no scripts) unless NEXT_PUBLIC_GA_ID is set.
-// - Skips the authenticated staff/contractor apps so the numbers reflect
-//   marketing-site traffic, not internal CRM usage.
+// - Skips internal routes (staff/contractor/client apps, /share pages, print
+//   and tool routes — see INTERNAL_PATH_PREFIXES) and automation-driven
+//   browsers (the Puppeteer PDF renderer loads /share pages on every
+//   quote/invoice send), so the numbers reflect marketing-site traffic.
 // - Sends page_view manually on client-side navigation (send_page_view is
 //   off in the config) so SPA route changes are counted once each.
 // - Tracks phone (tel:) and email (mailto:) link clicks via a single
@@ -17,16 +19,21 @@
 
 import Script from 'next/script'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { GA_ID, gaPageview, gaEvent } from '@/lib/gtag'
-
-const EXCLUDED_PREFIXES = ['/portal', '/contractor']
+import { isAutomatedBrowser, isInternalPath } from '@/lib/analytics-filters'
 
 export function Analytics() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const excluded = EXCLUDED_PREFIXES.some((p) => pathname?.startsWith(p))
-  const enabled = !!GA_ID && !excluded
+  // navigator only exists client-side, so automation is checked after mount;
+  // GA stays off until we know (null) — real visitors get it on first effect.
+  const [automated, setAutomated] = useState<boolean | null>(null)
+  useEffect(() => {
+    setAutomated(isAutomatedBrowser(typeof navigator === 'undefined' ? undefined : navigator))
+  }, [])
+  const excluded = isInternalPath(pathname)
+  const enabled = !!GA_ID && !excluded && automated === false
 
   // Page views on navigation.
   useEffect(() => {

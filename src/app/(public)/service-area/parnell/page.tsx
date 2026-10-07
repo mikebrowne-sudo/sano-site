@@ -20,7 +20,7 @@ export default function ParnellServiceAreaPage() {
         heroImage: '/images/heroes/end-of-tenancy-hero.jpg',
         introParagraphs: [
           'Sano cleans homes and workplaces across Parnell, including houses, terraces, apartments, rentals, and smaller offices. The work runs from regular upkeep to deeper cleans and move-out or handover jobs.',
-          'We confirm what’s needed before we start, fit around access and the hours that suit the household or business, and leave the space clean, presentable, and ready to use.',
+          'The scope is agreed before we begin, the work fits around building access and quiet hours, and the space is left clean, presentable, and ready to use.',
         ],
         introImage: '/images/cleaned-by-sano.jpg',
         introImageAlt: 'A freshly cleaned Auckland living space',

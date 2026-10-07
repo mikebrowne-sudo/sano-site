@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { buildServiceDescription, buildPricingLabel } from '@/lib/doc-helpers'
 import { computeDocumentTotals } from '@/lib/doc-totals'
 import { normaliseStructuredScope } from '@/lib/full-property-reset-scope'
+import { sanoPaymentDetails } from '@/lib/sano-bank-details'
 import {
   DocumentLayout,
   type DocumentLineItem,
@@ -40,6 +41,10 @@ export interface QuoteDocumentInput {
   created_at?: string | null
   property_category?: string | null
   type_of_clean?: string | null
+  /** The structured service-type code (quotes.service_type_code). Used only to
+   *  apply the Residential Housekeeping "per week" price label; all other types
+   *  render unchanged. */
+  service_type_code?: string | null
   frequency?: string | null
   scope_size?: string | null
   generated_scope?: string | null
@@ -147,7 +152,10 @@ export function QuoteDocument({
   // the address block as well would render the value twice.
   const toParty: DocumentParty = {
     name: client?.name ?? '—',
-    company: client?.company_name ?? null,
+    // Drop the company line when it just repeats the name.
+    company: client?.company_name && client.company_name.trim().toLowerCase() !== (client?.name ?? '').trim().toLowerCase()
+      ? client.company_name
+      : null,
     address: client?.service_address ?? null,
     attn: quote.contact_name ?? null,
     phone: quote.contact_phone ?? client?.phone ?? null,
@@ -190,6 +198,13 @@ export function QuoteDocument({
 
   const primarySubBlocks: { label: string; value: string }[] = []
   if (address) primarySubBlocks.push({ label: 'Service address', value: address })
+  // Custom-quote reference pairs (registration, make/model, asset tag, serial).
+  // They sit alongside the service address because they answer the same
+  // question for the reader: which thing is this quote about. Normalisation
+  // has already dropped any row missing a label or a value.
+  for (const ref of structuredScope?.referenceFields ?? []) {
+    primarySubBlocks.push({ label: ref.label, value: ref.value })
+  }
   if (!structuredScope && descBlockValue) {
     primarySubBlocks.push({ label: 'Service description', value: descBlockValue })
   }
@@ -199,13 +214,30 @@ export function QuoteDocument({
   const mainLineTitle = structuredScope?.title?.trim() || pricingLabel
   const scopeForDoc = structuredScope ?? undefined
 
+  // Residential Housekeeping only: the manual fixed price is a WEEKLY amount, so
+  // the main service line shows "$X.XX per week". This is a display suffix on the
+  // already-formatted line amount — the stored price, GST and totals are all
+  // computed numerically from quote.base_price and are completely unaffected. No
+  // other quote type, and no invoice, is touched.
+  const isHousekeeping = quote.service_type_code === 'residential_housekeeping'
+  const perWeek = (formatted: string) => (isHousekeeping ? `${formatted} per week` : formatted)
+
+  // Housekeeping: surface the per-week basis as a clear customer note, prepended
+  // to any staff note (deduped so it isn't doubled on re-render). Other types use
+  // the staff note verbatim.
+  const PER_WEEK_NOTE = 'All prices shown are per week.'
+  const staffNote = (quote.notes ?? '').trim()
+  const housekeepingNotes = isHousekeeping
+    ? (staffNote.includes(PER_WEEK_NOTE) ? staffNote : [PER_WEEK_NOTE, staffNote].filter(Boolean).join('\n\n'))
+    : quote.notes
+
   const lineItems: DocumentLineItem[] = []
   if ((quote.base_price ?? 0) > 0) {
     lineItems.push({
       description: mainLineTitle,
       subBlocks: primarySubBlocks.length > 0 ? primarySubBlocks : undefined,
       structuredScope: scopeForDoc,
-      amount: fmt(quote.base_price ?? 0),
+      amount: perWeek(fmt(quote.base_price ?? 0)),
     })
   } else if (primarySubBlocks.length > 0 || scopeForDoc) {
     lineItems.push({
@@ -234,6 +266,18 @@ export function QuoteDocument({
     ? 'Prices are in New Zealand Dollars and include GST.'
     : 'Prices are in New Zealand Dollars and exclude GST; GST is added to the total.'
   const paymentSentence = isCashSale ? 'Payment is required prior to the clean.' : 'Payment is due within 14 days of the invoice date.'
+
+  // A cash sale asks for payment BEFORE the clean, so the quote has to say where
+  // to send it — the customer may never see an invoice first. An on-account quote
+  // deliberately shows nothing: payment isn't due yet, and the invoice that
+  // follows carries the details.
+  const paymentDetails = isCashSale ? sanoPaymentDetails(quote.quote_number) : undefined
+  // Stated where the customer is already looking at how to pay, not only in the
+  // terms paragraph at the foot of the page.
+  const paymentCallout = isCashSale
+    ? 'Payment is required before the clean. Once you accept, please pay using the details below and we will confirm your booking.'
+    : undefined
+
   const termsBody = `This quote is valid for 30 days from the issue date. ${gstSentence} ${paymentSentence} Sano Property Services Limited is GST registered (GST No. 148-387-648). No lock-in contracts — you can pause or cancel any time.`
 
   return (
@@ -253,7 +297,9 @@ export function QuoteDocument({
       toParty={toParty}
       lineItems={lineItems}
       amountLabel={amountLabel}
-      notes={quote.notes}
+      notes={housekeepingNotes}
+      paymentDetails={paymentDetails}
+      paymentCallout={paymentCallout}
       totals={{
         subtotalExGstDisplay: fmt(subtotalExGst),
         gstDisplay: fmt(gstAmount),

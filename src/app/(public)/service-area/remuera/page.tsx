@@ -19,8 +19,8 @@ export default function RemueraServiceAreaPage() {
           'From regular upkeep to deeper cleans and end-of-tenancy resets, Sano helps Remuera households keep homes, apartments, and rentals properly looked after.',
         heroImage: '/images/heroes/deep-cleaning-hero.jpg',
         introParagraphs: [
-          'In Remuera, Sano looks after standalone homes, larger family houses, apartments, and rentals, whether that’s a regular clean, a deeper one, or an end-of-tenancy reset before new tenants move in.',
-          'We agree what needs doing before the first visit, work around each home’s layout and the household’s timing, and leave the property clean, settled, and ready.',
+          'Sano cleans standalone homes, larger family houses, apartments, and rentals across Remuera, from regular upkeep to deeper one-off cleans and end-of-tenancy resets before new tenants move in.',
+          'Before the first visit the scope is set with you, then the clean is fitted around each home’s layout and the household’s timing, and the property is left clean, settled, and ready.',
         ],
         introImage: '/images/herne-bay-residential.jpg',
         introImageAlt: 'A tidy, well-kept Auckland home interior',

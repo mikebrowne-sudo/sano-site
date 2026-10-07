@@ -2,12 +2,19 @@
 
 // Admin-edit Stage 3 — audited edit of NON-FINANCIAL invoice metadata.
 //
-// Strictly whitelisted: notes, service description/address, contact +
-// accounts snapshot fields, client reference / PO flag, and the issue /
-// due dates. It can NEVER touch totals, GST, base/override price, status,
-// sent state, paid state, line items, or numbering. For a sent invoice a
-// reason is required, and we explicitly do NOT resend or change sent_at /
-// paid status. Admin/staff only; every change is audit-logged.
+// Strictly whitelisted: notes, service description/address, CLEAN TYPE,
+// contact + accounts snapshot fields, the "Billed to" name / Attn
+// override, client reference / PO flag, and the
+// issue / due dates. It can NEVER touch totals, GST, base/override price,
+// status, sent state, paid state, line items, or numbering. For a sent
+// invoice a reason is required, and we explicitly do NOT resend or change
+// sent_at / paid status. Admin/staff only; every change is audit-logged.
+//
+// type_of_clean is the invoice's "Clean type" line (e.g. "End of Tenancy
+// Clean"). It's copied off the quote at conversion and was previously
+// uneditable, so a wrong service type was stuck on the invoice forever. It
+// is descriptive only — nothing prices off it — so it belongs with the
+// other non-financial metadata here.
 
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
@@ -20,6 +27,7 @@ export interface UpdateInvoiceDetailsInput {
   notes?: string | null
   service_description?: string | null
   service_address?: string | null
+  type_of_clean?: string | null
   client_reference?: string | null
   requires_po?: boolean
   contact_name?: string | null
@@ -27,6 +35,8 @@ export interface UpdateInvoiceDetailsInput {
   contact_phone?: string | null
   accounts_contact_name?: string | null
   accounts_email?: string | null
+  bill_to_name?: string | null
+  bill_to_attention?: string | null
   date_issued?: string | null
   due_date?: string | null
   reason?: string | null
@@ -35,9 +45,10 @@ export interface UpdateInvoiceDetailsInput {
 // The ONLY columns this action may write. Anything financial / status /
 // sent / paid / line-item is absent by construction.
 const TEXT_FIELDS = [
-  'notes', 'service_description', 'service_address', 'client_reference',
+  'notes', 'service_description', 'service_address', 'type_of_clean', 'client_reference',
   'contact_name', 'contact_email', 'contact_phone',
   'accounts_contact_name', 'accounts_email',
+  'bill_to_name', 'bill_to_attention',
   'date_issued', 'due_date',
 ] as const
 
@@ -51,7 +62,7 @@ export async function updateInvoiceDetails(
 
   const { data: inv } = await supabase
     .from('invoices')
-    .select('id, invoice_number, status, notes, service_description, service_address, client_reference, requires_po, contact_name, contact_email, contact_phone, accounts_contact_name, accounts_email, date_issued, due_date')
+    .select('id, invoice_number, status, notes, service_description, service_address, type_of_clean, client_reference, requires_po, contact_name, contact_email, contact_phone, accounts_contact_name, accounts_email, bill_to_name, bill_to_attention, date_issued, due_date')
     .eq('id', input.invoiceId)
     .maybeSingle()
   if (!inv) return { error: 'Invoice not found.' }

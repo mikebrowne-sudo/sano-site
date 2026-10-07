@@ -92,3 +92,46 @@ export function payPeriodForDate(dateInput: string | Date): PayPeriod {
     payDateLabel: `Paid 15 ${MONTHS[payM - 1]} ${payY}`,
   }
 }
+
+/** A period's stable key = its start date (`YYYY-MM-DD`), e.g. '2026-07-01' or
+ *  '2026-07-16'. Unique per half-month, so it round-trips a period selection. */
+export function payPeriodKey(p: PayPeriod): string {
+  return p.periodStart
+}
+
+/** Resolve a period from its key (its periodStart). Returns null if unparseable. */
+export function payPeriodForKey(key: string | null | undefined): PayPeriod | null {
+  if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return null
+  try {
+    return payPeriodForDate(key)
+  } catch {
+    return null
+  }
+}
+
+/** The half-month period immediately before the one containing `dateInput`. */
+export function previousPayPeriod(dateInput: string | Date): PayPeriod {
+  const cur = payPeriodForDate(dateInput)
+  const { y, m } = parts(cur.periodStart)
+  // If we're in the 16–EOM half, the previous half is 1–15 of the SAME month;
+  // otherwise it's 16–EOM of the PREVIOUS month.
+  if (cur.periodStart.slice(8, 10) === '16') return payPeriodForDate(ymd(y, m, 1))
+  const prevY = m === 1 ? y - 1 : y
+  const prevM = m === 1 ? 12 : m - 1
+  return payPeriodForDate(ymd(prevY, prevM, 16))
+}
+
+/**
+ * The most recent `count` pay periods, newest first, starting from the period
+ * that contains `today`. Used to populate the pay-run period dropdown. `today`
+ * is passed in (never read from the clock here) so this stays pure/testable.
+ */
+export function recentPayPeriods(today: string | Date, count = 6): PayPeriod[] {
+  const out: PayPeriod[] = []
+  let cursor = payPeriodForDate(today)
+  for (let i = 0; i < count; i++) {
+    out.push(cursor)
+    cursor = previousPayPeriod(cursor.periodStart)
+  }
+  return out
+}

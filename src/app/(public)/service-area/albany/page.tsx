@@ -19,8 +19,8 @@ export default function AlbanyServiceAreaPage() {
           'From family homes and townhouses to rentals and workplaces, Sano matches the clean to the property across Albany.',
         heroImage: '/images/heroes/carpet-upholstery-cleaning-hero.jpg',
         introParagraphs: [
-          'Sano cleans homes and workplaces across Albany, including family homes, newer builds, townhouses, rentals, and offices. The work runs from regular upkeep and workplace presentation to deeper cleans and move-out or handover jobs.',
-          'We confirm what’s needed before we start, work around access and the hours that suit each home or business, and leave the space clean, presentable, and ready.',
+          'Sano cleans both homes and workplaces across Albany, covering family homes, newer builds, townhouses, rentals, and offices. Bookings span regular upkeep, workplace presentation, deeper cleans, and move-out or handover jobs.',
+          'Access and the right hours are sorted first, whether that suits a home or a workplace, and the scope is confirmed up front so the space ends up clean, presentable, and ready to use.',
         ],
         introImage: '/images/deep-cleaning.jpg',
         introImageAlt: 'A thoroughly cleaned Auckland home',

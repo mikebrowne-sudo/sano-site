@@ -33,6 +33,14 @@ export async function POST(req: NextRequest) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
 
+    // A completed session is not necessarily a PAID one — an async method (or a
+    // session that expired unpaid) also fires this event. Only money actually
+    // received may mark an invoice paid.
+    if (session.payment_status !== 'paid') {
+      console.log('[stripe-webhook] Session completed but not paid:', session.payment_status)
+      return NextResponse.json({ received: true })
+    }
+
     const invoiceId = session.metadata?.invoice_id
     if (!invoiceId) {
       console.error('[stripe-webhook] No invoice_id in metadata')
@@ -42,6 +50,13 @@ export async function POST(req: NextRequest) {
     const supabase = getServerSupabase()
     const today = new Date().toISOString().slice(0, 10)
 
+    // Only flip an invoice that is NOT already paid.
+    //
+    // Stripe retries a webhook until it gets a 2xx, and can deliver the same
+    // event more than once. Without the status guard a retry would overwrite
+    // date_paid with the retry's date, and would re-stamp the job complete —
+    // moving a payment's recorded date for no reason. `.neq` makes the update
+    // idempotent: the second delivery matches no row and changes nothing.
     const { error } = await supabase
       .from('invoices')
       .update({
@@ -50,6 +65,7 @@ export async function POST(req: NextRequest) {
         stripe_payment_intent_id: session.payment_intent as string || null,
       })
       .eq('id', invoiceId)
+      .neq('status', 'paid')
 
     if (error) {
       console.error('[stripe-webhook] Failed to update invoice:', error.message)

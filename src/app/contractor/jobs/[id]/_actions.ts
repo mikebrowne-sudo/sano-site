@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
+import { getServiceSupabase } from '@/lib/supabase-service'
+import { autoApproveRecurringJobPay } from '@/lib/recurring-pay-auto-approve'
 
 async function getContractorId(): Promise<string | null> {
   const supabase = createClient()
@@ -64,6 +66,16 @@ export async function contractorCompleteJob(jobId: string) {
     .eq('contractor_id', contractorId)
 
   if (error) return { error: error.message }
+
+  // Recurring occurrence → approve the contractor payable now. Service-role
+  // because the contractor can't write contractor_invoices; the job id is one
+  // they were just verified to own. Never fails the completion — the daily
+  // cron sweep retries anything that didn't land.
+  try {
+    await autoApproveRecurringJobPay(getServiceSupabase(), jobId)
+  } catch (e) {
+    console.error('[contractorCompleteJob] recurring auto-approve failed', e)
+  }
 
   revalidatePath(`/contractor/jobs/${jobId}`)
   revalidatePath('/contractor/jobs')

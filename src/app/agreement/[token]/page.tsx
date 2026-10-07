@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation'
 import { CheckCircle2 } from 'lucide-react'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { EmploymentAgreementDocument, agreementViewFromRow } from '@/components/EmploymentAgreementDocument'
+import { ScheduleReviewNote } from './_components/ScheduleReviewNote'
 import { SignAgreementForm, type PrefillValues } from './_components/SignAgreementForm'
 
 export const dynamic = 'force-dynamic'
@@ -13,6 +14,17 @@ export default async function PublicAgreementPage({ params }: { params: { token:
   const svc = getServiceSupabase()
   const { data: a } = await svc.from('employment_agreements').select('*').eq('token', params.token).maybeSingle()
   if (!a) notFound()
+
+  // A voided/pulled agreement can no longer be signed — show a clear notice
+  // instead of the signable form (staff will send an updated copy).
+  if (a.status === 'voided') {
+    return (
+      <main className="mx-auto max-w-lg px-6 py-20 text-center">
+        <h1 className="text-2xl font-bold text-sage-800 mb-2">This agreement is no longer available</h1>
+        <p className="text-sage-600">This copy has been withdrawn. If you’re expecting an agreement from Sano, an updated version will be sent to you. Please contact us if you have any questions.</p>
+      </main>
+    )
+  }
   const signed = a.status === 'signed'
 
   // Documents the contractor has already uploaded on this agreement (Phase 3).
@@ -76,9 +88,14 @@ export default async function PublicAgreementPage({ params }: { params: { token:
             <EmploymentAgreementDocument a={view} wrapper="share-page" />
           </>
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-7">
-            <SignAgreementForm token={params.token} type={a.agreement_type === 'contractor' ? 'contractor' : a.agreement_type === 'permanent_employee' ? 'permanent_employee' : 'casual_employee'} initialDocs={initialDocs} agreement={view} prefill={prefill} />
-          </div>
+          <>
+            {a.agreement_type === 'contractor' && (view.scheduleBlocks?.length ?? 0) > 0 && (
+              <ScheduleReviewNote token={params.token} blocks={view.scheduleBlocks ?? []} />
+            )}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-7">
+              <SignAgreementForm token={params.token} type={a.agreement_type === 'contractor' ? 'contractor' : a.agreement_type === 'permanent_employee' ? 'permanent_employee' : 'casual_employee'} initialDocs={initialDocs} agreement={view} prefill={prefill} />
+            </div>
+          </>
         )}
       </div>
     </div>

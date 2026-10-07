@@ -14,6 +14,13 @@ interface ContractorInput {
   full_name: string
   email?: string
   phone?: string
+  preferred_name?: string | null
+  address?: string | null
+  date_of_birth?: string | null
+  emergency_contact_name?: string | null
+  emergency_contact_phone?: string | null
+  emergency_contact_relationship?: string | null
+  id_sighted?: boolean | null
   hourly_rate?: number
   base_hourly_rate?: number
   loaded_hourly_rate?: number
@@ -28,6 +35,8 @@ interface ContractorInput {
   pay_frequency?: string
   standard_hours?: number
   holiday_pay_method?: string
+  /** Reason when overriding the agreed holiday-pay method after onboarding (audited). */
+  holiday_pay_method_override_reason?: string
   ird_number?: string
   tax_code?: string
   ir330_received?: boolean
@@ -82,6 +91,20 @@ interface ContractorInput {
   // Portal access (Phase 2)
   invite_sent_at?: string
   portal_access_active?: boolean
+}
+
+/** Personal + emergency-contact fields — shared by create + update so staff can
+ *  enter/correct info a worker may have supplied at signing (or never did). */
+function personalFields(input: ContractorInput) {
+  return {
+    preferred_name: input.preferred_name?.trim() || null,
+    address: input.address?.trim() || null,
+    date_of_birth: input.date_of_birth || null,
+    emergency_contact_name: input.emergency_contact_name?.trim() || null,
+    emergency_contact_phone: input.emergency_contact_phone?.trim() || null,
+    emergency_contact_relationship: input.emergency_contact_relationship?.trim() || null,
+    id_sighted: input.id_sighted ?? false,
+  }
 }
 
 function payrollFields(input: ContractorInput) {
@@ -210,6 +233,7 @@ export async function createContractor(input: ContractorInput) {
       invite_sent_at: input.invite_sent_at || null,
       portal_access_active: input.portal_access_active ?? false,
       ...payrollFields(input),
+      ...personalFields(input),
     })
     .select('id')
     .single()
@@ -288,11 +312,28 @@ export async function updateContractor(id: string, input: ContractorInput) {
       invite_sent_at: input.invite_sent_at || null,
       portal_access_active: input.portal_access_active ?? false,
       ...payrollFields(input),
+      ...personalFields(input),
     })
     .eq('id', id)
 
   if (error) {
     return { error: `Failed to update contractor: ${error.message}` }
+  }
+
+  // Audit an override of the agreed (onboarding) holiday-pay method.
+  if (input.holiday_pay_method_override_reason?.trim()) {
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('audit_log').insert({
+      actor_id: user?.id ?? null,
+      actor_role: 'admin',
+      action: 'holiday_pay_method.override',
+      entity_table: 'contractors',
+      entity_id: id,
+      after: {
+        holiday_pay_method: input.holiday_pay_method,
+        reason: input.holiday_pay_method_override_reason.trim(),
+      },
+    })
   }
 
   revalidatePath(`/portal/contractors/${id}`)
@@ -339,6 +380,21 @@ export async function uploadDocument(formData: FormData) {
 
   if (dbErr) {
     return { error: `Failed to save document record: ${dbErr.message}` }
+  }
+
+  // Upload = "mark as done" for the completed statutory forms. Uploading the
+  // form is the evidence, so it flips the matching received/filed flag in one
+  // step (staff can still change it manually on the profile).
+  //   • IR330 / IR330C  → ir330_received = true (clears the ND-45% warning)
+  //   • KS10 opt-out     → record the opt-out as filed
+  const type = documentType || 'other'
+  if (type === 'ir330' || type === 'ir330c') {
+    await supabase.from('contractors').update({ ir330_received: true }).eq('id', contractorId)
+  } else if (type === 'ks10_optout') {
+    await supabase
+      .from('contractors')
+      .update({ kiwisaver_optout_filed: true, kiwisaver_ks10_received_date: new Date().toISOString().slice(0, 10) })
+      .eq('id', contractorId)
   }
 
   revalidatePath(`/portal/contractors/${contractorId}`)

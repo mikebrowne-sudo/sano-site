@@ -3,9 +3,14 @@
 // Phase F — multi-week job generator for recurring contracts.
 //
 // Sits next to the existing single-next-due GenerateJobButton.
-// Calls generateUpcomingRecurringJobs with a window of 1 / 2 / 4
-// weeks. Confirmation flash shows how many jobs were created vs
-// skipped (existing schedule duplicates).
+// Confirmation flash shows how many jobs were created vs skipped
+// (existing schedule duplicates).
+//
+// The window is measured from TODAY, not from the contract's start date, so a
+// contract starting more than 4 weeks out generated nothing on the original
+// 1/2/4 options. The longer windows cover a contract that starts next month —
+// generation still skips dates that already have an occurrence, so a wide
+// window is safe.
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -13,9 +18,12 @@ import { CalendarPlus } from 'lucide-react'
 import { generateUpcomingRecurringJobs } from '../../_actions-phase-f'
 
 const WINDOW_OPTIONS: { weeks: number; label: string }[] = [
-  { weeks: 1, label: 'Next 1 week'  },
-  { weeks: 2, label: 'Next 2 weeks' },
-  { weeks: 4, label: 'Next 4 weeks' },
+  { weeks: 1,  label: 'Next 1 week'   },
+  { weeks: 2,  label: 'Next 2 weeks'  },
+  { weeks: 4,  label: 'Next 4 weeks'  },
+  { weeks: 8,  label: 'Next 8 weeks'  },
+  { weeks: 13, label: 'Next 3 months' },
+  { weeks: 26, label: 'Next 6 months' },
 ]
 
 export function GenerateUpcomingButton({ recurringId }: { recurringId: string }) {
@@ -34,10 +42,16 @@ export function GenerateUpcomingButton({ recurringId }: { recurringId: string })
         setError(result.error)
         return
       }
-      setFlash(`Created ${result.createdCount} job${result.createdCount === 1 ? '' : 's'}, skipped ${result.skippedCount} duplicate${result.skippedCount === 1 ? '' : 's'}.`)
+      setFlash(
+        result.createdCount === 0 && result.skippedCount === 0
+          // A contract starting beyond the chosen window generates nothing, and
+          // a bare "Created 0 jobs" reads like a failure. Say why.
+          ? `No jobs due in the next ${weeks} week${weeks === 1 ? '' : 's'} — try a longer window if the contract starts later.`
+          : `Created ${result.createdCount} job${result.createdCount === 1 ? '' : 's'}, skipped ${result.skippedCount} duplicate${result.skippedCount === 1 ? '' : 's'}.`,
+      )
       setOpen(false)
       router.refresh()
-      window.setTimeout(() => setFlash(null), 4000)
+      window.setTimeout(() => setFlash(null), 6000)
     })
   }
 
@@ -67,7 +81,7 @@ export function GenerateUpcomingButton({ recurringId }: { recurringId: string })
       <div className="text-xs font-semibold text-sage-700 uppercase tracking-wide mb-1">
         Generate jobs for…
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto">
         {WINDOW_OPTIONS.map((opt) => (
           <button
             key={opt.weeks}

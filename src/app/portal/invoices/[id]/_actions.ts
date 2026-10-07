@@ -1,5 +1,6 @@
 'use server'
 
+import { invoiceTotalInclGst, type InvoiceAmountFields } from '@/lib/invoice-balance'
 import { createClient } from '@/lib/supabase-server'
 import { Resend } from 'resend'
 import { revalidatePath } from 'next/cache'
@@ -169,7 +170,7 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
     const { data: full } = await supabase
       .from('invoices')
       .select(`
-        client_id, due_date, base_price, discount,
+        client_id, due_date, base_price, discount, gst_included,
         invoice_items ( price ),
         clients ( name, phone )
       `)
@@ -178,9 +179,8 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
 
     if (full?.client_id && full.clients) {
       const client = full.clients as unknown as { name: string | null; phone: string | null }
-      const items  = (full.invoice_items ?? []) as { price: number }[]
-      const addOns = items.reduce((s, i) => s + (i.price ?? 0), 0)
-      const total  = (full.base_price ?? 0) + addOns - (full.discount ?? 0)
+      // What the customer actually pays — GST-exclusive invoices add 15%.
+      const total  = invoiceTotalInclGst(full as InvoiceAmountFields)
 
       const dueLabel = full.due_date
         ? new Date(full.due_date).toLocaleDateString('en-NZ', {

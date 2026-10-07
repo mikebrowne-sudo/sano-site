@@ -25,8 +25,20 @@ function makeClient({ hasPay, email = 'admin@sano.nz' }: { hasPay: boolean; emai
   const auditInsert = jest.fn().mockResolvedValue({ error: null })
   const from = jest.fn((table: string) => {
     if (table === 'jobs') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), single: jest.fn().mockResolvedValue({ data: CURRENT, error: null }), update: jobsUpdate }
-    if (table === 'job_workers') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockResolvedValue({ data: [{ contractor_id: 'A' }], error: null }) }
-    if (table === 'contractor_invoices') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), neq: jest.fn().mockResolvedValue({ data: hasPay ? [{ invoice_number: 'CI-0020' }, { invoice_number: 'CI-0041' }] : [], error: null }) }
+    if (table === 'job_workers') {
+      // .eq() is terminal for the diff read and chainable (.order()) for the
+      // hours re-split, so it must be both.
+      const rows = { data: [{ contractor_id: 'A', hours_allocated: null, pay_status: 'pending' }], error: null }
+      return {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockImplementation(() => ({
+          then: (res: (v: unknown) => unknown) => Promise.resolve(rows).then(res),
+          order: jest.fn().mockResolvedValue(rows),
+        })),
+        update: jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) }) }),
+      }
+    }
+    if (table === 'contractor_invoices') return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), neq: jest.fn().mockResolvedValue({ data: hasPay ? [{ invoice_number: 'CI-0020', contractor_id: 'A' }, { invoice_number: 'CI-0041', contractor_id: 'A' }] : [], error: null }) }
     if (table === 'contractors') return { select: jest.fn().mockReturnThis(), in: jest.fn().mockResolvedValue({ data: [], error: null }) }
     if (table === 'audit_log') return { insert: auditInsert }
     return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), single: jest.fn().mockResolvedValue({ data: null }), maybeSingle: jest.fn().mockResolvedValue({ data: null }), insert: jest.fn().mockResolvedValue({ error: null }) }

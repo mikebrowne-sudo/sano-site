@@ -40,6 +40,10 @@ export const JOB_FIELDS: readonly FieldDef[] = [
   { key: 'company',        label: 'Company',     contexts: ['list', 'detail'], groupable: true },
   { key: 'address',        label: 'Address',     contexts: ['list', 'detail'] },
   { key: 'value',          label: 'Value',       contexts: ['list', 'detail'], sortable: true },
+  // Job gross margin (price − labour − ACC), display-only. Admin-gated in the
+  // page: the value only computes/renders for admins (contractors + finance-only
+  // accountants can't reach /portal/jobs anyway). Not sortable in v1 (computed).
+  { key: 'margin',         label: 'Margin',      contexts: ['list'] },
   { key: 'assigned_to',    label: 'Contractor',  contexts: ['list', 'detail'], groupable: true },
   { key: 'status',         label: 'Status',      contexts: ['list', 'detail'], sortable: true,  groupable: true },
   { key: 'scheduled_date', label: 'Scheduled',   contexts: ['list', 'detail'], sortable: true,  groupable: true },

@@ -29,13 +29,17 @@ export interface BankTxn {
   memo: string
   amount: number // signed: + in, − out
   direction: TxnDirection
-  invoiceRefs: string[] // normalised INV-#### found in payee/memo
+  invoiceRefs: string[] // high-confidence: an "INV"-prefixed number in payee/memo
+  numberRefs: string[] // lower-confidence: bare 4–6 digit numbers, normalised to INV-####
 }
 
 export interface ParsedAsb {
   account: string | null
   fromDate: string | null // ISO
   toDate: string | null // ISO
+  /** ASB's stated account balance from the CSV preamble ("Ledger Balance : X as of YYYYMMDD"). */
+  ledgerBalance: number | null
+  ledgerBalanceDate: string | null // ISO — the "as of" date of that balance
   transactions: BankTxn[]
   skipped: number // non-empty data lines we could not parse
 }
@@ -87,12 +91,38 @@ export function parseAsbDate(raw: string): string {
   return ''
 }
 
-/** Pull normalised invoice numbers (INV-####) out of free text. */
+/**
+ * High-confidence invoice refs: an "INV" token immediately before the number,
+ * e.g. "INV-0033", "inv 26022". Normalised to INV-#### (min 4 digits).
+ */
 export function extractInvoiceRefs(text: string): string[] {
   const refs = new Set<string>()
   const re = /\binv[-\s]?0*(\d{1,6})\b/gi
   let m: RegExpExecArray | null
   while ((m = re.exec(text)) !== null) {
+    refs.add(`INV-${m[1].padStart(4, '0')}`)
+  }
+  return Array.from(refs)
+}
+
+/**
+ * Lower-confidence candidate refs: bare 4–6 digit numbers in the text (e.g.
+ * "Sue Bunce 26022"), normalised to INV-####. These are only ever trusted when
+ * they resolve to a real invoice number downstream, so extracting a stray
+ * number is harmless — it simply won't match anything. INV-prefixed matches are
+ * excluded here (they're already covered, higher-confidence, by
+ * extractInvoiceRefs).
+ */
+export function extractNumberRefs(text: string): string[] {
+  const withoutInv = text.replace(/\binv[-\s]?0*\d{1,6}\b/gi, ' ')
+  const refs = new Set<string>()
+  const re = /\b(\d{4,6})\b/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(withoutInv)) !== null) {
+    // Skip anything that looks like a 4-digit year (1900–2099) to avoid matching
+    // dates that slipped into the memo.
+    const n = parseInt(m[1], 10)
+    if (m[1].length === 4 && n >= 1900 && n <= 2099) continue
     refs.add(`INV-${m[1].padStart(4, '0')}`)
   }
   return Array.from(refs)
@@ -104,6 +134,8 @@ export function parseAsbCsv(text: string): ParsedAsb {
   let account: string | null = null
   let fromDate: string | null = null
   let toDate: string | null = null
+  let ledgerBalance: number | null = null
+  let ledgerBalanceDate: string | null = null
   let headerIdx = -1
 
   for (let i = 0; i < lines.length; i++) {
@@ -118,13 +150,24 @@ export function parseAsbCsv(text: string): ParsedAsb {
     if (fromM) fromDate = parseAsbDate(fromM[1])
     const toM = first.match(/^To date\s+(\d{8})/i)
     if (toM) toDate = parseAsbDate(toM[1])
+    // "Ledger Balance : 6790.45 as of 20260623" — ASB's own stated account
+    // balance. This is the truthful source for the dashboard bank balance (the
+    // per-transaction rows carry no running balance).
+    const balM = first.match(/Ledger Balance\s*:\s*(-?[0-9,]+(?:\.\d+)?)\s+as of\s+(\d{8})/i)
+    if (balM) {
+      const amt = Number(balM[1].replace(/,/g, ''))
+      if (Number.isFinite(amt)) {
+        ledgerBalance = amt
+        ledgerBalanceDate = parseAsbDate(balM[2])
+      }
+    }
   }
 
   const transactions: BankTxn[] = []
   let skipped = 0
 
   if (headerIdx === -1) {
-    return { account, fromDate, toDate, transactions, skipped }
+    return { account, fromDate, toDate, ledgerBalance, ledgerBalanceDate, transactions, skipped }
   }
 
   for (let i = headerIdx + 1; i < lines.length; i++) {
@@ -150,8 +193,9 @@ export function parseAsbCsv(text: string): ParsedAsb {
       amount,
       direction: amount < 0 ? 'out' : 'in',
       invoiceRefs: extractInvoiceRefs(`${payee} ${memo}`),
+      numberRefs: extractNumberRefs(`${payee} ${memo}`),
     })
   }
 
-  return { account, fromDate, toDate, transactions, skipped }
+  return { account, fromDate, toDate, ledgerBalance, ledgerBalanceDate, transactions, skipped }
 }
