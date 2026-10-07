@@ -126,7 +126,10 @@ export default async function PortalDashboard() {
   const bookedHeadline = lastFull && lastFull.jobs > 0
     ? {
         main: `${lastFull.jobs} jobs in ${lastFull.label} · ${money0(lastFull.value)}`,
-        sub: firstWithJobs && firstWithJobs !== lastFull ? `up from ${firstWithJobs.jobs} in ${firstWithJobs.label}` : '',
+        sub: firstWithJobs && firstWithJobs !== lastFull ? `from ${firstWithJobs.jobs} in ${firstWithJobs.label}` : '',
+        growthPct: firstWithJobs && firstWithJobs !== lastFull && firstWithJobs.jobs > 0
+          ? Math.round(((lastFull.jobs - firstWithJobs.jobs) / firstWithJobs.jobs) * 100)
+          : null,
       }
     : null
 
@@ -340,7 +343,16 @@ export default async function PortalDashboard() {
       <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-1">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sage-500">Jobs booked — last 12 months + ahead</h2>
-          {bookedHeadline && <p className="text-sm text-sage-700"><span className="font-semibold">{bookedHeadline.main}</span>{bookedHeadline.sub && <span className="text-sage-500"> · {bookedHeadline.sub}</span>}</p>}
+          {bookedHeadline && (
+            <p className="flex items-center gap-2 text-sm text-sage-700">
+              <span className="font-semibold">{bookedHeadline.main}</span>
+              {bookedHeadline.growthPct != null && bookedHeadline.growthPct > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100" title={bookedHeadline.sub}>
+                  ▲ {bookedHeadline.growthPct}% <span className="font-normal text-emerald-600">{bookedHeadline.sub}</span>
+                </span>
+              )}
+            </p>
+          )}
         </div>
         <BookedJobsChart months={bookedJobs} />
       </section>

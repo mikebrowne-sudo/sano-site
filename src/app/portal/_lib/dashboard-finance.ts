@@ -209,6 +209,7 @@ export interface BookedMonth {
   jobs: number         // jobs scheduled in the month
   done: number         // of which completed / invoiced
   value: number        // booked value (job prices; recurring visits valued from their contract)
+  doneValue: number    // value of the completed / invoiced jobs
   unpriced: number     // jobs with no price we could find
   current: boolean     // the month containing today
   future: boolean      // months after this one — booked ahead
@@ -244,7 +245,7 @@ export function summariseBookedJobs(
   const keys = months.map(({ y, m }) => monthKey(y, m))
   const out = new Map<string, BookedMonth>(months.map(({ y, m }) => {
     const key = monthKey(y, m)
-    return [key, { month: key, label: MONTH_LABELS[m - 1], jobs: 0, done: 0, value: 0, unpriced: 0, current: key === todayKey, future: key > todayKey }]
+    return [key, { month: key, label: MONTH_LABELS[m - 1], jobs: 0, done: 0, value: 0, doneValue: 0, unpriced: 0, current: key === todayKey, future: key > todayKey }]
   }))
 
   // Visits per (recurring contract, month) — to spread a fixed monthly value.
@@ -260,7 +261,8 @@ export function summariseBookedJobs(
     const bucket = out.get(key)
     if (!bucket) continue
     bucket.jobs += 1
-    if (j.status === 'completed' || j.status === 'invoiced') bucket.done += 1
+    const isDone = j.status === 'completed' || j.status === 'invoiced'
+    if (isDone) bucket.done += 1
 
     let value = Number(j.jobPrice ?? 0)
     if (!(value > 0) && j.recurringJobId) {
@@ -269,13 +271,15 @@ export function summariseBookedJobs(
       if (Number(rec?.perVisitRate) > 0) value = Number(rec?.perVisitRate)
       else if (Number(rec?.monthlyValue) > 0) value = Number(rec?.monthlyValue) / (visitsPerRecMonth.get(`${j.recurringJobId}|${key}`) ?? 1)
     }
-    if (value > 0) bucket.value += value
-    else bucket.unpriced += 1
+    if (value > 0) {
+      bucket.value += value
+      if (isDone) bucket.doneValue += value
+    } else bucket.unpriced += 1
   }
 
   return keys.map((k) => {
     const b = out.get(k) as BookedMonth
-    return { ...b, value: Math.round(b.value * 100) / 100 }
+    return { ...b, value: Math.round(b.value * 100) / 100, doneValue: Math.round(b.doneValue * 100) / 100 }
   })
 }
 

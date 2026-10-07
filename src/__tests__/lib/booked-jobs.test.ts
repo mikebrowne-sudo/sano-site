@@ -7,7 +7,7 @@ const job = (scheduledDate: string, p: Partial<{ status: string; jobPrice: numbe
 describe('jobs booked per month', () => {
   it('counts and values jobs by their scheduled month', () => {
     const r = summariseBookedJobs([job('2026-09-03', { jobPrice: 300, status: 'invoiced' }), job('2026-09-20', { jobPrice: 200 })], [], months, '2026-10')
-    expect(r[0]).toMatchObject({ month: '2026-09', jobs: 2, done: 1, value: 500, future: false, current: false })
+    expect(r[0]).toMatchObject({ month: '2026-09', jobs: 2, done: 1, value: 500, doneValue: 300, future: false, current: false })
     expect(r[1].current).toBe(true)
     expect(r[2].future).toBe(true)
   })
