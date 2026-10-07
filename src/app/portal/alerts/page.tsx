@@ -1,3 +1,4 @@
+import { invoiceTotalInclGst, type InvoiceAmountFields } from '@/lib/invoice-balance'
 import { createClient } from '@/lib/supabase-server'
 import Link from 'next/link'
 import { AlertTriangle, Briefcase, Receipt, BookOpen, CalendarDays, ShieldCheck, CalendarClock } from 'lucide-react'
@@ -65,7 +66,7 @@ export default async function AlertsPage() {
       .neq('status', 'completed').neq('status', 'invoiced'),
     // Overdue invoices — the full list (you asked for all of them), oldest first.
     supabase.from('invoices')
-      .select('id, invoice_number, base_price, discount, due_date, clients ( name ), invoice_items ( price )', { count: 'exact' })
+      .select('id, invoice_number, base_price, discount, gst_included, due_date, clients ( name ), invoice_items ( price )', { count: 'exact' })
       .is('deleted_at', null)
       .eq('status', 'sent')
       .lt('due_date', today)
@@ -118,10 +119,7 @@ export default async function AlertsPage() {
   const unassignedCount = activeUnassigned.length
 
   // Total owed across all overdue invoices, for the section header.
-  const overdueTotal = (overdueInvoices ?? []).reduce((sum, inv) => {
-    const items = (inv.invoice_items ?? []) as { price: number }[]
-    return sum + (inv.base_price ?? 0) + items.reduce((s, i) => s + (i.price ?? 0), 0) - (inv.discount ?? 0)
-  }, 0)
+  const overdueTotal = (overdueInvoices ?? []).reduce((sum, inv) => sum + invoiceTotalInclGst(inv as InvoiceAmountFields), 0)
 
   // Calculate which tomorrow jobs haven't been reminded today
   const todayStart = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).toISOString()
@@ -152,8 +150,7 @@ export default async function AlertsPage() {
           <div className="space-y-2">
             {(overdueInvoices ?? []).map((inv) => {
               const client = inv.clients as unknown as { name: string } | null
-              const items = (inv.invoice_items ?? []) as { price: number }[]
-              const total = (inv.base_price ?? 0) + items.reduce((s, i) => s + (i.price ?? 0), 0) - (inv.discount ?? 0)
+              const total = invoiceTotalInclGst(inv as InvoiceAmountFields)
               const daysOver = inv.due_date ? Math.floor((Date.now() - new Date(inv.due_date).getTime()) / 86400000) : 0
               return (
                 <Link key={inv.id} href={`/portal/invoices/${inv.id}`} className="flex items-center justify-between bg-red-50 rounded-lg px-4 py-3 hover:bg-red-100 transition-colors text-sm">

@@ -7,6 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildProfitLoss } from '@/app/portal/finance/_lib/profit-loss'
 import { loadProfitLossInputs } from '@/app/portal/finance/_lib/profit-loss-data'
 import { computeRecurringAmount } from '@/app/portal/recurring-jobs/_lib/per-visit-billing'
+import { invoiceBalanceDue, loadAllocatedByInvoice, type InvoiceAmountFields } from '@/lib/invoice-balance'
 
 export interface MonthPoint {
   /** Month key 'YYYY-MM'. */
@@ -137,17 +138,18 @@ export async function buildIncomeProjection(
   // 1. Unpaid sent invoices, by DUE month.
   const { data: sentInv } = await supabase
     .from('invoices')
-    .select('base_price, discount, due_date, invoice_items ( price )')
+    .select('id, base_price, discount, gst_included, due_date, invoice_items ( price )')
     .eq('status', 'sent')
     .is('deleted_at', null)
     .not('due_date', 'is', null)
     .gte('due_date', rangeStart).lte('due_date', rangeEnd)
-  for (const i of (sentInv ?? []) as Array<Record<string, unknown>>) {
+  // GST-inclusive balance still owed (part payments already matched are taken off).
+  const sentRows = (sentInv ?? []) as Array<InvoiceAmountFields & { id: string; due_date: string }>
+  const allocated = await loadAllocatedByInvoice(supabase, sentRows.map((i) => i.id))
+  for (const i of sentRows) {
     const key = String(i.due_date).slice(0, 7)
     if (!(key in totals)) continue
-    const items = (i.invoice_items ?? []) as Array<{ price: number | null }>
-    const itemsTotal = items.reduce((s, it) => s + (it.price ?? 0), 0)
-    totals[key] += ((i.base_price as number | null) ?? 0) + itemsTotal - ((i.discount as number | null) ?? 0)
+    totals[key] += invoiceBalanceDue(i, allocated.get(i.id) ?? 0)
   }
 
   // 2. Upcoming recurring-contract invoices. Each active recurring job raises an
