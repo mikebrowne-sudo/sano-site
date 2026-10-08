@@ -7,6 +7,8 @@ import { SharePdfButton } from '../../_components/SharePdfButton'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { InvoiceDocument } from '@/components/document/InvoiceDocument'
 import { canTakeRealPayments } from '@/lib/stripe'
+import { clientCardSetting, invoiceOffersCard } from '@/lib/card-payments'
+import { invoiceBalanceDue, loadAllocatedByInvoice } from '@/lib/invoice-balance'
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
   const supabase = getServiceSupabase()
@@ -53,12 +55,12 @@ export default async function PublicInvoicePage({
       id, invoice_number, status, date_paid, date_issued, due_date, created_at,
       property_category, type_of_clean, frequency, scope_size,
       service_address, scheduled_clean_date, notes, service_description,
-      base_price, discount, gst_included, payment_type,
+      base_price, discount, gst_included, payment_type, allow_card_payment,
       contact_name, contact_email, contact_phone,
       accounts_contact_name, accounts_email,
       bill_to_name, bill_to_attention,
       client_reference,
-      clients ( name, company_name, service_address, phone, email )
+      clients ( name, company_name, service_address, phone, email, allow_card_payment )
     `)
     .eq('share_token', params.token)
     .is('deleted_at', null)
@@ -72,18 +74,17 @@ export default async function PublicInvoicePage({
     .eq('invoice_id', invoice.id)
     .order('sort_order')
 
-  // Total computed for the PayNowButton (Stripe redirect uses this for
-  // the visible "Pay $X" label). Same GST formula as InvoiceDocument —
-  // kept in lockstep with that component's calculation.
-  const addons = (items ?? []).filter((a) => (a.price ?? 0) > 0)
-  const addonsTotal = addons.reduce((sum, i) => sum + (i.price ?? 0), 0)
-  const lineTotal = (invoice.base_price ?? 0) + addonsTotal - (invoice.discount ?? 0)
-  const gstAmount = invoice.gst_included ? (lineTotal * 3) / 23 : lineTotal * 0.15
-  const total = invoice.gst_included ? lineTotal : lineTotal + gstAmount
-  const totalDisplay = new Intl.NumberFormat('en-NZ', {
-    style: 'currency',
-    currency: 'NZD',
-  }).format(total)
+  // Amount shown on the Pay button = what is still owed (grand total incl.
+  // GST less any part payment) — the same figure create-checkout charges.
+  // On-account customers pay on terms and aren't offered a card unless staff
+  // ticked "Show Pay now" on this invoice (lib/card-payments).
+  const showPay = !isPdfRender && canTakeRealPayments() && invoiceOffersCard({ ...invoice, client_allow_card_payment: clientCardSetting(invoice.clients) })
+  let totalDisplay = ''
+  if (showPay) {
+    const allocated = (await loadAllocatedByInvoice(supabase, [invoice.id])).get(invoice.id) ?? 0
+    const due = invoiceBalanceDue({ ...invoice, invoice_items: items ?? [] }, allocated)
+    totalDisplay = new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(due)
+  }
 
   return (
     <>
@@ -100,7 +101,7 @@ export default async function PublicInvoicePage({
           // A test key renders a Pay button that declines every real card, which
           // reads to the customer as "Sano's payment system is broken". The bank
           // details on the invoice remain, so they always have a way to pay.
-          !isPdfRender && canTakeRealPayments() ? (
+          showPay ? (
             <PayNowButton
               shareToken={params.token}
               status={invoice.status}

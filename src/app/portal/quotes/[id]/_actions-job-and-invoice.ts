@@ -29,6 +29,7 @@ import { assertQuoteConvertible } from '@/lib/quote-conversion-guard'
 import { computeQuoteTotal } from '@/lib/quote-total'
 import { computeInvoiceDueDate, resolveServiceDate } from '@/lib/invoice-dates'
 import { copyQuoteItemsToJob } from '@/lib/job-items-from-quote'
+import { applyQuoteCardPayment } from '@/lib/card-payments'
 
 type ResidentialItemRow = {
   label: string | null
@@ -273,6 +274,10 @@ export async function createJobAndInvoiceFromQuote(quoteId: string) {
       console.error('[quote->job] could not copy quote add-ons to job_items:', copyRes.error)
     }
   }
+
+  // A customer who paid this quote by card upfront: mark the invoice paid.
+  const cardPaid = await applyQuoteCardPayment(supabase as never, invoice.id as string)
+  if (cardPaid.applied) await supabase.from('jobs').update({ payment_status: 'paid' }).eq('id', job.id)
 
   // 7. Mark quote as converted + audit log.
   const { data: priorQuote } = await supabase

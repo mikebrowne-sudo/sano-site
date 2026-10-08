@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { assertQuoteConvertible } from '@/lib/quote-conversion-guard'
 import { computeInvoiceDueDate, resolveServiceDate } from '@/lib/invoice-dates'
+import { applyQuoteCardPayment } from '@/lib/card-payments'
 
 export async function convertToInvoice(quoteId: string) {
   const supabase = createClient()
@@ -126,6 +127,9 @@ export async function convertToInvoice(quoteId: string) {
       return { error: `Invoice created but items failed: ${iiErr.message}` }
     }
   }
+
+  // A customer who paid this quote by card upfront: mark the invoice paid.
+  await applyQuoteCardPayment(supabase as never, invoice.id as string)
 
   // 6. Phase 6 — mark quote as converted (was 'accepted'). accepted_at
   // is preserved untouched. Audit the transition.

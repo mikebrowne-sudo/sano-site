@@ -2,17 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { getStripe } from '@/lib/stripe'
 import { computeDocumentTotals } from '@/lib/doc-totals'
+import { invoiceBalanceDue, loadAllocatedByInvoice } from '@/lib/invoice-balance'
+import { clientCardSetting, invoiceCardPayable, quoteCardPayable } from '@/lib/card-payments'
 
 // Service-role client, scoped by the unguessable share_token — the same
 // pattern as the share pages. This used the anon key, which only worked
 // because anon could read EVERY invoice (RLS `using (true)`); that policy is
 // being dropped. It also means the stripe_checkout_session_id write below now
 // actually lands (anon never had UPDATE, so it silently no-op'd).
+//
+// `kind: 'quote'` takes payment for an accepted one-off cash-sale quote; the
+// default is an invoice. Who may pay by card is decided in lib/card-payments —
+// re-checked here so hiding the button is never the only guard.
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { share_token } = body
+    const kind: 'invoice' | 'quote' = body?.kind === 'quote' ? 'quote' : 'invoice'
 
     if (!share_token) {
       return NextResponse.json({ error: 'Missing share token' }, { status: 400 })
@@ -23,74 +30,92 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getServiceSupabase()
-
-    const { data: invoice, error } = await supabase
-      .from('invoices')
-      .select('id, invoice_number, status, base_price, discount, gst_included, share_token, clients ( name, email ), invoice_items ( price )')
-      .eq('share_token', share_token)
-      .is('deleted_at', null)
-      .single()
-
-    if (error || !invoice) {
-      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
-    }
-
-    if (invoice.status === 'paid') {
-      return NextResponse.json({ error: 'Invoice already paid' }, { status: 400 })
-    }
-
-    // The charged amount MUST equal the invoice's own grand total, GST and all.
-    //
-    // This previously charged base + add-ons - discount, which silently omitted
-    // GST on a GST-EXCLUSIVE invoice: the customer would see $920 on the document
-    // and be charged $800 at the checkout. computeDocumentTotals is the same
-    // function InvoiceDocument renders from, so the two cannot drift again.
-    const items = (invoice.invoice_items ?? []) as { price: number }[]
-    const addons = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
-    const lineTotal = (invoice.base_price ?? 0) + addons - (invoice.discount ?? 0)
-    const { total } = computeDocumentTotals(lineTotal, !!invoice.gst_included)
-
-    if (!Number.isFinite(total) || total <= 0) {
-      return NextResponse.json({ error: 'Invoice total must be greater than zero' }, { status: 400 })
-    }
-
-    const client = invoice.clients as unknown as { name: string; email: string | null } | null
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
+
+    let amount: number
+    let name: string
+    let email: string | undefined
+    let metadata: Record<string, string>
+    let path: string
+    let table: 'invoices' | 'quotes'
+    let rowId: string
+
+    if (kind === 'quote') {
+      const { data: quote, error } = await supabase
+        .from('quotes')
+        .select('id, quote_number, status, payment_type, frequency, service_category, is_latest_version, base_price, discount, gst_included, card_paid_at, contact_email, clients ( email ), quote_items ( price )')
+        .eq('share_token', share_token)
+        .is('deleted_at', null)
+        .single()
+      if (error || !quote) return NextResponse.json({ error: 'Quote not found' }, { status: 404 })
+      if (quote.card_paid_at) return NextResponse.json({ error: 'This quote has already been paid' }, { status: 400 })
+      if (quote.is_latest_version === false || !quoteCardPayable(quote)) {
+        return NextResponse.json({ error: 'Card payment is not available for this quote' }, { status: 400 })
+      }
+      const items = (quote.quote_items ?? []) as { price: number | null }[]
+      const lineTotal = (quote.base_price ?? 0) + items.reduce((s, i) => s + Math.max(0, i.price ?? 0), 0) - (quote.discount ?? 0)
+      amount = computeDocumentTotals(lineTotal, !!quote.gst_included).total
+      name = `Quote ${quote.quote_number}`
+      email = quote.contact_email || (quote.clients as unknown as { email: string | null } | null)?.email || undefined
+      metadata = { kind: 'quote', quote_id: quote.id, quote_number: quote.quote_number, share_token }
+      path = `/share/quote/${share_token}`
+      table = 'quotes'
+      rowId = quote.id
+    } else {
+      const { data: invoice, error } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, status, payment_type, allow_card_payment, base_price, discount, gst_included, share_token, clients ( name, email, allow_card_payment ), invoice_items ( price )')
+        .eq('share_token', share_token)
+        .is('deleted_at', null)
+        .single()
+      if (error || !invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
+      if (invoice.status === 'paid') return NextResponse.json({ error: 'Invoice already paid' }, { status: 400 })
+      if (!invoiceCardPayable({ ...invoice, client_allow_card_payment: clientCardSetting(invoice.clients) })) {
+        return NextResponse.json({ error: 'Card payment is not available for this invoice' }, { status: 400 })
+      }
+      // Charge what is still owed — the grand total incl. GST (the same maths
+      // InvoiceDocument renders, via computeDocumentTotals) less any part
+      // payment already matched to it.
+      const allocated = (await loadAllocatedByInvoice(supabase, [invoice.id])).get(invoice.id) ?? 0
+      amount = invoiceBalanceDue(invoice as Parameters<typeof invoiceBalanceDue>[0], allocated)
+      name = `Invoice ${invoice.invoice_number}`
+      email = (invoice.clients as unknown as { email: string | null } | null)?.email || undefined
+      metadata = { kind: 'invoice', invoice_id: invoice.id, invoice_number: invoice.invoice_number, share_token }
+      path = `/share/invoice/${share_token}`
+      table = 'invoices'
+      rowId = invoice.id
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return NextResponse.json({ error: 'Amount due must be greater than zero' }, { status: 400 })
+    }
 
     const stripe = getStripe()
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       currency: 'nzd',
-      customer_email: client?.email || undefined,
+      customer_email: email,
       line_items: [
         {
           price_data: {
             currency: 'nzd',
-            unit_amount: Math.round(total * 100),
+            unit_amount: Math.round(amount * 100),
             product_data: {
-              name: `Invoice ${invoice.invoice_number}`,
-              // `total` is the grand total either way, so the charge always
-              // includes GST regardless of how the invoice stores its prices.
+              name,
               description: 'Sano cleaning services (incl. GST)',
             },
           },
           quantity: 1,
         },
       ],
-      metadata: {
-        invoice_id: invoice.id,
-        invoice_number: invoice.invoice_number,
-        share_token,
-      },
-      success_url: `${siteUrl}/share/invoice/${share_token}?payment=success`,
-      cancel_url: `${siteUrl}/share/invoice/${share_token}?payment=cancelled`,
+      metadata,
+      payment_intent_data: { metadata },
+      success_url: `${siteUrl}${path}?payment=success`,
+      cancel_url: `${siteUrl}${path}?payment=cancelled`,
     })
 
-    await supabase
-      .from('invoices')
-      .update({ stripe_checkout_session_id: session.id })
-      .eq('id', invoice.id)
+    await supabase.from(table).update({ stripe_checkout_session_id: session.id }).eq('id', rowId)
 
     return NextResponse.json({ url: session.url })
   } catch (err) {

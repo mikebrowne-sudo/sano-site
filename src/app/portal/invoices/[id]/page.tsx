@@ -22,6 +22,8 @@ import { computeInvoiceDisplayStatus } from '@/lib/quote-status'
 import { CustomInvoiceBadge } from '../_components/CustomInvoiceBadge'
 import clsx from 'clsx'
 import { stripeModeWarning } from '@/lib/stripe'
+import { clientCardSetting, invoiceOffersCard } from '@/lib/card-payments'
+import { CardPaymentToggle } from './_components/CardPaymentToggle'
 
 function fmt(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
@@ -46,7 +48,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         id, invoice_number, quote_id, client_id, status,
         property_category, type_of_clean, service_type,
         frequency, scope_size, service_address, notes, service_description,
-        base_price, discount, gst_included, payment_type, share_token,
+        base_price, discount, gst_included, payment_type, allow_card_payment, share_token,
         date_issued, due_date, date_paid,
         created_at,
         is_price_overridden, override_price, override_reason, override_confirmed,
@@ -59,7 +61,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         deleted_at,
         is_test,
         source,
-        clients ( name, company_name )
+        clients ( name, company_name, allow_card_payment )
       `)
       .eq('id', params.id)
       .single(),
@@ -265,6 +267,20 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
           <AlertTriangle size={15} className="mt-0.5 shrink-0" />
           <span>{stripeWarning}</span>
         </div>
+      )}
+
+      {!invoice.deleted_at && displayStatus !== 'paid' && displayStatus !== 'cancelled' && (
+        <CardPaymentToggle
+          invoiceId={invoice.id as string}
+          initial={invoiceOffersCard({ ...invoice, client_allow_card_payment: clientCardSetting(invoice.clients) })}
+          hint={
+            clientCardSetting(invoice.clients) === true
+              ? 'On for every invoice of this customer'
+              : invoice.payment_type === 'on_account'
+                ? 'Off by default for on-account customers'
+                : 'On by default for cash-sale'
+          }
+        />
       )}
 
       <div className="flex justify-end mb-6 gap-2">
