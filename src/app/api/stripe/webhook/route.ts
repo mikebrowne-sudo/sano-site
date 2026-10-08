@@ -3,6 +3,7 @@ import { getStripe } from '@/lib/stripe'
 import { createClient } from '@supabase/supabase-js'
 import { stampJobCompleteOnPaidInvoice } from '@/lib/job-paid-complete'
 import { applyQuoteCardPayment } from '@/lib/card-payments'
+import { nzToday } from '@/lib/nz-date'
 import Stripe from 'stripe'
 
 function getServerSupabase() {
@@ -80,7 +81,8 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getServerSupabase()
-    const today = new Date().toISOString().slice(0, 10)
+    // NZ calendar date — the UTC date is still yesterday every NZ morning.
+    const today = nzToday()
 
     // Only flip an invoice that is NOT already paid.
     //
