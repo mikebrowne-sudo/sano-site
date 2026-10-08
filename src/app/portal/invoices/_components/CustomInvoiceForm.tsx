@@ -12,14 +12,16 @@ interface ClientOption {
   company_name: string | null
 }
 
+// Today in NZ — toISOString() is UTC, which is still "yesterday" every NZ
+// morning, so issued dates came out a day early.
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10)
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Pacific/Auckland' }).format(new Date())
 }
 
+// Pure date maths in UTC, so the result can't shift a day with the timezone.
 function plus14ISO(from: string): string {
-  const d = new Date(from + 'T00:00:00')
-  d.setDate(d.getDate() + 14)
-  return d.toISOString().slice(0, 10)
+  const [y, m, d] = from.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + 14)).toISOString().slice(0, 10)
 }
 
 export function CustomInvoiceForm({ clients }: { clients: ClientOption[] }) {
@@ -158,7 +160,13 @@ export function CustomInvoiceForm({ clients }: { clients: ClientOption[] }) {
         <ToggleGroup
           ariaLabel="Payment type"
           value={paymentType}
-          onChange={(v) => setPaymentType(v as 'cash_sale' | 'on_account')}
+          onChange={(v) => {
+            const pt = v as 'cash_sale' | 'on_account'
+            setPaymentType(pt)
+            // Same default as every other invoice: cash sale is due on issue,
+            // on-account on 14-day terms. Still editable below/above.
+            setDueDate(pt === 'cash_sale' ? dateIssued : plus14ISO(dateIssued))
+          }}
           options={[
             { value: 'on_account', label: 'On account' },
             { value: 'cash_sale', label: 'Cash sale' },
