@@ -16,6 +16,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { invoiceTotalInclGst } from './invoice-balance'
+import { nzToday } from './nz-date'
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
@@ -105,7 +106,8 @@ export async function applyQuoteCardPayment(
       .from('invoices')
       .update({
         status: 'paid',
-        date_paid: String(q.card_paid_at).slice(0, 10),
+        // card_paid_at is a timestamp; the paid DATE is the NZ calendar day.
+        date_paid: nzToday(new Date(String(q.card_paid_at))),
         stripe_payment_intent_id: q.stripe_payment_intent_id ?? null,
       })
       .eq('id', invoiceId)

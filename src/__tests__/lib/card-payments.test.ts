@@ -71,13 +71,14 @@ function stub(tables: Record<string, unknown>) {
 describe('applyQuoteCardPayment', () => {
   const invoice = { id: 'i1', quote_id: 'q1', status: 'draft', base_price: 200, discount: 0, gst_included: false, invoice_items: [] }
 
-  it('marks the invoice paid when the card payment covers the total', async () => {
+  it('marks the invoice paid (NZ date) when the card payment covers the total', async () => {
     const { client, updates } = stub({
       invoices: invoice,
-      quotes: { card_paid_at: '2026-10-08T02:00:00Z', card_amount_paid: 230, stripe_payment_intent_id: 'pi_1' },
+      // 22:00 UTC on the 8th is 11am on the 9th in NZ.
+      quotes: { card_paid_at: '2026-10-08T22:00:00Z', card_amount_paid: 230, stripe_payment_intent_id: 'pi_1' },
     })
     expect(await applyQuoteCardPayment(client, 'i1')).toEqual({ applied: true })
-    expect(updates[0].values).toEqual({ status: 'paid', date_paid: '2026-10-08', stripe_payment_intent_id: 'pi_1' })
+    expect(updates[0].values).toEqual({ status: 'paid', date_paid: '2026-10-09', stripe_payment_intent_id: 'pi_1' })
   })
 
   it('leaves the invoice unpaid when extras were added after the card payment', async () => {
