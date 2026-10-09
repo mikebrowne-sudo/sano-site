@@ -32,7 +32,7 @@ export async function runAutoReconcile(supabase: SupabaseClient, userId: string 
     supabase.from('bank_transactions').select('id, txn_date, amount, payee, memo, cleared').eq('direction', 'in'),
     supabase
       .from('invoices')
-      .select('id, invoice_number, status, base_price, discount, gst_included, date_issued, date_paid, client_id, clients ( name, company_name, branch_name ), invoice_items ( price )')
+      .select('id, invoice_number, status, base_price, discount, gst_included, date_issued, date_paid, client_id, clients ( name, company_name, branch_name ), quotes ( quote_number ), invoice_items ( price )')
       .is('deleted_at', null)
       .not('is_test', 'is', true)
       .neq('status', 'cancelled'),
@@ -80,6 +80,7 @@ export async function runAutoReconcile(supabase: SupabaseClient, userId: string 
       datePaid: (i.date_paid as string | null) ?? null,
       clientId: (i.client_id as string | null) ?? null,
       clientLabel: `${c?.company_name || c?.name || ''} ${c?.branch_name ?? ''}`.trim(),
+      quoteNumber: one<{ quote_number: string | null }>(i.quotes)?.quote_number ?? null,
     }
   })
 

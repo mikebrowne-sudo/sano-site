@@ -19,9 +19,11 @@
 // Matching is heuristic (we don't store ASB's Unique Id on our records), so the
 // UI always shows the bank line next to its suggested match for a human check.
 
-import type { BankTxn } from './asb-import'
+import { extractQuoteRefs, type BankTxn } from './asb-import'
 
 export interface ReconInvoice {
+  /** The quote this invoice was made from — lets a QUO bank reference find it. */
+  quoteNumber?: string | null
   id: string
   invoiceNumber: string
   status: string
@@ -136,6 +138,15 @@ export function reconcile(args: {
 
   const byNumber = new Map<string, ReconInvoice>()
   for (const inv of invoices) byNumber.set(inv.invoiceNumber.toUpperCase(), inv)
+  // An invoice is also findable by the quote it was made from ("QUO-0491"),
+  // keyed QUO-#### — never by sharing digits with an invoice number.
+  for (const inv of invoices) {
+    const m = inv.quoteNumber ? /(\d+)(?:-v\d+)?\s*$/i.exec(inv.quoteNumber) : null
+    if (m) {
+      const key = `QUO-${m[1].padStart(4, '0')}`
+      if (!byNumber.has(key)) byNumber.set(key, inv)
+    }
+  }
 
   const credits: CreditRow[] = []
   const debits: DebitRow[] = []
@@ -202,7 +213,7 @@ function matchCredit(txn: BankTxn, byNumber: Map<string, ReconInvoice>, invoices
   // 1. Invoice-number reference in the memo/payee. High-confidence INV-#### refs
   //    first, then bare numbers (e.g. "…26022") — both resolve against real
   //    invoice numbers, so a stray number simply won't match.
-  const refCandidates = [...txn.invoiceRefs, ...(txn.numberRefs ?? [])]
+  const refCandidates = [...txn.invoiceRefs, ...extractQuoteRefs(text), ...(txn.numberRefs ?? [])]
   for (const ref of refCandidates) {
     const inv = byNumber.get(ref.toUpperCase())
     if (inv) {

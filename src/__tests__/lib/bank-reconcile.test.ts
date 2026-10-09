@@ -122,3 +122,19 @@ describe('reconcile — INV-26022 scenario (bare number, payer ≠ client, ambig
     expect(c.status).toBe('allocate_match')
   })
 })
+
+describe('reconcile — quote references', () => {
+  const csv = `Date,Unique Id,Tran Type,Cheque Number,Payee,Memo,Amount
+5/10/2026,2026100501,D/C,,D/C FROM L M M ABRAHAM,QUO-0491,480`
+  const { transactions: txns } = parseAsbCsv(csv)
+
+  it('never reads QUO-0491 as INV-0491 (another customer\'s invoice)', () => {
+    const r = reconcile({ transactions: txns, invoices: [{ id: 'x', invoiceNumber: 'INV-0491', status: 'sent', total: 300, datePaid: null, client: 'Someone Else' }], expenses: [] })
+    expect(r.credits[0].invoice?.invoiceNumber).not.toBe('INV-0491')
+  })
+
+  it('finds the invoice made from the quoted QUO', () => {
+    const r = reconcile({ transactions: txns, invoices: [{ id: 'y', invoiceNumber: 'INV-0510', status: 'sent', total: 480, datePaid: null, quoteNumber: 'QUO-0491' }], expenses: [] })
+    expect(r.credits[0]).toMatchObject({ status: 'unpaid_match', invoice: { invoiceNumber: 'INV-0510' } })
+  })
+})
