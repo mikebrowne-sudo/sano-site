@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase-server'
+import { quoteChainIds } from '@/lib/quote-conversion-guard'
 import { notFound } from 'next/navigation'
 import { EditQuoteForm } from './_components/EditQuoteForm'
 import { QuoteCustomerDetails } from './_components/QuoteCustomerDetails'
@@ -169,11 +170,13 @@ export default async function QuoteDetailPage({
   // quote so the detail page can surface "Open job / Open invoice"
   // alongside the next-step CTAs. Both are nullable; both queries
   // are short and only run for one quote.
+  // Any version of the quote counts: a job made from v2 still belongs to v3.
+  const chainIds = await quoteChainIds(supabase, params.id)
   const [{ data: linkedJob }, { data: linkedInvoice }] = await Promise.all([
     supabase
       .from('jobs')
       .select('id, job_number, status, scheduled_date')
-      .eq('quote_id', params.id)
+      .in('quote_id', chainIds)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -181,7 +184,7 @@ export default async function QuoteDetailPage({
     supabase
       .from('invoices')
       .select('id, invoice_number, status, due_date')
-      .eq('quote_id', params.id)
+      .in('quote_id', chainIds)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(1)
