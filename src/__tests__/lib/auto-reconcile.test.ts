@@ -135,6 +135,40 @@ describe('auto-reconcile — known payers and recurring clients', () => {
 })
 
 describe('auto-reconcile — safety rules', () => {
+  it('resolves a QUO reference through the quote, never by digits', () => {
+    // INV-0491 belongs to someone else; the Abraham invoice made from QUO-0491 is INV-0510.
+    const other = inv({ number: 'INV-0491', total: 480, clientId: 'other', clientLabel: 'Someone Else' })
+    const r1 = run([credit({ amount: 480, payee: 'D/C FROM L M M ABRAHAM', memo: 'QUO-0491' })], [other])
+    expect(r1.proposals).toHaveLength(0)
+
+    const abraham = inv({ number: 'INV-0510', total: 480, clientId: 'abr', clientLabel: 'Chris & Luana Abraham', quoteNumber: 'QUO-0491' })
+    const r2 = run([credit({ amount: 480, payee: 'D/C FROM L M M ABRAHAM', memo: 'QUO-0491' })], [other, abraham])
+    expect(r2.proposals).toHaveLength(1)
+    expect(r2.proposals[0]).toMatchObject({ method: 'invoice_ref', allocations: [{ invoiceId: 'INV-0510', amount: 480 }] })
+  })
+
+  it('never lets a same-amount invoice overrule the one named in the reference', () => {
+    // Payer pays $200 quoting INV-0300 (owes $400 — a part payment). They also
+    // have INV-0301 for exactly $200. The reference wins: no auto match.
+    const invoices = [
+      inv({ number: 'INV-0300', total: 400, clientId: 'story', clientLabel: 'Story' }),
+      inv({ number: 'INV-0301', total: 200, clientId: 'story', clientLabel: 'Story' }),
+    ]
+    const r = run([credit({ amount: 200, payee: 'D/C FROM Story C N', memo: 'INV-0300' })], invoices, [{ payerKey: 'STORY C N', clientId: 'story' }])
+    expect(r.proposals).toHaveLength(0)
+    expect(r.review[0].why).toMatch(/Reference INV-0300 found but the amount differs/)
+  })
+
+  it('still takes a bundle that includes the referenced invoice', () => {
+    const invoices = [
+      inv({ number: 'INV-0030', total: 310, clientId: 'story', clientLabel: 'Story' }),
+      inv({ number: 'INV-0031', total: 310, clientId: 'story', clientLabel: 'Story' }),
+    ]
+    const r = run([credit({ amount: 620, payee: 'D/C FROM Story C N', memo: 'Inv-0031' })], invoices, [{ payerKey: 'STORY C N', clientId: 'story' }])
+    expect(r.proposals).toHaveLength(1)
+    expect(r.proposals[0].allocations.map((x) => x.invoiceId).sort()).toEqual(['INV-0030', 'INV-0031'])
+  })
+
   it('ignores an old paid-but-unallocated invoice unless it was marked paid near the payment', () => {
     const invoices = [inv({ number: 'INV-OLD', status: 'paid', total: 200, datePaid: '2026-05-18', clientId: 'hend', clientLabel: 'Barfoot & Thompson Henderson' })]
     const r = run([credit({ amount: 200, payee: 'D/C FROM B&T Henderson', date: '2026-08-14' })], invoices)
@@ -234,5 +268,13 @@ describe('suggestCreditMatches — the reconcile screen', () => {
     expect(sameDocNumber('QUO-0491', 'JOB-0491')).toBe(true)
     expect(sameDocNumber('INV-0491', 'JOB-491')).toBe(true)
     expect(sameDocNumber('QUO-0414', 'JOB-0491')).toBe(false)
+  })
+})
+
+describe('suggestCreditMatches — quote references', () => {
+  it('suggests a part payment on the invoice made from the quoted QUO', () => {
+    const abraham = inv({ number: 'INV-0510', total: 480, clientId: 'abr', clientLabel: 'Chris & Luana Abraham', quoteNumber: 'QUO-0491' })
+    const s = suggestCreditMatches({ credit: credit({ amount: 240, payee: 'D/C FROM L M M ABRAHAM', memo: 'QUO-0491' }), invoices: [abraham], history: [] })
+    expect(s.suggestions[0]).toMatchObject({ kind: 'part_payment', allocations: [{ invoiceId: 'INV-0510', amount: 240 }] })
   })
 })
