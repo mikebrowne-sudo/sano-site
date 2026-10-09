@@ -39,13 +39,39 @@ export async function GoogleRatingLine() {
 }
 
 /** Full-width reviews band with the slideshow. */
-export async function GoogleReviewsStrip({ heading = 'What our customers say' }: { heading?: string; className?: string }) {
+export async function GoogleReviewsStrip({
+  heading = 'What our customers say',
+  variant = 'band',
+}: {
+  heading?: string
+  /** 'band' = tall dark section (commercial page); 'compact' = short light strip (homepage). */
+  variant?: 'band' | 'compact'
+}) {
   const data = await getPlaceReviews()
   if (!data.configured || data.error || data.rating == null) return null
   const reviews = data.reviews
     .filter((r) => r.rating >= 4 && r.text.length > 0)
     .map((r) => ({ author: r.author, rating: r.rating, text: r.text, relativeTime: r.relativeTime }))
   if (reviews.length === 0) return null
+
+  if (variant === 'compact') {
+    return (
+      <section className="section-padding bg-white py-12 lg:py-14">
+        <div className="container-max">
+          <div className="mb-6 flex flex-col items-center gap-2 text-center">
+            <h2 className="font-display font-bold text-sage-800" style={{ fontSize: 'clamp(1.375rem, 2.2vw, 1.75rem)', lineHeight: 1.2 }}>
+              {heading}
+            </h2>
+            <p className="inline-flex items-center gap-2 text-sm text-sage-700">
+              <Stars rating={data.rating} />
+              <span>Rated <span className="font-semibold text-sage-800">{data.rating.toFixed(1)}</span> on Google</span>
+            </p>
+          </div>
+          <ReviewsCarousel reviews={reviews} tone="light" />
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="relative overflow-hidden bg-sage-800 section-padding py-16 lg:py-24">
