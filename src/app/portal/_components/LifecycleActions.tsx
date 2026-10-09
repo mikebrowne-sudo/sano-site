@@ -49,7 +49,16 @@ export function LifecycleActions({ entity, id, isArchived, isTest }: Props) {
         <>
           <button
             type="button"
-            onClick={() => call(() => markAsTest(entity, id), 'test')}
+            onClick={() => {
+              // Marking as test also ARCHIVES the record: it disappears from
+              // every list (and, for a job, from the contractor's app). Easy to
+              // misclick on a real job — JOB-0414 vanished this way.
+              if (confirm(`Mark this ${entity} as a TEST record?
+
+It will be archived and disappear from all lists${entity === 'job' ? ', invoicing and the contractor’s app' : ''}. Only do this for practice / dummy records.`)) {
+                call(() => markAsTest(entity, id), 'test')
+              }
+            }}
             disabled={pending}
             className="inline-flex items-center gap-1.5 text-xs font-semibold bg-amber-50 border border-amber-200 text-amber-800 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors disabled:opacity-50"
           >
@@ -57,7 +66,11 @@ export function LifecycleActions({ entity, id, isArchived, isTest }: Props) {
           </button>
           <button
             type="button"
-            onClick={() => call(() => archiveRecords(entity, id), 'archived')}
+            onClick={() => {
+              if (confirm(`Archive this ${entity}? It will be hidden from the active lists${entity === 'job' ? ' and the contractor’s app' : ''}. You can restore it later.`)) {
+                call(() => archiveRecords(entity, id), 'archived')
+              }
+            }}
             disabled={pending}
             className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white border border-sage-200 text-sage-700 px-3 py-1.5 rounded-lg hover:bg-sage-50 transition-colors disabled:opacity-50"
           >

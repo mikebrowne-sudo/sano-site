@@ -59,6 +59,7 @@ export async function loadContractorJobDetail(
         status, contractor_notes, started_at, completed_at
       `)
       .eq('id', jobId)
+      .is('deleted_at', null) // archived jobs aren't workable
       .maybeSingle(),
     supabase
       .from('job_workers')
