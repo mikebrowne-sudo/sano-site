@@ -39,7 +39,7 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
   const { data: invoice } = await supabase
     .from('invoices')
     .select(
-      'share_token, invoice_number, date_issued, due_date, payment_type, scheduled_clean_date, client_id',
+      'share_token, invoice_number, status, date_issued, due_date, payment_type, scheduled_clean_date, client_id',
     )
     .eq('id', input.invoice_id)
     .single()
@@ -151,12 +151,16 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
     return { error: `Failed to send email: ${emailErr.message}` }
   }
 
-  // Email sent → flip status. Dates are already stamped above, so
-  // they're not re-set here.
+  // Email sent → flip a DRAFT to sent. Dates are already stamped above, so
+  // they're not re-set here. A PAID invoice stays paid — sending it is how
+  // a customer gets their paid invoice / receipt (it used to flip back to
+  // "sent", making a paid invoice look unpaid).
+  const wasPaid = invoice.status === 'paid'
   const { error: updateErr } = await supabase
     .from('invoices')
     .update({ status: 'sent' })
     .eq('id', input.invoice_id)
+    .neq('status', 'paid')
 
   if (updateErr) {
     return { error: `Email sent but failed to update invoice status: ${updateErr.message}` }
@@ -167,6 +171,8 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
   // success contract above; sendNotification logs every outcome
   // (sent / failed / skipped) to notification_logs internally.
   try {
+    // No "your invoice is due" text for an invoice that's already paid.
+    if (wasPaid) throw new Error('skip sms: paid')
     const { data: full } = await supabase
       .from('invoices')
       .select(`

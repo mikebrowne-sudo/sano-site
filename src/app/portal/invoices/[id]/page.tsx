@@ -28,7 +28,7 @@ import { SendReminderPanel, type ReminderHistoryRow } from './_components/SendRe
 import { canTakeRealPayments } from '@/lib/stripe'
 import { nzToday } from '@/lib/nz-date'
 import { daysOverdue } from '@/lib/invoice-reminders'
-import { invoiceBalanceDue, loadAllocatedByInvoice, type InvoiceAmountFields } from '@/lib/invoice-balance'
+import { invoiceBalanceDue, invoicePaymentSummary, invoiceTotalInclGst, loadAllocatedByInvoice, type InvoiceAmountFields } from '@/lib/invoice-balance'
 
 function fmt(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
@@ -179,6 +179,12 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
     amountOwed = invoiceBalanceDue({ ...(invoice as InvoiceAmountFields), invoice_items: items ?? [] }, allocated.get(invoice.id as string) ?? 0)
   }
 
+  // Payments received — drives the Send email wording (paid / part-paid).
+  const allocatedHere = (await loadAllocatedByInvoice(supabase, [invoice.id as string])).get(invoice.id as string) ?? 0
+  const amountFields = { ...(invoice as InvoiceAmountFields), invoice_items: items ?? [] }
+  const paySummary = invoicePaymentSummary({ ...amountFields, status: invoice.status as string, date_paid: (invoice.date_paid as string | null) ?? null }, allocatedHere)
+  const balanceHere = Math.max(0, Math.round((invoiceTotalInclGst(amountFields) - paySummary.paid) * 100) / 100)
+
   // Overdue logic (UI only)
   const displayStatus = computeInvoiceDisplayStatus(invoice.status, invoice.due_date)
   const isOverdue = displayStatus === 'overdue'
@@ -275,6 +281,9 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             clientReference={invoice.client_reference ?? ''}
             requiresPo={invoice.requires_po ?? false}
             cardAvailable={canTakeRealPayments() && invoiceOffersCard({ ...invoice, client_allow_card_payment: clientCardSetting(invoice.clients) })}
+            paidAmount={paySummary.paid}
+            balanceDue={balanceHere}
+            datePaid={paySummary.datePaid}
           />
         </div>
       </div>

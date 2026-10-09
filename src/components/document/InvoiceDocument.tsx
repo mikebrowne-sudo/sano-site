@@ -91,6 +91,13 @@ export interface InvoiceDocumentProps {
   interactiveSlot?: ReactNode
   /** Optional share-actions slot (PDF download button on share pages). */
   shareActionsSlot?: ReactNode
+  /**
+   * Money already received (lib/invoice-balance paymentSummary): the document
+   * then shows Total, "Paid …" and a Balance due, and — when nothing is left
+   * to pay — a "Paid" stamp, so a paid invoice can be sent as the customer's
+   * record. Omit for an unpaid invoice.
+   */
+  payment?: { paid: number; datePaid: string | null } | null
 }
 
 function fmt(dollars: number) {
@@ -116,6 +123,7 @@ export function InvoiceDocument({
   items,
   interactiveSlot,
   shareActionsSlot,
+  payment,
 }: InvoiceDocumentProps) {
   // GST + totals logic preserved verbatim from the previous print/share
   // pages. Same shape as QuoteDocument; see that file for the
@@ -266,12 +274,28 @@ export function InvoiceDocument({
     lineItems.push({ description: 'Discount', amount: `-${fmt(invoice.discount ?? 0)}` })
   }
 
-  const paymentDetails: PaymentDetailRow[] = sanoPaymentDetails(invoice.invoice_number)
+  // Payments received → Total / Paid / Balance due, and "Paid" when settled.
+  const paid = Math.min(Math.max(0, payment?.paid ?? 0), Math.round(total * 100) / 100)
+  const balance = Math.max(0, Math.round((total - paid) * 100) / 100)
+  const fullyPaid = paid > 0 && balance < 0.005
+  const paidDate = payment?.datePaid ?? null
+
+  const paymentDetails: PaymentDetailRow[] = fullyPaid
+    ? [
+        { label: 'Status', value: 'Paid in full' },
+        ...(paidDate ? [{ label: 'Paid on', value: fmtDate(paidDate) }] : []),
+        { label: 'Reference', value: invoice.invoice_number },
+      ]
+    : sanoPaymentDetails(invoice.invoice_number)
   // A prepaid invoice is issued BEFORE the work, so "due in 14 days" would be
   // actively wrong. Say so where the customer is reading how to pay.
-  const paymentCallout = isCashSale
-    ? 'Payment is required before the clean. Please pay using the details below to confirm your booking.'
-    : undefined
+  const paymentCallout = fullyPaid
+    ? 'Thank you — this invoice has been paid in full. No further payment is needed.'
+    : paid > 0
+      ? `Thank you for your payment of ${fmt(paid)}. The balance of ${fmt(balance)} can be paid using the details below.`
+      : isCashSale
+        ? 'Payment is required before the clean. Please pay using the details below to confirm your booking.'
+        : undefined
   if (trimmedReference) {
     paymentDetails.push({ label: 'Your reference / PO', value: trimmedReference })
   }
@@ -284,12 +308,14 @@ export function InvoiceDocument({
     : 'Amounts are in New Zealand Dollars and exclude GST; GST is added to the total.'
   // State the real due date. The old fixed "within 14 days" contradicted the
   // header for clients on other terms (e.g. 20th of the following month).
-  const paymentSentence = isCashSale
+  const paymentSentence = fullyPaid
+    ? 'This invoice has been paid in full — thank you.'
+    : isCashSale
     ? 'Payment is required prior to the clean.'
     : dueDateForDisplay
       ? `Payment is due by ${fmtDate(dueDateForDisplay)}.`
       : 'Payment is due within 14 days of the invoice date.'
-  const termsBody = `${paymentSentence} ${gstSentence} Sano Property Services Limited is GST registered (GST No. 148-387-648) under the Goods and Services Tax Act 1985. Please use your invoice number as the payment reference.`
+  const termsBody = `${paymentSentence} ${gstSentence} Sano Property Services Limited is GST registered (GST No. 148-387-648) under the Goods and Services Tax Act 1985.${fullyPaid ? '' : ' Please use your invoice number as the payment reference.'}`
 
   return (
     <DocumentLayout
@@ -314,8 +340,14 @@ export function InvoiceDocument({
       totals={{
         subtotalExGstDisplay: fmt(subtotalExGst),
         gstDisplay: fmt(gstAmount),
-        totalDisplay: fmt(total),
+        totalDisplay: fmt(paid > 0 ? balance : total),
       }}
+      extraTotalRows={paid > 0 ? [
+        { label: 'Total (incl. GST)', value: fmt(total) },
+        { label: fullyPaid && paidDate ? `Paid ${fmtDate(paidDate)}` : 'Paid to date', value: `−${fmt(paid)}` },
+      ] : undefined}
+      grandTotalLabelOverride={paid > 0 ? 'Balance due' : undefined}
+      stamp={fullyPaid ? 'Paid' : null}
       termsBody={termsBody}
       footer={{
         email: 'hello@sano.nz',

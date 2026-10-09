@@ -45,3 +45,17 @@ export async function loadAllocatedByInvoice(supabase: SupabaseClient, invoiceId
   }
   return map
 }
+
+/**
+ * What the customer has paid, for showing on the invoice itself. A PAID
+ * invoice counts as paid in full (card, manual "Mark as paid", or matched
+ * bank payments); otherwise it's the matched bank payments so far.
+ */
+export function invoicePaymentSummary(
+  i: InvoiceAmountFields & { status?: string | null; date_paid?: string | null },
+  allocated: number,
+): { paid: number; datePaid: string | null } {
+  const total = invoiceTotalInclGst(i)
+  if (i.status === 'paid') return { paid: total, datePaid: i.date_paid ?? null }
+  return { paid: Math.min(round2(allocated), total), datePaid: null }
+}
