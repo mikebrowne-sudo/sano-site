@@ -105,6 +105,9 @@ export async function POST(req: NextRequest) {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       currency: 'nzd',
+      // Cards only (incl. Apple / Google Pay). Delayed bank-debit methods
+      // would complete later through an event this webhook doesn't record.
+      payment_method_types: ['card'],
       customer_email: email,
       line_items: [
         {
@@ -143,7 +146,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: session.url })
   } catch (err) {
     console.error('[create-checkout] Error:', err)
-    const message = err instanceof Error ? err.message : 'Unknown error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    // Never show customers raw Stripe / database errors.
+    return NextResponse.json({ error: 'We couldn’t start the card payment. Please try again, or pay by bank transfer.' }, { status: 500 })
   }
 }

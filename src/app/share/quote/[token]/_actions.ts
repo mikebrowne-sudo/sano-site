@@ -59,6 +59,7 @@ export async function acceptQuote(shareToken: string) {
     .from('quotes')
     .update({ status: 'accepted', accepted_at: quote.accepted_at || now })
     .eq('id', quote.id)
+    .in('status', ['sent', 'viewed'])
 
   if (updateErr) {
     // Never show a customer raw database text.
@@ -151,6 +152,15 @@ export async function requestQuoteChanges(shareToken: string, message: string, r
     .is('deleted_at', null)
     .maybeSingle()
   if (!quote) return { error: 'Quote not found.' }
+
+  // At most 5 messages per quote per hour — stops a leaked link flooding the inbox.
+  const { count: recent } = await supabase
+    .from('audit_log')
+    .select('id', { count: 'exact', head: true })
+    .eq('entity_id', quote.id)
+    .eq('action', 'quote.change_requested')
+    .gte('created_at', new Date(Date.now() - 60 * 60_000).toISOString())
+  if ((recent ?? 0) >= 5) return { error: 'Thanks, we’ve got your messages. We’ll be in touch shortly, or call us on 0800 726 686.' }
 
   const client = quote.clients as unknown as { name: string | null; email: string | null } | null
   const replyTo = email || (quote.contact_email as string | null) || client?.email || undefined
