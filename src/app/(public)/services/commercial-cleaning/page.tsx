@@ -22,11 +22,23 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
+import { GoogleReviewsStrip } from '@/components/GoogleReviewsStrip'
+
+export const revalidate = 21600
 
 export const metadata: Metadata = {
   title: 'Commercial & Office Cleaning Auckland | Sano',
   description:
     'Reliable commercial cleaning for Auckland offices, education centres and hospitality venues. Free site walkthrough, tailored proposal, fully insured team.',
+  openGraph: {
+    title: 'Commercial cleaning in Auckland | Sano',
+    description: 'Offices, education and hospitality. Free site walkthrough, tailored proposal, fully insured team.',
+    images: [{ url: '/og/sano-commercial-og.jpg', width: 1200, height: 630, alt: 'Sano commercial cleaning: offices, education and hospitality' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    images: ['/og/sano-commercial-og.jpg'],
+  },
 }
 
 const WALKTHROUGH_HREF = '/contact?service=commercial'
@@ -357,6 +369,7 @@ export default function CommercialCleaningPage() {
           </div>
         </div>
       </section>
+      <GoogleReviewsStrip heading="What our clients say" className="bg-[#faf9f6]" />
 
       {/* 4. Bottom CTA banner — image-backed dark band with two CTAs.
           Mirrors the reference's "Ready for a Sparkling Clean Workplace?"

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { AcceptQuote } from './_components/AcceptQuote'
+import { QuoteQuestions } from './_components/QuoteQuestions'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { AutoPrint } from '../../_components/AutoPrint'
 import { SharePdfButton } from '../../_components/SharePdfButton'
@@ -166,6 +167,7 @@ export default async function PublicQuotePage({
               <div className="mt-6">
                 <AcceptQuote shareToken={params.token} status={quote.status} acceptedAt={quote.accepted_at} />
               </div>
+              <QuoteQuestions shareToken={params.token} defaultEmail={(quote.contact_email as string | null) ?? null} />
             </div>
           )}
         </>
@@ -222,6 +224,7 @@ export default async function PublicQuotePage({
             <>
               <AcceptQuote shareToken={params.token} status={quote.status} acceptedAt={quote.accepted_at} />
               {payPanel && <div className="mt-6">{payPanel}</div>}
+              <QuoteQuestions shareToken={params.token} defaultEmail={(quote.contact_email as string | null) ?? null} />
             </>
           ) : undefined
         }
