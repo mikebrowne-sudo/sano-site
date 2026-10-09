@@ -13,6 +13,7 @@ import { PayNowButton } from '../../invoice/[token]/_components/PayNowButton'
 import { canTakeRealPayments } from '@/lib/stripe'
 import { quoteCardPayable } from '@/lib/card-payments'
 import { computeDocumentTotals } from '@/lib/doc-totals'
+import { sanoPaymentDetails } from '@/lib/sano-bank-details'
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
   const supabase = getServiceSupabase()
@@ -194,6 +195,7 @@ export default async function PublicQuotePage({
             datePaid={card?.card_paid_at ?? null}
             paymentResult={searchParams?.payment ?? null}
             total={new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(total)}
+            bankDetails={sanoPaymentDetails(quote.quote_number as string)}
           />
         )
       }

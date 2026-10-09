@@ -644,6 +644,62 @@ export const QUOTE_INVOICE_CSS = `
     font-size: 13px;
   }
 
+  /* Bank-transfer alternative under the card button — quiet, same card. */
+  .pay-alt { margin-top: 28px; }
+  .pay-alt-divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 0 0 20px;
+    color: var(--sage-600);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .pay-alt-divider::before,
+  .pay-alt-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--sage-100);
+  }
+  .pay-alt-title {
+    margin: 0 0 4px;
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--sage-800);
+  }
+  .pay-alt-sub {
+    margin: 0 0 16px;
+    color: var(--sage-600);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .pay-alt-grid {
+    margin: 0;
+    padding: 14px 18px;
+    background: var(--cream);
+    border-radius: 12px;
+    text-align: left;
+  }
+  .pay-alt-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 6px 0;
+    font-size: 14px;
+  }
+  .pay-alt-row + .pay-alt-row { border-top: 1px solid var(--sage-100); }
+  .pay-alt-row dt { color: var(--sage-600); }
+  .pay-alt-row dd {
+    margin: 0;
+    color: var(--sage-800);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
   .pay-cancelled {
     margin: 0 0 18px;
     padding: 10px 14px;
