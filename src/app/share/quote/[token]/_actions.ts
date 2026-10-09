@@ -130,3 +130,57 @@ export async function acceptQuote(shareToken: string) {
   revalidatePath('/portal/quotes')
   return { success: true }
 }
+
+/**
+ * Customer asks a question / requests changes from the quote page. Emails the
+ * team (reply-to the customer) and logs it against the quote. Rate-limited by
+ * length only — the share token is the credential, as for accepting.
+ */
+export async function requestQuoteChanges(shareToken: string, message: string, replyEmail: string) {
+  const text = (message ?? '').trim()
+  if (text.length < 3) return { error: 'Please add a short message.' }
+  if (text.length > 2000) return { error: 'Please keep your message under 2,000 characters.' }
+  const email = (replyEmail ?? '').trim()
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'Please check your email address.' }
+
+  const supabase = getServiceSupabase()
+  const { data: quote } = await supabase
+    .from('quotes')
+    .select('id, quote_number, contact_email, clients ( name, email )')
+    .eq('share_token', shareToken)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!quote) return { error: 'Quote not found.' }
+
+  const client = quote.clients as unknown as { name: string | null; email: string | null } | null
+  const replyTo = email || (quote.contact_email as string | null) || client?.email || undefined
+  const notifyEmail = process.env.SANO_NOTIFY_EMAIL
+  if (notifyEmail) {
+    try {
+      const resend = new Resend(process.env.RESEND_API_KEY)
+      await resend.emails.send({
+        from: 'Sano <noreply@sano.nz>',
+        to: notifyEmail,
+        ...(replyTo ? { replyTo } : {}),
+        subject: `Question / change request on ${quote.quote_number}${client?.name ? ` — ${client.name}` : ''}`,
+        html: `<p><strong>${esc(client?.name ?? 'The customer')}</strong> sent a message from quote ${esc(quote.quote_number as string)}:</p>
+<blockquote style="border-left:3px solid #076653;margin:12px 0;padding:4px 12px;color:#344C3D">${esc(text).replace(/\n/g, '<br>')}</blockquote>
+<p>${replyTo ? `Reply to this email to answer them (${esc(replyTo)}).` : 'No email on file — please call them.'}</p>`,
+      })
+    } catch (e) {
+      console.error('[quote-change-request] email failed:', e)
+      return { error: 'Sorry, that didn’t send. Please call us on 0800 726 686.' }
+    }
+  }
+
+  await supabase.from('audit_log').insert({
+    actor_id: null,
+    actor_role: 'public_share',
+    action: 'quote.change_requested',
+    entity_table: 'quotes',
+    entity_id: quote.id,
+    before: null,
+    after: { message: text.slice(0, 500), reply_to: replyTo ?? null },
+  })
+  return { success: true }
+}

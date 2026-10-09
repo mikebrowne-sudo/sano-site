@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { QuoteRequestStepper } from '@/components/quote-stepper/QuoteRequestStepper'
 import { TrustBar } from '@/components/TrustBar'
+import { GoogleRatingLine } from '@/components/GoogleReviewsStrip'
 
 export const metadata: Metadata = {
   title: 'Get a Free Quote | Sano Cleaning Auckland',
@@ -43,6 +44,7 @@ export default function ContactPage({ searchParams }: { searchParams?: { service
                   </svg>
                   hello@sano.nz
                 </a>
+                <GoogleRatingLine />
               </div>
               <ul className="space-y-5">
                 {[

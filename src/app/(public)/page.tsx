@@ -4,6 +4,10 @@ import { ServiceCard } from '@/components/ServiceCard'
 import { ProcessSteps } from '@/components/ProcessSteps'
 import { SignatureSystem } from '@/components/SignatureSystem'
 import { CtaBanner } from '@/components/CtaBanner'
+import { GoogleReviewsStrip } from '@/components/GoogleReviewsStrip'
+
+// Re-render at most every 6 hours so the live Google rating stays current.
+export const revalidate = 21600
 import { FadeIn, Stagger, StaggerItem } from '@/components/FadeIn'
 import { SERVICES } from '@/lib/services'
 import Image from 'next/image'
@@ -154,6 +158,8 @@ export default function HomePage() {
       />
 
       <ProcessSteps />
+
+      <GoogleReviewsStrip />
 
       {/* JSON-LD: LocalBusiness. Richer signals help Google's local
           understanding + the knowledge panel. `sameAs` should list the

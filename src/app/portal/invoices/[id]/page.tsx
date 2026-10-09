@@ -242,32 +242,18 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         } : null}
       />
 
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+      {/* Header: identity + status on the left, the two primary actions
+          (Mark as Paid, Send) on the right; document tools sit in a quiet
+          row underneath instead of crowding one long line. Wraps on narrow
+          screens rather than overflowing. */}
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-3xl tracking-tight font-bold text-sage-800">{invoice.invoice_number}</h1>
+          <StatusBadge kind="invoice" status={displayStatus} size="md" />
           {(invoice as { source?: string | null }).source === 'custom' && <CustomInvoiceBadge size="md" />}
         </div>
-        <div className="flex items-center gap-3">
-          <StatusBadge kind="invoice" status={displayStatus} size="md" />
+        <div className="flex flex-wrap items-start gap-3">
           {showMarkPaid && <MarkAsPaidButton invoiceId={invoice.id} />}
-          <InvoiceJobButton invoiceId={invoice.id} linkedJob={linkedJob ?? null} />
-          <a
-            href={`/portal/invoices/${params.id}/print`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
-          >
-            <Printer size={16} />
-            Preview Invoice
-          </a>
-          <a
-            href={`/api/invoices/${params.id}/pdf`}
-            download
-            className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
-          >
-            <Download size={16} />
-            Download PDF
-          </a>
           <SendInvoicePanel
             invoiceId={invoice.id}
             invoiceNumber={invoice.invoice_number}
@@ -286,6 +272,27 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             datePaid={paySummary.datePaid}
           />
         </div>
+      </div>
+
+      <div className="mb-5 flex flex-wrap items-center gap-2 border-b border-sage-100 pb-4">
+        <InvoiceJobButton invoiceId={invoice.id} linkedJob={linkedJob ?? null} />
+        <a
+          href={`/portal/invoices/${params.id}/print`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-sage-700 transition-colors hover:bg-sage-50"
+        >
+          <Printer size={15} />
+          Preview
+        </a>
+        <a
+          href={`/api/invoices/${params.id}/pdf`}
+          download
+          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-sage-700 transition-colors hover:bg-sage-50"
+        >
+          <Download size={15} />
+          Download PDF
+        </a>
       </div>
       {/* Card payment only works against a LIVE Stripe key. A test key produces
           a Pay button that looks fine and declines every real card, which is

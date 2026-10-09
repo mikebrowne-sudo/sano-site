@@ -34,12 +34,14 @@ export const metadata: Metadata = {
     siteName: 'Sano Cleaning',
     locale: 'en_NZ',
     type: 'website',
+    // 1200×630 branded share card (public/og) — shared links show a proper
+    // preview instead of a small square logo.
     images: [
       {
-        url: '/brand/sano-logomark.png',
-        width: 512,
-        height: 512,
-        alt: 'Sano',
+        url: '/og/sano-og.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Sano — Clean spaces, healthy living. Reliable cleaning in Auckland.',
       },
     ],
   },
@@ -47,7 +49,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Sano Cleaning — Professional Cleaning in Auckland',
     description: 'Professional cleaning services in Auckland.',
-    images: ['/brand/sano-logomark.png'],
+    images: ['/og/sano-og.jpg'],
   },
 }
 
