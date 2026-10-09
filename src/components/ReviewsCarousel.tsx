@@ -82,7 +82,7 @@ export function ReviewsCarousel({ reviews }: { reviews: CarouselReview[] }) {
           >
             <span aria-hidden="true" className="font-display text-[72px] leading-none text-sage-300/60">&ldquo;</span>
             <Stars value={r.rating} />
-            <blockquote className="mt-5 font-display text-[1.25rem] leading-relaxed text-white sm:text-[1.5rem] line-clamp-[8]">
+            <blockquote className={`mt-5 font-display leading-relaxed text-white line-clamp-[8] ${r.text.length > 280 ? "text-[1.0625rem] sm:text-[1.25rem]" : "text-[1.25rem] sm:text-[1.5rem]"}`}>
               {r.text}
             </blockquote>
             <figcaption className="mt-6">
