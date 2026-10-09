@@ -8,6 +8,7 @@
 // "Mark paid" action.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { nzToday } from './nz-date'
 
 export async function stampJobCompleteOnPaidInvoice(
   supabase: SupabaseClient,
@@ -30,6 +31,16 @@ export async function stampJobCompleteOnPaidInvoice(
   if (!job) return
 
   const fallback = (job.scheduled_date as string | null) ?? (job.created_at as string)
+
+  // Paid IN ADVANCE (a cash-sale booking paid before the clean): record the
+  // payment only. Stamping a future job complete would make the contractor's
+  // pay look due before the work is done.
+  const workDate = String(fallback ?? '').slice(0, 10)
+  if (!job.completed_at && workDate > nzToday()) {
+    await supabase.from('jobs').update({ payment_status: 'paid' }).eq('id', jobId)
+    return
+  }
+
   const completedAt = (job.completed_at as string | null) ?? fallback
   const startedAt = (job.started_at as string | null) ?? completedAt
 

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { nzToday } from '@/lib/nz-date'
 import { createClient } from '@/lib/supabase-server'
 import { Briefcase, Plus, FlaskConical, Archive } from 'lucide-react'
 import { JobFilters } from './_components/JobFilters'
@@ -36,14 +37,15 @@ function fmtCurrency(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
 }
 
+// NZ calendar dates — the server runs in UTC, which is still "yesterday"
+// every NZ morning.
 function todayStr() {
-  return new Date().toISOString().slice(0, 10)
+  return nzToday()
 }
 
 function tomorrowStr() {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  return d.toISOString().slice(0, 10)
+  const [y, m, d] = nzToday().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10)
 }
 
 // Phase 2 — map a settings sortBy + sortDirection onto a Supabase

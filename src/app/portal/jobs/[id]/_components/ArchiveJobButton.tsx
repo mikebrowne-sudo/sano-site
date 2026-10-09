@@ -12,7 +12,7 @@
 import { useState, useTransition } from 'react'
 import { archiveJob } from '../../../_actions/archive'
 import { useRouter } from 'next/navigation'
-import { Trash2 } from 'lucide-react'
+import { Archive } from 'lucide-react'
 
 export function ArchiveJobButton({
   jobId,
@@ -45,8 +45,8 @@ export function ArchiveJobButton({
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1.5 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 px-2.5 py-1.5 rounded-md transition-colors"
       >
-        <Trash2 size={12} />
-        Delete
+        <Archive size={12} />
+        Archive
       </button>
     )
   }
@@ -55,10 +55,10 @@ export function ArchiveJobButton({
     <div className="bg-white border border-red-200 rounded-lg p-4 space-y-3 w-full max-w-md shadow-sm">
       <div>
         <p className="text-sm font-semibold text-sage-800">
-          Delete job {jobNumber}?
+          Archive job {jobNumber}?
         </p>
         <p className="text-sm text-sage-600 mt-1">
-          This can be restored later from Settings → Archive.
+          It disappears from the jobs list, invoicing and the contractor’s app. If it came from a quote, the quote goes back to “accepted”. You can restore it from Settings → Archive.
         </p>
       </div>
 
@@ -73,7 +73,7 @@ export function ArchiveJobButton({
           disabled={isPending}
           className="inline-flex items-center gap-2 bg-red-600 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-red-700 transition-colors disabled:opacity-50"
         >
-          {isPending ? 'Deleting…' : 'Delete Job'}
+          {isPending ? 'Archiving…' : 'Archive job'}
         </button>
         <button
           type="button"

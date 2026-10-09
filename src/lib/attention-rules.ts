@@ -1,3 +1,4 @@
+import { nzToday } from './nz-date'
 // Phase 5.5.14 — attention rules.
 //
 // Pure logic for "what needs an operator's attention right now" across
@@ -95,6 +96,16 @@ export function getJobAttention(
   // Active jobs only — invoiced is "done" and shouldn't yell.
   if (status === 'invoiced') {
     return { needsAttention: false, reasons: [] }
+  }
+
+  // Past its date but never marked done — the contractor forgot to tap
+  // "Mark complete", or it didn't happen. Either way it must not drop out of
+  // every working tab (it would never be invoiced or paid).
+  const hasWorker = !!j.contractor_id || !!(j.assigned_to && j.assigned_to.trim())
+  if (j.scheduled_date && hasWorker && ['draft', 'assigned', 'in_progress'].includes(status)
+      && j.scheduled_date.slice(0, 10) < nzToday(new Date(nowIso))) {
+    reasons.push('Past date, not marked done')
+    nextStep = 'Next: Confirm it was done'
   }
 
   if (!j.scheduled_date) {

@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { nzToday } from '@/lib/nz-date'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { parseAsbCsv } from '@/lib/asb-import'
@@ -147,7 +148,7 @@ export async function matchCreditToInvoices(
     if (!isAdminUser(user)) return { ok: false, error: 'Not authorised.' }
     if (!invoiceIds.length) return { ok: false, error: 'Select at least one invoice.' }
 
-    const date = paidDate || new Date().toISOString().slice(0, 10)
+    const date = paidDate || nzToday()
 
     // Mark the unpaid ones paid. (.neq skips any already-paid so we never
     // overwrite an existing paid date.)

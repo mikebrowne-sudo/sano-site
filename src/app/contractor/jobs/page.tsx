@@ -8,11 +8,18 @@ export default async function ContractorJobsPage() {
   const { supabase, contractor } = await getContractor()
 
   // Only select safe fields — no job_price, no internal_notes
+  // Jobs I'm on: as the primary cleaner, or on the roster (second cleaner).
+  const { data: rosterRows } = await supabase.from('job_workers').select('job_id').eq('contractor_id', contractor.id)
+  const rosterJobIds = Array.from(new Set((rosterRows ?? []).map((r) => r.job_id as string)))
+  const mine = rosterJobIds.length
+    ? `contractor_id.eq.${contractor.id},id.in.(${rosterJobIds.join(',')})`
+    : `contractor_id.eq.${contractor.id}`
+
   const [{ data: jobs }, history] = await Promise.all([
     supabase
       .from('jobs')
       .select('id, job_number, title, address, scheduled_date, scheduled_time, duration_estimate, status')
-      .eq('contractor_id', contractor.id)
+      .or(mine)
       // Archived / test jobs are gone for staff, so they must be gone here too —
       // otherwise a contractor can keep working (and completing) a job nobody
       // in the office can see or invoice. Mirrors the staff preview.

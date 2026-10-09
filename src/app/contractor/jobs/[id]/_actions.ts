@@ -19,17 +19,20 @@ async function getContractorId(): Promise<string | null> {
   return data?.id ?? null
 }
 
+/**
+ * Is this contractor on this (live) job — as the primary cleaner OR on the
+ * roster (job_workers, e.g. the second cleaner on a two-cleaner job)? Same rule
+ * as the job detail loader. Read with the service client because job_workers
+ * RLS only shows a contractor their own row; nothing is returned to the caller.
+ */
 async function verifyJobOwnership(jobId: string, contractorId: string): Promise<boolean> {
-  const supabase = createClient()
-  const { data } = await supabase
-    .from('jobs')
-    .select('id')
-    .eq('id', jobId)
-    .eq('contractor_id', contractorId)
-    .is('deleted_at', null) // can't start / complete / note an archived job
-    .maybeSingle()
-
-  return !!data
+  const svc = getServiceSupabase()
+  const [{ data: job }, { data: worker }] = await Promise.all([
+    svc.from('jobs').select('id, contractor_id').eq('id', jobId).is('deleted_at', null).maybeSingle(),
+    svc.from('job_workers').select('contractor_id').eq('job_id', jobId).eq('contractor_id', contractorId).maybeSingle(),
+  ])
+  if (!job) return false // archived / missing: can't start, complete or note it
+  return job.contractor_id === contractorId || !!worker
 }
 
 // Allowed-hours model (2026-06) — contractor "Mark complete".
@@ -47,13 +50,15 @@ export async function contractorCompleteJob(jobId: string) {
   if (!owns) return { error: 'You do not have access to this job.' }
 
   const now = new Date().toISOString()
-  const supabase = createClient()
+  // Service client, scoped to this one job id the caller was just verified to
+  // be on: jobs RLS only lets the PRIMARY cleaner write, so a second cleaner's
+  // "Mark complete" used to fail.
+  const supabase = getServiceSupabase()
 
   const { data: priorJob } = await supabase
     .from('jobs')
     .select('started_at')
     .eq('id', jobId)
-    .eq('contractor_id', contractorId)
     .maybeSingle()
 
   const { error } = await supabase
@@ -64,7 +69,7 @@ export async function contractorCompleteJob(jobId: string) {
       started_at: priorJob?.started_at ?? now,
     })
     .eq('id', jobId)
-    .eq('contractor_id', contractorId)
+    .is('deleted_at', null)
 
   if (error) return { error: error.message }
 
@@ -90,12 +95,12 @@ export async function contractorUpdateNotes(jobId: string, notes: string) {
   const owns = await verifyJobOwnership(jobId, contractorId)
   if (!owns) return { error: 'You do not have access to this job.' }
 
-  const supabase = createClient()
-  const { error } = await supabase
+  // Service client after the roster check above (see contractorCompleteJob).
+  const { error } = await getServiceSupabase()
     .from('jobs')
     .update({ contractor_notes: notes.trim() || null })
     .eq('id', jobId)
-    .eq('contractor_id', contractorId)
+    .is('deleted_at', null)
 
   if (error) return { error: error.message }
 

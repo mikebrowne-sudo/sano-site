@@ -1,6 +1,7 @@
 'use server'
 
 import { canTakeRealPayments } from '@/lib/stripe'
+import { nzToday } from '@/lib/nz-date'
 import { quoteCardEligible } from '@/lib/card-payments'
 
 import { createClient } from '@/lib/supabase-server'
@@ -337,7 +338,7 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
   // by Puppeteer hitting the share page, which reads these fields
   // straight from the DB — if we render first and stamp after, the
   // attachment shows blank Date Issued / Valid Until.
-  const today = new Date().toISOString().slice(0, 10)
+  const today = nzToday() // NZ date
   const effectiveIssued = (quote.date_issued as string | null) || today
   const effectiveValidUntil =
     (quote.valid_until as string | null) || addDaysISO(effectiveIssued, 30)
@@ -509,7 +510,7 @@ export async function sendQuoteTestEmail(input: SendTestQuoteEmailInput) {
   // Stamp missing display dates BEFORE rendering so the test PDF shows
   // populated dates — mirrors the customer send. This is display-only
   // date backfill and does NOT change status/sent_at.
-  const today = new Date().toISOString().slice(0, 10)
+  const today = nzToday() // NZ date
   const effectiveIssued = (quote.date_issued as string | null) || today
   const effectiveValidUntil =
     (quote.valid_until as string | null) || addDaysISO(effectiveIssued, 30)

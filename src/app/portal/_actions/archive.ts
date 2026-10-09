@@ -16,6 +16,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { isAdminUser } from '@/lib/is-admin'
+import { reclaimQuotesForRestoredJobs, releaseQuotesForArchivedJobs } from '@/lib/quote-job-link'
 
 // ─── Quotes ───────────────────────────────────────────────────────
 
@@ -352,6 +353,9 @@ export async function archiveJob(input: ArchiveJobInput) {
     },
   })
 
+  // Don't leave the source quote stuck as 'converted' with no live job.
+  await releaseQuotesForArchivedJobs(supabase, [input.job_id])
+
   revalidatePath('/portal/jobs')
   revalidatePath(`/portal/jobs/${input.job_id}`)
   revalidatePath('/portal/settings/archive')
@@ -395,6 +399,8 @@ export async function restoreJob(input: RestoreJobInput) {
     before: { deleted_at: current.deleted_at, status: current.status },
     after: { deleted_at: null, deleted_by: null },
   })
+
+  await reclaimQuotesForRestoredJobs(supabase, [input.job_id])
 
   revalidatePath('/portal/jobs')
   revalidatePath(`/portal/jobs/${input.job_id}`)

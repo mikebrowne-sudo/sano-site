@@ -157,3 +157,16 @@ describe('getInvoiceAttention', () => {
     expect(getInvoiceAttention({ status: 'cancelled', due_date: null }, NOW).needsAttention).toBe(false)
   })
 })
+
+describe('getJobAttention — past-dated jobs', () => {
+  it('flags an assigned job whose date has passed but was never marked done', () => {
+    const r = getJobAttention({ status: 'assigned', scheduled_date: '2026-10-06', contractor_id: 'c1' }, '2026-10-09T01:00:00Z')
+    expect(r.needsAttention).toBe(true)
+    expect(r.reasons).toContain('Past date, not marked done')
+  })
+  it('uses the NZ date: a job for "today" in NZ is not past at 9am NZ', () => {
+    // 2026-10-08T21:00Z is 10am on the 9th in NZ.
+    const r = getJobAttention({ status: 'assigned', scheduled_date: '2026-10-09', contractor_id: 'c1' }, '2026-10-08T21:00:00Z')
+    expect(r.reasons).not.toContain('Past date, not marked done')
+  })
+})

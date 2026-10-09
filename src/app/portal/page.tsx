@@ -7,6 +7,7 @@
 // pills), and a labelled recent-activity section.
 
 import { createClient } from '@/lib/supabase-server'
+import { nzToday } from '@/lib/nz-date'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
@@ -56,12 +57,13 @@ export default async function PortalDashboard() {
   // Accountant (finance) logins land on the finance area, not the ops dashboard.
   const { data: { user } } = await supabase.auth.getUser()
   if (isAccountantUser(user) && !isAdminUser(user)) redirect('/portal/finance')
-  const today = new Date().toISOString().slice(0, 10)
+  // NZ calendar dates — the server runs in UTC ("yesterday" every NZ morning).
+  const today = nzToday()
   const monthStart = today.slice(0, 8) + '01' // first of the current month
-  const in30 = new Date(); in30.setDate(in30.getDate() + 30)
-  const in30Str = in30.toISOString().slice(0, 10)
+  const [ty, tm, td] = today.split('-').map(Number)
+  const in30Str = new Date(Date.UTC(ty, tm - 1, td + 30)).toISOString().slice(0, 10)
   const todayLabel = new Date().toLocaleDateString('en-NZ', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Pacific/Auckland',
   })
 
   const [
