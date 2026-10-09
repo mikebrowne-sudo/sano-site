@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { AcceptQuote } from './_components/AcceptQuote'
@@ -8,6 +9,11 @@ import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { QuoteDocument } from '@/components/document/QuoteDocument'
 import { ProposalDocument } from '@/components/proposals/ProposalDocument'
 import { loadProposalForQuote } from '@/lib/proposals/loadProposalForQuote'
+import { PayNowButton } from '../../invoice/[token]/_components/PayNowButton'
+import { canTakeRealPayments } from '@/lib/stripe'
+import { quoteCardPayable } from '@/lib/card-payments'
+import { computeDocumentTotals } from '@/lib/doc-totals'
+import { sanoPaymentDetails } from '@/lib/sano-bank-details'
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
   const supabase = getServiceSupabase()
@@ -45,7 +51,7 @@ export default async function PublicQuotePage({
   searchParams,
 }: {
   params: { token: string }
-  searchParams: { print?: string; pdf?: string }
+  searchParams: { print?: string; pdf?: string; payment?: string }
 }) {
   const supabase = getServiceSupabase()
   const isPdfRender = searchParams?.pdf === '1'
@@ -167,6 +173,35 @@ export default async function PublicQuotePage({
     }
   }
 
+  // Card payment for an accepted one-off cash-sale quote (rules in
+  // lib/card-payments). Read separately so a missing column can never break
+  // the share page — it just hides the button.
+  let payPanel: ReactNode = null
+  if (!isPdfRender && canTakeRealPayments() && quote.is_latest_version !== false && quoteCardPayable(quote)) {
+    const { data: card, error: cardErr } = await supabase
+      .from('quotes')
+      .select('card_paid_at')
+      .eq('id', quote.id)
+      .maybeSingle()
+    if (!cardErr) {
+      const lineTotal = (quote.base_price ?? 0) + (items ?? []).reduce((s, i) => s + Math.max(0, i.price ?? 0), 0) - (quote.discount ?? 0)
+      const total = computeDocumentTotals(lineTotal, !!quote.gst_included).total
+      if (total > 0) {
+        payPanel = (
+          <PayNowButton
+            kind="quote"
+            shareToken={params.token}
+            status={card?.card_paid_at ? 'paid' : 'accepted'}
+            datePaid={card?.card_paid_at ?? null}
+            paymentResult={searchParams?.payment ?? null}
+            total={new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(total)}
+            bankDetails={sanoPaymentDetails(quote.quote_number as string)}
+          />
+        )
+      }
+    }
+  }
+
   return (
     <>
       <AutoPrint active={autoPrint} />
@@ -179,7 +214,10 @@ export default async function PublicQuotePage({
         }
         interactiveSlot={
           !isPdfRender ? (
-            <AcceptQuote shareToken={params.token} status={quote.status} acceptedAt={quote.accepted_at} />
+            <>
+              <AcceptQuote shareToken={params.token} status={quote.status} acceptedAt={quote.accepted_at} />
+              {payPanel && <div className="mt-6">{payPanel}</div>}
+            </>
           ) : undefined
         }
       />

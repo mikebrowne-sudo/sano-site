@@ -121,7 +121,7 @@ export default async function ReconcilePage() {
   const arInvoices: ArInvoice[] = invoices.map((i) => ({
     id: i.id, number: i.invoiceNumber, status: i.status, total: i.total, allocated: i.allocatedTotal ?? 0,
     dateIssued: i.dateIssued ?? null, datePaid: i.datePaid, clientId: i.clientId ?? null, clientLabel: i.clientLabel ?? '',
-    altNumbers: i.altNumbers ?? [],
+    quoteNumber: i.quoteNumber ?? null,
   }))
   const invById = new Map(invoices.map((i) => [i.id, i]))
   // Payers learned from earlier matches: bank payee → the client it paid.

@@ -13,9 +13,13 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
+// Commit of this build, inlined at build time via next.config `env` (no
+// runtime env read). Lets the post-deploy smoke check wait for THIS deploy.
+const COMMIT = process.env.BUILD_COMMIT || null
+
 export async function GET() {
   return NextResponse.json(
-    { ok: true },
+    { ok: true, commit: COMMIT },
     {
       status: 200,
       headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },

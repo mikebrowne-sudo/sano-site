@@ -13,13 +13,20 @@ export function PayNowButton({
   datePaid,
   paymentResult,
   total,
+  kind = 'invoice',
+  bankDetails,
 }: {
   shareToken: string
   status: string
   datePaid: string | null
   paymentResult: string | null
   total: string
+  /** 'quote' = pay an accepted quote upfront; the invoice follows marked paid. */
+  kind?: 'invoice' | 'quote'
+  /** Sano's bank details — shown under the card button as the fee-free option. */
+  bankDetails?: ReadonlyArray<{ label: string; value: string }>
 }) {
+  const noun = kind === 'quote' ? 'booking' : 'invoice'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,7 +47,7 @@ export function PayNowButton({
       <div className="pay-panel pay-done">
         <CheckCircle size={32} className="pay-done-icon" />
         <p className="pay-done-title">Payment received — thank you</p>
-        <p className="pay-done-sub">Your payment is being processed. The invoice will update shortly.</p>
+        <p className="pay-done-sub">Your payment is being processed. The {noun} will update shortly.</p>
       </div>
     )
   }
@@ -55,7 +62,7 @@ export function PayNowButton({
 
   return (
     <div className="pay-panel">
-      <h3 className="pay-title">Pay this invoice</h3>
+      <h3 className="pay-title">{kind === 'quote' ? 'Pay for your booking' : 'Pay this invoice'}</h3>
       <p className="pay-sub">Secure payment powered by Stripe.</p>
 
       {cancelledMessage && <p className="pay-cancelled">{cancelledMessage}</p>}
@@ -66,6 +73,7 @@ export function PayNowButton({
       </div>
 
       <PayButton
+        kind={kind}
         shareToken={shareToken}
         total={total}
         loading={loading}
@@ -73,11 +81,28 @@ export function PayNowButton({
         error={error}
         setError={setError}
       />
+
+      {bankDetails && bankDetails.length > 0 && (
+        <div className="pay-alt">
+          <div className="pay-alt-divider"><span>or</span></div>
+          <p className="pay-alt-title">Prefer bank transfer?</p>
+          <p className="pay-alt-sub">Please include the reference so we can match your payment.</p>
+          <dl className="pay-alt-grid">
+            {bankDetails.map((row) => (
+              <div key={row.label} className="pay-alt-row">
+                <dt>{row.label}</dt>
+                <dd>{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
     </div>
   )
 }
 
-function PayButton({ shareToken, total, loading, setLoading, error, setError }: {
+function PayButton({ kind, shareToken, total, loading, setLoading, error, setError }: {
+  kind: 'invoice' | 'quote'
   shareToken: string
   total: string
   loading: boolean
@@ -93,7 +118,7 @@ function PayButton({ shareToken, total, loading, setLoading, error, setError }: 
       const res = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ share_token: shareToken }),
+        body: JSON.stringify({ share_token: shareToken, kind }),
       })
 
       const contentType = res.headers.get('content-type') ?? ''

@@ -39,3 +39,21 @@ export function isInvoiceDue(nextInvoiceDate: string | null, today: string): boo
   if (!nextInvoiceDate) return false
   return Date.parse(today) >= Date.parse(nextInvoiceDate)
 }
+
+/** 'YYYY-MM-DD' + n days (UTC, date-only). */
+export function addDaysISO(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+/**
+ * The next Monday on/after `fromIso` — weekly invoicing runs on Mondays for the
+ * previous Mon–Sun week (Mike, 2026-09-30).
+ */
+export function nextMondayOnOrAfter(fromIso: string): string {
+  const d = new Date(`${fromIso}T00:00:00Z`)
+  const dow = d.getUTCDay() // 0=Sun..6=Sat
+  const add = dow === 1 ? 0 : (8 - dow) % 7
+  return addDaysISO(fromIso, add)
+}

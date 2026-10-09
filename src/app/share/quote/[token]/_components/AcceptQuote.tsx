@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { acceptQuote } from '../_actions'
 import { CheckCircle } from 'lucide-react'
 
@@ -21,6 +22,7 @@ export function AcceptQuote({
   const [isPending, startTransition] = useTransition()
   const [accepted, setAccepted] = useState(status === 'accepted')
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   function handleAccept() {
     setError(null)
@@ -30,6 +32,9 @@ export function AcceptQuote({
         setError(result.error)
       } else {
         setAccepted(true)
+        // Re-render the server page so the Pay card (cash-sale one-off quotes)
+        // appears straight away, without the customer refreshing.
+        router.refresh()
       }
     })
   }

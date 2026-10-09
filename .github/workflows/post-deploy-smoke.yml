@@ -1,0 +1,77 @@
+name: Post-deploy smoke
+
+# After a push to main, Netlify auto-deploys. This job waits for that deploy to
+# go live, then curls the key public + dynamic surfaces and fails if any is not
+# 200 — a lightweight backstop for the 2026-05-31 failure mode (dynamic routes
+# 500 while static files 200). On failure, GitHub emails the repo admins.
+#
+# Self-contained: no Netlify webhook, no secrets, no extra services — just curl
+# on the GitHub-hosted runner. Because it can't know exactly when Netlify
+# finishes, it polls /api/health until the freshly-built function answers (up to
+# ~5 min) before running the full check, rather than blind-sleeping.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}  # allow manual re-runs from the Actions tab
+
+# Only smoke-test the latest push; cancel older in-flight runs.
+concurrency:
+  group: post-deploy-smoke
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE: https://sano.nz
+    steps:
+      - name: Wait for the new deploy to come live
+        # /api/health reports the commit its build came from. Wait until it
+        # reports THIS push's commit — a plain 200 isn't enough, because the
+        # previous deploy also answers 200 until Netlify switches over.
+        # Up to 40 tries × 15s = 10 min (build + publish).
+        run: |
+          echo "Waiting for $BASE/api/health to report commit $GITHUB_SHA…"
+          for i in $(seq 1 40); do
+            body=$(curl -s --max-time 15 "$BASE/api/health" || echo '')
+            if echo "$body" | grep -q "$GITHUB_SHA"; then
+              echo "new deploy is live (attempt $i)"
+              exit 0
+            fi
+            echo "attempt $i: not live yet ($body) — retrying in 15s"
+            sleep 15
+          done
+          echo "::error::the deploy for $GITHUB_SHA did not go live within 10 minutes"
+          exit 1
+
+      - name: Smoke-check key surfaces
+        # Each URL must return 200. Retry each up to 3× with 30s backoff to
+        # absorb per-route cold-start jitter after a fresh deploy.
+        run: |
+          set -u
+          urls="/ /services /portal/login /robots.txt /api/health"
+          failed=""
+          for path in $urls; do
+            ok=""
+            for attempt in 1 2 3; do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$BASE$path" || echo 000)
+              if [ "$code" = "200" ]; then
+                echo "OK   $path ($code)"
+                ok="1"
+                break
+              fi
+              echo "WARN $path -> $code (attempt $attempt/3)"
+              [ "$attempt" -lt 3 ] && sleep 30
+            done
+            [ -z "$ok" ] && failed="$failed $path"
+          done
+          if [ -n "$failed" ]; then
+            echo "::error::Post-deploy smoke failed for:$failed"
+            exit 1
+          fi
+          echo "All surfaces returned 200."

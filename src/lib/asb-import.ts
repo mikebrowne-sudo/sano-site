@@ -105,6 +105,15 @@ export function extractInvoiceRefs(text: string): string[] {
   return Array.from(refs)
 }
 
+/** Quote refs ("QUO-0491", "quo 491") normalised to QUO-####. */
+export function extractQuoteRefs(text: string): string[] {
+  const refs = new Set<string>()
+  const re = /\bquo[-\s]?0*(\d{1,6})\b/gi
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) refs.add(`QUO-${m[1].padStart(4, '0')}`)
+  return Array.from(refs)
+}
+
 /**
  * Lower-confidence candidate refs: bare 4–6 digit numbers in the text (e.g.
  * "Sue Bunce 26022"), normalised to INV-####. These are only ever trusted when
@@ -114,7 +123,10 @@ export function extractInvoiceRefs(text: string): string[] {
  * extractInvoiceRefs).
  */
 export function extractNumberRefs(text: string): string[] {
-  const withoutInv = text.replace(/\binv[-\s]?0*\d{1,6}\b/gi, ' ')
+  // QUO numbers are stripped too: a quote number is NOT the invoice number
+  // (~30% differ), so "QUO-0491" must never be read as INV-0491. Quote refs
+  // resolve through the quote's own invoice (extractQuoteRefs).
+  const withoutInv = text.replace(/\b(?:inv|quo)[-\s]?0*\d{1,6}(?:-v\d+)?\b/gi, ' ')
   const refs = new Set<string>()
   const re = /\b(\d{4,6})\b/g
   let m: RegExpExecArray | null

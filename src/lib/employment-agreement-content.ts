@@ -402,7 +402,27 @@ function insuranceSection(mode: InsuranceMode | null | undefined, minCover: numb
   }
 }
 
-/** Assemble the contractor sections, swapping the conditional 2 / 5 / 9. */
+/** Clause 17 (Liability) — 17.2's cap wording depends on the insurance
+ *  arrangement (covered_by_sano can't refer to "the Contractor's insurance").
+ *  17.1 and 17.3 are unchanged. */
+function liabilitySection(mode: InsuranceMode | null | undefined): AgreementSection {
+  const clause172 =
+    mode === 'covered_by_sano'
+      ? '17.2 Except in cases of fraud, wilful misconduct, theft, breach of confidentiality, or loss covered under the applicable insurance arrangement, the Contractor’s aggregate liability to the Principal for any one event is limited to $5,000.'
+      : mode === 'not_required'
+        ? '17.2 Except in cases of fraud, wilful misconduct, theft or breach of confidentiality, the Contractor’s aggregate liability to the Principal for any one event is limited to $5,000.'
+        : '17.2 Except in cases of fraud, wilful misconduct, theft, breach of confidentiality, or damage covered by the Contractor’s insurance, the Contractor’s aggregate liability to the Principal for any one event is limited to the greater of $5,000 or the amount recoverable under the Contractor’s insurance.'
+  return {
+    title: '17. Liability',
+    body: [
+      '17.1 The Contractor is responsible for direct loss or damage caused by their negligent or wilful acts or omissions, including any applicable insurance excess.',
+      clause172,
+      '17.3 The Principal’s liability to the Contractor is limited to fees due for Services properly performed. Neither party is liable to the other for indirect or consequential loss. Nothing in this Agreement limits or determines any right a client may have, as the client is not a party to this Agreement.',
+    ],
+  }
+}
+
+/** Assemble the contractor sections, swapping the conditional 2 / 5 / 6 / 9 / 16 / 17. */
 export function buildContractorSections(opts: AgreementClauseOptions = {}): AgreementSection[] {
   return CONTRACTOR_AGREEMENT_SECTIONS.map((s) => {
     if (s.title.startsWith('2. ')) return availabilitySection(!!opts.hasOngoingSchedule)
@@ -410,6 +430,7 @@ export function buildContractorSections(opts: AgreementClauseOptions = {}): Agre
     if (s.title.startsWith('6. ')) return equipmentSection()
     if (s.title.startsWith('9. ')) return insuranceSection(opts.insuranceMode, opts.insuranceMinCover)
     if (s.title.startsWith('16. ')) return terminationSection(opts.insuranceMode)
+    if (s.title.startsWith('17. ')) return liabilitySection(opts.insuranceMode)
     return s
   })
 }

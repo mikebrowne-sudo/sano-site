@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe'
 import { createClient } from '@supabase/supabase-js'
 import { stampJobCompleteOnPaidInvoice } from '@/lib/job-paid-complete'
+import { applyQuoteCardPayment } from '@/lib/card-payments'
+import { nzToday } from '@/lib/nz-date'
 import Stripe from 'stripe'
 
 function getServerSupabase() {
@@ -41,6 +43,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true })
     }
 
+    // A paid QUOTE (accepted one-off cash-sale job, paid upfront). Recorded on
+    // the quote; the invoice later made from it is marked paid on creation
+    // (lib/card-payments applyQuoteCardPayment). If an invoice already exists
+    // for the quote, apply it to that now.
+    if (session.metadata?.kind === 'quote') {
+      const quoteId = session.metadata?.quote_id
+      if (!quoteId) {
+        console.error('[stripe-webhook] No quote_id in metadata')
+        return NextResponse.json({ received: true })
+      }
+      const supabase = getServerSupabase()
+      const { error } = await supabase
+        .from('quotes')
+        .update({
+          card_paid_at: new Date().toISOString(),
+          card_amount_paid: (session.amount_total ?? 0) / 100,
+          stripe_payment_intent_id: (session.payment_intent as string) || null,
+        })
+        .eq('id', quoteId)
+        .is('card_paid_at', null)
+      if (error) {
+        console.error('[stripe-webhook] Failed to record quote payment:', error.message)
+        // Non-2xx so Stripe retries — the payment must not be lost.
+        return NextResponse.json({ error: 'Failed to record payment' }, { status: 500 })
+      }
+      const { data: invs } = await supabase.from('invoices').select('id').eq('quote_id', quoteId).is('deleted_at', null)
+      for (const inv of invs ?? []) await applyQuoteCardPayment(supabase, inv.id as string)
+      console.log(`[stripe-webhook] Quote ${session.metadata?.quote_number} paid by card`)
+      return NextResponse.json({ received: true })
+    }
+
     const invoiceId = session.metadata?.invoice_id
     if (!invoiceId) {
       console.error('[stripe-webhook] No invoice_id in metadata')
@@ -48,7 +81,8 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getServerSupabase()
-    const today = new Date().toISOString().slice(0, 10)
+    // NZ calendar date — the UTC date is still yesterday every NZ morning.
+    const today = nzToday()
 
     // Only flip an invoice that is NOT already paid.
     //

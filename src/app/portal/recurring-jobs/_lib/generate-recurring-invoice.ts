@@ -4,13 +4,13 @@
 // next_invoice_date. Draft only (staff review + send).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { advanceOneMonth, isInvoiceDue } from '@/lib/recurring-invoice'
+import { advanceOneMonth, isInvoiceDue, addDaysISO } from '@/lib/recurring-invoice'
 import { computeInvoiceDueDate } from '@/lib/invoice-dates'
 import { resolveContractorGstSnapshot } from '@/lib/contractor-gst-snapshot'
 import { sendRecurringInvoiceEmail } from './send-recurring-invoice'
 import { computeRecurringAmount } from './per-visit-billing'
 import { formatCurrency } from '@/lib/format'
-import { groupVisitsByMonth } from '@/lib/monthly-invoice'
+import { groupVisitsByMonth, periodLabel, visitDate } from '@/lib/monthly-invoice'
 import { createMonthlyInvoiceCore, defaultServiceLabel, scheduleInvoiceNote } from '@/lib/monthly-invoice-create'
 
 export interface RecurringRow {
@@ -242,16 +242,45 @@ export async function generateFor(supabase: SupabaseClient, rec: RecurringRow): 
 }
 
 /**
- * 'completed_visits' billing: on the invoice date, bill every completed,
- * un-invoiced visit for the client up to the end of the PREVIOUS month —
- * one invoice per month, built by the same core as Invoices → Monthly
- * invoice (visits listed, jobs linked so nothing is billed twice). Visits
- * marked complete late roll into the next run under their own month.
+ * Per-schedule billing options added after REC_COLS, read on their own and
+ * failing soft to the original behaviour (monthly, prices + GST) so a missing
+ * column can never stop invoicing.
+ */
+async function billingOptions(
+  supabase: SupabaseClient,
+  recId: string,
+): Promise<{ weekly: boolean; gstIncluded: boolean }> {
+  try {
+    const { data, error } = await supabase
+      .from('recurring_jobs')
+      .select('invoice_frequency, rate_includes_gst')
+      .eq('id', recId)
+      .maybeSingle()
+    if (error || !data) return { weekly: false, gstIncluded: false }
+    return {
+      weekly: (data.invoice_frequency as string | null) === 'weekly',
+      gstIncluded: !!data.rate_includes_gst,
+    }
+  } catch {
+    return { weekly: false, gstIncluded: false }
+  }
+}
+
+/**
+ * 'completed_visits' billing: on the invoice date, bill the completed,
+ * un-invoiced visits up to the end of the last period, built by the same core
+ * as Invoices → Monthly invoice (summary + visit dates, jobs linked so nothing
+ * is billed twice), then auto-send when the schedule has auto-send on.
  *
- * Scoped to the CLIENT, not the schedule: a client on this mode is billed
- * monthly for everything done for them (e.g. Oranga Tamariki's Wednesday and
- * Friday schedules plus any hand-made visits). If two schedules for the same
- * client both run, the second finds nothing left and skips — no duplicates.
+ * - Monthly (default): on the invoice day, last calendar month — one invoice
+ *   per month, so a visit marked complete late lands on its own month's invoice.
+ * - Weekly: every Monday, the previous Mon–Sun week — one invoice; any older
+ *   stragglers ride along and the label shows the full date range.
+ *
+ * Scoped to visits on the client's completed-visits schedules (not every job
+ * for the client): NZCL has one-off cleans at another address that must not be
+ * swept into the weekly invoice. Two schedules for one client (Oranga
+ * Tamariki's Wed + Fri) still give one invoice — the second finds nothing left.
  */
 export async function generateCompletedVisits(
   supabase: SupabaseClient,
@@ -261,45 +290,76 @@ export async function generateCompletedVisits(
   if (!(Number(rec.per_visit_rate) > 0)) return { skipped: 'no per-visit rate' }
   const billDate = rec.next_invoice_date
   if (!billDate) return { skipped: 'no next invoice date set' }
-  const sendDay = rec.invoice_send_day ?? Number(billDate.slice(8, 10))
-  const throughMonth = serviceMonth(billDate, true)
+  const { weekly, gstIncluded } = await billingOptions(supabase, rec.id)
+
+  // The client's completed-visits schedules — only their visits are billed here.
+  const { data: schedules, error: sErr } = await supabase
+    .from('recurring_jobs')
+    .select('id')
+    .eq('client_id', rec.client_id)
+    .eq('billing_mode', 'completed_visits')
+  if (sErr) return { error: `could not load schedules: ${sErr.message}` }
+  const scheduleIds = Array.from(new Set([rec.id, ...((schedules ?? []).map((r) => r.id as string))]))
 
   const { data: jobs, error: jErr } = await supabase
     .from('jobs')
     .select('id, scheduled_date, completed_at')
     .eq('client_id', rec.client_id)
+    .in('recurring_job_id', scheduleIds)
     .eq('status', 'completed')
     .is('invoice_id', null)
     .is('deleted_at', null)
     .eq('is_test', false)
   if (jErr) return { error: `could not load visits: ${jErr.message}` }
 
-  const byMonth = groupVisitsByMonth(jobs ?? [], throughMonth.end)
+  // One entry per invoice to raise: its period + the visits on it.
+  const batches: Array<{ key: string; month?: string; period?: { start: string; end: string; label: string }; jobIds: string[] }> = []
+  if (weekly) {
+    const periodEnd = addDaysISO(billDate, -1)
+    const due = (jobs ?? []).filter((j) => { const d = visitDate(j); return !!d && d <= periodEnd })
+    if (due.length > 0) {
+      const earliest = due.map((j) => visitDate(j)!).sort()[0]
+      const periodStart = earliest < addDaysISO(billDate, -7) ? earliest : addDaysISO(billDate, -7)
+      batches.push({
+        key: periodStart,
+        period: { start: periodStart, end: periodEnd, label: periodLabel(periodStart, periodEnd) },
+        jobIds: due.map((j) => j.id as string),
+      })
+    }
+  } else {
+    const throughMonth = serviceMonth(billDate, true)
+    for (const [month, jobIds] of Array.from(groupVisitsByMonth(jobs ?? [], throughMonth.end).entries())) {
+      batches.push({ key: month, month, jobIds })
+    }
+  }
+
   const label = (await defaultServiceLabel(supabase, rec.client_id)) ?? 'Regular cleaning'
   const note = await scheduleInvoiceNote(supabase, { recurringJobId: rec.id, clientId: rec.client_id })
 
   const invoiceIds: string[] = []
   const errors: string[] = []
   let sent = false
-  for (const [month, jobIds] of Array.from(byMonth.entries())) {
+  for (const b of batches) {
     const res = await createMonthlyInvoiceCore(supabase, {
       clientId: rec.client_id,
-      month,
-      jobIds,
+      month: b.month,
+      period: b.period,
+      jobIds: b.jobIds,
       ratePerVisit: Number(rec.per_visit_rate),
+      gstIncluded,
       serviceLabel: label,
       notes: note,
       issueDate: billDate,
       actor: { id: null, email: null, role: 'system' },
       recurringJobId: rec.id,
     })
-    if ('error' in res) { errors.push(`${month}: ${res.error}`); continue }
+    if ('error' in res) { errors.push(`${b.key}: ${res.error}`); continue }
     invoiceIds.push(res.invoiceId)
     if (rec.invoice_auto_send) {
       // Fail-safe: a failed send leaves a draft in the "Send draft invoices" to-do.
       const s = await sendRecurringInvoiceEmail(supabase, res.invoiceId)
       if (s.sent) sent = true
-      else if (s.error) errors.push(`${month}: created but not sent (${s.error})`)
+      else if (s.error) errors.push(`${b.key}: created but not sent (${s.error})`)
     }
   }
 
@@ -308,9 +368,12 @@ export async function generateCompletedVisits(
   const payable = await ensureContractorPayable(supabase, rec, billDate)
   if (payable.error) errors.push(payable.error)
 
+  const nextDate = weekly
+    ? addDaysISO(billDate, 7)
+    : advanceOneMonth(billDate, rec.invoice_send_day ?? Number(billDate.slice(8, 10)))
   await supabase
     .from('recurring_jobs')
-    .update({ next_invoice_date: advanceOneMonth(billDate, sendDay) })
+    .update({ next_invoice_date: nextDate })
     .eq('id', rec.id)
 
   if (errors.length > 0) return { invoiceId: invoiceIds[0], sent, error: errors.join('; ') }

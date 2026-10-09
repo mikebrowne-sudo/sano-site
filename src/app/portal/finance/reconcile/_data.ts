@@ -97,7 +97,7 @@ export async function getReconcileData(): Promise<ReconcileData> {
       .order('txn_date', { ascending: false }),
     supabase
       .from('invoices')
-      .select('id, invoice_number, status, base_price, discount, gst_included, date_paid, date_issued, scheduled_clean_date, service_address, client_id, bill_to_name, clients ( name, company_name, branch_name ), invoice_items ( price ), quotes ( quote_number ), linked_jobs:jobs!jobs_invoice_id_fkey ( job_number )')
+      .select('id, invoice_number, status, base_price, discount, gst_included, date_paid, date_issued, scheduled_clean_date, service_address, client_id, bill_to_name, clients ( name, company_name, branch_name ), quotes ( quote_number ), invoice_items ( price )')
       .neq('status', 'cancelled')
       .is('deleted_at', null)
       .not('is_test', 'is', true),
@@ -210,11 +210,7 @@ export async function getReconcileData(): Promise<ReconcileData> {
       billTo: (i.bill_to_name as string | null) ?? null,
       dateIssued: (i.date_issued as string | null) ?? null,
       serviceDate: (i.scheduled_clean_date as string | null) ?? null,
-      // Customers often pay quoting the QUOTE or JOB number rather than the invoice's.
-      altNumbers: [
-        (i.quotes as unknown as { quote_number?: string | null } | null)?.quote_number ?? null,
-        ...(((i as Record<string, unknown>).linked_jobs ?? []) as Array<{ job_number: string | null }>).map((j) => j.job_number),
-      ].filter((n): n is string => !!n),
+      quoteNumber: (i.quotes as unknown as { quote_number?: string | null } | null)?.quote_number ?? null,
     }
   })
   const expenses: ReconExpense[] = (expenseData ?? []).map((e) => ({

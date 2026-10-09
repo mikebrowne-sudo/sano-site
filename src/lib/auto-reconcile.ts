@@ -8,10 +8,13 @@
 //
 // A credit is auto-allocated only when the money is fully explained:
 //   1. Reference  — the payee/memo names invoice number(s) ("INV-0277",
-//      "Inv0271", "inv o284", "0331 0329", or a QUO number, which shares the
-//      invoice's number) and those invoices' open balances sum EXACTLY to it.
+//      "Inv0271", "inv o284", "0331 0329") or the QUOTE an invoice was made
+//      from ("QUO-0491" — resolved through that quote's own invoice, never by
+//      digits), and those invoices' open balances sum EXACTLY to it.
 //   2. Known payer — the payer is learned from past allocations (or names the
-//      client / branch) and, among that payer's open invoices:
+//      client / branch) and, among that payer's open invoices (if the bank
+//      text names an invoice, the match MUST include it — a reference is never
+//      overruled by a same-amount invoice it didn't name):
 //        a. exactly one has an open balance equal to the payment, or
 //        b. several do, all for the same client → the oldest is paid first, or
 //        c. exactly one combination (2–6 invoices) sums to the payment.
@@ -62,22 +65,8 @@ export interface ArInvoice {
   clientId: string | null
   /** Display label used for name matching: "Barfoot & Thompson Henderson", "Good Oil Films". */
   clientLabel: string
-  /** Other numbers customers quote for this invoice: its quote + job numbers
-   *  ("QUO-0491", "JOB-0491"). Used only where no invoice has that number. */
-  altNumbers?: string[]
-}
-
-/** Invoice lookup by number, falling back to the quote / job numbers customers often quote. */
-function indexByNumber(invoices: ArInvoice[]): Map<string, ArInvoice> {
-  const map = new Map<string, ArInvoice>()
-  for (const inv of invoices) map.set(numKey(inv.number), inv)
-  for (const inv of invoices) {
-    for (const alt of inv.altNumbers ?? []) {
-      const k = numKey(alt)
-      if (!map.has(k)) map.set(k, inv)
-    }
-  }
-  return map
+  /** The quote this invoice was made from (QUO-0491), so a QUO reference finds it. */
+  quoteNumber?: string | null
 }
 
 /** One past allocation: who paid (normalised payer key) → which client. */
@@ -140,8 +129,57 @@ export function referencedNumbers(text: string): string[] {
 
 /** Canonical form for comparing invoice numbers ("INV-0284" ≡ "INV-284"). */
 function numKey(invoiceNumber: string): string {
-  const m = /(\d+)\s*$/.exec(invoiceNumber)
+  const m = /(\d+)\s*$/.exec(invoiceNumber.replace(/-v\d+$/i, ''))
   return m ? String(Number(m[1])) : invoiceNumber.toUpperCase()
+}
+
+/** A document number found in bank text, with what it was written as. */
+export interface DocRef { kind: 'inv' | 'quo' | 'bare'; key: string }
+
+/** Like referencedNumbers, but keeps whether each was an INV, a QUO or a bare number. */
+export function referencedDocs(text: string): DocRef[] {
+  const out = new Map<string, DocRef>()
+  const pre = /(inv|quo)[-\s.#]*[o0]*(\d{1,6})\b/gi
+  let m: RegExpExecArray | null
+  while ((m = pre.exec(text)) !== null) {
+    const kind = m[1].toLowerCase() === 'quo' ? 'quo' : 'inv'
+    const key = String(Number(m[2]))
+    out.set(`${kind}:${key}`, { kind, key })
+  }
+  const rest = text.replace(pre, ' ')
+  const bare = /\b(\d{4,6})\b/g
+  while ((m = bare.exec(rest)) !== null) {
+    const n = Number(m[1])
+    if (m[1].length === 4 && n >= 1900 && n <= 2099) continue
+    out.set(`bare:${n}`, { kind: 'bare', key: String(n) })
+  }
+  return Array.from(out.values())
+}
+
+/**
+ * Resolve bank-text references to invoices. INV → that invoice number. QUO →
+ * the invoice(s) made from that quote — never by digits: ~30% of invoices are
+ * numbered differently from their quote, so QUO-0491 is not INV-0491 (which
+ * could be another customer's). A bare number → invoice number, else quote.
+ */
+function resolveRefs(text: string, invoices: ArInvoice[]): ArInvoice[] {
+  const byNum = new Map<string, ArInvoice>()
+  const byQuote = new Map<string, ArInvoice[]>()
+  for (const inv of invoices) {
+    byNum.set(numKey(inv.number), inv)
+    if (inv.quoteNumber) {
+      const k = numKey(inv.quoteNumber)
+      byQuote.set(k, [...(byQuote.get(k) ?? []), inv])
+    }
+  }
+  const found = new Map<string, ArInvoice>()
+  for (const r of referencedDocs(text)) {
+    const hits = r.kind === 'inv' ? [byNum.get(r.key)]
+      : r.kind === 'quo' ? (byQuote.get(r.key) ?? [])
+      : byNum.has(r.key) ? [byNum.get(r.key)] : (byQuote.get(r.key) ?? [])
+    for (const inv of hits) if (inv) found.set(inv.id, inv)
+  }
+  return Array.from(found.values())
 }
 
 /** Exactly-one subset of `items` whose values sum to `target` (cents), or null. */
@@ -181,8 +219,6 @@ export function proposeAutoReconcile(args: {
   // Mutable open balances, so two credits can't claim the same money.
   const open = new Map<string, number>()
   for (const inv of args.invoices) open.set(inv.id, Math.max(0, cents(inv.total) - cents(inv.allocated)))
-  const byNum = indexByNumber(args.invoices)
-
   // Learned payers: payer key → client ids it has paid before.
   const learned = new Map<string, Set<string>>()
   for (const h of args.history) {
@@ -216,10 +252,7 @@ export function proposeAutoReconcile(args: {
     }
 
     // 1. Reference.
-    const refs = referencedNumbers(text)
-      .map((r) => byNum.get(numKey(r)))
-      .filter((inv): inv is ArInvoice => !!inv && eligible(inv, c, true))
-    const uniqueRefs = Array.from(new Map(refs.map((r) => [r.id, r])).values())
+    const uniqueRefs = resolveRefs(text, args.invoices).filter((inv) => eligible(inv, c, true))
     if (uniqueRefs.length > 0) {
       const sum = uniqueRefs.reduce((s, inv) => s + (open.get(inv.id) ?? 0), 0)
       if (sum === due) {
@@ -243,7 +276,12 @@ export function proposeAutoReconcile(args: {
       .filter((inv) => inv.clientId && clientIds.has(inv.clientId) && eligible(inv, c, false))
       .sort((a, b) => (a.dateIssued ?? '').localeCompare(b.dateIssued ?? '') || a.number.localeCompare(b.number))
 
-    const exact = cands.filter((inv) => open.get(inv.id) === due)
+    // Reference first: when the bank text names invoice(s), only a match that
+    // includes every named one is acceptable.
+    const refIds = new Set(uniqueRefs.map((r) => r.id))
+    const honoursRefs = (set: ArInvoice[]) => Array.from(refIds).every((id) => set.some((inv) => inv.id === id))
+
+    const exact = cands.filter((inv) => open.get(inv.id) === due && honoursRefs([inv]))
     if (exact.length === 1) { commit(exact, 'amount_match', `known payer, single open invoice ${exact[0].number}`); continue }
     if (exact.length > 1) {
       const sameClient = exact.every((inv) => inv.clientId === exact[0].clientId)
@@ -256,10 +294,16 @@ export function proposeAutoReconcile(args: {
     // Prefer invoices that already existed when the money arrived: a bundle
     // using only those wins even if a later-issued invoice could also fit.
     const issuedBefore = bundleItems.filter((x) => !x.item.dateIssued || x.item.dateIssued <= c.date)
-    const bundle = uniqueSubset(issuedBefore, due) ?? (issuedBefore.length === bundleItems.length ? null : uniqueSubset(bundleItems, due))
+    const found = uniqueSubset(issuedBefore, due) ?? (issuedBefore.length === bundleItems.length ? null : uniqueSubset(bundleItems, due))
+    const bundle = found && honoursRefs(found) ? found : null
     if (bundle) { commit(bundle, 'amount_match', `known payer, bundle ${bundle.map((i) => i.number).join(' + ')}`); continue }
 
-    review.push({ creditId: c.id, why: cands.length ? 'No unique invoice or combination matches the amount' : 'No open invoices for this payer' })
+    review.push({
+      creditId: c.id,
+      why: uniqueRefs.length
+        ? `Reference ${uniqueRefs.map((i) => i.number).join(' + ')} found but the amount differs (part payment?)`
+        : cands.length ? 'No unique invoice or combination matches the amount' : 'No open invoices for this payer',
+    })
   }
 
   return { proposals, review }
@@ -340,14 +384,11 @@ export function suggestCreditMatches(args: {
     return { clientIds: [], suggestions, notes }
   }
 
-  const byNum = indexByNumber(args.invoices)
   const usable = (inv: ArInvoice) => !['draft', 'cancelled', 'void'].includes(inv.status) && openOf(inv) > 0
 
-  // 1. Reference(s) in the bank text.
-  const refs = Array.from(new Map(referencedNumbers(text)
-    .map((r) => byNum.get(numKey(r)))
-    .filter((inv): inv is ArInvoice => !!inv && usable(inv))
-    .map((inv) => [inv.id, inv])).values())
+  // 1. Reference(s) in the bank text (a QUO resolves via the quote's invoice).
+  const referenced = resolveRefs(text, args.invoices)
+  const refs = referenced.filter(usable)
   if (refs.length > 0) {
     const sum = refs.reduce((s, inv) => s + openOf(inv), 0)
     if (sum === due) add({ kind: 'reference', allocations: refs.map((inv) => alloc(inv)), label: `Reference ${refs.map((i) => i.number).join(' + ')}` })
@@ -388,9 +429,8 @@ export function suggestCreditMatches(args: {
 
   // A referenced invoice that's already fully paid: likely a double payment,
   // or an earlier payment was matched to the wrong invoice.
-  for (const r of referencedNumbers(text)) {
-    const inv = byNum.get(numKey(r))
-    if (inv && !['draft', 'cancelled', 'void'].includes(inv.status) && openOf(inv) === 0) {
+  for (const inv of referenced) {
+    if (!['draft', 'cancelled', 'void'].includes(inv.status) && openOf(inv) === 0) {
       notes.push(`${inv.number} is already paid in full — a double payment, or an earlier payment was matched to it by mistake.`)
     }
   }
