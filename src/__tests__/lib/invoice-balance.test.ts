@@ -28,3 +28,14 @@ describe('invoicePaymentSummary', () => {
     expect(invoicePaymentSummary({ ...inv, status: 'sent' }, 900)).toEqual({ paid: 800, datePaid: null })
   })
 })
+
+describe('invoicePaymentSummary — received date', () => {
+  const inv = { base_price: 800, discount: 0, gst_included: true, invoice_items: [] }
+  it('uses the bank date when the payment was matched in reconciliation', () => {
+    // Marked paid by hand on 7 Oct, but the money landed on 7 Sep.
+    expect(invoicePaymentSummary({ ...inv, status: 'paid', date_paid: '2026-10-07' }, 800, '2026-09-07')).toEqual({ paid: 800, datePaid: '2026-09-07' })
+  })
+  it('falls back to the recorded date for card / manual payments with no bank match', () => {
+    expect(invoicePaymentSummary({ ...inv, status: 'paid', date_paid: '2026-10-08' }, 0, null)).toEqual({ paid: 800, datePaid: '2026-10-08' })
+  })
+})

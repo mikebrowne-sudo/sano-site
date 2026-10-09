@@ -82,6 +82,37 @@ export function starBuckets(rating: number): number[] {
   return out
 }
 
+/** Same reviewer + same text = same review (the two endpoints format times differently). */
+function reviewKey(r: GoogleReview): string {
+  return `${r.author.toLowerCase()}|${r.text.slice(0, 60).toLowerCase()}`
+}
+
+/** Classic Place Details, newest-first. Returns [] on any failure. Exported for tests. */
+export function mapClassicReview(raw: unknown): GoogleReview {
+  const r = (raw ?? {}) as Record<string, unknown>
+  const unix = typeof r.time === 'number' ? r.time : null
+  return {
+    author: typeof r.author_name === 'string' && r.author_name.trim() ? r.author_name.trim() : 'Google user',
+    rating: typeof r.rating === 'number' ? r.rating : 0,
+    text: typeof r.text === 'string' ? r.text.trim() : '',
+    relativeTime: typeof r.relative_time_description === 'string' ? r.relative_time_description : '',
+    time: unix ? new Date(unix * 1000).toISOString() : '',
+    profilePhoto: typeof r.profile_photo_url === 'string' && r.profile_photo_url ? r.profile_photo_url : null,
+  }
+}
+
+async function fetchNewestReviewsClassic(key: string, placeId: string): Promise<GoogleReview[]> {
+  try {
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=reviews&reviews_sort=newest&language=en&key=${encodeURIComponent(key)}`
+    const res = await fetch(url)
+    const data = (await res.json()) as { status?: string; result?: { reviews?: unknown[] } }
+    if (!res.ok || data.status !== 'OK') return []
+    return (data.result?.reviews ?? []).map(mapClassicReview)
+  } catch {
+    return []
+  }
+}
+
 async function fetchPlaceDetails(): Promise<PlaceReviews> {
   const key = process.env.GOOGLE_PLACES_API_KEY?.trim()
   const placeId = process.env.SANO_GOOGLE_PLACE_ID?.trim()
@@ -107,10 +138,19 @@ async function fetchPlaceDetails(): Promise<PlaceReviews> {
         error: data.error?.message || `Places API ${res.status}`,
       }
     }
+    // The Places API returns at most 5 reviews ("most relevant"). Also ask the
+    // classic Place Details endpoint for its NEWEST 5 and merge, so a listing
+    // with 6–10 reviews can show them all. Best-effort: if that endpoint isn't
+    // enabled on the key, we simply keep the 5 we have.
+    const merged = (data.reviews ?? []).map(mapGoogleReview)
+    const seen = new Set(merged.map(reviewKey))
+    for (const rv of await fetchNewestReviewsClassic(key, placeId)) {
+      if (!seen.has(reviewKey(rv))) { seen.add(reviewKey(rv)); merged.push(rv) }
+    }
     return {
       rating: typeof data.rating === 'number' ? data.rating : null,
       total: typeof data.userRatingCount === 'number' ? data.userRatingCount : null,
-      reviews: (data.reviews ?? []).map(mapGoogleReview).filter((rv) => rv.text.length > 0),
+      reviews: merged.filter((rv) => rv.text.length > 0),
       configured: true,
       needsPlaceId: false,
     }
@@ -123,7 +163,7 @@ async function fetchPlaceDetails(): Promise<PlaceReviews> {
 }
 
 /** Cached 6h so the portal doesn't pay per load or hit Places rate limits. */
-export const getPlaceReviews = unstable_cache(fetchPlaceDetails, ['sano-google-place-reviews'], {
+export const getPlaceReviews = unstable_cache(fetchPlaceDetails, ['sano-google-place-reviews-v2'], {
   revalidate: CACHE_SECONDS,
 })
 

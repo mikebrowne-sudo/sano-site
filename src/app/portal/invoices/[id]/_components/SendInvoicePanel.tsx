@@ -53,8 +53,10 @@ export function SendInvoicePanel({
   const money = (n: number) => new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
   const fullyPaid = paidAmount > 0 && (balanceDue ?? 0) < 0.005
   const partPaid = paidAmount > 0 && !fullyPaid
+  // The date the money reached our bank (the bank-reconciled date), not the
+  // send or invoice date — see invoicePaymentSummary.
   const paidOn = datePaid
-    ? ` on ${new Date(`${datePaid.slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}`
+    ? `, received on ${new Date(`${datePaid.slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}`
     : ''
   const howToPay = cardAvailable
     ? 'You can pay by bank transfer using the details on the invoice (no fee), or by card using the Pay button (a 2.5% card fee applies).'
@@ -65,9 +67,9 @@ export function SendInvoicePanel({
   )
   const [message, setMessage] = useState(
     fullyPaid
-      ? `${greeting}\n\nPlease find attached your paid invoice ${invoiceNumber} for your records. We received your payment of ${money(paidAmount)}${paidOn} — thank you. Nothing further is needed.${referenceLine}\n\nIf you have any questions, just let us know.${signOff}`
+      ? `${greeting}\n\nThanks for your payment of ${money(paidAmount)}${paidOn}.\n\nWe've attached your paid invoice ${invoiceNumber} for your records.${referenceLine}\n\nThanks again for choosing Sano. We really appreciate your business!\n\nIf you have any questions, please don't hesitate to get in touch.${signOff}`
       : partPaid
-        ? `${greeting}\n\nPlease find your invoice ${invoiceNumber} from Sano via the link below. Thank you for your payment of ${money(paidAmount)}; the balance of ${money(balanceDue ?? 0)} is shown on the invoice.${referenceLine}\n\n${howToPay} If you have any questions, just let us know.${signOff}`
+        ? `${greeting}\n\nThanks for your payment of ${money(paidAmount)}${paidOn}.\n\nWe've attached invoice ${invoiceNumber}, which shows the remaining balance of ${money(balanceDue ?? 0)}.${referenceLine}\n\n${howToPay}\n\nIf you have any questions, please don't hesitate to get in touch.${signOff}`
         : `${greeting}\n\nPlease find your invoice ${invoiceNumber} from Sano via the link below.${referenceLine}\n\n${howToPay} If you have any questions, just let us know.${signOff}`,
   )
 

@@ -54,8 +54,33 @@ export async function loadAllocatedByInvoice(supabase: SupabaseClient, invoiceId
 export function invoicePaymentSummary(
   i: InvoiceAmountFields & { status?: string | null; date_paid?: string | null },
   allocated: number,
+  /** Latest bank line matched to it (loadBankPaidDateByInvoice) — preferred. */
+  bankDate: string | null = null,
 ): { paid: number; datePaid: string | null } {
   const total = invoiceTotalInclGst(i)
-  if (i.status === 'paid') return { paid: total, datePaid: i.date_paid ?? null }
-  return { paid: Math.min(round2(allocated), total), datePaid: null }
+  // Received date = when the money hit the bank. Card / manual payments with
+  // no bank match fall back to the recorded paid date.
+  if (i.status === 'paid') return { paid: total, datePaid: bankDate ?? i.date_paid ?? null }
+  return { paid: Math.min(round2(allocated), total), datePaid: allocated > 0 ? bankDate : null }
+}
+
+/**
+ * The day the money actually reached the bank, per invoice: the latest bank
+ * line matched to it in reconciliation. This — not the send date or when
+ * someone clicked "Mark as paid" — is the "received on" date we show.
+ */
+export async function loadBankPaidDateByInvoice(supabase: SupabaseClient, invoiceIds: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>()
+  if (invoiceIds.length === 0) return map
+  const { data } = await supabase
+    .from('invoice_payment_allocations')
+    .select('invoice_id, bank_transactions ( txn_date )')
+    .in('invoice_id', invoiceIds)
+    .is('reversed_at', null)
+  for (const r of (data ?? []) as Array<{ invoice_id: string; bank_transactions: { txn_date: string | null } | Array<{ txn_date: string | null }> | null }>) {
+    const bt = Array.isArray(r.bank_transactions) ? r.bank_transactions[0] : r.bank_transactions
+    const d = bt?.txn_date?.slice(0, 10)
+    if (d && (!map.has(r.invoice_id) || d > (map.get(r.invoice_id) as string))) map.set(r.invoice_id, d)
+  }
+  return map
 }

@@ -69,6 +69,9 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Real Google reviews, early — social proof right after "why Sano". */}
+      <GoogleReviewsStrip />
+
       {/* Services */}
       <section className="section-padding section-y bg-[#faf9f6]">
         <div className="container-max">
@@ -158,8 +161,6 @@ export default function HomePage() {
       />
 
       <ProcessSteps />
-
-      <GoogleReviewsStrip />
 
       {/* JSON-LD: LocalBusiness. Richer signals help Google's local
           understanding + the knowledge panel. `sameAs` should list the
