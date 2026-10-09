@@ -18,6 +18,7 @@ export function SendInvoicePanel({
   primaryContactEmail = '',
   clientReference = '',
   requiresPo = false,
+  cardAvailable = false,
 }: {
   invoiceId: string
   invoiceNumber: string
@@ -30,6 +31,8 @@ export function SendInvoicePanel({
   primaryContactEmail?: string
   clientReference?: string
   requiresPo?: boolean
+  /** Card payment is offered on this invoice (live Stripe, not switched off). */
+  cardAvailable?: boolean
 }) {
   const referenceLine = clientReference
     ? `\n\nYour reference: ${clientReference}`
@@ -41,7 +44,7 @@ export function SendInvoicePanel({
   const [ccPrimary, setCcPrimary] = useState(false)
   const [subject, setSubject] = useState(`Invoice ${invoiceNumber} from Sano`)
   const [message, setMessage] = useState(
-    `${greeting}\n\nPlease find your invoice ${invoiceNumber} from Sano via the link below.${referenceLine}\n\nYou can pay by card using the Pay button on the invoice, or by bank transfer using the details shown there. If you have any questions, just let us know.\n\nKind regards,\nThe Sano team`,
+    `${greeting}\n\nPlease find your invoice ${invoiceNumber} from Sano via the link below.${referenceLine}\n\n${cardAvailable ? 'You can pay by bank transfer using the details on the invoice (no fee), or by card using the Pay button (a 2.5% card fee applies).' : 'Our bank details are on the invoice; please use the invoice number as the payment reference.'} If you have any questions, just let us know.\n\nKind regards,\nThe Sano team`,
   )
 
   const [isPending, startTransition] = useTransition()

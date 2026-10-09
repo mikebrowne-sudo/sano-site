@@ -11,7 +11,7 @@ import { ProposalDocument } from '@/components/proposals/ProposalDocument'
 import { loadProposalForQuote } from '@/lib/proposals/loadProposalForQuote'
 import { PayNowButton } from '../../invoice/[token]/_components/PayNowButton'
 import { canTakeRealPayments } from '@/lib/stripe'
-import { quoteCardPayable } from '@/lib/card-payments'
+import { cardFee, quoteCardPayable } from '@/lib/card-payments'
 import { computeDocumentTotals } from '@/lib/doc-totals'
 import { sanoPaymentDetails } from '@/lib/sano-bank-details'
 
@@ -187,6 +187,9 @@ export default async function PublicQuotePage({
       const lineTotal = (quote.base_price ?? 0) + (items ?? []).reduce((s, i) => s + Math.max(0, i.price ?? 0), 0) - (quote.discount ?? 0)
       const total = computeDocumentTotals(lineTotal, !!quote.gst_included).total
       if (total > 0) {
+        const money = (n: number) => new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
+        const due = Math.round(total * 100) / 100
+        const fee = cardFee(due)
         payPanel = (
           <PayNowButton
             kind="quote"
@@ -196,6 +199,8 @@ export default async function PublicQuotePage({
             paymentResult={searchParams?.payment ?? null}
             total={new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(total)}
             bankDetails={sanoPaymentDetails(quote.quote_number as string)}
+            cardFee={money(fee)}
+            cardTotal={money(Math.round((due + fee) * 100) / 100)}
           />
         )
       }

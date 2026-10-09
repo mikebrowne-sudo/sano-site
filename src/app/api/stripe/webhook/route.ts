@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe'
 import { createClient } from '@supabase/supabase-js'
 import { stampJobCompleteOnPaidInvoice } from '@/lib/job-paid-complete'
-import { applyQuoteCardPayment } from '@/lib/card-payments'
+import { addCardFeeLine, applyQuoteCardPayment } from '@/lib/card-payments'
 import { nzToday } from '@/lib/nz-date'
 import Stripe from 'stripe'
 
@@ -59,6 +59,8 @@ export async function POST(req: NextRequest) {
         .update({
           card_paid_at: new Date().toISOString(),
           card_amount_paid: (session.amount_total ?? 0) / 100,
+          // The 2.5% card fee inside that total — carried onto the invoice as a line.
+          card_fee_amount: Number(session.metadata?.card_fee ?? 0) || 0,
           stripe_payment_intent_id: (session.payment_intent as string) || null,
         })
         .eq('id', quoteId)
@@ -91,7 +93,7 @@ export async function POST(req: NextRequest) {
     // date_paid with the retry's date, and would re-stamp the job complete —
     // moving a payment's recorded date for no reason. `.neq` makes the update
     // idempotent: the second delivery matches no row and changes nothing.
-    const { error } = await supabase
+    const { data: flipped, error } = await supabase
       .from('invoices')
       .update({
         status: 'paid',
@@ -100,10 +102,16 @@ export async function POST(req: NextRequest) {
       })
       .eq('id', invoiceId)
       .neq('status', 'paid')
+      .select('id')
 
     if (error) {
       console.error('[stripe-webhook] Failed to update invoice:', error.message)
     } else {
+      // The 2.5% card fee becomes a line on the invoice (first delivery only —
+      // a retry flips nothing, so it never adds the fee twice).
+      if ((flipped ?? []).length > 0) {
+        await addCardFeeLine(supabase, invoiceId, Number(session.metadata?.card_fee_item_price ?? 0))
+      }
       console.log(`[stripe-webhook] Invoice ${session.metadata?.invoice_number} marked as paid`)
       // A paid invoice means the job is paid work — stamp it complete.
       await stampJobCompleteOnPaidInvoice(supabase, invoiceId)

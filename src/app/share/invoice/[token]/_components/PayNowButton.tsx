@@ -15,6 +15,8 @@ export function PayNowButton({
   total,
   kind = 'invoice',
   bankDetails,
+  cardFee,
+  cardTotal,
 }: {
   shareToken: string
   status: string
@@ -25,6 +27,9 @@ export function PayNowButton({
   kind?: 'invoice' | 'quote'
   /** Sano's bank details — shown under the card button as the fee-free option. */
   bankDetails?: ReadonlyArray<{ label: string; value: string }>
+  /** 2.5% card fee and the card total (amount due + fee), formatted. */
+  cardFee?: string
+  cardTotal?: string
 }) {
   const noun = kind === 'quote' ? 'booking' : 'invoice'
   const [loading, setLoading] = useState(false)
@@ -72,10 +77,24 @@ export function PayNowButton({
         <span className="pay-amount-value">{total}</span>
       </div>
 
+      {cardFee && cardTotal && (
+        <dl className="pay-fee">
+          <div className="pay-fee-row">
+            <dt>Card fee (2.5%)</dt>
+            <dd>{cardFee}</dd>
+          </div>
+          <div className="pay-fee-row pay-fee-total">
+            <dt>Total by card</dt>
+            <dd>{cardTotal}</dd>
+          </div>
+        </dl>
+      )}
+
       <PayButton
         kind={kind}
         shareToken={shareToken}
-        total={total}
+        total={cardTotal ?? total}
+        byCard={!!cardFee}
         loading={loading}
         setLoading={setLoading}
         error={error}
@@ -86,7 +105,9 @@ export function PayNowButton({
         <div className="pay-alt">
           <div className="pay-alt-divider"><span>or</span></div>
           <p className="pay-alt-title">Prefer bank transfer?</p>
-          <p className="pay-alt-sub">Please include the reference so we can match your payment.</p>
+          <p className="pay-alt-sub">
+            {cardFee ? 'No fee. ' : ''}Please include the reference so we can match your payment.
+          </p>
           <dl className="pay-alt-grid">
             {bankDetails.map((row) => (
               <div key={row.label} className="pay-alt-row">
@@ -101,8 +122,9 @@ export function PayNowButton({
   )
 }
 
-function PayButton({ kind, shareToken, total, loading, setLoading, error, setError }: {
+function PayButton({ kind, shareToken, total, byCard, loading, setLoading, error, setError }: {
   kind: 'invoice' | 'quote'
+  byCard: boolean
   shareToken: string
   total: string
   loading: boolean
@@ -147,7 +169,7 @@ function PayButton({ kind, shareToken, total, loading, setLoading, error, setErr
     <>
       <button onClick={handlePay} disabled={loading} className="pay-button">
         <CreditCard size={18} />
-        {loading ? 'Redirecting to payment…' : `Pay ${total}`}
+        {loading ? 'Redirecting to payment…' : `Pay ${total}${byCard ? ' by card' : ''}`}
       </button>
       {error && <p className="pay-error">{error}</p>}
     </>

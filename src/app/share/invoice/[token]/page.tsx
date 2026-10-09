@@ -7,7 +7,7 @@ import { SharePdfButton } from '../../_components/SharePdfButton'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { InvoiceDocument } from '@/components/document/InvoiceDocument'
 import { canTakeRealPayments } from '@/lib/stripe'
-import { clientCardSetting, invoiceOffersCard } from '@/lib/card-payments'
+import { cardFee, clientCardSetting, invoiceOffersCard } from '@/lib/card-payments'
 import { sanoPaymentDetails } from '@/lib/sano-bank-details'
 import { invoiceBalanceDue, loadAllocatedByInvoice } from '@/lib/invoice-balance'
 
@@ -81,10 +81,17 @@ export default async function PublicInvoicePage({
   // ticked "Show Pay now" on this invoice (lib/card-payments).
   const showPay = !isPdfRender && canTakeRealPayments() && invoiceOffersCard({ ...invoice, client_allow_card_payment: clientCardSetting(invoice.clients) })
   let totalDisplay = ''
+  let feeDisplay = ''
+  let cardTotalDisplay = ''
   if (showPay) {
     const allocated = (await loadAllocatedByInvoice(supabase, [invoice.id])).get(invoice.id) ?? 0
     const due = invoiceBalanceDue({ ...invoice, invoice_items: items ?? [] }, allocated)
-    totalDisplay = new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(due)
+    const money = (n: number) => new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
+    // Same figures create-checkout charges: amount due + 2.5% card fee.
+    const fee = cardFee(due)
+    totalDisplay = money(due)
+    feeDisplay = money(fee)
+    cardTotalDisplay = money(Math.round((due + fee) * 100) / 100)
   }
 
   return (
@@ -110,6 +117,8 @@ export default async function PublicInvoicePage({
               paymentResult={searchParams?.payment ?? null}
               total={totalDisplay}
               bankDetails={sanoPaymentDetails(invoice.invoice_number)}
+              cardFee={feeDisplay || undefined}
+              cardTotal={cardTotalDisplay || undefined}
             />
           ) : undefined
         }

@@ -644,6 +644,30 @@ export const QUOTE_INVOICE_CSS = `
     font-size: 13px;
   }
 
+  /* Card fee breakdown, between the amount due and the pay button. */
+  .pay-fee {
+    margin: -12px 0 24px;
+    padding: 4px 18px;
+    text-align: left;
+  }
+  .pay-fee-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 6px 0;
+    font-size: 14px;
+    color: var(--sage-600);
+  }
+  .pay-fee-row dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .pay-fee-total {
+    border-top: 1px solid var(--sage-100);
+    color: var(--sage-800);
+    font-weight: 600;
+  }
+
   /* Bank-transfer alternative under the card button — quiet, same card. */
   .pay-alt { margin-top: 28px; }
   .pay-alt-divider {

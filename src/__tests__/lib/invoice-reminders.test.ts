@@ -30,7 +30,7 @@ describe('reminder email wording', () => {
     const e = buildReminderEmail({ ...base, stage: 1 })
     expect(e.subject).toBe('Friendly reminder: invoice INV-0493 from Sano')
     expect(e.message).toContain('invoice INV-0493 for $420.00 was due on 8 October 2026')
-    expect(e.message).toContain('pay by card or bank transfer')
+    expect(e.message).toContain('by card (a 2.5% card fee applies)')
     expect(e.message.startsWith('Hi Jamie,')).toBe(true)
   })
 
