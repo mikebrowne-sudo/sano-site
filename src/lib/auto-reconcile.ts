@@ -379,7 +379,7 @@ export function suggestCreditMatches(args: {
   if (due <= 0) return { clientIds: [], suggestions, notes }
   if (NON_INCOME_RE.test(text)) {
     notes.push(/i\.?\s?r\.?\s?d|inland\s+revenue/i.test(text)
-      ? 'From IRD — a tax refund, not customer income. Tick it off.'
+      ? 'From IRD — a tax refund (e.g. PAYE overpaid), not customer income. No invoice needed: tick it off.'
       : 'Owner money / transfer — not customer income. Tick it off.')
     return { clientIds: [], suggestions, notes }
   }
