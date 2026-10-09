@@ -7,6 +7,7 @@ import { CtaBanner } from '@/components/CtaBanner'
 import { FadeIn, Stagger, StaggerItem } from '@/components/FadeIn'
 import { SERVICES } from '@/lib/services'
 import Image from 'next/image'
+import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Sano — Professional Cleaning Services in Auckland',
@@ -84,6 +85,55 @@ export default function HomePage() {
               ))}
             </ul>
           </Stagger>
+        </div>
+      </section>
+
+      {/* For workplaces — commercial is a growth focus, so it gets its own
+          band and its own CTA (the free site walkthrough) rather than being
+          one card among many. */}
+      <section className="section-padding section-y bg-white">
+        <div className="container-max">
+          <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-14">
+            <FadeIn direction="left">
+              <div className="relative aspect-[4/3] overflow-hidden rounded-2xl">
+                <Image
+                  src="/images/sano-commercial-clean-auckland.jpeg"
+                  alt="Sano cleaner working in an Auckland commercial space"
+                  fill
+                  sizes="(min-width: 1024px) 50vw, 100vw"
+                  className="object-cover"
+                />
+              </div>
+            </FadeIn>
+            <FadeIn delay={0.1}>
+              <p className="eyebrow mb-3">For workplaces</p>
+              <h2 className="text-sage-800 mb-4">Commercial cleaning for offices, education and hospitality</h2>
+              <p className="body-text mb-6">
+                Reliable cleaning scheduled around your day, with a consistent team and one point
+                of contact. We start with a free site walkthrough, then send a tailored proposal
+                with a fixed price.
+              </p>
+              <ul className="mb-8 space-y-2 text-[0.9375rem] text-sage-700">
+                <li>• Offices and professional workplaces</li>
+                <li>• Early childhood centres, schools and training rooms</li>
+                <li>• Cafés, restaurants, bars and function spaces</li>
+              </ul>
+              <div className="flex flex-wrap items-center gap-3">
+                <Link
+                  href="/contact?service=commercial"
+                  className="inline-flex items-center rounded-full bg-sage-800 px-6 py-3 text-[0.875rem] font-semibold text-white transition-colors hover:bg-sage-500"
+                >
+                  Book a free site walkthrough
+                </Link>
+                <Link
+                  href="/services/commercial-cleaning"
+                  className="inline-flex items-center rounded-full border border-sage-200 px-6 py-3 text-[0.875rem] font-semibold text-sage-800 transition-colors hover:bg-sage-50"
+                >
+                  Commercial cleaning
+                </Link>
+              </div>
+            </FadeIn>
+          </div>
         </div>
       </section>
 

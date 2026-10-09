@@ -23,7 +23,7 @@ import { gaEvent } from '@/lib/gtag'
 
 type ServiceType = 'home' | 'commercial'
 type HomeCleanType = 'regular' | 'one_off' | 'deep' | 'move_out' | 'unsure'
-type CommercialSpaceType = 'office' | 'retail' | 'medical' | 'industrial' | 'other'
+type CommercialSpaceType = 'office' | 'education' | 'hospitality' | 'medical' | 'retail' | 'industrial' | 'other'
 type Frequency = 'one_off' | 'weekly' | 'fortnightly' | 'monthly'
 type Extra = 'oven' | 'windows' | 'carpet' | 'deep_upgrade'
 
@@ -45,6 +45,10 @@ interface FormData {
   name: string
   email: string
   phone: string
+  /** Commercial only. */
+  business_name: string
+  role: string
+  walkthrough: boolean
 }
 
 const HOME_CLEAN_OPTIONS: { value: HomeCleanType; label: string; helper: string }[] = [
@@ -56,12 +60,17 @@ const HOME_CLEAN_OPTIONS: { value: HomeCleanType; label: string; helper: string 
 ]
 
 const COMMERCIAL_SPACE_OPTIONS: { value: CommercialSpaceType; label: string; helper: string }[] = [
-  { value: 'office',     label: 'Office',     helper: 'Workplaces, coworking, professional services' },
-  { value: 'retail',     label: 'Retail',     helper: 'Shops, showrooms, customer-facing spaces' },
-  { value: 'medical',    label: 'Medical',    helper: 'Clinics, dental, allied health' },
-  { value: 'industrial', label: 'Industrial', helper: 'Warehouses, workshops, light industrial' },
-  { value: 'other',      label: 'Other',      helper: 'Tell us about your space' },
+  { value: 'office',      label: 'Office',      helper: 'Workplaces, coworking, professional services' },
+  { value: 'education',   label: 'Education',   helper: 'Early childhood centres, schools, training rooms' },
+  { value: 'hospitality', label: 'Hospitality', helper: 'Cafés, restaurants, bars, function spaces' },
+  { value: 'medical',     label: 'Medical',     helper: 'Clinics, dental, allied health' },
+  { value: 'retail',      label: 'Retail',      helper: 'Shops, showrooms, customer-facing spaces' },
+  { value: 'industrial',  label: 'Industrial',  helper: 'Warehouses, workshops, light industrial' },
+  { value: 'other',       label: 'Other',       helper: 'Tell us about your space' },
 ]
+
+// Home-only add-ons (oven / deep-clean upgrade) aren't offered for commercial.
+const COMMERCIAL_EXTRAS: Extra[] = ['windows', 'carpet']
 
 const PROPERTY_TYPE_OPTIONS = [
   'House',
@@ -107,11 +116,23 @@ const STEP_TITLES = [
   'All done',
 ]
 
+/**
+ * `?service=` from a service-page CTA seeds the flow: "commercial" (or a space
+ * type such as "office" / "education" / "hospitality") starts on commercial;
+ * "home" (or a home clean type) starts on home.
+ */
+function seedFromService(initialService: string): Pick<FormData, 'service_type' | 'commercial_space_type' | 'home_clean_type'> {
+  const s = initialService.trim().toLowerCase()
+  const space = COMMERCIAL_SPACE_OPTIONS.find((o) => o.value === s)?.value
+  if (s === 'commercial' || space) return { service_type: 'commercial', commercial_space_type: space ?? '', home_clean_type: '' }
+  const home = HOME_CLEAN_OPTIONS.find((o) => o.value === s)?.value
+  if (s === 'home' || home) return { service_type: 'home', commercial_space_type: '', home_clean_type: home ?? '' }
+  return { service_type: '', commercial_space_type: '', home_clean_type: '' }
+}
+
 function emptyForm(initialService: string): FormData {
   return {
-    service_type: '',
-    home_clean_type: '',
-    commercial_space_type: '',
+    ...seedFromService(initialService),
     address: '',
     suburb: '',
     bedrooms: '',
@@ -126,12 +147,9 @@ function emptyForm(initialService: string): FormData {
     name: '',
     email: '',
     phone: '',
-    // initialService allows ?service=... query string to seed the flow
-    // (used by service-page CTAs to pre-select). We don't currently
-    // use this for the new stepper but reserve the hook for parity
-    // with the legacy QuoteForm.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...({ _initialService: initialService } as any),
+    business_name: '',
+    role: '',
+    walkthrough: true,
   }
 }
 
@@ -147,20 +165,18 @@ function composeServiceLabel(f: FormData): string {
     return `Home — ${map[f.home_clean_type as HomeCleanType] ?? ''}`
   }
   if (f.service_type === 'commercial') {
-    const map: Record<CommercialSpaceType, string> = {
-      office: 'Office',
-      retail: 'Retail',
-      medical: 'Medical',
-      industrial: 'Industrial',
-      other: 'Other',
-    }
-    return `Commercial — ${map[f.commercial_space_type as CommercialSpaceType] ?? ''}`
+    const label = COMMERCIAL_SPACE_OPTIONS.find((o) => o.value === f.commercial_space_type)?.label ?? ''
+    return `Commercial — ${label}`
   }
   return ''
 }
 
 function composeMessage(f: FormData): string {
   const lines: string[] = []
+  if (f.service_type === 'commercial') {
+    if (f.business_name.trim()) lines.push(`Business: ${f.business_name.trim()}${f.role.trim() ? ` (${f.role.trim()})` : ''}`)
+    lines.push(`Free site walkthrough: ${f.walkthrough ? 'Yes, please' : 'Not needed'}`)
+  }
   if (f.address) lines.push(`Address: ${f.address}`)
   if (f.service_type === 'home') {
     if (f.bedrooms)      lines.push(`Bedrooms: ${f.bedrooms}`)
@@ -553,8 +569,15 @@ function NavButtons({
 
 export function QuoteRequestStepper() {
   const searchParams = useSearchParams()
-  const [stepIndex, setStepIndex] = useState(0)
   const [form, setForm] = useState<FormData>(emptyForm(searchParams.get('service') || ''))
+  // A CTA that already says what's wanted (?service=commercial / office / …)
+  // skips the questions it answered.
+  const [stepIndex, setStepIndex] = useState(() => {
+    if (form.service_type === 'commercial') return form.commercial_space_type ? 2 : 1
+    if (form.service_type === 'home') return form.home_clean_type ? 2 : 1
+    return 0
+  })
+  const isCommercial = form.service_type === 'commercial'
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const [suburbAutoFilled, setSuburbAutoFilled] = useState(false)
@@ -632,6 +655,7 @@ export function QuoteRequestStepper() {
       case 5: return false
       case 6:
         return !form.name.trim() || !isValidEmail(form.email) || !form.phone.trim()
+          || (isCommercial && !form.business_name.trim())
       default: return false
     }
   }
@@ -670,7 +694,7 @@ export function QuoteRequestStepper() {
                   active={form.service_type === 'commercial'}
                   onClick={() => { update('service_type', 'commercial'); delayedNext() }}
                   label="Commercial cleaning"
-                  helper="Offices, retail, medical, industrial, and more."
+                  helper="Offices, education, hospitality, medical, retail and more."
                 />
               </div>
               <NavButtons isFirst onNext={goNext} nextDisabled={nextDisabled()} />
@@ -831,7 +855,7 @@ export function QuoteRequestStepper() {
               <p className="text-sm text-gray-500 mb-5">Optional — leave blank if flexible.</p>
               <TextField
                 id="preferred_date"
-                label="Preferred date"
+                label={isCommercial ? 'Preferred start date' : 'Preferred date'}
                 value={form.preferred_date}
                 onChange={(v) => update('preferred_date', v)}
                 type="date"
@@ -861,8 +885,18 @@ export function QuoteRequestStepper() {
             <div>
               <h3 className="text-lg font-bold text-sage-800 mb-1">Anything to add?</h3>
               <p className="text-sm text-gray-500 mb-5">Pick any add-ons or share extra context.</p>
+              {isCommercial && (
+                <div className="mb-3">
+                  <CheckboxCard
+                    checked={form.walkthrough}
+                    onToggle={() => update('walkthrough', !form.walkthrough)}
+                    label="Free site walkthrough"
+                    helper="We visit, walk the site with you and send a tailored proposal. No cost, no obligation."
+                  />
+                </div>
+              )}
               <div className="grid gap-3 mb-5">
-                {EXTRA_OPTIONS.map((o) => (
+                {EXTRA_OPTIONS.filter((o) => !isCommercial || COMMERCIAL_EXTRAS.includes(o.value)).map((o) => (
                   <CheckboxCard
                     key={o.value}
                     checked={form.extras.includes(o.value)}
@@ -881,7 +915,9 @@ export function QuoteRequestStepper() {
                   value={form.notes}
                   onChange={(e) => update('notes', e.target.value)}
                   rows={3}
-                  placeholder="Anything we should know — access, pets, special requests…"
+                  placeholder={isCommercial
+                    ? 'Anything we should know — opening hours, after-hours access, alarm, number of sites…'
+                    : 'Anything we should know — access, pets, special requests…'}
                   className="w-full border border-sage-100 bg-white rounded-xl px-4 py-2.5 text-sm text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-300 focus:border-sage-300 transition-colors"
                 />
               </div>
@@ -895,6 +931,27 @@ export function QuoteRequestStepper() {
               <h3 className="text-lg font-bold text-sage-800 mb-1">Last bit — how do we reach you?</h3>
               <p className="text-sm text-gray-500 mb-5">We&apos;ll come back with a quote within a few hours on business days.</p>
               <div className="space-y-4">
+                {isCommercial && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <TextField
+                      id="business_name"
+                      label="Business name"
+                      value={form.business_name}
+                      onChange={(v) => update('business_name', v)}
+                      placeholder="e.g. Harbour Dental"
+                      required
+                      autoComplete="organization"
+                    />
+                    <TextField
+                      id="role"
+                      label="Your role"
+                      value={form.role}
+                      onChange={(v) => update('role', v)}
+                      placeholder="e.g. Office manager"
+                      autoComplete="organization-title"
+                    />
+                  </div>
+                )}
                 <TextField
                   id="name"
                   label="Name"
@@ -949,7 +1006,9 @@ export function QuoteRequestStepper() {
               </div>
               <h3 className="text-xl font-bold text-sage-800 mb-2">Thanks — we&apos;ve got your request.</h3>
               <p className="text-sm text-gray-600 leading-relaxed max-w-sm mx-auto">
-                We&apos;ll review the details and come back to you shortly with a quote.
+                {isCommercial && form.walkthrough
+                  ? 'We’ll be in touch shortly to arrange a time for your free site walkthrough.'
+                  : 'We’ll review the details and come back to you shortly with a quote.'}
               </p>
               <p className="text-sm text-gray-600 leading-relaxed max-w-sm mx-auto mt-3">
                 If it&apos;s urgent, feel free to call us on <a href="tel:0800726686" className="text-sage-700 font-semibold underline-offset-2 hover:underline">0800 726 686</a>.

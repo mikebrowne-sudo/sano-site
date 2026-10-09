@@ -8,7 +8,12 @@ export const metadata: Metadata = {
   description: "Request a free, no-obligation cleaning quote from Sano. We'll get back to you within a few hours. Serving all of Auckland.",
 }
 
-export default function ContactPage() {
+const COMMERCIAL_SEEDS = ['commercial', 'office', 'education', 'hospitality', 'medical', 'retail', 'industrial']
+
+export default function ContactPage({ searchParams }: { searchParams?: { service?: string } }) {
+  // Arriving from a commercial page (?service=commercial / office / …) gets
+  // workplace wording; everyone else a neutral headline.
+  const commercial = COMMERCIAL_SEEDS.includes((searchParams?.service ?? '').toLowerCase())
   return (
     <>
       <section className="section-padding py-16 bg-gradient-to-b from-white to-sage-50">
@@ -16,10 +21,14 @@ export default function ContactPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
             {/* Left: info */}
             <div>
-              <p className="eyebrow mb-3">Free quote</p>
-              <h1 className="text-sage-800 mb-4">Let&apos;s get your home sparkling.</h1>
+              <p className="eyebrow mb-3">{commercial ? 'Commercial cleaning' : 'Free quote'}</p>
+              <h1 className="text-sage-800 mb-4">
+                {commercial ? 'Let’s talk about your workplace.' : 'Get your free, fixed quote.'}
+              </h1>
               <p className="text-gray-600 leading-relaxed mb-8">
-                Fill in the form and we&apos;ll get back to you within a few hours with a fixed quote &mdash; no hidden costs, no obligation.
+                {commercial
+                  ? 'Tell us about your site and we’ll arrange a free walkthrough, then send a tailored proposal. No cost, no obligation.'
+                  : <>Fill in the form and we&apos;ll get back to you within a few hours with a fixed quote &mdash; no hidden costs, no obligation.</>}
               </p>
               <div className="mb-8 space-y-3">
                 <a href="tel:0800726686" className="flex items-center gap-3 text-sage-800 font-semibold hover:text-sage-500 transition-colors">
@@ -77,7 +86,7 @@ export default function ContactPage() {
             </div>
             {/* Right: form */}
             <div className="bg-white rounded-2xl shadow-sm border border-sage-100 p-8">
-              <h2 className="text-sage-800 mb-6 text-xl">Request a quote</h2>
+              <h2 className="text-sage-800 mb-6 text-xl">{commercial ? 'Request a site walkthrough' : 'Request a quote'}</h2>
               <Suspense fallback={<div className="h-64 animate-pulse bg-sage-50 rounded-xl" />}>
                 <QuoteRequestStepper />
               </Suspense>
