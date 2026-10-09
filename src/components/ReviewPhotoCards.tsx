@@ -34,8 +34,16 @@ function Stars({ value }: { value: number }) {
   )
 }
 
+/** First letters of the first and last words ("Kirsty-ann Ofamo'oni" → KO). */
 function initials(name: string): string {
-  return name.split(/[\s-]+/).filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join('')
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  const picked = parts.length > 1 ? [parts[0], parts[parts.length - 1]] : parts
+  return picked.map((p) => p[0]!.toUpperCase()).join('')
+}
+
+/** Names as reviewers typed them, capitalised for display ("shirley" → "Shirley"). */
+function displayName(name: string): string {
+  return name.replace(/(^|[\s-])([a-z])/g, (_m, a: string, b: string) => a + b.toUpperCase())
 }
 
 /** The review text with its highlight phrase (if found) in green. */
@@ -62,11 +70,11 @@ export function ReviewPhotoCards({ reviews }: { reviews: PhotoCardReview[] }) {
           <article
             key={`${r.author}-${i}`}
             tabIndex={0}
-            aria-label={`Review from ${r.author}`}
+            aria-label={`Review from ${displayName(r.author)}`}
             onMouseEnter={() => setOpen(i)}
             onFocus={() => setOpen(i)}
             onClick={() => setOpen(i)}
-            className={`group relative h-[380px] shrink-0 basis-[82%] snap-center overflow-hidden rounded-[18px] bg-sage-800 outline-none transition-[flex-grow] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] focus-visible:ring-2 focus-visible:ring-sage-300 focus-visible:ring-offset-2 motion-reduce:transition-none md:h-full md:min-w-0 md:shrink md:basis-0 md:cursor-pointer ${
+            className={`group relative h-[460px] shrink-0 basis-[82%] snap-center overflow-hidden rounded-[18px] bg-sage-800 outline-none transition-[flex-grow] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] focus-visible:ring-2 focus-visible:ring-sage-300 focus-visible:ring-offset-2 motion-reduce:transition-none md:h-full md:min-w-0 md:shrink md:basis-0 md:cursor-pointer ${
               isOpen ? 'md:grow-[3.4]' : 'md:grow'
             }`}
           >
@@ -89,7 +97,7 @@ export function ReviewPhotoCards({ reviews }: { reviews: PhotoCardReview[] }) {
                 isOpen ? 'md:opacity-0' : 'md:opacity-100'
               }`}
             >
-              <span className="block text-[0.85rem] font-semibold">{r.author.split(' ')[0]}</span>
+              <span className="block text-[0.85rem] font-semibold">{displayName(r.author).split(' ')[0]}</span>
               <span className="mt-1.5 inline-block"><Stars value={r.rating} /></span>
             </div>
 
@@ -100,7 +108,7 @@ export function ReviewPhotoCards({ reviews }: { reviews: PhotoCardReview[] }) {
               }`}
             >
               <Stars value={r.rating} />
-              <blockquote className="m-0 font-display text-[1.02rem] leading-relaxed line-clamp-[7]">
+              <blockquote className="m-0 font-display text-[1.02rem] leading-relaxed line-clamp-[10] md:line-clamp-[7]">
                 <Quote text={r.text} highlight={r.highlight} />
               </blockquote>
               <div className="flex items-center gap-2.5">
@@ -108,7 +116,7 @@ export function ReviewPhotoCards({ reviews }: { reviews: PhotoCardReview[] }) {
                   {initials(r.author)}
                 </span>
                 <span>
-                  <span className="block text-[0.875rem] font-semibold">{r.author}</span>
+                  <span className="block text-[0.875rem] font-semibold">{displayName(r.author)}</span>
                   <span className="block text-[0.72rem] text-white/70">
                     Google review{r.relativeTime ? ` · ${r.relativeTime}` : ''}
                   </span>
