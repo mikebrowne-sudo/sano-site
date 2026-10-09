@@ -28,7 +28,7 @@ import { SendReminderPanel, type ReminderHistoryRow } from './_components/SendRe
 import { canTakeRealPayments } from '@/lib/stripe'
 import { nzToday } from '@/lib/nz-date'
 import { daysOverdue } from '@/lib/invoice-reminders'
-import { invoiceBalanceDue, invoicePaymentSummary, invoiceTotalInclGst, loadAllocatedByInvoice, type InvoiceAmountFields } from '@/lib/invoice-balance'
+import { invoiceBalanceDue, invoicePaymentSummary, invoiceTotalInclGst, loadAllocatedByInvoice, loadBankPaidDateByInvoice, type InvoiceAmountFields } from '@/lib/invoice-balance'
 
 function fmt(dollars: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(dollars)
@@ -180,9 +180,13 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   }
 
   // Payments received — drives the Send email wording (paid / part-paid).
-  const allocatedHere = (await loadAllocatedByInvoice(supabase, [invoice.id as string])).get(invoice.id as string) ?? 0
+  const [allocHereMap, bankDatesHere] = await Promise.all([
+    loadAllocatedByInvoice(supabase, [invoice.id as string]),
+    loadBankPaidDateByInvoice(supabase, [invoice.id as string]),
+  ])
+  const allocatedHere = allocHereMap.get(invoice.id as string) ?? 0
   const amountFields = { ...(invoice as InvoiceAmountFields), invoice_items: items ?? [] }
-  const paySummary = invoicePaymentSummary({ ...amountFields, status: invoice.status as string, date_paid: (invoice.date_paid as string | null) ?? null }, allocatedHere)
+  const paySummary = invoicePaymentSummary({ ...amountFields, status: invoice.status as string, date_paid: (invoice.date_paid as string | null) ?? null }, allocatedHere, bankDatesHere.get(invoice.id as string) ?? null)
   const balanceHere = Math.max(0, Math.round((invoiceTotalInclGst(amountFields) - paySummary.paid) * 100) / 100)
 
   // Overdue logic (UI only)

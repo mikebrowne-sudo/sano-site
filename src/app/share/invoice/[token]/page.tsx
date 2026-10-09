@@ -9,7 +9,7 @@ import { InvoiceDocument } from '@/components/document/InvoiceDocument'
 import { canTakeRealPayments } from '@/lib/stripe'
 import { cardFee, clientCardSetting, invoiceOffersCard } from '@/lib/card-payments'
 import { sanoPaymentDetails } from '@/lib/sano-bank-details'
-import { invoiceBalanceDue, invoicePaymentSummary, loadAllocatedByInvoice } from '@/lib/invoice-balance'
+import { invoiceBalanceDue, invoicePaymentSummary, loadAllocatedByInvoice, loadBankPaidDateByInvoice } from '@/lib/invoice-balance'
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
   const supabase = getServiceSupabase()
@@ -81,8 +81,12 @@ export default async function PublicInvoicePage({
   // ticked "Show Pay now" on this invoice (lib/card-payments).
   const showPay = !isPdfRender && canTakeRealPayments() && invoiceOffersCard({ ...invoice, client_allow_card_payment: clientCardSetting(invoice.clients) })
   // Payments already received show on the invoice itself (Paid / Balance due).
-  const allocated = (await loadAllocatedByInvoice(supabase, [invoice.id])).get(invoice.id) ?? 0
-  const payment = invoicePaymentSummary({ ...invoice, invoice_items: items ?? [] }, allocated)
+  const [allocMap, bankDates] = await Promise.all([
+    loadAllocatedByInvoice(supabase, [invoice.id]),
+    loadBankPaidDateByInvoice(supabase, [invoice.id]),
+  ])
+  const allocated = allocMap.get(invoice.id) ?? 0
+  const payment = invoicePaymentSummary({ ...invoice, invoice_items: items ?? [] }, allocated, bankDates.get(invoice.id) ?? null)
 
   let totalDisplay = ''
   let feeDisplay = ''

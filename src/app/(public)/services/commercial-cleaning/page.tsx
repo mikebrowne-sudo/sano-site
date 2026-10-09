@@ -345,6 +345,8 @@ export default function CommercialCleaningPage() {
         </div>
       </section>
 
+      <GoogleReviewsStrip heading="What our clients say" />
+
       {/* Commercial FAQ (also published as FAQPage schema below). */}
       <section className="section-padding section-y bg-white">
         <div className="container-max">
@@ -369,8 +371,6 @@ export default function CommercialCleaningPage() {
           </div>
         </div>
       </section>
-      <GoogleReviewsStrip heading="What our clients say" className="bg-[#faf9f6]" />
-
       {/* 4. Bottom CTA banner — image-backed dark band with two CTAs.
           Mirrors the reference's "Ready for a Sparkling Clean Workplace?"
           section. Uses the existing Sano commercial photograph as the

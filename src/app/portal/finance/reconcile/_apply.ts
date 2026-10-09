@@ -7,6 +7,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { computeDocumentTotals } from '@/lib/doc-totals'
+import { loadBankPaidDateByInvoice } from '@/lib/invoice-balance'
 import {
   validateAllocation,
   isFullyAllocated,
@@ -127,6 +128,22 @@ export async function applyBankAllocation(supabase: SupabaseClient, input: Apply
       .select('id')
     if (updErr) return { ok: false, error: `Allocations saved but marking invoices paid failed: ${updErr.message}` }
     markedPaid = upd?.length ?? 0
+  }
+
+  // The paid date is when the money reached the bank. An invoice someone had
+  // already marked paid by hand (on the day they noticed, or the send date)
+  // gets its date corrected to the bank date once the bank payments cover it —
+  // so the invoice, the "received on" email and GST-by-payment-date all agree.
+  const coveredIds = Array.from(invoiceInfo.keys()).filter((id) => {
+    const after = round2((ctxInvoices[id]?.allocated ?? 0) + proposed.filter((p) => p.invoiceId === id).reduce((s, p) => s + p.amount, 0))
+    return after >= round2(ctxInvoices[id]?.total ?? 0) - 0.005
+  })
+  if (coveredIds.length > 0) {
+    const bankDates = await loadBankPaidDateByInvoice(supabase, coveredIds)
+    for (const id of coveredIds) {
+      const d = bankDates.get(id)
+      if (d) await supabase.from('invoices').update({ date_paid: d }).eq('id', id).eq('status', 'paid').neq('date_paid', d)
+    }
   }
 
   const proposedSum = round2(proposed.reduce((s, p) => s + p.amount, 0))

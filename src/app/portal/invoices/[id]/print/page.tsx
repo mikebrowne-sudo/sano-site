@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { InvoiceDocument } from '@/components/document/InvoiceDocument'
-import { invoicePaymentSummary, loadAllocatedByInvoice } from '@/lib/invoice-balance'
+import { invoicePaymentSummary, loadAllocatedByInvoice, loadBankPaidDateByInvoice } from '@/lib/invoice-balance'
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const supabase = createClient()
@@ -56,8 +56,12 @@ export default async function PrintInvoicePage({ params }: { params: { id: strin
 
   if (error || !invoice) notFound()
 
-  const allocated = (await loadAllocatedByInvoice(supabase, [invoice.id as string])).get(invoice.id as string) ?? 0
-  const payment = invoicePaymentSummary({ ...invoice, invoice_items: items ?? [] }, allocated)
+  const [allocMap, bankDates] = await Promise.all([
+    loadAllocatedByInvoice(supabase, [invoice.id as string]),
+    loadBankPaidDateByInvoice(supabase, [invoice.id as string]),
+  ])
+  const allocated = allocMap.get(invoice.id as string) ?? 0
+  const payment = invoicePaymentSummary({ ...invoice, invoice_items: items ?? [] }, allocated, bankDates.get(invoice.id as string) ?? null)
 
   return (
     <InvoiceDocument
