@@ -22,8 +22,9 @@ export async function acceptQuote(shareToken: string) {
   // Load quote by share token
   const { data: quote, error: loadErr } = await supabase
     .from('quotes')
-    .select('id, quote_number, status, accepted_at, clients ( name, email )')
+    .select('id, quote_number, status, accepted_at, is_latest_version, clients ( name, email )')
     .eq('share_token', shareToken)
+    .is('deleted_at', null)
     .single()
 
   if (loadErr || !quote) {
@@ -39,6 +40,19 @@ export async function acceptQuote(shareToken: string) {
     return { success: true, alreadyAccepted: true }
   }
 
+  // Already booked (converted to a job / invoice): nothing to do — and never
+  // move it backwards to 'accepted'.
+  if (quote.status === 'converted') {
+    return { success: true, alreadyAccepted: true }
+  }
+  // Only a live, issued, current version can be accepted.
+  if (quote.is_latest_version === false) {
+    return { error: 'This quote has been updated. Please use the latest version we sent you, or give us a call.' }
+  }
+  if (!['sent', 'viewed'].includes(quote.status as string)) {
+    return { error: 'This quote can no longer be accepted online. Please give us a call on 0800 726 686 and we’ll sort it out.' }
+  }
+
   // Update status + accepted_at. Never overwrite an existing accepted_at.
   const now = new Date().toISOString()
   const { error: updateErr } = await supabase
@@ -47,7 +61,9 @@ export async function acceptQuote(shareToken: string) {
     .eq('id', quote.id)
 
   if (updateErr) {
-    return { error: `Failed to accept: ${updateErr.message}` }
+    // Never show a customer raw database text.
+    console.error('[accept-quote] update failed:', updateErr.message)
+    return { error: 'Something went wrong accepting your quote. Please try again, or call us on 0800 726 686.' }
   }
 
   // Phase 6 — audit the public-share acceptance. actor_id is NULL because

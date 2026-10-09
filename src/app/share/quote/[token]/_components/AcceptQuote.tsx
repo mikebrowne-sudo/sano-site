@@ -39,7 +39,7 @@ export function AcceptQuote({
     })
   }
 
-  if (accepted || status === 'accepted') {
+  if (accepted || status === 'accepted' || status === 'converted') {
     return (
       <div className="accept-panel accept-done">
         <CheckCircle size={32} className="accept-done-icon" />
