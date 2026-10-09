@@ -43,7 +43,8 @@ function initials(name: string): string {
 
 /** Names as reviewers typed them, capitalised for display ("shirley" → "Shirley"). */
 function displayName(name: string): string {
-  return name.replace(/(^|[\s-])([a-z])/g, (_m, a: string, b: string) => a + b.toUpperCase())
+  // Word starts only, so "Kirsty-ann" keeps her own spelling.
+  return name.replace(/(^|\s)([a-z])/g, (_m, a: string, b: string) => a + b.toUpperCase())
 }
 
 /** The review text with its highlight phrase (if found) in green. */
