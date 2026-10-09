@@ -345,7 +345,7 @@ export default function CommercialCleaningPage() {
         </div>
       </section>
 
-      <GoogleReviewsStrip heading="What our clients say" />
+      <GoogleReviewsStrip heading="happy clients" background="bg-[#faf9f6]" />
 
       {/* Commercial FAQ (also published as FAQPage schema below). */}
       <section className="section-padding section-y bg-white">
