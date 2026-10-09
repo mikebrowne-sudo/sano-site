@@ -2,7 +2,10 @@
 
 // Send an overdue-invoice reminder (manual — staff click "Send reminder").
 // Same delivery as Send Invoice: Resend from noreply@ with the customer
-// reply-to, the share-page PDF attached, and a View & pay button. Fail-fast:
+// reply-to and the invoice PDF attached. Under the staff-edited message sits a
+// summary card — amount outstanding, due date, Sano's bank details + reference
+// (bank transfer first: it's preferred and free) and the invoice link; card is
+// mentioned quietly only where it's offered (never for on-account). Fail-fast:
 // no PDF means no email. Each send is recorded in invoice_reminders (the
 // history + stage count) and the audit log. Never touches invoice status.
 
@@ -15,11 +18,10 @@ import { renderPdfFromUrl } from '@/lib/pdf/render-pdf'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { getCustomerReplyToEmail } from '@/lib/email-reply-to'
 import { invoiceBalanceDue, loadAllocatedByInvoice, type InvoiceAmountFields } from '@/lib/invoice-balance'
-import { nextReminderStage } from '@/lib/invoice-reminders'
-
-function esc(s: string) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { nextReminderStage, renderReminderEmailHtml } from '@/lib/invoice-reminders'
+import { canTakeRealPayments } from '@/lib/stripe'
+import { clientCardSetting, invoiceOffersCard } from '@/lib/card-payments'
+import { SANO_ACCOUNT_NAME, SANO_ACCOUNT_NUMBER } from '@/lib/sano-bank-details'
 
 export interface SendReminderInput {
   invoice_id: string
@@ -38,7 +40,7 @@ export async function sendInvoiceReminder(input: SendReminderInput): Promise<{ o
 
   const { data: invoice } = await supabase
     .from('invoices')
-    .select('id, invoice_number, status, share_token, deleted_at, base_price, discount, gst_included, invoice_items ( price )')
+    .select('id, invoice_number, status, share_token, deleted_at, due_date, client_reference, payment_type, allow_card_payment, base_price, discount, gst_included, invoice_items ( price ), clients ( allow_card_payment )')
     .eq('id', input.invoice_id)
     .maybeSingle()
   if (!invoice) return { error: 'Invoice not found.' }
@@ -67,11 +69,17 @@ export async function sendInvoiceReminder(input: SendReminderInput): Promise<{ o
     return { error: 'PDF generation failed, so the reminder was not sent. Please try again.' }
   }
 
-  const html = `
-    <p>${esc(input.message).replace(/\n/g, '<br>')}</p>
-    <p><a href="${esc(shareUrl)}" style="display:inline-block;padding:10px 20px;background:#076653;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">View &amp; pay invoice</a></p>
-    <p style="color:#888;font-size:13px;margin-top:24px;">Sano Property Services Limited</p>
-  `
+  const html = renderReminderEmailHtml({
+    message: input.message,
+    invoiceNumber: invoice.invoice_number as string,
+    amountDue,
+    dueDate: (invoice.due_date as string | null) ?? null,
+    clientReference: (invoice.client_reference as string | null) ?? null,
+    shareUrl,
+    cardAvailable: canTakeRealPayments() && invoiceOffersCard({ ...invoice, client_allow_card_payment: clientCardSetting(invoice.clients) }),
+    bankAccountName: SANO_ACCOUNT_NAME,
+    bankAccountNumber: SANO_ACCOUNT_NUMBER,
+  })
   const cc = (input.cc ?? [])
     .map((e) => e.trim())
     .filter((e) => e.length > 0 && e.toLowerCase() !== input.to.trim().toLowerCase())

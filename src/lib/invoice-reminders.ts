@@ -69,42 +69,119 @@ export interface ReminderEmailInput {
   clientReference?: string | null
 }
 
-/** Subject + editable body for a reminder. Plain text; the send wraps it. */
+/**
+ * Subject + editable message for a reminder. Plain text, warm and short — the
+ * amount, due date, bank details, invoice link and PDF are added underneath by
+ * renderReminderEmailHtml (which also signs off), so the message never has to carry them.
+ */
 export function buildReminderEmail(i: ReminderEmailInput): { subject: string; message: string } {
   const amount = fmtMoney(i.amountDue)
   const due = i.dueDate ? fmtLongDate(i.dueDate) : null
-  const ref = i.clientReference ? `\n\nYour reference: ${i.clientReference}` : ''
-  const howToPay = i.cardAvailable
-    ? 'You can view the invoice and pay using the link below, by bank transfer (no fee) or by card (a 2.5% card fee applies).'
-    : 'You can view the invoice using the link below. Our bank details are on the invoice; please use the invoice number as the reference.'
-  const signOff = '\n\nKind regards,\nThe Sano team'
+  const below = 'The payment details and a copy of the invoice are below.'
 
   if (i.stage === 1) {
     return {
-      subject: `Friendly reminder: invoice ${i.invoiceNumber} from Sano`,
+      subject: `Friendly reminder: invoice ${i.invoiceNumber}`,
       message:
         `${i.greeting}\n\nJust a friendly reminder that invoice ${i.invoiceNumber} for ${amount}` +
-        `${due ? ` was due on ${due}` : ' is now due'}. If you've already paid, thank you, and please disregard this email.` +
-        `${ref}\n\n${howToPay}${signOff}`,
+        `${due ? ` was due on ${due}` : ' is now due'}. If it's already on its way, thank you, and please ignore this email.` +
+        `\n\n${below}`,
     }
   }
 
   if (i.stage === 2) {
     return {
-      subject: `Second reminder: invoice ${i.invoiceNumber} is overdue`,
+      subject: `Following up: invoice ${i.invoiceNumber}`,
       message:
-        `${i.greeting}\n\nOur records show that invoice ${i.invoiceNumber} for ${amount}` +
-        `${due ? `, due on ${due},` : ''} is still outstanding. We'd appreciate payment at your earliest convenience.` +
-        `${ref}\n\n${howToPay}\n\nIf there's a problem with the invoice, just reply to this email and we'll sort it out.${signOff}`,
+        `${i.greeting}\n\nWe're just following up on invoice ${i.invoiceNumber} for ${amount}` +
+        `${due ? `, which was due on ${due}` : ''} and is still showing as outstanding on our side. ` +
+        `If anything is holding it up, or there's something on the invoice you'd like to check, just reply and we'll be happy to help.` +
+        `\n\n${below}`,
     }
   }
 
   return {
-    subject: `Final reminder: invoice ${i.invoiceNumber} is ${i.daysOverdue} days overdue`,
+    subject: `Invoice ${i.invoiceNumber} is now ${i.daysOverdue} days overdue`,
     message:
       `${i.greeting}\n\nInvoice ${i.invoiceNumber} for ${amount}` +
       `${due ? ` was due on ${due} and` : ''} is now ${i.daysOverdue} days overdue. ` +
-      `Please arrange payment within the next 7 days, or reply to let us know when we can expect it.` +
-      `${ref}\n\n${howToPay}\n\nIf you've already paid, please reply with the payment date so we can match it on our side.${signOff}`,
+      `We'd be grateful if you could arrange payment within the next 7 days, or simply reply to let us know when we can expect it. ` +
+      `If you've already paid, please send us the payment date so we can match it on our side.` +
+      `\n\n${below}`,
   }
+}
+
+// ── Email HTML ───────────────────────────────────────────────────────────────
+// The reminder email body: the staff-edited message, then a tidy summary card
+// with what's owed and how to pay. Bank transfer leads (it's what we prefer
+// and it's free); card is offered quietly underneath, only where it's on.
+// Table + inline styles so it renders the same in Outlook, Gmail and phones.
+
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+export interface ReminderHtmlInput {
+  message: string
+  invoiceNumber: string
+  amountDue: number
+  dueDate: string | null
+  clientReference?: string | null
+  shareUrl: string
+  cardAvailable: boolean
+  bankAccountName: string
+  bankAccountNumber: string
+}
+
+export function renderReminderEmailHtml(i: ReminderHtmlInput): string {
+  const SAGE = '#076653'
+  const INK = '#06231D'
+  const MUTED = '#5C6B64'
+  const LINE = '#E0EAE3'
+  const CREAM = '#FAF9F6'
+  const row = (label: string, value: string, strong = false) => `
+        <tr>
+          <td style="padding:7px 0;color:${MUTED};font-size:14px;">${esc(label)}</td>
+          <td style="padding:7px 0;color:${INK};font-size:14px;text-align:right;${strong ? 'font-weight:700;' : 'font-weight:600;'}">${esc(value)}</td>
+        </tr>`
+  const section = (title: string) => `
+        <tr><td colspan="2" style="padding:14px 0 4px;border-top:1px solid ${LINE};color:${SAGE};font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">${esc(title)}</td></tr>`
+
+  const summary = [
+    row('Invoice', i.invoiceNumber),
+    ...(i.dueDate ? [row('Due date', fmtLongDate(i.dueDate))] : []),
+    ...(i.clientReference ? [row('Your reference', i.clientReference)] : []),
+    row('Amount outstanding', fmtMoney(i.amountDue), true),
+  ].join('')
+
+  const bank = [
+    section('Pay by bank transfer'),
+    row('Account name', i.bankAccountName),
+    row('Account number', i.bankAccountNumber),
+    row('Reference', i.invoiceNumber),
+  ].join('')
+
+  const button = `
+    <p style="margin:22px 0 6px;">
+      <a href="${esc(i.shareUrl)}" style="display:inline-block;padding:11px 22px;background:${SAGE};color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View invoice${i.cardAvailable ? ' or pay online' : ''}</a>
+    </p>`
+  const cardNote = i.cardAvailable
+    ? `<p style="margin:6px 0 0;color:${MUTED};font-size:12px;">Card payments are also accepted through the invoice link (a 2.5% card fee applies).</p>`
+    : ''
+
+  return `
+  <div style="font-family:Arial,Helvetica,sans-serif;color:${INK};font-size:15px;line-height:1.55;max-width:560px;">
+    <p style="margin:0 0 18px;">${esc(i.message).replace(/\n/g, '<br>')}</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:520px;background:${CREAM};border:1px solid ${LINE};border-radius:12px;">
+      <tr><td style="padding:16px 20px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">${summary}${bank}
+        </table>
+      </td></tr>
+    </table>
+    ${button}
+    ${cardNote}
+    <p style="margin:18px 0 0;color:${MUTED};font-size:12px;">A copy of invoice ${esc(i.invoiceNumber)} is attached as a PDF.</p>
+    <p style="margin:22px 0 0;">Kind regards,<br>The Sano team</p>
+    <p style="margin:18px 0 0;color:#888888;font-size:12px;">Sano Property Services Limited</p>
+  </div>`
 }

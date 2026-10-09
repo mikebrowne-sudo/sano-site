@@ -316,6 +316,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
           cardAvailable={canTakeRealPayments() && invoiceOffersCard({ ...invoice, client_allow_card_payment: clientCardSetting(invoice.clients) })}
           clientReference={(invoice.client_reference as string | null) ?? null}
           history={reminderHistory}
+          shareUrl={shareUrl}
         />
       )}
 

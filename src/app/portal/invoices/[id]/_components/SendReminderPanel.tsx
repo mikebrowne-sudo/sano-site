@@ -6,9 +6,10 @@
 // schedule. Manual only — nothing is sent without a click here.
 
 import { useState, useTransition } from 'react'
-import { BellRing, CheckCircle, Phone, X } from 'lucide-react'
+import { BellRing, CheckCircle, Eye, Phone, X } from 'lucide-react'
 import { sendInvoiceReminder } from '../_actions-reminder'
-import { buildReminderEmail, nextReminderStage, reminderStatus, REMINDER_LABEL } from '@/lib/invoice-reminders'
+import { buildReminderEmail, nextReminderStage, reminderStatus, REMINDER_LABEL, renderReminderEmailHtml } from '@/lib/invoice-reminders'
+import { SANO_ACCOUNT_NAME, SANO_ACCOUNT_NUMBER } from '@/lib/sano-bank-details'
 
 export interface ReminderHistoryRow {
   stage: number
@@ -32,6 +33,7 @@ export function SendReminderPanel({
   cardAvailable,
   clientReference,
   history,
+  shareUrl,
 }: {
   invoiceId: string
   invoiceNumber: string
@@ -44,6 +46,8 @@ export function SendReminderPanel({
   cardAvailable: boolean
   clientReference: string | null
   history: ReminderHistoryRow[]
+  /** Customer link to the invoice (shown in the email's button). */
+  shareUrl: string
 }) {
   const stage = nextReminderStage(history.length)
   const status = reminderStatus(daysOverdue, history.length)
@@ -57,6 +61,7 @@ export function SendReminderPanel({
   const [error, setError] = useState<string | null>(null)
   const [sentStage, setSentStage] = useState<number | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [preview, setPreview] = useState(false)
 
   const primary = primaryContactEmail.trim()
   const showCc = primary.length > 0 && primary.toLowerCase() !== to.trim().toLowerCase()
@@ -167,9 +172,36 @@ export function SendReminderPanel({
               className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sm leading-relaxed text-sage-800 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-sage-500"
             />
             <span className="mt-1 block text-[11px] text-sage-500">
-              A &ldquo;View &amp; pay invoice&rdquo; button and the invoice PDF are added automatically.
+              Added underneath automatically: amount outstanding, due date, our bank details with the invoice
+              number as reference, a link to the invoice{cardAvailable ? ' (card optional, 2.5% fee)' : ''}, and the PDF.
             </span>
           </label>
+          <div>
+            <button
+              type="button"
+              onClick={() => setPreview((v) => !v)}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-sage-600 hover:text-sage-800"
+            >
+              <Eye size={15} /> {preview ? 'Hide preview' : 'Preview the email'}
+            </button>
+            {preview && (
+              <iframe
+                title="Reminder email preview"
+                className="mt-2 h-[560px] w-full rounded-lg border border-sage-200 bg-white"
+                srcDoc={`<body style="margin:16px">${renderReminderEmailHtml({
+                  message,
+                  invoiceNumber,
+                  amountDue,
+                  dueDate,
+                  clientReference,
+                  shareUrl,
+                  cardAvailable,
+                  bankAccountName: SANO_ACCOUNT_NAME,
+                  bankAccountNumber: SANO_ACCOUNT_NUMBER,
+                })}</body>`}
+              />
+            )}
+          </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2">
             <button type="button" onClick={() => setOpen(false)} className="rounded-lg px-4 py-2.5 text-sm text-sage-600 hover:bg-sage-50">
