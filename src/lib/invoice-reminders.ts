@@ -75,7 +75,7 @@ export function buildReminderEmail(i: ReminderEmailInput): { subject: string; me
   const due = i.dueDate ? fmtLongDate(i.dueDate) : null
   const ref = i.clientReference ? `\n\nYour reference: ${i.clientReference}` : ''
   const howToPay = i.cardAvailable
-    ? 'You can view the invoice and pay by card or bank transfer using the link below.'
+    ? 'You can view the invoice and pay using the link below, by bank transfer (no fee) or by card (a 2.5% card fee applies).'
     : 'You can view the invoice using the link below. Our bank details are on the invoice; please use the invoice number as the reference.'
   const signOff = '\n\nKind regards,\nThe Sano team'
 

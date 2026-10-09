@@ -20,6 +20,40 @@ import { nzToday } from './nz-date'
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
+// ── Card fee ────────────────────────────────────────────────────────────────
+// Card payers pay a 2.5% fee — below what card acceptance costs Sano (Stripe:
+// 2.65% + 30c), so it never exceeds cost. It is shown before payment (pay card
+// + Stripe line item), bank transfer stays free, and once paid the fee is added
+// to the invoice as its own line so the invoice, GST and accounts include it.
+// Online card surcharges are legal in NZ (the proposed ban covers in-store only).
+
+export const CARD_FEE_RATE = 0.025
+export const CARD_FEE_LABEL = 'Card processing fee (2.5%)'
+
+/** 2.5% of the amount being paid (GST-inclusive dollars), to the cent. */
+export function cardFee(amount: number): number {
+  return round2(amount * CARD_FEE_RATE)
+}
+
+/** The line price to store so the fee adds exactly `fee` (incl. GST) to the
+ *  document: as-is on a GST-inclusive document, ex-GST otherwise. */
+export function cardFeeItemPrice(fee: number, gstIncluded: boolean): number {
+  return gstIncluded ? fee : round2(fee / 1.15)
+}
+
+/** Append the card-fee line to a paid invoice (service-role caller). */
+export async function addCardFeeLine(supabase: SupabaseClient, invoiceId: string, itemPrice: number): Promise<void> {
+  if (!(itemPrice > 0)) return
+  const { error } = await supabase.from('invoice_items').insert({
+    invoice_id: invoiceId,
+    label: CARD_FEE_LABEL,
+    description: 'Paid by card',
+    price: itemPrice,
+    sort_order: 9999,
+  })
+  if (error) console.error('[card-fee] could not add fee line:', error.message)
+}
+
 export function isOnAccount(paymentType: string | null | undefined): boolean {
   return (paymentType ?? '').trim().toLowerCase() === 'on_account'
 }
@@ -93,16 +127,18 @@ export async function applyQuoteCardPayment(
 
     const { data: q, error } = await supabase
       .from('quotes')
-      .select('card_paid_at, card_amount_paid, stripe_payment_intent_id')
+      .select('card_paid_at, card_amount_paid, card_fee_amount, stripe_payment_intent_id')
       .eq('id', inv.quote_id)
       .maybeSingle()
     if (error || !q?.card_paid_at) return { applied: false }
 
-    const paid = Number(q.card_amount_paid ?? 0)
+    // What was charged includes the card fee; only the rest pays for the work.
+    const fee = Number(q.card_fee_amount ?? 0)
+    const paid = round2(Number(q.card_amount_paid ?? 0) - fee)
     const total = invoiceTotalInclGst(inv as Parameters<typeof invoiceTotalInclGst>[0])
     if (paid + 0.01 < total) return { applied: false, shortBy: round2(total - paid) }
 
-    const { error: uErr } = await supabase
+    const { data: flipped, error: uErr } = await supabase
       .from('invoices')
       .update({
         status: 'paid',
@@ -112,7 +148,14 @@ export async function applyQuoteCardPayment(
       })
       .eq('id', invoiceId)
       .neq('status', 'paid')
-    return { applied: !uErr }
+      .select('id')
+    if (uErr) return { applied: false }
+    // The card fee becomes a line on the invoice, so its total, PDF, GST and
+    // the accountant pack all include it.
+    if (fee > 0 && (flipped ?? []).length > 0) {
+      await addCardFeeLine(supabase, invoiceId, cardFeeItemPrice(fee, !!inv.gst_included))
+    }
+    return { applied: true }
   } catch {
     return { applied: false }
   }

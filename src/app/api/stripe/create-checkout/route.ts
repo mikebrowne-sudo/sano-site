@@ -3,7 +3,7 @@ import { getServiceSupabase } from '@/lib/supabase-service'
 import { getStripe } from '@/lib/stripe'
 import { computeDocumentTotals } from '@/lib/doc-totals'
 import { invoiceBalanceDue, loadAllocatedByInvoice } from '@/lib/invoice-balance'
-import { clientCardSetting, invoiceCardPayable, quoteCardPayable } from '@/lib/card-payments'
+import { CARD_FEE_LABEL, cardFee, cardFeeItemPrice, clientCardSetting, invoiceCardPayable, quoteCardPayable } from '@/lib/card-payments'
 
 // Service-role client, scoped by the unguessable share_token — the same
 // pattern as the share pages. This used the anon key, which only worked
@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
 
     let amount: number
+    let gstIncluded = true
     let name: string
     let email: string | undefined
     let metadata: Record<string, string>
@@ -55,6 +56,7 @@ export async function POST(req: NextRequest) {
       const items = (quote.quote_items ?? []) as { price: number | null }[]
       const lineTotal = (quote.base_price ?? 0) + items.reduce((s, i) => s + Math.max(0, i.price ?? 0), 0) - (quote.discount ?? 0)
       amount = computeDocumentTotals(lineTotal, !!quote.gst_included).total
+      gstIncluded = !!quote.gst_included
       name = `Quote ${quote.quote_number}`
       email = quote.contact_email || (quote.clients as unknown as { email: string | null } | null)?.email || undefined
       metadata = { kind: 'quote', quote_id: quote.id, quote_number: quote.quote_number, share_token }
@@ -78,6 +80,7 @@ export async function POST(req: NextRequest) {
       // payment already matched to it.
       const allocated = (await loadAllocatedByInvoice(supabase, [invoice.id])).get(invoice.id) ?? 0
       amount = invoiceBalanceDue(invoice as Parameters<typeof invoiceBalanceDue>[0], allocated)
+      gstIncluded = !!invoice.gst_included
       name = `Invoice ${invoice.invoice_number}`
       email = (invoice.clients as unknown as { email: string | null } | null)?.email || undefined
       metadata = { kind: 'invoice', invoice_id: invoice.id, invoice_number: invoice.invoice_number, share_token }
@@ -89,6 +92,13 @@ export async function POST(req: NextRequest) {
     if (!Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json({ error: 'Amount due must be greater than zero' }, { status: 400 })
     }
+
+    // 2.5% card fee on what's being paid — shown on the pay card first, and as
+    // its own line on Stripe's page. Recorded in metadata so the webhook can
+    // add it to the invoice as a line once paid (lib/card-payments).
+    amount = Math.round(amount * 100) / 100
+    const fee = cardFee(amount)
+    metadata = { ...metadata, amount_ex_fee: amount.toFixed(2), card_fee: fee.toFixed(2), card_fee_item_price: cardFeeItemPrice(fee, gstIncluded).toFixed(2) }
 
     const stripe = getStripe()
 
@@ -108,6 +118,19 @@ export async function POST(req: NextRequest) {
           },
           quantity: 1,
         },
+        ...(fee > 0
+          ? [{
+              price_data: {
+                currency: 'nzd',
+                unit_amount: Math.round(fee * 100),
+                product_data: {
+                  name: CARD_FEE_LABEL,
+                  description: 'Applies to card payments only. Bank transfer has no fee.',
+                },
+              },
+              quantity: 1,
+            }]
+          : []),
       ],
       metadata,
       payment_intent_data: { metadata },

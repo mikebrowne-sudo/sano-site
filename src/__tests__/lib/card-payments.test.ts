@@ -1,4 +1,4 @@
-import { applyQuoteCardPayment, clientCardSetting, invoiceCardPayable, invoiceOffersCard, isOnAccount, isOneOff, quoteCardEligible, quoteCardPayable } from '@/lib/card-payments'
+import { CARD_FEE_LABEL, applyQuoteCardPayment, cardFee, cardFeeItemPrice, clientCardSetting, invoiceCardPayable, invoiceOffersCard, isOnAccount, isOneOff, quoteCardEligible, quoteCardPayable } from '@/lib/card-payments'
 
 describe('card payment eligibility', () => {
   it('never offers a card to on-account customers', () => {
@@ -53,6 +53,7 @@ describe('card payment eligibility', () => {
 // Minimal chainable Supabase stub: per-table select result + recorded updates.
 function stub(tables: Record<string, unknown>) {
   const updates: Array<{ table: string; values: Record<string, unknown> }> = []
+  const inserts: Array<{ table: string; values: Record<string, unknown> }> = []
   const client = {
     from(table: string) {
       const q: Record<string, unknown> = {}
@@ -60,12 +61,13 @@ function stub(tables: Record<string, unknown>) {
       Object.assign(q, {
         select: chain, eq: chain, neq: chain, is: chain,
         maybeSingle: async () => ({ data: tables[table] ?? null, error: null }),
-        update(values: Record<string, unknown>) { updates.push({ table, values }); return { eq: () => ({ neq: async () => ({ error: null }) }) } },
+        update(values: Record<string, unknown>) { updates.push({ table, values }); return { eq: () => ({ neq: () => ({ select: async () => ({ data: [{ id: 'x' }], error: null }) }) }) } },
+        insert: async (values: Record<string, unknown>) => { inserts.push({ table, values }); return { error: null } },
       })
       return q
     },
   }
-  return { client: client as never, updates }
+  return { client: client as never, updates, inserts }
 }
 
 describe('applyQuoteCardPayment', () => {
@@ -94,5 +96,28 @@ describe('applyQuoteCardPayment', () => {
     const { client, updates } = stub({ invoices: invoice, quotes: { card_paid_at: null } })
     expect(await applyQuoteCardPayment(client, 'i1')).toEqual({ applied: false })
     expect(updates).toHaveLength(0)
+  })
+})
+
+describe('card fee (2.5%)', () => {
+  it('is 2.5% to the cent', () => {
+    expect(cardFee(840)).toBe(21)
+    expect(cardFee(225)).toBe(5.63)
+    expect(cardFee(1)).toBe(0.03)
+  })
+
+  it('stores the line ex-GST on a GST-exclusive document', () => {
+    expect(cardFeeItemPrice(23, true)).toBe(23)
+    expect(cardFeeItemPrice(23, false)).toBe(20)
+  })
+
+  it('carries a quote card fee onto the invoice as a line, and the rest pays the work', async () => {
+    const { client, updates, inserts } = stub({
+      invoices: { id: 'i1', quote_id: 'q1', status: 'draft', base_price: 585, discount: 0, gst_included: true, invoice_items: [] },
+      quotes: { card_paid_at: '2026-10-08T22:00:00Z', card_amount_paid: 599.63, card_fee_amount: 14.63, stripe_payment_intent_id: 'pi_2' },
+    })
+    expect(await applyQuoteCardPayment(client, 'i1')).toEqual({ applied: true })
+    expect(updates[0].values.status).toBe('paid')
+    expect(inserts[0]).toMatchObject({ table: 'invoice_items', values: { label: CARD_FEE_LABEL, price: 14.63 } })
   })
 })

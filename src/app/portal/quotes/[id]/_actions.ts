@@ -391,7 +391,7 @@ export async function sendQuoteEmail(input: SendQuoteInput) {
   // Cash-sale one-off quotes can be paid by card once accepted — say so, but
   // only when Stripe can actually take a real card.
   const payOnlineLine = canTakeRealPayments() && quoteCardEligible(quote)
-    ? '<p>You can accept and pay securely by card from the quote link.</p>'
+    ? '<p>You can accept and pay securely from the quote link, by bank transfer (no fee) or by card (a 2.5% card fee applies).</p>'
     : ''
   const html = `
     <p>${esc(input.message).replace(/\n/g, '<br>')}</p>

@@ -274,6 +274,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             primaryContactEmail={invoice.contact_email ?? ''}
             clientReference={invoice.client_reference ?? ''}
             requiresPo={invoice.requires_po ?? false}
+            cardAvailable={canTakeRealPayments() && invoiceOffersCard({ ...invoice, client_allow_card_payment: clientCardSetting(invoice.clients) })}
           />
         </div>
       </div>
