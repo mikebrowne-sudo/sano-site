@@ -14,6 +14,7 @@ export function PayNowButton({
   paymentResult,
   total,
   kind = 'invoice',
+  bankDetails,
 }: {
   shareToken: string
   status: string
@@ -22,6 +23,8 @@ export function PayNowButton({
   total: string
   /** 'quote' = pay an accepted quote upfront; the invoice follows marked paid. */
   kind?: 'invoice' | 'quote'
+  /** Sano's bank details — shown under the card button as the fee-free option. */
+  bankDetails?: ReadonlyArray<{ label: string; value: string }>
 }) {
   const noun = kind === 'quote' ? 'booking' : 'invoice'
   const [loading, setLoading] = useState(false)
@@ -78,6 +81,22 @@ export function PayNowButton({
         error={error}
         setError={setError}
       />
+
+      {bankDetails && bankDetails.length > 0 && (
+        <div className="pay-alt">
+          <div className="pay-alt-divider"><span>or</span></div>
+          <p className="pay-alt-title">Prefer bank transfer?</p>
+          <p className="pay-alt-sub">Please include the reference so we can match your payment.</p>
+          <dl className="pay-alt-grid">
+            {bankDetails.map((row) => (
+              <div key={row.label} className="pay-alt-row">
+                <dt>{row.label}</dt>
+                <dd>{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { InvoiceDocument } from '@/components/document/InvoiceDocument'
 import { canTakeRealPayments } from '@/lib/stripe'
 import { clientCardSetting, invoiceOffersCard } from '@/lib/card-payments'
+import { sanoPaymentDetails } from '@/lib/sano-bank-details'
 import { invoiceBalanceDue, loadAllocatedByInvoice } from '@/lib/invoice-balance'
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
@@ -108,6 +109,7 @@ export default async function PublicInvoicePage({
               datePaid={invoice.date_paid}
               paymentResult={searchParams?.payment ?? null}
               total={totalDisplay}
+              bankDetails={sanoPaymentDetails(invoice.invoice_number)}
             />
           ) : undefined
         }
