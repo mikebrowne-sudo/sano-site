@@ -139,7 +139,7 @@ export default function HomePage() {
         }}
       />
 
-      <GoogleReviewsStrip variant="compact" />
+      <GoogleReviewsStrip />
 
       <CtaBanner />
     </>
