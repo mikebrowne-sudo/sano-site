@@ -62,8 +62,18 @@ async function runDrip(request: NextRequest) {
     //    already sent a batch today. A 'scheduled' campaign flips to 'sending'
     //    once its first batch goes out.
     if ((c.status === 'scheduled' || c.status === 'sending') && dueNow && !alreadyToday) {
-      const { result, error: sErr } = await sendCampaignBatch(supabase, c.id as string, { limit: cap })
-      if (sErr) { row.introError = sErr }
+      // Claim today's batch BEFORE sending (optimistic: only if last_batch_at
+      // is still what we read). If a batch errors or times out part-way, the
+      // day stays claimed, so the next hourly run can't send a second full
+      // batch on top and blow the warm-up cap.
+      const prev = (c as { last_batch_at?: string | null }).last_batch_at ?? null
+      const claim = supabase.from('sales_campaigns').update({ last_batch_at: nowIso }).eq('id', c.id)
+      const { data: claimed } = await (prev ? claim.eq('last_batch_at', prev) : claim.is('last_batch_at', null)).select('id')
+      const { result, error: sErr } = claimed?.length
+        ? await sendCampaignBatch(supabase, c.id as string, { limit: cap })
+        : { result: null, error: null }
+      if (!claimed?.length) { row.intro = 'batch already claimed by another run' }
+      else if (sErr) { row.introError = sErr }
       else {
         const done = (result?.remaining ?? 0) <= 0
         await supabase.from('sales_campaigns')

@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Phase H — manual contractor + customer SMS sends from the job page.
 //
 // Both actions delegate to the central sendNotification (which
@@ -51,6 +53,7 @@ const BUSINESS_PHONE = '0800 726 686'
 
 export async function sendContractorJobAssignedSms(jobId: string):
   Promise<{ status: 'sent' | 'failed' | 'skipped'; reason?: string } | { error: string }> {
+  await assertAdminAction()
   const ctx = await loadJobAndAuth(jobId)
   if ('error' in ctx) return { error: ctx.error as string }
   const { supabase, job } = ctx
@@ -94,6 +97,7 @@ export async function sendContractorJobAssignedSms(jobId: string):
 
 export async function sendCustomerBookingConfirmationSms(jobId: string):
   Promise<{ status: 'sent' | 'failed' | 'skipped'; reason?: string } | { error: string }> {
+  await assertAdminAction()
   const ctx = await loadJobAndAuth(jobId)
   if ('error' in ctx) return { error: ctx.error as string }
   const { supabase, job } = ctx

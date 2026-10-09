@@ -1,3 +1,4 @@
+import { nzToday } from '@/lib/nz-date'
 import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -659,7 +660,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
 
         {/* Insurance */}
         {(contractor.insurance_provider || contractor.insurance_policy_number || contractor.insurance_expiry || contractor.insurance_liability_cover) && (() => {
-          const today = new Date().toISOString().slice(0, 10)
+          const today = nzToday()
           const expiry = contractor.insurance_expiry as string | null
           const isExpired = expiry != null && expiry < today
           const daysToExpiry = expiry ? Math.round((new Date(expiry).getTime() - new Date(today).getTime()) / 86400000) : null
@@ -706,7 +707,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
 
         {/* Compliance — shared */}
         {(contractor.contract_signed_date || contractor.right_to_work_required || contractor.right_to_work_expiry) && (() => {
-          const today = new Date().toISOString().slice(0, 10)
+          const today = nzToday()
           const rtwExpiry = contractor.right_to_work_expiry as string | null
           const rtwExpired = contractor.right_to_work_required && rtwExpiry != null && rtwExpiry < today
           const rtwMissing = contractor.right_to_work_required && !rtwExpiry
@@ -834,7 +835,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
             <div className="space-y-2">
               {(trainingAssignments ?? []).map((t) => {
                 const mod = t.training_modules as unknown as { title: string; category: string } | null
-                const today = new Date().toISOString().slice(0, 10)
+                const today = nzToday()
                 const isOverdue = t.status !== 'completed' && t.due_date && t.due_date < today
                 return (
                   <div key={t.id} className="flex items-center justify-between bg-sage-50 rounded-lg px-4 py-3 text-sm">

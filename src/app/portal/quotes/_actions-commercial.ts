@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Commercial Quote Engine — server actions (Phase 0 foundation).
 //
 // These actions operate on an existing quote (quote_id required). They
@@ -101,6 +103,7 @@ export async function saveCommercialDetails(
   quote_id: string,
   input: CommercialDetailsInput,
 ): Promise<SaveCommercialDetailsResult> {
+  await assertAdminAction()
   const supabase = createClient()
 
   if (!quote_id) return { error: 'quote_id is required.' }
@@ -243,6 +246,7 @@ export async function saveCommercialScope(
   quote_id: string,
   items: CommercialScopeItemInput[],
 ): Promise<SaveCommercialScopeResult> {
+  await assertAdminAction()
   const supabase = createClient()
 
   if (!quote_id) return { error: 'quote_id is required.' }

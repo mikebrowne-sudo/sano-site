@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 import { createClient } from '@/lib/supabase-server'
 import { createEmployeePayRun } from '@/lib/payroll/create-employee-pay-run'
 import { isAdminUser } from '@/lib/is-admin'
@@ -270,6 +272,7 @@ function fmtDate(iso: string) {
 }
 
 export async function sendPayslip(payslipId: string) {
+  await assertAdminAction()
   const supabase = createClient()
 
   const { data: payslip } = await supabase

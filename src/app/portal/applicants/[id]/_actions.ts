@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Phase 5.1 — Server actions for applicant detail page.
 //
 // All mutations write a row to public.audit_log so every status change
@@ -43,6 +45,7 @@ export async function updateApplicantStatus(input: {
   applicantId: string
   status: ApplicantStatus
 }): Promise<{ ok: true } | { error: string }> {
+  await assertAdminAction()
   if (!VALID_STATUSES.includes(input.status)) return { error: 'Invalid status.' }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -77,6 +80,7 @@ export async function rejectApplicant(input: {
   applicantId: string
   reason: string
 }): Promise<{ ok: true } | { error: string }> {
+  await assertAdminAction()
   if (!input.reason.trim()) return { error: 'Rejection reason required.' }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -112,6 +116,7 @@ export async function putApplicantOnHold(input: {
   applicantId: string
   reason: string
 }): Promise<{ ok: true } | { error: string }> {
+  await assertAdminAction()
   if (!input.reason.trim()) return { error: 'On-hold reason required.' }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -147,6 +152,7 @@ export async function updateTrialRequired(input: {
   applicantId: string
   trialRequired: boolean
 }): Promise<{ ok: true } | { error: string }> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
@@ -171,6 +177,7 @@ export async function scheduleTrial(input: {
   applicantId: string
   scheduledFor: string  // datetime-local format: YYYY-MM-DDTHH:mm:ss
 }): Promise<{ ok: true } | { error: string }> {
+  await assertAdminAction()
   if (!input.scheduledFor) return { error: 'Trial date required.' }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -204,6 +211,7 @@ export async function recordTrialOutcome(input: {
   outcome: 'passed' | 'failed'
   note?: string
 }): Promise<{ ok: true } | { error: string }> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
@@ -247,6 +255,7 @@ export async function updateApplicantNotes(input: {
   applicantId: string
   notes: string
 }): Promise<{ ok: true } | { error: string }> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
@@ -286,6 +295,7 @@ export async function startContractorOnboarding(input: {
   workerKind: 'contractor' | 'employee'
   trialRequired: boolean
 }): Promise<{ ok: true; contractorId: string } | { error: string }> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }

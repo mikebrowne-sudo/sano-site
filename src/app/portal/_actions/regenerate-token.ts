@@ -1,9 +1,12 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 
 export async function regenerateShareToken(table: 'quotes' | 'invoices', id: string) {
+  await assertAdminAction()
   const supabase = createClient()
 
   const newToken = crypto.randomUUID()

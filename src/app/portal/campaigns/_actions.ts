@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 import { Resend } from 'resend'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
@@ -35,6 +37,7 @@ export async function createCampaignAction(input: {
   sendingDays?: number[]      // ISO 1..7; default Mon–Thu
   allowUnlimited?: boolean    // explicit confirmation required for cap 0 (unlimited)
 }) {
+  await assertAdminAction()
   if (!input.name.trim()) return { error: 'Campaign needs a name.' }
   if (input.leadIds.length === 0) return { error: 'Pick at least one lead.' }
 
@@ -111,6 +114,7 @@ export async function createCampaignAction(input: {
  * being added are marked `skipped`.
  */
 export async function sendCampaignAction(campaignId: string, opts?: { overrideReadiness?: boolean }) {
+  await assertAdminAction()
   const supabase = createClient()
 
   const { data: campaign, error: cErr } = await supabase
@@ -205,6 +209,7 @@ export async function updateCampaignScheduleAction(input: {
   dailySendCap?: number
   allowUnlimited?: boolean
 }) {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: c } = await supabase.from('sales_campaigns').select('status').eq('id', input.campaignId).single()
   if (!c) return { error: 'Campaign not found.' }
@@ -246,6 +251,7 @@ export async function updateCampaignScheduleAction(input: {
 /** Pause a campaign — immediately prevents any pending sends (intro + follow-up).
  *  Already-sent recipients are untouched. */
 export async function pauseCampaignAction(campaignId: string) {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: c } = await supabase.from('sales_campaigns').select('status').eq('id', campaignId).single()
   if (!c) return { error: 'Campaign not found.' }
@@ -264,6 +270,7 @@ export async function pauseCampaignAction(campaignId: string) {
 /** Resume a paused campaign — continues from the next eligible scheduled window.
  *  Never resends anyone already sent (the drip only picks up 'pending' rows). */
 export async function resumeCampaignAction(campaignId: string) {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: c } = await supabase.from('sales_campaigns').select('status').eq('id', campaignId).single()
   if (!c) return { error: 'Campaign not found.' }
@@ -283,6 +290,7 @@ export async function resumeCampaignAction(campaignId: string) {
 
 /** Manual response marking (reply detection is manual by design for now). */
 export async function markRespondedAction(recipientId: string) {
+  await assertAdminAction()
   const supabase = createClient()
 
   const { data: rec, error } = await supabase
@@ -317,6 +325,7 @@ export async function markRespondedAction(recipientId: string) {
  * responded_at so this campaign's follow-up won't fire either.
  */
 export async function markOptedOutAction(recipientId: string) {
+  await assertAdminAction()
   const supabase = createClient()
 
   const nowIso = new Date().toISOString()
@@ -350,6 +359,7 @@ export async function markOptedOutAction(recipientId: string) {
  * lead or the recipient list — for verifying deliverability + how it looks.
  */
 export async function sendTestEmailAction(input: { campaignId: string; to: string }): Promise<{ ok?: true; error?: string }> {
+  await assertAdminAction()
   const to = input.to?.trim()
   if (!to || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return { error: 'Enter a valid email address to test to.' }
 
@@ -567,6 +577,7 @@ export async function previewRecipientAction(recipientId: string): Promise<{
 /** Toggle per-campaign automatic follow-ups (defaults OFF; the drip cron only
  *  sends follow-ups when this is explicitly enabled). */
 export async function setFollowupsEnabledAction(input: { campaignId: string; enabled: boolean }) {
+  await assertAdminAction()
   const supabase = createClient()
   const { error } = await supabase
     .from('sales_campaigns')
@@ -582,6 +593,7 @@ export async function setFollowupsEnabledAction(input: { campaignId: string; ena
  * touches the CRM `company` field. Clears the flag when the new value is clean.
  */
 export async function fixLeadCompanyNameAction(input: { leadId: string; campaignId: string; company: string }) {
+  await assertAdminAction()
   const supabase = createClient()
   const emailName = input.company.trim()
   if (!emailName) return { error: 'Email business name cannot be blank.' }
@@ -598,6 +610,7 @@ export async function fixLeadCompanyNameAction(input: { leadId: string; campaign
 
 /** Explicitly approve a flagged company name for this recipient (name is odd but fine). */
 export async function approveRecipientNameAction(input: { recipientId: string; campaignId: string }) {
+  await assertAdminAction()
   const supabase = createClient()
   const { error } = await supabase
     .from('sales_campaign_recipients')
@@ -610,6 +623,7 @@ export async function approveRecipientNameAction(input: { recipientId: string; c
 
 /** Exclude a recipient from the campaign (marks skipped so it never sends). */
 export async function excludeRecipientAction(input: { recipientId: string; campaignId: string }) {
+  await assertAdminAction()
   const supabase = createClient()
   const { error } = await supabase
     .from('sales_campaign_recipients')

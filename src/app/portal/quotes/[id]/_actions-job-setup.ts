@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Phase 5.5.12 — Quote → job setup wizard action.
 //
 // Replaces the previous "click and pray" path that called
@@ -100,6 +102,7 @@ export async function createJobFromQuoteWithSetup(
   quoteId: string,
   setup: JobSetupInput,
 ): Promise<ConvertActionError | void> {
+  await assertAdminAction()
   const supabase = createClient()
 
   // Phase 5.5.16 — refuse double-conversion. Catches the most common

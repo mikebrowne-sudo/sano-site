@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
@@ -62,6 +64,7 @@ function calcNextDueDate(startDate: string, frequency: string, after?: string | 
 }
 
 export async function createRecurringJob(input: RecurringJobInput) {
+  await assertAdminAction()
   const supabase = createClient()
 
   if (!input.client_id) return { error: 'Client is required.' }
@@ -118,6 +121,7 @@ export async function createRecurringJob(input: RecurringJobInput) {
 }
 
 export async function updateRecurringJob(id: string, input: RecurringJobInput) {
+  await assertAdminAction()
   const supabase = createClient()
 
   if (!input.client_id) return { error: 'Client is required.' }
@@ -191,6 +195,7 @@ export async function updateRecurringJob(id: string, input: RecurringJobInput) {
 }
 
 export async function generateNextJob(recurringId: string) {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -350,6 +355,7 @@ export async function generateNextJob(recurringId: string) {
 }
 
 export async function createRecurringFromJob(jobId: string) {
+  await assertAdminAction()
   const supabase = createClient()
 
   const { data: job, error } = await supabase
@@ -362,7 +368,7 @@ export async function createRecurringFromJob(jobId: string) {
     return { error: 'Job not found.' }
   }
 
-  const startDate = job.scheduled_date || new Date().toISOString().slice(0, 10)
+  const startDate = job.scheduled_date || nzToday()
 
   const { data, error: createErr } = await supabase
     .from('recurring_jobs')

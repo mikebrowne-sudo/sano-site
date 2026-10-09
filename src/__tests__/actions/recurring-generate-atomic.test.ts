@@ -13,6 +13,10 @@ jest.mock('@/lib/recurring-invoice', () => ({ computeNextInvoiceDate: jest.fn() 
 import { generateNextJob } from '@/app/portal/recurring-jobs/_actions'
 import { createClient } from '@/lib/supabase-server'
 
+// These tests cover the action's own behaviour; the admin gate (lib/require-admin) has its own test.
+jest.mock('@/lib/require-admin', () => ({ assertAdminAction: jest.fn().mockResolvedValue(undefined) }))
+
+
 const mockedCreate = createClient as unknown as jest.Mock
 
 const REC = {

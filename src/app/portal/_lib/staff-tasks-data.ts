@@ -2,11 +2,12 @@
 // Cheap count queries + one pay-approval reconciliation (completed-job
 // workers that don't yet have a non-void payable).
 
+import { nzToday } from '@/lib/nz-date'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { StaffTaskCounts } from '@/lib/staff-tasks'
 
 export async function loadStaffTaskCounts(supabase: SupabaseClient): Promise<StaffTaskCounts> {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = nzToday()
 
   const [draftInv, sentInv, unassigned, jwRes, ciRes] = await Promise.all([
     supabase.from('invoices').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).eq('status', 'draft'),

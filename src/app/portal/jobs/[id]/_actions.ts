@@ -1,4 +1,7 @@
 'use server'
+import { nzToday } from '@/lib/nz-date'
+
+import { assertAdminAction } from '@/lib/require-admin'
 
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
@@ -19,6 +22,7 @@ import { applyQuoteCardPayment } from '@/lib/card-payments'
 // stage. Does not change jobs.status itself — review is a layer on
 // top of the existing status enum, not a replacement.
 export async function markJobReviewed(jobId: string) {
+  await assertAdminAction()
   const supabase = createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -68,6 +72,7 @@ export async function markJobReviewed(jobId: string) {
 }
 
 export async function createInvoiceFromJob(jobId: string) {
+  await assertAdminAction()
   const supabase = createClient()
 
   // 1. Load job — service date sources (completed_at preferred over
@@ -306,6 +311,7 @@ export async function createInvoiceFromJob(jobId: string) {
 // never set, so the lifecycle ("In progress" → "Completed") and the
 // job-status derivation stay coherent.
 export async function completeJob(jobId: string) {
+  await assertAdminAction()
   const supabase = createClient()
   const now = new Date().toISOString()
 
@@ -436,7 +442,7 @@ export async function assignJob(input: AssignJobInput) {
 
   // Insurance expiry remains a separate hard-stop (legal/compliance
   // gate independent of the onboarding completeness toggle).
-  const today = new Date().toISOString().slice(0, 10)
+  const today = nzToday()
   if (!contractor.insurance_expiry) {
     return { error: `Cannot assign — ${contractor.full_name} has no insurance expiry on file. Update the contractor's insurance details first.` }
   }
