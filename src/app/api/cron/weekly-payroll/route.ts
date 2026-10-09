@@ -31,7 +31,9 @@ function nzDateString(offsetDays = 0): string {
 }
 
 export async function POST(req: NextRequest) {
-  if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Refuse outright if the secret isn't configured — otherwise the header
+  // "Bearer undefined" would be accepted.
+  if (!process.env.CRON_SECRET || req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

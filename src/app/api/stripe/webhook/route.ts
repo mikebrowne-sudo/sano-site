@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Resend } from 'resend'
 import { getStripe } from '@/lib/stripe'
 import { createClient } from '@supabase/supabase-js'
 import { stampJobCompleteOnPaidInvoice } from '@/lib/job-paid-complete'
@@ -105,8 +106,51 @@ export async function POST(req: NextRequest) {
       .select('id')
 
     if (error) {
+      // Non-2xx so Stripe retries — a payment must never be lost because a
+      // write failed once.
       console.error('[stripe-webhook] Failed to update invoice:', error.message)
-    } else {
+      return NextResponse.json({ error: 'Failed to record payment' }, { status: 500 })
+    }
+
+    if ((flipped ?? []).length === 0) {
+      // Already paid. Either Stripe redelivered this same event (fine), or the
+      // customer has paid TWICE (two tabs / two sessions). Money must never
+      // be kept silently — alert the team so it can be refunded.
+      const { data: inv } = await supabase
+        .from('invoices')
+        .select('invoice_number, stripe_payment_intent_id')
+        .eq('id', invoiceId)
+        .maybeSingle()
+      const thisIntent = (session.payment_intent as string) || null
+      if (inv && thisIntent && inv.stripe_payment_intent_id !== thisIntent) {
+        const amount = ((session.amount_total ?? 0) / 100).toFixed(2)
+        await supabase.from('audit_log').insert({
+          actor_id: null,
+          actor_role: 'system',
+          action: 'invoice.duplicate_card_payment',
+          entity_table: 'invoices',
+          entity_id: invoiceId,
+          before: { stripe_payment_intent_id: inv.stripe_payment_intent_id },
+          after: { duplicate_payment_intent: thisIntent, amount },
+        })
+        const notify = process.env.SANO_NOTIFY_EMAIL
+        if (notify) {
+          try {
+            await new Resend(process.env.RESEND_API_KEY).emails.send({
+              from: 'Sano <noreply@sano.nz>',
+              to: notify,
+              subject: `Duplicate card payment on ${inv.invoice_number}: refund needed`,
+              html: `<p>Invoice <strong>${inv.invoice_number}</strong> was already paid, but Stripe has taken a second card payment of <strong>$${amount}</strong> (payment ${thisIntent}).</p><p>Please refund it in the Stripe dashboard: Payments → find ${thisIntent} → Refund.</p>`,
+            })
+          } catch (e) {
+            console.error('[stripe-webhook] duplicate-payment alert failed', e)
+          }
+        }
+      }
+      return NextResponse.json({ received: true })
+    }
+
+    {
       // The 2.5% card fee becomes a line on the invoice (first delivery only —
       // a retry flips nothing, so it never adds the fee twice).
       if ((flipped ?? []).length > 0) {
