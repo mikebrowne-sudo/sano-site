@@ -1,4 +1,6 @@
-import { invoiceTotalInclGst, type InvoiceAmountFields } from '@/lib/invoice-balance'
+import { invoiceBalanceDue, loadAllocatedByInvoice, type InvoiceAmountFields } from '@/lib/invoice-balance'
+import { nzToday } from '@/lib/nz-date'
+import { daysOverdue, reminderStatus, REMINDER_LABEL } from '@/lib/invoice-reminders'
 import { createClient } from '@/lib/supabase-server'
 import Link from 'next/link'
 import { AlertTriangle, Briefcase, Receipt, BookOpen, CalendarDays, ShieldCheck, CalendarClock } from 'lucide-react'
@@ -18,10 +20,11 @@ function fmtCurrency(d: number) {
 
 export default async function AlertsPage() {
   const supabase = createClient()
-  const today = new Date().toISOString().slice(0, 10)
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const tomorrowStr = tomorrow.toISOString().slice(0, 10)
+  // NZ calendar dates — the server runs in UTC, which is still "yesterday"
+  // every NZ morning.
+  const today = nzToday()
+  const [ty, tm, td] = today.split('-').map(Number)
+  const tomorrowStr = new Date(Date.UTC(ty, tm - 1, td + 1)).toISOString().slice(0, 10)
   // Unassigned jobs only count as "needs attention" if recent/upcoming — a
   // 30-day floor drops abandoned old drafts from the alert (still reachable on
   // the jobs list). Anything scheduled on/after this date, or undated, shows.
@@ -119,7 +122,19 @@ export default async function AlertsPage() {
   const unassignedCount = activeUnassigned.length
 
   // Total owed across all overdue invoices, for the section header.
-  const overdueTotal = (overdueInvoices ?? []).reduce((sum, inv) => sum + invoiceTotalInclGst(inv as InvoiceAmountFields), 0)
+  // Balance still owed (part payments deducted) + where each sits on the
+  // 3 / 10 / 21-day reminder schedule.
+  const overdueIds = (overdueInvoices ?? []).map((i) => i.id as string)
+  const [allocatedById, { data: reminderRows }] = await Promise.all([
+    loadAllocatedByInvoice(supabase, overdueIds),
+    overdueIds.length
+      ? supabase.from('invoice_reminders').select('invoice_id').in('invoice_id', overdueIds)
+      : Promise.resolve({ data: [] as { invoice_id: string }[] }),
+  ])
+  const remindersSent = new Map<string, number>()
+  for (const r of (reminderRows ?? []) as { invoice_id: string }[]) remindersSent.set(r.invoice_id, (remindersSent.get(r.invoice_id) ?? 0) + 1)
+  const owedOf = (inv: { id: string }) => invoiceBalanceDue(inv as unknown as InvoiceAmountFields, allocatedById.get(inv.id) ?? 0)
+  const overdueTotal = (overdueInvoices ?? []).reduce((sum, inv) => sum + owedOf(inv as { id: string }), 0)
 
   // Calculate which tomorrow jobs haven't been reminded today
   const todayStart = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).toISOString()
@@ -150,8 +165,10 @@ export default async function AlertsPage() {
           <div className="space-y-2">
             {(overdueInvoices ?? []).map((inv) => {
               const client = inv.clients as unknown as { name: string } | null
-              const total = invoiceTotalInclGst(inv as InvoiceAmountFields)
-              const daysOver = inv.due_date ? Math.floor((Date.now() - new Date(inv.due_date).getTime()) / 86400000) : 0
+              const total = owedOf(inv as { id: string })
+              const daysOver = daysOverdue(inv.due_date as string | null, today)
+              const sent = remindersSent.get(inv.id as string) ?? 0
+              const rs = reminderStatus(daysOver, sent)
               return (
                 <Link key={inv.id} href={`/portal/invoices/${inv.id}`} className="flex items-center justify-between bg-red-50 rounded-lg px-4 py-3 hover:bg-red-100 transition-colors text-sm">
                   <div>
@@ -159,6 +176,15 @@ export default async function AlertsPage() {
                     <span className="text-sage-600 ml-2">{client?.name ?? '—'}</span>
                   </div>
                   <div className="flex items-center gap-3 text-xs">
+                    {rs.kind === 'due' && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">{REMINDER_LABEL[rs.stage]} due</span>
+                    )}
+                    {rs.kind === 'waiting' && sent > 0 && (
+                      <span className="rounded-full bg-white px-2 py-0.5 text-sage-600 ring-1 ring-sage-100">{sent} reminder{sent === 1 ? '' : 's'} sent</span>
+                    )}
+                    {rs.kind === 'call' && (
+                      <span className="rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-700">3 sent · call</span>
+                    )}
                     <span className="text-red-600 font-medium">Due {fmtDate(inv.due_date)}{daysOver > 0 ? ` · ${daysOver}d over` : ''}</span>
                     <span className="font-medium text-sage-800 tabular-nums">{fmtCurrency(total)}</span>
                   </div>
