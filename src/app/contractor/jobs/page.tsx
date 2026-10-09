@@ -13,6 +13,10 @@ export default async function ContractorJobsPage() {
       .from('jobs')
       .select('id, job_number, title, address, scheduled_date, scheduled_time, duration_estimate, status')
       .eq('contractor_id', contractor.id)
+      // Archived / test jobs are gone for staff, so they must be gone here too —
+      // otherwise a contractor can keep working (and completing) a job nobody
+      // in the office can see or invoice. Mirrors the staff preview.
+      .is('deleted_at', null)
       .order('scheduled_date', { ascending: true, nullsFirst: false }),
     loadContractorJobHistory(contractor.id),
   ])

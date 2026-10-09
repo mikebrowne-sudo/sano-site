@@ -26,6 +26,7 @@ async function verifyJobOwnership(jobId: string, contractorId: string): Promise<
     .select('id')
     .eq('id', jobId)
     .eq('contractor_id', contractorId)
+    .is('deleted_at', null) // can't start / complete / note an archived job
     .maybeSingle()
 
   return !!data
