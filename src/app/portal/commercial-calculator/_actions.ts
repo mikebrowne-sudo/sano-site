@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 import { createClient } from '@/lib/supabase-server'
 import { calculateCommercialPrice, type CommercialInputs, type PricingView } from '@/lib/commercialPricing'
 
@@ -7,6 +9,7 @@ export async function saveCommercialCalculation(
   input: CommercialInputs,
   selected_pricing_view: PricingView,
 ): Promise<{ id: string } | { error: string }> {
+  await assertAdminAction()
   const supabase = createClient()
 
   // Re-run the calculation server-side so the stored values are authoritative.

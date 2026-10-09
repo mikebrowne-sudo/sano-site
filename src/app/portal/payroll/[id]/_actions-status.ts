@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Pay-run workflow ticks that keep the three obligations SEPARATE:
 //   - markIrdCompared:     records the IRD-calculator/IR340 comparison (readiness)
 //   - markFilingSubmitted / markFilingAccepted: payday-filing status only
@@ -31,6 +33,7 @@ async function audit(action: string, entityId: string, detail: string, userId?: 
 }
 
 export async function markIrdCompared(input: { runId: string; note?: string }): Promise<Result> {
+  await assertAdminAction()
   const g = await adminGate()
   if (g.error) return { error: g.error }
   const { error } = await getServiceSupabase().from('pay_runs')
@@ -43,6 +46,7 @@ export async function markIrdCompared(input: { runId: string; note?: string }): 
 }
 
 export async function markFilingSubmitted(input: { runId: string }): Promise<Result> {
+  await assertAdminAction()
   const g = await adminGate()
   if (g.error) return { error: g.error }
   const { error } = await getServiceSupabase().from('pay_runs')
@@ -55,6 +59,7 @@ export async function markFilingSubmitted(input: { runId: string }): Promise<Res
 }
 
 export async function markFilingAccepted(input: { runId: string }): Promise<Result> {
+  await assertAdminAction()
   const g = await adminGate()
   if (g.error) return { error: g.error }
   const { error } = await getServiceSupabase().from('pay_runs')
@@ -67,6 +72,7 @@ export async function markFilingAccepted(input: { runId: string }): Promise<Resu
 }
 
 export async function markEmpRegistered(input: { runId: string; registered: boolean; note?: string }): Promise<Result> {
+  await assertAdminAction()
   const g = await adminGate()
   if (g.error) return { error: g.error }
   const svc = getServiceSupabase()

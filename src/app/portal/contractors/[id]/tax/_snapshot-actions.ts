@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Contractor payment tax snapshot actions (PR 7). Persist the canonical
 // computeContractorPayment result as an immutable snapshot; approve only a
 // resolved ('ok') result; corrections supersede (never overwrite). Admin-gated,
@@ -64,6 +66,7 @@ export async function createPaymentSnapshot(
   scheduleId: string,
   supplyDateIso: string,
 ): Promise<{ ok?: true; id?: string; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
   const calc = await computeForSchedule(supabase, contractorId, scheduleId, supplyDateIso)
@@ -87,6 +90,7 @@ export async function createPaymentSnapshot(
 /** Delete a DRAFT snapshot that was never approved. Admin-gated. Approved/
  *  superseded/void rows are never deletable (the DB trigger also blocks it). */
 export async function deleteDraftSnapshot(snapshotId: string): Promise<{ ok?: true; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
   const { data: snap } = await supabase.from('contractor_payment_tax_snapshots').select('id, contractor_id, status, approved_at').eq('id', snapshotId).maybeSingle()
@@ -106,6 +110,7 @@ export async function deleteDraftSnapshot(snapshotId: string): Promise<{ ok?: tr
 
 /** Approve a draft snapshot → payable. HARD GATE: only calc_status='ok'. */
 export async function approvePaymentSnapshot(snapshotId: string): Promise<{ ok?: true; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
   const { data: snap } = await supabase.from('contractor_payment_tax_snapshots').select('id, contractor_id, status, calc_status').eq('id', snapshotId).maybeSingle()
@@ -133,6 +138,7 @@ export async function approvePaymentSnapshot(snapshotId: string): Promise<{ ok?:
  * never overwritten (the DB trigger enforces that too).
  */
 export async function correctPaymentSnapshot(snapshotId: string, reason: string): Promise<{ ok?: true; id?: string; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
   if (!reason?.trim()) return { error: 'A correction reason is required.' }

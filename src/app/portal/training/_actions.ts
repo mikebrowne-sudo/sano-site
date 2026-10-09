@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { redirect } from 'next/navigation'
@@ -20,6 +22,7 @@ interface ModuleInput {
 }
 
 export async function createModule(input: ModuleInput) {
+  await assertAdminAction()
   const supabase = createClient()
   if (!input.title?.trim()) return { error: 'Title is required.' }
 
@@ -46,6 +49,7 @@ export async function createModule(input: ModuleInput) {
 }
 
 export async function updateModule(id: string, input: ModuleInput) {
+  await assertAdminAction()
   const supabase = createClient()
   if (!input.title?.trim()) return { error: 'Title is required.' }
 
@@ -73,6 +77,7 @@ export async function updateModule(id: string, input: ModuleInput) {
 }
 
 export async function assignModuleToContractor(moduleId: string, contractorId: string, dueDate?: string) {
+  await assertAdminAction()
   const supabase = createClient()
 
   const { error } = await supabase
@@ -92,6 +97,7 @@ export async function assignModuleToContractor(moduleId: string, contractorId: s
 }
 
 export async function assignModuleToAll(moduleId: string, dueDate?: string) {
+  await assertAdminAction()
   const supabase = createClient()
 
   const { data: contractors } = await supabase
@@ -154,6 +160,7 @@ export async function requireModuleReacknowledgement(moduleId: string) {
 }
 
 export async function removeAssignment(assignmentId: string, moduleId: string) {
+  await assertAdminAction()
   const supabase = createClient()
   const { error } = await supabase
     .from('worker_training_assignments')

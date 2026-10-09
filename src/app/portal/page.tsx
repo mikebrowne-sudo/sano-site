@@ -118,9 +118,38 @@ export default async function PortalDashboard() {
 
   // ── Business health: 12-month money-in/out series (reuses the P&L defs) +
   //    this-month operational stats. Admin-only page, so no extra gate needed.
-  const finance = await buildDashboardFinance(supabase, today, 12)
-  const projection = await buildIncomeProjection(supabase, today, 3)
-  const bookedJobs = await buildBookedJobs(supabase, today, 12, 3)
+  // These lookups don't depend on each other — run them together instead of
+  // one after another (the dashboard used to make ~10 sequential round-trips).
+  const sentIdsForAlloc = ((sentInvoices ?? []) as unknown as Array<{ id: string }>).map((i) => i.id)
+  const [
+    finance, projection, bookedJobs, bankBalance, cashPosition,
+    { data: completedThisMonth }, { data: kiwisaver }, pendingKs10, allocatedBySent,
+  ] = await Promise.all([
+    buildDashboardFinance(supabase, today, 12),
+    buildIncomeProjection(supabase, today, 3),
+    buildBookedJobs(supabase, today, 12, 3),
+    // Bank balance = ASB's stated ledger balance from the last imported CSV.
+    getBankBalance(supabase),
+    // Cash position = total company cash − genuine owner capital introduced.
+    buildCashPosition(supabase),
+    // Jobs completed this month (for the margin stat below).
+    supabase
+      .from('jobs')
+      .select('id, job_price, allowed_hours')
+      .is('deleted_at', null).eq('is_test', false)
+      .in('status', ['completed', 'invoiced'])
+      .gte('completed_at', monthStart)
+      .gt('job_price', 0),
+    supabase
+      .from('kiwisaver_optout')
+      .select('person_label, start_date, opt_out_filed')
+      .eq('person_label', 'Carol')
+      .maybeSingle(),
+    // KS10 opt-outs received but not yet forwarded to IRD (best-effort — the
+    // columns depend on the KiwiSaver audit migration).
+    loadPendingKs10Submissions(supabase, today).catch(() => [] as PendingKs10[]),
+    loadAllocatedByInvoice(supabase, sentIdsForAlloc),
+  ])
   // Headline: the last full month vs the first month with bookings in the window.
   const bookedPast = bookedJobs.filter((m) => !m.future && !m.current)
   const lastFull = bookedPast[bookedPast.length - 1]
@@ -135,24 +164,7 @@ export default async function PortalDashboard() {
       }
     : null
 
-  // Bank balance = ASB's stated ledger balance, captured from the last CSV
-  // imported into reconciliation (no live feed). Null until a statement with a
-  // balance line has been imported.
-  const bankBalance = await getBankBalance(supabase)
-
-  // Cash position = total company cash − genuine owner capital introduced.
-  // Distinct from the P&L "net position" (an operating result). Owner capital
-  // is only the owner_capital rows — NOT loans or expense reimbursements.
-  const cashPosition = await buildCashPosition(supabase)
-
   // Jobs completed this month + their average margin (ties into Job margins).
-  const { data: completedThisMonth } = await supabase
-    .from('jobs')
-    .select('id, job_price, allowed_hours')
-    .is('deleted_at', null).eq('is_test', false)
-    .in('status', ['completed', 'invoiced'])
-    .gte('completed_at', monthStart)
-    .gt('job_price', 0)
   const monthJobs = (completedThisMonth ?? []) as Array<{ id: string; job_price: number | null; allowed_hours: number | null }>
   const jobsThisMonth = monthJobs.length
   let avgMarginPct: number | null = null
@@ -165,19 +177,6 @@ export default async function PortalDashboard() {
     }
   }
 
-  const { data: kiwisaver } = await supabase
-    .from('kiwisaver_optout')
-    .select('person_label, start_date, opt_out_filed')
-    .eq('person_label', 'Carol')
-    .maybeSingle()
-
-  // KS10 opt-outs received but not yet forwarded to IRD (best-effort — the
-  // columns depend on the KiwiSaver audit migration).
-  let pendingKs10: PendingKs10[] = []
-  try {
-    pendingKs10 = await loadPendingKs10Submissions(supabase, today)
-  } catch { /* migration not applied yet */ }
-
   const outstandingCount = sentInvoices?.length ?? 0
   const overdueCount = (sentInvoices ?? []).filter((i) => i.due_date && i.due_date < today).length
 
@@ -188,7 +187,6 @@ export default async function PortalDashboard() {
   type MoneyInv = InvoiceAmountFields & { id: string; due_date?: string | null }
   const sentRows = (sentInvoices ?? []) as unknown as MoneyInv[]
   const paidRows = (paidThisMonth ?? []) as unknown as MoneyInv[]
-  const allocatedBySent = await loadAllocatedByInvoice(supabase, sentRows.map((i) => i.id))
   const owed = (i: MoneyInv) => invoiceBalanceDue(i, allocatedBySent.get(i.id) ?? 0)
   const outstandingRevenue = sentRows.reduce((s, i) => s + owed(i), 0)
   const overdueRevenue = sentRows.filter((i) => i.due_date && i.due_date < today).reduce((s, i) => s + owed(i), 0)

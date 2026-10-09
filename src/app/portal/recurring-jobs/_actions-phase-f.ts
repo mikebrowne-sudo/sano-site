@@ -1,4 +1,7 @@
 'use server'
+import { nzToday } from '@/lib/nz-date'
+
+import { assertAdminAction } from '@/lib/require-admin'
 
 // Phase F — recurring contracts (commercial-aware) + reminders +
 // renewal + multi-week generation.
@@ -32,7 +35,7 @@ function addDaysIso(iso: string, days: number): string {
 }
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10)
+  return nzToday()
 }
 
 function reminderRowsForEnd(recurringJobId: string, endDate: string) {
@@ -46,6 +49,7 @@ function reminderRowsForEnd(recurringJobId: string, endDate: string) {
 // ─── Create from accepted quote ─────────────────────────────────
 
 export async function createRecurringJobFromQuote(quoteId: string): Promise<{ error: string } | void> {
+  await assertAdminAction()
   const supabase = createClient()
   if (!quoteId) return { error: 'Quote id required.' }
 
@@ -208,6 +212,7 @@ export async function generateUpcomingRecurringJobs(input: {
   recurringJobId: string
   weeks: number  // 1 | 2 | 4 | (custom)
 }): Promise<{ ok: true; createdCount: number; skippedCount: number } | { error: string }> {
+  await assertAdminAction()
   const supabase = createClient()
   const { recurringJobId, weeks } = input
   if (!recurringJobId) return { error: 'Recurring job id is required.' }
@@ -424,6 +429,7 @@ export async function updateRecurringReminder(input: {
   reminderId: string
   status: 'completed' | 'dismissed'
 }): Promise<{ ok: true } | { error: string }> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
@@ -472,6 +478,7 @@ export async function extendRecurringContract(input: {
   newTermMonths?: number | null
   notes?: string | null
 }): Promise<{ ok: true } | { error: string }> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }

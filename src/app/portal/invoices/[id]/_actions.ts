@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 import { invoiceTotalInclGst, type InvoiceAmountFields } from '@/lib/invoice-balance'
 import { createClient } from '@/lib/supabase-server'
 import { Resend } from 'resend'
@@ -28,6 +30,7 @@ function esc(s: string) {
 }
 
 export async function sendInvoiceEmail(input: SendInvoiceInput) {
+  await assertAdminAction()
   if (!input.to.trim()) {
     return { error: 'Recipient email is required.' }
   }
@@ -225,6 +228,7 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
 }
 
 export async function markInvoicePaid(invoiceId: string, datePaid?: string) {
+  await assertAdminAction()
   const supabase = createClient()
   const today = nzToday()
   // The date the money actually arrived (defaults to today, NZ). Never in the future.

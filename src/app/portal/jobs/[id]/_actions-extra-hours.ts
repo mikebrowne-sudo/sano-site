@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Allowed-hours pay model (2026-06) — extra-hours sign-off.
 //
 // In the allowed-hours model a job's labour cost / margin / contractor
@@ -45,6 +47,7 @@ export async function recordExtraHours(
   hours: number,
   reason: string,
 ) {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
@@ -118,6 +121,7 @@ export async function recordExtraHours(
 
 /** Admin signs off recorded extra hours so they count toward margin + pay. */
 export async function approveExtraHours(jobId: string, contractorId: string) {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
@@ -168,6 +172,7 @@ export async function approveExtraHours(jobId: string, contractorId: string) {
 
 /** Admin declines recorded extra hours. They will not count toward pay. */
 export async function rejectExtraHours(jobId: string, contractorId: string) {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }

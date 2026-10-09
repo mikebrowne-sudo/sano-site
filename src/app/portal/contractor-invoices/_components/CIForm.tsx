@@ -1,4 +1,5 @@
 'use client'
+import { nzToday } from '@/lib/nz-date'
 
 import { useState, useTransition } from 'react'
 import { createContractorInvoice } from '../_actions'
@@ -26,8 +27,8 @@ export function CIForm({ ci, contractors, jobs }: { ci?: CIData; contractors: Co
   const [contractorId, setContractorId] = useState(ci?.contractor_id ?? '')
   const [jobId, setJobId] = useState(ci?.job_id ?? '')
   const [amount, setAmount] = useState(ci?.amount ? String(ci.amount) : '')
-  const [dateSubmitted, setDateSubmitted] = useState(ci?.date_submitted ?? new Date().toISOString().slice(0, 10))
-  const [gstSupplyDate, setGstSupplyDate] = useState(ci?.date_submitted ?? new Date().toISOString().slice(0, 10))
+  const [dateSubmitted, setDateSubmitted] = useState(ci?.date_submitted ?? nzToday())
+  const [gstSupplyDate, setGstSupplyDate] = useState(ci?.date_submitted ?? nzToday())
   const [notes, setNotes] = useState(ci?.notes ?? '')
   const [paymentType, setPaymentType] = useState(ci?.payment_type ?? 'standard')
   const [siteLabel, setSiteLabel] = useState(ci?.site_label ?? '')

@@ -1,4 +1,5 @@
 'use server'
+import { nzToday } from '@/lib/nz-date'
 
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
@@ -83,7 +84,7 @@ export async function createContractorInvoice(input: CIInput) {
     }
   }
 
-  const dateSubmitted = input.date_submitted || new Date().toISOString().slice(0, 10)
+  const dateSubmitted = input.date_submitted || nzToday()
   // Supply date for GST: the explicit staff-confirmed value; fall back to the
   // submitted date (the form shows this) rather than inventing a date.
   const supplyDate = input.gst_supply_date || dateSubmitted
@@ -204,7 +205,7 @@ export async function markContractorInvoicePaid(id: string) {
   const supabase = createClient()
   const gate = await requireAdmin(supabase)
   if (gate) return { error: gate }
-  const today = new Date().toISOString().slice(0, 10)
+  const today = nzToday()
 
   // Capture the before-state so this money-status change is auditable (who
   // marked which payable paid, and what it was before).

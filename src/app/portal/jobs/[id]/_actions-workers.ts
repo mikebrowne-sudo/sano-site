@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Manage the contractors assigned to a job (2026-07).
 //
 // Adds per-worker Add / Remove directly on the job's Labour & Margin
@@ -90,6 +92,7 @@ function revalidate(jobId: string) {
 /** Admin adds a contractor to the job. Idempotent-ish: a contractor
  *  already assigned returns a friendly error rather than duplicating. */
 export async function addJobWorker(jobId: string, contractorId: string) {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
@@ -174,6 +177,7 @@ export async function setJobWorkerPayRate(
   newRate: number,
   reason: string,
 ) {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
@@ -235,6 +239,7 @@ export async function setJobWorkerPayRate(
 /** Admin removes a contractor from the job. Blocked once the worker is
  *  committed to pay (pay run / paid / has a payable). */
 export async function removeJobWorker(jobId: string, contractorId: string) {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }

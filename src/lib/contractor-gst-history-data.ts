@@ -4,6 +4,7 @@
 // client with a strict contractor-safe allowlist (never review notes,
 // verification metadata, evidence refs, other contractors).
 
+import { nzToday } from './nz-date'
 import { getServiceSupabase } from './supabase-service'
 import { selectGstStatusForDate, type GstHistoryRecord } from './contractor-gst-history'
 
@@ -122,7 +123,7 @@ export async function syncGstCache(
   contractorId: string,
   asOfIso?: string,
 ): Promise<void> {
-  const asOf = asOfIso ?? new Date().toISOString().slice(0, 10)
+  const asOf = asOfIso ?? nzToday()
   const { data } = await supabase
     .from('contractor_gst_history')
     .select('id, status, gst_registered, gst_number, effective_date, end_date')
@@ -156,7 +157,7 @@ export async function refreshGstCacheIfStale(
   contractorId: string,
   history: FullGstHistory[],
 ): Promise<FullGstHistory | null> {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = nzToday()
   const applicable = selectGstStatusForDate(history, today)
   const { data: c } = await supabase.from('contractors').select('gst_registered, gst_number, gst_effective_date, gst_end_date').eq('id', contractorId).maybeSingle()
   const cache = {

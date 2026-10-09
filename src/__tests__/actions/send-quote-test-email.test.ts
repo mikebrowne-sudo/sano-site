@@ -20,6 +20,10 @@ jest.mock('resend', () => ({ Resend: jest.fn().mockImplementation(() => ({ email
 import { sendQuoteTestEmail } from '@/app/portal/quotes/[id]/_actions'
 import { createClient } from '@/lib/supabase-server'
 
+// These tests cover the action's own behaviour; the admin gate (lib/require-admin) has its own test.
+jest.mock('@/lib/require-admin', () => ({ assertAdminAction: jest.fn().mockResolvedValue(undefined) }))
+
+
 const mockedCreate = createClient as unknown as jest.Mock
 
 interface Tracked {

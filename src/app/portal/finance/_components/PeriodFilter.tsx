@@ -1,4 +1,5 @@
 'use client'
+import { nzToday } from '@/lib/nz-date'
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getPeriods } from '../_lib/periods'
@@ -25,8 +26,8 @@ export function PeriodFilter({ current, customFrom, customTo, basePath = '/porta
   }
 
   function handleCustom() {
-    const from = customFrom || new Date().toISOString().slice(0, 10)
-    const to = customTo || new Date().toISOString().slice(0, 10)
+    const from = customFrom || nzToday()
+    const to = customTo || nzToday()
     push({ period: 'custom', from, to })
   }
 

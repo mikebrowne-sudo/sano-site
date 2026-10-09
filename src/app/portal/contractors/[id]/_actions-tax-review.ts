@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Phase 4 — staff tax-review workflow action.
 //
 // Updates the contractor's tax-review lifecycle (status / notes / whether an
@@ -23,6 +25,7 @@ export async function setTaxReviewStatus(input: {
   notes?: string | null
   ir330cRequested?: boolean
 }): Promise<{ ok: true } | { error: string }> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }

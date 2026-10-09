@@ -1,3 +1,4 @@
+import { nzToday } from './nz-date'
 // Phase quote-flow-clarity: single source of truth for invoice
 // service-date and due-date logic.
 //
@@ -68,7 +69,7 @@ export function computeInvoiceDueDate(input: DueDateInput): string | null {
   // Explicit terms keys win over the broader payment_type axis.
   if (pt === '7_days')      return issued ? addDaysISO(issued, 7)  : null
   if (pt === '14_days')     return issued ? addDaysISO(issued, 14) : null
-  if (pt === '20_of_month') return nextTwentiethISO(issued ?? new Date().toISOString().slice(0, 10))
+  if (pt === '20_of_month') return nextTwentiethISO(issued ?? nzToday())
   if (pt === 'due_immediately') return issued ?? service ?? null
   if (pt === 'due_on_completion') return service ?? issued ?? null
   // 'custom' or null falls through to the payment_type axis.

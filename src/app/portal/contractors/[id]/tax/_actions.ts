@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Staff contractor tax-declaration actions (PR 4). Record / verify / reject /
 // supersede IR330C, tailored-rate and exemption declarations, and classify each
 // service schedule's tax treatment. Immutable + superseding: a correction creates
@@ -56,6 +58,7 @@ export interface DeclarationStaffInput {
  * otherwise submitted (pending).
  */
 export async function recordDeclaration(input: DeclarationStaffInput): Promise<{ ok?: true; id?: string; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
 
@@ -155,6 +158,7 @@ export async function setDeclarationStatus(
   status: 'verified' | 'rejected',
   reviewNotes: string | null,
 ): Promise<{ ok?: true; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
 
@@ -234,6 +238,7 @@ export async function setScheduleTaxTreatment(
   note: string | null,
   effectiveFrom?: string | null,
 ): Promise<{ ok?: true; error?: string; supersededBy?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
 

@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Google review request (2026-07). Staff-triggered from a job or the Reviews
 // tab: an editable message sent by SMS and/or email, with a one-tap link to the
 // Google review page. Every send is recorded per customer in review_requests so
@@ -34,6 +36,7 @@ export interface RequestReviewResult {
 }
 
 export async function requestReview(input: RequestReviewInput): Promise<RequestReviewResult> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }

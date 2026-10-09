@@ -1,4 +1,5 @@
 'use client'
+import { nzToday } from '@/lib/nz-date'
 
 // Set or change a worker's rate at one client.
 //
@@ -15,7 +16,7 @@ interface ClientOption {
 }
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10)
+  return nzToday()
 }
 
 export function ClientRateForm({

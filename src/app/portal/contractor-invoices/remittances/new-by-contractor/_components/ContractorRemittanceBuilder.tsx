@@ -1,4 +1,5 @@
 'use client'
+import { nzToday } from '@/lib/nz-date'
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -19,7 +20,7 @@ export interface ContractorRow {
   unpaidTotal: number
 }
 
-function today() { return new Date().toISOString().slice(0, 10) }
+function today() { return nzToday() }
 
 /** Format an ISO yyyy-mm-dd as d Mon (compact, no year) for the preview lines. */
 function shortDate(iso: string | null): string {

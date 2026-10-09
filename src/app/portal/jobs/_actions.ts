@@ -1,4 +1,7 @@
 'use server'
+import { nzToday } from '@/lib/nz-date'
+
+import { assertAdminAction } from '@/lib/require-admin'
 
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
@@ -53,7 +56,7 @@ async function checkContractorInsurance(
     .eq('id', contractorId)
     .single()
   if (!data) return 'Contractor not found.'
-  const today = new Date().toISOString().slice(0, 10)
+  const today = nzToday()
   if (!data.insurance_expiry) {
     return `Cannot assign — ${data.full_name} has no insurance expiry on file. Update the contractor's insurance details first.`
   }
@@ -83,6 +86,7 @@ interface JobInput {
 }
 
 export async function createJob(input: JobInput) {
+  await assertAdminAction()
   const supabase = createClient()
 
   if (!input.client_id) {
@@ -632,6 +636,7 @@ export async function updateJob(input: UpdateJobInput) {
 }
 
 export async function duplicateJob(jobId: string) {
+  await assertAdminAction()
   const supabase = createClient()
 
   const { data: source, error: loadErr } = await supabase

@@ -1,3 +1,4 @@
+import { nzToday } from '@/lib/nz-date'
 import { createClient } from '@/lib/supabase-server'
 import { loadUnattachedMileage } from '@/lib/payroll/unattached-mileage'
 import { UnattachedMileageWarning } from './_components/UnattachedMileageWarning'
@@ -46,7 +47,7 @@ export default async function PayRunDetailPage({ params }: { params: { id: strin
 
   // KS10 opt-outs received but not yet forwarded to IRD — this payday filing
   // (IR348) is the vehicle to send them. Best-effort (migration-dependent).
-  const today = new Date().toISOString().slice(0, 10)
+  const today = nzToday()
   let pendingKs10: PendingKs10[] = []
   try {
     pendingKs10 = await loadPendingKs10Submissions(supabase, today)

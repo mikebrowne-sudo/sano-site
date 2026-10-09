@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Tidy-up actions for the Pay contractors screen.
 //
 // excludeFromPay — write off a job's contractor pay (e.g. an old test /
@@ -11,6 +13,7 @@ import { isAdminEmail } from '@/lib/is-admin'
 import { revalidatePath } from 'next/cache'
 
 export async function excludeFromPay(jobId: string, contractorId: string) {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
@@ -39,6 +42,7 @@ export async function excludeFromPay(jobId: string, contractorId: string) {
 }
 
 export async function reincludeToPay(jobId: string, contractorId: string) {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
