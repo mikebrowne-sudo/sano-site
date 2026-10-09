@@ -9,7 +9,7 @@ import { InvoiceDocument } from '@/components/document/InvoiceDocument'
 import { canTakeRealPayments } from '@/lib/stripe'
 import { cardFee, clientCardSetting, invoiceOffersCard } from '@/lib/card-payments'
 import { sanoPaymentDetails } from '@/lib/sano-bank-details'
-import { invoiceBalanceDue, loadAllocatedByInvoice } from '@/lib/invoice-balance'
+import { invoiceBalanceDue, invoicePaymentSummary, loadAllocatedByInvoice } from '@/lib/invoice-balance'
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
   const supabase = getServiceSupabase()
@@ -80,11 +80,14 @@ export default async function PublicInvoicePage({
   // On-account customers pay on terms and aren't offered a card unless staff
   // ticked "Show Pay now" on this invoice (lib/card-payments).
   const showPay = !isPdfRender && canTakeRealPayments() && invoiceOffersCard({ ...invoice, client_allow_card_payment: clientCardSetting(invoice.clients) })
+  // Payments already received show on the invoice itself (Paid / Balance due).
+  const allocated = (await loadAllocatedByInvoice(supabase, [invoice.id])).get(invoice.id) ?? 0
+  const payment = invoicePaymentSummary({ ...invoice, invoice_items: items ?? [] }, allocated)
+
   let totalDisplay = ''
   let feeDisplay = ''
   let cardTotalDisplay = ''
   if (showPay) {
-    const allocated = (await loadAllocatedByInvoice(supabase, [invoice.id])).get(invoice.id) ?? 0
     const due = invoiceBalanceDue({ ...invoice, invoice_items: items ?? [] }, allocated)
     const money = (n: number) => new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
     // Same figures create-checkout charges: amount due + 2.5% card fee.
@@ -101,6 +104,7 @@ export default async function PublicInvoicePage({
         wrapper="share-page"
         invoice={invoice as unknown as Parameters<typeof InvoiceDocument>[0]['invoice']}
         items={items ?? []}
+        payment={payment}
         shareActionsSlot={
           !isPdfRender ? <SharePdfButton href={`/api/share/invoice/${params.token}/pdf`} /> : undefined
         }

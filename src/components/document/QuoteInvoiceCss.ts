@@ -405,6 +405,22 @@ export const QUOTE_INVOICE_CSS = `
     background: var(--sage-100);
     margin: 4px 0;
   }
+  /* Paid invoices: "Paid" stamp under the header meta + paid rows in totals. */
+  .doc-stamp {
+    display: inline-block;
+    margin-top: 14px;
+    padding: 5px 14px;
+    border: 1.5px solid rgba(255,255,255,0.75);
+    border-radius: 999px;
+    color: var(--white);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .doc-total-row-paid .val { color: var(--sage-600); }
+
   .doc-grand-total {
     margin-top: 12px;
     background: var(--sage-800);

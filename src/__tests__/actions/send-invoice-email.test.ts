@@ -53,7 +53,10 @@ function makeClientSelect(row: Record<string, unknown> | null) {
 }
 
 function makeUpdateChain() {
-  return jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) })
+  // `.eq()` is awaited directly (date stamp) or followed by `.neq('status',
+  // 'paid')` (status flip, which leaves a paid invoice paid) — support both.
+  const done = () => Object.assign(Promise.resolve({ error: null }), { neq: jest.fn().mockResolvedValue({ error: null }) })
+  return jest.fn().mockReturnValue({ eq: jest.fn().mockImplementation(done) })
 }
 
 beforeEach(() => {

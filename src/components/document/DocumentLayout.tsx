@@ -138,6 +138,11 @@ export interface DocumentLayoutProps {
   /** Optional share-page actions row (PDF download button) — only
    * rendered on share pages, hidden in PDF mode. */
   shareActionsSlot?: ReactNode
+  /** Payments received (invoices): extra total rows ("Total", "Paid …"),
+   *  the grand-total label ("Balance due") and a header stamp ("Paid"). */
+  extraTotalRows?: ReadonlyArray<{ label: string; value: string }>
+  grandTotalLabelOverride?: string
+  stamp?: string | null
 }
 
 export function DocumentLayout({
@@ -156,12 +161,15 @@ export function DocumentLayout({
   footer,
   interactiveSlot,
   shareActionsSlot,
+  extraTotalRows,
+  grandTotalLabelOverride,
+  stamp,
 }: DocumentLayoutProps) {
   const isQuote = kind === 'quote'
   const typeWord = isQuote ? 'Quote' : 'Invoice'
   const numberLabel = isQuote ? 'Quote #' : 'Invoice #'
   const toPartyLabel = isQuote ? 'Quote for' : 'Billed to'
-  const grandTotalLabel = isQuote ? 'Quote total' : 'Amount due'
+  const grandTotalLabel = grandTotalLabelOverride ?? (isQuote ? 'Quote total' : 'Amount due')
 
   return (
     <>
@@ -200,6 +208,7 @@ export function DocumentLayout({
                     </>
                   )}
                 </dl>
+                {stamp && <div className="doc-stamp">{stamp}</div>}
               </div>
             </div>
           </header>
@@ -295,6 +304,12 @@ export function DocumentLayout({
                   <span>GST (15%)</span>
                   <span className="val">{totals.gstDisplay}</span>
                 </div>
+                {(extraTotalRows ?? []).map((r) => (
+                  <div key={r.label} className="doc-total-row doc-total-row-paid">
+                    <span>{r.label}</span>
+                    <span className="val">{r.value}</span>
+                  </div>
+                ))}
                 <div className="doc-total-divider" />
                 <div className="doc-grand-total">
                   <span className="label">{grandTotalLabel}</span>

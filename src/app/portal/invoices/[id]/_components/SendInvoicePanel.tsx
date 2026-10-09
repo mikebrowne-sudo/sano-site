@@ -19,6 +19,9 @@ export function SendInvoicePanel({
   clientReference = '',
   requiresPo = false,
   cardAvailable = false,
+  paidAmount = 0,
+  balanceDue,
+  datePaid = null,
 }: {
   invoiceId: string
   invoiceNumber: string
@@ -33,6 +36,11 @@ export function SendInvoicePanel({
   requiresPo?: boolean
   /** Card payment is offered on this invoice (live Stripe, not switched off). */
   cardAvailable?: boolean
+  /** Money already received (lib/invoice-balance invoicePaymentSummary). When
+   *  set, the email is worded as a paid invoice / part-payment statement. */
+  paidAmount?: number
+  balanceDue?: number
+  datePaid?: string | null
 }) {
   const referenceLine = clientReference
     ? `\n\nYour reference: ${clientReference}`
@@ -42,9 +50,25 @@ export function SendInvoicePanel({
   const [open, setOpen] = useState(false)
   const [to, setTo] = useState(defaultTo)
   const [ccPrimary, setCcPrimary] = useState(false)
-  const [subject, setSubject] = useState(`Invoice ${invoiceNumber} from Sano`)
+  const money = (n: number) => new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
+  const fullyPaid = paidAmount > 0 && (balanceDue ?? 0) < 0.005
+  const partPaid = paidAmount > 0 && !fullyPaid
+  const paidOn = datePaid
+    ? ` on ${new Date(`${datePaid.slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}`
+    : ''
+  const howToPay = cardAvailable
+    ? 'You can pay by bank transfer using the details on the invoice (no fee), or by card using the Pay button (a 2.5% card fee applies).'
+    : 'Our bank details are on the invoice; please use the invoice number as the payment reference.'
+  const signOff = '\n\nKind regards,\nThe Sano team'
+  const [subject, setSubject] = useState(
+    fullyPaid ? `Paid invoice ${invoiceNumber} from Sano` : `Invoice ${invoiceNumber} from Sano`,
+  )
   const [message, setMessage] = useState(
-    `${greeting}\n\nPlease find your invoice ${invoiceNumber} from Sano via the link below.${referenceLine}\n\n${cardAvailable ? 'You can pay by bank transfer using the details on the invoice (no fee), or by card using the Pay button (a 2.5% card fee applies).' : 'Our bank details are on the invoice; please use the invoice number as the payment reference.'} If you have any questions, just let us know.\n\nKind regards,\nThe Sano team`,
+    fullyPaid
+      ? `${greeting}\n\nPlease find attached your paid invoice ${invoiceNumber} for your records. We received your payment of ${money(paidAmount)}${paidOn} — thank you. Nothing further is needed.${referenceLine}\n\nIf you have any questions, just let us know.${signOff}`
+      : partPaid
+        ? `${greeting}\n\nPlease find your invoice ${invoiceNumber} from Sano via the link below. Thank you for your payment of ${money(paidAmount)}; the balance of ${money(balanceDue ?? 0)} is shown on the invoice.${referenceLine}\n\n${howToPay} If you have any questions, just let us know.${signOff}`
+        : `${greeting}\n\nPlease find your invoice ${invoiceNumber} from Sano via the link below.${referenceLine}\n\n${howToPay} If you have any questions, just let us know.${signOff}`,
   )
 
   const [isPending, startTransition] = useTransition()
@@ -93,7 +117,7 @@ export function SendInvoicePanel({
           {ccPrimary && showCcOption && (
             <> · CC <strong>{primaryTrimmed}</strong></>
           )}
-          . Status updated to sent.
+          {fullyPaid ? '. It stays marked as paid.' : '. Status updated to sent.'}
         </span>
       </div>
     )
@@ -107,7 +131,7 @@ export function SendInvoicePanel({
         className="inline-flex items-center gap-2 bg-sage-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
       >
         <Send size={16} />
-        Send Invoice
+        {fullyPaid ? 'Send paid invoice' : 'Send Invoice'}
       </button>
     )
   }
@@ -115,7 +139,7 @@ export function SendInvoicePanel({
   return (
     <div className="bg-white border border-sage-200 rounded-xl p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-sage-800">Send Invoice</h3>
+        <h3 className="text-sm font-semibold text-sage-800">{fullyPaid ? 'Send paid invoice' : 'Send Invoice'}</h3>
         <button
           type="button"
           onClick={() => setOpen(false)}
