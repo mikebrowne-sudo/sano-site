@@ -11,6 +11,7 @@ import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { computeInvoiceDueDate, resolveServiceDate } from '@/lib/invoice-dates'
 import { getCustomerReplyToEmail } from '@/lib/email-reply-to'
 import { stampJobCompleteOnPaidInvoice } from '@/lib/job-paid-complete'
+import { nzToday } from '@/lib/nz-date'
 
 interface SendInvoiceInput {
   invoice_id: string
@@ -60,7 +61,7 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
   // send date — so an invoice sent AFTER the clean gets a send-based due
   // date (cash sale: due on the send date; on account: send + 14), while
   // one sent BEFORE the clean is still due the day before the job.
-  const today = new Date().toISOString().slice(0, 10)
+  const today = nzToday() // NZ issue date
   const isFirstSend = !invoice.date_issued
   const effectiveDateIssued = (invoice.date_issued as string | null) || today
 
@@ -217,18 +218,41 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
   return { success: true }
 }
 
-export async function markInvoicePaid(invoiceId: string) {
+export async function markInvoicePaid(invoiceId: string, datePaid?: string) {
   const supabase = createClient()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = nzToday()
+  // The date the money actually arrived (defaults to today, NZ). Never in the future.
+  const paidOn = datePaid && /^\d{4}-\d{2}-\d{2}$/.test(datePaid) ? datePaid : today
+  if (paidOn > today) return { error: 'The paid date can’t be in the future.' }
+
+  const { data: before } = await supabase
+    .from('invoices')
+    .select('status, date_paid, deleted_at')
+    .eq('id', invoiceId)
+    .maybeSingle()
+  if (!before) return { error: 'Invoice not found.' }
+  if (before.deleted_at) return { error: 'This invoice is archived.' }
+  if (before.status === 'draft') return { error: 'Send or finalise the invoice before marking it paid.' }
 
   const { error } = await supabase
     .from('invoices')
-    .update({ status: 'paid', date_paid: today })
+    .update({ status: 'paid', date_paid: paidOn })
     .eq('id', invoiceId)
 
   if (error) {
     return { error: `Failed to update invoice: ${error.message}` }
   }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  await supabase.from('audit_log').insert({
+    actor_id: user?.id ?? null,
+    actor_role: 'staff',
+    action: 'invoice.marked_paid',
+    entity_table: 'invoices',
+    entity_id: invoiceId,
+    before: { status: before.status, date_paid: before.date_paid ?? null },
+    after: { status: 'paid', date_paid: paidOn, source: 'manual' },
+  })
 
   // A paid invoice means the job is paid work — stamp it complete.
   await stampJobCompleteOnPaidInvoice(supabase, invoiceId)

@@ -182,7 +182,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   // Overdue logic (UI only)
   const displayStatus = computeInvoiceDisplayStatus(invoice.status, invoice.due_date)
   const isOverdue = displayStatus === 'overdue'
-  const showMarkPaid = displayStatus !== 'paid' && displayStatus !== 'cancelled'
+  const showMarkPaid = displayStatus !== 'paid' && displayStatus !== 'cancelled' && invoice.status !== 'draft' && !invoice.deleted_at
 
   return (
     <div>

@@ -20,6 +20,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { requireCleanupAccess } from '@/lib/cleanup-mode'
+import { reclaimQuotesForRestoredJobs, releaseQuotesForArchivedJobs } from '@/lib/quote-job-link'
 
 export type LifecycleEntity = 'quote' | 'job' | 'invoice'
 
@@ -96,6 +97,9 @@ export async function markAsTest(
     )
   }
 
+  // A job's source quote must not stay 'converted' with no live job.
+  if (entity === 'job') await releaseQuotesForArchivedJobs(supabase, (data ?? []).map((r) => r.id as string))
+
   for (const p of ENTITY_PATHS[entity]) revalidatePath(p)
   return { ok: true, count: (data ?? []).length }
 }
@@ -131,6 +135,9 @@ export async function archiveRecords(
       auditAction,
     )
   }
+
+  // A job's source quote must not stay 'converted' with no live job.
+  if (entity === 'job') await releaseQuotesForArchivedJobs(supabase, (data ?? []).map((r) => r.id as string))
 
   for (const p of ENTITY_PATHS[entity]) revalidatePath(p)
   return { ok: true, count: (data ?? []).length }
@@ -173,6 +180,8 @@ export async function restoreRecords(
       auditAction,
     )
   }
+
+  if (entity === 'job') await reclaimQuotesForRestoredJobs(supabase, (data ?? []).map((r) => r.id as string))
 
   for (const p of ENTITY_PATHS[entity]) revalidatePath(p)
   return { ok: true, count: (data ?? []).length }

@@ -65,10 +65,13 @@ export default async function ContractorPreviewPage({
 
   // Jobs list is always loaded — it backs the Jobs tab and the default
   // selection for the Job tab.
+  // Same rule as the live contractor list: primary cleaner OR on the roster.
+  const { data: rosterRows } = await svc.from('job_workers').select('job_id').eq('contractor_id', params.id)
+  const rosterJobIds = Array.from(new Set((rosterRows ?? []).map((r) => r.job_id as string)))
   const { data: jobsRaw } = await svc
     .from('jobs')
     .select('id, job_number, title, address, scheduled_date, scheduled_time, duration_estimate, status')
-    .eq('contractor_id', params.id)
+    .or(rosterJobIds.length ? `contractor_id.eq.${params.id},id.in.(${rosterJobIds.join(',')})` : `contractor_id.eq.${params.id}`)
     .is('deleted_at', null)
     .order('scheduled_date', { ascending: true, nullsFirst: false })
   const jobs = (jobsRaw ?? []) as ContractorJobRow[]

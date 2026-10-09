@@ -51,7 +51,8 @@ export function ContractorJobsView({
   jobs,
   jobHref,
   showHeading = true,
-  todayIso = new Date().toISOString().slice(0, 10),
+  // NZ calendar day (UTC is still "yesterday" every NZ morning).
+  todayIso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Pacific/Auckland' }).format(new Date()),
 }: {
   jobs: ContractorJobRow[]
   jobHref: (id: string) => string

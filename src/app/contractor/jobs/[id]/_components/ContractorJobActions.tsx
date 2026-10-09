@@ -15,6 +15,14 @@ export function ContractorJobActions({ jobId, status: initialStatus }: { jobId: 
   // Brief success flash after Complete so the contractor gets
   // confirmation before the button shape changes.
   const [flash, setFlash] = useState(false)
+  // Two taps: a stray tap on a phone mustn't complete a job (on recurring
+  // jobs completing also approves the pay). Resets after a few seconds.
+  const [arming, setArming] = useState(false)
+  useEffect(() => {
+    if (!arming) return
+    const t = setTimeout(() => setArming(false), 5000)
+    return () => clearTimeout(t)
+  }, [arming])
 
   useEffect(() => {
     if (!flash) return
@@ -23,6 +31,8 @@ export function ContractorJobActions({ jobId, status: initialStatus }: { jobId: 
   }, [flash])
 
   function handle() {
+    if (!arming) { setArming(true); return }
+    setArming(false)
     setError(null)
     startTransition(async () => {
       const result = await contractorCompleteJob(jobId)
@@ -59,7 +69,7 @@ export function ContractorJobActions({ jobId, status: initialStatus }: { jobId: 
         className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white font-semibold px-6 py-4 rounded-2xl text-base hover:bg-emerald-700 active:bg-emerald-800 transition-colors disabled:opacity-50 min-h-[52px]"
       >
         <CheckCircle size={20} />
-        {isPending ? 'Marking complete…' : 'Mark complete'}
+        {isPending ? 'Marking complete…' : arming ? 'Tap again to confirm' : 'Mark complete'}
       </button>
       {error && <p className="text-red-600 text-xs mt-2 text-center">{error}</p>}
     </div>

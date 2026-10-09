@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { nzToday } from '@/lib/nz-date'
 import { createClient } from '@/lib/supabase-server'
 import { ChevronLeft, ChevronRight, List, Plus } from 'lucide-react'
 import { CalendarFilters } from './_components/CalendarFilters'
@@ -6,7 +7,7 @@ import { JobCard } from './_components/JobCard'
 import clsx from 'clsx'
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10)
+  return nzToday() // NZ day, not the server's UTC day
 }
 
 function addDays(dateStr: string, days: number) {
