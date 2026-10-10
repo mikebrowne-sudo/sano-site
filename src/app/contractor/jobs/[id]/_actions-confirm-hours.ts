@@ -18,6 +18,7 @@
 // pay basis only changes when an admin approves the extra hours.
 
 import { createClient } from '@/lib/supabase-server'
+import { getServiceSupabase } from '@/lib/supabase-service'
 import { revalidatePath } from 'next/cache'
 import { isConfirmable } from '@/lib/hours-confirmation'
 
@@ -75,9 +76,14 @@ export async function confirmJobHours(
   }
 
   const now = new Date().toISOString()
+  // job_workers RLS gives contractors no UPDATE (deliberately), so the
+  // contractor's own client silently saved nothing. Write with the service
+  // client — scoped to the one roster row verified above — and treat 0 rows
+  // as a failure rather than reporting success.
+  const svc = getServiceSupabase()
 
   if (input.answer === 'as_planned') {
-    const { error } = await supabase
+    const { data: saved, error } = await svc
       .from('job_workers')
       .update({
         hours_confirmed_status: 'as_planned',
@@ -85,7 +91,9 @@ export async function confirmJobHours(
         hours_confirmed_note: input.note?.trim() || null,
       })
       .eq('id', row.id)
+      .select('id')
     if (error) return { error: `Could not save: ${error.message}` }
+    if (!saved?.length) return { error: 'Could not save your confirmation. Please try again.' }
   } else {
     const hours = Number(input.extraHours)
     if (!Number.isFinite(hours) || hours <= 0) {
@@ -98,7 +106,7 @@ export async function confirmJobHours(
     // Record the overrun through the existing extra-hours state machine, which
     // lands it as `pending` for admin sign-off. The contractor's own figure
     // NEVER counts toward pay until an admin approves it.
-    const { error } = await supabase
+    const { data: saved, error } = await svc
       .from('job_workers')
       .update({
         hours_confirmed_status: 'took_longer',
@@ -111,10 +119,12 @@ export async function confirmJobHours(
         extra_hours_approved_by: null,
       })
       .eq('id', row.id)
+      .select('id')
     if (error) return { error: `Could not save: ${error.message}` }
+    if (!saved?.length) return { error: 'Could not save your confirmation. Please try again.' }
   }
 
-  await supabase.from('audit_log').insert({
+  await svc.from('audit_log').insert({
     actor_role: 'contractor',
     action: 'job_worker.hours_confirmed',
     entity_table: 'job_workers',

@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase-server'
+import { nzToday } from '@/lib/nz-date'
 import { revalidatePath } from 'next/cache'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { autoApproveRecurringJobPay } from '@/lib/recurring-pay-auto-approve'
@@ -57,9 +58,18 @@ export async function contractorCompleteJob(jobId: string) {
 
   const { data: priorJob } = await supabase
     .from('jobs')
-    .select('started_at')
+    .select('started_at, status, scheduled_date')
     .eq('id', jobId)
     .maybeSingle()
+  // Only a job that's actually on (assigned / in progress) and whose day has
+  // come can be marked done — not next week's visit (which on recurring work
+  // would also approve the pay early), and not one already completed/invoiced.
+  if (!priorJob || !['assigned', 'in_progress'].includes(priorJob.status as string)) {
+    return { error: 'This job can’t be marked complete.' }
+  }
+  if (priorJob.scheduled_date && String(priorJob.scheduled_date).slice(0, 10) > nzToday()) {
+    return { error: 'You can mark this job complete on the day of the clean.' }
+  }
 
   const { error } = await supabase
     .from('jobs')
