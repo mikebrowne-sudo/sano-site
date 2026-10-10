@@ -73,11 +73,15 @@ function flattenOne<T>(rel: T | T[] | null | undefined): T | null {
 export async function loadContractorJobHistory(contractorId: string): Promise<HistoryMonth[]> {
   const svc = getServiceSupabase()
 
-  // Completed / invoiced jobs for this contractor.
+  // Completed / invoiced jobs for this contractor — as the primary cleaner OR
+  // on the roster. Primary-only meant a second cleaner's finished job vanished
+  // from both tabs, leaving no way back to it to confirm their hours.
+  const { data: rosterRows } = await svc.from('job_workers').select('job_id').eq('contractor_id', contractorId)
+  const rosterJobIds = Array.from(new Set((rosterRows ?? []).map((r) => r.job_id as string)))
   const { data: jobsRaw } = await svc
     .from('jobs')
     .select('id, job_number, title, address, status, completed_at, scheduled_date, deleted_at')
-    .eq('contractor_id', contractorId)
+    .or(rosterJobIds.length ? `contractor_id.eq.${contractorId},id.in.(${rosterJobIds.join(',')})` : `contractor_id.eq.${contractorId}`)
     .is('deleted_at', null)
     .in('status', ['completed', 'invoiced'])
 

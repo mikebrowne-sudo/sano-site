@@ -27,13 +27,15 @@ async function resolveOwner(jobId: string): Promise<{ contractorId: string } | {
     .maybeSingle()
   if (!contractor) return { error: 'Not authenticated.' }
 
-  const { data: job } = await supabase
-    .from('jobs')
-    .select('id')
-    .eq('id', jobId)
-    .eq('contractor_id', contractor.id)
-    .maybeSingle()
-  if (!job) return { error: 'You do not have access to this job.' }
+  // Primary cleaner OR on the roster — a second cleaner photographs their work too.
+  const svc = getServiceSupabase()
+  const [{ data: job }, { data: worker }] = await Promise.all([
+    svc.from('jobs').select('id, contractor_id').eq('id', jobId).is('deleted_at', null).maybeSingle(),
+    svc.from('job_workers').select('id').eq('job_id', jobId).eq('contractor_id', contractor.id).maybeSingle(),
+  ])
+  if (!job || (job.contractor_id !== contractor.id && !worker)) {
+    return { error: 'You do not have access to this job.' }
+  }
 
   return { contractorId: contractor.id as string }
 }

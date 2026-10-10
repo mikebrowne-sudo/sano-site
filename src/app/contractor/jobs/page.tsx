@@ -9,8 +9,12 @@ export default async function ContractorJobsPage() {
 
   // Only select safe fields — no job_price, no internal_notes
   // Jobs I'm on: as the primary cleaner, or on the roster (second cleaner).
-  const { data: rosterRows } = await supabase.from('job_workers').select('job_id').eq('contractor_id', contractor.id)
+  const { data: rosterRows } = await supabase.from('job_workers').select('job_id, hours_confirmed_status').eq('contractor_id', contractor.id)
   const rosterJobIds = Array.from(new Set((rosterRows ?? []).map((r) => r.job_id as string)))
+  // Jobs this contractor hasn't yet answered "did it go to plan?" on.
+  const unconfirmedJobIds = (rosterRows ?? [])
+    .filter((r) => !r.hours_confirmed_status || r.hours_confirmed_status === 'unconfirmed')
+    .map((r) => r.job_id as string)
   const mine = rosterJobIds.length
     ? `contractor_id.eq.${contractor.id},id.in.(${rosterJobIds.join(',')})`
     : `contractor_id.eq.${contractor.id}`
@@ -40,6 +44,7 @@ export default async function ContractorJobsPage() {
             jobs={(jobs ?? []) as ContractorJobRow[]}
             jobHref={(id) => `/contractor/jobs/${id}`}
             showHeading={false}
+            unconfirmedJobIds={unconfirmedJobIds}
           />
         }
         completed={
