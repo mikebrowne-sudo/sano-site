@@ -1,10 +1,13 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { sendJobReminder, sendTrainingReminder } from '@/lib/reminders'
 
 export async function runJobReminders() {
+  await assertAdminAction()
   const supabase = createClient()
   const now = new Date()
   const tomorrow = new Date(now)
@@ -64,6 +67,7 @@ export async function runJobReminders() {
 }
 
 export async function runTrainingReminders() {
+  await assertAdminAction()
   const supabase = createClient()
   const now = new Date()
   const today = now.toISOString().slice(0, 10)

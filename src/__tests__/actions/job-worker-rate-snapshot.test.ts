@@ -10,6 +10,10 @@ jest.mock('@/lib/is-admin', () => ({ isAdminEmail: () => true }))
 import { addJobWorker, setJobWorkerPayRate } from '@/app/portal/jobs/[id]/_actions-workers'
 import { createClient } from '@/lib/supabase-server'
 
+// These tests cover the action's own behaviour; the admin gate (lib/require-admin) has its own test.
+jest.mock('@/lib/require-admin', () => ({ assertAdminAction: jest.fn().mockResolvedValue(undefined) }))
+
+
 const mockedCreate = createClient as unknown as jest.Mock
 const adminAuth = { getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'u-1', email: 'admin@sano.nz' } } }) }
 

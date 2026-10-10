@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Staff contractor GST-history actions (PR 5). Record / verify / reject GST
 // status, immutable + superseding, with atomic supersede on verify and a derived
 // contractors.gst_* cache sync. Admin-only, audited. NO withholding / money.
@@ -38,6 +40,7 @@ export interface GstStaffInput {
 /** Record a GST status (staff-entered). Pending replaces a prior submitted row;
  *  verify-now atomically supersedes the prior verified row + syncs the cache. */
 export async function recordGstStatus(input: GstStaffInput): Promise<{ ok?: true; id?: string; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
 
@@ -97,6 +100,7 @@ export async function recordGstStatus(input: GstStaffInput): Promise<{ ok?: true
 /** Verify or reject a submitted GST status. Verify supersedes the prior verified
  *  atomically + syncs the cache. Reject leaves the verified status untouched. */
 export async function setGstStatus(gstId: string, status: 'verified' | 'rejected', reviewNotes: string | null): Promise<{ ok?: true; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
 

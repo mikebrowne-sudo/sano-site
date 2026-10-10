@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Phase 5.5.11 — One-shot client creation that also seeds the primary
 // contact, optional accounts contact, and optional first site. Used by
 // the new NewClientModal in `_components/NewClientModal.tsx`.
@@ -59,6 +61,7 @@ function clean(s: string | null | undefined): string | null {
 export async function createClientWithSetup(
   input: NewClientInput,
 ): Promise<{ ok: true; client: CreatedClient } | { error: string }> {
+  await assertAdminAction()
   const supabase = createClient()
 
   const name = clean(input.name)

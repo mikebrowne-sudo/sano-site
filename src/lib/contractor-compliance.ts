@@ -1,3 +1,4 @@
+import { nzToday } from './nz-date'
 export type ComplianceStatus = 'compliant' | 'expiring_soon' | 'missing' | 'expired' | 'inactive'
 
 export interface ComplianceInput {
@@ -20,7 +21,7 @@ function daysUntil(iso: string, today: string): number {
 }
 
 export function computeComplianceStatus(c: ComplianceInput, todayIso?: string): ComplianceResult {
-  const today = todayIso ?? new Date().toISOString().slice(0, 10)
+  const today = todayIso ?? nzToday()
   const reasons: string[] = []
 
   if (c.status && c.status !== 'active') {

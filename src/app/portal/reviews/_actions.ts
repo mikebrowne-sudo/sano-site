@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Custom (job-less) review request — send the Google review link to any person
 // with a manually entered name + phone/email and an editable message. Recorded
 // in review_requests with a null client_id/job_id and the recipient's details.
@@ -27,6 +29,7 @@ export interface CustomReviewResult {
 }
 
 export async function requestCustomReview(input: CustomReviewInput): Promise<CustomReviewResult> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }

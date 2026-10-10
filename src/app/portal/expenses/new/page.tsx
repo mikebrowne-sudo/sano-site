@@ -1,3 +1,4 @@
+import { nzToday } from '@/lib/nz-date'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
@@ -35,7 +36,7 @@ export default async function NewExpensePage({
 
   const prefill: ExpenseData | undefined = hasPrefill
     ? {
-        expense_date: searchParams.date || new Date().toISOString().slice(0, 10),
+        expense_date: searchParams.date || nzToday(),
         amount: Number.isFinite(amount) ? amount : 0,
         category: vendorMatch?.category ?? 'other',
         vendor: vendorMatch?.vendor ?? searchParams.vendor ?? null,

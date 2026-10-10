@@ -6,6 +6,7 @@
 // today. The supply date defaults to today; a later PR will preview per actual
 // supply/payment date.
 
+import { nzToday } from './nz-date'
 import { getServiceSupabase } from './supabase-service'
 import { computeContractorPayment, type PaymentCalc } from './contractor-payment-calc'
 import type { DeclarationRecord } from './contractor-tax-declaration'
@@ -29,7 +30,7 @@ export async function getContractorPaymentPreviews(
   supplyDateIso?: string,
 ): Promise<SchedulePaymentPreview[]> {
   const svc = getServiceSupabase()
-  const supply = supplyDateIso ?? new Date().toISOString().slice(0, 10)
+  const supply = supplyDateIso ?? nzToday()
 
   const [{ data: schedules }, { data: decls }, { data: gst }] = await Promise.all([
     svc.from('contractor_service_schedules')

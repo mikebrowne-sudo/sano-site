@@ -1,10 +1,13 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function createJobFromInvoice(invoiceId: string) {
+  await assertAdminAction()
   const supabase = createClient()
 
   // 1. Check if a job already exists for this invoice

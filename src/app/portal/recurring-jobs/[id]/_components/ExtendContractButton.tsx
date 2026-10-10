@@ -1,4 +1,5 @@
 'use client'
+import { nzToday } from '@/lib/nz-date'
 
 // Phase F — Extend / Renew contract.
 //
@@ -31,7 +32,7 @@ export function ExtendContractButton({
 }: ExtendContractButtonProps) {
   // Default the modal's new end-date input to current end + 12mo
   // if there's an existing end date, otherwise +12mo from today.
-  const baseEnd = currentEndDate ?? new Date().toISOString().slice(0, 10)
+  const baseEnd = currentEndDate ?? nzToday()
   const [open, setOpen] = useState(false)
   const [newEndDate, setNewEndDate] = useState(addMonthsIso(baseEnd, 12))
   const [newTerm, setNewTerm] = useState<string>(

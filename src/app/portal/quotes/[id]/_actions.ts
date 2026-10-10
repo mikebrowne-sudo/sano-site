@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 import { canTakeRealPayments } from '@/lib/stripe'
 import { nzToday } from '@/lib/nz-date'
 import { quoteCardEligible } from '@/lib/card-payments'
@@ -115,6 +117,7 @@ interface UpdateQuoteInput {
 }
 
 export async function updateQuote(input: UpdateQuoteInput) {
+  await assertAdminAction()
   const supabase = createClient()
 
   const overrideErr = validateCreateQuoteOverride({
@@ -301,6 +304,7 @@ function esc(s: string) {
 }
 
 export async function sendQuoteEmail(input: SendQuoteInput) {
+  await assertAdminAction()
   if (!input.to.trim()) {
     return { error: 'Recipient email is required.' }
   }
@@ -479,6 +483,7 @@ interface SendTestQuoteEmailInput {
 }
 
 export async function sendQuoteTestEmail(input: SendTestQuoteEmailInput) {
+  await assertAdminAction()
   const supabase = createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -604,6 +609,7 @@ export async function sendQuoteTestEmail(input: SendTestQuoteEmailInput) {
 }
 
 export async function markQuoteAccepted(quoteId: string) {
+  await assertAdminAction()
   const supabase = createClient()
 
   // Load current state so we can preserve an existing accepted_at and short-circuit

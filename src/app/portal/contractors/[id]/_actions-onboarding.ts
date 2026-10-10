@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Phase 5.3 + 5.4 (locked) — Server actions for the contractor
 // onboarding panel.
 //
@@ -68,6 +70,7 @@ export async function recomputeOnboardingStatus(
   contractorId: string,
   opts: RecomputeOptions = {},
 ): Promise<{ allRequiredComplete: boolean; nowReady: boolean; nowActive: boolean }> {
+  await assertAdminAction()
   const settings = await loadWorkforceSettings(supabase)
 
   const [{ data: c }, { data: itemsRaw }] = await Promise.all([
@@ -168,6 +171,7 @@ export async function setOnboardingItemStatus(input: {
   contractorId: string
   status: 'pending' | 'complete'
 }): Promise<{ ok: true; allRequiredComplete: boolean } | { error: string }> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
@@ -310,6 +314,7 @@ export async function overrideOnboardingItem(input: {
 export async function seedContractorChecklist(input: {
   contractorId: string
 }): Promise<{ ok: true; created: number } | { error: string }> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
@@ -356,6 +361,7 @@ export async function seedContractorChecklist(input: {
 export async function markContractorActive(input: {
   contractorId: string
 }): Promise<{ ok: true } | { error: string }> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
@@ -473,6 +479,7 @@ export async function setContractorTrialRequired(input: {
   contractorId: string
   trialRequired: boolean
 }): Promise<{ ok: true } | { error: string }> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
@@ -505,6 +512,7 @@ export async function scheduleContractorTrial(input: {
   contractorId: string
   scheduledFor: string
 }): Promise<{ ok: true } | { error: string }> {
+  await assertAdminAction()
   if (!input.scheduledFor) return { error: 'Trial date required.' }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -535,6 +543,7 @@ export async function recordContractorTrialOutcome(input: {
   outcome: 'passed' | 'failed'
   note?: string
 }): Promise<{ ok: true } | { error: string }> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }

@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
@@ -17,6 +19,7 @@ interface ClientInput {
 }
 
 export async function createClientAction(input: ClientInput) {
+  await assertAdminAction()
   const supabase = createClient()
 
   const { data, error } = await supabase
@@ -43,6 +46,7 @@ export async function createClientAction(input: ClientInput) {
 }
 
 export async function updateClientAction(id: string, input: ClientInput) {
+  await assertAdminAction()
   const supabase = createClient()
 
   const { error } = await supabase

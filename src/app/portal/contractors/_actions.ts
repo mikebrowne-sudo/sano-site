@@ -1,4 +1,7 @@
 'use server'
+import { nzToday } from '@/lib/nz-date'
+
+import { assertAdminAction } from '@/lib/require-admin'
 
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
@@ -167,6 +170,7 @@ function validateKiwiSaver(input: ContractorInput): string | null {
 }
 
 export async function createContractor(input: ContractorInput) {
+  await assertAdminAction()
   const supabase = createClient()
 
   if (!input.full_name.trim()) {
@@ -246,6 +250,7 @@ export async function createContractor(input: ContractorInput) {
 }
 
 export async function updateContractor(id: string, input: ContractorInput) {
+  await assertAdminAction()
   const supabase = createClient()
 
   if (!input.full_name.trim()) {
@@ -342,6 +347,7 @@ export async function updateContractor(id: string, input: ContractorInput) {
 }
 
 export async function uploadDocument(formData: FormData) {
+  await assertAdminAction()
   const supabase = createClient()
 
   const contractorId = formData.get('contractor_id') as string
@@ -393,7 +399,7 @@ export async function uploadDocument(formData: FormData) {
   } else if (type === 'ks10_optout') {
     await supabase
       .from('contractors')
-      .update({ kiwisaver_optout_filed: true, kiwisaver_ks10_received_date: new Date().toISOString().slice(0, 10) })
+      .update({ kiwisaver_optout_filed: true, kiwisaver_ks10_received_date: nzToday() })
       .eq('id', contractorId)
   }
 
@@ -402,6 +408,7 @@ export async function uploadDocument(formData: FormData) {
 }
 
 export async function deleteDocument(documentId: string, contractorId: string) {
+  await assertAdminAction()
   const supabase = createClient()
 
   // Get file path first
@@ -439,6 +446,7 @@ interface IncidentInput {
 }
 
 export async function createIncident(input: IncidentInput) {
+  await assertAdminAction()
   const supabase = createClient()
 
   if (!input.contractor_id || !input.incident_date || !input.severity || !input.description.trim()) {
@@ -462,8 +470,9 @@ export async function createIncident(input: IncidentInput) {
 }
 
 export async function resolveIncident(incidentId: string, contractorId: string) {
+  await assertAdminAction()
   const supabase = createClient()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = nzToday()
 
   const { error } = await supabase
     .from('contractor_incidents')
@@ -477,6 +486,7 @@ export async function resolveIncident(incidentId: string, contractorId: string) 
 }
 
 export async function deleteIncident(incidentId: string, contractorId: string) {
+  await assertAdminAction()
   const supabase = createClient()
 
   const { error } = await supabase

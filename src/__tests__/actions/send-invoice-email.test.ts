@@ -32,6 +32,10 @@ import { sendInvoiceEmail } from '@/app/portal/invoices/[id]/_actions'
 import { createClient } from '@/lib/supabase-server'
 import { renderPdfFromUrl } from '@/lib/pdf/render-pdf'
 
+// These tests cover the action's own behaviour; the admin gate (lib/require-admin) has its own test.
+jest.mock('@/lib/require-admin', () => ({ assertAdminAction: jest.fn().mockResolvedValue(undefined) }))
+
+
 const mockedCreate = createClient as unknown as jest.Mock
 const mockedRender = renderPdfFromUrl as unknown as jest.Mock
 

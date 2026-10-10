@@ -1,3 +1,4 @@
+import { nzToday } from '@/lib/nz-date'
 import { createClient } from '@/lib/supabase-server'
 import Link from 'next/link'
 import { DollarSign, TrendingUp, Receipt, Briefcase, AlertTriangle, FileText } from 'lucide-react'
@@ -197,7 +198,7 @@ export default async function FinancePage({
   const outstandingCount = sentRows.length
   const draftCount = draftRows.length
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = nzToday()
   const overdueInvoices = invoiceRows.filter((i) => i.status === 'sent' && i.dueDate && i.dueDate < today)
 
   // Actual contractor cost (same definition as the P&L cost of sales).

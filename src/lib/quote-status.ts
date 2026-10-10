@@ -7,6 +7,7 @@
 
 // Phase 4D — operational threshold lives in attention-rules; import
 // so getQuoteListStatus stays in sync with the attention-chip logic.
+import { nzToday } from './nz-date'
 import { SENT_FOLLOWUP_DAYS } from './attention-rules'
 
 // ── Quote ──────────────────────────────────────────────────────────
@@ -180,7 +181,7 @@ export function computeInvoiceDisplayStatus(
 ): InvoiceStatus {
   const status = (dbStatus ?? 'draft') as InvoiceStatus
   if (status !== 'sent' || !dueDate) return status
-  const today = new Date().toISOString().slice(0, 10)
+  const today = nzToday()
   return dueDate < today ? 'overdue' : status
 }
 

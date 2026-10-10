@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Phase D — combined "Create Job + Invoice" path.
 //
 // Creates BOTH an invoice and a job from an accepted quote in one
@@ -48,6 +50,7 @@ type CommercialScopeRow = {
 }
 
 export async function createJobAndInvoiceFromQuote(quoteId: string) {
+  await assertAdminAction()
   const supabase = createClient()
 
   // Phase 5.5.16 — refuse double-conversion. Either child existing

@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Record IRD payments + adjustments against a liability period. Admin-only,
 // service-role, audited. A liability clears ONLY through recorded payments —
 // marking an employee paid never touches it. Partial payments are supported
@@ -29,6 +31,7 @@ export async function recordIrdPayment(input: {
   irdReference?: string
   notes?: string
 }): Promise<Result> {
+  await assertAdminAction()
   const g = await adminGate()
   if (g.error) return { error: g.error }
   if (!input.paymentDate) return { error: 'Payment date is required.' }
@@ -58,6 +61,7 @@ export async function addIrdAdjustment(input: {
   amount: number
   reason: string
 }): Promise<Result> {
+  await assertAdminAction()
   const g = await adminGate()
   if (g.error) return { error: g.error }
   if (!input.reason?.trim()) return { error: 'A reason is required for an adjustment.' }

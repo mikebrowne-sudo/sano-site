@@ -14,6 +14,7 @@
 // no statement layer. Admin-only. Reuses the existing period, plan, approval,
 // create and mark-paid logic — this screen brings them together.
 
+import { nzToday } from '@/lib/nz-date'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { PortalPageHeader } from '../../_components/PortalPageHeader'
@@ -33,7 +34,7 @@ export default async function PayRunPage({ searchParams }: { searchParams: { per
   const { data: { user } } = await supabase.auth.getUser()
   if (!isAdminUser(user)) notFound()
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = nzToday()
   const periods = recentPayPeriods(today, 6)
 
   // DEFAULT = "everything owed" (?period absent or 'all'). A period is an

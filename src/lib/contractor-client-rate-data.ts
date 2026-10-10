@@ -1,6 +1,7 @@
 // Data access for per-client contractor rates. Thin DB layer over the pure
 // resolver in `contractor-client-rate.ts` — all decision logic lives there.
 
+import { nzToday } from './nz-date'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { pickClientRate, type ClientRateRecord } from './contractor-client-rate'
 
@@ -101,5 +102,5 @@ export async function loadRateCandidates(
 
 /** Today as yyyy-mm-dd — the service-date fallback when a job has no date. */
 export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10)
+  return nzToday()
 }

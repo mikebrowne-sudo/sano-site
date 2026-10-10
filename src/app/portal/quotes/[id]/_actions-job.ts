@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Phase C — create a job from an accepted quote.
 //
 // Siblings to _actions-invoice.ts. This path is for the "no invoice
@@ -44,6 +46,7 @@ type CommercialScopeRow = {
 }
 
 export async function createJobFromQuote(quoteId: string) {
+  await assertAdminAction()
   const supabase = createClient()
 
   // 1. Quote — exactly the columns the job needs + snapshot metadata.

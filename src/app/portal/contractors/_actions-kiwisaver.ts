@@ -1,4 +1,5 @@
 'use server'
+import { nzToday } from '@/lib/nz-date'
 
 // Per-employee KiwiSaver compliance actions. Admin-only. Each transition is
 // validated by the pure helpers in lib/payroll/kiwisaver and writes BOTH the
@@ -99,7 +100,7 @@ export async function recordKiwiSaverKs2(input: {
 
   const res = await applyTransition(input.workerId, gate.userId!, {
     kiwisaver_ks2_completed: true,
-    kiwisaver_ks2_completed_date: input.completedDate || new Date().toISOString().slice(0, 10),
+    kiwisaver_ks2_completed_date: input.completedDate || nzToday(),
     kiwisaver_employee_rate: rate,
     kiwisaver_rate_source: source,
   }, {
@@ -118,7 +119,7 @@ export async function recordKiwiSaverKs2(input: {
 export async function recordKiwiSaverInfoPack(input: { workerId: string; deliveredDate?: string | null }): Promise<Result> {
   const gate = await authAndLoad(input.workerId)
   if (gate.error) return { error: gate.error }
-  const date = input.deliveredDate || new Date().toISOString().slice(0, 10)
+  const date = input.deliveredDate || nzToday()
   return applyTransition(input.workerId, gate.userId!, {
     kiwisaver_ks3_provided: true,
     kiwisaver_info_pack_delivered_date: date,
@@ -158,7 +159,7 @@ export async function recordEmployerOptOut(input: {
 export async function recordOptOutSubmittedToIrd(input: { workerId: string; date?: string | null }): Promise<Result> {
   const gate = await authAndLoad(input.workerId)
   if (gate.error) return { error: gate.error }
-  const date = input.date || new Date().toISOString().slice(0, 10)
+  const date = input.date || nzToday()
   return applyTransition(input.workerId, gate.userId!, {
     kiwisaver_optout_submitted_to_ird_date: date,
   }, { type: 'status_changed', effectiveDate: date, note: 'KS10 opt-out submitted to IRD.' })
@@ -218,7 +219,7 @@ export async function endSavingsSuspension(input: { workerId: string; endDate?: 
   const gate = await authAndLoad(input.workerId)
   if (gate.error) return { error: gate.error }
   if (gate.worker!.kiwisaver_status !== 'savings_suspension') return { error: 'This employee is not on a savings suspension.' }
-  const date = input.endDate || new Date().toISOString().slice(0, 10)
+  const date = input.endDate || nzToday()
   return applyTransition(input.workerId, gate.userId!, {
     kiwisaver_status: 'existing_member',
     kiwisaver_enrolled: true,
@@ -237,7 +238,7 @@ export async function recordOptOutIntention(input: { workerId: string; note: str
   if (!input.note?.trim()) return { error: 'Enter the note.' }
   return applyTransition(input.workerId, gate.userId!, {
     kiwisaver_optout_intention_note: input.note.trim(),
-    kiwisaver_optout_intention_recorded_at: new Date().toISOString().slice(0, 10),
+    kiwisaver_optout_intention_recorded_at: nzToday(),
   }, { type: 'intention_noted', note: input.note.trim() })
 }
 

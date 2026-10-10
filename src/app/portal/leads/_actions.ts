@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
@@ -43,6 +45,7 @@ function leadRow(input: LeadInput) {
 }
 
 export async function createLeadAction(input: LeadInput) {
+  await assertAdminAction()
   const supabase = createClient()
   const { data, error } = await supabase
     .from('sales_leads')
@@ -57,6 +60,7 @@ export async function createLeadAction(input: LeadInput) {
 }
 
 export async function updateLeadAction(id: string, input: LeadInput) {
+  await assertAdminAction()
   const supabase = createClient()
   const { error } = await supabase
     .from('sales_leads')
@@ -70,6 +74,7 @@ export async function updateLeadAction(id: string, input: LeadInput) {
 }
 
 export async function setLeadStatusAction(id: string, status: LeadStatus) {
+  await assertAdminAction()
   const supabase = createClient()
   const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() }
   if (status === 'do_not_contact') patch.unsubscribed_at = new Date().toISOString()
@@ -89,6 +94,7 @@ export async function setLeadStatusAction(id: string, status: LeadStatus) {
 }
 
 export async function addLeadNoteAction(id: string, kind: 'note' | 'call' | 'email', body: string) {
+  await assertAdminAction()
   if (!body.trim()) return { error: 'Note is empty.' }
   const supabase = createClient()
   const { error } = await supabase
@@ -113,6 +119,7 @@ export async function quickLogAction(input: {
   renewalDate?: string | null
   fromCampaignId?: string // to revalidate the campaign page too
 }) {
+  await assertAdminAction()
   const supabase = createClient()
   const nowIso = new Date().toISOString()
 
@@ -145,6 +152,7 @@ export async function quickLogAction(input: {
 }
 
 export async function setFollowUpAction(id: string, date: string | null) {
+  await assertAdminAction()
   const supabase = createClient()
   const { error } = await supabase
     .from('sales_leads')

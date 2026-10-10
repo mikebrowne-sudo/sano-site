@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Phase 6 — staff competency sign-off. Reuses the existing capability fields on
 // contractors (approved_services, experience_level, can_*, key_holding_approved,
 // alarm_access_approved) plus the trial fields — no parallel competency system.
@@ -26,6 +28,7 @@ export interface CompetencyInput {
 }
 
 export async function recordCompetency(input: CompetencyInput): Promise<{ ok: true } | { error: string }> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }

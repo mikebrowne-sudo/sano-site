@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Contractor schedular withholding liability + filing actions (PR 8). Create a
 // withholding line from an APPROVED payment snapshot; track manual filing; record
 // an IRD payment. Admin-gated, audited. NO money movement (records existing
@@ -36,6 +38,7 @@ async function ensurePeriod(supabase: ReturnType<typeof createClient>, payday: s
  * payday. One line per snapshot (DB unique). Frozen from the snapshot; audited.
  */
 export async function createWithholdingLine(snapshotId: string, payday: string): Promise<{ ok?: true; id?: string; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
   if (!payday) return { error: 'A payday is required (drives the IRD period).' }
@@ -86,6 +89,7 @@ export async function setWithholdingFilingStatus(
   filingStatus: 'filed' | 'accepted' | 'correction_required',
   filingReference: string | null,
 ): Promise<{ ok?: true; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
   const { data: line } = await supabase.from('contractor_withholding_lines').select('id, status, filing_status, filed_at').eq('id', lineId).maybeSingle()
@@ -120,6 +124,7 @@ export async function setWithholdingFilingStatus(
 export async function recordWithholdingPayment(input: {
   periodId: string; paymentDate: string; amount: number; irdReference?: string | null; notes?: string | null
 }): Promise<{ ok?: true; id?: string; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
   if (!(input.amount > 0)) return { error: 'The payment amount must be greater than zero.' }
@@ -146,6 +151,7 @@ export async function recordWithholdingPayment(input: {
 export async function reverseWithholdingPayment(input: {
   paymentId: string; reason: string; correction?: { paymentDate: string; amount: number; irdReference?: string | null } | null
 }): Promise<{ ok?: true; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
   if (!input.reason?.trim()) return { error: 'A reversal reason is required.' }

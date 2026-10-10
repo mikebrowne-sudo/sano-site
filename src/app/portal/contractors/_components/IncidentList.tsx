@@ -1,4 +1,5 @@
 'use client'
+import { nzToday } from '@/lib/nz-date'
 
 import { useState, useTransition } from 'react'
 import { AlertTriangle, CheckCircle, Plus, Trash2 } from 'lucide-react'
@@ -40,7 +41,7 @@ export function IncidentList({ contractorId, incidents }: { contractorId: string
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [incidentDate, setIncidentDate] = useState(new Date().toISOString().slice(0, 10))
+  const [incidentDate, setIncidentDate] = useState(nzToday())
   const [severity, setSeverity] = useState<string>('low')
   const [description, setDescription] = useState('')
   const [notes, setNotes] = useState('')
@@ -62,7 +63,7 @@ export function IncidentList({ contractorId, incidents }: { contractorId: string
         setDescription('')
         setNotes('')
         setSeverity('low')
-        setIncidentDate(new Date().toISOString().slice(0, 10))
+        setIncidentDate(nzToday())
       }
     })
   }

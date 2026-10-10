@@ -1,3 +1,4 @@
+import { nzToday } from '@/lib/nz-date'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, ClipboardList, AlertTriangle } from 'lucide-react'
@@ -41,7 +42,7 @@ export default async function ContractorSetupPage({ params }: { params: { id: st
   // tax_treatment against the contractor's current verified declaration — a
   // verified IR330C does NOT make every schedule schedular.
   const { history: declHistory } = await getContractorDeclarations(params.id)
-  const todayIso = new Date().toISOString().slice(0, 10)
+  const todayIso = nzToday()
   const taxGate = resolveContractorTaxGate(
     schedules.map((s) => ({ id: s.id, name: s.name, taxTreatment: (s.taxTreatment ?? null) as ScheduleTaxTreatment })),
     applicableDeclarationRecord(declHistory, todayIso), // date-based, not newest

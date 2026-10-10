@@ -101,6 +101,52 @@ async function runDaily(request: NextRequest) {
   todayStartUTC.setUTCHours(0, 0, 0, 0)
   const todayStartIso = todayStartUTC.toISOString()
 
+  // Money-critical work FIRST (recurring invoices, recurring jobs, recurring
+  // pay). This function has a time limit; if the SMS loops below ever run
+  // long, the reminders are what gets cut short, never the billing.
+  // ════ Task C — Recurring invoices (draft generation) ════════════
+  // Raise the monthly client invoice for any recurring contract whose
+  // next_invoice_date is due. Drafts only — they surface in the "Send
+  // draft invoices" to-do for staff to review + send.
+  try {
+    const recurring = await generateDueRecurringInvoices(supabase, nzDateString(0))
+    ;(summary as typeof summary & { recurring_invoices?: unknown }).recurring_invoices = recurring
+    if (recurring.errors.length) summary.errors.push(...recurring.errors.map((e) => `recurring: ${e}`))
+  } catch (e) {
+    summary.errors.push(`recurring_invoices: ${(e as Error).message}`)
+  }
+
+  // ════ Task E — Recurring JOB occurrences (rolling generation) ════
+  // Keep every active recurring contract topped up with a rolling six weeks of
+  // future occurrences, so setting a contract active is all staff have to do.
+  // Idempotent: dates that already have an occurrence are skipped, so re-running
+  // creates nothing. Occurrences appear in the contractor's calendar
+  // immediately (both jobs.contractor_id and the job_workers row are set).
+  try {
+    const recurringJobs = await generateDueRecurringJobs(supabase, nzDateString(0))
+    ;(summary as typeof summary & { recurring_jobs?: unknown }).recurring_jobs = recurringJobs
+    if (recurringJobs.errors.length) {
+      summary.errors.push(...recurringJobs.errors.map((e) => `recurring_jobs: ${e}`))
+    }
+  } catch (e) {
+    summary.errors.push(`recurring_jobs: ${(e as Error).message}`)
+  }
+
+  // ════ Task F — Auto-approve contractor pay for recurring visits ════
+  // Backstop for the inline approve on "Mark complete": any recurring
+  // occurrence completed in the last 60 days with no contractor payable gets
+  // one. Idempotent (one payable per job + contractor).
+  try {
+    const since = new Date(Date.now() - 60 * 86400000).toISOString()
+    const autoPay = await autoApproveCompletedRecurringJobs(supabase, since)
+    ;(summary as typeof summary & { recurring_pay?: unknown }).recurring_pay = {
+      scanned: autoPay.scanned, approved: autoPay.approved,
+    }
+    if (autoPay.errors.length) summary.errors.push(...autoPay.errors.map((e) => `recurring_pay: ${e}`))
+  } catch (e) {
+    summary.errors.push(`recurring_pay: ${(e as Error).message}`)
+  }
+
   // ════ Task A — Day-before reminders ════════════════════════════
   try {
     const tomorrow = nzDateString(1)
@@ -408,49 +454,6 @@ async function runDaily(request: NextRequest) {
   // anything reading it.
   ;(summary as typeof summary & { statement_reminders?: unknown }).statement_reminders = {
     retired: true, enabled: false, scanned: 0, sent: 0, skipped: 0, failed: 0,
-  }
-
-  // ════ Task C — Recurring invoices (draft generation) ════════════
-  // Raise the monthly client invoice for any recurring contract whose
-  // next_invoice_date is due. Drafts only — they surface in the "Send
-  // draft invoices" to-do for staff to review + send.
-  try {
-    const recurring = await generateDueRecurringInvoices(supabase, nzDateString(0))
-    ;(summary as typeof summary & { recurring_invoices?: unknown }).recurring_invoices = recurring
-    if (recurring.errors.length) summary.errors.push(...recurring.errors.map((e) => `recurring: ${e}`))
-  } catch (e) {
-    summary.errors.push(`recurring_invoices: ${(e as Error).message}`)
-  }
-
-  // ════ Task E — Recurring JOB occurrences (rolling generation) ════
-  // Keep every active recurring contract topped up with a rolling six weeks of
-  // future occurrences, so setting a contract active is all staff have to do.
-  // Idempotent: dates that already have an occurrence are skipped, so re-running
-  // creates nothing. Occurrences appear in the contractor's calendar
-  // immediately (both jobs.contractor_id and the job_workers row are set).
-  try {
-    const recurringJobs = await generateDueRecurringJobs(supabase, nzDateString(0))
-    ;(summary as typeof summary & { recurring_jobs?: unknown }).recurring_jobs = recurringJobs
-    if (recurringJobs.errors.length) {
-      summary.errors.push(...recurringJobs.errors.map((e) => `recurring_jobs: ${e}`))
-    }
-  } catch (e) {
-    summary.errors.push(`recurring_jobs: ${(e as Error).message}`)
-  }
-
-  // ════ Task F — Auto-approve contractor pay for recurring visits ════
-  // Backstop for the inline approve on "Mark complete": any recurring
-  // occurrence completed in the last 60 days with no contractor payable gets
-  // one. Idempotent (one payable per job + contractor).
-  try {
-    const since = new Date(Date.now() - 60 * 86400000).toISOString()
-    const autoPay = await autoApproveCompletedRecurringJobs(supabase, since)
-    ;(summary as typeof summary & { recurring_pay?: unknown }).recurring_pay = {
-      scanned: autoPay.scanned, approved: autoPay.approved,
-    }
-    if (autoPay.errors.length) summary.errors.push(...autoPay.errors.map((e) => `recurring_pay: ${e}`))
-  } catch (e) {
-    summary.errors.push(`recurring_pay: ${(e as Error).message}`)
   }
 
   return NextResponse.json({ ok: summary.errors.length === 0, summary })

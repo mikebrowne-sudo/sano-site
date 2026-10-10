@@ -1,3 +1,4 @@
+import { nzToday } from '@/lib/nz-date'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
@@ -28,7 +29,7 @@ export default async function ContractorGstPage({ params }: { params: { id: stri
   if (!contractor) notFound()
 
   const { verifiedCurrent, pendingReplacement, history } = await getContractorGstHistory(params.id)
-  const todayIso = new Date().toISOString().slice(0, 10)
+  const todayIso = nzToday()
   // GST-sensitive read: refresh the derived cache to the status applicable today
   // (this is how a future-effective registration "arrives" on its effective date)
   // and get that date-resolved record for display.

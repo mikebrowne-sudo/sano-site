@@ -1,3 +1,4 @@
+import { nzToday } from '@/lib/nz-date'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { Target, Plus, CalendarClock } from 'lucide-react'
@@ -61,7 +62,7 @@ export default async function LeadsPage({
 
   type Row = Pick<SalesLead, 'id' | 'company' | 'industry' | 'contact_name' | 'contact_role' | 'email' | 'quality_rank' | 'status' | 'next_follow_up'>
   const rows = (leads ?? []) as Row[]
-  const today = new Date().toISOString().slice(0, 10)
+  const today = nzToday()
 
   const columns: ListColumnDef<Row>[] = [
     {

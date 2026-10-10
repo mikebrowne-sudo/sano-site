@@ -13,6 +13,7 @@
 // per job + contractor, GST snapshot) lives here, so the automatic path can
 // never create a payable the manual path would have refused.
 
+import { nzToday } from './nz-date'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getWorkerPayableHours } from '@/lib/job-cost'
 import { computeApprovedAmount } from '@/lib/contractor-pay'
@@ -245,12 +246,12 @@ export async function approveContractorPayCore(
       ? String(job.scheduled_date).slice(0, 10)
       : job.completed_at
         ? String(job.completed_at).slice(0, 10)
-        : new Date().toISOString().slice(0, 10)
+        : nzToday()
 
   // DATE SUBMITTED / GST SUPPLY DATE remain keyed to completion, unchanged.
   // The supply date has GST-period consequences and is deliberately NOT
   // altered here; changing it is a separate decision from fixing pay periods.
-  const dateSubmitted = job.completed_at ? String(job.completed_at).slice(0, 10) : new Date().toISOString().slice(0, 10)
+  const dateSubmitted = job.completed_at ? String(job.completed_at).slice(0, 10) : nzToday()
 
   // 5b. GST snapshot at the supply date. Contractor rates are GST-INCLUSIVE, so
   //     GST is split OUT with 3/23 (never added on top) only when the contractor

@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Job EXTRAS — add / edit / delete job_items on a job (2026-09).
 //
 // An extra is work identified on a job that is not the job itself: a carpet
@@ -167,6 +169,7 @@ async function payableFor(
 }
 
 export async function addJobItem(jobId: string, input: JobItemInput): Promise<JobItemResult> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
@@ -229,6 +232,7 @@ export async function updateJobItem(
   itemId: string,
   input: JobItemInput,
 ): Promise<JobItemResult> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
@@ -285,6 +289,7 @@ export async function updateJobItem(
 }
 
 export async function deleteJobItem(jobId: string, itemId: string): Promise<JobItemResult> {
+  await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }

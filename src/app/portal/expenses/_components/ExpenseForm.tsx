@@ -1,4 +1,5 @@
 'use client'
+import { nzToday } from '@/lib/nz-date'
 
 import { useEffect, useState, useTransition } from 'react'
 import { ChevronDown, Trash2, UploadCloud, FileText, X } from 'lucide-react'
@@ -43,7 +44,7 @@ export function ExpenseForm({
 }) {
   const isEdit = !!expense?.id
 
-  const [expenseDate, setExpenseDate] = useState(expense?.expense_date ?? new Date().toISOString().slice(0, 10))
+  const [expenseDate, setExpenseDate] = useState(expense?.expense_date ?? nzToday())
   const [amount, setAmount] = useState(expense?.amount ? String(expense.amount) : '')
   const [category, setCategory] = useState(expense?.category ?? 'other')
   const [vendor, setVendor] = useState(expense?.vendor ?? '')

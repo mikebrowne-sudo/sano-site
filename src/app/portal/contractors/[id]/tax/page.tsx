@@ -1,3 +1,4 @@
+import { nzToday } from '@/lib/nz-date'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, ShieldCheck, AlertTriangle } from 'lucide-react'
@@ -36,7 +37,7 @@ export default async function ContractorTaxPage({ params }: { params: { id: stri
 
   const { history } = await getContractorDeclarations(params.id)
   const { schedules } = await getContractorSetupBundle(params.id)
-  const todayIso = new Date().toISOString().slice(0, 10)
+  const todayIso = nzToday()
   const gate = resolveContractorTaxGate(
     schedules.map((s) => ({ id: s.id, name: s.name, taxTreatment: (s.taxTreatment ?? null) as ScheduleTaxTreatment })),
     applicableDeclarationRecord(history, todayIso), // date-based (future-effective/expired handled)

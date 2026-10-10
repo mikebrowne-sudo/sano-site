@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 // Staff-led contractor setup actions (PR 1).
 //
 // Create a setup draft, edit service schedules + insurance arrangement, set
@@ -38,6 +40,7 @@ function seedSectionStatus(): SectionStatusMap {
 
 /** Create (or return existing) the setup draft for a contractor. */
 export async function createContractorSetup(contractorId: string): Promise<{ ok?: true; id?: string; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
 
@@ -67,6 +70,7 @@ export async function setSectionStatus(
   section: SetupSection,
   state: SectionState,
 ): Promise<{ ok?: true; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
   if (DEFERRED_SECTIONS.includes(section) && !['not_applicable', 'blocked_pending_workflow'].includes(state)) {
@@ -117,6 +121,7 @@ export interface ScheduleInput {
  *  change on an active schedule should supersede (later PR). Here PR 1 edits
  *  drafts freely and blocks agreed_amount edits on active schedules. */
 export async function upsertServiceSchedule(contractorId: string, input: ScheduleInput): Promise<{ ok?: true; id?: string; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
   if (!input.name?.trim()) return { error: 'Give the schedule a name.' }
@@ -198,6 +203,7 @@ export async function setInsuranceArrangement(contractorId: string, input: {
   coverLimit?: number | null
   notes?: string | null
 }): Promise<{ ok?: true; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
 
@@ -284,6 +290,7 @@ export async function setInsuranceArrangement(contractorId: string, input: {
  *  one section requested. Does NOT send for the wrong person — reads the
  *  contractor's own email. */
 export async function sendSetupLink(contractorId: string): Promise<{ ok?: true; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
 
@@ -318,6 +325,7 @@ export async function acceptProposedChange(
   contractorId: string,
   field: string,
 ): Promise<{ ok?: true; error?: string }> {
+  await assertAdminAction()
   const { supabase, user } = await admin()
   if (!user) return { error: 'Admin only.' }
 

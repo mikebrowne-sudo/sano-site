@@ -184,7 +184,15 @@ export default async function JobsPage({
     // archived / test rows unless show-archived is on (handled above).
   }
 
-  if (contractorFilter) query = query.eq('contractor_id', contractorFilter)
+  if (contractorFilter) {
+    // Include jobs where they're the second cleaner (job_workers roster), not
+    // just the primary.
+    const { data: rosterRows } = await supabase.from('job_workers').select('job_id').eq('contractor_id', contractorFilter)
+    const rosterIds = Array.from(new Set((rosterRows ?? []).map((r) => r.job_id as string)))
+    query = rosterIds.length
+      ? query.or(`contractor_id.eq.${contractorFilter},id.in.(${rosterIds.join(',')})`)
+      : query.eq('contractor_id', contractorFilter)
+  }
 
   if (search) {
     // PostgREST's `or` can't filter embedded relations, so we side-query the

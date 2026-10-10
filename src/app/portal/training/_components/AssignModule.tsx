@@ -1,4 +1,5 @@
 'use client'
+import { nzToday } from '@/lib/nz-date'
 
 import { useState, useTransition } from 'react'
 import { assignModuleToContractor, assignModuleToAll, removeAssignment } from '../_actions'
@@ -106,7 +107,7 @@ export function AssignModule({
         <div className="space-y-2 mt-4">
           {assignments.map((a) => {
             const name = (a.contractors as unknown as { full_name: string } | null)?.full_name ?? '—'
-            const today = new Date().toISOString().slice(0, 10)
+            const today = nzToday()
             const isOverdue = a.status !== 'completed' && a.due_date && a.due_date < today
             return (
               <div key={a.id} className="flex items-center justify-between bg-sage-50 rounded-lg px-4 py-3 text-sm">

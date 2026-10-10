@@ -1,4 +1,5 @@
 'use client'
+import { nzToday } from '@/lib/nz-date'
 
 // KiwiSaver opt-out reminder for a new casual employee. Shows the right nudge
 // for where "today" sits in the day 14–56 opt-out window, lets an admin set
@@ -25,7 +26,7 @@ export function KiwiSaverReminder({
   const [isPending, startTransition] = useTransition()
   const [dateInput, setDateInput] = useState(startDate ?? '')
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = nzToday()
   const r = kiwiSaverOptOutStatus({ startDate, optOutFiled }, today)
 
   if (r.status === 'filed') return null

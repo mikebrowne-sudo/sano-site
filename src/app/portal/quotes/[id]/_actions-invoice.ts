@@ -1,5 +1,7 @@
 'use server'
 
+import { assertAdminAction } from '@/lib/require-admin'
+
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { assertQuoteConvertible } from '@/lib/quote-conversion-guard'
@@ -7,6 +9,7 @@ import { computeInvoiceDueDate, resolveServiceDate } from '@/lib/invoice-dates'
 import { applyQuoteCardPayment } from '@/lib/card-payments'
 
 export async function convertToInvoice(quoteId: string) {
+  await assertAdminAction()
   const supabase = createClient()
 
   // Phase 5.5.16 — refuse to convert if the quote is already converted

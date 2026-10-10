@@ -1,4 +1,7 @@
 'use server'
+import { nzToday } from '@/lib/nz-date'
+
+import { assertAdminAction } from '@/lib/require-admin'
 
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
@@ -161,6 +164,7 @@ function addDaysISO(iso: string, days: number): string {
 }
 
 export async function createQuote(input: CreateQuoteInput) {
+  await assertAdminAction()
   const supabase = createClient()
 
   const overrideErr = validateCreateQuoteOverride({
@@ -175,7 +179,7 @@ export async function createQuote(input: CreateQuoteInput) {
   const overrideConfirmedBy = input.is_price_overridden && user?.id ? user.id : null
   const overrideConfirmedAt = input.is_price_overridden && user?.id ? new Date().toISOString() : null
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = nzToday()
   const validUntil = addDaysISO(today, 30)
 
   // 1. Resolve client_id — create new client if needed
