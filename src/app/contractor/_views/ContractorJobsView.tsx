@@ -34,41 +34,72 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
-type Bucket = 'today' | 'upcoming' | 'outstanding' | 'hidden'
-// Contractors' action list: Outstanding (past-dated, not yet marked done —
-// so overdue work can still be completed), Today, and (dated) Upcoming.
-// Completed / invoiced jobs live in the Completed history tab, not here.
-function bucketFor(scheduledDate: string | null, status: string, todayIso: string): Bucket {
+type Bucket = 'today' | 'confirm' | 'outstanding' | 'upcoming' | 'later' | 'hidden'
+
+/** How far back a finished job still asks "did it go to plan?" on the list, and
+ *  how far ahead counts as "Next two weeks" before the rest folds under "Later". */
+const CONFIRM_WINDOW_DAYS = 14
+const UPCOMING_WINDOW_DAYS = 14
+
+function addDays(iso: string, days: number): string {
+  const d = new Date(iso + 'T00:00:00Z')
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+// Contractors' action list, most pressing first: Today; finished jobs still
+// waiting on their hours answer; past-dated jobs not yet marked done; the next
+// two weeks; everything after that (folded). Other completed / invoiced jobs
+// live in the Completed history tab.
+export function bucketFor(
+  scheduledDate: string | null,
+  status: string,
+  todayIso: string,
+  needsHours = false,
+): Bucket {
   if (status === 'draft') return 'hidden'
-  if (status === 'completed' || status === 'invoiced') return 'hidden'
+  if (status === 'completed' || status === 'invoiced') {
+    return needsHours && scheduledDate && scheduledDate >= addDays(todayIso, -CONFIRM_WINDOW_DAYS) ? 'confirm' : 'hidden'
+  }
   if (!scheduledDate) return 'hidden'
   if (scheduledDate === todayIso) return 'today'
-  if (scheduledDate > todayIso) return 'upcoming'
-  return 'outstanding' // past-dated, not completed → overdue, still markable
+  if (scheduledDate < todayIso) return 'outstanding' // overdue, still markable
+  return scheduledDate <= addDays(todayIso, UPCOMING_WINDOW_DAYS) ? 'upcoming' : 'later'
 }
 
 export function ContractorJobsView({
   jobs,
   jobHref,
   showHeading = true,
+  unconfirmedJobIds = [],
   // NZ calendar day (UTC is still "yesterday" every NZ morning).
   todayIso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Pacific/Auckland' }).format(new Date()),
 }: {
   jobs: ContractorJobRow[]
   jobHref: (id: string) => string
   showHeading?: boolean
+  /** Jobs where this contractor hasn't yet answered "did it go to plan?". */
+  unconfirmedJobIds?: string[]
   todayIso?: string
 }) {
+  const needsHours = new Set(unconfirmedJobIds)
   const today: ContractorJobRow[] = []
-  const upcoming: ContractorJobRow[] = []
+  const confirm: ContractorJobRow[] = []
   const outstanding: ContractorJobRow[] = []
+  const upcoming: ContractorJobRow[] = []
+  const later: ContractorJobRow[] = []
   for (const j of jobs) {
-    const b = bucketFor(j.scheduled_date, j.status, todayIso)
+    const b = bucketFor(j.scheduled_date, j.status, todayIso, needsHours.has(j.id))
     if (b === 'today') today.push(j)
-    else if (b === 'upcoming') upcoming.push(j)
+    else if (b === 'confirm') confirm.push(j)
     else if (b === 'outstanding') outstanding.push(j)
+    else if (b === 'upcoming') upcoming.push(j)
+    else if (b === 'later') later.push(j)
   }
-  const hasVisible = today.length + upcoming.length + outstanding.length > 0
+  // Newest first for the look-back lists; the forward lists stay in date order.
+  confirm.reverse()
+  outstanding.reverse()
+  const hasVisible = today.length + confirm.length + outstanding.length + upcoming.length + later.length > 0
 
   return (
     <div>
@@ -84,20 +115,35 @@ export function ContractorJobsView({
         </div>
       ) : (
         <div className="space-y-6">
-          {outstanding.length > 0 && (
-            <Group label="Needs marking done" tone="warn">
-              {outstanding.map((j) => <JobCard key={j.id} job={j} href={jobHref(j.id)} highlight="overdue" />)}
-            </Group>
-          )}
           {today.length > 0 && (
             <Group label="Today" tone="urgent">
               {today.map((j) => <JobCard key={j.id} job={j} href={jobHref(j.id)} highlight="today" />)}
             </Group>
           )}
+          {confirm.length > 0 && (
+            <Group label="Confirm your hours" tone="urgent" hint="Tap a job and tell us if it went to plan.">
+              {confirm.map((j) => <JobCard key={j.id} job={j} href={jobHref(j.id)} highlight="confirm" />)}
+            </Group>
+          )}
+          {outstanding.length > 0 && (
+            <Group label="Needs marking done" tone="warn">
+              {outstanding.map((j) => <JobCard key={j.id} job={j} href={jobHref(j.id)} highlight="overdue" />)}
+            </Group>
+          )}
           {upcoming.length > 0 && (
-            <Group label="Upcoming">
+            <Group label="Next two weeks">
               {upcoming.map((j) => <JobCard key={j.id} job={j} href={jobHref(j.id)} />)}
             </Group>
+          )}
+          {later.length > 0 && (
+            <details className="group">
+              <summary className="cursor-pointer list-none text-[11px] font-semibold uppercase tracking-wider text-sage-500 px-1 py-1">
+                Later ({later.length}) <span className="normal-case font-normal tracking-normal group-open:hidden">· tap to show</span>
+              </summary>
+              <div className="space-y-2.5 mt-2">
+                {later.map((j) => <JobCard key={j.id} job={j} href={jobHref(j.id)} />)}
+              </div>
+            </details>
           )}
         </div>
       )}
@@ -105,7 +151,7 @@ export function ContractorJobsView({
   )
 }
 
-function Group({ label, tone, children }: { label: string; tone?: 'urgent' | 'warn'; children: React.ReactNode }) {
+function Group({ label, tone, hint, children }: { label: string; tone?: 'urgent' | 'warn'; hint?: string; children: React.ReactNode }) {
   return (
     <section>
       <h2 className={clsx(
@@ -116,28 +162,35 @@ function Group({ label, tone, children }: { label: string; tone?: 'urgent' | 'wa
       )}>
         {label}
       </h2>
+      {hint && <p className="text-xs text-sage-500 -mt-1 mb-2 px-1">{hint}</p>}
       <div className="space-y-2.5">{children}</div>
     </section>
   )
 }
 
-function JobCard({ job, href, highlight }: { job: ContractorJobRow; href: string; highlight?: 'today' | 'overdue' }) {
+function JobCard({ job, href, highlight }: { job: ContractorJobRow; href: string; highlight?: 'today' | 'overdue' | 'confirm' }) {
   const cleanTitle = contractorJobTitle(job.title)
   return (
     <Link
       href={href}
       className={clsx(
         'block bg-white rounded-2xl border p-4 transition-colors active:bg-sage-50 hover:border-sage-300',
-        highlight === 'today'   ? 'border-emerald-200 ring-1 ring-emerald-100'
+        highlight === 'today' || highlight === 'confirm' ? 'border-emerald-200 ring-1 ring-emerald-100'
         : highlight === 'overdue' ? 'border-amber-200 ring-1 ring-amber-100'
         : 'border-sage-100',
       )}
     >
       <div className="flex items-start justify-between gap-3 mb-1.5">
         <span className="font-semibold text-sage-800 leading-tight">{job.job_number}</span>
-        <span className={clsx('shrink-0 inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium capitalize', STATUS_STYLES[job.status] ?? STATUS_STYLES.draft)}>
-          {job.status.replace('_', ' ')}
-        </span>
+        {highlight === 'confirm' ? (
+          <span className="shrink-0 inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-600 text-white">
+            Confirm hours
+          </span>
+        ) : (
+          <span className={clsx('shrink-0 inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium capitalize', STATUS_STYLES[job.status] ?? STATUS_STYLES.draft)}>
+            {job.status.replace('_', ' ')}
+          </span>
+        )}
       </div>
       {cleanTitle && <p className="text-sage-700 text-sm mb-2 line-clamp-2">{cleanTitle}</p>}
       <div className="space-y-1.5 text-xs text-sage-500">

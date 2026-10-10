@@ -66,8 +66,12 @@ export default async function ContractorPreviewPage({
   // Jobs list is always loaded — it backs the Jobs tab and the default
   // selection for the Job tab.
   // Same rule as the live contractor list: primary cleaner OR on the roster.
-  const { data: rosterRows } = await svc.from('job_workers').select('job_id').eq('contractor_id', params.id)
+  const { data: rosterRows } = await svc.from('job_workers').select('job_id, hours_confirmed_status').eq('contractor_id', params.id)
   const rosterJobIds = Array.from(new Set((rosterRows ?? []).map((r) => r.job_id as string)))
+  // Jobs this contractor hasn't yet answered "did it go to plan?" on.
+  const unconfirmedJobIds = (rosterRows ?? [])
+    .filter((r) => !r.hours_confirmed_status || r.hours_confirmed_status === 'unconfirmed')
+    .map((r) => r.job_id as string)
   const { data: jobsRaw } = await svc
     .from('jobs')
     .select('id, job_number, title, address, scheduled_date, scheduled_time, duration_estimate, status')
@@ -86,7 +90,7 @@ export default async function ContractorPreviewPage({
     screen = (
       <ContractorJobsTabs
         completedCount={completedCount}
-        toDo={<ContractorJobsView jobs={jobs} jobHref={jobHref} showHeading={false} />}
+        toDo={<ContractorJobsView jobs={jobs} jobHref={jobHref} showHeading={false} unconfirmedJobIds={unconfirmedJobIds} />}
         completed={<ContractorJobHistoryView months={history} jobHref={jobHref} />}
       />
     )
