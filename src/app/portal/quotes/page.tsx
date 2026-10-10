@@ -183,7 +183,22 @@ export default async function QuotesPage({
   // a clickable "Job · INV" badge alongside the attention chips. The
   // attention rules still need a "has a downstream record?" check —
   // that's now derived from the same map.
-  const allQuoteIds = (quotes ?? []).map((q) => q.id as string)
+  const listedIds = (quotes ?? []).map((q) => q.id as string)
+  // Jobs / invoices made from an EARLIER version still belong to the listed
+  // (latest) row — map every version in each chain back to it.
+  const versionToListed = new Map<string, string>(listedIds.map((id) => [id, id]))
+  if (listedIds.length > 0) {
+    const { data: listedRows } = await supabase.from('quotes').select('id, parent_quote_id').in('id', listedIds)
+    const rootToListed = new Map<string, string>()
+    for (const r of (listedRows ?? []) as Array<{ id: string; parent_quote_id: string | null }>) rootToListed.set(r.parent_quote_id ?? r.id, r.id)
+    const roots = Array.from(rootToListed.keys())
+    const { data: versions } = await supabase.from('quotes').select('id, parent_quote_id').or(`id.in.(${roots.join(',')}),parent_quote_id.in.(${roots.join(',')})`)
+    for (const v of (versions ?? []) as Array<{ id: string; parent_quote_id: string | null }>) {
+      const listed = rootToListed.get(v.parent_quote_id ?? v.id)
+      if (listed) versionToListed.set(v.id, listed)
+    }
+  }
+  const allQuoteIds = Array.from(versionToListed.keys())
 
   const [{ data: relatedJobs }, { data: relatedInvoices }, { data: relatedItems }] = allQuoteIds.length > 0
     ? await Promise.all([
@@ -213,14 +228,16 @@ export default async function QuotesPage({
   // surface — typically the operator's working copy).
   const jobByQuoteId = new Map<string, { id: string; job_number: string | null; status: string | null; scheduled_date: string | null }>()
   for (const j of (relatedJobs ?? [])) {
-    if (j.quote_id && !jobByQuoteId.has(j.quote_id)) {
-      jobByQuoteId.set(j.quote_id, { id: j.id, job_number: j.job_number, status: j.status, scheduled_date: j.scheduled_date })
+    const key = j.quote_id ? versionToListed.get(j.quote_id) ?? j.quote_id : null
+    if (key && !jobByQuoteId.has(key)) {
+      jobByQuoteId.set(key, { id: j.id, job_number: j.job_number, status: j.status, scheduled_date: j.scheduled_date })
     }
   }
   const invoiceByQuoteId = new Map<string, { id: string; invoice_number: string | null; status: string | null; due_date: string | null }>()
   for (const i of (relatedInvoices ?? [])) {
-    if (i.quote_id && !invoiceByQuoteId.has(i.quote_id)) {
-      invoiceByQuoteId.set(i.quote_id, { id: i.id, invoice_number: i.invoice_number, status: i.status, due_date: i.due_date })
+    const key = i.quote_id ? versionToListed.get(i.quote_id) ?? i.quote_id : null
+    if (key && !invoiceByQuoteId.has(key)) {
+      invoiceByQuoteId.set(key, { id: i.id, invoice_number: i.invoice_number, status: i.status, due_date: i.due_date })
     }
   }
 

@@ -59,6 +59,21 @@ export type GuardError = {
   existing?: ExistingRecordRef
 }
 
+/**
+ * Every version of the quote this one belongs to (v1, v2, v3…). A job or
+ * invoice made from ANY version counts as "this quote's" — otherwise revising
+ * an accepted quote and accepting the new version let a second job be created
+ * for the same work (QUO-0414 → JOB-0414 + JOB-0505, and five other quotes).
+ */
+export async function quoteChainIds(supabase: SB, quoteId: string): Promise<string[]> {
+  const { data: q } = await supabase.from('quotes').select('id, parent_quote_id').eq('id', quoteId).maybeSingle()
+  if (!q) return [quoteId]
+  const root = ((q as { parent_quote_id: string | null }).parent_quote_id ?? (q as { id: string }).id) as string
+  const { data: chain } = await supabase.from('quotes').select('id').or(`id.eq.${root},parent_quote_id.eq.${root}`)
+  const ids = ((chain ?? []) as Array<{ id: string }>).map((r) => r.id)
+  return ids.length > 0 ? Array.from(new Set([...ids, quoteId])) : [quoteId]
+}
+
 export async function assertQuoteConvertible(
   supabase: SB,
   quoteId: string,
@@ -79,8 +94,10 @@ export async function assertQuoteConvertible(
   //    downstream record so the caller can link straight to it.
   //    We try job first, then invoice — the same precedence the
   //    quote-detail UI uses.
+  const chainIds = await quoteChainIds(supabase, quoteId)
+
   if (quote.status === 'converted') {
-    const existing = await findExistingChild(supabase, quoteId)
+    const existing = await findExistingChild(supabase, chainIds)
     return {
       error:
         'This quote has already been converted. Open the linked record from the quote — creating another would duplicate it.',
@@ -116,14 +133,14 @@ export async function assertQuoteConvertible(
     const { data: existingJobs, error: jErr } = await supabase
       .from('jobs')
       .select('id, job_number')
-      .eq('quote_id', quoteId)
+      .in('quote_id', chainIds)
       .is('deleted_at', null)
       .limit(1)
     if (jErr) return { error: `Job lookup failed: ${jErr.message}` }
     if (existingJobs && existingJobs.length > 0) {
       const j = existingJobs[0] as { id: string; job_number: string | null }
       return {
-        error: 'A job already exists for this quote. Open it from the quote rather than creating another.',
+        error: `A job (${j.job_number ?? 'job'}) already exists for this quote, possibly on an earlier version. Open and update it rather than creating another.`,
         existing: { kind: 'job', id: j.id, number: j.job_number ?? null },
       }
     }
@@ -133,14 +150,14 @@ export async function assertQuoteConvertible(
     const { data: existingInvoices, error: iErr } = await supabase
       .from('invoices')
       .select('id, invoice_number')
-      .eq('quote_id', quoteId)
+      .in('quote_id', chainIds)
       .is('deleted_at', null)
       .limit(1)
     if (iErr) return { error: `Invoice lookup failed: ${iErr.message}` }
     if (existingInvoices && existingInvoices.length > 0) {
       const inv = existingInvoices[0] as { id: string; invoice_number: string | null }
       return {
-        error: 'An invoice already exists for this quote. Open it from the quote rather than creating another.',
+        error: `An invoice (${inv.invoice_number ?? 'invoice'}) already exists for this quote, possibly on an earlier version. Open it rather than creating another.`,
         existing: { kind: 'invoice', id: inv.id, number: inv.invoice_number ?? null },
       }
     }
@@ -153,12 +170,12 @@ export async function assertQuoteConvertible(
  *  first downstream record (job preferred, invoice fallback). */
 async function findExistingChild(
   supabase: SB,
-  quoteId: string,
+  chainIds: string[],
 ): Promise<ExistingRecordRef | null> {
   const { data: job } = await supabase
     .from('jobs')
     .select('id, job_number')
-    .eq('quote_id', quoteId)
+    .in('quote_id', chainIds)
     .is('deleted_at', null)
     .limit(1)
     .maybeSingle()
@@ -168,7 +185,7 @@ async function findExistingChild(
   const { data: invoice } = await supabase
     .from('invoices')
     .select('id, invoice_number')
-    .eq('quote_id', quoteId)
+    .in('quote_id', chainIds)
     .is('deleted_at', null)
     .limit(1)
     .maybeSingle()

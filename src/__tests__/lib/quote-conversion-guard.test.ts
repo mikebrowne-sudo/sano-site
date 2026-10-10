@@ -18,35 +18,51 @@ type QuoteRow = {
   is_latest_version: boolean | null
 }
 
-/** Minimal Supabase stub: one quotes row, no live children unless asked. */
-function makeClient(quote: QuoteRow | null, opts: { job?: boolean; invoice?: boolean } = {}) {
+/** Minimal Supabase stub: one quotes row (plus optional older versions in its
+ *  chain), no live children unless asked. `jobOnQuoteIds` limits which quote
+ *  ids the existing job belongs to, to test the version-chain lookup. */
+function makeClient(
+  quote: QuoteRow | null,
+  opts: { job?: boolean; invoice?: boolean; chain?: string[]; jobOnQuoteIds?: string[] } = {},
+) {
+  const chain = opts.chain ?? (quote ? [quote.id] : [])
   const from = jest.fn((table: string) => {
     if (table === 'quotes') {
       return {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        maybeSingle: jest.fn().mockResolvedValue({ data: quote, error: null }),
+        or: jest.fn().mockResolvedValue({ data: chain.map((id) => ({ id })), error: null }),
+        maybeSingle: jest.fn().mockResolvedValue({ data: quote ? { ...quote, parent_quote_id: null } : null, error: null }),
       }
     }
     if (table === 'jobs' || table === 'invoices') {
-      const rows = table === 'jobs'
-        ? (opts.job ? [{ id: 'j-1', job_number: 'JOB-0001' }] : [])
+      let inIds: string[] | null = null
+      const jobRows = () => {
+        if (!opts.job) return []
+        if (opts.jobOnQuoteIds && inIds && !inIds.some((id) => opts.jobOnQuoteIds!.includes(id))) return []
+        return [{ id: 'j-1', job_number: 'JOB-0001' }]
+      }
+      const rowsFor = () => table === 'jobs'
+        ? jobRows()
         : (opts.invoice ? [{ id: 'i-1', invoice_number: 'INV-0001' }] : [])
       // `.limit(1)` is awaited directly by the duplicate-child checks, but
       // chained into `.maybeSingle()` by findExistingChild — so it must be
       // both thenable and chainable.
-      const limitResult = {
-        data: rows, error: null,
-        maybeSingle: jest.fn().mockResolvedValue({ data: rows[0] ?? null, error: null }),
+      const limitResult = () => ({
+        data: rowsFor(), error: null,
+        maybeSingle: jest.fn().mockImplementation(async () => ({ data: rowsFor()[0] ?? null, error: null })),
         then: (resolve: (v: { data: unknown[]; error: null }) => unknown) =>
-          Promise.resolve({ data: rows, error: null }).then(resolve),
-      }
-      return {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        is: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockReturnValue(limitResult),
-      }
+          Promise.resolve({ data: rowsFor(), error: null }).then(resolve),
+      })
+      const api: Record<string, unknown> = {}
+      Object.assign(api, {
+        select: jest.fn(() => api),
+        eq: jest.fn(() => api),
+        in: jest.fn((_col: string, ids: string[]) => { inIds = ids; return api }),
+        is: jest.fn(() => api),
+        limit: jest.fn(() => limitResult()),
+      })
+      return api
     }
     throw new Error(`unexpected table ${table}`)
   })
@@ -116,7 +132,7 @@ describe('assertQuoteConvertible — pre-existing guards unchanged', () => {
   it('still rejects when a live job already exists', async () => {
     const res = await assertQuoteConvertible(makeClient(accepted, { job: true }), 'q-1', 'job')
     expect(res).toMatchObject({
-      error: expect.stringContaining('job already exists'),
+      error: expect.stringContaining('already exists for this quote'),
       existing: { kind: 'job', id: 'j-1', number: 'JOB-0001' },
     })
   })
@@ -124,7 +140,7 @@ describe('assertQuoteConvertible — pre-existing guards unchanged', () => {
   it('still rejects when a live invoice already exists', async () => {
     const res = await assertQuoteConvertible(makeClient(accepted, { invoice: true }), 'q-1', 'invoice')
     expect(res).toMatchObject({
-      error: expect.stringContaining('invoice already exists'),
+      error: expect.stringContaining('already exists for this quote'),
       existing: { kind: 'invoice', id: 'i-1', number: 'INV-0001' },
     })
   })
@@ -132,5 +148,22 @@ describe('assertQuoteConvertible — pre-existing guards unchanged', () => {
   it('still rejects a missing quote', async () => {
     const res = await assertQuoteConvertible(makeClient(null), 'q-1', 'invoice')
     expect(res).toMatchObject({ error: 'Quote not found.' })
+  })
+})
+
+
+describe('assertQuoteConvertible — revised quotes (version chain)', () => {
+  it('blocks converting v3 when a live job already exists on v2 (the QUO-0414 duplicate)', async () => {
+    const v3 = { ...accepted, id: 'q-v3' }
+    const client = makeClient(v3, { job: true, chain: ['q-v1', 'q-v2', 'q-v3'], jobOnQuoteIds: ['q-v2'] })
+    const r = await assertQuoteConvertible(client, 'q-v3', 'job')
+    expect('error' in r && r.error).toMatch(/already exists for this quote/)
+  })
+
+  it('allows it when no version of the quote has a job', async () => {
+    const v3 = { ...accepted, id: 'q-v3' }
+    const client = makeClient(v3, { job: true, chain: ['q-v1', 'q-v2', 'q-v3'], jobOnQuoteIds: ['some-other-quote'] })
+    const r = await assertQuoteConvertible(client, 'q-v3', 'job')
+    expect('ok' in r && r.ok).toBe(true)
   })
 })

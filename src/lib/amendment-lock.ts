@@ -13,6 +13,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isAdminUser } from './is-admin'
+import { quoteChainIds } from './quote-conversion-guard'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SB = SupabaseClient<any, 'public'>
@@ -43,11 +44,14 @@ export async function findLockingInvoiceForQuote(
   supabase: SB,
   quoteId: string,
 ): Promise<string | null> {
+  // Every version of this quote counts (an invoice made from v1 locks v2 too).
+  const chainIds = await quoteChainIds(supabase, quoteId)
+
   // Direct: a SENT invoice with quote_id pointing at this quote.
   const { data: directInv } = await supabase
     .from('invoices')
     .select('id')
-    .eq('quote_id', quoteId)
+    .in('quote_id', chainIds)
     .in('status', LOCKING_INVOICE_STATUSES)
     .is('deleted_at', null)
     .limit(1)
@@ -61,7 +65,7 @@ export async function findLockingInvoiceForQuote(
   const { data: jobWithInv } = await supabase
     .from('jobs')
     .select('invoice_id')
-    .eq('quote_id', quoteId)
+    .in('quote_id', chainIds)
     .is('deleted_at', null)
     .not('invoice_id', 'is', null)
     .limit(1)
