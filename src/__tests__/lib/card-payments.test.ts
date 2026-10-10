@@ -60,6 +60,7 @@ function stub(tables: Record<string, unknown>) {
       const chain = () => q
       Object.assign(q, {
         select: chain, eq: chain, neq: chain, is: chain,
+        limit: async () => ({ data: [], error: null }),
         maybeSingle: async () => ({ data: tables[table] ?? null, error: null }),
         update(values: Record<string, unknown>) { updates.push({ table, values }); return { eq: () => ({ neq: () => ({ select: async () => ({ data: [{ id: 'x' }], error: null }) }) }) } },
         insert: async (values: Record<string, unknown>) => { inserts.push({ table, values }); return { error: null } },

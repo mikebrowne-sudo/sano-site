@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { isHoneypotTripped, isThrottled } from '@/lib/form-guard'
 import { validateApplication } from '@/lib/applicationValidation'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import type { JobApplicationPayload } from '@/types/application'
@@ -6,6 +7,9 @@ import type { JobApplicationPayload } from '@/types/application'
 export async function POST(req: NextRequest) {
   try {
     const payload = (await req.json()) as JobApplicationPayload
+
+    // Abuse guards (lib/form-guard).
+    if (isHoneypotTripped(payload as unknown as Record<string, unknown>)) return NextResponse.json({ success: true }, { status: 200 })
 
     const errors = validateApplication(payload)
     const errorKeys = Object.keys(errors)
@@ -17,6 +21,9 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getServiceSupabase()
+    if (await isThrottled(supabase, { table: 'applicants', emailColumn: 'email', email: payload.email ?? '', perEmail: 2, overall: 20, minutes: 60 })) {
+      return NextResponse.json({ error: 'We’ve already received your application. We’ll be in touch.' }, { status: 429 })
+    }
     const { error: insertError } = await supabase.from('applicants').insert({
       status:                     'new',
       first_name:                 payload.first_name.trim(),

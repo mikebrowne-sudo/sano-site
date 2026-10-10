@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServiceSupabase } from '@/lib/supabase-service'
+import { isHoneypotTripped, isThrottled, overLength } from '@/lib/form-guard'
 import { createServerClient } from '@/lib/supabase'
 import { sendQuoteConfirmation, sendQuoteNotification } from '@/lib/resend'
 
@@ -9,6 +11,13 @@ function isValidEmail(email: string) {
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { name, email, phone, service, postcode, preferredDate, message } = body
+
+  // Abuse guards (lib/form-guard). A bot that fills the hidden field gets a
+  // normal-looking success and nothing is saved or sent.
+  if (isHoneypotTripped(body)) return NextResponse.json({ success: true }, { status: 200 })
+  if (overLength(body ?? {}, { name: 120, email: 200, phone: 40, service: 200, postcode: 120, message: 4000 })) {
+    return NextResponse.json({ error: 'Some of your answers are too long. Please shorten them and try again.' }, { status: 400 })
+  }
 
   // Validate required fields
   if (!name?.trim()) {
@@ -22,6 +31,10 @@ export async function POST(req: NextRequest) {
   }
   if (!postcode?.trim()) {
     return NextResponse.json({ error: 'Postcode is required' }, { status: 400 })
+  }
+
+  if (await isThrottled(getServiceSupabase, { table: 'quote_requests', emailColumn: 'email', email, perEmail: 3, overall: 30, minutes: 60 })) {
+    return NextResponse.json({ error: 'We’ve already received your request. If it’s urgent, please call us on 0800 726 686.' }, { status: 429 })
   }
 
   // Write to Supabase

@@ -578,6 +578,8 @@ export function QuoteRequestStepper() {
     return 0
   })
   const isCommercial = form.service_type === 'commercial'
+  // Spam honeypot (lib/form-guard): people never see this field; bots fill it.
+  const [honeypot, setHoneypot] = useState('')
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const [suburbAutoFilled, setSuburbAutoFilled] = useState(false)
@@ -618,6 +620,7 @@ export function QuoteRequestStepper() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          company_website: honeypot,
           name:          form.name.trim(),
           email:         form.email.trim(),
           phone:         form.phone.trim(),
@@ -662,6 +665,16 @@ export function QuoteRequestStepper() {
 
   return (
     <div>
+      <input
+        type="text"
+        name="company_website"
+        value={honeypot}
+        onChange={(e) => setHoneypot(e.target.value)}
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+        style={{ position: 'absolute', left: '-10000px', width: 1, height: 1, opacity: 0 }}
+      />
       {stepIndex < TOTAL_STEPS - 1 && (
         <StepProgress
           current={stepIndex}

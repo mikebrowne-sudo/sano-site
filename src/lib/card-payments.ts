@@ -44,6 +44,14 @@ export function cardFeeItemPrice(fee: number, gstIncluded: boolean): number {
 /** Append the card-fee line to a paid invoice (service-role caller). */
 export async function addCardFeeLine(supabase: SupabaseClient, invoiceId: string, itemPrice: number): Promise<void> {
   if (!(itemPrice > 0)) return
+  // Idempotent: never add the fee twice (e.g. a retried webhook).
+  const { data: existing } = await supabase
+    .from('invoice_items')
+    .select('id')
+    .eq('invoice_id', invoiceId)
+    .eq('label', CARD_FEE_LABEL)
+    .limit(1)
+  if ((existing ?? []).length > 0) return
   const { error } = await supabase.from('invoice_items').insert({
     invoice_id: invoiceId,
     label: CARD_FEE_LABEL,
