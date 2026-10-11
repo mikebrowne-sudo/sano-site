@@ -2,11 +2,11 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 172 | A: 52 | B: 120
+-- Total: 175 | A: 54 | B: 121
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
---   Titirangi x2, Epsom, Browns Bay), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral,
+--   Titirangi x2, Epsom, Browns Bay, Albany), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral,
 --   St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill, Glenfield, Mt Eden x2, Ellerslie,
 --   Glen Eden x2, Takanini, Papakura x3 (incl. Franklin Vets), Grey Lynn, Blockhouse Bay, Te Atatu,
 --   Birkenhead, Pukekohe (Franklin Vets), Mangere Bridge), physio (Mt Eden, Botany, Ponsonby,
@@ -15,7 +15,7 @@
 --   Botany x3, Browns Bay, Mangere East, Otara, Glenfield, Remuera, St Heliers, Orakei,
 --   Hobsonville x2, West Harbour, Flat Bush, Howick x1, Papatoetoe x4, Mt Roskill x2, Titirangi,
 --   Royal Oak, Onehunga x3, Epsom x2, Highland Park, Mt Roskill x3, Te Atatu South x3, Howick,
---   Meadowbank x2, Mangere Bridge x2, Drury),
+--   Meadowbank x2, Mangere Bridge x2, Drury, Forrest Hill, Birkenhead),
 --   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
 --   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
 --   Te Atatu South x2, Whitford, Mangere Bridge x2), gym/fitness/yoga/pilates/dance studio
@@ -887,3 +887,18 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'The Doctors Drury', 'Medical centre / GP clinic', NULL, NULL, '175 Great South Road, Drury, Auckland', NULL, NULL, 'admin@drury.thedoctors.co.nz', '(09) 294 3005', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice (The Doctors network) in its own Great South Road premises, serving Drury/Karaka/Papakura. Email admin@drury.thedoctors.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. Listings disagree on the manager''s name (Prateek vs Kelsi), so left out rather than guess. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('The Doctors Drury'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@drury.thedoctors.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Albany Dental Surgery', 'Dental clinic', NULL, NULL, '13/231 Dairy Flat Highway, Albany, Auckland', NULL, NULL, 'albanydentalsurgery@gmail.com', '(09) 415 9377', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own Dairy Flat Highway premises. Email albanydentalsurgery@gmail.com published on the clinic''s Healthpoint listing (healthpoint.co.nz). No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Albany Dental Surgery'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('albanydentalsurgery@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Sunnynook Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '119 Sunnynook Road, Forrest Hill, Auckland', 'Marinda', 'Practice Manager', 'admin@sunnynookmedical.co.nz', '(09) 410 5331', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Sunnynook Road premises. Practice Manager Marinda named (first name only) on the practice''s Healthpoint listing (healthpoint.co.nz); admin@sunnynookmedical.co.nz matches own domain. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Sunnynook Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@sunnynookmedical.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Birkenhead Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '4 Rawene Road, Birkenhead, Auckland', 'Jolene', 'Practice Manager', 'admin@birkenheadmedical.co.nz', NULL, 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Rawene Road premises. Practice Manager Jolene named (first name only) on the practice''s Healthpoint listing (healthpoint.co.nz); admin@birkenheadmedical.co.nz matches own domain. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Birkenhead Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@birkenheadmedical.co.nz'));
