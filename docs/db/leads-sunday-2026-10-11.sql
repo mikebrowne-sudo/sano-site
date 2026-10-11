@@ -2,17 +2,18 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 89 | A: 23 | B: 66
+-- Total: 99 | A: 27 | B: 72
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
---   Howick, Onehunga, Royal Oak), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral,
---   St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill, Glenfield, Mt Eden, Ellerslie, Glen Eden x2),
---   physio (Mt Eden, Botany, Ponsonby, Newmarket x2, Ellerslie x2, Birkenhead, Devonport,
---   Half Moon Bay), medical/GP clinics (Grey Lynn, Three Kings), childcare/ECE (Takapuna, Browns Bay,
---   Epsom, Mt Albert, Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2),
---   gym/fitness/yoga/pilates/dance studio (Ponsonby, Newmarket x2, Morningside, Parnell x2,
---   Mission Bay, Mt Eden, St Johns, New Lynn, Rosedale, Albany x2), showrooms (kitchen - Newmarket,
---   furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3)
+--   Howick, Onehunga, Royal Oak, Henderson), vet (Albany, Howick, Henderson, Point Chevalier,
+--   Balmoral, St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill, Glenfield, Mt Eden, Ellerslie,
+--   Glen Eden x2, Takanini, Papakura), physio (Mt Eden, Botany, Ponsonby, Newmarket x2, Ellerslie x2,
+--   Birkenhead, Devonport, Half Moon Bay, Kingsland), medical/GP clinics (Grey Lynn, Three Kings,
+--   Henderson x2), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert, Pakuranga, Birkdale,
+--   Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2), gym/fitness/yoga/pilates/dance studio
+--   (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn,
+--   Rosedale, Albany x2, Henderson x2), showrooms (kitchen - Newmarket, furniture - Parnell,
+--   tile/bathroom - Ellerslie/Mt Wellington x3)
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -458,3 +459,53 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Apples Childcare & Learning Centre (Onehunga)', 'Early childhood education / childcare centre', 'https://appleschildcare.co.nz', NULL, '20-22 Cameron Street, Onehunga, Auckland 1061', NULL, NULL, 'onehunga@appleschildcare.co.nz', '(09) 634 8000', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] ECE centre in its own Onehunga premises, operating for over a decade per its own site. Email onehunga@appleschildcare.co.nz published on the centre''s own site. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Apples Childcare & Learning Centre (Onehunga)'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('onehunga@appleschildcare.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'McIntosh Dental (Henderson)', 'Dental clinic', 'https://www.mcintoshdental.co.nz', NULL, '43 Lincoln Road, Henderson, Auckland 0610', 'Dr Alex McIntosh', 'Founder / Lead Dentist', 'info@mcintoshdental.co.nz', '09 837 2598', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own West Auckland premises. Founder/lead dentist Dr Alex McIntosh named on the clinic''s own site (mcintoshdental.co.nz); published info@mcintoshdental.co.nz reaches the practice. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('McIntosh Dental (Henderson)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@mcintoshdental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Results Fitness (Henderson)', 'Gym / fitness studio (women-only)', 'https://www.resultsfitness.co.nz', NULL, '199B Lincoln Road, Henderson, Auckland 0610', 'Ursh & Sam', 'Owners', 'reception@resultsfitness.co.nz', '(09) 836 9099', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Women-only gym in its own West Auckland premises. Owners Ursh and Sam named on the gym''s own site (first names only, as published); reception@resultsfitness.co.nz published on the same site reaches them. Owner-operator = fast decision. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Results Fitness (Henderson)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@resultsfitness.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Henderson Medical Centre', 'Medical centre / GP clinic', 'https://www.hendersonmedical.co.nz', NULL, '2 Montel Avenue, Henderson, Auckland 0612', 'Dee-Anne Knight', 'Practice Manager', 'adminhmc@hendersonmedical.co.nz', NULL, 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP medical centre in its own West Auckland premises. Practice Manager Dee-Anne Knight named on the clinic''s own contact page (hendersonmedical.co.nz/contact-us) with her admin inbox adminhmc@hendersonmedical.co.nz (monitored business hours Mon-Fri). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Henderson Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('adminhmc@hendersonmedical.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'The Ardmore Vet (Papakura)', 'Veterinary clinic', 'https://www.theardmorevet.co.nz', NULL, '88 Clevedon-Takanini Road, Ardmore, Papakura, Auckland 2580', 'Dr April', 'Founder', 'contact@theardmorevet.co.nz', '09 296 1946', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own South Auckland premises, established 2009 by Dr April per the clinic''s own site (theardmorevet.co.nz) - first name only published, ownership not re-confirmed as current but she is the clinic''s named founder. Published contact@theardmorevet.co.nz reaches the practice. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('The Ardmore Vet (Papakura)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('contact@theardmorevet.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Flex Fitness Henderson', 'Gym / fitness club', 'https://www.flexfitnessgym.co.nz/clubs/henderson', NULL, '10-12 Ratanui Street, Henderson, Auckland 0610', NULL, NULL, 'henderson@flexfitnessgym.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Gym/fitness club in its own West Auckland premises. Email henderson@flexfitnessgym.co.nz published on the club''s own site. No named manager found publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Flex Fitness Henderson'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('henderson@flexfitnessgym.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Kingsland Physiotherapy', 'Physiotherapy / fitness club', 'https://www.healthandsports.co.nz/kingsland-physio-massage', NULL, '495 New North Road, Kingsland, Auckland 1021', NULL, NULL, 'admin@kingslandphysio.co.nz', '(09) 849 9080', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Physiotherapy/sports fitness clinic in its own Kingsland premises. Email admin@kingslandphysio.co.nz published on the clinic''s own listing. No named manager found publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Kingsland Physiotherapy'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@kingslandphysio.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Ratanui Medical Centre (Henderson)', 'Medical centre / GP clinic', NULL, NULL, '77 Lincoln Road, Henderson, Auckland 0610', NULL, 'Practice Manager', 'pm@ratanui.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP medical centre in its own West Auckland premises. Role-addressed inbox pm@ratanui.co.nz published on a directory listing tied to the clinic''s own domain, reaching the practice manager directly even without a personal name. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Ratanui Medical Centre (Henderson)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('pm@ratanui.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'West Auckland Medical & Surgical Centre', 'Medical centre / GP clinic', 'https://www.wamsc.co.nz', NULL, '149 Henderson Valley Road, Henderson, Auckland 0612', NULL, NULL, 'reception@wamsc.co.nz', '09 242 3358', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP medical centre in its own West Auckland premises. Email reception@wamsc.co.nz published on the clinic''s own contact page. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('West Auckland Medical & Surgical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@wamsc.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Veterinary Associates Takanini', 'Veterinary clinic', 'https://www.netvet.co.nz', NULL, '152A Great South Road, Takanini, Auckland 2112', NULL, NULL, 'vets@netvet.co.nz', '(09) 299-8250', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own South Auckland premises. Email vets@netvet.co.nz published on the clinic''s own contact page. No reliably-current named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Veterinary Associates Takanini'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('vets@netvet.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Vets at 77 (Papakura)', 'Veterinary clinic', 'https://vets77.co.nz', NULL, '77 Great South Road, Papakura, Auckland 2110', NULL, NULL, 'reception@vets77.co.nz', '09 299 9977', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own South Auckland premises. Email reception@vets77.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Vets at 77 (Papakura)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@vets77.co.nz'));
