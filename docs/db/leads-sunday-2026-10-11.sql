@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 169 | A: 51 | B: 118
+-- Total: 172 | A: 52 | B: 120
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -15,7 +15,7 @@
 --   Botany x3, Browns Bay, Mangere East, Otara, Glenfield, Remuera, St Heliers, Orakei,
 --   Hobsonville x2, West Harbour, Flat Bush, Howick x1, Papatoetoe x4, Mt Roskill x2, Titirangi,
 --   Royal Oak, Onehunga x3, Epsom x2, Highland Park, Mt Roskill x3, Te Atatu South x3, Howick,
---   Meadowbank x2),
+--   Meadowbank x2, Mangere Bridge x2, Drury),
 --   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
 --   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
 --   Te Atatu South x2, Whitford, Mangere Bridge x2), gym/fitness/yoga/pilates/dance studio
@@ -872,3 +872,18 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Meadowbank General Practice', 'Medical centre / GP clinic', NULL, NULL, 'Meadowbank Shopping Centre, 35-47 St Johns Road, Meadowbank, Auckland', NULL, NULL, 'office@mgpdoctors.nz', '(09) 521 5128', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own premises at Meadowbank Shopping Centre (separate practice from Meadowbank Medical Centre above). Email office@mgpdoctors.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Meadowbank General Practice'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('office@mgpdoctors.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Mangere Bridge Surgery', 'Medical centre / GP clinic', NULL, NULL, '29 Coronation Road, Mangere Bridge, Auckland', 'Rupen Chand', 'Practice Manager', 'mb.surgery@gmail.com', '(09) 634 2542', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Coronation Road premises. Practice Manager Rupen Chand named on the practice''s own Healthpoint listing (healthpoint.co.nz), reviewed/edited by the practice itself. Email mb.surgery@gmail.com published on the same listing. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Mangere Bridge Surgery'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('mb.surgery@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Local Doctors Mangere Bridge', 'Medical centre / GP clinic', NULL, NULL, '41 Coronation Road, Mangere Bridge, Auckland', NULL, NULL, 'mangerebridge.reception@tamakihealth.co.nz', '(09) 254 4290', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice (Local Doctors/Tamaki Health network) in its own Coronation Road premises (separate practice from Mangere Bridge Surgery above). Reception email mangerebridge.reception@tamakihealth.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz). No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Local Doctors Mangere Bridge'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('mangerebridge.reception@tamakihealth.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'The Doctors Drury', 'Medical centre / GP clinic', NULL, NULL, '175 Great South Road, Drury, Auckland', NULL, NULL, 'admin@drury.thedoctors.co.nz', '(09) 294 3005', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice (The Doctors network) in its own Great South Road premises, serving Drury/Karaka/Papakura. Email admin@drury.thedoctors.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. Listings disagree on the manager''s name (Prateek vs Kelsi), so left out rather than guess. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('The Doctors Drury'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@drury.thedoctors.co.nz'));
