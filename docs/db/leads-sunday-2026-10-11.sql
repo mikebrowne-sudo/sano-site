@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 128 | A: 36 | B: 92
+-- Total: 132 | A: 36 | B: 96
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -12,7 +12,7 @@
 --   (Mt Eden, Botany, Ponsonby, Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay,
 --   Kingsland), medical/GP clinics (Grey Lynn, Three Kings, Henderson x2), childcare/ECE (Takapuna,
 --   Browns Bay, Epsom, Mt Albert, Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2,
---   Onehunga x2, Kingsland, Te Atatu South x2, Whitford, Mangere Bridge), gym/fitness/yoga/
+--   Onehunga x2, Kingsland, Te Atatu South x2, Whitford, Mangere Bridge x2), gym/fitness/yoga/
 --   pilates/dance studio (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden,
 --   St Johns, New Lynn x3, Rosedale, Albany x3, Henderson x2, Remuera x2, Auckland CBD x3),
 --   showrooms (kitchen - Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3,
@@ -657,3 +657,23 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Tadpoles Early Childhood Centre (Mangere Bridge)', 'Early childhood education / childcare centre', 'https://tadpoles.co.nz', NULL, '73 Mountain Road, Mangere Bridge, Auckland 2022', NULL, NULL, 'admin@tadpoles.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Privately-owned ECE centre (licensed for up to 75 children), family owned and operated per the centre''s own site, in its own South Auckland premises. Email admin@tadpoles.co.nz published on the same site. No individual owner named. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Tadpoles Early Childhood Centre (Mangere Bridge)'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@tadpoles.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Mangere Dental Centre', 'Dental clinic', 'https://www.mangeredentalcentre.co.nz', NULL, 'Shop 7B Mangere Town Centre, Bader Drive, Mangere, Auckland 2022', NULL, NULL, 'mangeredental@gmail.com', '(09) 275 7754', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own South Auckland premises. Email mangeredental@gmail.com published on the clinic''s own contact page. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Mangere Dental Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('mangeredental@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Dental Planet (Mangere)', 'Dental clinic', 'https://dentalplanet.co.nz/location/mangere/', NULL, '10 Waddon Place, Mangere, Auckland 2022', NULL, NULL, 'appointments@dentalplanet.co.nz', '0800 262 2208', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own South Auckland premises. Email appointments@dentalplanet.co.nz published on the clinic group''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Dental Planet (Mangere)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('appointments@dentalplanet.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Meadowbank Physio', 'Physiotherapy clinic', 'https://www.meadowbankphysio.co.nz', NULL, '765 Remuera Road, Meadowbank, Auckland 1072', NULL, NULL, 'physio@meadowbankphysio.co.nz', '09 520 2666', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Physiotherapy clinic in its own Meadowbank premises. Email physio@meadowbankphysio.co.nz published on the clinic''s own contact page. No reliably-confirmed named owner found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Meadowbank Physio'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('physio@meadowbankphysio.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Mangere Veterinary Clinic', 'Veterinary clinic', 'https://www.vetforpet.co.nz', NULL, '95 Coronation Road, Mangere Bridge, Auckland 2022', NULL, NULL, 'mangerevet@xtra.co.nz', '09 636 6732', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic (also runs a second site, Onehunga Vet and Pet Supplies) in its own South Auckland premises. Email mangerevet@xtra.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Mangere Veterinary Clinic'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('mangerevet@xtra.co.nz'));
