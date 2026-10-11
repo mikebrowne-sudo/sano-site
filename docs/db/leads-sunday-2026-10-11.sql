@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 192 | A: 63 | B: 129
+-- Total: 194 | A: 63 | B: 131
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -24,7 +24,7 @@
 --   (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn x3,
 --   Rosedale, Albany x3, Henderson x2, Remuera x2, Auckland CBD x3), showrooms (kitchen -
 --   Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3,
---   lighting - North Shore/Takapuna x2)
+--   lighting - North Shore/Takapuna x2, furniture - Albany/Wairau Valley)
 -- Attempted this batch with thin/no results: accountants (Albany, Takapuna), chiropractors,
 --   optometrists, skin/aesthetic clinics, architecture firms, dental/childcare (Pukekohe/Papakura),
 --   gyms (Milford/Takapuna/Browns Bay) - mostly directory noise, no verifiable named contact +
@@ -989,3 +989,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Avondale Health Centre', 'Medical centre / GP clinic', NULL, NULL, '39 Layard Street, Avondale, Auckland 1026', 'Dianne', 'Practice Manager', 'admin@avondalehealth.co.nz', '(09) 828 2066', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Layard Street premises. Practice Manager Dianne named (first name only) on the practice''s Healthpoint listing (healthpoint.co.nz); admin@avondalehealth.co.nz matches own domain, found on a separate listing for the same practice. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Avondale Health Centre'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@avondalehealth.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'La-Z-Boy Albany', 'Furniture showroom', NULL, NULL, '260 Oteha Valley Road, Albany, Auckland', NULL, NULL, 'albany@lzbgallery.co.nz', '(09) 443 1849', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Furniture/recliner showroom with a street-front display floor needing presentation-level cleaning, in its own Oteha Valley Road premises. Store email albany@lzbgallery.co.nz published on the brand''s own store listing. No named manager found publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('La-Z-Boy Albany'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('albany@lzbgallery.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Living Culture (Wairau Valley)', 'Outdoor furniture showroom', 'https://livingculture.co.nz', NULL, '139 Wairau Road, Wairau Valley, Auckland 0627', NULL, NULL, 'hello@livingculture.co.nz', '0800 298 398', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Outdoor furniture showroom with a large display floor (open 7 days) in its own Wairau Road premises. Email hello@livingculture.co.nz published on the brand''s own site livingculture.co.nz. No named manager found publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Living Culture (Wairau Valley)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@livingculture.co.nz'));
