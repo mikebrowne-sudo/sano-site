@@ -2,14 +2,14 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 186 | A: 61 | B: 125
+-- Total: 187 | A: 61 | B: 126
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
 --   Titirangi x2, Epsom, Browns Bay, Albany), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral,
 --   St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill, Glenfield, Mt Eden x2, Ellerslie,
 --   Glen Eden x2, Takanini, Papakura x3 (incl. Franklin Vets), Grey Lynn, Blockhouse Bay, Te Atatu,
---   Birkenhead, Pukekohe (Franklin Vets), Mangere Bridge), physio (Mt Eden, Botany, Ponsonby,
+--   Birkenhead, Pukekohe (Franklin Vets), Mangere Bridge, Karaka (Franklin Vets)), physio (Mt Eden, Botany, Ponsonby,
 --   Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay, Kingsland, Papakura, Howick),
 --   medical/GP clinics (Grey Lynn, Three Kings, Henderson x2, Manurewa x2, Te Atatu Peninsula,
 --   Botany x3, Browns Bay, Mangere East, Otara, Glenfield, Remuera, St Heliers, Orakei,
@@ -959,3 +959,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Hobsonville Point Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '3A/160 Hobsonville Point Road, Hobsonville, Auckland 0618', NULL, NULL, 'admin@hvpm.co.nz', '(09) 222 0381', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Hobsonville Point Road premises (separate practice from Hobsonville Health/Hobsonville Family Doctors above). Email admin@hvpm.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Hobsonville Point Medical Centre'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@hvpm.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Franklin Vets Karaka', 'Veterinary clinic', 'https://www.franklinvets.co.nz', NULL, 'Unit A1, 75 Hingaia Road, Karaka, Auckland 2113', NULL, NULL, 'karaka@fvs.co.nz', '(09) 298 7043', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic, part of the Franklin Vets group (separate location from the Pukekohe and Papakura clinics already listed above), in its own Karaka premises. Clinic email karaka@fvs.co.nz published on the group''s own contact page (shop.franklinvets.co.nz/contact/karaka). No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Franklin Vets Karaka'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('karaka@fvs.co.nz'));
