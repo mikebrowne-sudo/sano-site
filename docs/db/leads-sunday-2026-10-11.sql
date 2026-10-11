@@ -2,16 +2,17 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 206 | A: 68 | B: 138
+-- Total: 212 | A: 68 | B: 144
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
---   Titirangi x2, Epsom, Browns Bay, Albany), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral,
+--   Titirangi x2, Epsom, Browns Bay, Albany, Pakuranga, Manurewa, Three Kings),
+--   audiology/hearing (Rosedale), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral,
 --   St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill, Glenfield, Mt Eden x2, Ellerslie,
 --   Glen Eden x2, Takanini, Papakura x3 (incl. Franklin Vets), Grey Lynn, Blockhouse Bay, Te Atatu,
 --   Birkenhead, Pukekohe (Franklin Vets), Mangere Bridge, Karaka (Franklin Vets)), physio (Mt Eden, Botany, Ponsonby,
---   Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay, Kingsland, Papakura, Howick),
---   medical/GP clinics (Grey Lynn, Three Kings, Henderson x2, Manurewa x2, Te Atatu Peninsula,
+--   Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay, Kingsland, Papakura, Howick,
+--   Clendon Park/Manurewa), medical/GP clinics (Grey Lynn, Three Kings, Henderson x2, Manurewa x2, Te Atatu Peninsula,
 --   Botany x3, Browns Bay, Mangere East, Otara, Glenfield, Remuera, St Heliers, Orakei,
 --   Hobsonville x2, West Harbour, Flat Bush, Howick x1, Papatoetoe x4, Mt Roskill x2, Titirangi,
 --   Royal Oak, Onehunga x3, Epsom x2, Highland Park, Mt Roskill x3, Te Atatu South x3, Howick,
@@ -20,15 +21,20 @@
 --   Waiuku), osteopathy (Westmere), pilates/yoga (Hobsonville Point x3),
 --   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
 --   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
---   Te Atatu South x2, Whitford, Mangere Bridge x2), gym/fitness/yoga/pilates/dance studio
+--   Te Atatu South x2, Whitford, Mangere Bridge x2, Papatoetoe x2), gym/fitness/yoga/pilates/dance studio
 --   (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn x3,
 --   Rosedale, Albany x3, Henderson x2, Remuera x2, Auckland CBD x3), showrooms (kitchen -
 --   Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3,
 --   lighting - North Shore/Takapuna x2, furniture - Albany/Wairau Valley)
--- Attempted this batch with thin/no results: accountants (Albany, Takapuna), chiropractors,
---   optometrists, skin/aesthetic clinics, architecture firms, dental/childcare (Pukekohe/Papakura),
---   gyms (Milford/Takapuna/Browns Bay) - mostly directory noise, no verifiable named contact +
---   email found; skipped rather than guessed.
+-- Attempted this batch with thin/no results: accountants (Pukekohe, Botany, Howick), law firms
+--   (Birkenhead), body corporate managers, podiatry, audiology (further suburbs), dermatology/skin,
+--   counselling/psychology, real estate branches (Barfoot/Harcourts), medical/GP (Pakuranga-Tend
+--   chain skipped, Mangere, Mt Wellington, Three Kings, Otahuhu, Pukekohe, Papakura - named managers
+--   found but no visible email), vet (Pakuranga, Half Moon Bay/Highland Park), gyms (Papatoetoe,
+--   Birkenhead/Northcote, Flat Bush/Highland Park), martial arts/dance/yoga studios (Auckland-wide) -
+--   mostly directory noise or redacted email fields, no verifiable named contact + email found;
+--   skipped rather than guessed. Note: Barnardos/Lumino/Tend-branded locations skipped as likely
+--   centrally procured chains even where a named contact was found.
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -1059,3 +1065,33 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Teresa Burns Hearing', 'Audiology / hearing clinic', NULL, NULL, '25 Apollo Drive, Rosedale, Auckland 0632', 'Teresa Burns', 'Owner', 'teresa@teresaburnshearing.co.nz', '(09) 475 9849', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Independently NZ-owned-and-operated audiology/hearing clinic in its own Apollo Drive premises, not aligned to a hearing-aid manufacturer. Owner Teresa Burns named with her direct email, teresa@teresaburnshearing.co.nz, in the clinic''s own recruitment flyer (audiology.org.nz). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Teresa Burns Hearing'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('teresa@teresaburnshearing.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Pakuranga Dental', 'Dental clinic', NULL, NULL, '175 Pakuranga Road, Pakuranga, Auckland 2010', NULL, NULL, 'reception@pakurangadental.co.nz', '(09) 576 6720', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own Pakuranga Road premises. Email reception@pakurangadental.co.nz published on the clinic''s Healthpoint listing (healthpoint.co.nz). No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Pakuranga Dental'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@pakurangadental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Manurewa Dental Centre', 'Dental clinic', NULL, NULL, '178 Great South Road, Manurewa, Auckland 2102', NULL, NULL, 'info@manurewadental.co.nz', '(09) 267 3861', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own Great South Road premises, offers free adolescent dental care. Email info@manurewadental.co.nz published on the clinic''s Healthpoint listing (healthpoint.co.nz). No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Manurewa Dental Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@manurewadental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Three Kings Dental Centre', 'Dental clinic', NULL, NULL, 'Three Kings Plaza, 536 Mount Albert Road, Three Kings, Auckland 1042', NULL, NULL, 'info@3kingsdental.co.nz', '(09) 625 7175', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own premises at Three Kings Plaza. Email info@3kingsdental.co.nz published on the clinic''s Healthpoint listing (healthpoint.co.nz). No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Three Kings Dental Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@3kingsdental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Clendon Physiotherapy', 'Physiotherapy clinic', 'https://clendonphysio.co.nz', NULL, 'Clendon Park, Manurewa, Auckland 2103 (exact street number unconfirmed)', 'Alison', NULL, 'alison@clendonphysio.co.nz', '(09) 266 3166', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent physiotherapy clinic serving the Clendon Park/Manurewa area. Named personal email alison@clendonphysio.co.nz published in a Breast Cancer Foundation physiotherapy-provider directory listing (breastcancerfoundation.org.nz); role not confirmed so left blank, but a first-name@owndomain address on a sole/small practice is a strong proxy for the principal. Street number could not be independently confirmed - verify premises before contacting. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Clendon Physiotherapy'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('alison@clendonphysio.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Li''l Champs Papatoetoe', 'Early childhood education / childcare centre', NULL, NULL, '431 Great South Road, Papatoetoe, Auckland 2025', NULL, NULL, 'papatoetoe@lilchamps.co.nz', '(09) 277 2556', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independently governed ECE centre (per ERO report, owned by a managing director/operations manager, not a large chain) in its own Great South Road premises. Branch email papatoetoe@lilchamps.co.nz published on the Montessori NZ directory listing (montessori.org.nz) and matches the centre''s own domain. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Li''l Champs Papatoetoe'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('papatoetoe@lilchamps.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Little Kiwis Early Learning Centre', 'Early childhood education / childcare centre', NULL, NULL, '20 Norman Spencer Drive, Papatoetoe, Auckland 2025', NULL, NULL, 'littlekiwis@gmail.com', '(09) 278 9833', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent ECE centre in its own Norman Spencer Drive premises. Email littlekiwis@gmail.com published as the centre''s own contact on its littlies.nz service listing. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Little Kiwis Early Learning Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('littlekiwis@gmail.com'));
