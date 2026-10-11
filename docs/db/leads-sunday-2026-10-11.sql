@@ -2,10 +2,10 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 17 | A: 4 | B: 13
--- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna), vet (Albany, Howick),
---   physio (Mt Eden), childcare/ECE (Takapuna, Browns Bay), gym/fitness/yoga/pilates studio
---   (Ponsonby, Newmarket x2, Morningside), kitchen showroom (Newmarket)
+-- Total: 25 | A: 7 | B: 18
+-- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera), vet (Albany,
+--   Howick), physio (Mt Eden, Botany), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert),
+--   gym/fitness/yoga/pilates studio (Ponsonby, Newmarket x2, Morningside), kitchen showroom (Newmarket)
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -91,3 +91,43 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'City Kickboxing', 'Gym / martial arts training facility', 'https://citykickboxing.net.nz', NULL, '1 Gordon Street, Morningside, Auckland 1025', NULL, NULL, 'info@citykickboxing.net.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Well-known MMA/kickboxing training facility with its own mat space, changing rooms and showers in Morningside - high-traffic premises with real hygiene-cleaning need. Email info@citykickboxing.net.nz published on the gym''s own site. No named manager found publicly. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('City Kickboxing'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@citykickboxing.net.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'St Andrews Epsom Early Childhood Centre (Little Dinosaurs)', 'Early childhood education / childcare centre', 'https://standrewsepsom.co.nz', NULL, '87 Onslow Avenue, Epsom, Auckland 1023', 'Margarita Sampayo', 'Owner & Centre Manager', 'margarita@littledinosaurs.co.nz', '09 623 8454', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Small, independent, privately-owned ECE centre in its own quiet Epsom premises. Owner & Centre Manager Margarita Sampayo named on the centre''s own team page (standrewsepsom.co.nz/who-we-are-2); her direct email margarita@littledinosaurs.co.nz published on the same domain''s enquiries page. Owner-operator = fast decision on a cleaning contract. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('St Andrews Epsom Early Childhood Centre (Little Dinosaurs)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('margarita@littledinosaurs.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Dentistry for Chickens', 'Dental clinic', 'https://www.dentistryforchickens.co.nz', NULL, '29A Peach Parade, Remuera, Auckland 1050', 'Leslie Robinson', 'Practice Manager', 'reception@dentistryforchickens.co.nz', '09 520 0292', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own Remuera premises. Practice Manager Leslie Robinson named on the clinic''s own site (dentistryforchickens.co.nz); published reception@dentistryforchickens.co.nz inbox reaches the practice directly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Dentistry for Chickens'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@dentistryforchickens.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Noble Dental Specialists (Remuera)', 'Dental specialist clinic (periodontics/implants)', 'https://www.nobledental.co.nz/remuera', NULL, '31 Peach Parade, Remuera, Auckland 1050', 'Penny Hood', 'Administrator', 'reception@nobledental.co.nz', '09 524 2855', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Specialist periodontics/dental implant clinic in its own Remuera premises (also has a Takapuna site - potential two-site contract, flagged for a later batch). Administrator Penny Hood named on the clinic''s own contact page (nobledental.co.nz/contact-us); published reception@nobledental.co.nz inbox reaches the Remuera clinic. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Noble Dental Specialists (Remuera)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@nobledental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'MARC Early Learning Centre', 'Early childhood education / childcare centre', NULL, NULL, '122 Mt Albert Road, Mount Albert, Auckland 1025', NULL, 'Manager', 'manager@marcelc.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent ECE centre in its own Mt Albert premises. Role-addressed inbox manager@marcelc.co.nz published on the Education Counts profile (educationcounts.govt.nz) reaches the centre manager directly even without a personal name. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('MARC Early Learning Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('manager@marcelc.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Peak Physio Botany', 'Physiotherapy clinic', 'https://www.peakphysioauckland.co.nz/physio-botany', NULL, '318 Ti Rakau Drive, Burswood, Auckland 2013', NULL, NULL, 'botany@peakpilates.co.nz', '09 274 6000', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Large open-plan physio clinic next to The Doctors Ti Rakau Medical Centre in East Auckland. Email botany@peakpilates.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Peak Physio Botany'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('botany@peakpilates.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Oral Care Company', 'Dental clinic', 'https://www.oralcare.co.nz', NULL, '120 Remuera Road, Remuera, Auckland 1050', NULL, NULL, 'info@oralcare.co.nz', '(09) 524 2494', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic on Remuera Road. Email info@oralcare.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Oral Care Company'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@oralcare.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'OneHealth Dental (Remuera)', 'Dental clinic', 'https://onehealthdental.co.nz', NULL, '122 Remuera Road, Remuera, Auckland 1050', NULL, NULL, 'info@onehealthdental.co.nz', '09 524 8834', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic on Remuera Road, next door to Oral Care Company (same street pair - worth pairing the outreach). Email info@onehealthdental.co.nz published on the clinic''s own contact page. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('OneHealth Dental (Remuera)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@onehealthdental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Smile Boutique (Remuera)', 'Dental clinic', 'https://smileboutique.co.nz/locations/remuera/', NULL, '118 Remuera Road, Remuera, Auckland 1050', NULL, NULL, 'info@smileboutique.co.nz', '09 200 0267', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic on Remuera Road, part of the same small Remuera Road dental cluster as Oral Care Company and OneHealth Dental (three clinics, one street). Email info@smileboutique.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Smile Boutique (Remuera)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@smileboutique.co.nz'));
