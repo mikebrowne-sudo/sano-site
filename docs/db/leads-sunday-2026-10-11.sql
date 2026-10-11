@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 175 | A: 54 | B: 121
+-- Total: 180 | A: 58 | B: 122
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -15,7 +15,8 @@
 --   Botany x3, Browns Bay, Mangere East, Otara, Glenfield, Remuera, St Heliers, Orakei,
 --   Hobsonville x2, West Harbour, Flat Bush, Howick x1, Papatoetoe x4, Mt Roskill x2, Titirangi,
 --   Royal Oak, Onehunga x3, Epsom x2, Highland Park, Mt Roskill x3, Te Atatu South x3, Howick,
---   Meadowbank x2, Mangere Bridge x2, Drury, Forrest Hill, Birkenhead),
+--   Meadowbank x2, Mangere Bridge x2, Drury, Forrest Hill, Birkenhead, Devonport x2, Takapuna x2,
+--   Swanson, Mt Eden),
 --   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
 --   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
 --   Te Atatu South x2, Whitford, Mangere Bridge x2), gym/fitness/yoga/pilates/dance studio
@@ -902,3 +903,28 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Birkenhead Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '4 Rawene Road, Birkenhead, Auckland', 'Jolene', 'Practice Manager', 'admin@birkenheadmedical.co.nz', NULL, 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Rawene Road premises. Practice Manager Jolene named (first name only) on the practice''s Healthpoint listing (healthpoint.co.nz); admin@birkenheadmedical.co.nz matches own domain. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Birkenhead Medical Centre'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@birkenheadmedical.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Devonport Health', 'Medical centre / GP clinic', NULL, NULL, '20 Victoria Road, Devonport, Auckland', 'Tanziha Matin', 'Practice Manager', 'reception@devonporthealth.co.nz', '(09) 972 2699', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Victoria Road premises. Practice Manager Tanziha Matin named on the practice''s Healthpoint listing (healthpoint.co.nz); reception@devonporthealth.co.nz matches own domain. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Devonport Health'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@devonporthealth.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Devonport Family Medicine', 'Medical centre / GP clinic', NULL, NULL, '2 Fleet Street, Devonport, Auckland', 'Reece Danby', 'Business Manager', 'receptionist@dfmdoctors.co.nz', NULL, 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Fleet Street premises (separate practice from Devonport Health above). Business Manager Reece Danby named on the practice''s Healthpoint listing (healthpoint.co.nz); receptionist@dfmdoctors.co.nz matches own domain dfmdoctors.co.nz. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Devonport Family Medicine'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('receptionist@dfmdoctors.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Takapuna Health', 'Medical centre / GP clinic', NULL, NULL, '3 Anzac Street, Takapuna, Auckland', NULL, NULL, 'admin@takapunahealth.co.nz', '(09) 486 5482', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice (formerly Dodson Medical) in its own Anzac Street premises. Email admin@takapunahealth.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Takapuna Health'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@takapunahealth.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Swanson Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '714 Swanson Road, Swanson, Auckland', 'Jayson Gentiles', 'Practice Manager', 'info@swansonmedical.co.nz', NULL, 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Swanson Road premises. Practice Manager Jayson Gentiles named on the practice''s more recent Healthpoint listing (healthpoint.co.nz; an older listing instead named Dianne Gamble, so worth confirming on first contact); info@swansonmedical.co.nz matches own domain. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Swanson Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@swansonmedical.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Mt Eden Medical Centre', 'Medical centre / GP clinic', 'https://www.memc.co.nz', NULL, '457 Mount Eden Road, Mount Eden, Auckland 1024', 'Angela Patel', 'Practice Manager', 'memc@memc.co.nz', '(09) 638 8718', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Mount Eden Road premises. Practice Manager Angela Patel named on the practice''s Healthpoint listing (healthpoint.co.nz) as the contact for service feedback; memc@memc.co.nz matches own domain memc.co.nz. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Mt Eden Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('memc@memc.co.nz'));
