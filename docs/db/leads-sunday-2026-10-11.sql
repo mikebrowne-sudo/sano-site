@@ -2,18 +2,19 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 99 | A: 27 | B: 72
+-- Total: 106 | A: 30 | B: 76
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
---   Howick, Onehunga, Royal Oak, Henderson), vet (Albany, Howick, Henderson, Point Chevalier,
---   Balmoral, St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill, Glenfield, Mt Eden, Ellerslie,
---   Glen Eden x2, Takanini, Papakura), physio (Mt Eden, Botany, Ponsonby, Newmarket x2, Ellerslie x2,
---   Birkenhead, Devonport, Half Moon Bay, Kingsland), medical/GP clinics (Grey Lynn, Three Kings,
---   Henderson x2), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert, Pakuranga, Birkdale,
---   Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2), gym/fitness/yoga/pilates/dance studio
---   (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn,
---   Rosedale, Albany x2, Henderson x2), showrooms (kitchen - Newmarket, furniture - Parnell,
---   tile/bathroom - Ellerslie/Mt Wellington x3)
+--   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby), vet (Albany, Howick, Henderson,
+--   Point Chevalier, Balmoral, St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill, Glenfield,
+--   Mt Eden, Ellerslie, Glen Eden x2, Takanini, Papakura), physio (Mt Eden, Botany, Ponsonby,
+--   Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay, Kingsland), medical/GP clinics
+--   (Grey Lynn, Three Kings, Henderson x2), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
+--   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2), gym/fitness/
+--   yoga/pilates/dance studio (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden,
+--   St Johns, New Lynn, Rosedale, Albany x2, Henderson x2, Remuera x2), showrooms (kitchen -
+--   Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3, lighting - North
+--   Shore/Takapuna x2)
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -509,3 +510,38 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Vets at 77 (Papakura)', 'Veterinary clinic', 'https://vets77.co.nz', NULL, '77 Great South Road, Papakura, Auckland 2110', NULL, NULL, 'reception@vets77.co.nz', '09 299 9977', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own South Auckland premises. Email reception@vets77.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Vets at 77 (Papakura)'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@vets77.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Jervois Dental (Herne Bay)', 'Dental clinic', 'https://www.jervoisdental.co.nz', NULL, '139 Jervois Road, Herne Bay, Auckland 1011', 'Dr Graham Shaw', 'Founding Dentist', 'reception@jervoisdental.co.nz', '0800 005 200', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own Herne Bay premises. Founding dentist Dr Graham Shaw named on the clinic''s own site (jervoisdental.co.nz); published reception@jervoisdental.co.nz reaches the practice. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Jervois Dental (Herne Bay)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@jervoisdental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Lightingplus (North Shore)', 'Lighting showroom', 'https://www.lightingplus.co.nz/stores/north-shore', NULL, '16E Link Drive, Wairau Valley, Auckland 0627', 'Taryn Foster', 'Store Manager', 'northshore@lightingplus.co.nz', NULL, 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Lighting showroom with a display floor (presentation-critical premises). Store Manager Taryn Foster named on the store''s own page (lightingplus.co.nz/stores/north-shore); published northshore@lightingplus.co.nz reaches the branch. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Lightingplus (North Shore)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('northshore@lightingplus.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Bardsleys Lighting & Design (Takapuna)', 'Lighting showroom', NULL, NULL, '3-5 Auburn Street, Takapuna, Auckland 0622', 'Mark', 'Contact (role unconfirmed)', 'mark@bardsleyslighting.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Lighting/design showroom in its own Takapuna premises. Published personal-style email mark@bardsleyslighting.co.nz found on a business directory listing tied to the showroom''s own domain - likely a decision-maker given the format, but role not confirmed, so graded cautiously. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Bardsleys Lighting & Design (Takapuna)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('mark@bardsleyslighting.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Ponsonby Teeth', 'Dental clinic', 'https://www.ponsonbyteeth.co.nz', NULL, '213 Ponsonby Road, Ponsonby, Auckland 1011', NULL, NULL, 'reception@ponsonbyteeth.co.nz', '09 953 4093', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own Ponsonby premises. Email reception@ponsonbyteeth.co.nz published on the clinic''s own site. No reliably-confirmed owner named (three dentists listed, ownership not stated). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Ponsonby Teeth'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@ponsonbyteeth.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Genesis Fitness (Remuera)', 'Gym / fitness studio', 'https://www.genesisfitness.co.nz', NULL, '33 Haast Street, Remuera, Auckland 1050', NULL, NULL, 'info@genesisfitness.co.nz', '09 520 3455', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Large (2,000sqm) gym with a CrossFit box and Reformer Pilates studio in its own Remuera premises - varied cleaning surfaces (mats, showers, studio floors). Email info@genesisfitness.co.nz published on the gym''s own Facebook page. No named manager found publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Genesis Fitness (Remuera)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@genesisfitness.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Fit For Life Gym (Remuera)', 'Gym / fitness studio', 'https://fitforlifegym.co.nz', NULL, '437A Remuera Road, Remuera, Auckland 1050', NULL, NULL, 'info@fitforlifegym.co.nz', '021 277 1595', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Gym/personal training studio in its own Remuera premises. Email info@fitforlifegym.co.nz published on the gym''s own site. No named manager found publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Fit For Life Gym (Remuera)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@fitforlifegym.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Galaxy Lighting (North Shore)', 'Lighting showroom', 'https://galaxylighting.nz', NULL, '19/18 Link Drive, Wairau Valley, Auckland 0627', NULL, NULL, 'info@galaxylighting.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Lighting showroom with a display floor (same street as Lightingplus in this batch - pair the outreach). Email info@galaxylighting.nz published on the showroom''s own site. No named manager found publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Galaxy Lighting (North Shore)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@galaxylighting.nz'));
