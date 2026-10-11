@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 228 | A: 72 | B: 156
+-- Total: 229 | A: 73 | B: 156
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -19,7 +19,8 @@
 --   Royal Oak, Onehunga x3, Epsom x2, Highland Park, Mt Roskill x3, Te Atatu South x3, Howick,
 --   Meadowbank x2, Mangere Bridge x2, Drury, Forrest Hill, Birkenhead, Devonport x2, Takapuna x2,
 --   Swanson, Mt Eden, Freemans Bay, Hobsonville x3, Point Chevalier, Parnell, Avondale, Manukau x2,
---   Waiuku, Te Atatu), osteopathy (Westmere, Pukekohe), acupuncture/Chinese medicine (Remuera),
+--   Waiuku, Te Atatu), osteopathy (Westmere, Pukekohe), chiropractic (Glenfield),
+--   acupuncture/Chinese medicine (Remuera),
 --   pilates/yoga (Hobsonville Point x3), training centres/PTEs (Onehunga - first aid/workplace,
 --   Albany - NZQA college, Grafton - tech bootcamp),
 --   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
@@ -1183,3 +1184,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Academy EX', 'Tech training academy / bootcamp', 'https://academyex.com', NULL, 'Grafton, Auckland', NULL, NULL, 'hello@academyex.com', '+64 (09) 964 4444', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Tech-skills training academy with an Auckland campus (Grafton). General email hello@academyex.com published on the academy''s own site (academyex.com/contact). No named ops contact found; exact street address not independently confirmed - verify premises before contacting. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Academy EX'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@academyex.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Advantage Chiropractic (Glenfield)', 'Chiropractic clinic', NULL, NULL, '3/1 View Road, Glenfield, Auckland 0627', 'Dr Leah Mendes', 'Principal Chiropractor & Director', 'glenfield@advantagechiropractic.co.nz', '021 0818 2838', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] ACC-registered chiropractic clinic (two North Shore sites: Glenfield and Rosedale) in its own View Road premises. Principal Chiropractor & Director Dr Leah Mendes named on the clinic''s Healthpoint listing (healthpoint.co.nz); branch email glenfield@advantagechiropractic.co.nz matches the clinic''s own domain. Co-director Tomas Mendes also named. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Advantage Chiropractic (Glenfield)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('glenfield@advantagechiropractic.co.nz'));
