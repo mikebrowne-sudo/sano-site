@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 224 | A: 70 | B: 154
+-- Total: 226 | A: 71 | B: 155
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -19,8 +19,8 @@
 --   Royal Oak, Onehunga x3, Epsom x2, Highland Park, Mt Roskill x3, Te Atatu South x3, Howick,
 --   Meadowbank x2, Mangere Bridge x2, Drury, Forrest Hill, Birkenhead, Devonport x2, Takapuna x2,
 --   Swanson, Mt Eden, Freemans Bay, Hobsonville x3, Point Chevalier, Parnell, Avondale, Manukau x2,
---   Waiuku, Te Atatu), osteopathy (Westmere), pilates/yoga (Hobsonville Point x3),
---   training centres (Onehunga - first aid/workplace),
+--   Waiuku, Te Atatu), osteopathy (Westmere, Pukekohe), acupuncture/Chinese medicine (Remuera),
+--   pilates/yoga (Hobsonville Point x3), training centres (Onehunga - first aid/workplace),
 --   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
 --   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
 --   Te Atatu South x2, Whitford, Mangere Bridge x2, Papatoetoe x2, Panmure, Glen Eden), gym/fitness/yoga/pilates/dance studio
@@ -1162,3 +1162,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Karaka Learning Centre', 'Early childhood education / childcare centre', NULL, NULL, '113 Harbourside Drive, Karaka, Auckland 2113', NULL, NULL, 'info@karakalearningcentre.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent ECE centre in its own Harbourside Drive premises. Email info@karakalearningcentre.co.nz published on the centre''s own teacher-vacancy listing (littlies.nz) and matches own domain. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Karaka Learning Centre'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@karakalearningcentre.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'M.E. Holistic Care', 'Acupuncture / Chinese medicine clinic', NULL, NULL, '139 Remuera Road, Remuera, Auckland 1050', NULL, NULL, 'info@meholisticcare.co.nz', '(09) 974 3651', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent acupuncture/Chinese medicine clinic in its own Remuera Road premises. Email info@meholisticcare.co.nz published on the clinic''s Healthpoint listing (healthpoint.co.nz) and matches own domain. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('M.E. Holistic Care'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@meholisticcare.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Active Osteopathy', 'Osteopathy clinic', 'https://www.activeosteo.co.nz', NULL, '57 Seddon Street, Pukekohe, Auckland 2120', 'Cushla Geck', 'Principal Osteopath', 'info@activeosteo.co.nz', '(09) 238 8522', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] ACC-registered osteopathy clinic in its own Seddon Street premises. Principal Osteopath Cushla Geck named on the clinic''s Healthpoint listing (healthpoint.co.nz) and on the UK General Osteopathic Council''s register-search practice page (osteopathy.org.uk); email info@activeosteo.co.nz matches the clinic''s own domain. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Active Osteopathy'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@activeosteo.co.nz'));
