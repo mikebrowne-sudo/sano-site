@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 198 | A: 66 | B: 132
+-- Total: 199 | A: 66 | B: 133
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -1019,3 +1019,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Waiuku Health Centre', 'Medical centre / GP clinic', NULL, NULL, '30/26-30 Constable Road, Waiuku, Auckland 2123', 'Rosalie Dunstan', 'HR Contact', 'humanresources@waiukumedical.co.nz', '(09) 235 9102', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in a purpose-built medical centre on Constable Road (shared building with a pharmacy, dentist, lab and counsellor). HR contact Rosalie Dunstan named with a direct email, humanresources@waiukumedical.co.nz, on the practice''s own recruitment listing (via rnzcgp.org.nz jobs board, posted by the practice). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Waiuku Health Centre'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('humanresources@waiukumedical.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Return to Form Physiotherapy', 'Physiotherapy / wellness clinic', 'https://returntoform.com', NULL, '179A Ponsonby Road, Ponsonby, Auckland (also has a Wynyard Quarter site)', NULL, NULL, 'info@returntoform.com', '(09) 551 4460', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Physiotherapy/wellness clinic with multiple practitioners, in its own Ponsonby premises (a third-party listing gives a different nearby Ponsonby Road address, so confirm on first contact). Email info@returntoform.com matches the clinic''s own domain. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Return to Form Physiotherapy'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@returntoform.com'));
