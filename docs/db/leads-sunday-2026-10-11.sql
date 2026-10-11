@@ -2,14 +2,15 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 59 | A: 16 | B: 43
+-- Total: 68 | A: 18 | B: 50
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
---   Mission Bay, New Lynn, Avondale, Blockhouse Bay), vet (Albany, Howick, Henderson, Point Chevalier,
---   Balmoral, St Lukes/Sandringham, Manukau, Papatoetoe), physio (Mt Eden, Botany, Ponsonby,
---   Newmarket x2, Ellerslie x2, Birkenhead, Devonport), medical/GP clinics (Grey Lynn), childcare/ECE
---   (Takapuna, Browns Bay, Epsom, Mt Albert, Pakuranga), gym/fitness/yoga/pilates/dance studio
---   (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn),
---   showrooms (kitchen - Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3)
+--   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes), vet (Albany, Howick,
+--   Henderson, Point Chevalier, Balmoral, St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill,
+--   Glenfield), physio (Mt Eden, Botany, Ponsonby, Newmarket x2, Ellerslie x2, Birkenhead, Devonport),
+--   medical/GP clinics (Grey Lynn), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert, Pakuranga,
+--   Birkdale, Glenfield x2), gym/fitness/yoga/pilates/dance studio (Ponsonby, Newmarket x2,
+--   Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn), showrooms (kitchen -
+--   Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3)
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -305,3 +306,48 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Pet Vets (Papatoetoe)', 'Veterinary clinic', 'https://petvets.nz', NULL, '93 East Tamaki Road, Papatoetoe, Auckland 2025', NULL, NULL, 'office@petvets.nz', '09 250 0555', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Locally-owned-and-operated small-animal vet clinic (two South Auckland sites - Papatoetoe + Manurewa, local group not a national chain). Email office@petvets.nz published on the clinic''s own NZVA job listing tied to petvets.nz. No reliably-sourced named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Pet Vets (Papatoetoe)'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('office@petvets.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Nurserydale Childcare (Birkdale)', 'Early childhood education / childcare centre', 'https://www.nurserydalechildcare.co.nz', NULL, '262 Birkdale Road, Birkdale, Auckland 0626', 'Libby Hunt', 'Centre Owner / Director', 'libby@nurserydalechildcare.co.nz', '09 483 8273', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Independent, privately-owned ECE centre in its own North Shore premises. Owner/Director Libby Hunt introduces herself by name on the centre''s own site (nurserydalechildcare.co.nz) with her direct email libby@nurserydalechildcare.co.nz. Owner-operator = fast decision on a cleaning contract. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Nurserydale Childcare (Birkdale)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('libby@nurserydalechildcare.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Lynfield Vets', 'Veterinary clinic', 'https://lynfieldvets.co.nz', NULL, '122 White Swan Road, Mount Roskill, Auckland 1041', 'Catherine Soo', 'Veterinarian / Owner', 'theteam@lynfieldvets.co.nz', NULL, 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own Mt Roskill premises. Veterinarian/Owner Catherine Soo named on the clinic''s own site (lynfieldvets.co.nz); published theteam@lynfieldvets.co.nz inbox reaches the practice directly. Owner-operator = fast decision. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Lynfield Vets'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('theteam@lynfieldvets.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Panmure Dentists', 'Dental clinic', 'https://www.panmuredentists.co.nz', NULL, '188 Queens Road, Panmure, Auckland 1072', NULL, NULL, 'reception@panmuredentists.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own East Auckland premises, team led by Dr Alice Bahjet (role not confirmed as owner, so no name used). Email reception@panmuredentists.co.nz published on the clinic''s own site. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Panmure Dentists'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@panmuredentists.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Dental World Panmure', 'Dental clinic', 'https://www.panmuredentalworld.co.nz', NULL, '148 Queens Road, Panmure, Auckland 1072', NULL, NULL, 'reception@dentalworldpanmure.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own East Auckland premises (same road as Panmure Dentists - pair the outreach). Email reception@dentalworldpanmure.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Dental World Panmure'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@dentalworldpanmure.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Glen Innes Dentist Ltd', 'Dental clinic', 'https://www.gleninnesdentist.co.nz', NULL, '48 Mayfair Place, Glen Innes, Auckland 1072', NULL, NULL, 'gidentist@xtra.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own East Auckland premises. Email gidentist@xtra.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Glen Innes Dentist Ltd'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('gidentist@xtra.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Glenfield Veterinary Clinic', 'Veterinary clinic', 'https://www.glenfieldvets.co.nz', NULL, '46 Diana Drive, Wairau Valley, Glenfield, Auckland 0627', NULL, NULL, 'administration@glenfieldvets.co.nz', '09 444 9552', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own North Shore premises. Email administration@glenfieldvets.co.nz published on the clinic''s own site. A third-party directory names a manager, but it was not reliable enough to use. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Glenfield Veterinary Clinic'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('administration@glenfieldvets.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Little Nest Early Learning Centre (Glenfield)', 'Early childhood education / childcare centre', 'https://www.littlenestelc.co.nz', NULL, '46 James Street, Glenfield, Auckland 0629', NULL, NULL, 'info@littlenestelc.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent ECE centre in its own North Shore premises. Email info@littlenestelc.co.nz published on the centre''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Little Nest Early Learning Centre (Glenfield)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@littlenestelc.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Co Star Early Learning Centre (Glenfield)', 'Early childhood education / childcare centre', 'https://costarelc.co.nz', NULL, '79 Chivalry Road, Glenfield, Auckland 0629', NULL, NULL, 'enquiries@costarelc.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent ECE centre in its own North Shore premises. Email enquiries@costarelc.co.nz published on the centre''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Co Star Early Learning Centre (Glenfield)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('enquiries@costarelc.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Birkdale Early Learning Centre (Korue)', 'Early childhood education / childcare centre', NULL, NULL, '167 Birkdale Road, Birkdale, Auckland 0626', NULL, NULL, 'koruearlylearningcentre@xtra.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent ECE centre in its own North Shore premises (same road as Nurserydale Childcare in this batch - pair the outreach). Email koruearlylearningcentre@xtra.co.nz published on a directory listing tied to the centre''s own premises. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Birkdale Early Learning Centre (Korue)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('koruearlylearningcentre@xtra.co.nz'));
