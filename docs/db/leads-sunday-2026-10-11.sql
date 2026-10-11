@@ -2,19 +2,19 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 111 | A: 33 | B: 78
+-- Total: 117 | A: 33 | B: 84
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
---   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama), vet (Albany, Howick,
---   Henderson, Point Chevalier, Balmoral, St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill,
---   Glenfield, Mt Eden, Ellerslie, Glen Eden x2, Takanini, Papakura, Grey Lynn), physio (Mt Eden,
---   Botany, Ponsonby, Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay, Kingsland),
---   medical/GP clinics (Grey Lynn, Three Kings, Henderson x2), childcare/ECE (Takapuna, Browns Bay,
---   Epsom, Mt Albert, Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2),
---   gym/fitness/yoga/pilates/dance studio (Ponsonby, Newmarket x2, Morningside, Parnell x2,
---   Mission Bay, Mt Eden, St Johns, New Lynn, Rosedale, Albany x2, Henderson x2, Remuera x2,
---   Auckland CBD x3), showrooms (kitchen - Newmarket, furniture - Parnell, tile/bathroom -
---   Ellerslie/Mt Wellington x3, lighting - North Shore/Takapuna x2)
+--   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2), vet
+--   (Albany, Howick, Henderson, Point Chevalier, Balmoral, St Lukes/Sandringham, Manukau, Papatoetoe,
+--   Mt Roskill, Glenfield, Mt Eden, Ellerslie, Glen Eden x2, Takanini, Papakura, Grey Lynn,
+--   Blockhouse Bay), physio (Mt Eden, Botany, Ponsonby, Newmarket x2, Ellerslie x2, Birkenhead,
+--   Devonport, Half Moon Bay, Kingsland), medical/GP clinics (Grey Lynn, Three Kings, Henderson x2),
+--   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert, Pakuranga, Birkdale, Glenfield x2,
+--   Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland), gym/fitness/yoga/pilates/dance studio
+--   (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn x3,
+--   Rosedale, Albany x2, Henderson x2, Remuera x2, Auckland CBD x3), showrooms (kitchen - Newmarket,
+--   furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3, lighting - North Shore/Takapuna x2)
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -570,3 +570,33 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'District Fitness (Auckland CBD)', 'Gym / group fitness studio', 'https://www.districtfitness.co.nz', NULL, '125 Queen Street, Auckland CBD, Auckland 1010', NULL, NULL, 'hello@districtfitness.co.nz', '09 600 2223', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Group-class fitness studio in its own CBD premises. Email hello@districtfitness.co.nz published on the studio''s own site. No named owner found publicly. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('District Fitness (Auckland CBD)'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@districtfitness.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Pt Chevalier Family Dentist', 'Dental clinic', 'https://www.pcfd.co.nz', NULL, '2 Carrington Road, Point Chevalier, Auckland 1022', NULL, NULL, 'info@pcfd.co.nz', '(09) 846 7777', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own premises. Email info@pcfd.co.nz published on the clinic''s own contact page. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Pt Chevalier Family Dentist'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@pcfd.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Point Chevalier Dental', 'Dental clinic', 'https://ptchevalierdental.nz', NULL, '1191A Great North Road, Point Chevalier, Auckland 1022', 'Vilas Patel', 'Contact (role unconfirmed)', 'ptchevdental@gmail.com', '09 846 6440', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own premises. Vilas Patel named as the clinic''s contact on its own site (ptchevalierdental.nz) but role (owner vs dentist) not confirmed. Published ptchevdental@gmail.com reaches the practice. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Point Chevalier Dental'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('ptchevdental@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Childsplay Unlimited (Kingsland)', 'Early childhood education / childcare centre', 'https://childsplayunlimited.co.nz', NULL, '6B Western Springs Road, Kingsland, Auckland 1021', NULL, NULL, 'childsplay.kingsland@hotmail.com', '09 846 8908', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] ECE centre (one of two Childsplay Unlimited sites) in its own Kingsland premises. Email childsplay.kingsland@hotmail.com published on the Education Counts profile. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Childsplay Unlimited (Kingsland)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('childsplay.kingsland@hotmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Blockhouse Bay Veterinary Centre', 'Veterinary clinic', 'https://blockhousebayvets.co.nz', NULL, '24 Donovan Street, Blockhouse Bay, Auckland 0600', NULL, NULL, 'vets@bhbvets.co.nz', '09 626 3456', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own West Auckland premises. Email vets@bhbvets.co.nz published on the clinic''s own contact page. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Blockhouse Bay Veterinary Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('vets@bhbvets.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Invictus Gym (New Lynn)', 'Gym / fitness studio', 'https://invictusgym.co.nz', NULL, '80 Delta Avenue, New Lynn, Auckland 0600', 'Fawad', 'Contact (role unconfirmed)', 'invictus@thepeoplesgym.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Kiwi-owned gym in its own West Auckland premises (per the gym''s own site). Fawad named as a contact on a directory listing but his role is not confirmed as owner/manager. Published invictus@thepeoplesgym.co.nz reaches the gym. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Invictus Gym (New Lynn)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('invictus@thepeoplesgym.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Focus Fitness Gym (New Lynn)', 'Gym / fitness studio', 'https://focusfitnessgym.co.nz', NULL, '2 Margan Avenue, New Lynn, Auckland 0600', NULL, NULL, 'reception@focusfitnessgym.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Gym in its own West Auckland premises. Email reception@focusfitnessgym.co.nz published on the gym''s own site. No named manager found publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Focus Fitness Gym (New Lynn)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@focusfitnessgym.co.nz'));
