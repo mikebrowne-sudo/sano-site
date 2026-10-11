@@ -2,17 +2,19 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 151 | A: 43 | B: 108
+-- Total: 159 | A: 47 | B: 112
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
 --   Titirangi x2, Epsom), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral,
 --   St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill, Glenfield, Mt Eden x2, Ellerslie,
 --   Glen Eden x2, Takanini, Papakura x3 (incl. Franklin Vets), Grey Lynn, Blockhouse Bay, Te Atatu,
---   Birkenhead, Pukekohe (Franklin Vets)), physio (Mt Eden, Botany, Ponsonby, Newmarket x2,
---   Ellerslie x2, Birkenhead, Devonport, Half Moon Bay, Kingsland), medical/GP clinics (Grey Lynn,
---   Three Kings, Henderson x2, Manurewa x2, Te Atatu Peninsula, Botany x2, Browns Bay,
---   Mangere East, Otara, Glenfield), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
+--   Birkenhead, Pukekohe (Franklin Vets), Mangere Bridge), physio (Mt Eden, Botany, Ponsonby,
+--   Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay, Kingsland, Papakura),
+--   medical/GP clinics (Grey Lynn, Three Kings, Henderson x2, Manurewa x2, Te Atatu Peninsula,
+--   Botany x3, Browns Bay, Mangere East, Otara, Glenfield, Remuera, St Heliers, Orakei,
+--   Hobsonville x2, West Harbour, Flat Bush, Howick x1, Papatoetoe x4, Mt Roskill x2, Titirangi),
+--   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
 --   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
 --   Te Atatu South x2, Whitford, Mangere Bridge x2), gym/fitness/yoga/pilates/dance studio
 --   (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn x3,
@@ -778,3 +780,43 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Howick Health and Medical Centre', 'Medical centre / GP clinic', 'https://howickhealth.co.nz', NULL, '108 Ridge Road, Howick, Auckland', NULL, NULL, 'reception@howickhealth.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Ridge Road premises. Email reception@howickhealth.co.nz published on the practice''s own site howickhealth.co.nz. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Howick Health and Medical Centre'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@howickhealth.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'OneCare Health - Papatoetoe', 'Medical centre / GP clinic', NULL, NULL, '230 Great South Road, Papatoetoe, Auckland', 'Jing Yin', 'Practice Manager', 'ocoreception@onecarehealth.co.nz', '(09) 550 2146', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] ProCare-affiliated GP practice in its own Great South Road premises. Practice Manager Jing Yin named on the practice''s Healthpoint listing (healthpoint.co.nz); reception email ocoreception@onecarehealth.co.nz matches own domain onecarehealth.co.nz. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('OneCare Health - Papatoetoe'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('ocoreception@onecarehealth.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Papatoetoe South Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '580 Great South Road, Papatoetoe, Auckland', 'Ahinisha Singla', 'Practice Manager', 'admin@psmc.net.nz', '(09) 279 3200', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] ProCare-affiliated GP practice in its own Great South Road premises. Practice Manager Ahinisha (Anisha) Singla named on the practice''s Healthpoint listing (healthpoint.co.nz); admin@psmc.net.nz matches own domain psmc.net.nz. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Papatoetoe South Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@psmc.net.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Active+ Papakura (Counties Care)', 'Physiotherapy clinic', NULL, NULL, '6-18 O''Shannessey Street, Papakura, Auckland (Counties Medical Integrated Health Centre)', NULL, NULL, 'counties@activeplus.co.nz', '(09) 296 1026', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Physiotherapy clinic (Active+ network) inside the Counties Medical Integrated Health Centre, Papakura, with several physiotherapists and OTs on staff per Healthpoint. Email counties@activeplus.co.nz published on the clinic''s Healthpoint listing (healthpoint.co.nz). No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Active+ Papakura (Counties Care)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('counties@activeplus.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Hunters Corner Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '28 Hoteo Avenue, Papatoetoe, Auckland', 'Wendy', 'Practice Manager', 'reception@hunterscornermedical.co.nz', '(09) 277 8297', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice (appointment-only) in its own Hoteo Avenue premises. Practice Manager Wendy named (first name only) on the practice''s Healthpoint listing (healthpoint.co.nz); reception email reception@hunterscornermedical.co.nz matches own domain. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Hunters Corner Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@hunterscornermedical.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Titirangi Medical Centre Ltd', 'Medical centre / GP clinic', 'https://titirangimc.co.nz', NULL, '2 Rangiwai Road, Titirangi, Auckland', 'Vicki Palmer', 'Practice Manager', 'practicemanager@titirangimc.co.nz', '(09) 817 8069', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Rangiwai Road premises. Practice Manager Vicki Palmer named with a direct email, practicemanager@titirangimc.co.nz, on the practice''s own recruitment listing (via healthpoint.co.nz / RNZCGP jobs board, posted by the practice, dated Aug 2026). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Titirangi Medical Centre Ltd'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('practicemanager@titirangimc.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'The Doctors Mt Roskill', 'Medical centre / GP clinic', NULL, NULL, '464 Richardson Road, Mt Roskill, Auckland', NULL, NULL, 'admin@mr.thedoctors.co.nz', '(09) 626 7750', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice (The Doctors network) in its own Richardson Road premises. Email admin@mr.thedoctors.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('The Doctors Mt Roskill'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@mr.thedoctors.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Local Doctors Mt Roskill (Urgent Care & GP)', 'Medical centre / GP / urgent care clinic', NULL, NULL, '445 Richardson Road, Mt Roskill, Auckland', NULL, NULL, 'pm@medicalcentre1.co.nz', '(09) 627 8552', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP/urgent care practice in its own Richardson Road premises. Practice-management mailbox pm@medicalcentre1.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz). No named holder found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Local Doctors Mt Roskill (Urgent Care & GP)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('pm@medicalcentre1.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Mangere Veterinary Clinic', 'Veterinary clinic', 'https://vetforpet.co.nz', NULL, '95 Coronation Road, Mangere Bridge, Auckland', NULL, NULL, 'mangerevet@xtra.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic (Integrity Animal Care Ltd, also runs Onehunga Veterinary & Pet Supplies) in its own Mangere Bridge premises. Email mangerevet@xtra.co.nz published via the clinic''s own NZVA recruitment listing. No clearly-titled ops contact found (a "Rachel" is named as practice contact on the listing but role is unclear, so left out). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Mangere Veterinary Clinic'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('mangerevet@xtra.co.nz'));
