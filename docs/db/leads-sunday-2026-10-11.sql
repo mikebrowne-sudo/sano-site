@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 189 | A: 61 | B: 128
+-- Total: 191 | A: 62 | B: 129
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -974,3 +974,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Parnell Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '82B Gladstone Road, Parnell, Auckland', NULL, NULL, 'parnellmed@gmail.com', '(09) 377 4427', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Gladstone Road premises. Email parnellmed@gmail.com published on the practice''s own Healthpoint listing (healthpoint.co.nz), reviewed/edited by the practice itself. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Parnell Medical Centre'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('parnellmed@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Balmoral Doctors', 'Medical centre / GP clinic', NULL, NULL, '502 Dominion Road, Mt Eden, Auckland', 'Brenda Brabant', 'Practice Manager', 'reception@balmoraldoctors.co.nz', NULL, 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Dominion Road premises (separate practice from Mt Eden Medical Centre above). Practice Manager Brenda Brabant (with Cathy Milligan as Assistant Manager) named on the practice''s Healthpoint listing (healthpoint.co.nz); reception@balmoraldoctors.co.nz matches own domain on a separate Healthpoint listing for the same practice. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Balmoral Doctors'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@balmoraldoctors.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Three Kings Dental Centre', 'Dental clinic', NULL, NULL, 'Three Kings Plaza, 536 Mount Albert Road, Three Kings, Auckland', NULL, NULL, 'info@3kingsdental.co.nz', '(09) 625 7175', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own premises at Three Kings Plaza. Email info@3kingsdental.co.nz published on the clinic''s Healthpoint listing (healthpoint.co.nz). No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Three Kings Dental Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@3kingsdental.co.nz'));
