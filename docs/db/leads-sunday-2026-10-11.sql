@@ -2,15 +2,16 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 68 | A: 18 | B: 50
+-- Total: 74 | A: 19 | B: 55
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
---   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes), vet (Albany, Howick,
---   Henderson, Point Chevalier, Balmoral, St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill,
---   Glenfield), physio (Mt Eden, Botany, Ponsonby, Newmarket x2, Ellerslie x2, Birkenhead, Devonport),
---   medical/GP clinics (Grey Lynn), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert, Pakuranga,
---   Birkdale, Glenfield x2), gym/fitness/yoga/pilates/dance studio (Ponsonby, Newmarket x2,
---   Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn), showrooms (kitchen -
---   Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3)
+--   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu), vet (Albany,
+--   Howick, Henderson, Point Chevalier, Balmoral, St Lukes/Sandringham, Manukau, Papatoetoe,
+--   Mt Roskill, Glenfield), physio (Mt Eden, Botany, Ponsonby, Newmarket x2, Ellerslie x2, Birkenhead,
+--   Devonport, Half Moon Bay), medical/GP clinics (Grey Lynn, Three Kings), childcare/ECE (Takapuna,
+--   Browns Bay, Epsom, Mt Albert, Pakuranga, Birkdale, Glenfield x2), gym/fitness/yoga/pilates/dance
+--   studio (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn,
+--   Rosedale, Albany x2), showrooms (kitchen - Newmarket, furniture - Parnell,
+--   tile/bathroom - Ellerslie/Mt Wellington x3)
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -351,3 +352,33 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Birkdale Early Learning Centre (Korue)', 'Early childhood education / childcare centre', NULL, NULL, '167 Birkdale Road, Birkdale, Auckland 0626', NULL, NULL, 'koruearlylearningcentre@xtra.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent ECE centre in its own North Shore premises (same road as Nurserydale Childcare in this batch - pair the outreach). Email koruearlylearningcentre@xtra.co.nz published on a directory listing tied to the centre''s own premises. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Birkdale Early Learning Centre (Korue)'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('koruearlylearningcentre@xtra.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Marina Physio', 'Physiotherapy clinic', 'https://marinaphysio.co.nz', NULL, 'Level 1, Compass Building, Ara-Tai, Half Moon Bay, Auckland 2012', 'Derek Timmins', 'Physiotherapist', 'derek.timmins@marinaphysio.co.nz', '(09) 534 4045', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Physiotherapy clinic (5 named practitioners) in its own East Auckland premises. Derek Timmins named on the clinic''s own staff listing with his direct email derek.timmins@marinaphysio.co.nz published via a sports-physiotherapy directory tied to the clinic''s own domain. Role shown as Physiotherapist on the team page - not confirmed as owner/manager, but his personal clinic-domain email supports a named greeting. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Marina Physio'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('derek.timmins@marinaphysio.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'South Auckland Dental & Orthodontics (Otahuhu)', 'Dental clinic', 'https://www.aucklanddental.co.nz', NULL, '21 Hall Avenue, Otahuhu, Auckland 1062', NULL, NULL, 'office@smilesahead.co.nz', '09 270 0200', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental/orthodontic clinic described as locally owned and operated, in its own South Auckland premises. Email office@smilesahead.co.nz published on the clinic''s own site. No reliably-named owner found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('South Auckland Dental & Orthodontics (Otahuhu)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('office@smilesahead.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Pink Fern Fitness (Rosedale)', 'Gym / fitness studio (women-only)', 'https://www.pinkfern.co.nz', NULL, '325 Albany Highway, Rosedale, Auckland 0632', NULL, NULL, 'info@pinkfern.co.nz', '09 419 8198', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Women-only gym in its own North Shore premises. Email info@pinkfern.co.nz published on the gym''s own site. No named manager found publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Pink Fern Fitness (Rosedale)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@pinkfern.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Flex Fitness Albany', 'Gym / fitness club', 'https://www.facebook.com/flexfitnessalbany/', NULL, 'C3/65 Greville Road, Albany, Auckland 0632', NULL, NULL, 'albany@flexfitnessgym.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Gym/fitness club in its own North Shore premises. Email albany@flexfitnessgym.co.nz published on the club''s own Facebook page. No named manager found publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Flex Fitness Albany'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('albany@flexfitnessgym.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Fitstop Albany', 'Gym / fitness studio', 'https://fitstop.com/nz/gyms/akl/albany/', NULL, '252 Oteha Valley Road, Albany, Auckland 0632', NULL, NULL, 'albanynz@fitstop.com', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Locally-run fitness studio franchise location in its own North Shore premises. Email albanynz@fitstop.com published on the studio''s own site. No named local manager found publicly (a global athletic director is named but is not local). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Fitstop Albany'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('albanynz@fitstop.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Three Kings Family Medical Centre', 'Medical centre / GP clinic', 'https://www.tkfmc.co.nz', NULL, '535 Mount Albert Road, Three Kings, Auckland 1042', NULL, NULL, 'reception@tkfmc.co.nz', '(09) 625 8998', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP medical centre in its own premises. Email reception@tkfmc.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Three Kings Family Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@tkfmc.co.nz'));
