@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 222 | A: 70 | B: 152
+-- Total: 224 | A: 70 | B: 154
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -27,7 +27,8 @@
 --   (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn x3,
 --   Rosedale, Albany x3, Henderson x2, Remuera x2, Auckland CBD x3, Panmure), showrooms (kitchen -
 --   Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3,
---   lighting - North Shore/Takapuna x2, furniture - Albany/Wairau Valley, blinds - East Tamaki)
+--   lighting - North Shore/Takapuna x2, furniture - Albany/Wairau Valley, blinds - East Tamaki,
+--   print shop - Glen Eden), childcare/ECE also Karaka
 -- Attempted this batch with thin/no results: accountants (Pukekohe, Botany, Howick), law firms
 --   (Birkenhead, Takapuna/Albany - already well covered by earlier seed files, e.g. Turner Hopkins/
 --   Gaze Burt/Inder Lynch are duplicates - check docs/db/2026-07-*-sales-leads-seed*.sql before adding
@@ -1151,3 +1152,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Blooming Buds Early Learning Centre', 'Early childhood education / childcare centre', NULL, NULL, '373 West Coast Road, Glen Eden, Auckland 0602', NULL, 'Centre Manager', 'manager@bloomingbuds.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent ECE centre in its own West Coast Road premises. Role-addressed email manager@bloomingbuds.co.nz published on the centre''s own recruitment listing (gazette.education.govt.nz) for its Centre Manager role; no personal name given. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Blooming Buds Early Learning Centre'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('manager@bloomingbuds.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Ready Press Print', 'Printing / commercial print shop', 'https://www.readypress.co.nz', 'Family-owned, 39+ years trading', '2 Westech Place, Glen Eden, Auckland 0602', NULL, NULL, 'sales@readypress.co.nz', '09 818 1615', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Family-owned-and-operated commercial print shop (offset/digital/bindery, 39+ years in West Auckland per PrintNZ member listing, printnz.co.nz) in its own Westech Place premises. Sales email sales@readypress.co.nz published on the same listing and matches own domain. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Ready Press Print'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('sales@readypress.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Karaka Learning Centre', 'Early childhood education / childcare centre', NULL, NULL, '113 Harbourside Drive, Karaka, Auckland 2113', NULL, NULL, 'info@karakalearningcentre.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent ECE centre in its own Harbourside Drive premises. Email info@karakalearningcentre.co.nz published on the centre''s own teacher-vacancy listing (littlies.nz) and matches own domain. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Karaka Learning Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@karakalearningcentre.co.nz'));
