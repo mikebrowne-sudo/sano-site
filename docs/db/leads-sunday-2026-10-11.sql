@@ -2,19 +2,19 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 106 | A: 30 | B: 76
+-- Total: 111 | A: 33 | B: 78
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
---   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby), vet (Albany, Howick, Henderson,
---   Point Chevalier, Balmoral, St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill, Glenfield,
---   Mt Eden, Ellerslie, Glen Eden x2, Takanini, Papakura), physio (Mt Eden, Botany, Ponsonby,
---   Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay, Kingsland), medical/GP clinics
---   (Grey Lynn, Three Kings, Henderson x2), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
---   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2), gym/fitness/
---   yoga/pilates/dance studio (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden,
---   St Johns, New Lynn, Rosedale, Albany x2, Henderson x2, Remuera x2), showrooms (kitchen -
---   Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3, lighting - North
---   Shore/Takapuna x2)
+--   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama), vet (Albany, Howick,
+--   Henderson, Point Chevalier, Balmoral, St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill,
+--   Glenfield, Mt Eden, Ellerslie, Glen Eden x2, Takanini, Papakura, Grey Lynn), physio (Mt Eden,
+--   Botany, Ponsonby, Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay, Kingsland),
+--   medical/GP clinics (Grey Lynn, Three Kings, Henderson x2), childcare/ECE (Takapuna, Browns Bay,
+--   Epsom, Mt Albert, Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2),
+--   gym/fitness/yoga/pilates/dance studio (Ponsonby, Newmarket x2, Morningside, Parnell x2,
+--   Mission Bay, Mt Eden, St Johns, New Lynn, Rosedale, Albany x2, Henderson x2, Remuera x2,
+--   Auckland CBD x3), showrooms (kitchen - Newmarket, furniture - Parnell, tile/bathroom -
+--   Ellerslie/Mt Wellington x3, lighting - North Shore/Takapuna x2)
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -545,3 +545,28 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Galaxy Lighting (North Shore)', 'Lighting showroom', 'https://galaxylighting.nz', NULL, '19/18 Link Drive, Wairau Valley, Auckland 0627', NULL, NULL, 'info@galaxylighting.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Lighting showroom with a display floor (same street as Lightingplus in this batch - pair the outreach). Email info@galaxylighting.nz published on the showroom''s own site. No named manager found publicly. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Galaxy Lighting (North Shore)'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@galaxylighting.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Auckland Pet Hospital (Grey Lynn)', 'Veterinary clinic', 'https://aucklandpethospital.co.nz', NULL, '46-48 Pollen Street, Grey Lynn, Auckland 1021', 'Dr Alex Melrose', 'Owner', 'reception@aucklandpethospital.co.nz', '(09) 360 0961', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic (built up since 2004) in its own Grey Lynn premises. Dr Alex Melrose named as the business owner (per a Yelp review cross-referencing the clinic''s own staff listing); published reception@aucklandpethospital.co.nz reaches the practice. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Auckland Pet Hospital (Grey Lynn)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@aucklandpethospital.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Lifestyle Fitness (Auckland CBD)', 'Gym / fitness studio', 'https://lifestylefitness.co.nz', NULL, 'Scene One Apartments, Beach Road, Auckland CBD, Auckland 1010', 'Olenito Peauafi', 'Director', 'memberships@lifestylefitness.co.nz', '09 377 6977', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Gym in its own CBD apartment-building premises. Director Olenito Peauafi named on the gym''s own "About Us" page (lifestylefitness.co.nz); published memberships@lifestylefitness.co.nz reaches the business. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Lifestyle Fitness (Auckland CBD)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('memberships@lifestylefitness.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Reform Fitness (Commercial Bay)', 'Pilates / reformer studio', 'https://reformfitness.co.nz/studios/commercial-bay/', NULL, 'Level 2, 7 Queen Street, Auckland CBD, Auckland 1010', 'Stella Kang', 'Studio Owner', 'commercialbay@reformfitness.co.nz', NULL, 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Reformer Pilates studio inside Commercial Bay. Studio Owner Stella Kang named on the studio''s own page (reformfitness.co.nz/studios); published commercialbay@reformfitness.co.nz reaches the studio directly. Owner-operator = fast decision. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Reform Fitness (Commercial Bay)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('commercialbay@reformfitness.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Kohimarama Dental Centre', 'Dental clinic', 'https://kohimaramadental.co.nz', NULL, '303c Kepa Road, Kohimarama, Auckland 1071', NULL, NULL, 'info@kohimaramadental.co.nz', '09 528 7996', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own East Auckland premises. Email info@kohimaramadental.co.nz published on the clinic''s own site. Dr Raj Thathiah is named as a dentist but current ownership is not confirmed, so no name used. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Kohimarama Dental Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@kohimaramadental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'District Fitness (Auckland CBD)', 'Gym / group fitness studio', 'https://www.districtfitness.co.nz', NULL, '125 Queen Street, Auckland CBD, Auckland 1010', NULL, NULL, 'hello@districtfitness.co.nz', '09 600 2223', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Group-class fitness studio in its own CBD premises. Email hello@districtfitness.co.nz published on the studio''s own site. No named owner found publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('District Fitness (Auckland CBD)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@districtfitness.co.nz'));
