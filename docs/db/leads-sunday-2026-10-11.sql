@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 238 | A: 76 | B: 162
+-- Total: 239 | A: 76 | B: 163
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -1249,3 +1249,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Advantage Chiropractic (Rosedale)', 'Chiropractic clinic', 'https://www.advantagechiropractic.co.nz', NULL, '101 Apollo Drive, Rosedale, Auckland 0632', 'Dr Leah Mendes', 'Principal Chiropractor & Director', 'rosedale@advantagechiropractic.co.nz', '021 0818 2838', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Second site of the Advantage Chiropractic group (sister branch to the Glenfield lead already in this file) in its own Apollo Drive premises, Rosedale - separate physical location so added as its own lead. Branch email rosedale@advantagechiropractic.co.nz published on the clinic''s Healthpoint listing (healthpoint.co.nz), matching the clinic''s own domain. Dr Leah Mendes (Principal Chiropractor & Director) and co-director Tomas Mendes run both sites; on-site practitioner at Rosedale is Dr Anjali Patel. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Advantage Chiropractic (Rosedale)'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('rosedale@advantagechiropractic.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Resilience Clinical Psychology', 'Psychology / counselling clinic', 'https://www.resiliencepsychology.co.nz', NULL, '89A College Hill, Freemans Bay, Auckland', 'Kirsten Wooff', 'Psychologist', 'kirsten@resiliencepsychology.co.nz', '09 390 0040', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Clinical psychology practice in its own College Hill premises, Freemans Bay - fresh vertical for this suburb (prior leads there were medical/GP). Named psychologist Kirsten Wooff with email kirsten@resiliencepsychology.co.nz confirmed on two independent sources (NZ College of Clinical Psychologists directory at nzccp.co.nz and a job listing), matching the practice''s own domain. Role listed only as Psychologist, not confirmed as owner/director, so graded B despite the named contact. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Resilience Clinical Psychology'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('kirsten@resiliencepsychology.co.nz'));
