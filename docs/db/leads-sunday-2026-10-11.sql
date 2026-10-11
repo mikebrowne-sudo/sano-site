@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 212 | A: 68 | B: 144
+-- Total: 217 | A: 70 | B: 147
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -12,7 +12,8 @@
 --   Glen Eden x2, Takanini, Papakura x3 (incl. Franklin Vets), Grey Lynn, Blockhouse Bay, Te Atatu,
 --   Birkenhead, Pukekohe (Franklin Vets), Mangere Bridge, Karaka (Franklin Vets)), physio (Mt Eden, Botany, Ponsonby,
 --   Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay, Kingsland, Papakura, Howick,
---   Clendon Park/Manurewa), medical/GP clinics (Grey Lynn, Three Kings, Henderson x2, Manurewa x2, Te Atatu Peninsula,
+--   Clendon Park/Manurewa), optometry (Onehunga), law firms (Epsom - fresh vertical this batch),
+--   medical/GP clinics (Grey Lynn, Three Kings, Henderson x2, Manurewa x2, Te Atatu Peninsula,
 --   Botany x3, Browns Bay, Mangere East, Otara, Glenfield, Remuera, St Heliers, Orakei,
 --   Hobsonville x2, West Harbour, Flat Bush, Howick x1, Papatoetoe x4, Mt Roskill x2, Titirangi,
 --   Royal Oak, Onehunga x3, Epsom x2, Highland Park, Mt Roskill x3, Te Atatu South x3, Howick,
@@ -21,20 +22,24 @@
 --   Waiuku), osteopathy (Westmere), pilates/yoga (Hobsonville Point x3),
 --   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
 --   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
---   Te Atatu South x2, Whitford, Mangere Bridge x2, Papatoetoe x2), gym/fitness/yoga/pilates/dance studio
+--   Te Atatu South x2, Whitford, Mangere Bridge x2, Papatoetoe x2, Panmure), gym/fitness/yoga/pilates/dance studio
 --   (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn x3,
---   Rosedale, Albany x3, Henderson x2, Remuera x2, Auckland CBD x3), showrooms (kitchen -
+--   Rosedale, Albany x3, Henderson x2, Remuera x2, Auckland CBD x3, Panmure), showrooms (kitchen -
 --   Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3,
---   lighting - North Shore/Takapuna x2, furniture - Albany/Wairau Valley)
+--   lighting - North Shore/Takapuna x2, furniture - Albany/Wairau Valley, blinds - East Tamaki)
 -- Attempted this batch with thin/no results: accountants (Pukekohe, Botany, Howick), law firms
---   (Birkenhead), body corporate managers, podiatry, audiology (further suburbs), dermatology/skin,
---   counselling/psychology, real estate branches (Barfoot/Harcourts), medical/GP (Pakuranga-Tend
---   chain skipped, Mangere, Mt Wellington, Three Kings, Otahuhu, Pukekohe, Papakura - named managers
---   found but no visible email), vet (Pakuranga, Half Moon Bay/Highland Park), gyms (Papatoetoe,
---   Birkenhead/Northcote, Flat Bush/Highland Park), martial arts/dance/yoga studios (Auckland-wide) -
---   mostly directory noise or redacted email fields, no verifiable named contact + email found;
---   skipped rather than guessed. Note: Barnardos/Lumino/Tend-branded locations skipped as likely
---   centrally procured chains even where a named contact was found.
+--   (Birkenhead, Takapuna/Albany - already well covered by earlier seed files, e.g. Turner Hopkins/
+--   Gaze Burt/Inder Lynch are duplicates - check docs/db/2026-07-*-sales-leads-seed*.sql before adding
+--   any law/accounting/insurance firm), body corporate managers, podiatry, audiology (further
+--   suburbs), dermatology/skin, counselling/psychology, real estate branches (Barfoot/Harcourts),
+--   medical/GP (Pakuranga-Tend chain skipped, Mangere, Mt Wellington, Three Kings, Otahuhu, Pukekohe,
+--   Papakura - named managers found but no visible email), vet (Pakuranga, Half Moon Bay/Highland
+--   Park, Mt Wellington), gyms (Papatoetoe, Birkenhead/Northcote, Flat Bush/Highland Park, Mt
+--   Wellington - CityFitness/BFT are chains), martial arts/dance/yoga studios (Auckland-wide),
+--   chiropractors/optometrists (further suburbs, most redacted) - mostly directory noise or
+--   redacted email fields, no verifiable named contact + email found; skipped rather than guessed.
+--   Note: Barnardos/Lumino/Tend/Kindercare/Little Earth Montessori/CurtainStudio-branded locations
+--   skipped as likely centrally procured chains even where a named contact or branch email was found.
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -1095,3 +1100,28 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Little Kiwis Early Learning Centre', 'Early childhood education / childcare centre', NULL, NULL, '20 Norman Spencer Drive, Papatoetoe, Auckland 2025', NULL, NULL, 'littlekiwis@gmail.com', '(09) 278 9833', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent ECE centre in its own Norman Spencer Drive premises. Email littlekiwis@gmail.com published as the centre''s own contact on its littlies.nz service listing. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Little Kiwis Early Learning Centre'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('littlekiwis@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Penney Patel Law', 'Law firm', NULL, '2+ partners (small firm)', '1 Kimberley Road, Epsom, Auckland 1023', 'Anand Kumar Singh', 'Partner', 'anand@penneypatel.co.nz', '09 623 0402', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Small Epsom law firm in its own office. Partner Anand Kumar Singh named (and confirmed as a partner on the NZ Law Society register, lawsociety.org.nz) with his direct email anand@penneypatel.co.nz on the NZ Society of Notaries business listing (notarypublic.org.nz). Second partner Denise Mary Wilson also on the Law Society register. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Penney Patel Law'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('anand@penneypatel.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Auckland Optometrists', 'Optometry / eye care clinic', 'https://www.aucklandoptometrists.co.nz', NULL, '109A Trafalgar Street, Onehunga, Auckland 1061', NULL, NULL, 'info@aucklandoptometrists.com', '(09) 636 3639', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent optometry practice (not part of a national optical chain) in its own Trafalgar Street premises. Email info@aucklandoptometrists.com published on the practice''s Healthpoint listing (healthpoint.co.nz). Two optometrists (Janice Teo, Shahin Khayami) named on staff but ownership not confirmed, so left blank. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Auckland Optometrists'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@aucklandoptometrists.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Maximus Fitness (Panmure)', 'Gym / fitness studio', NULL, NULL, '22-50 Dunkirk Road, Panmure, Auckland 1006', 'Mani', 'Owner', 'maximusfitness1412@gmail.com', NULL, 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Independent owner-operated gym (est. 2012, two Auckland sites) in its own Dunkirk Road premises. Owner Mani named with his own contact on a PlaySport business listing (playsport.com); email maximusfitness1412@gmail.com published as the gym''s own contact on the same listing. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Maximus Fitness (Panmure)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('maximusfitness1412@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Panmure Bridge Childcare', 'Early childhood education / childcare centre', 'https://panmurebridgechildcare.co.nz', NULL, '43 Caen Road, Panmure, Auckland 1072', 'Candy Wu', NULL, 'candyw@panmurebridgechildcare.co.nz', '(09) 527 1165', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent ECE centre in its own Caen Road premises. Named contact Candy Wu and her direct email candyw@panmurebridgechildcare.co.nz published on a teacher-vacancy notice on the Ministry of Education gazette (gazette.education.govt.nz); her title wasn''t stated there so left blank, but she is clearly the centre''s point of contact. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Panmure Bridge Childcare'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('candyw@panmurebridgechildcare.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Home Vision Blinds', 'Blinds / window furnishings showroom', NULL, 'Small family business', '1 Analie Place, East Tamaki, Auckland 2013', 'Chris', NULL, 'chris@homevisionblinds.co.nz', '021 771 778', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small family-run blinds/window-furnishings showroom in its own East Tamaki premises. Named personal email chris@homevisionblinds.co.nz published on the business''s own listing; role not confirmed so left blank, but a first-name@owndomain address on a small family business is a strong proxy for the owner. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Home Vision Blinds'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('chris@homevisionblinds.co.nz'));
