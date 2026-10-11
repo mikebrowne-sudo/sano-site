@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 182 | A: 59 | B: 123
+-- Total: 186 | A: 61 | B: 125
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -16,7 +16,8 @@
 --   Hobsonville x2, West Harbour, Flat Bush, Howick x1, Papatoetoe x4, Mt Roskill x2, Titirangi,
 --   Royal Oak, Onehunga x3, Epsom x2, Highland Park, Mt Roskill x3, Te Atatu South x3, Howick,
 --   Meadowbank x2, Mangere Bridge x2, Drury, Forrest Hill, Birkenhead, Devonport x2, Takapuna x2,
---   Swanson, Mt Eden, Freemans Bay), osteopathy (Westmere),
+--   Swanson, Mt Eden, Freemans Bay, Hobsonville x3), osteopathy (Westmere), pilates/yoga
+--   (Hobsonville Point x3),
 --   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
 --   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
 --   Te Atatu South x2, Whitford, Mangere Bridge x2), gym/fitness/yoga/pilates/dance studio
@@ -938,3 +939,23 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Health Within Osteopathy', 'Osteopathy clinic', NULL, NULL, '141 Garnet Road, Westmere, Auckland 1022', NULL, NULL, 'info@healthwithin.co.nz', '(09) 376 1980', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Osteopathy clinic with several practitioners, in its own Garnet Road premises. Email info@healthwithin.co.nz published on the clinic''s Healthpoint listing (healthpoint.co.nz). No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Health Within Osteopathy'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@healthwithin.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'pilatesFIT Boutique', 'Pilates studio', 'https://www.pilatesfitboutique.co.nz', NULL, '1/3 Boundary Road, Hobsonville Point, Auckland', 'Chelsea Kawana', 'Owner', 'chelsea@pilatesfitboutique.co.nz', NULL, 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Reformer/mat Pilates studio in its own Hobsonville Point premises. Owner Chelsea Kawana named in a Hobsonville Point community news profile (hobsonvillepoint.co.nz, "Focusing on fitness"), with her direct email chelsea@pilatesfitboutique.co.nz given in the same article. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('pilatesFIT Boutique'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('chelsea@pilatesfitboutique.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Indie Yoga (Hobsonville Point)', 'Yoga studio', NULL, NULL, 'Hobsonville Point Road, Hobsonville, Auckland', 'Kyleigh Burniston', 'Owner', 'kyleighb.yoga@gmail.com', NULL, 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Yoga studio in its own Hobsonville Point premises, next to pilatesFIT Boutique. Owner Kyleigh Burniston (20 years teaching yoga) named with her direct email in a Hobsonville Point community news profile (hobsonvillepoint.co.nz, "Focusing on fitness"). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Indie Yoga (Hobsonville Point)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('kyleighb.yoga@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Studio Pilates Hobsonville', 'Pilates studio', 'https://www.studiopilates.com', NULL, 'Hobson Building, Level 1, 98 Hobsonville Road, Hobsonville, Auckland', NULL, NULL, 'hobsonville@studiopilates.com', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Reformer Pilates studio (Studio Pilates International franchise, locally run) in its own Hobsonville Road premises. Studio email hobsonville@studiopilates.com published via the franchise''s own listing. No named local ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Studio Pilates Hobsonville'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('hobsonville@studiopilates.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Hobsonville Point Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '3A/160 Hobsonville Point Road, Hobsonville, Auckland 0618', NULL, NULL, 'admin@hvpm.co.nz', '(09) 222 0381', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Hobsonville Point Road premises (separate practice from Hobsonville Health/Hobsonville Family Doctors above). Email admin@hvpm.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Hobsonville Point Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@hvpm.co.nz'));
