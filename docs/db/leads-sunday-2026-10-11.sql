@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 233 | A: 75 | B: 158
+-- Total: 234 | A: 75 | B: 159
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -31,7 +31,20 @@
 --   Rosedale, Albany x3, Henderson x2, Remuera x2, Auckland CBD x3, Panmure), showrooms (kitchen -
 --   Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3,
 --   lighting - North Shore/Takapuna x2, furniture - Albany/Wairau Valley, blinds - East Tamaki,
---   print shop - Glen Eden), childcare/ECE also Karaka
+--   print shop - Glen Eden), childcare/ECE also Karaka, optometry also Albany (general email only)
+-- 00:05 NZ run (12:05am firing): WebFetch tool was returning DNS resolution failures for every
+--   domain tried this session (including unrelated domains), so site contact pages could not be
+--   opened directly to unmask redacted directory emails - only WebSearch worked. Tried dental
+--   (Te Atatu, Massey, Ranui, Mangere, Favona), vet (Mt Albert, Avondale), podiatry (Takapuna/
+--   Pukekohe - named Mohammad Algharaibeh/James Baxter but emails redacted in search snippets),
+--   audiology (Remuera/Hobsonville - named Peter Stubbing/Phoebe Franklin but emails redacted),
+--   medical imaging/radiology (no named manager, all central group lines), beauty/medispa (named
+--   owners Jay Ann Eberhart/Ji Son Lee but no email found), dance/martial arts (Claudio Martinez
+--   named, no email), accounting (Anita Chan/Andrew Neill named at SBA branches but emails
+--   redacted) - all skipped per the no-guessing rule rather than constructing an address. Only
+--   Albany Optometrists (below) had an unredacted, source-confirmed email. Next run: retry these
+--   same leads once WebFetch/site access is working again - several have named contacts just
+--   missing a verifiable email.
 -- Attempted this batch with thin/no results: accountants (Pukekohe, Botany, Howick), law firms
 --   (Birkenhead, Takapuna/Albany - already well covered by earlier seed files, e.g. Turner Hopkins/
 --   Gaze Burt/Inder Lynch are duplicates - check docs/db/2026-07-*-sales-leads-seed*.sql before adding
@@ -1210,3 +1223,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'All Care Family Medical Centre (Northcote)', 'Medical centre / GP clinic', NULL, NULL, 'Northcote, Auckland 0627', 'Jenny Goldsmith', 'Practice Manager', 'reception@allcarefamilymedical.com', NULL, 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Northcote premises (part of a small two-site group with a Ponsonby clinic, each locally staffed). Practice Manager Jenny Goldsmith named - she personally signs the practice''s review replies on Healthpoint (healthpoint.co.nz) as "Practice Manager-Nurse". Email reception@allcarefamilymedical.com published on the same listing. Exact street address not independently confirmed - verify premises before contacting. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('All Care Family Medical Centre (Northcote)'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@allcarefamilymedical.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Albany Optometrists', 'Optometry clinic', 'https://www.albanyoptometrists.co.nz', NULL, '44 Corinthian Drive, Albany, Auckland 0632', NULL, NULL, 'info@albanyoptometrists.co.nz', '(09) 414 4484', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent optometry practice in its own fitted-out premises on Corinthian Drive, Albany - fresh vertical for this suburb (only one prior optometry lead, Onehunga, in the file). General practice email info@albanyoptometrists.co.nz and phone confirmed via MyHealth1st listing (info.myhealth1st.com.au) matching the practice''s own domain; Healthpoint confirms same address/phone. No named decision-maker found publicly (team names listed but no manager/owner role tagged), so graded B. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Albany Optometrists'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@albanyoptometrists.co.nz'));
