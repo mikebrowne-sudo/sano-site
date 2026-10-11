@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 219 | A: 70 | B: 149
+-- Total: 222 | A: 70 | B: 152
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -19,10 +19,11 @@
 --   Royal Oak, Onehunga x3, Epsom x2, Highland Park, Mt Roskill x3, Te Atatu South x3, Howick,
 --   Meadowbank x2, Mangere Bridge x2, Drury, Forrest Hill, Birkenhead, Devonport x2, Takapuna x2,
 --   Swanson, Mt Eden, Freemans Bay, Hobsonville x3, Point Chevalier, Parnell, Avondale, Manukau x2,
---   Waiuku), osteopathy (Westmere), pilates/yoga (Hobsonville Point x3),
+--   Waiuku, Te Atatu), osteopathy (Westmere), pilates/yoga (Hobsonville Point x3),
+--   training centres (Onehunga - first aid/workplace),
 --   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
 --   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
---   Te Atatu South x2, Whitford, Mangere Bridge x2, Papatoetoe x2, Panmure), gym/fitness/yoga/pilates/dance studio
+--   Te Atatu South x2, Whitford, Mangere Bridge x2, Papatoetoe x2, Panmure, Glen Eden), gym/fitness/yoga/pilates/dance studio
 --   (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn x3,
 --   Rosedale, Albany x3, Henderson x2, Remuera x2, Auckland CBD x3, Panmure), showrooms (kitchen -
 --   Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3,
@@ -1135,3 +1136,18 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Mangere East Physiotherapy', 'Physiotherapy clinic', 'https://mangerephysio.co.nz', NULL, '6 Savill Drive, Mangere East, Auckland 2024', NULL, NULL, 'mangerephysio.reception@gmail.com', '(09) 276 7632', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent physiotherapy clinic serving Mangere, Otahuhu and Papatoetoe, in its own Savill Drive premises. Email mangerephysio.reception@gmail.com published on the clinic''s own listing. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Mangere East Physiotherapy'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('mangerephysio.reception@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'MediTrain', 'First aid / workplace training centre', NULL, NULL, '21 Church Street, Onehunga, Auckland 1061', 'Adrian Brown', NULL, 'adrian@meditrain.co.nz', '09 636 1377', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Long-established (NZQA/WorkSafe/MoE-approved) first aid and workplace training provider in its own Church Street premises. Named contact Adrian Brown and his direct email adrian@meditrain.co.nz published in the company''s own training proposal PDF (hosted on playcentre.org.nz); his title wasn''t stated there so left blank. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('MediTrain'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('adrian@meditrain.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Te Atatu Health', 'Medical centre / GP clinic', NULL, NULL, '544B Te Atatu Road, Te Atatu, Auckland 0610', NULL, NULL, 'admin@tahealth.co.nz', '(09) 900 1111', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice (run by doctors Marcus Bishop, Matthew Woollett and Rachel Mattock) in its own Te Atatu Road premises. Admin email admin@tahealth.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz); confirm still current on first contact as a newer cached version of the listing leaves the field blank. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Te Atatu Health'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@tahealth.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Blooming Buds Early Learning Centre', 'Early childhood education / childcare centre', NULL, NULL, '373 West Coast Road, Glen Eden, Auckland 0602', NULL, 'Centre Manager', 'manager@bloomingbuds.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent ECE centre in its own West Coast Road premises. Role-addressed email manager@bloomingbuds.co.nz published on the centre''s own recruitment listing (gazette.education.govt.nz) for its Centre Manager role; no personal name given. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Blooming Buds Early Learning Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('manager@bloomingbuds.co.nz'));
