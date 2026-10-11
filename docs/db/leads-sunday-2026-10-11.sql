@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 205 | A: 67 | B: 138
+-- Total: 206 | A: 68 | B: 138
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -1054,3 +1054,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Browns Bay Medical Centre', 'Medical centre / GP clinic', NULL, '10 GPs, 6 nurses, 6 receptionists', '13-15 Bute Road, Browns Bay, Auckland 0630', NULL, NULL, 'admin@brownsbaymed.co.nz', '(09) 479 5422', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Sizeable GP practice (10 GPs, 6 nurses, 6 receptionists per own listing) in its own Bute Road premises. Admin email admin@brownsbaymed.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz); confirm it is still current on first contact as a different cached version of the same listing leaves the field blank. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Browns Bay Medical Centre'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@brownsbaymed.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Teresa Burns Hearing', 'Audiology / hearing clinic', NULL, NULL, '25 Apollo Drive, Rosedale, Auckland 0632', 'Teresa Burns', 'Owner', 'teresa@teresaburnshearing.co.nz', '(09) 475 9849', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Independently NZ-owned-and-operated audiology/hearing clinic in its own Apollo Drive premises, not aligned to a hearing-aid manufacturer. Owner Teresa Burns named with her direct email, teresa@teresaburnshearing.co.nz, in the clinic''s own recruitment flyer (audiology.org.nz). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Teresa Burns Hearing'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('teresa@teresaburnshearing.co.nz'));
