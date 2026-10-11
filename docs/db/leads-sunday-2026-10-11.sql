@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 187 | A: 61 | B: 126
+-- Total: 189 | A: 61 | B: 128
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -16,8 +16,8 @@
 --   Hobsonville x2, West Harbour, Flat Bush, Howick x1, Papatoetoe x4, Mt Roskill x2, Titirangi,
 --   Royal Oak, Onehunga x3, Epsom x2, Highland Park, Mt Roskill x3, Te Atatu South x3, Howick,
 --   Meadowbank x2, Mangere Bridge x2, Drury, Forrest Hill, Birkenhead, Devonport x2, Takapuna x2,
---   Swanson, Mt Eden, Freemans Bay, Hobsonville x3), osteopathy (Westmere), pilates/yoga
---   (Hobsonville Point x3),
+--   Swanson, Mt Eden, Freemans Bay, Hobsonville x3, Point Chevalier, Parnell), osteopathy
+--   (Westmere), pilates/yoga (Hobsonville Point x3),
 --   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
 --   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
 --   Te Atatu South x2, Whitford, Mangere Bridge x2), gym/fitness/yoga/pilates/dance studio
@@ -964,3 +964,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Franklin Vets Karaka', 'Veterinary clinic', 'https://www.franklinvets.co.nz', NULL, 'Unit A1, 75 Hingaia Road, Karaka, Auckland 2113', NULL, NULL, 'karaka@fvs.co.nz', '(09) 298 7043', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic, part of the Franklin Vets group (separate location from the Pukekohe and Papakura clinics already listed above), in its own Karaka premises. Clinic email karaka@fvs.co.nz published on the group''s own contact page (shop.franklinvets.co.nz/contact/karaka). No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Franklin Vets Karaka'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('karaka@fvs.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Point Chevalier Medical & Surgical Centre', 'Medical centre / GP clinic', 'https://ptchevmedical.co.nz', NULL, '1181 Great North Road, Point Chevalier, Auckland 1022', NULL, NULL, 'admin@ptchevmedical.co.nz', '(09) 846 6244', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Great North Road premises. Email admin@ptchevmedical.co.nz matches own domain ptchevmedical.co.nz (confirmed via a community directory listing, not visible directly on Healthpoint). No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Point Chevalier Medical & Surgical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@ptchevmedical.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Parnell Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '82B Gladstone Road, Parnell, Auckland', NULL, NULL, 'parnellmed@gmail.com', '(09) 377 4427', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Gladstone Road premises. Email parnellmed@gmail.com published on the practice''s own Healthpoint listing (healthpoint.co.nz), reviewed/edited by the practice itself. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Parnell Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('parnellmed@gmail.com'));
