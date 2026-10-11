@@ -2,12 +2,12 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 231 | A: 74 | B: 157
+-- Total: 233 | A: 75 | B: 158
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
 --   Titirangi x2, Epsom, Browns Bay, Albany, Pakuranga, Manurewa, Three Kings, Forrest Hill/Sunnynook,
---   Mt Wellington, Otahuhu),
+--   Mt Wellington, Otahuhu, Northpark, Northcote),
 --   audiology/hearing (Rosedale), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral,
 --   St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill, Glenfield, Mt Eden x2, Ellerslie,
 --   Glen Eden x2, Takanini, Papakura x3 (incl. Franklin Vets), Grey Lynn, Blockhouse Bay, Te Atatu,
@@ -1200,3 +1200,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Maxcare Dental', 'Dental clinic', NULL, NULL, 'Great South Road, Otahuhu, Auckland 1062', 'Dr Tazeen Khan', NULL, 'info@maxcaredental.co.nz', '09-600 2266', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Dental clinic (sites in Otahuhu and Massey) in its own Great South Road premises. Dentist Dr Tazeen Khan named on the clinic''s own listing; her ownership of the practice isn''t confirmed so role left blank. Email info@maxcaredental.co.nz matches the clinic''s own domain. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Maxcare Dental'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@maxcaredental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Millhouse Integrative Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '128-130 Millhouse Drive, Northpark, Auckland 2013', NULL, NULL, 'reception@millhousemedical.co.nz', '(09) 537 4980', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Millhouse Drive premises. Email reception@millhousemedical.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Millhouse Integrative Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@millhousemedical.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'All Care Family Medical Centre (Northcote)', 'Medical centre / GP clinic', NULL, NULL, 'Northcote, Auckland 0627', 'Jenny Goldsmith', 'Practice Manager', 'reception@allcarefamilymedical.com', NULL, 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Northcote premises (part of a small two-site group with a Ponsonby clinic, each locally staffed). Practice Manager Jenny Goldsmith named - she personally signs the practice''s review replies on Healthpoint (healthpoint.co.nz) as "Practice Manager-Nurse". Email reception@allcarefamilymedical.com published on the same listing. Exact street address not independently confirmed - verify premises before contacting. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('All Care Family Medical Centre (Northcote)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@allcarefamilymedical.com'));
