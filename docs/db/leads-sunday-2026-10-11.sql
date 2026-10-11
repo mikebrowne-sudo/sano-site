@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 180 | A: 58 | B: 122
+-- Total: 182 | A: 59 | B: 123
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -16,7 +16,7 @@
 --   Hobsonville x2, West Harbour, Flat Bush, Howick x1, Papatoetoe x4, Mt Roskill x2, Titirangi,
 --   Royal Oak, Onehunga x3, Epsom x2, Highland Park, Mt Roskill x3, Te Atatu South x3, Howick,
 --   Meadowbank x2, Mangere Bridge x2, Drury, Forrest Hill, Birkenhead, Devonport x2, Takapuna x2,
---   Swanson, Mt Eden),
+--   Swanson, Mt Eden, Freemans Bay), osteopathy (Westmere),
 --   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
 --   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
 --   Te Atatu South x2, Whitford, Mangere Bridge x2), gym/fitness/yoga/pilates/dance studio
@@ -928,3 +928,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Mt Eden Medical Centre', 'Medical centre / GP clinic', 'https://www.memc.co.nz', NULL, '457 Mount Eden Road, Mount Eden, Auckland 1024', 'Angela Patel', 'Practice Manager', 'memc@memc.co.nz', '(09) 638 8718', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Mount Eden Road premises. Practice Manager Angela Patel named on the practice''s Healthpoint listing (healthpoint.co.nz) as the contact for service feedback; memc@memc.co.nz matches own domain memc.co.nz. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Mt Eden Medical Centre'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('memc@memc.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Freemans Bay Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '100 Wellington Street, Freemans Bay, Auckland', 'Naomi Lorimer', 'Practice Manager', 'practicemanager@fbmc.co.nz', '(09) 378 6653', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Wellington Street premises. Practice Manager Naomi Lorimer named with a direct email, practicemanager@fbmc.co.nz, on the practice''s own GP recruitment listing (via healthpoint.co.nz / RNZCGP jobs board, posted by the practice). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Freemans Bay Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('practicemanager@fbmc.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Health Within Osteopathy', 'Osteopathy clinic', NULL, NULL, '141 Garnet Road, Westmere, Auckland 1022', NULL, NULL, 'info@healthwithin.co.nz', '(09) 376 1980', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Osteopathy clinic with several practitioners, in its own Garnet Road premises. Email info@healthwithin.co.nz published on the clinic''s Healthpoint listing (healthpoint.co.nz). No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Health Within Osteopathy'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@healthwithin.co.nz'));
