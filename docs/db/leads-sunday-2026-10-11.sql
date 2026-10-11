@@ -2,16 +2,17 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 74 | A: 19 | B: 55
+-- Total: 83 | A: 22 | B: 61
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
---   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu), vet (Albany,
---   Howick, Henderson, Point Chevalier, Balmoral, St Lukes/Sandringham, Manukau, Papatoetoe,
---   Mt Roskill, Glenfield), physio (Mt Eden, Botany, Ponsonby, Newmarket x2, Ellerslie x2, Birkenhead,
---   Devonport, Half Moon Bay), medical/GP clinics (Grey Lynn, Three Kings), childcare/ECE (Takapuna,
---   Browns Bay, Epsom, Mt Albert, Pakuranga, Birkdale, Glenfield x2), gym/fitness/yoga/pilates/dance
---   studio (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn,
---   Rosedale, Albany x2), showrooms (kitchen - Newmarket, furniture - Parnell,
---   tile/bathroom - Ellerslie/Mt Wellington x3)
+--   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
+--   Howick), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral, St Lukes/Sandringham, Manukau,
+--   Papatoetoe, Mt Roskill, Glenfield, Mt Eden, Ellerslie), physio (Mt Eden, Botany, Ponsonby,
+--   Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay), medical/GP clinics (Grey Lynn,
+--   Three Kings), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert, Pakuranga, Birkdale,
+--   Glenfield x2, Otara/Flat Bush, Botany x2), gym/fitness/yoga/pilates/dance studio (Ponsonby,
+--   Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn, Rosedale,
+--   Albany x2), showrooms (kitchen - Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt
+--   Wellington x3)
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -382,3 +383,48 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Three Kings Family Medical Centre', 'Medical centre / GP clinic', 'https://www.tkfmc.co.nz', NULL, '535 Mount Albert Road, Three Kings, Auckland 1042', NULL, NULL, 'reception@tkfmc.co.nz', '(09) 625 8998', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP medical centre in its own premises. Email reception@tkfmc.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Three Kings Family Medical Centre'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@tkfmc.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Creative Garden ELC (Dawson)', 'Early childhood education / childcare centre', 'https://www.creativegarden.nz', NULL, '100 Dawson Road, Otara, Auckland 2023', 'Mukesh Garg & Komal Mangla', 'Owners', 'dawson@creativegarden.nz', '+64 9 273 9688', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Independently-owned ECE centre in its own South Auckland premises. Owners Mukesh Garg and Komal Mangla named on the centre''s own listing; published dawson@creativegarden.nz reaches them directly. Owner-operator = fast decision on a cleaning contract. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Creative Garden ELC (Dawson)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('dawson@creativegarden.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Mt Eden Veterinary Clinic', 'Veterinary clinic', 'https://www.mtedenvet.nz', NULL, '455A Mt Eden Road, Mount Eden, Auckland 1024', 'Dr Andrew', 'Owner-Operator Veterinarian', 'mtedenvets@gmail.com', '09-623-7387', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own Mt Eden premises. The clinic''s own "About Us" page (mtedenvet.nz) describes itself as owner-operated and names Dr Andrew; published mtedenvets@gmail.com reaches him directly. Owner-operator = fast decision. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Mt Eden Veterinary Clinic'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('mtedenvets@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Macleans Dentist', 'Dental clinic', 'https://macleansdentist.co.nz', NULL, '219 Bucklands Beach Road, Howick, Auckland 2014', 'Dr Shahba Faraj', 'Dentist', 'macleansdentist@gmail.com', NULL, 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own East Auckland premises. Dr Shahba Faraj named on the clinic''s own site as a long-time local dentist; published macleansdentist@gmail.com reaches the practice. Role not explicitly stated as owner, but she is the clinic''s named face. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Macleans Dentist'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('macleansdentist@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Flat Bush Dental', 'Dental clinic', NULL, NULL, '201 Murphys Road, Flat Bush, Auckland 2016', NULL, NULL, 'flatbushdental2018@gmail.com', '09-930 8315', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own South Auckland premises. Email flatbushdental2018@gmail.com published on the clinic''s own Facebook page. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Flat Bush Dental'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('flatbushdental2018@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Botany South Dental', 'Dental clinic', 'https://botanysouthdental.co.nz', NULL, '2A/302 Te Irirangi Drive, Flat Bush, Auckland 2016', NULL, NULL, 'info@botanysouthdental.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own South Auckland premises; the practice''s own "about us" page describes a female founder who bought the practice with a named partner, but no surnames are given, so no name used. Email info@botanysouthdental.co.nz published on the clinic''s own site. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Botany South Dental'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@botanysouthdental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Chapel Park Dental', 'Dental clinic', 'https://www.chapelparkdental.co.nz', NULL, '140 Chapel Road, Flat Bush, Auckland 2016', NULL, NULL, 'dentist@chapelparkdental.co.nz', '09 272 8488', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own South Auckland premises. Email dentist@chapelparkdental.co.nz published on the clinic''s own contact page. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Chapel Park Dental'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('dentist@chapelparkdental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Kiwi Supertots (Botany)', 'Early childhood education / childcare centre', 'https://kiwisupertots.co.nz', NULL, '37 Bishop Dunn Place, Botany, Auckland 2010', NULL, NULL, 'nader@kiwisupertots.co.nz', '09 271 6553', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] ECE centre in its own East Auckland premises. Email nader@kiwisupertots.co.nz published on the centre''s own site (appears to be a named individual''s address, but role/surname not confirmed, so no formal contact name used). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Kiwi Supertots (Botany)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('nader@kiwisupertots.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Little Learners (Botany South)', 'Early childhood education / childcare centre', 'https://little-learners.co.nz', NULL, '491 Te Irirangi Drive, Botany South, Auckland 2016', NULL, NULL, 'littlelearners491@gmail.com', '09 272 3344', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] ECE centre in its own East Auckland premises. Email littlelearners491@gmail.com published on the centre''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Little Learners (Botany South)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('littlelearners491@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Ellerslie Veterinary Clinic', 'Veterinary clinic', 'https://ellerslieveterinaryclinic.nz', NULL, '199 Main Highway, Ellerslie, Auckland 1051', NULL, NULL, 'office@ellerslieveterinaryclinic.nz', '(09) 281 3481', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic (also boards cats) in its own Ellerslie premises. Email office@ellerslieveterinaryclinic.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Ellerslie Veterinary Clinic'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('office@ellerslieveterinaryclinic.nz'));
