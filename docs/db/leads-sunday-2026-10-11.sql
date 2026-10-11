@@ -2,12 +2,12 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 35 | A: 11 | B: 24
+-- Total: 44 | A: 12 | B: 32
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
---   Mission Bay), vet (Albany, Howick, Henderson), physio (Mt Eden, Botany), medical/GP clinics
---   (Grey Lynn), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert), gym/fitness/yoga/pilates
---   studio (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay), showrooms
---   (kitchen - Newmarket, furniture - Parnell)
+--   Mission Bay, New Lynn, Avondale), vet (Albany, Howick, Henderson, Point Chevalier), physio
+--   (Mt Eden, Botany, Ponsonby, Newmarket), medical/GP clinics (Grey Lynn), childcare/ECE (Takapuna,
+--   Browns Bay, Epsom, Mt Albert, Pakuranga), gym/fitness/yoga/pilates studio (Ponsonby, Newmarket x2,
+--   Morningside, Parnell x2, Mission Bay), showrooms (kitchen - Newmarket, furniture - Parnell)
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -183,3 +183,48 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'The Exercise Room (Parnell)', 'Gym / fitness studio', 'https://www.theexerciseroom.co.nz', NULL, '100 Parnell Road, Parnell, Auckland 1052', NULL, NULL, 'info@theexerciseroom.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Boutique gym on Parnell Road. Email info@theexerciseroom.co.nz published on the studio''s own site. No named manager found publicly. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('The Exercise Room (Parnell)'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@theexerciseroom.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Ponsonby Physio', 'Physiotherapy clinic', 'https://www.ponsonbyphysio.co.nz', NULL, '45 Mackelvie Street, Ponsonby, Auckland 1011', 'Toni Strong', 'Proprietor', 'toni@ponsonbyphysio.co.nz', '(09) 378 6890', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Independent physiotherapy clinic in its own Ponsonby premises. Proprietor Toni Strong named on the clinic''s own contact page (ponsonbyphysio.co.nz/contact) with a direct email; owner-operator = fast decision on a cleaning contract. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Ponsonby Physio'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('toni@ponsonbyphysio.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Auckland Family Dental (New Lynn)', 'Dental clinic', 'https://www.aucklandfamilydental.co.nz', NULL, '14 Delta Avenue, New Lynn, Auckland 0600', NULL, NULL, 'newlynn@aucklandfamilydental.co.nz', '09 827 1664', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in own West Auckland premises. Branch email newlynn@aucklandfamilydental.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Auckland Family Dental (New Lynn)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('newlynn@aucklandfamilydental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Quality Dental (New Lynn)', 'Dental clinic', 'https://qualitydental.co.nz', NULL, '3D Delta Avenue, New Lynn, Auckland 0600', NULL, NULL, 'qualitydental@xtra.co.nz', '09 827 0078', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in own West Auckland premises (same street as Auckland Family Dental - pair the outreach). Email qualitydental@xtra.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Quality Dental (New Lynn)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('qualitydental@xtra.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Avondale Dental', 'Dental clinic', 'http://www.avondaledental.co.nz', NULL, '1875 Great North Road, Avondale, Auckland 1026', NULL, NULL, 'reception@avondaledental.co.nz', '09 828 5786', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in own West Auckland premises. Email reception@avondaledental.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Avondale Dental'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@avondaledental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Pakuranga Learning Centre', 'Early childhood education / childcare centre', 'https://www.pakurangalearningcentre.co.nz', NULL, '33B Ben Lomond Crescent, Pakuranga, Auckland 2010', NULL, 'Centre Director', 'info@pakurangalearningcentre.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Privately-owned ECE centre (licensed for up to 80 children) in its own East Auckland premises - littlies.nz directory confirms private ownership. Email info@pakurangalearningcentre.co.nz published on the centre''s own site; directory names a Centre Director role but not a person. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Pakuranga Learning Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@pakurangalearningcentre.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Physio360 (Newmarket)', 'Physiotherapy clinic', 'https://physio360.co.nz', NULL, '7 Morrow Street, Newmarket, Auckland 1023', NULL, NULL, 'reception@physio360.co.nz', '0800 360 749', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Physiotherapy clinic in own Newmarket premises. Email reception@physio360.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Physio360 (Newmarket)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@physio360.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'WYLD Physiotherapy (Newmarket)', 'Physiotherapy / chiropractic clinic', 'https://wyldchiropractic.co.nz', NULL, '2a Railway Street, Newmarket, Auckland 1023', NULL, NULL, 'newmarket@wyld.nz', '09 218 6886', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Multidisciplinary physio/chiro clinic in its own Newmarket premises. Branch email newmarket@wyld.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('WYLD Physiotherapy (Newmarket)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('newmarket@wyld.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'WYLD Physiotherapy (Ponsonby)', 'Physiotherapy / chiropractic clinic', 'https://wyldchiropractic.co.nz/ponsonby-physiotherapy', NULL, '20 Jervois Road, Ponsonby, Auckland 1011', NULL, NULL, 'ponsonby@wyld.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Multidisciplinary physio/chiro clinic in its own Ponsonby premises (sister branch to the Newmarket WYLD clinic in this same batch). Branch email ponsonby@wyld.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('WYLD Physiotherapy (Ponsonby)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('ponsonby@wyld.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Point Chevalier Veterinary Care', 'Veterinary clinic', 'https://www.veterinarycare.co.nz/pt-chevalier', NULL, '67 Point Chevalier Road, Point Chevalier, Auckland 1022', NULL, NULL, 'pointchev@veterinarycare.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own Point Chevalier premises (part of a small 3-clinic local group with Balmoral and Royal Oak - locally run, not national). Email pointchev@veterinarycare.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Point Chevalier Veterinary Care'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('pointchev@veterinarycare.co.nz'));
