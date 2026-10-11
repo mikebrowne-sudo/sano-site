@@ -2,22 +2,21 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 122 | A: 33 | B: 89
+-- Total: 128 | A: 36 | B: 92
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
---   Titirangi x2), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral, St Lukes/Sandringham,
---   Manukau, Papatoetoe, Mt Roskill, Glenfield, Mt Eden, Ellerslie, Glen Eden x2, Takanini, Papakura,
---   Grey Lynn, Blockhouse Bay, Te Atatu), physio (Mt Eden, Botany, Ponsonby, Newmarket x2,
---   Ellerslie x2, Birkenhead, Devonport, Half Moon Bay, Kingsland), medical/GP clinics (Grey Lynn,
---   Three Kings, Henderson x2), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert, Pakuranga,
---   Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland, Te Atatu South x2),
---   gym/fitness/yoga/pilates/dance studio (Ponsonby, Newmarket x2, Morningside, Parnell x2,
---   Mission Bay, Mt Eden, St Johns, New Lynn x3, Rosedale, Albany x2, Henderson x2, Remuera x2,
---   Auckland CBD x3), showrooms (kitchen - Newmarket, furniture - Parnell, tile/bathroom -
---   Ellerslie/Mt Wellington x3, lighting - North Shore/Takapuna x2)
--- NEXT: try harder for named owners (search "[business] owner" + personal-domain emails) rather
---   than settling for generic inboxes - A-grade yield dropped in the last 2 batches.
+--   Titirangi x2, Epsom), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral,
+--   St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill, Glenfield, Mt Eden x2, Ellerslie,
+--   Glen Eden x2, Takanini, Papakura, Grey Lynn, Blockhouse Bay, Te Atatu, Birkenhead), physio
+--   (Mt Eden, Botany, Ponsonby, Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay,
+--   Kingsland), medical/GP clinics (Grey Lynn, Three Kings, Henderson x2), childcare/ECE (Takapuna,
+--   Browns Bay, Epsom, Mt Albert, Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2,
+--   Onehunga x2, Kingsland, Te Atatu South x2, Whitford, Mangere Bridge), gym/fitness/yoga/
+--   pilates/dance studio (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden,
+--   St Johns, New Lynn x3, Rosedale, Albany x3, Henderson x2, Remuera x2, Auckland CBD x3),
+--   showrooms (kitchen - Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3,
+--   lighting - North Shore/Takapuna x2)
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -628,3 +627,33 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Kimberley Childcare (Te Atatu South)', 'Early childhood education / childcare centre', 'https://www.kimberleychildcare.co.nz/teatatu', NULL, '3 Flanshaw Road, Te Atatu South, Auckland 0610', NULL, NULL, 'teatatu@kimberleychildcare.co.nz', '09 834 1219', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] ECE centre in its own West Auckland premises (small two-site operator, not a large chain). Email teatatu@kimberleychildcare.co.nz published on the centre''s own site. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Kimberley Childcare (Te Atatu South)'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('teatatu@kimberleychildcare.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Alpers Dental (Epsom)', 'Dental clinic', 'https://www.alpersdental.co.nz', NULL, '24 Manukau Road, Epsom, Auckland 1023', 'Dr Nic Anderson', 'Principal Dentist / Owner', 'contact@alpers.co.nz', '09 524 5056', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Family-owned dental clinic, owner-operated since 2005, in its own Epsom premises. Principal Dentist Dr Nic Anderson (who took over the practice with Jacqui in 2005) named on the clinic''s own site (alpersdental.co.nz); published contact@alpers.co.nz reaches the practice. Owner-operator = fast decision. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Alpers Dental (Epsom)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('contact@alpers.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Normanby Road Vet Clinic (Mt Eden)', 'Veterinary clinic', 'https://www.petdoc.co.nz', NULL, '49 Normanby Road, Mount Eden, Auckland 1024', 'Dr Chris Laurenson', 'Veterinarian', 'info@petdoc.co.nz', '09-638-8445', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own Mt Eden premises, independent and NZ-owned per the clinic''s own site (petdoc.co.nz). Dr Chris Laurenson named there as the client-facing contact; published info@petdoc.co.nz reaches the practice. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Normanby Road Vet Clinic (Mt Eden)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@petdoc.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Whitford Early Learning Centre', 'Early childhood education / childcare centre', NULL, NULL, '633 Whitford Road, Whitford, Auckland 2577', 'Kim & Joe O''Neill', 'Founders', 'info@whitfordearlylearning.co.nz', NULL, 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Privately-owned ECE centre (licensed for up to 107 children) in its own East Auckland premises. Founders Kim and Joe O''Neill named in the centre''s own site structured data; published info@whitfordearlylearning.co.nz reaches them. Owner-operator = fast decision. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Whitford Early Learning Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@whitfordearlylearning.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Fitness HQ (Albany)', 'Gym / fitness studio (women-only)', 'https://www.fhq.co.nz', NULL, '67 Corinthian Drive, Albany, Auckland 0632', NULL, NULL, 'info@fhq.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Women-only boutique gym, locally owned and operated, in its own North Shore premises. Email info@fhq.co.nz published on the gym''s own site. No individual owner named publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Fitness HQ (Albany)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@fhq.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Onewa Road Veterinary Hospital', 'Veterinary clinic', 'https://www.onewavets.co.nz', NULL, '181 Onewa Road, Birkenhead, Auckland 0626', NULL, NULL, 'onewa.vets@gmail.com', '09 481 0061', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic, independent and veterinarian-owned per the clinic''s own site (onewavets.co.nz - "the vets who care for your pets are also the owners"), in its own North Shore premises. Email onewa.vets@gmail.com published on the same site. No individual owner named. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Onewa Road Veterinary Hospital'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('onewa.vets@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Tadpoles Early Childhood Centre (Mangere Bridge)', 'Early childhood education / childcare centre', 'https://tadpoles.co.nz', NULL, '73 Mountain Road, Mangere Bridge, Auckland 2022', NULL, NULL, 'admin@tadpoles.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Privately-owned ECE centre (licensed for up to 75 children), family owned and operated per the centre''s own site, in its own South Auckland premises. Email admin@tadpoles.co.nz published on the same site. No individual owner named. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Tadpoles Early Childhood Centre (Mangere Bridge)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@tadpoles.co.nz'));
