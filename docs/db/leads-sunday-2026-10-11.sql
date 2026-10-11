@@ -2,17 +2,17 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 83 | A: 22 | B: 61
+-- Total: 89 | A: 23 | B: 66
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
---   Howick), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral, St Lukes/Sandringham, Manukau,
---   Papatoetoe, Mt Roskill, Glenfield, Mt Eden, Ellerslie), physio (Mt Eden, Botany, Ponsonby,
---   Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay), medical/GP clinics (Grey Lynn,
---   Three Kings), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert, Pakuranga, Birkdale,
---   Glenfield x2, Otara/Flat Bush, Botany x2), gym/fitness/yoga/pilates/dance studio (Ponsonby,
---   Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn, Rosedale,
---   Albany x2), showrooms (kitchen - Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt
---   Wellington x3)
+--   Howick, Onehunga, Royal Oak), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral,
+--   St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill, Glenfield, Mt Eden, Ellerslie, Glen Eden x2),
+--   physio (Mt Eden, Botany, Ponsonby, Newmarket x2, Ellerslie x2, Birkenhead, Devonport,
+--   Half Moon Bay), medical/GP clinics (Grey Lynn, Three Kings), childcare/ECE (Takapuna, Browns Bay,
+--   Epsom, Mt Albert, Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2),
+--   gym/fitness/yoga/pilates/dance studio (Ponsonby, Newmarket x2, Morningside, Parnell x2,
+--   Mission Bay, Mt Eden, St Johns, New Lynn, Rosedale, Albany x2), showrooms (kitchen - Newmarket,
+--   furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3)
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -428,3 +428,33 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Ellerslie Veterinary Clinic', 'Veterinary clinic', 'https://ellerslieveterinaryclinic.nz', NULL, '199 Main Highway, Ellerslie, Auckland 1051', NULL, NULL, 'office@ellerslieveterinaryclinic.nz', '(09) 281 3481', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic (also boards cats) in its own Ellerslie premises. Email office@ellerslieveterinaryclinic.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Ellerslie Veterinary Clinic'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('office@ellerslieveterinaryclinic.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Trafalgar Family Dental (Onehunga)', 'Dental clinic', 'https://trafalgarfamilydental.co.nz', NULL, '109A Trafalgar Street, Onehunga, Auckland 1061', 'Heena Arora', 'Practice Manager', 'trafalgarfamilydental@gmail.com', '09 622 0516', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own Onehunga premises. Practice Manager Heena Arora named on the clinic''s own team page (trafalgarfamilydental.co.nz/about-us); published trafalgarfamilydental@gmail.com reaches the practice. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Trafalgar Family Dental (Onehunga)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('trafalgarfamilydental@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Royal Oak Dental Centre', 'Dental clinic', 'https://royaloakdental.co.nz', NULL, '792A Manukau Road, Royal Oak, Auckland 1023', NULL, NULL, 'reception@royaloakdental.co.nz', '09 625 7069', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own premises. Email reception@royaloakdental.co.nz published on the clinic''s own contact page. No reliably-confirmed owner named. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Royal Oak Dental Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@royaloakdental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'CareVets Glen Eden', 'Veterinary clinic', 'https://carevets.co.nz/carevets-glen-eden/', NULL, '69 West Coast Road, Glen Eden, Auckland 0602', NULL, NULL, 'gleneden@carevets.co.nz', '(09) 818 7454', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own West Auckland premises. Email gleneden@carevets.co.nz published on the clinic''s own site. A vet (Dr Sue Kirkby) is named but ownership not confirmed, so no name used. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('CareVets Glen Eden'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('gleneden@carevets.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Auckland Veterinary Hospital (Glen Eden)', 'Veterinary clinic', 'https://www.vethospital.co.nz/vet-clinics/auckland-veterinary-hospital', NULL, '4143 Great North Road, Glen Eden, Auckland 0602', NULL, NULL, 'auckland@vethospital.co.nz', '09-818-5697', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own West Auckland premises, part of the same small Veterinary Hospital Group as Albany Veterinary Hospital (seed batch 1) but locally staffed. Email auckland@vethospital.co.nz published on the group''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Auckland Veterinary Hospital (Glen Eden)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('auckland@vethospital.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Our Kids Early Learning Centre (Onehunga)', 'Early childhood education / childcare centre', NULL, NULL, '208A Church Street, Onehunga, Auckland 1061', NULL, NULL, 'onehunga@ourkidsearlylearning.co.nz', '09 636 1395', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] ECE centre in its own Onehunga premises. Email onehunga@ourkidsearlylearning.co.nz published on the Education Counts profile. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Our Kids Early Learning Centre (Onehunga)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('onehunga@ourkidsearlylearning.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Apples Childcare & Learning Centre (Onehunga)', 'Early childhood education / childcare centre', 'https://appleschildcare.co.nz', NULL, '20-22 Cameron Street, Onehunga, Auckland 1061', NULL, NULL, 'onehunga@appleschildcare.co.nz', '(09) 634 8000', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] ECE centre in its own Onehunga premises, operating for over a decade per its own site. Email onehunga@appleschildcare.co.nz published on the centre''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Apples Childcare & Learning Centre (Onehunga)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('onehunga@appleschildcare.co.nz'));
