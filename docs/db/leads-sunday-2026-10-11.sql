@@ -2,13 +2,14 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 52 | A: 13 | B: 39
+-- Total: 59 | A: 16 | B: 43
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
---   Mission Bay, New Lynn, Avondale), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral,
---   St Lukes/Sandringham), physio (Mt Eden, Botany, Ponsonby, Newmarket x2, Ellerslie x2), medical/GP
---   clinics (Grey Lynn), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert, Pakuranga),
---   gym/fitness/yoga/pilates studio (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay,
---   Mt Eden), showrooms (kitchen - Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3)
+--   Mission Bay, New Lynn, Avondale, Blockhouse Bay), vet (Albany, Howick, Henderson, Point Chevalier,
+--   Balmoral, St Lukes/Sandringham, Manukau, Papatoetoe), physio (Mt Eden, Botany, Ponsonby,
+--   Newmarket x2, Ellerslie x2, Birkenhead, Devonport), medical/GP clinics (Grey Lynn), childcare/ECE
+--   (Takapuna, Browns Bay, Epsom, Mt Albert, Pakuranga), gym/fitness/yoga/pilates/dance studio
+--   (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn),
+--   showrooms (kitchen - Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3)
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -269,3 +270,38 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Physiologic (Ellerslie)', 'Physiotherapy clinic', 'https://physiologic.co.nz', NULL, '17 Kalmia Street, Ellerslie, Auckland 1051', NULL, NULL, 'info@physiologic.co.nz', '0800 756 750', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Physiotherapy clinic in its own Ellerslie premises. Email info@physiologic.co.nz published on the clinic''s own contact page. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Physiologic (Ellerslie)'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@physiologic.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Blockhouse Bay Dental Centre', 'Dental clinic', 'https://www.bhbdental.co.nz', NULL, '3A Heaphy Street, Blockhouse Bay, Auckland 0600', 'Dr Peter Raymond', 'Owner / Principal Dentist', 'admin@bhbdental.co.nz', '09 627 9970', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] General dental clinic (3 dentists) in its own West Auckland premises. Dr Peter Raymond named as sole owner since acquiring the practice (per a Yelp listing cross-referencing the clinic''s own team page); published admin@bhbdental.co.nz reaches the practice. Owner-operator = fast decision. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Blockhouse Bay Dental Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@bhbdental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Chandler Dance Academy', 'Dance school / training studio', 'https://www.chandlerdanceacademy.co.nz', NULL, '9/115 Felton Mathew Avenue, St Johns, Auckland 1072', 'Dannielle Chandler', 'Director', 'office@chandlerdanceacademy.co.nz', NULL, 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Dance training studio in its own St Johns premises (sprung floors, mirrors - presentation + hygiene cleaning fit). Director Dannielle Chandler named on the academy''s own site (chandlerdanceacademy.co.nz); published office@chandlerdanceacademy.co.nz inbox reaches her directly. Owner-operator = fast decision. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Chandler Dance Academy'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('office@chandlerdanceacademy.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'The Physio Bunker (Birkenhead)', 'Physiotherapy clinic', 'https://www.thephysiobunker.co.nz', NULL, '16 Learmonth Avenue, Birkenhead, Auckland 0626', 'Leon Lindsay-Russell', 'Owner / Lead Physiotherapist', 'info@thephysiobunker.co.nz', '021 058 1540', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Locally-owned physiotherapy clinic. Owner/lead physio Leon Lindsay-Russell named on the clinic''s own site (thephysiobunker.co.nz); published info@thephysiobunker.co.nz reaches him directly. RENEWAL/TIMING HINT: the clinic''s own contact page says it is "temporarily located" at this address "while we wait for our new premises" - a move is a natural moment to pitch a new cleaning contract. Owner-operator = fast decision.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('The Physio Bunker (Birkenhead)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@thephysiobunker.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Auckland Academy of Dance', 'Dance school / training studio', NULL, NULL, 'Unit L, 44A Portage Road, New Lynn, Auckland 0600', NULL, NULL, 'office@aucklandacademyofdance.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Dance training studio in its own New Lynn premises. Email office@aucklandacademyofdance.co.nz published on the academy''s own Facebook page. No reliably-sourced named contact found (a third-party aggregator names staff but hides emails, so left out). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Auckland Academy of Dance'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('office@aucklandacademyofdance.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Manukau After Hours Veterinary Clinic', 'Veterinary clinic (emergency)', 'https://www.nightvet.co.nz', NULL, '15 Jack Conway Avenue, Manukau, Auckland 2104', NULL, NULL, 'info@nightvet.co.nz', '(09) 277 8383', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] After-hours emergency vet clinic in its own South Auckland premises - high-turnover clinical space with a strong hygiene-cleaning need. Email info@nightvet.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Manukau After Hours Veterinary Clinic'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@nightvet.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Devonport Physiotherapy & Pilates', 'Physiotherapy / Pilates clinic', 'https://www.devonportphysio.co.nz', NULL, '9b Wynyard Street, Devonport, Auckland 0624', NULL, NULL, 'reception@devonportphysio.co.nz', '09 445 2841', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Physiotherapy/Pilates clinic in its own Devonport village premises. Email reception@devonportphysio.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Devonport Physiotherapy & Pilates'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@devonportphysio.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Pet Vets (Papatoetoe)', 'Veterinary clinic', 'https://petvets.nz', NULL, '93 East Tamaki Road, Papatoetoe, Auckland 2025', NULL, NULL, 'office@petvets.nz', '09 250 0555', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Locally-owned-and-operated small-animal vet clinic (two South Auckland sites - Papatoetoe + Manurewa, local group not a national chain). Email office@petvets.nz published on the clinic''s own NZVA job listing tied to petvets.nz. No reliably-sourced named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Pet Vets (Papatoetoe)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('office@petvets.nz'));
