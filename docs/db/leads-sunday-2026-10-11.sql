@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 237 | A: 75 | B: 162
+-- Total: 238 | A: 76 | B: 162
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -1244,3 +1244,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Eyestyle Eastridge (Mission Bay)', 'Optometry clinic', 'https://www.eyestyle.co.nz', NULL, 'Shop 21, Eastridge Shopping Centre, 215 Kepa Road, Mission Bay, Auckland 1071', NULL, NULL, 'eastridge@eyestyle.co.nz', '(09) 521 1001', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent optometry practice in the Eastridge Shopping Centre, Mission Bay - fresh vertical for this suburb (prior Mission Bay leads were gym/fitness). Branch email eastridge@eyestyle.co.nz and phone published on MyHealth1st (myhealth1st.com.au) and Healthpoint listings, matching the practice''s own domain. Optometrists Hue Bullen and Michael Bullen named on listings but role (owner vs staff) not confirmed, so left contact fields blank and graded B. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Eyestyle Eastridge (Mission Bay)'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('eastridge@eyestyle.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Advantage Chiropractic (Rosedale)', 'Chiropractic clinic', 'https://www.advantagechiropractic.co.nz', NULL, '101 Apollo Drive, Rosedale, Auckland 0632', 'Dr Leah Mendes', 'Principal Chiropractor & Director', 'rosedale@advantagechiropractic.co.nz', '021 0818 2838', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Second site of the Advantage Chiropractic group (sister branch to the Glenfield lead already in this file) in its own Apollo Drive premises, Rosedale - separate physical location so added as its own lead. Branch email rosedale@advantagechiropractic.co.nz published on the clinic''s Healthpoint listing (healthpoint.co.nz), matching the clinic''s own domain. Dr Leah Mendes (Principal Chiropractor & Director) and co-director Tomas Mendes run both sites; on-site practitioner at Rosedale is Dr Anjali Patel. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Advantage Chiropractic (Rosedale)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('rosedale@advantagechiropractic.co.nz'));
