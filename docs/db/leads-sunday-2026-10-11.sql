@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 234 | A: 75 | B: 159
+-- Total: 236 | A: 75 | B: 161
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -31,7 +31,8 @@
 --   Rosedale, Albany x3, Henderson x2, Remuera x2, Auckland CBD x3, Panmure), showrooms (kitchen -
 --   Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3,
 --   lighting - North Shore/Takapuna x2, furniture - Albany/Wairau Valley, blinds - East Tamaki,
---   print shop - Glen Eden), childcare/ECE also Karaka, optometry also Albany (general email only)
+--   print shop - Glen Eden), childcare/ECE also Karaka, optometry also Albany/Henderson/Howick
+--   (general emails sourced via MyHealth1st/NZ Police vision-examiners register, no named manager)
 -- 00:05 NZ run (12:05am firing): WebFetch tool was returning DNS resolution failures for every
 --   domain tried this session (including unrelated domains), so site contact pages could not be
 --   opened directly to unmask redacted directory emails - only WebSearch worked. Tried dental
@@ -1228,3 +1229,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Albany Optometrists', 'Optometry clinic', 'https://www.albanyoptometrists.co.nz', NULL, '44 Corinthian Drive, Albany, Auckland 0632', NULL, NULL, 'info@albanyoptometrists.co.nz', '(09) 414 4484', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent optometry practice in its own fitted-out premises on Corinthian Drive, Albany - fresh vertical for this suburb (only one prior optometry lead, Onehunga, in the file). General practice email info@albanyoptometrists.co.nz and phone confirmed via MyHealth1st listing (info.myhealth1st.com.au) matching the practice''s own domain; Healthpoint confirms same address/phone. No named decision-maker found publicly (team names listed but no manager/owner role tagged), so graded B. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Albany Optometrists'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@albanyoptometrists.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'John O''Connor Optometrists (Henderson)', 'Optometry clinic', 'https://www.johnoconnor.co.nz', NULL, '371 Great North Road, Henderson, Auckland', NULL, NULL, 'henderson@johnoconnor.co.nz', '(09) 836 1731', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent optometry practice in its own Great North Road premises, Henderson - fresh West Auckland optometry lead. Branch email henderson@johnoconnor.co.nz published on the NZ Police vision-examiners official register (newcops.govt.nz/pre-application/vision-examiners), matching the practice''s own domain; Healthpoint confirms the same address/phone. No named manager/owner found publicly (only individual optometrists listed as examiners), so graded B. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('John O''Connor Optometrists (Henderson)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('henderson@johnoconnor.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Eyes of Howick', 'Optometry clinic', 'https://www.eyesofhowick.co.nz', NULL, '100 Picton Street, Howick, Auckland', NULL, NULL, 'info@eyesofhowick.co.nz', '09 534 5565', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent optometry practice in its own Picton Street premises, Howick, offering CAA/police/maritime vision exams. Email info@eyesofhowick.co.nz published on the NZ Police vision-examiners official register (newcops.govt.nz/pre-application/vision-examiners), matching the practice''s own domain; Healthpoint confirms same address/phone/services. Several optometrists named as examiners but none tagged as manager/owner, so graded B. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Eyes of Howick'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@eyesofhowick.co.nz'));
