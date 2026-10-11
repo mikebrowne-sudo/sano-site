@@ -2,19 +2,19 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 165 | A: 49 | B: 116
+-- Total: 167 | A: 50 | B: 117
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
---   Titirangi x2, Epsom), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral,
+--   Titirangi x2, Epsom, Browns Bay), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral,
 --   St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill, Glenfield, Mt Eden x2, Ellerslie,
 --   Glen Eden x2, Takanini, Papakura x3 (incl. Franklin Vets), Grey Lynn, Blockhouse Bay, Te Atatu,
 --   Birkenhead, Pukekohe (Franklin Vets), Mangere Bridge), physio (Mt Eden, Botany, Ponsonby,
---   Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay, Kingsland, Papakura),
+--   Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay, Kingsland, Papakura, Howick),
 --   medical/GP clinics (Grey Lynn, Three Kings, Henderson x2, Manurewa x2, Te Atatu Peninsula,
 --   Botany x3, Browns Bay, Mangere East, Otara, Glenfield, Remuera, St Heliers, Orakei,
 --   Hobsonville x2, West Harbour, Flat Bush, Howick x1, Papatoetoe x4, Mt Roskill x2, Titirangi,
---   Royal Oak, Onehunga x3, Epsom x2, Highland Park, Mt Roskill x3, Te Atatu South x3),
+--   Royal Oak, Onehunga x3, Epsom x2, Highland Park, Mt Roskill x3, Te Atatu South x3, Howick),
 --   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
 --   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
 --   Te Atatu South x2, Whitford, Mangere Bridge x2), gym/fitness/yoga/pilates/dance studio
@@ -851,3 +851,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Te Atatu South Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '273 Te Atatu Road, Te Atatu South, Auckland', 'Lesley Going', 'Practice Owner & Managing Director', 'reception@tsmc.co.nz', '(09) 834 6600', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Te Atatu Road premises. Practice Owner & Managing Director Lesley Going named on the practice''s Healthpoint listing (healthpoint.co.nz); reception@tsmc.co.nz matches own domain tsmc.co.nz. Note: Lesley Going also appears as Practice Manager at the separate, nearby Peninsula Medical Centre (different company/email, already a separate lead above) - not a duplicate. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Te Atatu South Medical Centre'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@tsmc.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Active+ Howick', 'Physiotherapy clinic', NULL, NULL, '15 Cook Street, Howick, Auckland', 'Dominique van Biljon', 'Owner', 'howick@activeplus.co.nz', '(09) 535 9160', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Physiotherapy clinic (Active+ network) in its own Cook Street premises. Owner Dominique van Biljon named in a local news profile (times.co.nz, "Meet your A Physiotherapy team"); clinic email howick@activeplus.co.nz published on the clinic''s Healthpoint listing (healthpoint.co.nz). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Active+ Howick'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('howick@activeplus.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Bayside Dental Centre', 'Dental clinic', NULL, NULL, '86 Clyde Road, Browns Bay, Auckland', NULL, NULL, 'info@baysidedental.co.nz', '(09) 478 8773', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own Clyde Road premises. Email info@baysidedental.co.nz published on the clinic''s Healthpoint listing (healthpoint.co.nz). No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Bayside Dental Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@baysidedental.co.nz'));
