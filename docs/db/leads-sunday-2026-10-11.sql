@@ -2,19 +2,22 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 117 | A: 33 | B: 84
+-- Total: 122 | A: 33 | B: 89
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
---   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2), vet
---   (Albany, Howick, Henderson, Point Chevalier, Balmoral, St Lukes/Sandringham, Manukau, Papatoetoe,
---   Mt Roskill, Glenfield, Mt Eden, Ellerslie, Glen Eden x2, Takanini, Papakura, Grey Lynn,
---   Blockhouse Bay), physio (Mt Eden, Botany, Ponsonby, Newmarket x2, Ellerslie x2, Birkenhead,
---   Devonport, Half Moon Bay, Kingsland), medical/GP clinics (Grey Lynn, Three Kings, Henderson x2),
---   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert, Pakuranga, Birkdale, Glenfield x2,
---   Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland), gym/fitness/yoga/pilates/dance studio
---   (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn x3,
---   Rosedale, Albany x2, Henderson x2, Remuera x2, Auckland CBD x3), showrooms (kitchen - Newmarket,
---   furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3, lighting - North Shore/Takapuna x2)
+--   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
+--   Titirangi x2), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral, St Lukes/Sandringham,
+--   Manukau, Papatoetoe, Mt Roskill, Glenfield, Mt Eden, Ellerslie, Glen Eden x2, Takanini, Papakura,
+--   Grey Lynn, Blockhouse Bay, Te Atatu), physio (Mt Eden, Botany, Ponsonby, Newmarket x2,
+--   Ellerslie x2, Birkenhead, Devonport, Half Moon Bay, Kingsland), medical/GP clinics (Grey Lynn,
+--   Three Kings, Henderson x2), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert, Pakuranga,
+--   Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland, Te Atatu South x2),
+--   gym/fitness/yoga/pilates/dance studio (Ponsonby, Newmarket x2, Morningside, Parnell x2,
+--   Mission Bay, Mt Eden, St Johns, New Lynn x3, Rosedale, Albany x2, Henderson x2, Remuera x2,
+--   Auckland CBD x3), showrooms (kitchen - Newmarket, furniture - Parnell, tile/bathroom -
+--   Ellerslie/Mt Wellington x3, lighting - North Shore/Takapuna x2)
+-- NEXT: try harder for named owners (search "[business] owner" + personal-domain emails) rather
+--   than settling for generic inboxes - A-grade yield dropped in the last 2 batches.
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -600,3 +603,28 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Focus Fitness Gym (New Lynn)', 'Gym / fitness studio', 'https://focusfitnessgym.co.nz', NULL, '2 Margan Avenue, New Lynn, Auckland 0600', NULL, NULL, 'reception@focusfitnessgym.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Gym in its own West Auckland premises. Email reception@focusfitnessgym.co.nz published on the gym''s own site. No named manager found publicly. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Focus Fitness Gym (New Lynn)'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@focusfitnessgym.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Titirangi Dental Centre', 'Dental clinic', 'https://tooth.co.nz', NULL, '421 Titirangi Road, Titirangi, Auckland 0604', NULL, NULL, 'reception@tooth.co.nz', '09 550 8770', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic (3 dentists) in its own West Auckland premises. Email reception@tooth.co.nz published on the clinic''s own site. No reliably-current named owner found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Titirangi Dental Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@tooth.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Titirangi Village Dental', 'Dental clinic', 'https://www.titirangivillagedental.co.nz', NULL, '429 Titirangi Road, Titirangi, Auckland 0604', NULL, NULL, 'info@titirangivillagedental.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own West Auckland premises, recently under new ownership per the clinic''s own site. Email info@titirangivillagedental.co.nz published on the same site. New owner not named by the clinic itself, so no name used. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Titirangi Village Dental'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@titirangivillagedental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'CareVets Te Atatu', 'Veterinary clinic', 'https://carevets.co.nz/carevets-te-atatu/', NULL, '520 Te Atatu Road, Te Atatu, Auckland 0610', NULL, NULL, 'teatatu@carevets.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own West Auckland premises. Email teatatu@carevets.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('CareVets Te Atatu'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('teatatu@carevets.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Te Atatu South Childcare', 'Early childhood education / childcare centre', 'http://www.teatatusouthchildcare.co.nz', NULL, '1 Vera Road, Te Atatu South, Auckland 0610', NULL, NULL, 'info@teatatusouthchildcare.co.nz', '09 834 3018', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Family-based, privately-owned daycare run by one management team since 1993, per the centre''s own site (teatatusouthchildcare.co.nz) - a genuinely independent operator, though no individual name is published. Email info@teatatusouthchildcare.co.nz published on the same site. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Te Atatu South Childcare'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@teatatusouthchildcare.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Kimberley Childcare (Te Atatu South)', 'Early childhood education / childcare centre', 'https://www.kimberleychildcare.co.nz/teatatu', NULL, '3 Flanshaw Road, Te Atatu South, Auckland 0610', NULL, NULL, 'teatatu@kimberleychildcare.co.nz', '09 834 1219', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] ECE centre in its own West Auckland premises (small two-site operator, not a large chain). Email teatatu@kimberleychildcare.co.nz published on the centre''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Kimberley Childcare (Te Atatu South)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('teatatu@kimberleychildcare.co.nz'));
