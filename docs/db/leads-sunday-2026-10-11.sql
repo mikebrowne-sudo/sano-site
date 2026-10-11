@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 167 | A: 50 | B: 117
+-- Total: 169 | A: 51 | B: 118
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -14,7 +14,8 @@
 --   medical/GP clinics (Grey Lynn, Three Kings, Henderson x2, Manurewa x2, Te Atatu Peninsula,
 --   Botany x3, Browns Bay, Mangere East, Otara, Glenfield, Remuera, St Heliers, Orakei,
 --   Hobsonville x2, West Harbour, Flat Bush, Howick x1, Papatoetoe x4, Mt Roskill x2, Titirangi,
---   Royal Oak, Onehunga x3, Epsom x2, Highland Park, Mt Roskill x3, Te Atatu South x3, Howick),
+--   Royal Oak, Onehunga x3, Epsom x2, Highland Park, Mt Roskill x3, Te Atatu South x3, Howick,
+--   Meadowbank x2),
 --   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
 --   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
 --   Te Atatu South x2, Whitford, Mangere Bridge x2), gym/fitness/yoga/pilates/dance studio
@@ -861,3 +862,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Bayside Dental Centre', 'Dental clinic', NULL, NULL, '86 Clyde Road, Browns Bay, Auckland', NULL, NULL, 'info@baysidedental.co.nz', '(09) 478 8773', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own Clyde Road premises. Email info@baysidedental.co.nz published on the clinic''s Healthpoint listing (healthpoint.co.nz). No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Bayside Dental Centre'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@baysidedental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Meadowbank Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '2 Blackett Crescent, Meadowbank, Auckland', 'Paula Bishop', 'Practice Manager', 'info@meadowbankmedical.co.nz', '(09) 528 4242', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Blackett Crescent premises. Practice Manager Paula Bishop named on the practice''s Healthpoint listing (healthpoint.co.nz); info@meadowbankmedical.co.nz matches own domain. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Meadowbank Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@meadowbankmedical.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Meadowbank General Practice', 'Medical centre / GP clinic', NULL, NULL, 'Meadowbank Shopping Centre, 35-47 St Johns Road, Meadowbank, Auckland', NULL, NULL, 'office@mgpdoctors.nz', '(09) 521 5128', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own premises at Meadowbank Shopping Centre (separate practice from Meadowbank Medical Centre above). Email office@mgpdoctors.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Meadowbank General Practice'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('office@mgpdoctors.nz'));
