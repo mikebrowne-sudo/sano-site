@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 226 | A: 71 | B: 155
+-- Total: 228 | A: 72 | B: 156
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -20,7 +20,8 @@
 --   Meadowbank x2, Mangere Bridge x2, Drury, Forrest Hill, Birkenhead, Devonport x2, Takapuna x2,
 --   Swanson, Mt Eden, Freemans Bay, Hobsonville x3, Point Chevalier, Parnell, Avondale, Manukau x2,
 --   Waiuku, Te Atatu), osteopathy (Westmere, Pukekohe), acupuncture/Chinese medicine (Remuera),
---   pilates/yoga (Hobsonville Point x3), training centres (Onehunga - first aid/workplace),
+--   pilates/yoga (Hobsonville Point x3), training centres/PTEs (Onehunga - first aid/workplace,
+--   Albany - NZQA college, Grafton - tech bootcamp),
 --   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
 --   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
 --   Te Atatu South x2, Whitford, Mangere Bridge x2, Papatoetoe x2, Panmure, Glen Eden), gym/fitness/yoga/pilates/dance studio
@@ -1172,3 +1173,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Active Osteopathy', 'Osteopathy clinic', 'https://www.activeosteo.co.nz', NULL, '57 Seddon Street, Pukekohe, Auckland 2120', 'Cushla Geck', 'Principal Osteopath', 'info@activeosteo.co.nz', '(09) 238 8522', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] ACC-registered osteopathy clinic in its own Seddon Street premises. Principal Osteopath Cushla Geck named on the clinic''s Healthpoint listing (healthpoint.co.nz) and on the UK General Osteopathic Council''s register-search practice page (osteopathy.org.uk); email info@activeosteo.co.nz matches the clinic''s own domain. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Active Osteopathy'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@activeosteo.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Kiwi College of New Zealand', 'Private training establishment (NZQA PTE)', 'https://website.kiwi.ac.nz', NULL, 'Level 1, 15 Mercari Way, Albany, Auckland 0632', 'Francesca Wang', 'Administration Manager', 'francesca@kiwi.ac.nz', '+64 9 930 0789', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] NZQA-registered private training establishment in its own Albany campus premises. Administration Manager Francesca Wang named with her direct email francesca@kiwi.ac.nz on the college''s own team page (website.kiwi.ac.nz/our-team). A second named contact, Jo Zhang (Admin and Student Support Manager, jo@kiwi.ac.nz), is also on that page. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Kiwi College of New Zealand'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('francesca@kiwi.ac.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Academy EX', 'Tech training academy / bootcamp', 'https://academyex.com', NULL, 'Grafton, Auckland', NULL, NULL, 'hello@academyex.com', '+64 (09) 964 4444', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Tech-skills training academy with an Auckland campus (Grafton). General email hello@academyex.com published on the academy''s own site (academyex.com/contact). No named ops contact found; exact street address not independently confirmed - verify premises before contacting. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Academy EX'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@academyex.com'));
