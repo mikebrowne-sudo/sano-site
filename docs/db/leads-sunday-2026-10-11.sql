@@ -2,17 +2,17 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 217 | A: 70 | B: 147
+-- Total: 219 | A: 70 | B: 149
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
---   Titirangi x2, Epsom, Browns Bay, Albany, Pakuranga, Manurewa, Three Kings),
+--   Titirangi x2, Epsom, Browns Bay, Albany, Pakuranga, Manurewa, Three Kings, Forrest Hill/Sunnynook),
 --   audiology/hearing (Rosedale), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral,
 --   St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill, Glenfield, Mt Eden x2, Ellerslie,
 --   Glen Eden x2, Takanini, Papakura x3 (incl. Franklin Vets), Grey Lynn, Blockhouse Bay, Te Atatu,
 --   Birkenhead, Pukekohe (Franklin Vets), Mangere Bridge, Karaka (Franklin Vets)), physio (Mt Eden, Botany, Ponsonby,
 --   Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay, Kingsland, Papakura, Howick,
---   Clendon Park/Manurewa), optometry (Onehunga), law firms (Epsom - fresh vertical this batch),
+--   Clendon Park/Manurewa, Mangere East), optometry (Onehunga), law firms (Epsom - fresh vertical this batch),
 --   medical/GP clinics (Grey Lynn, Three Kings, Henderson x2, Manurewa x2, Te Atatu Peninsula,
 --   Botany x3, Browns Bay, Mangere East, Otara, Glenfield, Remuera, St Heliers, Orakei,
 --   Hobsonville x2, West Harbour, Flat Bush, Howick x1, Papatoetoe x4, Mt Roskill x2, Titirangi,
@@ -1125,3 +1125,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Home Vision Blinds', 'Blinds / window furnishings showroom', NULL, 'Small family business', '1 Analie Place, East Tamaki, Auckland 2013', 'Chris', NULL, 'chris@homevisionblinds.co.nz', '021 771 778', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small family-run blinds/window-furnishings showroom in its own East Tamaki premises. Named personal email chris@homevisionblinds.co.nz published on the business''s own listing; role not confirmed so left blank, but a first-name@owndomain address on a small family business is a strong proxy for the owner. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Home Vision Blinds'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('chris@homevisionblinds.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Sunnynook Dentist', 'Dental clinic', NULL, NULL, '117 Sunnynook Road, Forrest Hill, Auckland 0620', NULL, NULL, 'sunnynook.dentist@gmail.com', '(09) 449 2006', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own Sunnynook Road premises. Email sunnynook.dentist@gmail.com published on the clinic''s Healthpoint listing (healthpoint.co.nz). No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Sunnynook Dentist'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('sunnynook.dentist@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Mangere East Physiotherapy', 'Physiotherapy clinic', 'https://mangerephysio.co.nz', NULL, '6 Savill Drive, Mangere East, Auckland 2024', NULL, NULL, 'mangerephysio.reception@gmail.com', '(09) 276 7632', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent physiotherapy clinic serving Mangere, Otahuhu and Papatoetoe, in its own Savill Drive premises. Email mangerephysio.reception@gmail.com published on the clinic''s own listing. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Mangere East Physiotherapy'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('mangerephysio.reception@gmail.com'));
