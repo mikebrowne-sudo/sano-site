@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 236 | A: 75 | B: 161
+-- Total: 237 | A: 75 | B: 162
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -1239,3 +1239,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Eyes of Howick', 'Optometry clinic', 'https://www.eyesofhowick.co.nz', NULL, '100 Picton Street, Howick, Auckland', NULL, NULL, 'info@eyesofhowick.co.nz', '09 534 5565', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent optometry practice in its own Picton Street premises, Howick, offering CAA/police/maritime vision exams. Email info@eyesofhowick.co.nz published on the NZ Police vision-examiners official register (newcops.govt.nz/pre-application/vision-examiners), matching the practice''s own domain; Healthpoint confirms same address/phone/services. Several optometrists named as examiners but none tagged as manager/owner, so graded B. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Eyes of Howick'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@eyesofhowick.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Eyestyle Eastridge (Mission Bay)', 'Optometry clinic', 'https://www.eyestyle.co.nz', NULL, 'Shop 21, Eastridge Shopping Centre, 215 Kepa Road, Mission Bay, Auckland 1071', NULL, NULL, 'eastridge@eyestyle.co.nz', '(09) 521 1001', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Independent optometry practice in the Eastridge Shopping Centre, Mission Bay - fresh vertical for this suburb (prior Mission Bay leads were gym/fitness). Branch email eastridge@eyestyle.co.nz and phone published on MyHealth1st (myhealth1st.com.au) and Healthpoint listings, matching the practice''s own domain. Optometrists Hue Bullen and Michael Bullen named on listings but role (owner vs staff) not confirmed, so left contact fields blank and graded B. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Eyestyle Eastridge (Mission Bay)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('eastridge@eyestyle.co.nz'));
