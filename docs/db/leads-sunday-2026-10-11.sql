@@ -2,21 +2,27 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 132 | A: 35 | B: 97
+-- Total: 143 | A: 40 | B: 103
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
 --   Titirangi x2, Epsom), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral,
 --   St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill, Glenfield, Mt Eden x2, Ellerslie,
---   Glen Eden x2, Takanini, Papakura, Grey Lynn, Blockhouse Bay, Te Atatu, Birkenhead), physio
---   (Mt Eden, Botany, Ponsonby, Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay,
---   Kingsland), medical/GP clinics (Grey Lynn, Three Kings, Henderson x2), childcare/ECE (Takapuna,
---   Browns Bay, Epsom, Mt Albert, Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2,
---   Onehunga x2, Kingsland, Te Atatu South x2, Whitford, Mangere Bridge x2), gym/fitness/yoga/
---   pilates/dance studio (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden,
---   St Johns, New Lynn x3, Rosedale, Albany x3, Henderson x2, Remuera x2, Auckland CBD x3),
---   showrooms (kitchen - Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3,
+--   Glen Eden x2, Takanini, Papakura x3 (incl. Franklin Vets), Grey Lynn, Blockhouse Bay, Te Atatu,
+--   Birkenhead, Pukekohe (Franklin Vets)), physio (Mt Eden, Botany, Ponsonby, Newmarket x2,
+--   Ellerslie x2, Birkenhead, Devonport, Half Moon Bay, Kingsland), medical/GP clinics (Grey Lynn,
+--   Three Kings, Henderson x2, Manurewa x2, Te Atatu Peninsula, Botany x2, Browns Bay,
+--   Mangere East, Otara, Glenfield), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
+--   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
+--   Te Atatu South x2, Whitford, Mangere Bridge x2), gym/fitness/yoga/pilates/dance studio
+--   (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay, Mt Eden, St Johns, New Lynn x3,
+--   Rosedale, Albany x3, Henderson x2, Remuera x2, Auckland CBD x3), showrooms (kitchen -
+--   Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3,
 --   lighting - North Shore/Takapuna x2)
+-- Attempted this batch with thin/no results: accountants (Albany, Takapuna), chiropractors,
+--   optometrists, skin/aesthetic clinics, architecture firms, dental/childcare (Pukekohe/Papakura),
+--   gyms (Milford/Takapuna/Browns Bay) - mostly directory noise, no verifiable named contact +
+--   email found; skipped rather than guessed.
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -677,3 +683,58 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Mangere Veterinary Clinic', 'Veterinary clinic', 'https://www.vetforpet.co.nz', NULL, '95 Coronation Road, Mangere Bridge, Auckland 2022', NULL, NULL, 'mangerevet@xtra.co.nz', '09 636 6732', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic (also runs a second site, Onehunga Vet and Pet Supplies) in its own South Auckland premises. Email mangerevet@xtra.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Mangere Veterinary Clinic'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('mangerevet@xtra.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Manurewa Healthcare', 'Medical centre / GP clinic', NULL, NULL, '210 Great South Road, Manurewa, Auckland', 'Lisa Maritz', 'Clinic Manager', 'reception@manurewadoc.co.nz', '(09) 266 4477', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice on Great South Road with real clinic premises (waiting room, consult rooms). Clinic Manager Lisa Maritz named on the practice''s Healthpoint listing (healthpoint.co.nz); reception email reception@manurewadoc.co.nz matches own domain. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Manurewa Healthcare'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@manurewadoc.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Manurewa Medical Ltd', 'Medical centre / GP clinic', NULL, NULL, '157 Great South Road, Manurewa, Auckland 2102', 'Rachael Moore', 'Practice Manager', 'reception@manurewamedical.co.nz', '(09) 266 7758', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] ProCare-affiliated GP practice with several doctors on staff, own premises on Great South Road. Practice Manager Rachael Moore named on the practice''s Healthpoint listing (healthpoint.co.nz); reception email reception@manurewamedical.co.nz matches own domain. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Manurewa Medical Ltd'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@manurewamedical.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Peninsula Medical Centre (Te Atatu Peninsula)', 'Medical centre / GP clinic', 'https://www.peninsulamed.co.nz', NULL, '382-386 Te Atatu Road, Te Atatu Peninsula, Auckland', 'Lesley Going', 'Practice Manager', 'admin@peninsulamed.co.nz', '(09) 834 6300', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Te Atatu Road premises. Practice Manager Lesley Going named on the practice''s Healthpoint listing (healthpoint.co.nz); admin@peninsulamed.co.nz matches own domain peninsulamed.co.nz. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Peninsula Medical Centre (Te Atatu Peninsula)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@peninsulamed.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Botany Town Centre Medical Practice', 'Medical centre / GP clinic', 'https://www.bmp.nz', NULL, 'Level 1, Botany Town Centre, 588 Chapel Road, Botany, Auckland 2013', 'Annelize', 'Practice Manager', 'admin@bmp.nz', '(09) 273 6003', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice with its own fitted-out clinic space inside Botany Town Centre. Practice Manager Annelize named on the practice''s Healthpoint listing (healthpoint.co.nz); admin@bmp.nz matches own domain bmp.nz. No renewal hint found. Note: a separate, unrelated practice (Botany Doctor Medical Practice) shares the same building/street address with its own phone line - see separate lead below, not a duplicate.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Botany Town Centre Medical Practice'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@bmp.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Browns Bay Family Doctors', 'Medical centre / GP clinic', NULL, NULL, '65 Clyde Road (above the ANZ Bank), Browns Bay, Auckland 0630', 'Hind Al-Zubaidi', 'Business Manager', 'businessmanager@bbfd.co.nz', '(09) 479 4834', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice with its own premises above the ANZ on Clyde Road. Business Manager Hind Al-Zubaidi named with a direct email, businessmanager@bbfd.co.nz, on the practice''s own recruitment listing (via healthpoint.co.nz / RNZCGP jobs board, posted by the practice). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Browns Bay Family Doctors'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('businessmanager@bbfd.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Franklin Vets Pukekohe', 'Veterinary clinic', 'https://www.franklinvets.co.nz', NULL, '86 Harris Street, Pukekohe, Auckland', NULL, NULL, 'pukekoheclinic@fvs.co.nz', '(09) 238 7486', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Established small-animal vet clinic, part of the Franklin Vets group, in its own Pukekohe premises. Clinic email pukekoheclinic@fvs.co.nz published on the clinic''s own contact page (franklinvets.co.nz/contact/pukekohe). No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Franklin Vets Pukekohe'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('pukekoheclinic@fvs.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Franklin Vets Papakura', 'Veterinary clinic', 'https://www.franklinvets.co.nz', NULL, '365 Great South Road, Papakura, Auckland', NULL, NULL, 'papakuraclinic@fvs.co.nz', '(09) 298 6994', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Established small-animal vet clinic, part of the Franklin Vets group, in its own Papakura premises. Clinic email papakuraclinic@fvs.co.nz published on the clinic''s own contact page (franklinvets.co.nz/contact/papakura). No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Franklin Vets Papakura'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('papakuraclinic@fvs.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Mangere East Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '359 Massey Road, Mangere East, Auckland', NULL, NULL, 'mangereeastmc@xtra.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Massey Road premises. Email mangereeastmc@xtra.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz). The listing references a Practice Manager role but does not name the current holder. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Mangere East Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('mangereeastmc@xtra.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Otara Whanau Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '3/100 Alexander Crescent, Otara, Auckland', NULL, NULL, 'owmc@whanaumedical.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Alexander Crescent premises. Email owmc@whanaumedical.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain whanaumedical.co.nz. The listing references a Practice Manager role but does not name the current holder. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Otara Whanau Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('owmc@whanaumedical.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Glenfield Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '452 Glenfield Road, Glenfield, Auckland', NULL, NULL, 'admin@glenfieldmc.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Larger GP practice (8 GPs, practice manager, nurses, receptionists per listing) in its own Glenfield Road premises. Email admin@glenfieldmc.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain glenfieldmc.co.nz. Practice Manager role confirmed but name not published in this pass. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Glenfield Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@glenfieldmc.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Botany Doctor Medical Practice', 'Medical centre / GP clinic', NULL, NULL, 'Botany Town Centre, 588 Chapel Road, Botany, Auckland 2013', NULL, NULL, 'reception@botanydoctor.co.nz', '(09) 279 0460', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice led by Dr Marcus Hawkins, in Botany Town Centre (separate practice and phone line from Botany Town Centre Medical Practice in the same building). Email reception@botanydoctor.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain botanydoctor.co.nz. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Botany Doctor Medical Practice'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@botanydoctor.co.nz'));
