@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 194 | A: 63 | B: 131
+-- Total: 195 | A: 63 | B: 132
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -999,3 +999,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Living Culture (Wairau Valley)', 'Outdoor furniture showroom', 'https://livingculture.co.nz', NULL, '139 Wairau Road, Wairau Valley, Auckland 0627', NULL, NULL, 'hello@livingculture.co.nz', '0800 298 398', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Outdoor furniture showroom with a large display floor (open 7 days) in its own Wairau Road premises. Email hello@livingculture.co.nz published on the brand''s own site livingculture.co.nz. No named manager found publicly. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Living Culture (Wairau Valley)'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@livingculture.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Northpoint Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '40 Library Lane, Albany, Auckland', NULL, NULL, 'reception@northpointmedical.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Library Lane premises. Email reception@northpointmedical.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Northpoint Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@northpointmedical.co.nz'));
