@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 199 | A: 66 | B: 133
+-- Total: 201 | A: 66 | B: 135
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -1024,3 +1024,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Return to Form Physiotherapy', 'Physiotherapy / wellness clinic', 'https://returntoform.com', NULL, '179A Ponsonby Road, Ponsonby, Auckland (also has a Wynyard Quarter site)', NULL, NULL, 'info@returntoform.com', '(09) 551 4460', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Physiotherapy/wellness clinic with multiple practitioners, in its own Ponsonby premises (a third-party listing gives a different nearby Ponsonby Road address, so confirm on first contact). Email info@returntoform.com matches the clinic''s own domain. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Return to Form Physiotherapy'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@returntoform.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Kohimarama Veterinary Clinic', 'Veterinary clinic', 'https://kohivet.co.nz', NULL, '325 Kohimarama Road, St Heliers, Auckland 1071', NULL, NULL, 'russellt@kohivet.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Privately owned small-animal vet clinic in its own Kohimarama Road premises. Email russellt@kohivet.co.nz published on the clinic''s own NZVA recruitment listing, matching own domain kohivet.co.nz. A "Russell" is the named contact but role/title isn''t stated, so left out rather than guess. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Kohimarama Veterinary Clinic'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('russellt@kohivet.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Great South Vets', 'Veterinary clinic', NULL, NULL, '785 Great South Road, Papatoetoe, Auckland 2025', NULL, NULL, 'info@greatsouthvets.co.nz', '(09) 278 4165', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own Great South Road premises. Email info@greatsouthvets.co.nz published on the clinic''s own NZVA recruitment listing, matching own domain greatsouthvets.co.nz. A "William" is the named contact but role/title isn''t stated, so left out rather than guess. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Great South Vets'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@greatsouthvets.co.nz'));
