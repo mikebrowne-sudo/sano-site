@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 159 | A: 47 | B: 112
+-- Total: 163 | A: 47 | B: 116
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -13,7 +13,8 @@
 --   Newmarket x2, Ellerslie x2, Birkenhead, Devonport, Half Moon Bay, Kingsland, Papakura),
 --   medical/GP clinics (Grey Lynn, Three Kings, Henderson x2, Manurewa x2, Te Atatu Peninsula,
 --   Botany x3, Browns Bay, Mangere East, Otara, Glenfield, Remuera, St Heliers, Orakei,
---   Hobsonville x2, West Harbour, Flat Bush, Howick x1, Papatoetoe x4, Mt Roskill x2, Titirangi),
+--   Hobsonville x2, West Harbour, Flat Bush, Howick x1, Papatoetoe x4, Mt Roskill x2, Titirangi,
+--   Royal Oak, Onehunga x3, Epsom x2, Highland Park),
 --   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
 --   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
 --   Te Atatu South x2, Whitford, Mangere Bridge x2), gym/fitness/yoga/pilates/dance studio
@@ -820,3 +821,23 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Mangere Veterinary Clinic', 'Veterinary clinic', 'https://vetforpet.co.nz', NULL, '95 Coronation Road, Mangere Bridge, Auckland', NULL, NULL, 'mangerevet@xtra.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic (Integrity Animal Care Ltd, also runs Onehunga Veterinary & Pet Supplies) in its own Mangere Bridge premises. Email mangerevet@xtra.co.nz published via the clinic''s own NZVA recruitment listing. No clearly-titled ops contact found (a "Rachel" is named as practice contact on the listing but role is unclear, so left out). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Mangere Veterinary Clinic'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('mangerevet@xtra.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Royal Oak Medical Centre', 'Medical centre / GP clinic', NULL, NULL, 'Royal Oak Mall, 691 Manukau Road, Royal Oak, Auckland', NULL, NULL, 'reception@royaloakmedical.co.nz', '(09) 625 9221', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own premises at Royal Oak Mall. Email reception@royaloakmedical.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Royal Oak Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@royaloakmedical.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Onehunga Family Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '161 Onehunga Mall, Onehunga, Auckland', NULL, NULL, 'reception.ofmc@gmail.com', '(09) 636 6267', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Onehunga Mall premises, currently enrolling new patients. Email reception.ofmc@gmail.com published on the practice''s own Healthpoint listing (healthpoint.co.nz), reviewed/edited by the practice itself. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Onehunga Family Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception.ofmc@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Epsom Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '102 Great South Road, Epsom, Auckland', NULL, NULL, 'info@epsommedicalcentre.co.nz', '(09) 520 5060', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Great South Road premises. Email info@epsommedicalcentre.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Epsom Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@epsommedicalcentre.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Eastern Family Doctors', 'Medical centre / GP clinic', NULL, NULL, '17 Aviemore Drive, Highland Park, Auckland 2010', NULL, NULL, 'reception@easternfamilydoctors.co.nz', '(09) 222 0168', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Multicultural GP practice in its own Highland Park premises. Email reception@easternfamilydoctors.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Eastern Family Doctors'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@easternfamilydoctors.co.nz'));
