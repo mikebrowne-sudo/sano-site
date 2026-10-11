@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 203 | A: 67 | B: 136
+-- Total: 205 | A: 67 | B: 138
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -1044,3 +1044,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Beachhaven Birkdale Medical', 'Medical centre / GP clinic', NULL, NULL, '330 Rangatira Road, Beach Haven, Auckland (address conflicts with another listing''s 366 Rangatira Road - confirm on first contact)', NULL, NULL, 'reception@bbmedical.co.nz', '(09) 483 6422', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Family GP practice (2 GPs + support staff) in its own Rangatira Road premises. Email reception@bbmedical.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Beachhaven Birkdale Medical'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@bbmedical.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Green Bay Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '70 Godley Road, Green Bay, Auckland 0604', NULL, NULL, 'greenbay@xtra.co.nz', '(09) 827 4075', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Godley Road premises. Email greenbay@xtra.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) for business matters. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Green Bay Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('greenbay@xtra.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Browns Bay Medical Centre', 'Medical centre / GP clinic', NULL, '10 GPs, 6 nurses, 6 receptionists', '13-15 Bute Road, Browns Bay, Auckland 0630', NULL, NULL, 'admin@brownsbaymed.co.nz', '(09) 479 5422', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Sizeable GP practice (10 GPs, 6 nurses, 6 receptionists per own listing) in its own Bute Road premises. Admin email admin@brownsbaymed.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz); confirm it is still current on first contact as a different cached version of the same listing leaves the field blank. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Browns Bay Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@brownsbaymed.co.nz'));
