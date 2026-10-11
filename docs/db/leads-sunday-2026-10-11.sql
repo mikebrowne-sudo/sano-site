@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 143 | A: 40 | B: 103
+-- Total: 151 | A: 43 | B: 108
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -738,3 +738,43 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Botany Doctor Medical Practice', 'Medical centre / GP clinic', NULL, NULL, 'Botany Town Centre, 588 Chapel Road, Botany, Auckland 2013', NULL, NULL, 'reception@botanydoctor.co.nz', '(09) 279 0460', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice led by Dr Marcus Hawkins, in Botany Town Centre (separate practice and phone line from Botany Town Centre Medical Practice in the same building). Email reception@botanydoctor.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain botanydoctor.co.nz. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Botany Doctor Medical Practice'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@botanydoctor.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Remuera Village Medical Centre', 'Medical centre / GP clinic', NULL, '7 doctors + 4 nurses + admin team', '597 Remuera Road, Remuera, Auckland 1050', 'Vicki Metekingi', 'Practice Manager', 'practicemanager@rvmc.co.nz', '(09) 524 5547', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] ProCare-affiliated GP practice on Remuera Road with a sizeable team (7 doctors, 4 nurses, admin + practice manager per own recruitment listing). Practice Manager Vicki Metekingi named with a direct email, practicemanager@rvmc.co.nz, on the practice''s own locum-GP listing (via healthpoint.co.nz / RNZCGP jobs board, posted by the practice). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Remuera Village Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('practicemanager@rvmc.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'The Doctors St Heliers', 'Medical centre / GP clinic', NULL, NULL, 'Level 1, Pimlico Building, 10 Turua Street, St Heliers, Auckland 1071', 'Akshita Nama', 'Medical Centre Manager', 'info@sh.thedoctors.co.nz', '(09) 575 9491', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice (The Doctors network) with its own clinic floor in the Pimlico Building, St Heliers. Medical Centre Manager Akshita Nama named on the practice''s Healthpoint listing (healthpoint.co.nz); info@sh.thedoctors.co.nz matches own domain. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('The Doctors St Heliers'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@sh.thedoctors.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Orakei Health Services', 'Medical centre / GP clinic (kaupapa Maori)', NULL, NULL, 'Eastridge Shopping Centre, 25/215 Kepa Road, Mission Bay, Auckland 1071', 'Sariah Witika', 'Practice Manager', 'receptionohs@orakeihealth.org.nz', '(09) 578 0956', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Kaupapa Maori GP practice owned/operated by Ngati Whatua Orakei, in its own clinic space at Eastridge Shopping Centre. Practice Manager Sariah Witika named on the practice''s Healthpoint listing (healthpoint.co.nz); reception email receptionohs@orakeihealth.org.nz matches own domain. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Orakei Health Services'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('receptionohs@orakeihealth.org.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Hobsonville Family Doctors', 'Medical centre / GP clinic', NULL, '27 staff (practice manager, 12 doctors, 6 nurses, 8 admin/reception)', '124 Hobsonville Road, Hobsonville, Auckland', NULL, NULL, 'admin@hfd.co.nz', '(09) 416 8541', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Sizeable GP practice (27-person team per own listing) in its own Hobsonville Road premises. Email admin@hfd.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain hfd.co.nz. Practice Manager role confirmed but name not published in this pass. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Hobsonville Family Doctors'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@hfd.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Hobsonville Health', 'Medical centre / GP clinic', NULL, NULL, '42 Suncrest Drive, West Harbour, Auckland', NULL, NULL, 'admin@hobsonvillehealth.co.nz', '(09) 416 8712', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Suncrest Drive clinic premises. Email admin@hobsonvillehealth.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Hobsonville Health'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@hobsonvillehealth.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'West Harbour Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '86 Oreil Avenue, West Harbour, Auckland', NULL, NULL, 'reception@whmc.co.nz', '(09) 416 8315', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Oreil Avenue premises. Email reception@whmc.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain whmc.co.nz. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('West Harbour Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@whmc.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Flat Bush Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '201 Murphys Road, Flat Bush, Auckland', NULL, NULL, 'Reception.fbmcl@gmail.com', '(09) 930 8314', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Murphys Road premises. Email Reception.fbmcl@gmail.com published on the practice''s own Healthpoint listing (healthpoint.co.nz), reviewed/edited by the practice itself. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Flat Bush Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('Reception.fbmcl@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Howick Health and Medical Centre', 'Medical centre / GP clinic', 'https://howickhealth.co.nz', NULL, '108 Ridge Road, Howick, Auckland', NULL, NULL, 'reception@howickhealth.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Ridge Road premises. Email reception@howickhealth.co.nz published on the practice''s own site howickhealth.co.nz. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Howick Health and Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@howickhealth.co.nz'));
