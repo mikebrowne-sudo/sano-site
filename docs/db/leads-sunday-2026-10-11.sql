@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 239 | A: 76 | B: 163
+-- Total: 240 | A: 76 | B: 164
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -1254,3 +1254,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Resilience Clinical Psychology', 'Psychology / counselling clinic', 'https://www.resiliencepsychology.co.nz', NULL, '89A College Hill, Freemans Bay, Auckland', 'Kirsten Wooff', 'Psychologist', 'kirsten@resiliencepsychology.co.nz', '09 390 0040', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Clinical psychology practice in its own College Hill premises, Freemans Bay - fresh vertical for this suburb (prior leads there were medical/GP). Named psychologist Kirsten Wooff with email kirsten@resiliencepsychology.co.nz confirmed on two independent sources (NZ College of Clinical Psychologists directory at nzccp.co.nz and a job listing), matching the practice''s own domain. Role listed only as Psychologist, not confirmed as owner/director, so graded B despite the named contact. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Resilience Clinical Psychology'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('kirsten@resiliencepsychology.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'QuayMed Physio (Wynyard Quarter)', 'Physiotherapy clinic', 'https://www.quaymedphysio.co.nz', NULL, '58 Gaunt Street, Wynyard Quarter, Auckland Central', NULL, NULL, 'wynyard@quaymedphysio.co.nz', '09 930 9980', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] ACC-registered physiotherapy clinic on the ground floor of the Datacom building, Wynyard Quarter - fresh CBD-fringe location for physio. Branch email wynyard@quaymedphysio.co.nz and phone published on the clinic''s own site (citymedphysio.co.nz/quaymedphysio.co.nz group), matching the practice''s own domain. No named manager found publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('QuayMed Physio (Wynyard Quarter)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('wynyard@quaymedphysio.co.nz'));
