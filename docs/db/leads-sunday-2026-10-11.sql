@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 191 | A: 62 | B: 129
+-- Total: 192 | A: 63 | B: 129
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -984,3 +984,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Three Kings Dental Centre', 'Dental clinic', NULL, NULL, 'Three Kings Plaza, 536 Mount Albert Road, Three Kings, Auckland', NULL, NULL, 'info@3kingsdental.co.nz', '(09) 625 7175', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own premises at Three Kings Plaza. Email info@3kingsdental.co.nz published on the clinic''s Healthpoint listing (healthpoint.co.nz). No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Three Kings Dental Centre'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@3kingsdental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Avondale Health Centre', 'Medical centre / GP clinic', NULL, NULL, '39 Layard Street, Avondale, Auckland 1026', 'Dianne', 'Practice Manager', 'admin@avondalehealth.co.nz', '(09) 828 2066', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Layard Street premises. Practice Manager Dianne named (first name only) on the practice''s Healthpoint listing (healthpoint.co.nz); admin@avondalehealth.co.nz matches own domain, found on a separate listing for the same practice. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Avondale Health Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@avondalehealth.co.nz'));
