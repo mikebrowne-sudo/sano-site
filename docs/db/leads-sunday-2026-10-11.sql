@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 195 | A: 63 | B: 132
+-- Total: 198 | A: 66 | B: 132
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -16,8 +16,8 @@
 --   Hobsonville x2, West Harbour, Flat Bush, Howick x1, Papatoetoe x4, Mt Roskill x2, Titirangi,
 --   Royal Oak, Onehunga x3, Epsom x2, Highland Park, Mt Roskill x3, Te Atatu South x3, Howick,
 --   Meadowbank x2, Mangere Bridge x2, Drury, Forrest Hill, Birkenhead, Devonport x2, Takapuna x2,
---   Swanson, Mt Eden, Freemans Bay, Hobsonville x3, Point Chevalier, Parnell), osteopathy
---   (Westmere), pilates/yoga (Hobsonville Point x3),
+--   Swanson, Mt Eden, Freemans Bay, Hobsonville x3, Point Chevalier, Parnell, Avondale, Manukau x2,
+--   Waiuku), osteopathy (Westmere), pilates/yoga (Hobsonville Point x3),
 --   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
 --   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
 --   Te Atatu South x2, Whitford, Mangere Bridge x2), gym/fitness/yoga/pilates/dance studio
@@ -1004,3 +1004,18 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Northpoint Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '40 Library Lane, Albany, Auckland', NULL, NULL, 'reception@northpointmedical.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP practice in its own Library Lane premises. Email reception@northpointmedical.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Northpoint Medical Centre'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@northpointmedical.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Bakerfield Medical and Urgent Care', 'Medical centre / GP / urgent care clinic', NULL, NULL, '16A Bakerfield Place, Manukau, Auckland 2104', 'Mohini Gounder', 'Practice Manager', 'manager@bakerfield.co.nz', '(09) 263 7770', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP/urgent care practice in its own Bakerfield Place premises (8am-8pm urgent care plus weekday GP appointments). Practice Manager Mohini Gounder named with a direct email, manager@bakerfield.co.nz, on the practice''s own GP recruitment listing (via rnzcgp.org.nz jobs board, posted by the practice). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Bakerfield Medical and Urgent Care'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('manager@bakerfield.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Southpoint Family Doctors', 'Medical centre / GP clinic', NULL, NULL, '4/9 Sharkey Street, Manukau City Centre, Auckland 2104', 'Dr Fiona Shepherd', 'GP / HR Contact', 'hr@spfd.co.nz', '0800 242 200', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Teaching GP practice in its own Sharkey Street premises. Dr Fiona Shepherd, a GP there per the practice''s Healthpoint listing (healthpoint.co.nz), is also named as the HR contact with email hr@spfd.co.nz on the practice''s own recruitment listing (via rnzcgp.org.nz jobs board). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Southpoint Family Doctors'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('hr@spfd.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Waiuku Health Centre', 'Medical centre / GP clinic', NULL, NULL, '30/26-30 Constable Road, Waiuku, Auckland 2123', 'Rosalie Dunstan', 'HR Contact', 'humanresources@waiukumedical.co.nz', '(09) 235 9102', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in a purpose-built medical centre on Constable Road (shared building with a pharmacy, dentist, lab and counsellor). HR contact Rosalie Dunstan named with a direct email, humanresources@waiukumedical.co.nz, on the practice''s own recruitment listing (via rnzcgp.org.nz jobs board, posted by the practice). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Waiuku Health Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('humanresources@waiukumedical.co.nz'));
