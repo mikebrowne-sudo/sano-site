@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 201 | A: 66 | B: 135
+-- Total: 203 | A: 67 | B: 136
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -1034,3 +1034,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Great South Vets', 'Veterinary clinic', NULL, NULL, '785 Great South Road, Papatoetoe, Auckland 2025', NULL, NULL, 'info@greatsouthvets.co.nz', '(09) 278 4165', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own Great South Road premises. Email info@greatsouthvets.co.nz published on the clinic''s own NZVA recruitment listing, matching own domain greatsouthvets.co.nz. A "William" is the named contact but role/title isn''t stated, so left out rather than guess. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Great South Vets'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@greatsouthvets.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Mairangi Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '2 Penzance Road, Mairangi Bay, Auckland', 'Rebecca Turner', 'Practice Manager', 'enquiries@mmc.gen.nz', '(09) 479 5027', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Penzance Road premises. Practice Manager Rebecca Turner (with Kayla Woodhouse as Assistant Practice Manager) named on the practice''s Healthpoint listing (healthpoint.co.nz); enquiries@mmc.gen.nz matches own domain. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Mairangi Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('enquiries@mmc.gen.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Beachhaven Birkdale Medical', 'Medical centre / GP clinic', NULL, NULL, '330 Rangatira Road, Beach Haven, Auckland (address conflicts with another listing''s 366 Rangatira Road - confirm on first contact)', NULL, NULL, 'reception@bbmedical.co.nz', '(09) 483 6422', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Family GP practice (2 GPs + support staff) in its own Rangatira Road premises. Email reception@bbmedical.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Beachhaven Birkdale Medical'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@bbmedical.co.nz'));
