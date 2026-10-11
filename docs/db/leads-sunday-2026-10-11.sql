@@ -2,7 +2,7 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 163 | A: 47 | B: 116
+-- Total: 165 | A: 49 | B: 116
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
@@ -14,7 +14,7 @@
 --   medical/GP clinics (Grey Lynn, Three Kings, Henderson x2, Manurewa x2, Te Atatu Peninsula,
 --   Botany x3, Browns Bay, Mangere East, Otara, Glenfield, Remuera, St Heliers, Orakei,
 --   Hobsonville x2, West Harbour, Flat Bush, Howick x1, Papatoetoe x4, Mt Roskill x2, Titirangi,
---   Royal Oak, Onehunga x3, Epsom x2, Highland Park),
+--   Royal Oak, Onehunga x3, Epsom x2, Highland Park, Mt Roskill x3, Te Atatu South x3),
 --   childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert,
 --   Pakuranga, Birkdale, Glenfield x2, Otara/Flat Bush, Botany x2, Onehunga x2, Kingsland,
 --   Te Atatu South x2, Whitford, Mangere Bridge x2), gym/fitness/yoga/pilates/dance studio
@@ -841,3 +841,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Eastern Family Doctors', 'Medical centre / GP clinic', NULL, NULL, '17 Aviemore Drive, Highland Park, Auckland 2010', NULL, NULL, 'reception@easternfamilydoctors.co.nz', '(09) 222 0168', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Multicultural GP practice in its own Highland Park premises. Email reception@easternfamilydoctors.co.nz published on the practice''s Healthpoint listing (healthpoint.co.nz) and matches own domain. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Eastern Family Doctors'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@easternfamilydoctors.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'GP Central - Stoddard', 'Medical centre / GP clinic', 'https://gpcentral.co.nz', NULL, '223 Stoddard Road, Mount Roskill, Auckland', 'Ruth Mansell', 'Business Manager', 'businessmanager@gpcentral.co.nz', '(09) 621 0387', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Stoddard Road premises. Business Manager Ruth Mansell named on the practice''s Healthpoint listing (healthpoint.co.nz); businessmanager@gpcentral.co.nz matches own domain gpcentral.co.nz (which also has a meet-the-team page). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('GP Central - Stoddard'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('businessmanager@gpcentral.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Te Atatu South Medical Centre', 'Medical centre / GP clinic', NULL, NULL, '273 Te Atatu Road, Te Atatu South, Auckland', 'Lesley Going', 'Practice Owner & Managing Director', 'reception@tsmc.co.nz', '(09) 834 6600', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] GP practice in its own Te Atatu Road premises. Practice Owner & Managing Director Lesley Going named on the practice''s Healthpoint listing (healthpoint.co.nz); reception@tsmc.co.nz matches own domain tsmc.co.nz. Note: Lesley Going also appears as Practice Manager at the separate, nearby Peninsula Medical Centre (different company/email, already a separate lead above) - not a duplicate. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Te Atatu South Medical Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@tsmc.co.nz'));
