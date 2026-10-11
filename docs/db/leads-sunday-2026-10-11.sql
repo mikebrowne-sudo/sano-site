@@ -2,10 +2,12 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 25 | A: 7 | B: 18
--- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera), vet (Albany,
---   Howick), physio (Mt Eden, Botany), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert),
---   gym/fitness/yoga/pilates studio (Ponsonby, Newmarket x2, Morningside), kitchen showroom (Newmarket)
+-- Total: 35 | A: 11 | B: 24
+-- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
+--   Mission Bay), vet (Albany, Howick, Henderson), physio (Mt Eden, Botany), medical/GP clinics
+--   (Grey Lynn), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert), gym/fitness/yoga/pilates
+--   studio (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay), showrooms
+--   (kitchen - Newmarket, furniture - Parnell)
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -131,3 +133,53 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Smile Boutique (Remuera)', 'Dental clinic', 'https://smileboutique.co.nz/locations/remuera/', NULL, '118 Remuera Road, Remuera, Auckland 1050', NULL, NULL, 'info@smileboutique.co.nz', '09 200 0267', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic on Remuera Road, part of the same small Remuera Road dental cluster as Oral Care Company and OneHealth Dental (three clinics, one street). Email info@smileboutique.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Smile Boutique (Remuera)'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@smileboutique.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Natural Smile EastMed Dental (St Heliers)', 'Dental clinic', 'https://naturalsmile.co.nz', NULL, '188 St Heliers Bay Road, St Heliers, Auckland 1071', 'Dr Dave Richards', 'Owner / Dentist', 'info@naturalsmile.co.nz', '09 585 0205', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] General dental clinic in its own St Heliers premises. Owner-dentist Dr Dave Richards named on the clinic''s own site (naturalsmile.co.nz); published info@naturalsmile.co.nz reaches the practice directly - owner-operator means fast decisions on a cleaning contract. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Natural Smile EastMed Dental (St Heliers)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@naturalsmile.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Swanson Road Veterinary Clinic', 'Veterinary clinic', 'https://swansonroadvet.co.nz', NULL, '269 Swanson Road, Henderson, Auckland 0610', 'Alison', 'Practice Manager / Nurse', 'reception@swansonroadvet.co.nz', '(09) 833 7794', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own West Auckland premises. Practice Manager/Nurse Alison named on the clinic''s own team page (swansonroadvet.co.nz); reception@swansonroadvet.co.nz published on the same site. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Swanson Road Veterinary Clinic'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@swansonroadvet.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Mission Bay Fitness', 'Gym / fitness studio', 'https://www.missionbayfitness.co.nz', NULL, '2/95 Rukutai Street, Mission Bay, Auckland 1071', 'Dave Maegaard', 'Owner', 'missionbayfitness@gmail.com', '+64 21 397 379', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Private gym in its own Mission Bay premises (opened 2021). Owner Dave Maegaard named on the gym''s own site/Facebook page; published contact email missionbayfitness@gmail.com reaches him directly. Owner-operator = fast decision on a cleaning contract. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Mission Bay Fitness'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('missionbayfitness@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Cocohills (Parnell)', 'Furniture / homeware showroom', 'https://www.cocohills.co.nz', NULL, '55 The Strand, Parnell, Auckland 1052', 'Heather Walker', 'Owner', 'heather@cocohills.co.nz', '09 302 8882', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Curated furniture/homeware showroom with a street-front display floor (presentation-critical premises). Owner Heather Walker named across multiple design-industry profiles (archipro.co.nz, vervemagazine.co.nz); her direct email heather@cocohills.co.nz published on the showroom''s own contact page. Owner-operator = fast decision. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Cocohills (Parnell)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('heather@cocohills.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'The Tooth Company Eastridge', 'Dental clinic', 'https://thetoothcompany.co.nz/contact-us/eastridge/', NULL, 'Eastridge Shopping Centre, 215 Kepa Road, Mission Bay, Auckland 1071', NULL, NULL, 'eastridge@thetoothcompany.co.nz', '(09) 521 2021', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] General dental clinic inside Eastridge Shopping Centre, Mission Bay. Branch email eastridge@thetoothcompany.co.nz published on the company''s own contact page. The site names a "Practice Manager" role but not a person, so no name used. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('The Tooth Company Eastridge'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('eastridge@thetoothcompany.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Henderson Vets', 'Veterinary clinic', 'https://www.hendersonvets.co.nz', NULL, '12 Lincoln Road, Henderson, Auckland 0610', NULL, NULL, 'reception@hendersonvets.co.nz', '09 838 8550', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own West Auckland premises. Email reception@hendersonvets.co.nz published on the clinic''s own site. A practice manager is mentioned in third-party listings but not reliably named on the clinic''s own pages, so left out. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Henderson Vets'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@hendersonvets.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Ponsonby Doctors', 'Medical centre / GP clinic', 'https://www.ponsonbydoctors.co.nz', NULL, '582 Karangahape Road, Grey Lynn, Auckland 1021', NULL, NULL, 'info@ponsonbydoctors.co.nz', '(09) 280 2923', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP/accident & medical clinic in its own premises. Email info@ponsonbydoctors.co.nz published on the clinic''s own contact page (ponsonbydoctors.co.nz/contact). No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Ponsonby Doctors'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@ponsonbydoctors.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'The Doctors Richmond Road', 'Medical centre / GP clinic', 'https://www.richmondroadmedical.co.nz', NULL, '452 Richmond Road, Grey Lynn, Auckland 1021', NULL, NULL, 'admin@rr.thedoctors.co.nz', '09 376 5621', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] GP medical centre in its own Grey Lynn premises. Admin inbox admin@rr.thedoctors.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('The Doctors Richmond Road'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@rr.thedoctors.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Reform Fitness (Parnell)', 'Gym / fitness studio', 'https://www.reformfitness.co.nz/studios/parnell', NULL, '79a Saint Georges Bay Road, Parnell, Auckland 1052', NULL, NULL, 'parnell@reformfitness.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Boutique fitness studio in its own Parnell premises. Studio inbox parnell@reformfitness.co.nz published on the studio''s own site. No named manager found publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Reform Fitness (Parnell)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('parnell@reformfitness.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'The Exercise Room (Parnell)', 'Gym / fitness studio', 'https://www.theexerciseroom.co.nz', NULL, '100 Parnell Road, Parnell, Auckland 1052', NULL, NULL, 'info@theexerciseroom.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Boutique gym on Parnell Road. Email info@theexerciseroom.co.nz published on the studio''s own site. No named manager found publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('The Exercise Room (Parnell)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@theexerciseroom.co.nz'));
