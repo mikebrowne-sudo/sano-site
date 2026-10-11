@@ -2,12 +2,13 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 44 | A: 12 | B: 32
+-- Total: 52 | A: 13 | B: 39
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
---   Mission Bay, New Lynn, Avondale), vet (Albany, Howick, Henderson, Point Chevalier), physio
---   (Mt Eden, Botany, Ponsonby, Newmarket), medical/GP clinics (Grey Lynn), childcare/ECE (Takapuna,
---   Browns Bay, Epsom, Mt Albert, Pakuranga), gym/fitness/yoga/pilates studio (Ponsonby, Newmarket x2,
---   Morningside, Parnell x2, Mission Bay), showrooms (kitchen - Newmarket, furniture - Parnell)
+--   Mission Bay, New Lynn, Avondale), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral,
+--   St Lukes/Sandringham), physio (Mt Eden, Botany, Ponsonby, Newmarket x2, Ellerslie x2), medical/GP
+--   clinics (Grey Lynn), childcare/ECE (Takapuna, Browns Bay, Epsom, Mt Albert, Pakuranga),
+--   gym/fitness/yoga/pilates studio (Ponsonby, Newmarket x2, Morningside, Parnell x2, Mission Bay,
+--   Mt Eden), showrooms (kitchen - Newmarket, furniture - Parnell, tile/bathroom - Ellerslie/Mt Wellington x3)
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Milk Orthodontics (Newmarket)', 'Orthodontics / dental specialist clinic', 'https://milkorthodontics.co.nz', '10-15', 'Suite 27, 2 Nuffield Street, Newmarket, Auckland 1023', 'Kaitlyn', 'Clinical Manager', 'hello@milkorthodontics.co.nz', '(09) 520 1880', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Award-winning specialist orthodontic clinic on the corner of Nuffield St/Remuera Rd, opposite Newmarket train station - real fitted-out premises needing presentation-level cleaning. Clinical Manager Kaitlyn named on Healthpoint staff listing (healthpoint.co.nz); official contact email hello@milkorthodontics.co.nz confirmed on milkorthodontics.co.nz/contact-us.html. No renewal/cleaning hint found.'
@@ -228,3 +229,43 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Point Chevalier Veterinary Care', 'Veterinary clinic', 'https://www.veterinarycare.co.nz/pt-chevalier', NULL, '67 Point Chevalier Road, Point Chevalier, Auckland 1022', NULL, NULL, 'pointchev@veterinarycare.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own Point Chevalier premises (part of a small 3-clinic local group with Balmoral and Royal Oak - locally run, not national). Email pointchev@veterinarycare.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Point Chevalier Veterinary Care'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('pointchev@veterinarycare.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Tile Space Ellerslie', 'Tile / bathroomware showroom', 'https://tiles.co.nz/tile-space-ellerslie', NULL, '218a Marua Road, Ellerslie, Auckland 1051', 'Ellen Ransfield', 'Branch Manager', 'ellerslie@tiles.co.nz', '09 270 7990', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Tile/bathroomware showroom with a street-front display floor (glossy tile and fixture displays - presentation-critical premises). Branch Manager Ellen Ransfield named on the store''s own branch page (tiles.co.nz/tile-space-ellerslie); published ellerslie@tiles.co.nz reaches the branch directly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Tile Space Ellerslie'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('ellerslie@tiles.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'MedStrength Gym (Mt Eden)', 'Gym / fitness studio (physio-led)', 'https://www.medstrength.co.nz', NULL, 'Eden 5, 12 Normanby Road, Mount Eden, Auckland 1024', NULL, NULL, 'admin@medstrength.co.nz', '09 623 0045', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Boutique physio-led gym in its own Mt Eden premises (same Eden 5 building as Functional Physio, seed batch 1 - pair the visit). Email admin@medstrength.co.nz published on the gym''s own site. No named manager found publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('MedStrength Gym (Mt Eden)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@medstrength.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Balmoral Veterinary Care', 'Veterinary clinic', 'https://www.veterinarycare.co.nz/balmoral', NULL, '482 Dominion Road, Balmoral, Auckland 1041', NULL, NULL, 'balmoral@veterinarycare.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own Balmoral premises (small local 3-clinic group, locally run). Email balmoral@veterinarycare.co.nz published on the clinic''s own site. Dr Mike Sanders named as a vet but ownership not confirmed, so no name used. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Balmoral Veterinary Care'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('balmoral@veterinarycare.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'St Lukes Veterinary Centre', 'Veterinary clinic', 'https://www.stlukesvet.co.nz', NULL, '13 Morningside Drive, St Lukes, Auckland 1025', NULL, NULL, 'pets@stlukesvet.co.nz', '09 845 5573', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Small-animal vet clinic in its own premises (registered as Vets and Pets Ltd). Email pets@stlukesvet.co.nz published on the clinic''s own site. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('St Lukes Veterinary Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('pets@stlukesvet.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Toptile Bathrooms (Mt Wellington)', 'Tile / bathroomware showroom', 'https://www.toptilebathrooms.co.nz', NULL, '58 Lunn Avenue, Mount Wellington, Auckland 1060', NULL, NULL, 'sales@toptileandbathroom.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Tile/bathroomware showroom with a display floor. Email sales@toptileandbathroom.co.nz published on the showroom''s own site. No named manager found publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Toptile Bathrooms (Mt Wellington)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('sales@toptileandbathroom.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Tile Depot (Mt Wellington)', 'Tile showroom', 'https://www.tiledepot.co.nz/stores/mt-wellington', NULL, '1/47 Lunn Avenue, Mount Wellington, Auckland 1060', NULL, NULL, 'lunnave@tiledepot.co.nz', NULL, 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Tile showroom with a display floor (same street as Toptile Bathrooms in this batch - pair the visit). Branch email lunnave@tiledepot.co.nz published on the company''s own store-locator page. No named manager found publicly. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Tile Depot (Mt Wellington)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('lunnave@tiledepot.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'About Faces Physiotherapy (Ellerslie)', 'Physiotherapy clinic', 'https://www.aboutfaces.co.nz', NULL, '1/298 Ellerslie-Panmure Highway, Ellerslie, Auckland 1051', NULL, NULL, 'info@aboutfaces.co.nz', '+64 9 5800 590', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Physiotherapy clinic in its own Ellerslie premises. Email info@aboutfaces.co.nz published on the clinic''s own contact page. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('About Faces Physiotherapy (Ellerslie)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@aboutfaces.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Physiologic (Ellerslie)', 'Physiotherapy clinic', 'https://physiologic.co.nz', NULL, '17 Kalmia Street, Ellerslie, Auckland 1051', NULL, NULL, 'info@physiologic.co.nz', '0800 756 750', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Physiotherapy clinic in its own Ellerslie premises. Email info@physiologic.co.nz published on the clinic''s own contact page. No named ops contact found. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Physiologic (Ellerslie)'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@physiologic.co.nz'));
