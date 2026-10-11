@@ -2,11 +2,12 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 229 | A: 73 | B: 156
+-- Total: 231 | A: 74 | B: 157
 -- Sectors/suburbs covered: dental/orthodontic clinics (Newmarket, Takapuna, Remuera, St Heliers,
 --   Mission Bay, New Lynn, Avondale, Blockhouse Bay, Panmure, Glen Innes, Otahuhu, Flat Bush x3,
 --   Howick, Onehunga, Royal Oak, Henderson, Herne Bay, Ponsonby, Kohimarama, Pt Chevalier x2,
---   Titirangi x2, Epsom, Browns Bay, Albany, Pakuranga, Manurewa, Three Kings, Forrest Hill/Sunnynook),
+--   Titirangi x2, Epsom, Browns Bay, Albany, Pakuranga, Manurewa, Three Kings, Forrest Hill/Sunnynook,
+--   Mt Wellington, Otahuhu),
 --   audiology/hearing (Rosedale), vet (Albany, Howick, Henderson, Point Chevalier, Balmoral,
 --   St Lukes/Sandringham, Manukau, Papatoetoe, Mt Roskill, Glenfield, Mt Eden x2, Ellerslie,
 --   Glen Eden x2, Takanini, Papakura x3 (incl. Franklin Vets), Grey Lynn, Blockhouse Bay, Te Atatu,
@@ -1189,3 +1190,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Advantage Chiropractic (Glenfield)', 'Chiropractic clinic', NULL, NULL, '3/1 View Road, Glenfield, Auckland 0627', 'Dr Leah Mendes', 'Principal Chiropractor & Director', 'glenfield@advantagechiropractic.co.nz', '021 0818 2838', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] ACC-registered chiropractic clinic (two North Shore sites: Glenfield and Rosedale) in its own View Road premises. Principal Chiropractor & Director Dr Leah Mendes named on the clinic''s Healthpoint listing (healthpoint.co.nz); branch email glenfield@advantagechiropractic.co.nz matches the clinic''s own domain. Co-director Tomas Mendes also named. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Advantage Chiropractic (Glenfield)'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('glenfield@advantagechiropractic.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Glow Dental', 'Dental clinic', 'https://glowdental.co.nz', NULL, 'Shop 11/101 Lunn Avenue, Mt Wellington, Auckland 1072', 'Dr Linda Hwang', 'Principal Dentist', 'info@glowdental.co.nz', '(09) 600 2774', 'sunday-burst-2026-10-11', 'A', 'new', '[Sunday burst 2026-10-11] Independent dental clinic in its own Lunn Avenue premises. Principal Dentist Dr Linda Hwang named on the clinic''s Healthpoint listing (healthpoint.co.nz); email info@glowdental.co.nz matches the clinic''s own domain. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Glow Dental'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@glowdental.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Maxcare Dental', 'Dental clinic', NULL, NULL, 'Great South Road, Otahuhu, Auckland 1062', 'Dr Tazeen Khan', NULL, 'info@maxcaredental.co.nz', '09-600 2266', 'sunday-burst-2026-10-11', 'B', 'new', '[Sunday burst 2026-10-11] Dental clinic (sites in Otahuhu and Massey) in its own Great South Road premises. Dentist Dr Tazeen Khan named on the clinic''s own listing; her ownership of the practice isn''t confirmed so role left blank. Email info@maxcaredental.co.nz matches the clinic''s own domain. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Maxcare Dental'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@maxcaredental.co.nz'));
