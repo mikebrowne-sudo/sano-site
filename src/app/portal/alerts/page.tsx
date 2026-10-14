@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase-server'
 import Link from 'next/link'
 import { AlertTriangle, Briefcase, Receipt, BookOpen, CalendarDays, ShieldCheck, CalendarClock } from 'lucide-react'
 import { RunJobReminders, RunTrainingReminders } from './_components/ReminderButtons'
+import { BulkRemindersPanel } from './_components/BulkRemindersPanel'
+import { loadReminderCandidates } from '@/lib/invoice-reminder-candidates'
 import { computeComplianceStatus } from '@/lib/contractor-compliance'
 import { ComplianceBadge } from '../contractors/_components/ComplianceBadge'
 import clsx from 'clsx'
@@ -17,6 +19,9 @@ function fmtDate(iso: string | null) {
 function fmtCurrency(d: number) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(d)
 }
+
+// "Send reminders" renders invoice PDFs inside this page's server action.
+export const maxDuration = 60
 
 export default async function AlertsPage() {
   const supabase = createClient()
@@ -125,11 +130,12 @@ export default async function AlertsPage() {
   // Balance still owed (part payments deducted) + where each sits on the
   // 3 / 10 / 21-day reminder schedule.
   const overdueIds = (overdueInvoices ?? []).map((i) => i.id as string)
-  const [allocatedById, { data: reminderRows }] = await Promise.all([
+  const [allocatedById, { data: reminderRows }, reminderCandidates] = await Promise.all([
     loadAllocatedByInvoice(supabase, overdueIds),
     overdueIds.length
       ? supabase.from('invoice_reminders').select('invoice_id').in('invoice_id', overdueIds)
       : Promise.resolve({ data: [] as { invoice_id: string }[] }),
+    overdueIds.length ? loadReminderCandidates(supabase, today) : Promise.resolve([]),
   ])
   const remindersSent = new Map<string, number>()
   for (const r of (reminderRows ?? []) as { invoice_id: string }[]) remindersSent.set(r.invoice_id, (remindersSent.get(r.invoice_id) ?? 0) + 1)
@@ -163,6 +169,11 @@ export default async function AlertsPage() {
           <p className="text-sage-500 text-sm">No overdue invoices.</p>
         ) : (
           <div className="space-y-2">
+            {reminderCandidates.length > 0 && (
+              <div className="mb-3">
+                <BulkRemindersPanel candidates={reminderCandidates} />
+              </div>
+            )}
             {(overdueInvoices ?? []).map((inv) => {
               const client = inv.clients as unknown as { name: string } | null
               const total = owedOf(inv as { id: string })

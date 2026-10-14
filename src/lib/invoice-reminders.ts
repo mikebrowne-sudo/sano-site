@@ -185,3 +185,121 @@ export function renderReminderEmailHtml(i: ReminderHtmlInput): string {
     <p style="margin:18px 0 0;color:#888888;font-size:12px;">Sano Property Services Limited</p>
   </div>`
 }
+
+// ── Combined reminder (one email, several invoices) ─────────────────────────
+// Used by the bulk "Send reminders" on Alerts: a customer with three overdue
+// invoices gets ONE email listing all three, not three emails at once. The
+// wording follows the firmest stage among the invoices.
+
+export interface CombinedReminderInvoice {
+  invoiceNumber: string
+  amountDue: number
+  dueDate: string | null
+  clientReference?: string | null
+  shareUrl: string
+}
+
+export function buildCombinedReminderEmail(i: {
+  stage: ReminderStage
+  greeting: string
+  invoices: Pick<CombinedReminderInvoice, 'invoiceNumber' | 'amountDue'>[]
+}): { subject: string; message: string } {
+  const total = fmtMoney(i.invoices.reduce((s, x) => s + x.amountDue, 0))
+  const n = i.invoices.length
+  const below = 'The payment details and copies of the invoices are below.'
+
+  if (i.stage === 1) {
+    return {
+      subject: `Friendly reminder: ${n} invoices outstanding`,
+      message:
+        `${i.greeting}\n\nJust a friendly reminder that the ${n} invoices below, totalling ${total}, are now past their due date. ` +
+        `If payment is already on its way, thank you, and please ignore this email.\n\n${below}`,
+    }
+  }
+  if (i.stage === 2) {
+    return {
+      subject: `Following up: ${n} outstanding invoices`,
+      message:
+        `${i.greeting}\n\nWe're just following up on the ${n} invoices below, totalling ${total}, which are still showing as outstanding on our side. ` +
+        `If anything is holding them up, or there's something you'd like to check, just reply and we'll be happy to help.\n\n${below}`,
+    }
+  }
+  return {
+    subject: `Overdue invoices: ${total} outstanding`,
+    message:
+      `${i.greeting}\n\nThe ${n} invoices below, totalling ${total}, are now overdue. ` +
+      `We'd be grateful if you could arrange payment within the next 7 days, or simply reply to let us know when we can expect it. ` +
+      `If you've already paid, please send us the payment date so we can match it on our side.\n\n${below}`,
+  }
+}
+
+export function renderCombinedReminderEmailHtml(i: {
+  message: string
+  invoices: CombinedReminderInvoice[]
+  cardAvailable: boolean
+  bankAccountName: string
+  bankAccountNumber: string
+}): string {
+  const SAGE = '#076653'
+  const INK = '#06231D'
+  const MUTED = '#5C6B64'
+  const LINE = '#E0EAE3'
+  const CREAM = '#FAF9F6'
+  const total = i.invoices.reduce((s, x) => s + x.amountDue, 0)
+  const row = (label: string, value: string, strong = false) => `
+        <tr>
+          <td style="padding:7px 0;color:${MUTED};font-size:14px;">${esc(label)}</td>
+          <td style="padding:7px 0;color:${INK};font-size:14px;text-align:right;${strong ? 'font-weight:700;' : 'font-weight:600;'}">${esc(value)}</td>
+        </tr>`
+  const section = (title: string) => `
+        <tr><td colspan="2" style="padding:14px 0 4px;border-top:1px solid ${LINE};color:${SAGE};font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">${esc(title)}</td></tr>`
+
+  const lines = i.invoices.map((x) => {
+    const sub = [x.dueDate ? `Due ${fmtLongDate(x.dueDate)}` : null, x.clientReference ? `Your ref ${x.clientReference}` : null]
+      .filter(Boolean).join(' · ')
+    return `
+        <tr>
+          <td style="padding:8px 0;font-size:14px;border-bottom:1px solid ${LINE};">
+            <a href="${esc(x.shareUrl)}" style="color:${SAGE};font-weight:600;text-decoration:none;">${esc(x.invoiceNumber)}</a>
+            ${sub ? `<br><span style="color:${MUTED};font-size:12px;">${esc(sub)}</span>` : ''}
+          </td>
+          <td style="padding:8px 0;color:${INK};font-size:14px;font-weight:600;text-align:right;border-bottom:1px solid ${LINE};vertical-align:top;">${esc(fmtMoney(x.amountDue))}</td>
+        </tr>`
+  }).join('')
+
+  const numbers = i.invoices.map((x) => x.invoiceNumber)
+  const bank = [
+    row('Total outstanding', fmtMoney(total), true),
+    section('Pay by bank transfer'),
+    row('Account name', i.bankAccountName),
+    row('Account number', i.bankAccountNumber),
+    // NZ bank reference fields hold 12 characters, so one number, not a list.
+    row('Reference', numbers.length === 1 ? numbers[0] : 'Invoice number (see below)'),
+  ].join('')
+
+  const cardNote = i.cardAvailable
+    ? `<p style="margin:6px 0 0;color:${MUTED};font-size:12px;">Card payments are also accepted through each invoice link (a 2.5% card fee applies).</p>`
+    : ''
+
+  return `
+  <div style="font-family:Arial,Helvetica,sans-serif;color:${INK};font-size:15px;line-height:1.55;max-width:560px;">
+    <p style="margin:0 0 18px;">${esc(i.message).replace(/\n/g, '<br>')}</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:520px;background:${CREAM};border:1px solid ${LINE};border-radius:12px;">
+      <tr><td style="padding:16px 20px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">${lines}${bank}
+        </table>
+      </td></tr>
+    </table>
+    <p style="margin:14px 0 0;color:${MUTED};font-size:12px;">Paying them separately? Use each invoice number as the reference. Paying in one go? Use ${esc(numbers[0])} as the reference and we'll match the rest. Tap an invoice number to view it${i.cardAvailable ? ' or pay online' : ''}.</p>
+    ${cardNote}
+    <p style="margin:12px 0 0;color:${MUTED};font-size:12px;">Copies of ${esc(numbers.join(', '))} are attached as PDFs.</p>
+    <p style="margin:22px 0 0;">Kind regards,<br>The Sano team</p>
+    <p style="margin:18px 0 0;color:#888888;font-size:12px;">Sano Property Services Limited</p>
+  </div>`
+}
+
+/** Bulk-send grouping key: the address the reminder goes to, so one inbox
+ *  (e.g. a shared accounts address) gets one email. */
+export function reminderGroupKey(to: string): string {
+  return to.trim().toLowerCase()
+}
