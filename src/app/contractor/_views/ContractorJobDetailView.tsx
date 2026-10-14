@@ -173,7 +173,18 @@ export function ContractorJobDetailView({
       )}
 
       {/* Pay for this job */}
-      {job.payableHours != null && job.payRate != null && (
+      {job.payBasis === 'per_visit' && job.jobPay > 0 && (
+        <Card heading="Your pay for this job">
+          <p className="text-sage-800 text-2xl font-bold tabular-nums">{fmtCurrency(job.jobPay)}</p>
+          <p className="text-xs text-sage-500 mt-1">Set amount for this visit</p>
+        </Card>
+      )}
+      {job.payBasis === 'fixed' && (
+        <Card heading="Your pay for this job">
+          <p className="text-sm text-sage-700">Covered by your regular arrangement with Sano, not paid per visit.</p>
+        </Card>
+      )}
+      {job.payBasis === 'hourly' && job.payableHours != null && job.payRate != null && (
         <Card heading="Your pay for this job">
           <p className="text-sage-800 text-2xl font-bold tabular-nums">{fmtCurrency(job.jobPay)}</p>
           <p className="text-xs text-sage-500 mt-1 tabular-nums">

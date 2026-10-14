@@ -8,6 +8,7 @@ import { isHoursConfirmedStatus, type HoursConfirmedStatus } from '@/lib/hours-c
 import { getWorkerPayableHours, getWorkerLabourCost, getWorkerRate } from '@/lib/job-cost'
 import { getJobPhotos } from '@/lib/job-photos'
 import { getServiceSupabase } from '@/lib/supabase-service'
+import { payBasisOf, type PayBasis } from '@/lib/job-worker-pay-basis'
 import { getContractorPayStatus, type ContractorPayStatus } from './contractor-pay-status'
 
 export interface ContractorJobDetail {
@@ -32,7 +33,12 @@ export interface ContractorJobDetail {
   started_at: string | null
   completed_at: string | null
   payableHours: number | null
+  /** How this contractor is paid for the job. 'per_visit' = a set amount for
+   *  the visit (NOT hours × rate); 'fixed' = covered by a retainer. */
+  payBasis: PayBasis
+  /** What they're paid for this job (the set amount on a per-visit job; 0 on a retainer). */
   jobPay: number
+  /** Hourly rate — hourly jobs only (null otherwise). */
   payRate: number | null
   approvedExtra: number
   payStatus: ContractorPayStatus
@@ -63,7 +69,7 @@ export async function loadContractorJobDetail(
       .maybeSingle(),
     supabase
       .from('job_workers')
-      .select('hours_allocated, pay_rate, extra_hours, extra_hours_status, hours_confirmed_status, hours_confirmed_note')
+      .select('hours_allocated, pay_rate, pay_type, extra_hours, extra_hours_status, hours_confirmed_status, hours_confirmed_note')
       .eq('job_id', jobId)
       .eq('contractor_id', contractorId)
       .maybeSingle(),
@@ -174,6 +180,12 @@ export async function loadContractorJobDetail(
     extra_hours_status: (worker?.extra_hours_status as string | null) ?? 'none',
   }
 
+  // Same basis the pay approval uses: a per-visit row's pay_rate IS the whole
+  // amount for the visit, and a retainer isn't paid per job. Reading either as
+  // hours × rate showed e.g. "4 hrs × $121.74/hr = $486.96" for a $121.74 visit.
+  const payBasis = payBasisOf(worker?.pay_type as string | null | undefined)
+  const setAmount = Number(worker?.pay_rate ?? 0)
+
   return {
     id: job.id as string,
     job_number: job.job_number as string,
@@ -194,8 +206,9 @@ export async function loadContractorJobDetail(
     started_at: (job.started_at as string | null) ?? null,
     completed_at: (job.completed_at as string | null) ?? null,
     payableHours: getWorkerPayableHours(costInput),
-    jobPay: getWorkerLabourCost(costInput),
-    payRate: getWorkerRate(costInput, fallbackRate),
+    payBasis,
+    jobPay: payBasis === 'per_visit' ? setAmount : payBasis === 'fixed' ? 0 : getWorkerLabourCost(costInput),
+    payRate: payBasis === 'hourly' ? getWorkerRate(costInput, fallbackRate) : null,
     approvedExtra: costInput.extra_hours_status === 'approved' ? (costInput.extra_hours ?? 0) : 0,
     payStatus,
     myExtras,
