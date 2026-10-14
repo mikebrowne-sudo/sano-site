@@ -12,7 +12,15 @@ import {
 type EligibleLead = Pick<
   SalesLead,
   'id' | 'company' | 'contact_name' | 'contact_role' | 'email' | 'quality_rank' | 'status' | 'industry'
->
+> & {
+  /** Already emailed by a campaign, or past first contact in the CRM. */
+  previouslyContacted: boolean
+  lastContactedAt: string | null
+  lastCampaignName: string | null
+}
+
+const fmtDay = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Pacific/Auckland' })
 
 export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
   const [name, setName] = useState('')
@@ -40,11 +48,29 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
     { d: 4, label: 'Thu' }, { d: 5, label: 'Fri' }, { d: 6, label: 'Sat' }, { d: 7, label: 'Sun' },
   ]
   const [sendingDays, setSendingDays] = useState<Set<number>>(new Set([1, 2, 3, 4]))
-  const [selected, setSelected] = useState<Set<string>>(new Set(leads.map((l) => l.id)))
+  // Fresh leads only by default — previously contacted leads are hidden and
+  // never pre-ticked. Showing them is a deliberate choice (re-contact).
+  const [showContacted, setShowContacted] = useState(false)
+  const freshLeads = useMemo(() => leads.filter((l) => !l.previouslyContacted), [leads])
+  const visibleLeads = showContacted ? leads : freshLeads
+  const contactedCount = leads.length - freshLeads.length
+  const [selected, setSelected] = useState<Set<string>>(new Set(freshLeads.map((l) => l.id)))
+  const selectedContacted = useMemo(
+    () => leads.filter((l) => l.previouslyContacted && selected.has(l.id)).length,
+    [leads, selected],
+  )
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  const allSelected = selected.size === leads.length && leads.length > 0
+  const allSelected = visibleLeads.length > 0 && visibleLeads.every((l) => selected.has(l.id))
+  function selectWhere(pred: (l: EligibleLead) => boolean) {
+    setSelected(new Set(freshLeads.filter(pred).map((l) => l.id)))
+  }
+  function toggleShowContacted(on: boolean) {
+    setShowContacted(on)
+    // Hiding them again also unticks them, so nothing hidden gets sent.
+    if (!on) setSelected((prev) => new Set(Array.from(prev).filter((id) => !leads.find((l) => l.id === id)?.previouslyContacted)))
+  }
   const counts = useMemo(() => {
     const c = { A: 0, B: 0, C: 0 }
     for (const l of leads) if (selected.has(l.id)) c[l.quality_rank]++
@@ -98,6 +124,7 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
         sendTimeNz,
         sendingDays: Array.from(sendingDays).sort(),
         leadIds: Array.from(selected),
+        allowRecontact: showContacted && selectedContacted > 0,
       })
       if (res?.error) setError(res.error)
     })
@@ -238,25 +265,48 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
           <h2 className="text-lg font-semibold text-sage-800">
             Audience
             <span className="text-sage-500 font-normal text-sm ml-2">
-              {selected.size} of {leads.length} selected · {counts.A} A / {counts.B} B / {counts.C} C
+              {selected.size} of {visibleLeads.length} selected · {counts.A} A / {counts.B} B / {counts.C} C
             </span>
           </h2>
           <button
             type="button"
-            onClick={() => setSelected(allSelected ? new Set() : new Set(leads.map((l) => l.id)))}
+            onClick={() => setSelected(allSelected ? new Set() : new Set(visibleLeads.map((l) => l.id)))}
             className="text-xs font-semibold text-sage-600 hover:text-sage-800"
           >
             {allSelected ? 'Deselect all' : 'Select all'}
           </button>
         </div>
 
-        {leads.length === 0 ? (
+        <div className="rounded-lg border border-sage-100 bg-sage-50/60 p-3 mb-4 space-y-2">
+          <p className="text-sm text-sage-700">
+            Showing <span className="font-semibold">{freshLeads.length} leads not yet contacted</span>
+            {contactedCount > 0 && <> · {contactedCount} previously contacted {showContacted ? 'also shown' : 'hidden'}</>}.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => selectWhere(() => true)} className="px-2.5 py-1 rounded-md text-xs font-medium border border-sage-200 bg-white text-sage-700 hover:border-sage-300">All fresh</button>
+            <button type="button" onClick={() => selectWhere((l) => l.quality_rank === 'A')} className="px-2.5 py-1 rounded-md text-xs font-medium border border-sage-200 bg-white text-sage-700 hover:border-sage-300">Fresh A-grade</button>
+            <button type="button" onClick={() => selectWhere((l) => l.quality_rank === 'A' && !!l.contact_name?.trim())} className="px-2.5 py-1 rounded-md text-xs font-medium border border-sage-200 bg-white text-sage-700 hover:border-sage-300">Fresh A-grade, named contact</button>
+            <button type="button" onClick={() => selectWhere((l) => l.quality_rank !== 'C')} className="px-2.5 py-1 rounded-md text-xs font-medium border border-sage-200 bg-white text-sage-700 hover:border-sage-300">Fresh A + B</button>
+          </div>
+          <span className="block text-[11px] text-sage-500">Campaign 1: all 9 replies came from A-grade leads, and named greetings out-performed &ldquo;Hi team&rdquo;.</span>
+          {contactedCount > 0 && (
+            <label className="flex items-start gap-2 text-xs text-sage-600 pt-1">
+              <input type="checkbox" checked={showContacted} onChange={(e) => toggleShowContacted(e.target.checked)} className="mt-0.5 rounded border-sage-300" />
+              <span>Include previously contacted leads <span className="text-sage-400">(re-contact on purpose — they&apos;ll be marked below)</span></span>
+            </label>
+          )}
+          {selectedContacted > 0 && (
+            <p className="text-xs text-amber-700">{selectedContacted} selected lead{selectedContacted === 1 ? ' has' : 's have'} been contacted before.</p>
+          )}
+        </div>
+
+        {visibleLeads.length === 0 ? (
           <p className="text-sm text-sage-500 bg-sage-50 border border-sage-100 rounded-lg p-4">
             No eligible leads (a lead needs an email address and must not be opted out).
           </p>
         ) : (
           <ul className="border border-sage-100 rounded-xl divide-y divide-sage-100 max-h-[420px] overflow-y-auto bg-white">
-            {leads.map((l) => (
+            {visibleLeads.map((l) => (
               <li key={l.id}>
                 <label className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[#fafcfa]">
                   <input
@@ -275,7 +325,13 @@ export function NewCampaignForm({ leads }: { leads: EligibleLead[] }) {
                       {l.email}
                     </span>
                   </span>
-                  <span className="text-[11px] text-sage-400 shrink-0">{LEAD_STATUS_LABELS[l.status]}</span>
+                  {l.previouslyContacted ? (
+                    <span className="text-[11px] text-amber-700 shrink-0 text-right">
+                      {l.lastContactedAt ? `Emailed ${fmtDay(l.lastContactedAt)}` : LEAD_STATUS_LABELS[l.status]}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-sage-400 shrink-0">{LEAD_STATUS_LABELS[l.status]}</span>
+                  )}
                 </label>
               </li>
             ))}

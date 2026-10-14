@@ -12,6 +12,7 @@ import { checkSenderReadiness } from '@/lib/campaigns/sender-readiness'
 import { isAdminUser } from '@/lib/is-admin'
 import { reviewCompanyName } from '@/lib/campaigns/company-name-quality'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { loadContactHistory, isPreviouslyContacted } from '@/lib/campaigns/contact-history'
 
 function siteUrl(): string {
   return process.env.NEXT_PUBLIC_SITE_URL || 'https://sano.nz'
@@ -36,12 +37,34 @@ export async function createCampaignAction(input: {
   sendTimeNz?: string         // 'HH:MM' NZ; default 08:30
   sendingDays?: number[]      // ISO 1..7; default Mon–Thu
   allowUnlimited?: boolean    // explicit confirmation required for cap 0 (unlimited)
+  // Re-contacting leads who've already been emailed / are mid-conversation must
+  // be an explicit choice — off by default so a new campaign is fresh leads only.
+  allowRecontact?: boolean
 }) {
   await assertAdminAction()
   if (!input.name.trim()) return { error: 'Campaign needs a name.' }
   if (input.leadIds.length === 0) return { error: 'Pick at least one lead.' }
 
   const supabase = createClient()
+
+  // Server-side guard: never trust the page's audience. Unless re-contact is
+  // explicitly allowed, refuse leads that were already emailed or are past
+  // first contact (replied, meeting, won, lost, do-not-contact).
+  if (!input.allowRecontact) {
+    const { data: picked } = await supabase
+      .from('sales_leads')
+      .select('id, company, status')
+      .in('id', input.leadIds)
+    const history = await loadContactHistory(supabase, input.leadIds)
+    const already = (picked ?? []).filter((l) => isPreviouslyContacted(l, history))
+    if (already.length > 0) {
+      const names = already.slice(0, 5).map((l) => l.company).join(', ')
+      return {
+        error: `${already.length} selected lead${already.length === 1 ? ' has' : 's have'} already been contacted (${names}${already.length > 5 ? ', …' : ''}). Untick them, or tick "Include previously contacted leads" to re-contact on purpose.`,
+      }
+    }
+  }
+
   const subjectA = input.subjectA?.trim() || input.subject.trim() || 'Cleaning at {company}'
   const subjectB = input.subjectB?.trim() || null
 
