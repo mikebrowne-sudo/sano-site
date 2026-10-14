@@ -1,11 +1,10 @@
 import { invoiceBalanceDue, loadAllocatedByInvoice, type InvoiceAmountFields } from '@/lib/invoice-balance'
 import { nzToday } from '@/lib/nz-date'
-import { daysOverdue, reminderStatus, REMINDER_LABEL } from '@/lib/invoice-reminders'
 import { createClient } from '@/lib/supabase-server'
 import Link from 'next/link'
 import { AlertTriangle, Briefcase, Receipt, BookOpen, CalendarDays, ShieldCheck, CalendarClock } from 'lucide-react'
 import { RunJobReminders, RunTrainingReminders } from './_components/ReminderButtons'
-import { BulkRemindersPanel } from './_components/BulkRemindersPanel'
+import { OverdueRemindersList } from './_components/BulkRemindersPanel'
 import { loadReminderCandidates } from '@/lib/invoice-reminder-candidates'
 import { computeComplianceStatus } from '@/lib/contractor-compliance'
 import { ComplianceBadge } from '../contractors/_components/ComplianceBadge'
@@ -168,41 +167,7 @@ export default async function AlertsPage() {
         {(overdueInvoices ?? []).length === 0 ? (
           <p className="text-sage-500 text-sm">No overdue invoices.</p>
         ) : (
-          <div className="space-y-2">
-            {reminderCandidates.length > 0 && (
-              <div className="mb-3">
-                <BulkRemindersPanel candidates={reminderCandidates} />
-              </div>
-            )}
-            {(overdueInvoices ?? []).map((inv) => {
-              const client = inv.clients as unknown as { name: string } | null
-              const total = owedOf(inv as { id: string })
-              const daysOver = daysOverdue(inv.due_date as string | null, today)
-              const sent = remindersSent.get(inv.id as string) ?? 0
-              const rs = reminderStatus(daysOver, sent)
-              return (
-                <Link key={inv.id} href={`/portal/invoices/${inv.id}`} className="flex items-center justify-between bg-red-50 rounded-lg px-4 py-3 hover:bg-red-100 transition-colors text-sm">
-                  <div>
-                    <span className="font-medium text-sage-800">{inv.invoice_number}</span>
-                    <span className="text-sage-600 ml-2">{client?.name ?? '—'}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs">
-                    {rs.kind === 'due' && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">{REMINDER_LABEL[rs.stage]} due</span>
-                    )}
-                    {rs.kind === 'waiting' && sent > 0 && (
-                      <span className="rounded-full bg-white px-2 py-0.5 text-sage-600 ring-1 ring-sage-100">{sent} reminder{sent === 1 ? '' : 's'} sent</span>
-                    )}
-                    {rs.kind === 'call' && (
-                      <span className="rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-700">3 sent · call</span>
-                    )}
-                    <span className="text-red-600 font-medium">Due {fmtDate(inv.due_date)}{daysOver > 0 ? ` · ${daysOver}d over` : ''}</span>
-                    <span className="font-medium text-sage-800 tabular-nums">{fmtCurrency(total)}</span>
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
+          <OverdueRemindersList candidates={reminderCandidates} />
         )}
       </Section>
 
