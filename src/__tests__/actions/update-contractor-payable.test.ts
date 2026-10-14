@@ -4,6 +4,12 @@ jest.mock('@/lib/supabase-server')
 jest.mock('@/lib/is-admin', () => ({ isAdminUser: (u: { email?: string } | null) => !!u && u.email === 'admin@sano.nz' }))
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }))
 jest.mock('@/app/portal/_actions-sensitive-edit', () => ({ logSensitiveEdit: jest.fn().mockResolvedValue({ ok: true }) }))
+// GST portion of a GST-inclusive payable for a registered contractor (3/23).
+jest.mock('@/lib/contractor-gst-snapshot', () => ({
+  resolveContractorGstSnapshot: jest.fn(async (_s: unknown, _c: string, amount: number, supplyDate: string | null) => ({
+    fields: { gst_applied: true, gst_amount: Math.round((amount * 3) / 23 * 100) / 100, gst_status: 'applied', gst_supply_date: supplyDate },
+  })),
+}))
 
 import { updateContractorPayable } from '@/app/portal/contractor-invoices/_actions-payable-edit'
 import { createClient } from '@/lib/supabase-server'
@@ -56,6 +62,24 @@ describe('updateContractorPayable', () => {
     expect(payload).toMatchObject({ contractor_id: 'c1', job_id: 'j1', amount: 150, date_submitted: '2026-06-01', notes: 'orig' })
     for (const banned of ['status', 'date_paid', 'invoice_number']) expect(payload).not.toHaveProperty(banned)
     expect(mockedLog).toHaveBeenCalledWith(expect.objectContaining({ entity: 'contractor_invoice', beforeTotal: 100, afterTotal: 150, reason: 'agreed correction' }))
+  })
+
+  it('re-snapshots the GST portion when the amount changes (CI-0211: $199.96 -> $220 kept $26.08)', async () => {
+    const { client, ciUpdate } = makeSupabase({ ci: { ...approved, amount: 199.96, gst_supply_date: '2026-08-30' } })
+    mockedCreate.mockReturnValue(client)
+
+    await updateContractorPayable({ ...base, amount: 220 })
+
+    expect(ciUpdate.mock.calls[0][0]).toMatchObject({ amount: 220, gst_amount: 28.7, gst_supply_date: '2026-08-30' })
+  })
+
+  it('leaves GST alone when only the notes change', async () => {
+    const { client, ciUpdate } = makeSupabase({ ci: { ...approved } })
+    mockedCreate.mockReturnValue(client)
+
+    await updateContractorPayable({ ...base, amount: 100, notes: 'new note' })
+
+    expect(ciUpdate.mock.calls[0][0]).not.toHaveProperty('gst_amount')
   })
 
   it('requires a reason and writes nothing without one', async () => {

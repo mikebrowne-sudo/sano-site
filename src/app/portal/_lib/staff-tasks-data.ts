@@ -14,7 +14,8 @@ export async function loadStaffTaskCounts(supabase: SupabaseClient): Promise<Sta
     supabase.from('invoices').select('id, due_date').is('deleted_at', null).eq('is_test', false).eq('status', 'sent'),
     supabase.from('jobs').select('*', { count: 'exact', head: true }).is('deleted_at', null).eq('is_test', false).is('contractor_id', null).neq('status', 'completed').neq('status', 'invoiced'),
     supabase.from('job_workers').select('job_id, contractor_id, jobs!inner ( status, deleted_at )'),
-    supabase.from('contractor_invoices').select('job_id, contractor_id').neq('status', 'void'),
+    // Job-level payables only — an approved extra doesn't approve the clean.
+    supabase.from('contractor_invoices').select('job_id, contractor_id').is('job_item_id', null).neq('status', 'void'),
   ])
 
   // Pay approvals = a worker on a completed/invoiced (live) job who has no
