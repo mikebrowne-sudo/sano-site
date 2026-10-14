@@ -28,7 +28,7 @@ import { LifecycleActions } from '../../_components/LifecycleActions'
 import { getCleanupAccess } from '@/lib/cleanup-mode'
 import { JobNextStepCard } from './_components/JobNextStepCard'
 import { ScopeSnapshotPanel } from './_components/ScopeSnapshotPanel'
-import JobExtras from './_components/JobExtras'
+import JobExtras, { ApproveExtraPay } from './_components/JobExtras'
 import { JobVersionHistoryPanel } from './_components/JobVersionHistoryPanel'
 import { isAdminUser } from '@/lib/is-admin'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
@@ -255,13 +255,13 @@ export default async function JobDetailPage({
   const { data: itemPayables } = itemIds.length > 0
     ? await supabase
       .from('contractor_invoices')
-      .select('job_item_id, invoice_number, status')
+      .select('job_item_id, invoice_number, status, amount')
       .in('job_item_id', itemIds)
       .neq('status', 'void')
-    : { data: null as { job_item_id: string; invoice_number: string | null; status: string | null }[] | null }
-  const payableByItem = new Map<string, { invoice_number: string | null; status: string | null }>()
-  for (const p of (itemPayables ?? []) as { job_item_id: string; invoice_number: string | null; status: string | null }[]) {
-    if (p.job_item_id) payableByItem.set(p.job_item_id, { invoice_number: p.invoice_number, status: p.status })
+    : { data: null as { job_item_id: string; invoice_number: string | null; status: string | null; amount: number | null }[] | null }
+  const payableByItem = new Map<string, { invoice_number: string | null; status: string | null; amount: number | null }>()
+  for (const p of (itemPayables ?? []) as { job_item_id: string; invoice_number: string | null; status: string | null; amount: number | null }[]) {
+    if (p.job_item_id) payableByItem.set(p.job_item_id, { invoice_number: p.invoice_number, status: p.status, amount: p.amount == null ? null : Number(p.amount) })
   }
 
   const jobExtras = ((jobItems.data ?? []) as unknown as Array<{
@@ -284,6 +284,9 @@ export default async function JobDetailPage({
     payable_number: payableByItem.get(i.id)?.invoice_number ?? null,
     payable_status: payableByItem.get(i.id)?.status ?? null,
   }))
+
+  // Extras someone gets paid for (not in-house, has a contractor and a cost).
+  const payableExtras = jobExtras.filter((x) => x.contractor_id && !x.in_house && x.cost_amount != null)
 
   const extrasContractors = ((extrasContractorsRes.data ?? []) as { id: string; full_name: string | null; hourly_rate: number | null }[])
     .map((c) => ({
@@ -912,10 +915,10 @@ export default async function JobDetailPage({
                     renders for completed / invoiced jobs. Each worker
                     gets its own approval control using the snapshot
                     fields we loaded above. */}
-                {isAdmin && (job.status === 'completed' || job.status === 'invoiced') && workers.length > 0 && (
+                {isAdmin && (job.status === 'completed' || job.status === 'invoiced') && (workers.length > 0 || payableExtras.length > 0) && (
                   <div className="border-t border-sage-100 pt-3 mt-4">
                     <span className="text-xs text-sage-500 font-semibold uppercase tracking-wide">Pay approvals</span>
-                    <p className="text-[11px] text-sage-400 mt-0.5">Approving creates an approved contractor invoice that flows into a remittance. Same as the Pending approvals worklist.</p>
+                    <p className="text-[11px] text-sage-400 mt-0.5">Approving creates an approved contractor invoice that flows into a remittance. Same as the Pending approvals worklist. Extras are approved separately from the clean.</p>
                     <div className="mt-2 space-y-2">
                       {workers.map((w) => {
                         // Fallback must be SPLIT — `workers` is the full
@@ -951,7 +954,39 @@ export default async function JobDetailPage({
                           </div>
                         )
                       })}
+                      {/* Extras (carpet clean, windows…) — each paid on its own,
+                          often to someone not on the roster. Listed here so the
+                          whole job's pay is approved from one place. */}
+                      {payableExtras.length > 0 && (
+                        <div className="pt-1">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-sage-400">Extras</p>
+                          <div className="mt-1 space-y-1.5">
+                            {payableExtras.map((x) => (
+                              <div key={x.id} className="flex flex-wrap items-center gap-2 text-xs">
+                                <span className="text-sage-700 font-medium">{x.contractor_name ?? 'Unassigned'}</span>
+                                <span className="text-sage-500">· {x.label}</span>
+                                <span className="tabular-nums text-sage-600">{formatCurrency(Number(x.cost_amount ?? 0))}</span>
+                                <ApproveExtraPay jobId={job.id} item={x} jobCompleted />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
+                    {payableExtras.length > 0 && (() => {
+                      // Approved so far: the clean's payables + each extra's.
+                      const cleanApproved = workers.reduce((s, w) => s + Number(ciByContractor.get(w.contractor_id)?.amount ?? 0), 0)
+                      const extrasApproved = payableExtras.reduce((s, x) => s + Number(payableByItem.get(x.id)?.amount ?? 0), 0)
+                      const extrasTotal = payableExtras.reduce((s, x) => s + Number(x.cost_amount ?? 0), 0)
+                      const waiting = payableExtras.filter((x) => !x.payable_number).length + workers.filter((w) => !ciByContractor.get(w.contractor_id)).length
+                      return (
+                        <p className="mt-3 border-t border-sage-100 pt-2 text-xs text-sage-600">
+                          Approved so far: <span className="font-semibold tabular-nums text-sage-800">{formatCurrency(cleanApproved + extrasApproved)}</span>
+                          <span className="text-sage-400"> · extras {formatCurrency(extrasTotal)}</span>
+                          {waiting > 0 ? <span className="text-amber-700"> · {waiting} still to approve</span> : <span className="text-emerald-700"> · all approved</span>}
+                        </p>
+                      )
+                    })()}
                   </div>
                 )}
               </>
