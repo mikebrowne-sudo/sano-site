@@ -65,12 +65,15 @@ export async function confirmJobHours(
     .maybeSingle()
   if (!row) return { error: 'You are not assigned to this job.' }
 
-  const jobRow = row.jobs as unknown as { status: string | null } | null
+  const jobRow = row.jobs as unknown as { status: string | null; scheduled_date: string | null; completed_at: string | null } | null
+  // Pass the REAL dates: isConfirmable treats a missing scheduled date as
+  // 'not confirmable', so passing null here rejected every confirmation from
+  // every contractor with 'This job isn't finished yet' (none were ever saved).
   if (!jobRow || !isConfirmable({
     id: input.jobId,
     status: jobRow.status ?? '',
-    scheduledDate: null,
-    completedAt: null,
+    scheduledDate: jobRow.scheduled_date ? String(jobRow.scheduled_date).slice(0, 10) : null,
+    completedAt: jobRow.completed_at ?? null,
   })) {
     return { error: 'This job isn’t finished yet, so there’s nothing to confirm.' }
   }
