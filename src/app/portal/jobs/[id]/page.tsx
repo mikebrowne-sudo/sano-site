@@ -193,6 +193,9 @@ export default async function JobDetailPage({
       .from('contractor_invoices')
       .select('id, invoice_number, amount, status, job_id, contractor_id')
       .eq('job_id', params.id)
+      // The CLEAN's payable only — an approved extra (job_item_id set) is its
+      // own payable and must not read as 'this worker is already approved'.
+      .is('job_item_id', null)
       .neq('status', 'void'),
     supabase
       .from('pay_run_items')

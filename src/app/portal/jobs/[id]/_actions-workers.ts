@@ -42,7 +42,8 @@ async function resplitAndPersist(
   const [{ data: job }, { data: rows }, { data: payables }] = await Promise.all([
     supabase.from('jobs').select('allowed_hours').eq('id', jobId).maybeSingle(),
     supabase.from('job_workers').select('contractor_id, hours_allocated, pay_status').eq('job_id', jobId).order('contractor_id'),
-    supabase.from('contractor_invoices').select('contractor_id').eq('job_id', jobId).neq('status', 'void'),
+    // Only the clean's own payable freezes a worker's hours; an extra doesn't.
+    supabase.from('contractor_invoices').select('contractor_id').eq('job_id', jobId).is('job_item_id', null).neq('status', 'void'),
   ])
   const workers = (rows ?? []) as unknown as
     { contractor_id: string; hours_allocated: number | null; pay_status: string | null }[]
