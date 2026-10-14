@@ -69,6 +69,10 @@ export interface UninvoicedJob {
   date: string | null
   address: string
   price: number | null
+  /** Company + branch, same format as invoices' clientLabel. */
+  clientLabel: string
+  /** Extras added on the job (billed on top of the price when it's invoiced). */
+  extrasTotal: number
 }
 
 interface TxnRow {
@@ -262,7 +266,7 @@ export async function getReconcileData(): Promise<ReconcileData> {
 
   const { data: jobData } = await supabase
     .from('jobs')
-    .select('id, job_number, client_id, status, scheduled_date, address, job_price, quotes ( quote_number )')
+    .select('id, job_number, client_id, status, scheduled_date, address, job_price, quotes ( quote_number ), clients ( name, company_name, branch_name ), job_items ( price, source )')
     .is('invoice_id', null)
     .is('deleted_at', null)
     .neq('status', 'cancelled')
@@ -275,6 +279,13 @@ export async function getReconcileData(): Promise<ReconcileData> {
     date: (j.scheduled_date as string | null) ?? null,
     address: (j.address as string | null) ?? '',
     price: j.job_price == null ? null : Number(j.job_price),
+    clientLabel: (() => {
+      const c = j.clients as { name?: string | null; company_name?: string | null; branch_name?: string | null } | null
+      return `${c?.company_name || c?.name || ''} ${c?.branch_name ?? ''}`.trim()
+    })(),
+    extrasTotal: ((j.job_items as Array<{ price: number | null; source: string | null }> | null) ?? [])
+      .filter((x) => x.source === 'added')
+      .reduce((sum, x) => sum + Number(x.price ?? 0), 0),
   }))
 
   return { transactions, meta, invoices, expenses, paymentRecords, uninvoicedJobs }
