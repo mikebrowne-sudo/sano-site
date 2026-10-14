@@ -113,10 +113,10 @@ export function MonthlyInvoiceForm({
           </select>
         </label>
         <label className="block">
-          <span className="block text-sm font-medium text-sage-700 mb-1">Month</span>
+          <span className="block text-sm font-medium text-sage-700 mb-1">Period</span>
           <select className={input} value={month ?? ''} disabled={!clientId}
             onChange={(e) => go({ client: clientId, month: e.target.value || null })}>
-            <option value="">— Select a month —</option>
+            <option value="">— Select a period —</option>
             {months.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
           </select>
         </label>

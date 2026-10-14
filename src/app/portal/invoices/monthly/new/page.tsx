@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
-import { monthRange, visitDate } from '@/lib/monthly-invoice'
+import { monthRange, periodLabel, visitDate } from '@/lib/monthly-invoice'
 import { MonthlyInvoiceForm, type MonthlyJobRow } from './_components/MonthlyInvoiceForm'
 import { scheduleInvoiceNote, scheduleRateIncludesGst } from '@/lib/monthly-invoice-create'
 
@@ -63,11 +63,14 @@ export default async function NewMonthlyInvoicePage({
   const months = Array.from(monthCounts.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([value, count]) => ({ value, label: `${monthRange(value)?.label ?? value} (${count})` }))
+  // Catch-up: every unbilled visit on one invoice (e.g. a customer who has
+  // never been invoiced). Only worth offering across more than one month.
+  if (monthCounts.size > 1) months.unshift({ value: 'all', label: `All unbilled visits (${clientRows.length})` })
 
-  const month = searchParams?.month && monthCounts.has(searchParams.month) ? searchParams.month : null
+  const month = searchParams?.month && (monthCounts.has(searchParams.month) || (searchParams.month === 'all' && monthCounts.size > 1)) ? searchParams.month : null
   const monthJobs: MonthlyJobRow[] = month
     ? clientRows
-        .filter((r) => visitDate(r)?.slice(0, 7) === month)
+        .filter((r) => month === 'all' || visitDate(r)?.slice(0, 7) === month)
         .map((r) => ({
           id: r.id,
           jobNumber: r.job_number,
@@ -128,7 +131,9 @@ export default async function NewMonthlyInvoicePage({
         clientId={clientId}
         months={months}
         month={month}
-        monthLabel={month ? monthRange(month)?.label ?? month : null}
+        monthLabel={month === 'all'
+          ? (monthJobs.length ? periodLabel(monthJobs[0].date, monthJobs[monthJobs.length - 1].date) : 'All unbilled visits')
+          : month ? monthRange(month)?.label ?? month : null}
         jobs={monthJobs}
         defaultRate={defaultRate}
         defaultLabel={defaultLabel}
