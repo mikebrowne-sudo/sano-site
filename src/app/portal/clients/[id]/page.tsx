@@ -166,14 +166,14 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
   // Automatic payments. Read on its own and fail soft: the columns come from a
   // hand-run migration, so the page must still render if they're not there yet.
-  let autopay: { status: string; setupAt: string | null } | null = null
+  let autopay: { status: string; setupAt: string | null; email: string | null } | null = null
   if (isAdmin) {
     const { data: ap, error: apErr } = await supabase
       .from('clients')
-      .select('autopay_status, autopay_setup_at')
+      .select('autopay_status, autopay_setup_at, email, accounts_email')
       .eq('id', params.id)
       .maybeSingle()
-    if (!apErr && ap) autopay = { status: (ap.autopay_status as string | null) ?? 'none', setupAt: (ap.autopay_setup_at as string | null) ?? null }
+    if (!apErr && ap) autopay = { status: (ap.autopay_status as string | null) ?? 'none', setupAt: (ap.autopay_setup_at as string | null) ?? null, email: ((ap.accounts_email || ap.email) as string | null) ?? null }
   }
 
   return (
@@ -220,7 +220,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       )}
 
       {isAdmin && autopay && (
-        <ClientAutopayCard clientId={vm.id} status={autopay.status} setupAt={autopay.setupAt} />
+        <ClientAutopayCard clientId={vm.id} status={autopay.status} setupAt={autopay.setupAt} email={autopay.email} />
       )}
 
       {/* ── 2. Contacts (normal workflow) ──────────────────── */}

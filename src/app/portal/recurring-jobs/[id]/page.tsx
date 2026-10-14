@@ -8,6 +8,7 @@ import { GenerateUpcomingButton } from './_components/GenerateUpcomingButton'
 import { RemindersPanel, type ReminderRow } from './_components/RemindersPanel'
 import { ExtendContractButton } from './_components/ExtendContractButton'
 import { GenerateInvoiceButton } from './_components/GenerateInvoiceButton'
+import { ClientAutopayCard } from '../../clients/[id]/_components/ClientAutopayCard'
 import { isAdminEmail } from '@/lib/is-admin'
 import clsx from 'clsx'
 
@@ -35,6 +36,18 @@ export default async function RecurringJobDetailPage({ params }: { params: { id:
   if (error || !rec) notFound()
 
   const client = rec.clients as unknown as { name: string; company_name: string | null } | null
+
+  // Automatic payments for this customer (only set up if they ask). Read on
+  // its own and fail soft — the columns come from a hand-run migration.
+  let autopay: { status: string; setupAt: string | null; email: string | null } | null = null
+  if (isAdmin && rec.client_id) {
+    const { data: ap, error: apErr } = await supabase
+      .from('clients')
+      .select('autopay_status, autopay_setup_at, email, accounts_email')
+      .eq('id', rec.client_id)
+      .maybeSingle()
+    if (!apErr && ap) autopay = { status: (ap.autopay_status as string | null) ?? 'none', setupAt: (ap.autopay_setup_at as string | null) ?? null, email: ((ap.accounts_email || ap.email) as string | null) ?? null }
+  }
 
   // Recent generated jobs
   const { data: recentJobs, count: totalJobs } = await supabase
@@ -162,6 +175,10 @@ export default async function RecurringJobDetailPage({ params }: { params: { id:
             <p className="text-xs text-sage-400 mt-3">Set a monthly value + invoice day (Edit) to enable automatic monthly invoicing.</p>
           )}
         </Section>
+
+        {autopay && rec.client_id && (
+          <ClientAutopayCard clientId={rec.client_id as string} status={autopay.status} setupAt={autopay.setupAt} email={autopay.email} className="mb-6" />
+        )}
 
         {/* Phase F — renewal reminders. */}
         <Section title="Renewal reminders">

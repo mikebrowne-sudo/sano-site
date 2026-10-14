@@ -91,6 +91,8 @@ export async function POST(req: NextRequest) {
         entity_table: 'invoices', entity_id: invoiceId, before: null,
         after: { payment_intent: pi.id, amount: (pi.amount_received ?? pi.amount) / 100 },
       })
+      // Paid by saved card: the 2.5% card fee becomes a line (first delivery only).
+      await addCardFeeLine(supabase, invoiceId, Number(pi.metadata?.card_fee_item_price ?? 0))
       await stampJobCompleteOnPaidInvoice(supabase, invoiceId)
       console.log(`[stripe-webhook] ${pi.metadata?.invoice_number} paid by direct debit`)
     } else {
