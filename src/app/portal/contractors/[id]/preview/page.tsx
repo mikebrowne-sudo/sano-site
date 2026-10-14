@@ -17,6 +17,8 @@ import { getServiceSupabase } from '@/lib/supabase-service'
 import { ContractorJobsView, type ContractorJobRow } from '@/app/contractor/_views/ContractorJobsView'
 import { ContractorJobHistoryView } from '@/app/contractor/_views/ContractorJobHistoryView'
 import { ContractorJobsTabs } from '@/app/contractor/_components/ContractorJobsTabs'
+import { ContractorTodoViews } from '@/app/contractor/_components/ContractorTodoViews'
+import { nzToday } from '@/lib/nz-date'
 import { ContractorJobDetailView } from '@/app/contractor/_views/ContractorJobDetailView'
 import { ContractorPayView } from '@/app/contractor/_views/ContractorPayView'
 import ContractorOnboardingPage from '@/app/contractor/onboarding/page'
@@ -90,7 +92,13 @@ export default async function ContractorPreviewPage({
     screen = (
       <ContractorJobsTabs
         completedCount={completedCount}
-        toDo={<ContractorJobsView jobs={jobs} jobHref={jobHref} showHeading={false} unconfirmedJobIds={unconfirmedJobIds} />}
+        toDo={
+          <ContractorTodoViews
+            todayIso={nzToday()}
+            weekJobs={jobs.map((j) => ({ ...j, href: jobHref(j.id) }))}
+            list={<ContractorJobsView jobs={jobs} jobHref={jobHref} showHeading={false} unconfirmedJobIds={unconfirmedJobIds} />}
+          />
+        }
         completed={<ContractorJobHistoryView months={history} jobHref={jobHref} />}
       />
     )
