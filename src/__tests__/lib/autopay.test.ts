@@ -4,8 +4,10 @@
 
 const created: Array<{ params: Record<string, unknown>; opts: Record<string, unknown> }> = []
 let stripeFails: string | null = null
+let pmType = 'nz_bank_account'
 jest.mock('@/lib/stripe', () => ({
   getStripe: () => ({
+    paymentMethods: { retrieve: async () => ({ type: pmType }) },
     paymentIntents: {
       create: async (params: Record<string, unknown>, opts: Record<string, unknown>) => {
         if (stripeFails) throw new Error(stripeFails)
@@ -22,7 +24,7 @@ jest.mock('@/lib/invoice-balance', () => ({
   invoiceBalanceDue: () => 900,
 }))
 
-import { collectInvoiceByAutopay } from '@/lib/autopay'
+import { autopayLinkToken, collectInvoiceByAutopay, renderAutopaySetupEmail, verifyAutopayLinkToken } from '@/lib/autopay'
 
 let invoiceRow: Record<string, unknown>
 const updates: Array<Record<string, unknown>> = []
@@ -41,7 +43,8 @@ const svc = {
 const bella = { id: 'c-bella', name: 'Bella Masutti', stripe_customer_id: 'cus_1', autopay_payment_method_id: 'pm_1', autopay_status: 'active' }
 
 beforeEach(() => {
-  created.length = 0; updates.length = 0; emails.length = 0; stripeFails = null
+  created.length = 0; updates.length = 0; emails.length = 0; stripeFails = null; pmType = 'nz_bank_account'
+  process.env.AUTOPAY_LINK_SECRET = 'test-secret'
   process.env.SANO_NOTIFY_EMAIL = 'hello@sano.nz'; process.env.RESEND_API_KEY = 're_x'
   invoiceRow = { id: 'inv-1', invoice_number: 'INV-0515', status: 'sent', deleted_at: null, autopay_status: null, autopay_payment_intent_id: null, clients: bella }
 })
@@ -87,5 +90,37 @@ describe('collectInvoiceByAutopay', () => {
     expect(res.started).toBe(false)
     expect(updates[0]).toMatchObject({ autopay_status: 'failed', autopay_error: 'The mandate is inactive.' })
     expect(emails).toHaveLength(1)
+  })
+})
+
+describe('saved card instead of bank account', () => {
+  it('adds the 2.5% card fee to the charge and records it for the invoice line', async () => {
+    pmType = 'card'
+    invoiceRow = { ...invoiceRow, gst_included: true }
+    await collectInvoiceByAutopay(svc as never, 'inv-1')
+    expect(created[0].params).toMatchObject({
+      amount: 92250, // $900 + $22.50
+      payment_method_types: ['card'],
+      metadata: expect.objectContaining({ card_fee: '22.50', card_fee_item_price: '22.50' }),
+    })
+  })
+})
+
+describe('setup link', () => {
+  it('verifies its own token and rejects a tampered one', () => {
+    const t = autopayLinkToken('c-bella')
+    expect(verifyAutopayLinkToken(t)).toBe('c-bella')
+    expect(verifyAutopayLinkToken(t.replace('c-bella', 'c-someone-else'))).toBeNull()
+    expect(verifyAutopayLinkToken('c-bella.nope')).toBeNull()
+    expect(verifyAutopayLinkToken('garbage')).toBeNull()
+  })
+
+  it('the email offers bank (no fee) or card (2.5%) and links the setup page', () => {
+    const { subject, html } = renderAutopaySetupEmail({ greeting: 'Hi Bella,', url: 'https://sano.nz/api/autopay/x.y' })
+    expect(subject).toMatch(/automatic payments/i)
+    expect(html).toContain('href="https://sano.nz/api/autopay/x.y"')
+    expect(html).toContain('no fee')
+    expect(html).toContain('2.5%')
+    expect(html).toContain('Hi Bella,')
   })
 })
