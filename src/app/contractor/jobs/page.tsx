@@ -3,6 +3,8 @@ import { ContractorJobsView, type ContractorJobRow } from '../_views/ContractorJ
 import { ContractorJobHistoryView } from '../_views/ContractorJobHistoryView'
 import { ContractorJobsTabs } from '../_components/ContractorJobsTabs'
 import { loadContractorJobHistory } from '../_lib/contractor-job-history'
+import { ContractorTodoViews } from '../_components/ContractorTodoViews'
+import { nzToday } from '@/lib/nz-date'
 
 export default async function ContractorJobsPage() {
   const { supabase, contractor } = await getContractor()
@@ -40,11 +42,17 @@ export default async function ContractorJobsPage() {
       <ContractorJobsTabs
         completedCount={completedCount}
         toDo={
-          <ContractorJobsView
-            jobs={(jobs ?? []) as ContractorJobRow[]}
-            jobHref={(id) => `/contractor/jobs/${id}`}
-            showHeading={false}
-            unconfirmedJobIds={unconfirmedJobIds}
+          <ContractorTodoViews
+            todayIso={nzToday()}
+            weekJobs={((jobs ?? []) as ContractorJobRow[]).map((j) => ({ ...j, href: `/contractor/jobs/${j.id}` }))}
+            list={
+              <ContractorJobsView
+                jobs={(jobs ?? []) as ContractorJobRow[]}
+                jobHref={(id) => `/contractor/jobs/${id}`}
+                showHeading={false}
+                unconfirmedJobIds={unconfirmedJobIds}
+              />
+            }
           />
         }
         completed={
