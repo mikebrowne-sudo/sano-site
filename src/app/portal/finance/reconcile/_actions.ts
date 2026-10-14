@@ -9,6 +9,7 @@ import { saveBankBalanceFromImport } from '@/lib/bank-balance'
 import { isFullyAllocated, round2 } from '@/lib/payment-allocation'
 import { applyBankAllocation } from './_apply'
 import { runAutoReconcile, type AutoReconcileSummary } from './_auto'
+import { createInvoiceFromJobCore } from '@/lib/invoice-from-job'
 
 export interface ImportResponse {
   ok: boolean
@@ -195,16 +196,34 @@ export async function reconcileBankTransaction(
   lineId: string,
   allocations: AllocationInput[],
   paidDate: string | null,
+  /** Completed jobs this payment covers that have no invoice yet: each is
+   *  invoiced first (same as the job page's Create invoice), then matched. */
+  jobs: Array<{ jobId: string; jobNumber?: string; amount: number }> = [],
 ): Promise<{ ok: boolean; error?: string; allocated?: number; markedPaid?: number; cleared?: boolean }> {
   try {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!isAdminUser(user)) return { ok: false, error: 'Not authorised.' }
-    if (!allocations.length) return { ok: false, error: 'Select at least one invoice to allocate to.' }
+    if (!allocations.length && !jobs.length) return { ok: false, error: 'Select at least one invoice to allocate to.' }
+
+    // Invoice the un-invoiced jobs first, so the whole payment is matched in
+    // one go. A failure stops before any money is allocated.
+    const all = [...allocations]
+    for (const j of jobs) {
+      const made = await createInvoiceFromJobCore(supabase as never, j.jobId)
+      if ('error' in made) {
+        return { ok: false, error: `Couldn't invoice ${j.jobNumber ?? 'a job'}: ${made.error}${all.length > allocations.length ? ' (invoices already created for the jobs before it are kept as drafts)' : ''}` }
+      }
+      all.push({ invoiceId: made.invoiceId, amount: j.amount })
+    }
+    if (jobs.length) {
+      revalidatePath('/portal/jobs')
+      revalidatePath('/portal/invoices')
+    }
 
     const res = await applyBankAllocation(supabase, {
       lineId,
-      allocations,
+      allocations: all,
       paidDate,
       method: 'manual',
       matchReason: null,

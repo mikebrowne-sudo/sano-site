@@ -10,7 +10,8 @@ import { Uploader } from './_components/Uploader'
 import { AutoReconcileButton } from './_components/AutoReconcileButton'
 import { ReverseDebitLink } from './_components/ReverseDebitLink'
 import { ClearToggle } from './_components/ClearToggle'
-import { MatchPanel, type MatchInvoice, type PanelSuggestion } from './_components/MatchPanel'
+import { MatchPanel, type MatchInvoice, type PanelSuggestion, type PayerOption } from './_components/MatchPanel'
+import type { WorkItem } from '@/lib/reconcile-combos'
 import { ConfirmMatch } from './_components/ConfirmMatch'
 import { RowMenu, MenuSection } from './_components/RowMenu'
 import { cleanPayee as stripPayeePrefix } from '@/lib/payee-match'
@@ -23,6 +24,8 @@ interface CreditAssist {
   candidates: MatchInvoice[]
   allCandidates: MatchInvoice[]
   suggestions: PanelSuggestion[]
+  /** Who the payer resolved to (opens the Match window on their work). */
+  clientIds: string[]
   scoped: boolean
   /** Who the payer resolved to, for the picker heading. */
   scopeLabel: string
@@ -74,6 +77,7 @@ function buildAssist(
     candidates: [...pool].sort(byStatusThenDate).slice(0, 40).map(toMatchInvoice),
     allCandidates,
     suggestions: suggestions.map((sg) => ({ label: sg.label, allocations: sg.allocations })),
+    clientIds,
     scoped,
     scopeLabel: labels.length === 1 ? labels[0] : labels.length > 1 ? `${labels.length} linked clients` : '',
     confirmable: !!suggestions[0] && suggestions[0].kind !== 'amount_only',
@@ -133,6 +137,36 @@ export default async function ReconcilePage() {
     }
   }
   const allCandidates = invoices.filter((i) => i.status !== 'cancelled').sort(byStatusThenDate).map(toMatchInvoice)
+
+  // Every customer's OPEN work, for the Match window's "what adds up" search:
+  // unpaid invoices, invoices marked paid in the last 60 days with no bank
+  // money matched yet (B&T often gets marked paid before the money lands),
+  // drafts, and completed jobs not invoiced yet (valued with their extras).
+  const workCutoff = (() => { const d = new Date(); d.setDate(d.getDate() - 60); return d.toISOString().slice(0, 10) })()
+  const work: WorkItem[] = []
+  for (const i of invoices) {
+    const open = round2(i.total - (i.allocatedTotal ?? 0))
+    if (open <= 0.004) continue
+    const kind = i.status === 'sent' ? 'invoice' : i.status === 'draft' ? 'draft' : i.status === 'paid' ? 'paid_unmatched' : null
+    if (!kind) continue
+    if (kind === 'paid_unmatched' && (!i.datePaid || i.datePaid.slice(0, 10) < workCutoff)) continue
+    work.push({
+      id: i.id, kind, number: i.invoiceNumber, amount: open,
+      date: i.serviceDate ?? i.dateIssued ?? null, clientId: i.clientId ?? null,
+      clientLabel: i.clientLabel || i.client || '', address: i.address ?? '',
+    })
+  }
+  for (const j of uninvoicedJobs) {
+    if (j.status !== 'completed' || j.price == null || j.price <= 0) continue
+    work.push({
+      id: j.id, kind: 'job', number: j.jobNumber, amount: round2(j.price + j.extrasTotal),
+      date: j.date, clientId: j.clientId, clientLabel: j.clientLabel, address: j.address,
+    })
+  }
+  const payerMap = new Map<string, string>()
+  for (const i of invoices) if (i.clientId && !payerMap.has(i.clientId) && (i.clientLabel || i.client)) payerMap.set(i.clientId, (i.clientLabel || i.client) as string)
+  for (const w of work) if (w.clientId && w.clientLabel && !payerMap.has(w.clientId)) payerMap.set(w.clientId, w.clientLabel)
+  const payers: PayerOption[] = Array.from(payerMap, ([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label))
   const creditMatch = new Map<string, CreditAssist>()
   for (const c of result.credits) {
     const m = meta.get(c.txn.uniqueId)
@@ -216,22 +250,34 @@ export default async function ReconcilePage() {
             {canEdit && m && cm && best && (
               <ConfirmMatch lineId={m.id} date={c.txn.date} suggestion={{ label: best.label, allocations: best.allocations, numbers: bestNumbers, partial }} />
             )}
-            {canEdit && m && cm && !best && job && (
-              <Link href={`/portal/jobs/${job.id}`} className="inline-flex h-7 items-center rounded-md border border-amber-200 bg-amber-50 px-2.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 whitespace-nowrap">Invoice job</Link>
-            )}
-            {canEdit && m && cm && notIncome && <ClearToggle id={m.id} cleared={m.cleared} variant="button" />}
-            {canEdit && m && cm && !best && !job && !notIncome && (
+            {canEdit && m && cm && best && (
               <MatchPanel
                 lineId={m.id}
                 amount={round2(c.txn.amount - m.allocatedTotal)}
                 date={c.txn.date}
-                payee={`${c.txn.payee} ${c.txn.memo}`.trim()}
-                candidates={cm.candidates}
+                payee={cleanPayee(`${c.txn.payee} ${c.txn.memo}`.trim())}
+                work={work}
+                payers={payers}
+                defaultClientIds={cm.clientIds}
                 allCandidates={cm.allCandidates}
-                scoped={cm.scoped}
-                scopeLabel={cm.scopeLabel}
+                suggestions={cm.suggestions}
+                triggerLabel="Other…"
+              />
+            )}
+            {canEdit && m && cm && notIncome && <ClearToggle id={m.id} cleared={m.cleared} variant="button" />}
+            {canEdit && m && cm && !best && !notIncome && (
+              <MatchPanel
+                lineId={m.id}
+                amount={round2(c.txn.amount - m.allocatedTotal)}
+                date={c.txn.date}
+                payee={cleanPayee(`${c.txn.payee} ${c.txn.memo}`.trim())}
+                work={work}
+                payers={payers}
+                defaultClientIds={cm.clientIds}
+                allCandidates={cm.allCandidates}
                 suggestions={cm.suggestions}
                 triggerLabel="Match"
+                triggerClassName="inline-flex h-7 items-center rounded-md bg-sage-500 px-2.5 text-xs font-semibold text-white hover:bg-sage-700 whitespace-nowrap"
               />
             )}
             {m && (
@@ -274,21 +320,6 @@ export default async function ReconcilePage() {
                 )}
                 {canEdit && (
                   <MenuSection>
-                    {cm && (best || job) && (
-                      <MatchPanel
-                        lineId={m.id}
-                        amount={round2(c.txn.amount - m.allocatedTotal)}
-                        date={c.txn.date}
-                        payee={`${c.txn.payee} ${c.txn.memo}`.trim()}
-                        candidates={cm.candidates}
-                        allCandidates={cm.allCandidates}
-                        scoped={cm.scoped}
-                        scopeLabel={cm.scopeLabel}
-                        suggestions={cm.suggestions}
-                        triggerLabel="Choose invoices…"
-                        triggerClassName="flex w-full items-center rounded-md px-1 py-1 text-left text-sm text-sage-700 hover:bg-sage-50"
-                      />
-                    )}
                     <ClearToggle id={m.id} cleared={m.cleared} />
                   </MenuSection>
                 )}
