@@ -61,8 +61,12 @@ export async function loadApprovalRows(
   for (const r of live) workersPerJob.set(r.job_id, (workersPerJob.get(r.job_id) ?? 0) + 1)
 
   const jobIds = Array.from(new Set(live.map((r) => r.job_id)))
+  // Only a JOB-LEVEL payable (job_item_id null) means the clean itself is
+  // approved. Approving an EXTRA on the job (a carpet clean, windows) is a
+  // separate payable — counting it here hid the main clean from the queue
+  // (JOB-0340: both extras approved, the 8h clean never was).
   const { data: ciRaw } = jobIds.length > 0
-    ? await supabase.from('contractor_invoices').select('id, invoice_number, status, job_id, contractor_id').in('job_id', jobIds).neq('status', 'void')
+    ? await supabase.from('contractor_invoices').select('id, invoice_number, status, job_id, contractor_id').in('job_id', jobIds).is('job_item_id', null).neq('status', 'void')
     : { data: [] as unknown[] }
   const ciByKey = new Map<string, { id: string; invoice_number: string | null; status: string | null }>()
   for (const ci of (ciRaw ?? []) as Array<{ id: string; invoice_number: string | null; status: string | null; job_id: string; contractor_id: string }>) {

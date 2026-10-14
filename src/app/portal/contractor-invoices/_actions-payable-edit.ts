@@ -19,6 +19,7 @@ import { summariseChanges } from '@/lib/sensitive-edit'
 import { logSensitiveEdit } from '@/app/portal/_actions-sensitive-edit'
 import { statementEditBlock } from '@/lib/contractor-statement-lock'
 import { revalidatePath } from 'next/cache'
+import { resolveContractorGstSnapshot } from '@/lib/contractor-gst-snapshot'
 
 export interface UpdateContractorPayableInput {
   id: string
@@ -51,7 +52,7 @@ export async function updateContractorPayable(
 
   const { data: ci } = await supabase
     .from('contractor_invoices')
-    .select('id, invoice_number, contractor_id, job_id, amount, date_submitted, date_paid, status, notes, payment_type, site_label, period_label, statement_id')
+    .select('id, invoice_number, contractor_id, job_id, job_item_id, amount, date_submitted, date_paid, status, notes, payment_type, site_label, period_label, statement_id, gst_supply_date')
     .eq('id', input.id)
     .maybeSingle()
   if (!ci) return { error: 'Contractor payable not found.' }
@@ -107,12 +108,36 @@ export async function updateContractorPayable(
   const changes = summariseChanges(before, after, [...EDITABLE_PAYABLE_FIELDS])
   if (changes.length === 0) return { error: 'No changes to save.' }
 
+  // The GST portion is a snapshot of the AMOUNT (3/23 of a GST-inclusive
+  // payable for a registered contractor). Changing the amount or contractor
+  // without re-snapshotting left e.g. CI-0211 at $220 carrying the $26.08 GST
+  // of its old $199.96. Same supply date as before — that's a separate decision.
+  const amountOrPayeeChanged = Number(before.amount) !== amount || before.contractor_id !== after.contractor_id
+  const gstFields = amountOrPayeeChanged
+    ? (await resolveContractorGstSnapshot(
+        supabase,
+        after.contractor_id,
+        amount,
+        (ci.gst_supply_date as string | null) ?? after.date_submitted ?? null,
+      )).fields
+    : {}
+
   // Apply only the editable fields — never status / date_paid / invoice_number.
   const { error: updErr } = await supabase
     .from('contractor_invoices')
-    .update(after)
+    .update({ ...after, ...gstFields })
     .eq('id', input.id)
   if (updErr) return { error: `Could not save payable: ${updErr.message}` }
+
+  // A payable for an EXTRA: keep the extra's fixed cost in step, so the job's
+  // margin and the contractor's "Extras you did" show what's actually paid.
+  if (ci.job_item_id && Number(before.amount) !== amount) {
+    await supabase
+      .from('job_items')
+      .update({ cost_amount: amount })
+      .eq('id', ci.job_item_id as string)
+      .or('cost_basis.is.null,cost_basis.eq.fixed')
+  }
 
   await logSensitiveEdit({
     entity: 'contractor_invoice',
