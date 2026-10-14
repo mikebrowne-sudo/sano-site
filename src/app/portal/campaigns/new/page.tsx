@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { NewCampaignForm } from '../_components/NewCampaignForm'
+import { loadContactHistory, isPreviouslyContacted } from '@/lib/campaigns/contact-history'
 
 export default async function NewCampaignPage() {
   const supabase = createClient()
@@ -16,6 +17,9 @@ export default async function NewCampaignPage() {
     .order('quality_rank')
     .order('company')
 
+  // Who's already been emailed — the form defaults to fresh leads only.
+  const history = await loadContactHistory(supabase)
+
   return (
     <div>
       <Link
@@ -26,7 +30,15 @@ export default async function NewCampaignPage() {
         Back to campaigns
       </Link>
       <h1 className="text-3xl font-bold text-sage-800 tracking-tight mb-8">New Campaign</h1>
-      <NewCampaignForm leads={leads ?? []} />
+      <NewCampaignForm leads={(leads ?? []).map((l) => {
+        const h = history.get(l.id)
+        return {
+          ...l,
+          previouslyContacted: isPreviouslyContacted(l, history),
+          lastContactedAt: h?.lastSentAt ?? null,
+          lastCampaignName: h?.campaignName ?? null,
+        }
+      })} />
     </div>
   )
 }
