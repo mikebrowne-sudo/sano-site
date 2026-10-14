@@ -402,7 +402,7 @@ function ExtraForm({
  *  Separate from the job's own pay approval: the person who did the extra is
  *  often not on the job roster at all, and their payable is priced from the
  *  item, never from hours on the clean. */
-function ApproveExtraPay({
+export function ApproveExtraPay({
   jobId,
   item,
   jobCompleted,
