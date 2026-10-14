@@ -79,6 +79,7 @@ function makeFrom(options: FromMockOptions) {
       return {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        is: jest.fn().mockReturnThis(),
         neq: jest.fn().mockResolvedValue({ data: [], error: null }),
         maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
       }
