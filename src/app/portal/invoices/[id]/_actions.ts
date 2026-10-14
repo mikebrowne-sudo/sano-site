@@ -1,5 +1,7 @@
 'use server'
 
+import { collectInvoiceByAutopay } from '@/lib/autopay'
+import { getServiceSupabase } from '@/lib/supabase-service'
 import { assertAdminAction } from '@/lib/require-admin'
 
 import { invoiceTotalInclGst, type InvoiceAmountFields } from '@/lib/invoice-balance'
@@ -220,6 +222,13 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
     }
   } catch {
     // Notification path must never break the email-success contract.
+  }
+
+  // Customer on automatic payments: collect this invoice by direct debit now
+  // that it's been sent. Does nothing for everyone else; never fails the send.
+  if (!wasPaid) {
+    try { await collectInvoiceByAutopay(getServiceSupabase(), input.invoice_id) }
+    catch (e) { console.error('[sendInvoiceEmail] direct debit not started', e) }
   }
 
   revalidatePath(`/portal/invoices/${input.invoice_id}`)

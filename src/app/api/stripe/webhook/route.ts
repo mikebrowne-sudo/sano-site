@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 import { stampJobCompleteOnPaidInvoice } from '@/lib/job-paid-complete'
 import { addCardFeeLine, applyQuoteCardPayment } from '@/lib/card-payments'
 import { nzToday } from '@/lib/nz-date'
+import { notifyAutopayFailure } from '@/lib/autopay'
 import Stripe from 'stripe'
 
 function getServerSupabase() {
@@ -31,6 +32,89 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error('[stripe-webhook] Signature verification failed:', err)
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+  }
+
+  // ── Automatic payments (NZ direct debit) ──────────────────────────────────
+  // Setup finished: save the client's bank account + direct debit authority.
+  if (event.type === 'checkout.session.completed'
+    && (event.data.object as Stripe.Checkout.Session).mode === 'setup'
+    && (event.data.object as Stripe.Checkout.Session).metadata?.kind === 'autopay_setup') {
+    const session = event.data.object as Stripe.Checkout.Session
+    const clientId = session.metadata?.client_id
+    const setupIntentId = typeof session.setup_intent === 'string' ? session.setup_intent : session.setup_intent?.id
+    if (!clientId || !setupIntentId) return NextResponse.json({ received: true })
+    const si = await stripe.setupIntents.retrieve(setupIntentId)
+    const pm = typeof si.payment_method === 'string' ? si.payment_method : si.payment_method?.id
+    if (!pm) {
+      console.error('[stripe-webhook] autopay setup finished without a payment method', setupIntentId)
+      return NextResponse.json({ received: true })
+    }
+    const supabase = getServerSupabase()
+    const { error } = await supabase.from('clients').update({
+      stripe_customer_id: (typeof session.customer === 'string' ? session.customer : session.customer?.id) ?? undefined,
+      autopay_payment_method_id: pm,
+      autopay_status: 'active',
+      autopay_setup_at: new Date().toISOString(),
+    }).eq('id', clientId)
+    if (error) {
+      console.error('[stripe-webhook] Failed to save autopay setup:', error.message)
+      return NextResponse.json({ error: 'Failed to save setup' }, { status: 500 })
+    }
+    await supabase.from('audit_log').insert({
+      actor_id: null, actor_role: 'system', action: 'client.autopay_activated',
+      entity_table: 'clients', entity_id: clientId, before: null, after: { payment_method: pm },
+    })
+    console.log(`[stripe-webhook] Autopay activated for client ${clientId}`)
+    return NextResponse.json({ received: true })
+  }
+
+  // A direct debit cleared: the invoice is paid.
+  if (event.type === 'payment_intent.succeeded' && (event.data.object as Stripe.PaymentIntent).metadata?.kind === 'autopay') {
+    const pi = event.data.object as Stripe.PaymentIntent
+    const invoiceId = pi.metadata?.invoice_id
+    if (!invoiceId) return NextResponse.json({ received: true })
+    const supabase = getServerSupabase()
+    // Same idempotency rule as card payments: only flip an unpaid invoice.
+    const { data: flipped, error } = await supabase
+      .from('invoices')
+      .update({ status: 'paid', date_paid: nzToday(), stripe_payment_intent_id: pi.id, autopay_status: 'succeeded', autopay_error: null })
+      .eq('id', invoiceId)
+      .neq('status', 'paid')
+      .select('id')
+    if (error) {
+      console.error('[stripe-webhook] Failed to record direct debit:', error.message)
+      return NextResponse.json({ error: 'Failed to record payment' }, { status: 500 })
+    }
+    if ((flipped ?? []).length > 0) {
+      await supabase.from('audit_log').insert({
+        actor_id: null, actor_role: 'system', action: 'invoice.paid_by_direct_debit',
+        entity_table: 'invoices', entity_id: invoiceId, before: null,
+        after: { payment_intent: pi.id, amount: (pi.amount_received ?? pi.amount) / 100 },
+      })
+      await stampJobCompleteOnPaidInvoice(supabase, invoiceId)
+      console.log(`[stripe-webhook] ${pi.metadata?.invoice_number} paid by direct debit`)
+    } else {
+      await supabase.from('invoices').update({ autopay_status: 'succeeded' }).eq('id', invoiceId)
+    }
+    return NextResponse.json({ received: true })
+  }
+
+  // A direct debit failed (insufficient funds, closed account, authority cancelled).
+  if (event.type === 'payment_intent.payment_failed' && (event.data.object as Stripe.PaymentIntent).metadata?.kind === 'autopay') {
+    const pi = event.data.object as Stripe.PaymentIntent
+    const invoiceId = pi.metadata?.invoice_id
+    if (!invoiceId) return NextResponse.json({ received: true })
+    const reason = pi.last_payment_error?.message ?? 'The bank declined the direct debit.'
+    const supabase = getServerSupabase()
+    await supabase.from('invoices').update({ autopay_status: 'failed', autopay_error: reason }).eq('id', invoiceId).neq('status', 'paid')
+    await supabase.from('audit_log').insert({
+      actor_id: null, actor_role: 'system', action: 'invoice.direct_debit_failed',
+      entity_table: 'invoices', entity_id: invoiceId, before: null, after: { payment_intent: pi.id, reason },
+    })
+    const { data: inv } = await supabase.from('invoices').select('invoice_number, clients ( name )').eq('id', invoiceId).maybeSingle()
+    const clientName = ((inv?.clients as unknown as { name: string | null } | null)?.name) ?? 'Client'
+    await notifyAutopayFailure((inv?.invoice_number as string | undefined) ?? pi.metadata?.invoice_number ?? 'invoice', clientName, reason)
+    return NextResponse.json({ received: true })
   }
 
   if (event.type === 'checkout.session.completed') {

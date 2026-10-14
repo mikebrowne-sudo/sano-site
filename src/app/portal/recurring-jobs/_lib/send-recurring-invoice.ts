@@ -12,6 +12,7 @@ import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
 import { computeInvoiceDueDate, resolveServiceDate } from '@/lib/invoice-dates'
 import { getCustomerReplyToEmail } from '@/lib/email-reply-to'
 import { nzToday } from '@/lib/nz-date'
+import { collectInvoiceByAutopay } from '@/lib/autopay'
 
 function esc(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -95,6 +96,9 @@ export async function sendRecurringInvoiceEmail(
 
   const { error: statusErr } = await svc.from('invoices').update({ status: 'sent' }).eq('id', invoiceId)
   if (statusErr) return { error: `sent but status update failed: ${statusErr.message}` }
+
+  // Customer on automatic payments: collect by direct debit (no-op otherwise).
+  await collectInvoiceByAutopay(svc, invoiceId)
 
   return { sent: true }
 }

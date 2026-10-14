@@ -25,6 +25,7 @@ import { stripeModeWarning } from '@/lib/stripe'
 import { clientCardSetting, invoiceOffersCard } from '@/lib/card-payments'
 import { CardPaymentToggle } from './_components/CardPaymentToggle'
 import { SendReminderPanel, type ReminderHistoryRow } from './_components/SendReminderPanel'
+import { InvoiceAutopayPanel } from './_components/InvoiceAutopayPanel'
 import { canTakeRealPayments } from '@/lib/stripe'
 import { nzToday } from '@/lib/nz-date'
 import { daysOverdue } from '@/lib/invoice-reminders'
@@ -189,6 +190,24 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   const paySummary = invoicePaymentSummary({ ...amountFields, status: invoice.status as string, date_paid: (invoice.date_paid as string | null) ?? null }, allocatedHere, bankDatesHere.get(invoice.id as string) ?? null)
   const balanceHere = Math.max(0, Math.round((invoiceTotalInclGst(amountFields) - paySummary.paid) * 100) / 100)
 
+  // Direct debit (automatic payments). Read on its own and fail soft: the
+  // columns come from a hand-run migration.
+  let autopay: { client: string; status: string | null; error: string | null; requestedAt: string | null } | null = null
+  if (isAdmin && !invoice.deleted_at) {
+    const { data: ap, error: apErr } = await supabase
+      .from('invoices')
+      .select('autopay_status, autopay_error, autopay_requested_at, clients ( autopay_status )')
+      .eq('id', invoice.id)
+      .maybeSingle()
+    if (!apErr && ap) {
+      const c = (Array.isArray(ap.clients) ? ap.clients[0] : ap.clients) as { autopay_status?: string | null } | null
+      const clientStatus = c?.autopay_status ?? 'none'
+      if (clientStatus !== 'none' || ap.autopay_status) {
+        autopay = { client: clientStatus, status: (ap.autopay_status as string | null) ?? null, error: (ap.autopay_error as string | null) ?? null, requestedAt: (ap.autopay_requested_at as string | null) ?? null }
+      }
+    }
+  }
+
   // Overdue logic (UI only)
   const displayStatus = computeInvoiceDisplayStatus(invoice.status, invoice.due_date)
   const isOverdue = displayStatus === 'overdue'
@@ -320,6 +339,18 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
                 ? 'Off by default for on-account customers'
                 : 'On by default for cash-sale'
           }
+        />
+      )}
+
+      {autopay && (
+        <InvoiceAutopayPanel
+          invoiceId={invoice.id as string}
+          invoiceStatus={invoice.status as string}
+          clientAutopay={autopay.client}
+          debitStatus={autopay.status}
+          debitError={autopay.error}
+          requestedAt={autopay.requestedAt}
+          amountDue={balanceHere}
         />
       )}
 

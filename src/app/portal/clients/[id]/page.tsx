@@ -15,6 +15,7 @@ import { proposedAccountName } from '@/lib/account-cleanup'
 import type { AccountContact } from '../_actions-contacts'
 import { isAdminUser } from '@/lib/is-admin'
 import { ClientCardPaymentToggle } from './_components/ClientCardPaymentToggle'
+import { ClientAutopayCard } from './_components/ClientAutopayCard'
 
 // Phase 5.5.7 — read-only audit timeline mirroring the staff pattern.
 const ACTION_LABELS: Record<string, string> = {
@@ -163,6 +164,18 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     .order('full_name', { ascending: true })
   const accountContacts = (accountContactsRaw ?? []) as AccountContact[]
 
+  // Automatic payments. Read on its own and fail soft: the columns come from a
+  // hand-run migration, so the page must still render if they're not there yet.
+  let autopay: { status: string; setupAt: string | null } | null = null
+  if (isAdmin) {
+    const { data: ap, error: apErr } = await supabase
+      .from('clients')
+      .select('autopay_status, autopay_setup_at')
+      .eq('id', params.id)
+      .maybeSingle()
+    if (!apErr && ap) autopay = { status: (ap.autopay_status as string | null) ?? 'none', setupAt: (ap.autopay_setup_at as string | null) ?? null }
+  }
+
   return (
     <div>
       <PortalPageHeader
@@ -204,6 +217,10 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           clientId={vm.id}
           initial={(client as { allow_card_payment?: boolean | null }).allow_card_payment === true}
         />
+      )}
+
+      {isAdmin && autopay && (
+        <ClientAutopayCard clientId={vm.id} status={autopay.status} setupAt={autopay.setupAt} />
       )}
 
       {/* ── 2. Contacts (normal workflow) ──────────────────── */}
