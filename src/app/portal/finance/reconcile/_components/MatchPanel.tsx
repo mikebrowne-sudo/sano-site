@@ -187,13 +187,20 @@ export function MatchPanel({
   const renderRow = (item: WorkItem) => {
     const k = keyOf(item)
     const sel = selected.get(k)
+    // An invoice whose whole amount is already matched to bank money can't take
+    // more — say so up front instead of failing on Confirm.
+    const inv = item.kind === 'job' ? null : invoiceById.get(item.id)
+    const fullyMatched = !!inv && round2(inv.total - (inv.allocated ?? 0)) <= 0.004
     return (
       <div key={k} className={clsx('rounded-lg px-2.5 py-2 transition-colors', sel ? 'bg-sage-50' : 'hover:bg-gray-50')}>
         <label className="flex cursor-pointer items-center gap-3">
-          <input type="checkbox" checked={!!sel} onChange={() => toggle(item)} className="h-4 w-4 rounded border-sage-300 text-sage-500 focus:ring-sage-500" />
+          <input type="checkbox" checked={!!sel} disabled={fullyMatched && !sel} onChange={() => toggle(item)} className="h-4 w-4 rounded border-sage-300 text-sage-500 focus:ring-sage-500 disabled:opacity-40" />
           <span className="min-w-0 flex-1">
             <span className="text-sm font-medium text-sage-800">{item.number}</span>
             <span className="block truncate text-xs text-sage-400">{[shortDate(item.date), shortAddr(item.address)].filter(Boolean).join(' · ')}</span>
+            {fullyMatched && (
+              <span className="mt-0.5 block text-[11px] text-amber-700">Already matched to an earlier bank payment. If that match was wrong, undo it on that bank line (⋯ → Matched to) first.</span>
+            )}
           </span>
           <span className="text-sm font-medium tabular-nums text-sage-700">{fmt(item.amount)}</span>
         </label>
