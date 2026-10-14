@@ -79,6 +79,11 @@ export async function loadReminderCandidates(
       ? supabase.from('contacts').select('id, full_name').in('id', contactIds)
       : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
   ])
+  // Being collected by direct debit right now: don't chase it. Read on its own
+  // and ignored if the autopay columns aren't there yet (hand-run migration).
+  const { data: debiting, error: debitErr } = await supabase.from('invoices').select('id').in('id', ids).eq('autopay_status', 'processing')
+  const beingDebited = new Set(debitErr ? [] : ((debiting ?? []) as { id: string }[]).map((r) => r.id))
+
   const sent = new Map<string, number>()
   for (const r of (reminderRows ?? []) as { invoice_id: string }[]) sent.set(r.invoice_id, (sent.get(r.invoice_id) ?? 0) + 1)
   const contactName = new Map(((contacts ?? []) as { id: string; full_name: string | null }[]).map((c) => [c.id, c.full_name]))
@@ -86,6 +91,7 @@ export async function loadReminderCandidates(
 
   const out: ReminderCandidate[] = []
   for (const r of rows) {
+    if (beingDebited.has(r.id)) continue
     const amountDue = invoiceBalanceDue(r, allocated.get(r.id) ?? 0)
     if (amountDue <= 0) continue
     const client = Array.isArray(r.clients) ? (r.clients[0] ?? null) : r.clients
