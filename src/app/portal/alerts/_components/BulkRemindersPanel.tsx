@@ -15,6 +15,25 @@ import type { ReminderCandidate } from '@/lib/invoice-reminder-candidates'
 import { buildCombinedReminderEmail, buildReminderEmail, reminderGroupKey, REMINDER_LABEL, type ReminderStage } from '@/lib/invoice-reminders'
 import { sendCustomerReminders } from '../_actions-bulk-reminders'
 
+/** Which reminders to work on: everything due, one stage only, or every overdue invoice. */
+type Filter = 'due' | 1 | 2 | 3 | 'all'
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: 'due', label: 'All due' },
+  { key: 1, label: '1st reminders' },
+  { key: 2, label: '2nd reminders' },
+  { key: 3, label: 'Final reminders' },
+  { key: 'all', label: 'Everything overdue' },
+]
+function inFilter(c: ReminderCandidate, f: Filter): boolean {
+  if (f === 'all') return true
+  if (f === 'due') return c.status.kind === 'due'
+  // A stage filter shows invoices whose NEXT reminder is that stage (due or
+  // not yet), never ones already past three ("call" list).
+  return c.status.kind !== 'call' && c.stage === f
+}
+const defaultTicks = (items: ReminderCandidate[], f: Filter) =>
+  new Set(items.filter((c) => inFilter(c, f) && c.status.kind === 'due' && c.to).map((c) => c.invoiceId))
+
 type GroupState = { kind: 'idle' } | { kind: 'sending' } | { kind: 'sent'; count: number } | { kind: 'error'; message: string }
 
 const money = (n: number) => new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
@@ -33,20 +52,26 @@ export function BulkRemindersPanel({ candidates }: { candidates: ReminderCandida
   // shouldn't reshuffle mid-send.
   const [items] = useState(candidates)
   const [open, setOpen] = useState(false)
-  const [ticked, setTicked] = useState<Set<string>>(
-    () => new Set(candidates.filter((c) => c.status.kind === 'due' && c.to).map((c) => c.invoiceId)),
-  )
+  const [filter, setFilter] = useState<Filter>('due')
+  const [ticked, setTicked] = useState<Set<string>>(() => defaultTicks(candidates, 'due'))
   const [states, setStates] = useState<Record<string, GroupState>>({})
   const [running, setRunning] = useState(false)
 
   const groups = useMemo(() => {
     const m = new Map<string, ReminderCandidate[]>()
     for (const c of items) {
+      if (!inFilter(c, filter)) continue
       const k = c.to ? reminderGroupKey(c.to) : `__none__${c.invoiceId}`
       m.set(k, [...(m.get(k) ?? []), c])
     }
     return Array.from(m.entries()).map(([key, invoices]) => ({ key, invoices }))
-  }, [items])
+  }, [items, filter])
+
+  function chooseFilter(f: Filter) {
+    setFilter(f)
+    setTicked(defaultTicks(items, f))
+  }
+  const dueAt = (f: Filter) => items.filter((c) => inFilter(c, f) && c.status.kind === 'due' && c.to).length
 
   const selectedGroups = groups
     .map((g) => ({ ...g, chosen: g.invoices.filter((i) => ticked.has(i.invoiceId)) }))
@@ -126,6 +151,32 @@ export function BulkRemindersPanel({ candidates }: { candidates: ReminderCandida
           <X size={18} />
         </button>
       </div>
+
+      <div className="mb-3 flex flex-wrap gap-1.5" role="tablist" aria-label="Which reminders">
+        {FILTERS.map((f) => {
+          const n = f.key === 'all' ? items.length : dueAt(f.key)
+          return (
+            <button
+              key={String(f.key)}
+              type="button"
+              role="tab"
+              aria-selected={filter === f.key}
+              disabled={running}
+              onClick={() => chooseFilter(f.key)}
+              className={clsx(
+                'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                filter === f.key ? 'bg-sage-500 text-white' : 'bg-sage-50 text-sage-600 ring-1 ring-sage-100 hover:text-sage-800',
+              )}
+            >
+              {f.label}{n > 0 ? ` (${n})` : ''}
+            </button>
+          )
+        })}
+      </div>
+
+      {groups.length === 0 && (
+        <p className="rounded-lg bg-sage-50 px-3 py-4 text-center text-sm text-sage-500">Nothing in this group right now.</p>
+      )}
 
       <div className="space-y-3">
         {groups.map((g) => {
