@@ -27,6 +27,7 @@ import { assertAdminAction } from '@/lib/require-admin'
 //   - Deleting or editing the snapshot later.
 
 import { createClient } from '@/lib/supabase-server'
+import { assertQuoteConvertible } from '@/lib/quote-conversion-guard'
 import { redirect } from 'next/navigation'
 import { copyQuoteItemsToJob } from '@/lib/job-items-from-quote'
 
@@ -48,6 +49,12 @@ type CommercialScopeRow = {
 export async function createJobFromQuote(quoteId: string) {
   await assertAdminAction()
   const supabase = createClient()
+
+  // Refuse double-conversion across every version of the quote. This legacy
+  // path skipped the shared guard, so an amended + re-accepted version could
+  // get a second job for the same work (QUO-0357 → JOB-0357 + JOB-0424).
+  const guard = await assertQuoteConvertible(supabase, quoteId, 'job')
+  if ('error' in guard) return { error: guard.error, existing: guard.existing }
 
   // 1. Quote — exactly the columns the job needs + snapshot metadata.
   const { data: quote, error: qErr } = await supabase

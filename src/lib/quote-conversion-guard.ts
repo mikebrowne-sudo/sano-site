@@ -32,7 +32,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SB = SupabaseClient<any, 'public'>
 
-export type ConversionKind = 'job' | 'invoice' | 'both'
+/** 'recurring' = a recurring contract (recurring_jobs row). It also counts an
+ *  existing one-off job as "already converted", since the same work would
+ *  otherwise be scheduled twice. */
+export type ConversionKind = 'job' | 'invoice' | 'both' | 'recurring'
 
 export interface ConvertibleQuoteSnapshot {
   id: string
@@ -47,7 +50,7 @@ export interface ConvertibleQuoteSnapshot {
  *  render an "Open job" / "Open invoice" link instead of a dead-end
  *  text error. The error message stays human-readable. */
 export interface ExistingRecordRef {
-  kind: 'job' | 'invoice'
+  kind: 'job' | 'invoice' | 'recurring'
   id: string
   number: string | null
 }
@@ -129,7 +132,24 @@ export async function assertQuoteConvertible(
 
   // 4. Reject if the requested child already exists. Surface its
   //    id + number so the UI can render an Open-existing CTA.
-  if (kind === 'job' || kind === 'both') {
+  if (kind === 'recurring') {
+    const { data: existingContracts, error: rErr } = await supabase
+      .from('recurring_jobs')
+      .select('id, title')
+      .in('quote_id', chainIds)
+      .neq('status', 'cancelled')
+      .limit(1)
+    if (rErr) return { error: `Recurring contract lookup failed: ${rErr.message}` }
+    if (existingContracts && existingContracts.length > 0) {
+      const r = existingContracts[0] as { id: string; title: string | null }
+      return {
+        error: `A recurring contract (${r.title ?? 'contract'}) already exists for this quote, possibly on an earlier version. Open and update it rather than creating another.`,
+        existing: { kind: 'recurring', id: r.id, number: r.title ?? null },
+      }
+    }
+  }
+
+  if (kind === 'job' || kind === 'both' || kind === 'recurring') {
     const { data: existingJobs, error: jErr } = await supabase
       .from('jobs')
       .select('id, job_number')

@@ -23,7 +23,7 @@ type QuoteRow = {
  *  ids the existing job belongs to, to test the version-chain lookup. */
 function makeClient(
   quote: QuoteRow | null,
-  opts: { job?: boolean; invoice?: boolean; chain?: string[]; jobOnQuoteIds?: string[] } = {},
+  opts: { job?: boolean; invoice?: boolean; recurring?: boolean; chain?: string[]; jobOnQuoteIds?: string[] } = {},
 ) {
   const chain = opts.chain ?? (quote ? [quote.id] : [])
   const from = jest.fn((table: string) => {
@@ -34,6 +34,17 @@ function makeClient(
         or: jest.fn().mockResolvedValue({ data: chain.map((id) => ({ id })), error: null }),
         maybeSingle: jest.fn().mockResolvedValue({ data: quote ? { ...quote, parent_quote_id: null } : null, error: null }),
       }
+    }
+    if (table === 'recurring_jobs') {
+      const rows = opts.recurring ? [{ id: 'r-1', title: 'Commercial contract — QUO-0001' }] : []
+      const api: Record<string, unknown> = {}
+      Object.assign(api, {
+        select: jest.fn(() => api),
+        in: jest.fn(() => api),
+        neq: jest.fn(() => api),
+        limit: jest.fn().mockResolvedValue({ data: rows, error: null }),
+      })
+      return api
     }
     if (table === 'jobs' || table === 'invoices') {
       let inIds: string[] | null = null
@@ -165,5 +176,37 @@ describe('assertQuoteConvertible — revised quotes (version chain)', () => {
     const client = makeClient(v3, { job: true, chain: ['q-v1', 'q-v2', 'q-v3'], jobOnQuoteIds: ['some-other-quote'] })
     const r = await assertQuoteConvertible(client, 'q-v3', 'job')
     expect('ok' in r && r.ok).toBe(true)
+  })
+
+  it('blocks a second job when v1 is converted and an amended v2 is re-accepted (the QUO-0357 → JOB-0424 duplicate)', async () => {
+    const v2 = { ...accepted, id: 'q-v2' }
+    const client = makeClient(v2, { job: true, chain: ['q-v1', 'q-v2'], jobOnQuoteIds: ['q-v1'] })
+    const r = await assertQuoteConvertible(client, 'q-v2', 'job')
+    expect(r).toMatchObject({ error: expect.stringContaining('possibly on an earlier version'), existing: { kind: 'job' } })
+  })
+})
+
+describe('assertQuoteConvertible — recurring contracts', () => {
+  it('blocks a second recurring contract when one exists on any version', async () => {
+    const r = await assertQuoteConvertible(makeClient(accepted, { recurring: true }), 'q-1', 'recurring')
+    expect(r).toMatchObject({
+      error: expect.stringContaining('recurring contract'),
+      existing: { kind: 'recurring', id: 'r-1' },
+    })
+  })
+
+  it('blocks a recurring contract when a one-off job already covers the quote', async () => {
+    const r = await assertQuoteConvertible(makeClient(accepted, { job: true }), 'q-1', 'recurring')
+    expect(r).toMatchObject({ error: expect.stringContaining('already exists for this quote'), existing: { kind: 'job' } })
+  })
+
+  it('allows a recurring contract when nothing exists on the quote', async () => {
+    const r = await assertQuoteConvertible(makeClient(accepted), 'q-1', 'recurring')
+    expect(r).toMatchObject({ ok: true })
+  })
+
+  it('still requires an accepted quote', async () => {
+    const r = await assertQuoteConvertible(makeClient({ ...accepted, status: 'sent', accepted_at: null }), 'q-1', 'recurring')
+    expect(r).toMatchObject({ error: expect.stringContaining('Only an accepted quote') })
   })
 })

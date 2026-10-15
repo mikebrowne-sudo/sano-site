@@ -19,6 +19,7 @@ import { resolveAllowedHours } from '@/lib/allowed-hours'
 import { buildRecurringWorkerRow, type RecurringPayType } from '@/lib/recurring-worker'
 import { pickClientRate, type ClientRateRecord } from '@/lib/contractor-client-rate'
 import { rollbackOrphanOccurrence } from '@/lib/recurring-rollback'
+import { assertQuoteConvertible } from '@/lib/quote-conversion-guard'
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
@@ -55,6 +56,12 @@ export async function createRecurringJobFromQuote(quoteId: string): Promise<{ er
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
+
+  // Refuse double-conversion across every version of the quote: an existing
+  // recurring contract OR one-off job on any version means this work is
+  // already scheduled.
+  const guard = await assertQuoteConvertible(supabase, quoteId, 'recurring')
+  if ('error' in guard) return { error: guard.error }
 
   // 1. Quote — must be accepted + latest version.
   const { data: quote, error: qErr } = await supabase
