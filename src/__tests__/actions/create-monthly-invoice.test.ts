@@ -81,7 +81,7 @@ describe('createMonthlyInvoice', () => {
       contact_id: 'ct1', contact_name: 'Kelsey Harvey', contact_email: 'kelsey@example.com',
     })
     expect(payload.service_description).toBe(
-      'August 2026: 3 visits × $315.00 + GST\nVisit dates: 12, 14 and 26 August',
+      'August 2026 Housekeeping Services\n3 scheduled visits at $315.00 + GST per visit\nService dates: 12, 14 and 26 August 2026',
     )
     // Every job linked + invoiced; only the unpriced ones get the rate stamped.
     expect(s.jobUpdates.map((u) => u.id)).toEqual(['j1', 'j2', 'j3'])
@@ -97,7 +97,7 @@ describe('createMonthlyInvoice', () => {
     await createMonthlyInvoice({ ...base, ratePerVisit: 180, gstIncluded: true, jobIds: ['j1'] })
     const payload = s.invoiceInsert.mock.calls[0][0]
     expect(payload).toMatchObject({ gst_included: true, base_price: 180, payment_type: 'on_account' })
-    expect(payload.service_description).toContain('1 visit × $180.00 incl. GST')
+    expect(payload.service_description).toContain('1 scheduled visit at $180.00 incl. GST per visit')
   })
 
   it.each([

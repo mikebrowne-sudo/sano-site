@@ -175,7 +175,7 @@ export async function createMonthlyInvoiceCore(
       service_address: serviceAddress,
       scheduled_clean_date: lastVisit,
       type_of_clean: (input.serviceLabel ?? '').trim() || null,
-      service_description: composeMonthlyDescription(range.label, built.lines, { gstIncluded: !!input.gstIncluded }),
+      service_description: composeMonthlyDescription(range.label, built.lines, { gstIncluded: !!input.gstIncluded, serviceLabel: input.serviceLabel }),
       notes: (input.notes ?? '').trim() || null,
       base_price: built.total,
       gst_included: !!input.gstIncluded,

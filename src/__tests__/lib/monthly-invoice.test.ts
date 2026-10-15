@@ -84,8 +84,8 @@ describe('composeMonthlyDescription', () => {
       315,
     )
     if ('error' in r) throw new Error(r.error)
-    expect(composeMonthlyDescription('August 2026', r.lines)).toBe(
-      'August 2026: 6 visits × $315.00 + GST\nVisit dates: 12, 14, 19, 21, 26 and 28 August',
+    expect(composeMonthlyDescription('August 2026', r.lines, { serviceLabel: 'Residential Housekeeping' })).toBe(
+      'August 2026 Housekeeping Services\n6 scheduled visits at $315.00 + GST per visit\nService dates: 12, 14, 19, 21, 26 and 28 August 2026',
     )
   })
 
@@ -96,7 +96,7 @@ describe('composeMonthlyDescription', () => {
     ], 315)
     if ('error' in r) throw new Error(r.error)
     expect(composeMonthlyDescription('August 2026', r.lines)).toBe(
-      'August 2026: 2 visits (total $715.00 + GST)\nVisit dates: 12 and 14 August',
+      'August 2026 Cleaning Services\n2 scheduled visits (total $715.00 + GST)\nService dates: 12 and 14 August 2026',
     )
   })
 
@@ -104,15 +104,27 @@ describe('composeMonthlyDescription', () => {
     const r = buildMonthlyLines([job({ id: 'a', scheduled_date: '2026-09-29' })], 180)
     if ('error' in r) throw new Error(r.error)
     expect(composeMonthlyDescription('Week of 28 September – 4 October 2026', r.lines, { gstIncluded: true })).toBe(
-      'Week of 28 September – 4 October 2026: 1 visit × $180.00 incl. GST\nVisit dates: 29 September',
+      'Cleaning Services — Week of 28 September – 4 October 2026\n1 scheduled visit at $180.00 incl. GST per visit\nService dates: 29 September 2026',
     )
   })
 
   it('singular visit', () => {
     const r = buildMonthlyLines([job({ id: 'a', scheduled_date: '2026-10-02' })], 315)
     if ('error' in r) throw new Error(r.error)
-    expect(composeMonthlyDescription('October 2026', r.lines)).toBe(
-      'October 2026: 1 visit × $315.00 + GST\nVisit dates: 2 October',
+    expect(composeMonthlyDescription('October 2026', r.lines, { serviceLabel: 'Residential Housekeeping' })).toBe(
+      'October 2026 Housekeeping Services\n1 scheduled visit at $315.00 + GST per visit\nService dates: 2 October 2026',
+    )
+  })
+
+  it('matches the agreed Oranga Tamariki layout for September 2026 (9 visits)', () => {
+    const r = buildMonthlyLines(
+      ['2026-09-02', '2026-09-04', '2026-09-09', '2026-09-11', '2026-09-16', '2026-09-18', '2026-09-23', '2026-09-25', '2026-09-30']
+        .map((d, i) => job({ id: `s${i}`, scheduled_date: d })),
+      315,
+    )
+    if ('error' in r) throw new Error(r.error)
+    expect(composeMonthlyDescription('September 2026', r.lines, { serviceLabel: 'Residential Housekeeping' })).toBe(
+      'September 2026 Housekeeping Services\n9 scheduled visits at $315.00 + GST per visit\nService dates: 2, 4, 9, 11, 16, 18, 23, 25 and 30 September 2026',
     )
   })
 })

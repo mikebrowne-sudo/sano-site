@@ -133,28 +133,44 @@ export function formatVisitDates(dates: ReadonlyArray<string>): string {
 }
 
 /**
+ * Heading word for the service: housekeeping clients (Oranga Tamariki) read
+ * "Housekeeping Services"; everyone else "Cleaning Services". Driven by the
+ * invoice's service label (type of clean), e.g. "Residential Housekeeping".
+ */
+export function serviceHeading(serviceLabel: string | null | undefined): string {
+  return /housekeeping/i.test(serviceLabel ?? '') ? 'Housekeeping Services' : 'Cleaning Services'
+}
+
+/**
  * Service description shown under the invoice line — a summary, not a row per
- * visit (Mike, 2026-09-30):
- *   "August 2026: 6 visits × $315.00 + GST"
- *   "Visit dates: 12, 14, 19, 21, 26 and 28 August"
- * If the visits aren't all the same price, the summary states the total
+ * visit. Format agreed with Mike (2026-10-16), matching INV-0472:
+ *   "August 2026 Housekeeping Services"
+ *   "6 scheduled visits at $315.00 + GST per visit"
+ *   "Service dates: 12, 14, 19, 21, 26 and 28 August 2026"
+ * Weekly periods read "Housekeeping Services — Week of 5–11 October 2026".
+ * If the visits aren't all the same price, the middle line states the total
  * instead of claiming a per-visit rate that doesn't hold.
  */
 export function composeMonthlyDescription(
-  monthLabel: string,
+  periodLabel: string,
   lines: ReadonlyArray<MonthlyLine>,
-  opts: { gstIncluded?: boolean } = {},
+  opts: { gstIncluded?: boolean; serviceLabel?: string | null } = {},
 ): string {
   const n = lines.length
-  const visits = `${n} visit${n === 1 ? '' : 's'}`
+  const visits = `${n} scheduled visit${n === 1 ? '' : 's'}`
   const prices = new Set(lines.map((l) => l.price))
   const total = Math.round(lines.reduce((s, l) => s + l.price, 0) * 100) / 100
   const gst = opts.gstIncluded ? 'incl. GST' : '+ GST'
+  const heading = serviceHeading(opts.serviceLabel)
+  const title = /^week of/i.test(periodLabel) ? `${heading} — ${periodLabel}` : `${periodLabel} ${heading}`
   const summary = prices.size === 1
-    ? `${monthLabel}: ${visits} × ${fmtMoney(lines[0].price)} ${gst}`
-    : `${monthLabel}: ${visits} (total ${fmtMoney(total)} ${gst})`
-  return `${summary}
-Visit dates: ${formatVisitDates(lines.map((l) => l.date))}`
+    ? `${visits} at ${fmtMoney(lines[0].price)} ${gst} per visit`
+    : `${visits} (total ${fmtMoney(total)} ${gst})`
+  const dates = lines.map((l) => l.date).sort()
+  const year = dates.length > 0 ? dates[dates.length - 1].slice(0, 4) : ''
+  return `${title}
+${summary}
+Service dates: ${formatVisitDates(dates)}${year ? ` ${year}` : ''}`
 }
 
 /**
