@@ -4,6 +4,7 @@ import { isAdminUser, isAccountantUser } from '@/lib/is-admin'
 import { PortalSidebar } from './_components/PortalSidebar'
 import { PortalTopbar } from './_components/PortalTopbar'
 import { PortalScrollRestoration } from './_components/PortalScrollRestoration'
+import { mfaStep, enforcedStep, mfaEnrolmentRequired } from '@/lib/mfa-gate'
 
 export const metadata: Metadata = {
   title: 'Sano Portal',
@@ -16,6 +17,13 @@ export default async function PortalLayout({ children }: { children: React.React
 
   // Login page renders without the shell
   if (!user) {
+    return <>{children}</>
+  }
+
+  // Until the second factor is done (set-up or code entry), render the bare
+  // page — no sidebar or menu for a password-only session.
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+  if (enforcedStep(mfaStep(aal), mfaEnrolmentRequired()) !== 'ok') {
     return <>{children}</>
   }
 
