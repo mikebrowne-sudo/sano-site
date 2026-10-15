@@ -10,12 +10,16 @@ let mockUser: { id: string; email: string } | null = null
 let mockIsContractor = false
 let mockIsClient = false
 const mockSignOut = jest.fn()
+// Two-step sign-in level; default = fully signed in so the access tests below
+// test access, not MFA.
+let mockAal: { currentLevel: string; nextLevel: string } = { currentLevel: 'aal2', nextLevel: 'aal2' }
 
 jest.mock('@supabase/ssr', () => ({
   createServerClient: () => ({
     auth: {
       getUser: async () => ({ data: { user: mockUser } }),
       signOut: mockSignOut,
+      mfa: { getAuthenticatorAssuranceLevel: async () => ({ data: mockAal, error: null }) },
     },
     from: (table: string) => ({
       select: () => ({
@@ -34,6 +38,7 @@ import { middleware } from '@/middleware'
 
 function as(email: string | null, opts: { contractor?: boolean; client?: boolean } = {}) {
   mockUser = email ? { id: 'u1', email } : null
+  mockAal = { currentLevel: 'aal2', nextLevel: 'aal2' }
   mockIsContractor = !!opts.contractor
   mockIsClient = !!opts.client
 }
@@ -93,5 +98,51 @@ describe('portal access allow-list', () => {
   it('still sends signed-out visitors to the login page', async () => {
     as(null)
     expect(await visit('/portal/invoices')).toBe('/portal/login')
+  })
+})
+
+describe('two-step sign-in (MFA) for staff', () => {
+  const OLD = process.env.PORTAL_MFA_REQUIRED
+  afterEach(() => { process.env.PORTAL_MFA_REQUIRED = OLD })
+
+  it('asks for the code when an authenticator is set up but not entered this session', async () => {
+    as('carol@sano.nz')
+    mockAal = { currentLevel: 'aal1', nextLevel: 'aal2' }
+    expect(await visit('/portal/invoices')).toBe('/portal/mfa?next=%2Fportal%2Finvoices')
+  })
+
+  it('sends accountants through the same check', async () => {
+    as('john@taxaction.co.nz')
+    mockAal = { currentLevel: 'aal1', nextLevel: 'aal2' }
+    expect(await visit('/portal/finance')).toBe('/portal/mfa?next=%2Fportal%2Ffinance')
+  })
+
+  it('does not force set-up until PORTAL_MFA_REQUIRED is on', async () => {
+    delete process.env.PORTAL_MFA_REQUIRED
+    as('michael@sano.nz')
+    mockAal = { currentLevel: 'aal1', nextLevel: 'aal1' }
+    expect(await visit('/portal/invoices')).toBeNull()
+  })
+
+  it('forces set-up once PORTAL_MFA_REQUIRED is on', async () => {
+    process.env.PORTAL_MFA_REQUIRED = 'true'
+    as('michael@sano.nz')
+    mockAal = { currentLevel: 'aal1', nextLevel: 'aal1' }
+    expect(await visit('/portal')).toBe('/portal/mfa/setup?next=%2Fportal')
+  })
+
+  it('keeps the MFA and login pages reachable mid-sign-in', async () => {
+    process.env.PORTAL_MFA_REQUIRED = 'true'
+    as('michael@sano.nz')
+    mockAal = { currentLevel: 'aal1', nextLevel: 'aal2' }
+    expect(await visit('/portal/mfa')).toBeNull()
+    expect(await visit('/portal/mfa/setup')).toBeNull()
+    expect(await visit('/portal/reset-password')).toBeNull()
+  })
+
+  it('leaves contractors alone (contractor portal is not gated yet)', async () => {
+    as('cleaner@example.com', { contractor: true })
+    mockAal = { currentLevel: 'aal1', nextLevel: 'aal1' }
+    expect(await visit('/contractor/jobs')).toBeNull()
   })
 })

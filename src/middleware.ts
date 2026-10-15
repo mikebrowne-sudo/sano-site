@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isAccountantEmail, isAdminEmail } from '@/lib/is-admin'
+import { mfaStep, enforcedStep, mfaEnrolmentRequired, isMfaExempt, mfaRedirectPath } from '@/lib/mfa-gate'
 
 // Portal route prefixes a read-only accountant (finance) login may access.
 // Everything else under /portal is redirected to the finance area for them.
@@ -144,6 +145,20 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // ── Two-factor authentication for every staff-side login ──
+  // Admins and accountants must have an authenticator app set up, and must
+  // enter its code each session, before any portal page loads. (Cyber
+  // insurance: MFA on all remote access.) Auth/MFA pages stay reachable.
+  // Set-up is compulsory once PORTAL_MFA_REQUIRED=true (see mfa-gate.ts).
+  if ((isStaff || isAccountant) && isPortal && !isMfaExempt(path)) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+    const step = enforcedStep(mfaStep(aal), mfaEnrolmentRequired())
+    if (step !== 'ok') {
+      const redirect = NextResponse.redirect(new URL(mfaRedirectPath(step, path + request.nextUrl.search), request.url))
+      response.cookies.getAll().forEach((c) => redirect.cookies.set(c))
+      return redirect
+    }
+  }
 
   // ── Login page redirects for already-authenticated users ──
   if (isPortalLogin && isContractorUser) {
