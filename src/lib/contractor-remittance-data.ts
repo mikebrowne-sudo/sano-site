@@ -87,7 +87,7 @@ async function build(svc: SupabaseClient, h: Header): Promise<RemittanceBatch> {
 
   const { data: itemsRaw } = await svc
     .from('contractor_remittance_items')
-    .select('kind, contractor_name, job_number, job_address, note, label, hours, amount, contractor_payment_snapshot_id, gross_ex_gst, gst_amount, wht_rate, wht_amount, net_paid, tax_status, sort, contractor_invoices ( job_id, service_date, gst_supply_date, jobs ( completed_at ) )')
+    .select('kind, contractor_name, job_number, job_address, note, label, hours, amount, contractor_payment_snapshot_id, gross_ex_gst, gst_amount, wht_rate, wht_amount, net_paid, tax_status, sort, contractor_invoices ( job_id, service_date, gst_supply_date, jobs ( completed_at, scheduled_date ) )')
     .eq('remittance_id', h.id)
     .neq('tax_status', 'superseded')
     .order('sort', { ascending: true })
@@ -97,11 +97,12 @@ async function build(svc: SupabaseClient, h: Header): Promise<RemittanceBatch> {
   const lines: RemittanceBatchLine[] = (itemsRaw ?? []).map((it) => {
     const ci = flat((it as { contractor_invoices?: unknown }).contractor_invoices) as
       { job_id: string | null; service_date: string | null; gst_supply_date: string | null; jobs: unknown } | null
-    const job = flat(ci?.jobs) as { completed_at: string | null } | null
+    const job = flat(ci?.jobs) as { completed_at: string | null; scheduled_date?: string | null } | null
     const date = ci
       ? resolveContractorServiceDate({
           job_id: ci.job_id,
           job_completed_at_nz: toNzCalendarDate(job?.completed_at ?? null),
+          job_scheduled_date: job?.scheduled_date ?? null,
           service_date: ci.service_date,
           gst_supply_date: ci.gst_supply_date,
         }).date

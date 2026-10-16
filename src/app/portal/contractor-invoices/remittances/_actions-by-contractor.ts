@@ -72,7 +72,7 @@ interface EligibleCi {
   gst_supply_date: string | null
   job_id: string | null
   invoice_number: string | null
-  jobs: { completed_at: string | null; job_number: string | null; address: string | null } | null
+  jobs: { completed_at: string | null; scheduled_date: string | null; job_number: string | null; address: string | null } | null
 }
 
 async function loadPlan(
@@ -96,7 +96,7 @@ async function loadPlan(
   // silently excludes it.
   const { data: ciRaw } = await supabase
     .from('contractor_invoices')
-    .select('id, contractor_id, amount, pay_hours, gst_amount, service_date, gst_supply_date, job_id, invoice_number, jobs ( completed_at, job_number, address )')
+    .select('id, contractor_id, amount, pay_hours, gst_amount, service_date, gst_supply_date, job_id, invoice_number, jobs ( completed_at, scheduled_date, job_number, address )')
     .in('contractor_id', ids)
     .eq('status', 'approved')
   const cis = (ciRaw ?? []) as unknown as EligibleCi[]
@@ -137,6 +137,7 @@ async function loadPlan(
       serviceDate: resolveContractorServiceDate({
         job_id: c.job_id,
         job_completed_at_nz: toNzCalendarDate(c.jobs?.completed_at ?? null),
+        job_scheduled_date: c.jobs?.scheduled_date ?? null,
         service_date: c.service_date,
         gst_supply_date: c.gst_supply_date,
       }).date,

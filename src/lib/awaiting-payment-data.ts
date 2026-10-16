@@ -95,7 +95,7 @@ export async function loadAwaitingPayment(supabase: SupabaseClient): Promise<Awa
   const ids = heads.map((h) => h.id)
   const { data: itemsRaw } = await supabase
     .from('contractor_remittance_items')
-    .select('id, remittance_id, contractor_name, job_number, job_address, amount, kind, label, sort, tax_status, contractor_invoices ( job_id, service_date, gst_supply_date, jobs ( completed_at ) )')
+    .select('id, remittance_id, contractor_name, job_number, job_address, amount, kind, label, sort, tax_status, contractor_invoices ( job_id, service_date, gst_supply_date, jobs ( completed_at, scheduled_date ) )')
     .in('remittance_id', ids)
     .order('sort', { ascending: true })
 
@@ -108,11 +108,12 @@ export async function loadAwaitingPayment(supabase: SupabaseClient): Promise<Awa
 
     const ci = flat(raw.contractor_invoices) as
       { job_id: string | null; service_date: string | null; gst_supply_date: string | null; jobs: unknown } | null
-    const job = flat(ci?.jobs) as { completed_at: string | null } | null
+    const job = flat(ci?.jobs) as { completed_at: string | null; scheduled_date?: string | null } | null
     const serviceDate = ci
       ? resolveContractorServiceDate({
           job_id: ci.job_id,
           job_completed_at_nz: toNzCalendarDate(job?.completed_at ?? null),
+          job_scheduled_date: job?.scheduled_date ?? null,
           service_date: ci.service_date,
           gst_supply_date: ci.gst_supply_date,
         }).date
