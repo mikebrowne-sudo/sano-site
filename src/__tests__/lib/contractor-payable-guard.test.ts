@@ -51,3 +51,12 @@ describe('evaluatePayableEdit', () => {
     expect(fields).toEqual(['contractor_id', 'job_id', 'amount', 'date_submitted', 'notes', 'payment_type', 'site_label', 'period_label'])
   })
 })
+
+describe('a void payable', () => {
+  it('cannot be edited, and says to re-approve from the job instead', () => {
+    const st = evaluatePayableEdit({ status: 'void', datePaid: null, remittances: [] })
+    expect(st.editable).toBe(false)
+    expect(st.block).toBe('void')
+    expect(st.message).toMatch(/approve the job again/)
+  })
+})

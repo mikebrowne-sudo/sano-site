@@ -13,9 +13,11 @@
 // only allows edits on a clean (pending / approved, unpaid, unremitted)
 // payable — always with a reason + audit.
 
-export type PayableBlockReason = 'sent_remittance' | 'paid' | 'draft_remittance'
+export type PayableBlockReason = 'void' | 'sent_remittance' | 'paid' | 'draft_remittance'
 
 export const PAYABLE_BLOCK_MESSAGES: Record<PayableBlockReason, string> = {
+  void:
+    'This contractor payable is void, so it will never be paid and editing it changes nothing. To pay the right amount, approve the job again from the job page (Pay approvals), with the correct hours.',
   sent_remittance:
     'This contractor payable has already been included in a sent remittance. Editing it is blocked in V1 to protect remittance history.',
   paid:
@@ -80,7 +82,10 @@ export function evaluatePayableEdit(input: {
   const inDraftRemittance = input.remittances.some((r) => !r.sent)
 
   let block: PayableBlockReason | null = null
-  if (inSentRemittance) block = 'sent_remittance'
+  // A void payable is dead: editing it can't change what's paid, and doing so
+  // looked like the correction had worked (CI-0218) when nothing would be paid.
+  if (input.status === 'void') block = 'void'
+  else if (inSentRemittance) block = 'sent_remittance'
   else if (isPaid) block = 'paid'
   else if (inDraftRemittance) block = 'draft_remittance'
 
