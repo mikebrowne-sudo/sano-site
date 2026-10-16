@@ -25,6 +25,21 @@ import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { isAdminEmail } from '@/lib/is-admin'
 
+/** The worker's live (non-void) pay approval for the clean itself, if any.
+ *  Hours can't change under it — the payable would then disagree with them. */
+async function livePayApproval(supabase: ReturnType<typeof createClient>, jobId: string, contractorId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('contractor_invoices')
+    .select('invoice_number')
+    .eq('job_id', jobId)
+    .eq('contractor_id', contractorId)
+    .is('job_item_id', null)
+    .neq('status', 'void')
+    .limit(1)
+    .maybeSingle()
+  return data ? ((data.invoice_number as string | null) ?? 'a pay approval') : null
+}
+
 function revalidate(jobId: string) {
   revalidatePath(`/portal/jobs/${jobId}`)
   revalidatePath('/portal/finance')
@@ -69,6 +84,10 @@ export async function recordExtraHours(
   if (wErr || !worker) return { error: 'Worker is not assigned to this job.' }
   if (worker.pay_status === 'included_in_pay_run' || worker.pay_status === 'paid') {
     return { error: 'This worker is already in a pay run — hours can no longer be adjusted.' }
+  }
+  const approvedAs = await livePayApproval(supabase, jobId, contractorId)
+  if (approvedAs) {
+    return { error: `Pay is already approved on these hours (${approvedAs}). Void it first, change the hours, then approve again.` }
   }
 
   const clearing = hours === 0

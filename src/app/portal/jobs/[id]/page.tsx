@@ -818,6 +818,7 @@ export default async function JobDetailPage({
                                     extraReason={(w?.extra_hours_reason as string | null) ?? null}
                                     isAdmin={isAdmin}
                                     locked={locked}
+                                    approvedPayable={ciForWorker?.invoice_number ?? (ciForWorker ? 'pay approval' : null)}
                                   />
                                 </td>
                                 <td className="py-2 pr-2 text-right text-sage-700">
