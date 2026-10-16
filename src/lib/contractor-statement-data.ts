@@ -78,13 +78,14 @@ interface LinkedCi {
   notes: string | null
   site_label: string | null
   statement_id: string
-  jobs: { job_number: string | null; title: string | null; address: string | null; completed_at: string | null } | null
+  jobs: { job_number: string | null; title: string | null; address: string | null; completed_at: string | null; scheduled_date?: string | null } | null
 }
 
 function resolvedDate(ci: LinkedCi): string | null {
   return resolveContractorServiceDate({
     job_id: ci.job_id,
     job_completed_at_nz: toNzCalendarDate(ci.jobs?.completed_at ?? null),
+    job_scheduled_date: ci.jobs?.scheduled_date ?? null,
     service_date: ci.service_date,
     gst_supply_date: ci.gst_supply_date,
   }).date
@@ -107,7 +108,7 @@ export async function listStatementsForPeriod(
   const ids = list.map((s) => s.id)
   const { data: cis } = await supabase
     .from('contractor_invoices')
-    .select('id, amount, gst_status, gst_amount, job_id, service_date, gst_supply_date, statement_id, jobs(completed_at)')
+    .select('id, amount, gst_status, gst_amount, job_id, service_date, gst_supply_date, statement_id, jobs(completed_at, scheduled_date)')
     .in('statement_id', ids)
   const byStatement = new Map<string, LinkedCi[]>()
   for (const ci of (cis ?? []) as unknown as LinkedCi[]) {
@@ -158,7 +159,7 @@ export async function getStatementDetail(supabase: Supabase, id: string): Promis
 
   const { data: cis } = await supabase
     .from('contractor_invoices')
-    .select('id, invoice_number, amount, gst_status, gst_amount, job_id, service_date, gst_supply_date, pay_hours, pay_basis, notes, site_label, statement_id, jobs(job_number, title, address, completed_at)')
+    .select('id, invoice_number, amount, gst_status, gst_amount, job_id, service_date, gst_supply_date, pay_hours, pay_basis, notes, site_label, statement_id, jobs(job_number, title, address, completed_at, scheduled_date)')
     .eq('statement_id', id)
   const lines = ((cis ?? []) as unknown as LinkedCi[])
     .map((ci): StatementLineRow => {

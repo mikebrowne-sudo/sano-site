@@ -32,6 +32,8 @@ export interface ApprovalRow {
    *  confirmed (safe to approve) | flagged (ran over, look first) | awaiting. */
   confirmation?: QueueSignal
   confirmationNote?: string | null
+  /** Cross-check: this work may already have been paid to someone (lib/possibly-paid). */
+  possiblyPaid?: string | null
 }
 
 const FLAG_LABEL: Record<ApprovalFlag, string> = {
@@ -238,12 +240,20 @@ export function PendingApprovalsList({
                       </td>
                       <td className="py-3 px-3">
                         <div className="flex flex-wrap gap-1 max-w-[200px]">
+                          {r.possiblyPaid && !approved && (
+                            <span title={r.possiblyPaid} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 font-semibold">
+                              <AlertTriangle size={10} /> Possibly already paid
+                            </span>
+                          )}
                           {r.flags.filter((f) => f !== 'already_approved').map((f) => (
                             <span key={f} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-800 font-medium">
                               <AlertTriangle size={10} /> {FLAG_LABEL[f]}
                             </span>
                           ))}
                         </div>
+                        {r.possiblyPaid && !approved && (
+                          <p className="mt-1 max-w-[220px] text-[11px] leading-snug text-red-700">{r.possiblyPaid.replace('Possibly already paid: ', '')}</p>
+                        )}
                       </td>
                       <td className="py-3 px-3 text-right">
                         {approved ? (

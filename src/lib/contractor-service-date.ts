@@ -12,8 +12,10 @@
 //        before service_date was stamped. Completion is only a fallback: a
 //        clean done on the 9th but marked complete on the 16th was showing —
 //        and being periodised — as the 16th (157 Celtic Crescent, Sep 2026).
-//        No service date and no completion → none (excluded + flagged); we do
-//        NOT borrow the tax field for a job-derived line.
+//        Last resort: the job's SCHEDULED date — for an older job that was
+//        never marked complete (CI-0054, JOB-0004: approved in July, then left
+//        out of every pay run as "date unavailable"). Still no date → none
+//        (excluded + flagged); we do NOT borrow the tax field for a job line.
 //   2. Jobless CI (manual / fixed / adjustment) →
 //        explicit service_date → else gst_supply_date (an explicit,
 //        staff-confirmed value) → else none.
@@ -22,13 +24,15 @@ export interface ServiceDateInput {
   job_id: string | null
   /** job.completed_at already converted to an NZ-local YYYY-MM-DD, or null. */
   job_completed_at_nz: string | null
+  /** job.scheduled_date (YYYY-MM-DD) — last-resort fallback for a job line. */
+  job_scheduled_date?: string | null
   /** Operational service date stored on the CI (jobless payables), or null. */
   service_date: string | null
   /** GST tax point stored on the CI, or null. Bridge for jobless CIs only. */
   gst_supply_date: string | null
 }
 
-export type ServiceDateSource = 'job_completed_at' | 'service_date' | 'gst_supply_date' | 'none'
+export type ServiceDateSource = 'job_completed_at' | 'job_scheduled_date' | 'service_date' | 'gst_supply_date' | 'none'
 
 export interface ResolvedServiceDate {
   /** NZ-local YYYY-MM-DD, or null when no reliable service date exists. */
@@ -41,8 +45,9 @@ export function resolveContractorServiceDate(ci: ServiceDateInput): ResolvedServ
     // Job-derived: the visit date stamped at approval, else completion. No
     // bridge to the tax field.
     if (ci.service_date) return { date: ci.service_date, source: 'service_date' }
-    return ci.job_completed_at_nz
-      ? { date: ci.job_completed_at_nz, source: 'job_completed_at' }
+    if (ci.job_completed_at_nz) return { date: ci.job_completed_at_nz, source: 'job_completed_at' }
+    return ci.job_scheduled_date
+      ? { date: String(ci.job_scheduled_date).slice(0, 10), source: 'job_scheduled_date' }
       : { date: null, source: 'none' }
   }
   // Jobless (manual / fixed / adjustment).

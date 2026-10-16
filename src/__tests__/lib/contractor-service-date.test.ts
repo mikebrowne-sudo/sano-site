@@ -51,3 +51,14 @@ describe('resolveContractorServiceDate — one rule for every canonical CI', () 
     expect(r.date).toBeNull()
   })
 })
+
+describe('job never marked complete', () => {
+  it('falls back to the scheduled date, so it is not stuck as "date unavailable" (CI-0054)', () => {
+    const r = resolveContractorServiceDate({ job_id: 'job-0004', job_completed_at_nz: null, job_scheduled_date: '2026-04-18', service_date: null, gst_supply_date: null })
+    expect(r).toEqual({ date: '2026-04-18', source: 'job_scheduled_date' })
+  })
+  it('completion still wins over the scheduled date when present', () => {
+    const r = resolveContractorServiceDate({ job_id: 'j', job_completed_at_nz: '2026-04-20', job_scheduled_date: '2026-04-18', service_date: null, gst_supply_date: null })
+    expect(r.source).toBe('job_completed_at')
+  })
+})

@@ -7,6 +7,7 @@
 // remittance batch builder. No bulk approve, no paid, no remittance, no
 // email.
 
+import { loadPossiblyPaid } from '@/lib/possibly-paid'
 import { notFound } from 'next/navigation'
 import { resolveWorkerHours } from '@/lib/job-hours-split'
 import Link from 'next/link'
@@ -35,6 +36,7 @@ interface JWRow {
     address: string | null
     status: string | null
     completed_at: string | null
+    scheduled_date?: string | null
     allowed_hours: number | null
     description: string | null
     deleted_at: string | null
@@ -51,7 +53,7 @@ export default async function PendingApprovalsPage() {
     .select(`
       contractor_id, job_id, pay_rate, pay_type, hours_allocated, actual_hours, extra_hours, extra_hours_status,
       contractors ( full_name, hourly_rate ),
-      jobs ( id, job_number, address, status, completed_at, allowed_hours, description, deleted_at )
+      jobs ( id, job_number, address, status, completed_at, scheduled_date, allowed_hours, description, deleted_at )
     `)
 
   const all = (jwRaw ?? []) as unknown as JWRow[]
@@ -131,6 +133,19 @@ export default async function PendingApprovalsPage() {
       existingCI,
     }
   })
+  // Cross-check before approving: has this work already been paid to someone
+  // (same job, or same address within 3 weeks, ±1 hour)? Warning only.
+  const needsCheck = rows.filter((r) => r.readiness !== 'already_approved')
+  const possiblyPaid = await loadPossiblyPaid(supabase, needsCheck.map((r) => {
+    const j = live.find((x) => x.job_id === r.jobId)?.jobs
+    return {
+      jobId: r.jobId, contractorId: r.contractorId, jobNumber: r.jobNumber, address: r.jobAddress,
+      date: (j?.scheduled_date ? String(j.scheduled_date).slice(0, 10) : null) ?? (r.completedAt ? r.completedAt.slice(0, 10) : null),
+      hours: j?.allowed_hours != null ? Number(j.allowed_hours) : r.allowedHours,
+    }
+  }))
+  for (const r of rows) r.possiblyPaid = possiblyPaid.get(`${r.jobId}::${r.contractorId}`) ?? null
+
   // Stable sort: action-needed first (not already approved), newest completion first.
   rows.sort((a, b) => {
     const aDone = a.readiness === 'already_approved' ? 1 : 0
