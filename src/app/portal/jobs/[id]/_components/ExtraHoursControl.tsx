@@ -33,6 +33,9 @@ export interface ExtraHoursControlProps {
   extraReason: string | null
   isAdmin: boolean
   locked: boolean // worker is in a pay run / paid — no edits
+  /** The worker's live (non-void) pay approval for this job, e.g. "CI-0218".
+   *  Approved hours can't change while pay is approved on them — void it first. */
+  approvedPayable?: string | null
 }
 
 function round2(n: number): number {
@@ -178,6 +181,10 @@ export function ExtraHoursControl(props: ExtraHoursControlProps) {
   }
 
   const editable = !props.locked && (status === 'pending' || status === 'rejected')
+  // Approved hours can be changed or removed — but not while pay has already
+  // been approved on them (that payable must be voided first, so the two can
+  // never disagree).
+  const canChangeApproved = props.isAdmin && !props.locked && status === 'approved' && !props.approvedPayable
 
   return (
     <span className="inline-flex flex-col items-end gap-1">
@@ -193,6 +200,25 @@ export function ExtraHoursControl(props: ExtraHoursControlProps) {
             className="inline-flex items-center gap-0.5 text-[10px] text-sage-500 hover:text-sage-700">
             <Pencil size={10} />Edit
           </button>
+        )}
+        {canChangeApproved && (
+          <>
+            <button type="button" onClick={open}
+              className="inline-flex items-center gap-0.5 text-[10px] text-sage-500 hover:text-sage-700">
+              <Pencil size={10} />Change
+            </button>
+            <button type="button" disabled={isPending}
+              onClick={() => {
+                if (!window.confirm(`Remove ${props.contractorName}'s ${signed(props.extraHours)} adjustment? Their pay goes back to the allowed hours.`)) return
+                run(() => recordExtraHours(props.jobId, props.contractorId, 0, ''))
+              }}
+              className="text-[10px] font-medium text-red-600 hover:text-red-700 disabled:opacity-50">Remove</button>
+          </>
+        )}
+        {props.isAdmin && !props.locked && status === 'approved' && props.approvedPayable && (
+          <span className="text-[10px] text-sage-400" title="Void the pay approval first, then change the hours and approve again.">
+            Pay approved ({props.approvedPayable}): void it to change
+          </span>
         )}
         {props.isAdmin && status === 'pending' && (
           <>
