@@ -21,5 +21,17 @@
 -- leads were added this run rather than fabricate verification that could not actually be
 -- performed. Flagged to the user via push notification at first firing so the environment's
 -- network policy can be fixed before the next scheduled run (9:05pm NZT).
+--
+-- SECOND FIRING (9:05pm NZT, 2026-10-18): outage confirmed unchanged. Proxy status endpoint
+-- reports no selective blocking configured, yet every outbound destination tested - business
+-- sites, dns.google, even a bare connection to 1.1.1.1 - gets a 403 policy denial from the
+-- egress proxy ("CONNECT tunnel failed, response 403" / connect_rejected). WebFetch still
+-- fails DNS resolution on every external host. Per the proxy's own README this is a policy
+-- denial, not a bug: "do not retry or route around it - report the blocked host." WebSearch
+-- (server-side) remains the only working lookup tool, which per task rules can at most locate
+-- candidate businesses and names - it cannot verify a published email or confirm MX records,
+-- so still no lead can legitimately be added at any grade. Re-flagged to the user via push
+-- notification at this firing: 2 of 4 scheduled firings have now produced zero leads, only
+-- two remain (11:05pm, 12:05am NZT) before the 00:55 Monday wrap-up deadline.
 -- ================================================================
 
