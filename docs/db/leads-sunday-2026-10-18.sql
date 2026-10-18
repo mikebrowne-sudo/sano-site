@@ -46,5 +46,23 @@
 -- verification bar even if fetching worked. No leads added this run either. Re-flagged to
 -- the user via push notification: 3 of 4 scheduled firings have now produced zero leads.
 -- Only the 12:05am NZT firing remains before the 00:55 Monday wrap-up deadline.
+--
+-- FOURTH / FINAL FIRING (12:05am NZT, 2026-10-19): outage confirmed unchanged for the
+-- fourth consecutive time. WebFetch still fails with getaddrinfo ENOTFOUND on a real
+-- business domain (nzlawsociety.org.nz). Direct curl to dns.google:443 still gets
+-- "CONNECT tunnel failed, response 403" from the egress proxy. The proxy's own status
+-- endpoint again reports "selective": false (no selective blocking configured at this
+-- layer) with a logged recentRelayFailures entry for dns.google:443 ("gateway answered
+-- 403 to CONNECT (policy denial or upstream failure)") - i.e. the block is happening
+-- upstream of this proxy's own config, exactly as in the second and third firings.
+-- WebSearch remains the only working lookup tool and, per the task's own verification
+-- rules, cannot by itself support an A or B grade lead (no page fetch to confirm a
+-- published email on the business's own site or an official register, no MX lookup for
+-- deliverability). This was the last of the four scheduled firings for this campaign
+-- (4:05pm / 9:05pm / 11:05pm / 12:05am NZT, 2026-10-18 into 2026-10-19). Zero leads were
+-- added across all four firings. No PR opened - there is nothing here for a human to
+-- review or run. Flagged to the user via push notification. The underlying fix needed is
+-- environment/network-policy access to external business and DNS lookup hosts for this
+-- scheduled session, not anything retriable from within the task itself.
 -- ================================================================
 
