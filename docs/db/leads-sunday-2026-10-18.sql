@@ -5,6 +5,21 @@
 -- Total: 0 | A-grade: 0 | B-grade: 0
 -- Category mix: Offices 0% (target ~40%) | Education 0% (target ~25%) | Hospitality 0% (target ~20%) | Clinic/Other 0% (cap ~15%)
 -- Sectors x suburbs covered: (none yet)
--- Tool outages: none yet
+--
+-- TOOL OUTAGE (2026-10-18, first firing ~16:06 NZT): this session's network policy blocks
+-- all general outbound web access. WebFetch fails DNS resolution on every external host
+-- (confirmed even on www.google.com). Direct curl to any business/government/search domain
+-- (ecovis.com, ascarchitects.co.nz, dns.google, nzbn.govt.nz, yellow.co.nz, github.com, etc.)
+-- is rejected by the egress proxy with "403 CONNECT tunnel failed / policy denial" - only a
+-- narrow allowlist (npm registry, pypi, Anthropic APIs) is reachable. dig/nslookup are not
+-- installed, and raw OS-level DNS lookups (getent/python socket) also fail, so MX-record
+-- deliverability checks cannot be performed by any method. WebSearch (server-side) is the
+-- only working research tool and returns snippets/summaries only, never full page fetches.
+-- Per the task's own rules this blocks the campaign entirely: A-grade requires confirming a
+-- named contact + email on the business's OWN site (impossible without WebFetch/curl), and
+-- EVERY lead - A or B - requires an MX check before it can be added (also impossible). No
+-- leads were added this run rather than fabricate verification that could not actually be
+-- performed. Flagged to the user via push notification at first firing so the environment's
+-- network policy can be fixed before the next scheduled run (9:05pm NZT).
 -- ================================================================
 
