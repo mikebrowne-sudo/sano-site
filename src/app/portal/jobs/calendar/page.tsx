@@ -166,6 +166,9 @@ export default async function CalendarPage({
     .select('id, job_number, title, address, scheduled_date, scheduled_time, duration_estimate, status, assigned_to, contractor_id, recurring_job_id')
     .gte('scheduled_date', rangeStart)
     .lte('scheduled_date', rangeEnd)
+    // Archived jobs (replaced quote versions, paused contracts) are gone
+    // everywhere else — without this they lingered on a cleaner's calendar.
+    .is('deleted_at', null)
     .order('created_at', { ascending: true })
 
   if (filterJobIds) {
