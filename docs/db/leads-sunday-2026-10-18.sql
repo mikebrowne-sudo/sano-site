@@ -33,5 +33,18 @@
 -- so still no lead can legitimately be added at any grade. Re-flagged to the user via push
 -- notification at this firing: 2 of 4 scheduled firings have now produced zero leads, only
 -- two remain (11:05pm, 12:05am NZT) before the 00:55 Monday wrap-up deadline.
+--
+-- THIRD FIRING (11:05pm NZT, 2026-10-18): outage confirmed unchanged again. Proxy status
+-- endpoint still reports no selective blocking ("selective": false), yet curl to dns.google,
+-- www.google.com and www.nzbn.govt.nz all got "CONNECT tunnel failed, response 403 /
+-- connect_rejected", and the WebFetch tool itself failed with getaddrinfo ENOTFOUND on a
+-- real business domain. WebSearch still works but per task rules cannot by itself support
+-- an A or B grade lead (no page fetch to confirm a published email on the business's own
+-- site, no MX lookup possible for deliverability). Tried one WebSearch-only probe (Auckland
+-- accounting firms) to double-check: results were third-party directory snippets and one
+-- large-corporate (Deloitte) general inbox - nothing that could pass this campaign's
+-- verification bar even if fetching worked. No leads added this run either. Re-flagged to
+-- the user via push notification: 3 of 4 scheduled firings have now produced zero leads.
+-- Only the 12:05am NZT firing remains before the 00:55 Monday wrap-up deadline.
 -- ================================================================
 
