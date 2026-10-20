@@ -16,15 +16,18 @@ export default function EmailSignature() {
 
         <a href="https://sano.nz" target="_blank" rel="noreferrer" style={{ display: 'block' }}>
           <img
-            src="/email/email-banner-carol.jpg"
+            src="/email/email-signature-carol.jpg"
             alt="Sano Email Banner"
             width="850"
+            height="196"
             style={{
               display: 'block',
               width: '850px',
-              // Lets the banner scale DOWN on a narrow window / phone instead of
-              // overflowing. Without it a client that honours the fixed width
-              // renders it oversized and it blows out the message body.
+              // The file is 850px NATIVE on purpose. Classic Outlook ignores CSS
+              // width/max-width and often drops the width attribute on a pasted
+              // signature image, so it shows the file at native size (x Windows DPI).
+              // Native = display size means it can never blow up. Do not swap back
+              // to the ~1665px email-banner-*.jpg (that is the campaign banner).
               maxWidth: '100%',
               height: 'auto',
               border: 0,

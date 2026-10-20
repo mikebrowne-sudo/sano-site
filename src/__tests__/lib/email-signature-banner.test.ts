@@ -30,3 +30,28 @@ describe('copy-paste Outlook signature pages are email-safe', () => {
     expect(src).toMatch(/maxWidth: '100%'/)
   })
 })
+
+// Classic Outlook ignores CSS sizing on pasted signature images and shows the
+// file at its native pixel size, so the signature images must BE their display width.
+describe('signature banner files are native display size', () => {
+  const jpegWidth = (p: string) => {
+    const b = readFileSync(join(process.cwd(), p))
+    let i = 2
+    while (i < b.length) {
+      if (b[i] !== 0xff) { i++; continue }
+      const m = b[i + 1]
+      if (m >= 0xc0 && m <= 0xc3) return b.readUInt16BE(i + 7)
+      i += 2 + b.readUInt16BE(i + 2)
+    }
+    return -1
+  }
+  it.each([
+    ['carol', 'src/app/email-signature/page.tsx', 850],
+    ['michael', 'src/app/email-signature-michael/page.tsx', 1000],
+  ] as const)('%s signature image file matches its display width', (n, page, w) => {
+    expect(jpegWidth(`public/email/email-signature-${n}.jpg`)).toBe(w)
+    const src = read(page)
+    expect(src).toContain(`/email/email-signature-${n}.jpg`)
+    expect(src).toContain(`width="${w}"`)
+  })
+})
