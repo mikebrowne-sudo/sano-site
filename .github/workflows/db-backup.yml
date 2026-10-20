@@ -1,0 +1,168 @@
+name: Weekly database backup + restore test
+
+# Independent off-site backup of the Sano Supabase database, separate from
+# Supabase's own 7-day daily backups (Business Continuity Plan open action), and
+# a restore test of that backup every run (cyber insurance: "back-ups stored
+# off-site, tested at least annually" — we test weekly).
+#
+# Each run:
+#   1. pg_dump the public + auth schemas (custom format) via the session pooler.
+#   2. Record exact row counts of every table, in the same snapshot as the dump.
+#   3. Encrypt the dump (GPG AES-256, passphrase from BACKUP_PASSPHRASE) and
+#      upload it as a 90-day artifact. The unencrypted dump never leaves the runner.
+#   4. Decrypt that artifact file, restore it into a throwaway Postgres 17, and
+#      fail if any table is missing or its row count differs from step 2.
+# The run summary lists every table's counts — that's the restore-test record.
+#
+# Secrets (repo → Settings → Secrets and variables → Actions):
+#   SUPABASE_DB_URL    Session-pooler URI (port 5432, not the IPv6-only direct host)
+#   BACKUP_PASSPHRASE  Also keep in the password manager — without it the backups
+#                      can't be decrypted. See docs/DB_BACKUP.md to restore.
+# On failure, GitHub emails the repo admins.
+
+on:
+  schedule:
+    - cron: '0 15 * * 6'  # Sunday 4am NZDT / 3am NZST
+  workflow_dispatch: {}
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      restore:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: restoretest
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      SRC: ${{ secrets.SUPABASE_DB_URL }}
+      PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+      DEST: postgresql://postgres:restoretest@localhost:5432/postgres
+      # Same major version as the server, without installing a client on the runner.
+      PG: docker run --rm -i --network host -v ${{ github.workspace }}/work:/work -w /work postgres:17
+    steps:
+      - name: Check secrets are set
+        run: |
+          [ -n "$SRC" ] || { echo "::error::SUPABASE_DB_URL secret is not set"; exit 1; }
+          [ -n "$PASS" ] || { echo "::error::BACKUP_PASSPHRASE secret is not set"; exit 1; }
+          mkdir -p work
+
+      - name: Dump database + record row counts (one snapshot)
+        # A REPEATABLE READ transaction exports a snapshot; pg_dump and the count
+        # query both read that snapshot, so the counts match the dump exactly.
+        run: |
+          cat > work/counts.sql <<'SQL'
+          select n.nspname || '.' || c.relname,
+                 (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from %I.%I', n.nspname, c.relname), false, true, '')))[1]::text
+          from pg_class c join pg_namespace n on n.oid = c.relnamespace
+          where c.relkind = 'r' and n.nspname in ('public', 'auth')
+          order by 1;
+          SQL
+          mkfifo work/ctl
+          # Hold a transaction open on the source; it exports its snapshot id.
+          ( { echo "begin isolation level repeatable read;"; echo "select pg_export_snapshot();"; cat work/ctl; } \
+              | $PG psql "$SRC" -X -q -t -A -v ON_ERROR_STOP=1 > work/snap.out ) &
+          holder=$!
+          exec 3> work/ctl
+          for i in $(seq 1 30); do [ -s work/snap.out ] && break; sleep 1; done
+          snap=$(grep -m1 -E '^[0-9A-F]+-[0-9A-F]+-[0-9]+$' work/snap.out || true)
+          [ -n "$snap" ] || { echo "::error::could not export a snapshot from the source database"; exit 1; }
+          echo "snapshot $snap"
+          $PG pg_dump "$SRC" --snapshot="$snap" --schema=public --schema=auth \
+            --format=custom --no-owner --no-privileges --file=sano.dump
+          echo "set transaction snapshot '$snap';" > work/counts-tx.sql
+          { echo "begin isolation level repeatable read;"; cat work/counts-tx.sql work/counts.sql; echo "commit;"; } > work/counts-run.sql
+          $PG psql "$SRC" -X -q -t -A -F '|' -v ON_ERROR_STOP=1 -f counts-run.sql > work/source-counts.txt
+          echo "commit;" >&3; exec 3>&-
+          wait $holder
+          tables=$(wc -l < work/source-counts.txt)
+          echo "dumped $(du -h work/sano.dump | cut -f1), $tables tables"
+          [ "$tables" -gt 50 ] || { echo "::error::only $tables tables counted — dump looks wrong"; exit 1; }
+
+      - name: Encrypt
+        run: |
+          stamp=$(date -u +%Y-%m-%d)
+          echo "STAMP=$stamp" >> "$GITHUB_ENV"
+          printf '%s' "$PASS" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 -o "work/sano-db-$stamp.dump.gpg" work/sano.dump
+          rm -f work/sano.dump
+          sha256sum "work/sano-db-$stamp.dump.gpg"
+
+      - name: Upload encrypted backup (kept 90 days)
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: sano-db-${{ env.STAMP }}
+          path: |
+            work/sano-db-${{ env.STAMP }}.dump.gpg
+            work/source-counts.txt
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Restore test — decrypt and restore into a throwaway database
+        # Restores from the encrypted file, so this also proves the passphrase works.
+        # Pre-create what a Supabase dump expects to exist outside public/auth.
+        run: |
+          printf '%s' "$PASS" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            -d -o work/restore.dump "work/sano-db-$STAMP.dump.gpg"
+          $PG psql "$DEST" -X -q -v ON_ERROR_STOP=1 <<'SQL'
+          do $$ begin
+            perform 1;
+            if not exists (select from pg_roles where rolname = 'anon') then create role anon nologin; end if;
+            if not exists (select from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
+            if not exists (select from pg_roles where rolname = 'service_role') then create role service_role nologin bypassrls; end if;
+            if not exists (select from pg_roles where rolname = 'supabase_auth_admin') then create role supabase_auth_admin nologin; end if;
+            if not exists (select from pg_roles where rolname = 'supabase_admin') then create role supabase_admin nologin; end if;
+            if not exists (select from pg_roles where rolname = 'authenticator') then create role authenticator nologin; end if;
+          end $$;
+          create schema if not exists extensions;
+          create extension if not exists "uuid-ossp" schema extensions;
+          create extension if not exists pgcrypto schema extensions;
+          SQL
+          # Supabase-only objects (e.g. grants to platform roles) can fail harmlessly;
+          # the row-count check below is what decides pass/fail.
+          set +e
+          $PG pg_restore --dbname="$DEST" --no-owner --no-privileges restore.dump 2> work/restore-errors.txt
+          set -e
+          errs=$(grep -c '^pg_restore: error' work/restore-errors.txt || true)
+          echo "RESTORE_ERRORS=$errs" >> "$GITHUB_ENV"
+          echo "pg_restore reported $errs non-fatal error(s)"
+          head -n 40 work/restore-errors.txt || true
+          rm -f work/restore.dump
+
+      - name: Verify restored row counts
+        run: |
+          $PG psql "$DEST" -X -q -t -A -F '|' -v ON_ERROR_STOP=1 -f counts.sql > work/restored-counts.txt
+          {
+            echo "## Restore test $STAMP"
+            echo
+            echo "| Table | Live | Restored |"
+            echo "|---|---:|---:|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          bad=0; total=0
+          while IFS='|' read -r t n; do
+            total=$((total + 1))
+            r=$(awk -F'|' -v t="$t" '$1 == t { print $2 }' work/restored-counts.txt)
+            mark=""
+            if [ "$r" != "$n" ]; then bad=$((bad + 1)); mark=" ❌"; fi
+            echo "| $t | $n | ${r:-missing}$mark |" >> "$GITHUB_STEP_SUMMARY"
+          done < work/source-counts.txt
+          {
+            echo
+            echo "$total tables checked, $bad mismatched. pg_restore non-fatal errors: $RESTORE_ERRORS."
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$bad" -gt 0 ]; then
+            echo "::error::restore test failed: $bad of $total tables missing or with wrong row counts"
+            exit 1
+          fi
+          echo "Restore test passed: all $total tables restored with matching row counts."
