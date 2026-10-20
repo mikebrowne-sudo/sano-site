@@ -7,6 +7,8 @@ import { payerKey, proposeAutoReconcile, type ArCredit, type ArHistory, type ArI
 import { round2 } from '@/lib/payment-allocation'
 import { applyBankAllocation, invoicePayableTotal } from './_apply'
 import { runAutoReconcileOut, type AutoReconcileOutSummary } from './_auto-out'
+import { runStripePayoutReconcile, type StripeReconcileSummary } from './_stripe'
+import { isStripePayoutLine } from '@/lib/stripe-payout-reconcile'
 
 export interface AutoReconcileSummary {
   /** Uncleared payments now fully reconciled. */
@@ -22,6 +24,9 @@ export interface AutoReconcileSummary {
   /** Money-out run (remittances, expenses, pay runs, IRD, transfers). */
   out: AutoReconcileOutSummary | null
   outError: string | null
+  /** Stripe payouts (net of Stripe fees) matched against Stripe's records. */
+  stripe: StripeReconcileSummary | null
+  stripeError: string | null
 }
 
 type Rec = Record<string, unknown>
@@ -56,8 +61,11 @@ export async function runAutoReconcile(supabase: SupabaseClient, userId: string 
     if (payee && clientId) history.push({ payerKey: payerKey(payee), clientId })
   }
 
+  // Stripe payouts are net of fees, so they never equal an invoice — they're
+  // matched against Stripe's own records instead (below), not by amount.
+  const stripeRows = ((txns ?? []) as Rec[]).filter((t) => Number(t.amount ?? 0) > 0 && t.txn_date && isStripePayoutLine(t.payee as string | null, t.memo as string | null))
   const credits: ArCredit[] = ((txns ?? []) as Rec[])
-    .filter((t) => Number(t.amount ?? 0) > 0 && t.txn_date)
+    .filter((t) => Number(t.amount ?? 0) > 0 && t.txn_date && !isStripePayoutLine(t.payee as string | null, t.memo as string | null))
     .map((t) => ({
       id: t.id as string,
       date: t.txn_date as string,
@@ -87,7 +95,7 @@ export async function runAutoReconcile(supabase: SupabaseClient, userId: string 
   const { proposals, review } = proposeAutoReconcile({ credits, invoices, history })
   const creditById = new Map(credits.map((c) => [c.id, c]))
 
-  const summary: AutoReconcileSummary = { matched: 0, matchedAmount: 0, markedPaid: 0, backfilled: 0, needsReview: 0, failures: [], out: null, outError: null }
+  const summary: AutoReconcileSummary = { matched: 0, matchedAmount: 0, markedPaid: 0, backfilled: 0, needsReview: 0, failures: [], out: null, outError: null, stripe: null, stripeError: null }
   for (const p of proposals) {
     const credit = creditById.get(p.creditId)
     const res = await applyBankAllocation(supabase, {
@@ -111,6 +119,18 @@ export async function runAutoReconcile(supabase: SupabaseClient, userId: string 
     }
   }
   summary.needsReview = review.filter((r) => !creditById.get(r.creditId)?.cleared).length
+
+  try {
+    const open = stripeRows
+      .filter((t) => !t.cleared)
+      .map((t) => ({ id: t.id as string, date: t.txn_date as string, amount: round2(Number(t.amount)) }))
+    summary.stripe = await runStripePayoutReconcile(supabase, userId, open)
+    summary.matched += summary.stripe.matched
+    summary.matchedAmount = round2(summary.matchedAmount + summary.stripe.matchedAmount)
+    summary.needsReview += summary.stripe.review.length + summary.stripe.waiting.length + summary.stripe.failures.length
+  } catch (e) {
+    summary.stripeError = e instanceof Error ? e.message : 'Stripe payout matching failed.'
+  }
 
   // Money out — independent of money in; a failure here never undoes the above.
   try {

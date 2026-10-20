@@ -28,7 +28,7 @@ const isMissingTable = (e: { code?: string } | null | undefined) => e?.code === 
 export async function runAutoReconcileOut(supabase: SupabaseClient, userId: string | null): Promise<AutoReconcileOutSummary> {
   const summary: AutoReconcileOutSummary = { matched: 0, matchedAmount: 0, createdExpenses: 0, needsReview: 0, setupNeeded: null, failures: [] }
 
-  const [txnsQ, remitsQ, itemsQ, rAllocQ, runsQ, expQ, linksQ] = await Promise.all([
+  const [txnsQ, remitsQ, itemsQ, rAllocQ, runsQ, expQ, linksQ, stripeFeeQ] = await Promise.all([
     supabase.from('bank_transactions').select('id, txn_date, amount, payee, memo').eq('direction', 'out').eq('cleared', false),
     supabase.from('contractor_remittances').select('id, remittance_number, reference, payee_label, payment_date'),
     supabase.from('contractor_remittance_items').select('remittance_id, amount'),
@@ -40,6 +40,10 @@ export async function runAutoReconcileOut(supabase: SupabaseClient, userId: stri
       .from('bank_debit_links')
       .select('expense_id, pay_run_id, kind, bank_transactions ( payee ), expenses ( amount, category, vendor, gst_inclusive )')
       .is('reversed_at', null),
+    // Stripe fees recorded against a Stripe payout (money in) — already
+    // reconciled there; never match them to a debit. Errors (column not added
+    // yet) just mean there are none.
+    supabase.from('bank_transactions').select('fee_expense_id').not('fee_expense_id', 'is', null),
   ])
   const loadErr = [txnsQ, remitsQ, itemsQ, rAllocQ, runsQ, expQ].find((q) => q.error)?.error
   if (loadErr) throw new Error(`Money-out auto-reconcile load failed: ${loadErr.message}`)
@@ -62,6 +66,7 @@ export async function runAutoReconcileOut(supabase: SupabaseClient, userId: stri
 
   const links = (linksReady ? linksQ.data ?? [] : []) as Rec[]
   const linkedExpense = new Set(links.map((l) => l.expense_id as string | null).filter(Boolean) as string[])
+  for (const r of (stripeFeeQ.error ? [] : stripeFeeQ.data ?? []) as Rec[]) linkedExpense.add(r.fee_expense_id as string)
   const linkedPayRun = new Set(links.map((l) => l.pay_run_id as string | null).filter(Boolean) as string[])
   const knownBills: OutKnownBill[] = []
   for (const l of links) {

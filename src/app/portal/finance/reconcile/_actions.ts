@@ -278,7 +278,7 @@ export async function reverseAllocation(
 
     const { data: alloc, error: aErr } = await supabase
       .from('invoice_payment_allocations')
-      .select('id, bank_transaction_id, invoice_id, amount_allocated, reversed_at')
+      .select('id, bank_transaction_id, invoice_id, amount_allocated, reversed_at, method')
       .eq('id', allocationId)
       .single()
     if (aErr || !alloc) return { ok: false, error: `Allocation not found: ${aErr?.message ?? 'missing'}` }
@@ -292,8 +292,21 @@ export async function reverseAllocation(
       .is('reversed_at', null)
     if (revErr) return { ok: false, error: revErr.message }
 
-    // Re-evaluate the bank line: if it's no longer fully allocated, un-clear it.
     const lineId = alloc.bank_transaction_id as string
+    // A Stripe payout is matched as a whole (gross per invoice less the fee), so
+    // undoing any part of it undoes all of it — the next auto-reconcile re-runs
+    // it cleanly. The fee expense stays on the line and is re-used.
+    if (alloc.method === 'stripe_payout') {
+      await supabase
+        .from('invoice_payment_allocations')
+        .update({ reversed_at: nowIso, reversed_by: user?.id ?? null, reversal_reason: reason || 'Stripe payout match undone' })
+        .eq('bank_transaction_id', lineId)
+        .eq('method', 'stripe_payout')
+        .is('reversed_at', null)
+      await supabase.from('bank_transactions').update({ cleared: false, cleared_at: null, cleared_by: null }).eq('id', lineId)
+    }
+
+    // Re-evaluate the bank line: if it's no longer fully allocated, un-clear it.
     const { data: line } = await supabase
       .from('bank_transactions')
       .select('amount')

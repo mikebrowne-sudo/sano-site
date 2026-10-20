@@ -68,6 +68,8 @@ export function invoicePaymentSummary(
  * The day the money actually reached the bank, per invoice: the latest bank
  * line matched to it in reconciliation. This — not the send date or when
  * someone clicked "Mark as paid" — is the "received on" date we show.
+ * Stripe payouts are skipped: the customer paid on the card date (the invoice's
+ * date_paid), the payout lands days later with other payments in it.
  */
 export async function loadBankPaidDateByInvoice(supabase: SupabaseClient, invoiceIds: string[]): Promise<Map<string, string>> {
   const map = new Map<string, string>()
@@ -77,6 +79,7 @@ export async function loadBankPaidDateByInvoice(supabase: SupabaseClient, invoic
     .select('invoice_id, bank_transactions ( txn_date )')
     .in('invoice_id', invoiceIds)
     .is('reversed_at', null)
+    .neq('method', 'stripe_payout')
   for (const r of (data ?? []) as Array<{ invoice_id: string; bank_transactions: { txn_date: string | null } | Array<{ txn_date: string | null }> | null }>) {
     const bt = Array.isArray(r.bank_transactions) ? r.bank_transactions[0] : r.bank_transactions
     const d = bt?.txn_date?.slice(0, 10)

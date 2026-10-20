@@ -21,7 +21,10 @@ export interface ApplyAllocationInput {
   allocations: Array<{ invoiceId: string; amount: number }>
   /** Date to stamp on invoices that become paid (the bank line's date). */
   paidDate: string | null
-  method: 'manual' | 'invoice_ref' | 'amount_match'
+  method: 'manual' | 'invoice_ref' | 'amount_match' | 'stripe_payout'
+  /** Stripe payouts only: fees Stripe kept, recorded on the line. Invoices are
+   *  allocated GROSS, so the line can carry its amount + this fee. */
+  feeAmount?: number
   /** Why it matched — "auto: …" for automatic allocations. */
   matchReason?: string | null
   userId: string | null
@@ -43,7 +46,7 @@ export function invoicePayableTotal(i: { base_price?: unknown; discount?: unknow
 }
 
 export async function applyBankAllocation(supabase: SupabaseClient, input: ApplyAllocationInput): Promise<ApplyAllocationResult> {
-  const { lineId, allocations, paidDate, method, matchReason, userId } = input
+  const { lineId, allocations, paidDate, method, matchReason, userId, feeAmount } = input
   if (!allocations.length) return { ok: false, error: 'Select at least one invoice to allocate to.' }
 
   const { data: line, error: lineErr } = await supabase
@@ -53,7 +56,7 @@ export async function applyBankAllocation(supabase: SupabaseClient, input: Apply
     .single()
   if (lineErr || !line) return { ok: false, error: `Bank transaction not found: ${lineErr?.message ?? 'missing'}` }
   if ((line.direction as string) !== 'in') return { ok: false, error: 'Only incoming payments can be allocated to invoices.' }
-  const txnAmount = round2(Math.abs(Number(line.amount ?? 0)))
+  const txnAmount = round2(Math.abs(Number(line.amount ?? 0)) + (feeAmount && feeAmount > 0 ? feeAmount : 0))
   const invoiceIds = allocations.map((a) => a.invoiceId)
 
   const [{ data: invRows, error: invErr }, { data: liveTxnAllocs }, { data: liveInvAllocs }] = await Promise.all([
@@ -167,6 +170,7 @@ export async function applyBankAllocation(supabase: SupabaseClient, input: Apply
       before: {},
       after: {
         allocations: proposed.map((p) => ({ invoice: invoiceInfo.get(p.invoiceId)?.number, amount: p.amount })),
+        ...(feeAmount ? { stripe_fee: feeAmount } : {}),
         marked_paid: markedPaid,
         cleared: fully,
         match_reason: matchReason ?? null,

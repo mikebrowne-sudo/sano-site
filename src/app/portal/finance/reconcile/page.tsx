@@ -16,6 +16,7 @@ import { ConfirmMatch } from './_components/ConfirmMatch'
 import { RowMenu, MenuSection } from './_components/RowMenu'
 import { cleanPayee as stripPayeePrefix } from '@/lib/payee-match'
 import { ReverseAllocation } from './_components/ReverseAllocation'
+import { isStripePayoutLine } from '@/lib/stripe-payout-reconcile'
 import clsx from 'clsx'
 
 const STATUS_ORDER: Record<string, number> = { sent: 0, draft: 1, paid: 2 }
@@ -198,7 +199,10 @@ export default async function ReconcilePage() {
 
   const renderCreditRow = (c: (typeof result.credits)[number], i: number) => {
     const m = meta.get(c.txn.uniqueId)
-    const cm = creditMatch.get(c.txn.uniqueId)
+    // Stripe payouts are net of fees and matched against Stripe by
+    // auto-reconcile — amount-based suggestions would be wrong, so none here.
+    const stripePayout = isStripePayoutLine(c.txn.payee, c.txn.memo)
+    const cm = stripePayout ? undefined : creditMatch.get(c.txn.uniqueId)
     const best = cm?.confirmable ? cm.suggestions[0] : null
     const bestNumbers = best ? best.allocations.map((a) => invById.get(a.invoiceId)?.invoiceNumber ?? '?') : []
     const partial = !!best && best.allocations.some((a) => {
@@ -206,7 +210,7 @@ export default async function ReconcilePage() {
       return !!inv && a.amount < inv.total - (inv.allocatedTotal ?? 0) - 0.005
     })
     const job = cm?.jobs[0]
-    const done = !cm
+    const done = stripePayout ? !!m?.cleared || c.status === 'reconciled' : !cm
     const doubleWarning = !!cm?.notes.some((n) => n.includes('already paid in full'))
     // IRD refunds / owner money: ticking off IS the answer, so make it the primary action.
     const notIncome = !!cm?.notes.some((n) => n.startsWith('From IRD') || n.startsWith('Owner'))
@@ -214,6 +218,7 @@ export default async function ReconcilePage() {
     // One status per row, in plain words.
     const status: { label: string; tone: string } =
       done ? { label: c.status === 'financing' ? 'Owner / transfer' : 'Reconciled', tone: 'bg-emerald-50 text-emerald-700' }
+      : stripePayout ? { label: 'Stripe payout', tone: 'bg-amber-50 text-amber-700' }
       : best && partial ? { label: 'Part payment', tone: 'bg-amber-50 text-amber-700' }
       : best ? { label: best.allocations.length > 1 ? 'Likely bundle' : 'Likely match', tone: 'bg-sky-50 text-sky-700' }
       : job && job.price != null && c.txn.amount < job.price - 0.005 ? { label: 'Part payment', tone: 'bg-amber-50 text-amber-700' }
@@ -308,6 +313,11 @@ export default async function ReconcilePage() {
                     {cm.notes.map((n, k) => <p key={k} className="text-xs leading-snug text-amber-800">{n}</p>)}
                   </MenuSection>
                 )}
+                {stripePayout && !done && (
+                  <MenuSection title="Stripe payout">
+                    <p className="text-xs leading-snug text-sage-600">Card payments less Stripe&apos;s fees. Auto-reconcile looks this payout up in Stripe and matches each invoice. If it can&apos;t, its message says why — check Stripe → Balances → Payouts.</p>
+                  </MenuSection>
+                )}
                 {m.allocations.length > 0 && (
                   <MenuSection title="Matched to">
                     {m.allocations.map((a) => (
@@ -316,6 +326,12 @@ export default async function ReconcilePage() {
                         <span className="flex items-center gap-2 tabular-nums">{fmt(a.amount)}{canEdit && <ReverseAllocation allocationId={a.id} invoiceNumber={a.invoiceNumber} amount={a.amount} />}</span>
                       </div>
                     ))}
+                    {m.stripeFee != null && m.stripeFee > 0 && m.allocations.some((a) => a.method === 'stripe_payout') && (
+                      <div className="flex items-center justify-between gap-2 text-xs text-sage-500" title={m.stripePayoutId ?? undefined}>
+                        <span>less Stripe fees · bank fees expense</span>
+                        <span className="tabular-nums">−{fmt(m.stripeFee)}</span>
+                      </div>
+                    )}
                   </MenuSection>
                 )}
                 {canEdit && (

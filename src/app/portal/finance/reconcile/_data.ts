@@ -38,6 +38,9 @@ export interface StoredTxnMeta {
   allocations: AllocationRow[]
   /** Sum of live allocations on this line. */
   allocatedTotal: number
+  /** Stripe payouts: fees Stripe kept (recorded as a bank-fees expense). */
+  stripeFee: number | null
+  stripePayoutId: string | null
 }
 
 export interface ReconcileData {
@@ -138,7 +141,7 @@ export async function getReconcileData(): Promise<ReconcileData> {
 
   // Money-out links: remittance allocations + bank_debit_links (the latter may
   // not exist until its migration has run — treat a missing table as empty).
-  const [{ data: remitLinkData }, debitLinkRes] = await Promise.all([
+  const [{ data: remitLinkData }, debitLinkRes, stripeRes] = await Promise.all([
     supabase
       .from('remittance_payment_allocations')
       .select('id, bank_transaction_id, amount_allocated, match_reason, contractor_remittances ( remittance_number, payee_label )')
@@ -147,7 +150,13 @@ export async function getReconcileData(): Promise<ReconcileData> {
       .from('bank_debit_links')
       .select('id, bank_transaction_id, kind, amount, method, match_reason, expenses ( vendor, category ), pay_runs ( pay_date )')
       .is('reversed_at', null),
+    // Stripe payout fee columns (missing until their migration runs — then none).
+    supabase.from('bank_transactions').select('id, fee_amount, stripe_payout_id').not('stripe_payout_id', 'is', null),
   ])
+  const stripeByTxn = new Map<string, { fee: number | null; payoutId: string | null }>()
+  for (const r of ((stripeRes.error ? [] : stripeRes.data) ?? []) as Array<Record<string, unknown>>) {
+    stripeByTxn.set(r.id as string, { fee: r.fee_amount == null ? null : Number(r.fee_amount), payoutId: (r.stripe_payout_id as string | null) ?? null })
+  }
   const linksByTxn = new Map<string, DebitLinkRow[]>()
   const pushLink = (txnId: string, row: DebitLinkRow) => linksByTxn.set(txnId, [...(linksByTxn.get(txnId) ?? []), row])
   for (const r of (remitLinkData ?? []) as Array<Record<string, unknown>>) {
@@ -180,7 +189,11 @@ export async function getReconcileData(): Promise<ReconcileData> {
     const memo = r.memo ?? ''
     const allocations = allocByTxn.get(r.id) ?? []
     const allocatedTotal = round2(allocations.reduce((s, a) => s + a.amount, 0))
-    meta.set(r.unique_id, { id: r.id, cleared: !!r.cleared, allocations, allocatedTotal, debitLinks: linksByTxn.get(r.id) ?? [] })
+    const stripe = stripeByTxn.get(r.id)
+    meta.set(r.unique_id, {
+      id: r.id, cleared: !!r.cleared, allocations, allocatedTotal, debitLinks: linksByTxn.get(r.id) ?? [],
+      stripeFee: stripe?.fee ?? null, stripePayoutId: stripe?.payoutId ?? null,
+    })
     return {
       uniqueId: r.unique_id,
       date: r.txn_date ?? '',
