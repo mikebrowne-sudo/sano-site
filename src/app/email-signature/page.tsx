@@ -16,14 +16,14 @@ export default function EmailSignature() {
 
         <a href="https://sano.nz" target="_blank" rel="noreferrer" style={{ display: 'block' }}>
           <img
-            src="/email/email-signature-carol-700.jpg"
+            src="/email/email-signature-carol.jpg"
             alt="Sano Email Banner"
-            width="700"
-            height="161"
+            width="850"
+            height="196"
             style={{
               display: 'block',
-              width: '700px',
-              // The file is 700px NATIVE on purpose. Classic Outlook ignores CSS
+              width: '850px',
+              // The file is 850px NATIVE on purpose. Classic Outlook ignores CSS
               // width/max-width and often drops the width attribute on a pasted
               // signature image, so it shows the file at native size (x Windows DPI).
               // Native = display size means it can never blow up. Do not swap back
