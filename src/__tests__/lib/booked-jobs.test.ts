@@ -1,4 +1,4 @@
-import { projectRecurringMonth, summariseBookedJobs } from '@/app/portal/_lib/dashboard-finance'
+import { bucketProjectedJobs, projectRecurringMonth, summariseBookedJobs } from '@/app/portal/_lib/dashboard-finance'
 
 const months = [{ y: 2026, m: 9 }, { y: 2026, m: 10 }, { y: 2026, m: 11 }]
 const job = (scheduledDate: string, p: Partial<{ status: string; jobPrice: number | null; recurringJobId: string | null }> = {}) =>
@@ -70,5 +70,23 @@ describe('income projection — recurring contracts', () => {
   })
   it('keeps fixed contracts at their monthly value', () => {
     expect(projectRecurringMonth({ billingMode: 'fixed', monthlyValue: 2740, perVisitRate: null, serviceDaysOfWeek: null }, nov, 3)).toBe(2740)
+  })
+})
+
+describe('projected gross profit — booked jobs', () => {
+  const row = (p: Partial<Parameters<typeof bucketProjectedJobs>[0][number]>) =>
+    ({ month: '2026-11', recurring: false, jobPrice: 400, invoiced: false, labour: 150, ...p })
+
+  it('adds labour for every booked job, income only for un-invoiced one-offs', () => {
+    const b = bucketProjectedJobs([
+      row({}),                                         // one-off, not invoiced: +400 in, 150 out
+      row({ invoiced: true }),                         // already in the invoice figures: out only
+      row({ recurring: true, jobPrice: null, labour: 120 }), // recurring: income from its contract
+    ]).get('2026-11')
+    expect(b).toEqual({ bookedIn: 400, labour: 420, jobs: 3, uncosted: 0 })
+  })
+
+  it('counts jobs it cannot cost (no worker / hours / rate)', () => {
+    expect(bucketProjectedJobs([row({ labour: 0 })]).get('2026-11')).toMatchObject({ labour: 0, uncosted: 1 })
   })
 })

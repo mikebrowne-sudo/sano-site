@@ -59,6 +59,7 @@ export function GrowthChart({ points, projection = [] }: { points: MonthPoint[];
   const rawMax = Math.max(
     ...points.flatMap((p) => [p.income, p.expenses]),
     ...projection.map((p) => p.projected),
+    ...projection.map((p) => p.labour ?? 0),
     1,
   )
   // Round the scale up to a clean number so the axis reads $0 / $10k / $20k etc.
@@ -100,7 +101,23 @@ export function GrowthChart({ points, projection = [] }: { points: MonthPoint[];
       ]
     : []
 
-  const hp = hover != null ? points[hover] : null
+  // Projected labour (money out): joins the last real money-out point, then the
+  // labour cost of jobs booked in each coming month (allowed / approved hours).
+  const hasLabour = futureProj.some((p) => (p.labour ?? 0) > 0)
+  const labPts = futureProj.length && hasLabour
+    ? [
+        { x: x(lastIdx), y: y(points[lastIdx].expenses) },
+        ...futureProj.map((p, k) => ({ x: x(points.length + k), y: y(p.labour ?? 0) })),
+      ]
+    : []
+  // Projected gross-profit band between projected in and projected labour.
+  const projBandPath = projPts.length > 1 && labPts.length > 1
+    ? `${smoothPath(projPts)} L${labPts[labPts.length - 1].x.toFixed(1)},${labPts[labPts.length - 1].y.toFixed(1)} ` +
+      smoothPath([...labPts].reverse()).replace(/^M[^C]*/, '') + ' Z'
+    : ''
+
+  const hp = hover != null && hover < points.length ? points[hover] : null
+  const hf = hover != null && hover >= points.length ? futureProj[hover - points.length] ?? null : null
   const leftPct = hover != null ? (x(hover) / W) * 100 : 0
   const tipLeft = Math.min(86, Math.max(14, leftPct))
   // Show every month label.
@@ -109,12 +126,12 @@ export function GrowthChart({ points, projection = [] }: { points: MonthPoint[];
   function onMove(e: React.MouseEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect()
     // Map the cursor into the plotted area (which starts at padL, not 0) across
-    // ALL columns (history + projection), then snap to the nearest column and
-    // clamp to a real history point (only history months have a tooltip).
+    // ALL columns (history + projection), then snap to the nearest column.
+    // Projected months get their own tooltip (projected in / labour / profit).
     const relX = ((e.clientX - rect.left) / rect.width) * W
     const frac = (relX - padL) / innerW
     const col = Math.round(frac * (totalCols - 1))
-    setHover(Math.min(points.length - 1, Math.max(0, col)))
+    setHover(Math.min(totalCols - 1, Math.max(0, col)))
   }
 
   return (
@@ -125,6 +142,9 @@ export function GrowthChart({ points, projection = [] }: { points: MonthPoint[];
         <span className="inline-flex items-center gap-1.5 text-sage-500"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-500/20 ring-1 ring-emerald-500/40" /> Profit</span>
         {futureProj.length > 0 && (
           <span className="inline-flex items-center gap-1.5 text-sage-600"><span className="h-2.5 w-2.5 rounded-full" style={{ background: PROJ }} /> Projected in</span>
+        )}
+        {hasLabour && (
+          <span className="inline-flex items-center gap-1.5 text-sage-600"><span className="h-0 w-3 border-t-2 border-dashed" style={{ borderColor: OUT }} /> Projected labour</span>
         )}
       </div>
 
@@ -165,6 +185,17 @@ export function GrowthChart({ points, projection = [] }: { points: MonthPoint[];
             </>
           )}
 
+          {/* projected gross profit band + projected labour (money out) */}
+          {projBandPath && <path d={projBandPath} fill={PROJ} fillOpacity="0.07" />}
+          {labPts.length > 1 && (
+            <>
+              <path d={smoothPath(labPts)} fill="none" stroke={OUT} strokeOpacity="0.8" strokeWidth="2" strokeDasharray="5 4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+              {futureProj.map((p, k) => (
+                <circle key={`lab-${k}`} cx={x(points.length + k)} cy={y(p.labour ?? 0)} r="2.5" fill={OUT} />
+              ))}
+            </>
+          )}
+
           {/* projected income — dashed sky line extending past "now" */}
           {projPts.length > 1 && (
             <>
@@ -188,6 +219,17 @@ export function GrowthChart({ points, projection = [] }: { points: MonthPoint[];
           )}
         </svg>
 
+        {hf && (
+          <div className="pointer-events-none absolute -top-2 -translate-x-1/2 -translate-y-full z-10 rounded-lg bg-sage-900 px-3 py-2 text-left whitespace-nowrap shadow-lg" style={{ left: `${tipLeft}%` }}>
+            <div className="text-[11px] font-semibold text-sage-200 mb-1">{hf.label} {hf.month.slice(0, 4)} · projected</div>
+            <div className="text-xs text-white tabular-nums leading-relaxed">
+              <div><span className="text-sky-300">In</span> {moneyFull(hf.projected)}</div>
+              <div><span className="text-rose-300">Labour</span> {moneyFull(hf.labour ?? 0)}{hf.jobs ? <span className="text-sage-400"> · {hf.jobs} job{hf.jobs === 1 ? '' : 's'} booked</span> : null}</div>
+              <div className="mt-0.5 pt-0.5 border-t border-sage-700"><span className="text-sage-300">Gross profit</span> <b className={(hf.grossProfit ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{moneyFull(hf.grossProfit ?? hf.projected)}</b></div>
+              {(hf.uncosted ?? 0) > 0 && <div className="text-[11px] text-amber-300">{hf.uncosted} job{hf.uncosted === 1 ? '' : 's'} with no worker / hours — not costed</div>}
+            </div>
+          </div>
+        )}
         {hp && (
           <>
             <span className="pointer-events-none absolute w-2.5 h-2.5 rounded-full ring-2 ring-white -translate-x-1/2 -translate-y-1/2" style={{ background: IN, left: `${leftPct}%`, top: `${(y(hp.income) / H) * 100}%` }} />
@@ -206,6 +248,9 @@ export function GrowthChart({ points, projection = [] }: { points: MonthPoint[];
 
       {points[lastIdx]?.partial && (
         <p className="text-[11px] text-sage-400 mt-1.5">* {points[lastIdx].label} is still in progress — figures build through the month.</p>
+      )}
+      {hasLabour && (
+        <p className="text-[11px] text-sage-400 mt-0.5">Projected labour = jobs booked so far × allowed (or approved) hours × pay rate, incl. ACC. Other costs (supplies, fuel, software) aren&apos;t projected.</p>
       )}
     </div>
   )

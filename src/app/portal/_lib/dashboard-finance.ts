@@ -8,6 +8,7 @@ import { buildProfitLoss } from '@/app/portal/finance/_lib/profit-loss'
 import { loadProfitLossInputs } from '@/app/portal/finance/_lib/profit-loss-data'
 import { computeRecurringAmount, countServiceDays } from '@/app/portal/recurring-jobs/_lib/per-visit-billing'
 import { invoiceBalanceDue, loadAllocatedByInvoice, type InvoiceAmountFields } from '@/lib/invoice-balance'
+import { loadJobMargins } from '@/lib/job-margin'
 
 export interface MonthPoint {
   /** Month key 'YYYY-MM'. */
@@ -124,8 +125,46 @@ export function projectRecurringMonth(
 export interface ProjectedMonth {
   month: string      // 'YYYY-MM'
   label: string      // 'Sep'
-  /** Expected income landing in this month (unpaid sent invoices due + upcoming recurring). */
+  /** Expected income landing in this month (unpaid sent invoices due + upcoming
+   *  recurring + one-off jobs booked that month that aren't invoiced yet). */
   projected: number
+  /** Expected labour cost (+ ACC) of the jobs booked that month — allowed hours,
+   *  or allowed + approved extra hours, × the worker's pay rate. */
+  labour: number
+  /** projected − labour. */
+  grossProfit: number
+  /** Jobs booked that month. */
+  jobs: number
+  /** Of which no labour cost could be worked out (no worker / hours / rate). */
+  uncosted: number
+}
+
+export interface ProjectedJobRow {
+  month: string
+  recurring: boolean
+  jobPrice: number | null
+  /** Has a sent / paid invoice — its money is already in the invoice figures. */
+  invoiced: boolean
+  /** Labour + ACC from job margins; 0 when nothing to cost it with. */
+  labour: number
+}
+
+/**
+ * Pure: per month, the labour cost of booked jobs and the income from booked
+ * ONE-OFF jobs not yet invoiced (recurring visits are already projected from
+ * their contract; invoiced jobs from their invoice).
+ */
+export function bucketProjectedJobs(jobs: ProjectedJobRow[]): Map<string, { bookedIn: number; labour: number; jobs: number; uncosted: number }> {
+  const out = new Map<string, { bookedIn: number; labour: number; jobs: number; uncosted: number }>()
+  for (const j of jobs) {
+    const b = out.get(j.month) ?? { bookedIn: 0, labour: 0, jobs: 0, uncosted: 0 }
+    b.jobs += 1
+    if (j.labour > 0) b.labour += j.labour
+    else b.uncosted += 1
+    if (!j.recurring && !j.invoiced && Number(j.jobPrice) > 0) b.bookedIn += Number(j.jobPrice)
+    out.set(j.month, b)
+  }
+  return out
 }
 
 /**
@@ -242,11 +281,64 @@ export async function buildIncomeProjection(
     }
   }
 
-  return months.map(({ y, m }) => ({
-    month: monthKey(y, m),
-    label: MONTH_LABELS[m - 1],
-    projected: Math.round(totals[monthKey(y, m)] * 100) / 100,
-  }))
+  // 3. Jobs booked in the coming months: their labour cost (money out) and, for
+  //    one-off jobs not invoiced yet, their price (money in).
+  const futureFrom = months.length > 1 ? monthBounds(months[1].y, months[1].m).from : null
+  let booked = new Map<string, { bookedIn: number; labour: number; jobs: number; uncosted: number }>()
+  if (futureFrom) {
+    const { data: jobRows } = await supabase
+      .from('jobs')
+      .select('id, scheduled_date, job_price, allowed_hours, recurring_job_id')
+      .is('deleted_at', null)
+      .not('is_test', 'is', true)
+      .neq('status', 'cancelled')
+      .gte('scheduled_date', futureFrom)
+      .lte('scheduled_date', rangeEnd)
+    const rows = (jobRows ?? []) as Array<Record<string, unknown>>
+    const ids = rows.map((j) => j.id as string)
+    const invoiced = new Set<string>()
+    if (ids.length > 0) {
+      const { data: inv } = await supabase
+        .from('invoices')
+        .select('job_id')
+        .in('job_id', ids)
+        .is('deleted_at', null)
+        .in('status', ['sent', 'paid'])
+      for (const r of (inv ?? []) as Array<{ job_id: string | null }>) if (r.job_id) invoiced.add(r.job_id)
+    }
+    const margins = await loadJobMargins(supabase, rows.map((j) => ({
+      id: j.id as string,
+      jobPrice: j.job_price == null ? null : Number(j.job_price),
+      allowedHours: j.allowed_hours == null ? null : Number(j.allowed_hours),
+    })))
+    booked = bucketProjectedJobs(rows.map((j) => {
+      const mg = margins.get(j.id as string)
+      return {
+        month: String(j.scheduled_date).slice(0, 7),
+        recurring: !!j.recurring_job_id,
+        jobPrice: j.job_price == null ? null : Number(j.job_price),
+        invoiced: invoiced.has(j.id as string),
+        labour: mg ? Math.round((mg.labourCost + mg.accCost) * 100) / 100 : 0,
+      }
+    }))
+  }
+
+  const r2 = (n: number) => Math.round(n * 100) / 100
+  return months.map(({ y, m }) => {
+    const key = monthKey(y, m)
+    const b = key === currentKey ? undefined : booked.get(key)
+    const projected = r2(totals[key] + (b?.bookedIn ?? 0))
+    const labour = r2(b?.labour ?? 0)
+    return {
+      month: key,
+      label: MONTH_LABELS[m - 1],
+      projected,
+      labour,
+      grossProfit: r2(projected - labour),
+      jobs: b?.jobs ?? 0,
+      uncosted: b?.uncosted ?? 0,
+    }
+  })
 }
 
 // ── Jobs booked per month (growth + forward bookings) ───────────────────────
