@@ -132,14 +132,15 @@ export default async function PortalDashboard() {
     getBankBalance(supabase),
     // Cash position = total company cash − genuine owner capital introduced.
     buildCashPosition(supabase),
-    // Jobs completed this month (for the margin stat below).
+    // Jobs completed this month — ALL of them (recurring visits valued from
+    // their contract have no job_price; they used to drop out of the count).
+    // The margin stat below averages only the priced ones.
     supabase
       .from('jobs')
       .select('id, job_price, allowed_hours')
       .is('deleted_at', null).eq('is_test', false)
       .in('status', ['completed', 'invoiced'])
-      .gte('completed_at', monthStart)
-      .gt('job_price', 0),
+      .gte('completed_at', monthStart),
     supabase
       .from('kiwisaver_optout')
       .select('person_label, start_date, opt_out_filed')
@@ -169,8 +170,8 @@ export default async function PortalDashboard() {
   const jobsThisMonth = monthJobs.length
   let avgMarginPct: number | null = null
   if (monthJobs.length > 0) {
-    const margins = await loadJobMargins(supabase, monthJobs.map((j) => ({ id: j.id, jobPrice: j.job_price, allowedHours: j.allowed_hours })))
     const withPrice = monthJobs.filter((j) => (j.job_price ?? 0) > 0)
+    const margins = await loadJobMargins(supabase, withPrice.map((j) => ({ id: j.id, jobPrice: j.job_price, allowedHours: j.allowed_hours })))
     if (withPrice.length > 0) {
       const sum = withPrice.reduce((s, j) => s + (margins.get(j.id)?.marginPercent ?? 0), 0)
       avgMarginPct = Math.round(sum / withPrice.length)
@@ -469,7 +470,7 @@ export default async function PortalDashboard() {
             icon={BarChart3}
             label="Avg margin (mo.)"
             value={avgMarginPct == null ? '—' : `${avgMarginPct}%`}
-            hint="completed jobs"
+            hint="priced jobs done"
             accent={avgMarginPct != null && avgMarginPct < 0 ? 'red' : 'emerald'}
             href="/portal/reports"
           />
