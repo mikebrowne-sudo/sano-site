@@ -1,20 +1,18 @@
 'use client'
 
 // Jobs booked per month — growth, how much of each month is already done,
-// and what's booked ahead. A Jobs / Value switch picks what the bar height
-// measures (job COUNT by default — a month with more jobs must look bigger;
-// it didn't when bars were always $, e.g. Oct 2026 vs a Sept with one big job):
-//   • solid gradient   = COMPLETED / invoiced
+// and what's booked ahead. Bar height = NUMBER of jobs (a month with more jobs
+// must look bigger — it didn't when bars were $), and the pill above shows the
+// same count. Dollar values live in the hover breakdown only.
+//   • solid gradient   = jobs COMPLETED / invoiced
 //   • light, outlined  = booked, still to do (future months are all this)
-// The other measure sits in a pill above each bar. Hover a month for the
-// breakdown — completed, still to do, total booked. Bars grow in on load.
+// Bars grow in on load.
 // Inline SVG, sage palette, same family as GrowthChart.
 
 import { useEffect, useId, useState } from 'react'
 import type { BookedMonth } from '../_lib/dashboard-finance'
 
 const money0 = (n: number) => new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD', maximumFractionDigits: 0 }).format(n)
-const moneyK = (n: number) => (n >= 1000 ? `$${Math.round(n / 100) / 10}k` : money0(n))
 
 const DONE_TOP = '#0a8a6f'    // brighter sage-green at the top of the completed fill
 const DONE_BASE = '#076653'   // sage-500
@@ -37,11 +35,8 @@ function topRounded(x: number, y: number, w: number, h: number, r: number): stri
   return `M${x},${y + h} V${y + rr} Q${x},${y} ${x + rr},${y} H${x + w - rr} Q${x + w},${y} ${x + w},${y + rr} V${y + h} Z`
 }
 
-type Metric = 'jobs' | 'value'
-
 export function BookedJobsChart({ months: all }: { months: BookedMonth[] }) {
   const [hover, setHover] = useState<number | null>(null)
-  const [metric, setMetric] = useState<Metric>('jobs')
   const [grown, setGrown] = useState(false)
   const uid = useId().replace(/:/g, '')
   useEffect(() => { const t = requestAnimationFrame(() => setGrown(true)); return () => cancelAnimationFrame(t) }, [])
@@ -57,12 +52,9 @@ export function BookedJobsChart({ months: all }: { months: BookedMonth[] }) {
   const W = 680, H = 210, padL = 44, padR = 8, padTop = 30, padBottom = 26
   const innerW = W - padL - padR
   const innerH = H - padTop - padBottom
-  const total = (m: BookedMonth) => (metric === 'jobs' ? m.jobs : m.value)
-  const doneOf = (m: BookedMonth) => (m.future ? 0 : metric === 'jobs' ? m.done : m.doneValue)
-  const pillText = (m: BookedMonth) => (metric === 'jobs' ? moneyK(m.value) : String(m.jobs))
-  const rawMax = Math.max(...months.map(total), 1)
-  const max = metric === 'jobs' ? Math.max(2, Math.ceil(niceMax(rawMax) / 2) * 2) : niceMax(rawMax)
-  const axisLabel = (v: number) => (metric === 'jobs' ? String(Math.round(v)) : moneyK(v))
+  const total = (m: BookedMonth) => m.jobs
+  const doneOf = (m: BookedMonth) => (m.future ? 0 : m.done)
+  const max = Math.max(2, Math.ceil(niceMax(Math.max(...months.map(total), 1)) / 2) * 2)
   const slot = innerW / months.length
   const barW = Math.min(34, slot * 0.58)
   const xMid = (i: number) => padL + slot * i + slot / 2
@@ -83,24 +75,12 @@ export function BookedJobsChart({ months: all }: { months: BookedMonth[] }) {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-2 text-xs text-sage-600">
         <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: `linear-gradient(${DONE_TOP}, ${DONE_BASE})` }} /> Completed</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: TODO_FILL, boxShadow: `inset 0 0 0 1px ${TODO_LINE}` }} /> Booked, still to do</span>
-        <span className="inline-flex items-center gap-1.5"><span className="inline-grid h-4 min-w-4 place-items-center rounded-full bg-sage-800 px-1 text-[9px] font-semibold text-white">{metric === 'jobs' ? '$' : '#'}</span> {metric === 'jobs' ? 'value booked' : 'jobs'}</span>
-        <span className="ml-auto inline-flex rounded-lg border border-gray-200 p-0.5" role="group" aria-label="Bar height shows">
-          {(['jobs', 'value'] as const).map((k) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => setMetric(k)}
-              aria-pressed={metric === k}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${metric === k ? 'bg-sage-500 text-white' : 'text-sage-600 hover:bg-sage-50'}`}
-            >
-              {k === 'jobs' ? 'Jobs' : 'Value'}
-            </button>
-          ))}
-        </span>
+        <span className="inline-flex items-center gap-1.5"><span className="inline-grid h-4 min-w-4 place-items-center rounded-full bg-sage-800 px-1 text-[9px] font-semibold text-white">#</span> jobs booked</span>
+        <span className="text-sage-400">· hover a month for $ values</span>
       </div>
 
       <div className="relative" style={{ aspectRatio: `${W} / ${H}` }} onMouseLeave={() => setHover(null)}>
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full overflow-visible" role="img" aria-label={metric === 'jobs' ? 'Jobs booked per month: completed and still-to-do job counts, with value booked' : 'Jobs booked per month: completed and still-to-do value, with job counts'}>
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full overflow-visible" role="img" aria-label="Jobs booked per month: completed and still-to-do job counts">
           <defs>
             <linearGradient id={`done-${uid}`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={DONE_TOP} />
@@ -117,7 +97,7 @@ export function BookedJobsChart({ months: all }: { months: BookedMonth[] }) {
             return (
               <g key={f}>
                 <line x1={padL} x2={W - padR} y1={yy} y2={yy} stroke={MUTED} strokeOpacity={f === 1 ? 0.22 : 0.08} strokeDasharray={f === 1 ? undefined : '2 4'} strokeWidth="1" vectorEffect="non-scaling-stroke" />
-                <text x={padL - 6} y={yy + 3} textAnchor="end" fill={MUTED} className="tabular-nums" style={{ fontSize: 9 }}>{axisLabel(max * (1 - f))}</text>
+                <text x={padL - 6} y={yy + 3} textAnchor="end" fill={MUTED} className="tabular-nums" style={{ fontSize: 9 }}>{Math.round(max * (1 - f))}</text>
               </g>
             )
           })}
@@ -132,7 +112,7 @@ export function BookedJobsChart({ months: all }: { months: BookedMonth[] }) {
             const isHover = hover === i
             const dim = hover != null && !isHover
             const pillY = baseY - hOf(total(m)) - 16
-            const pill = pillText(m)
+            const pill = String(m.jobs)
             return (
               <g key={m.month} style={{ opacity: dim ? 0.45 : 1, transition: 'opacity 150ms' }}>
                 {/* hover column wash */}
