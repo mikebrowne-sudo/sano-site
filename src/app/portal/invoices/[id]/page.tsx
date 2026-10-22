@@ -26,6 +26,8 @@ import { clientCardSetting, invoiceOffersCard } from '@/lib/card-payments'
 import { CardPaymentToggle } from './_components/CardPaymentToggle'
 import { SendReminderPanel, type ReminderHistoryRow } from './_components/SendReminderPanel'
 import { InvoiceAutopayPanel } from './_components/InvoiceAutopayPanel'
+import { InvoiceEmailHistory } from './_components/InvoiceEmailHistory'
+import { loadInvoiceEmailHistory } from '@/lib/invoice-email-history'
 import { canTakeRealPayments } from '@/lib/stripe'
 import { nzToday } from '@/lib/nz-date'
 import { daysOverdue } from '@/lib/invoice-reminders'
@@ -181,10 +183,16 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   }
 
   // Payments received — drives the Send email wording (paid / part-paid).
-  const [allocHereMap, bankDatesHere] = await Promise.all([
+  // Email history (sends + reminders) for the bottom-of-page record.
+  const [allocHereMap, bankDatesHere, emailHistory] = await Promise.all([
     loadAllocatedByInvoice(supabase, [invoice.id as string]),
     loadBankPaidDateByInvoice(supabase, [invoice.id as string]),
+    loadInvoiceEmailHistory(supabase, invoice.id as string),
   ])
+  const sentBeforeTracking =
+    (invoice.status === 'sent' || invoice.status === 'paid')
+    && !emailHistory.some((e) => e.kind === 'invoice')
+    && (invoice.created_at as string) < '2026-10-24'
   const allocatedHere = allocHereMap.get(invoice.id as string) ?? 0
   const amountFields = { ...(invoice as InvoiceAmountFields), invoice_items: items ?? [] }
   const paySummary = invoicePaymentSummary({ ...amountFields, status: invoice.status as string, date_paid: (invoice.date_paid as string | null) ?? null }, allocatedHere, bankDatesHere.get(invoice.id as string) ?? null)
@@ -614,6 +622,11 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             <p className="text-sage-600 text-sm whitespace-pre-wrap">{invoice.notes}</p>
           </Section>
         )}
+
+        {/* Email history — permanent record of every send + reminder */}
+        <Section title="Email history">
+          <InvoiceEmailHistory entries={emailHistory} sentBeforeTracking={sentBeforeTracking} />
+        </Section>
       </div>
     </div>
   )
