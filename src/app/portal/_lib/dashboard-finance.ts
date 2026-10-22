@@ -6,7 +6,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildProfitLoss } from '@/app/portal/finance/_lib/profit-loss'
 import { loadProfitLossInputs } from '@/app/portal/finance/_lib/profit-loss-data'
-import { computeRecurringAmount } from '@/app/portal/recurring-jobs/_lib/per-visit-billing'
+import { computeRecurringAmount, countServiceDays } from '@/app/portal/recurring-jobs/_lib/per-visit-billing'
 import { invoiceBalanceDue, loadAllocatedByInvoice, type InvoiceAmountFields } from '@/lib/invoice-balance'
 
 export interface MonthPoint {
@@ -98,6 +98,29 @@ export async function buildDashboardFinance(
   return { months: points, netPosition, thisMonthNet, lastMonthNet, thisMonthIncome, netChangePct }
 }
 
+/**
+ * Expected income from one recurring contract in one month. Fixed = monthly
+ * value; per-visit = rate × service days (computeRecurringAmount, same as
+ * billing). Completed-visits contracts (Oranga Tamariki, Bella) bill rate ×
+ * visits actually done, so project rate × visits SCHEDULED that month, falling
+ * back to service days. They used to project $0 — no monthly value.
+ */
+export function projectRecurringMonth(
+  r: { billingMode: string | null; monthlyValue: number | null; perVisitRate: number | null; serviceDaysOfWeek: number[] | null },
+  period: { start: string; end: string },
+  scheduledVisits: number,
+): number {
+  if (r.billingMode === 'completed_visits') {
+    const rate = Number(r.perVisitRate) || 0
+    const visits = scheduledVisits > 0 ? scheduledVisits : countServiceDays(period.start, period.end, r.serviceDaysOfWeek ?? [])
+    return Math.round(rate * visits * 100) / 100
+  }
+  return computeRecurringAmount(
+    { billingMode: r.billingMode, monthlyValue: r.monthlyValue, perVisitRate: r.perVisitRate, serviceDaysOfWeek: r.serviceDaysOfWeek },
+    period,
+  ).amount
+}
+
 export interface ProjectedMonth {
   month: string      // 'YYYY-MM'
   label: string      // 'Sep'
@@ -146,6 +169,7 @@ export async function buildIncomeProjection(
     .select('id, base_price, discount, gst_included, due_date, invoice_items ( price )')
     .eq('status', 'sent')
     .is('deleted_at', null)
+    .not('is_test', 'is', true)
     .not('due_date', 'is', null)
     .lte('due_date', rangeEnd)
   // GST-inclusive balance still owed (part payments already matched are taken off).
@@ -168,16 +192,34 @@ export async function buildIncomeProjection(
   {
     const full = await supabase
       .from('recurring_jobs')
-      .select('monthly_value, billing_mode, per_visit_rate, service_days_of_week, status')
+      .select('id, monthly_value, billing_mode, per_visit_rate, service_days_of_week, status')
       .eq('status', 'active')
     if (!full.error) {
       recurring = full.data as Array<Record<string, unknown>>
     } else {
       const basic = await supabase
         .from('recurring_jobs')
-        .select('monthly_value, status')
+        .select('id, monthly_value, status')
         .eq('status', 'active')
       recurring = (basic.data as Array<Record<string, unknown>>) ?? null
+    }
+  }
+  // Visits already scheduled per (contract, month) — for completed-visits billing.
+  const visitCount = new Map<string, number>()
+  const recIds = ((recurring ?? []) as Array<Record<string, unknown>>).map((r) => r.id as string).filter(Boolean)
+  if (recIds.length > 0) {
+    const { data: visits } = await supabase
+      .from('jobs')
+      .select('recurring_job_id, scheduled_date')
+      .in('recurring_job_id', recIds)
+      .is('deleted_at', null)
+      .not('is_test', 'is', true)
+      .neq('status', 'cancelled')
+      .gte('scheduled_date', monthBounds(months[0].y, months[0].m).from)
+      .lte('scheduled_date', rangeEnd)
+    for (const v of (visits ?? []) as Array<Record<string, unknown>>) {
+      const k = `${v.recurring_job_id as string}|${String(v.scheduled_date).slice(0, 7)}`
+      visitCount.set(k, (visitCount.get(k) ?? 0) + 1)
     }
   }
   for (const r of (recurring ?? []) as Array<Record<string, unknown>>) {
@@ -187,16 +229,16 @@ export async function buildIncomeProjection(
       // already raised (it'd show as a sent invoice above). Project from next month on.
       if (key === monthKey(ty, tm)) continue
       const { from, to } = monthBounds(y, m)
-      const { amount } = computeRecurringAmount(
+      totals[key] += projectRecurringMonth(
         {
-          billingMode: r.billing_mode as string | null,
-          monthlyValue: r.monthly_value as number | null,
-          perVisitRate: r.per_visit_rate as number | null,
-          serviceDaysOfWeek: r.service_days_of_week as number[] | null,
+          billingMode: (r.billing_mode as string | null) ?? null,
+          monthlyValue: r.monthly_value == null ? null : Number(r.monthly_value),
+          perVisitRate: r.per_visit_rate == null ? null : Number(r.per_visit_rate),
+          serviceDaysOfWeek: (r.service_days_of_week as number[] | null) ?? null,
         },
         { start: from, end: to },
+        visitCount.get(`${r.id as string}|${key}`) ?? 0,
       )
-      totals[key] += amount
     }
   }
 
@@ -226,6 +268,10 @@ export interface BookedJobRow {
   status: string | null
   jobPrice: number | null
   recurringJobId: string | null
+  /** What the job was actually billed (its live invoice's lines, before GST
+   *  is added — same basis as job_price). Beats job_price once invoiced, so a
+   *  mistyped job price (JOB-0427: $10,150 for a $1,150 clean) can't skew a month. */
+  invoicedValue?: number | null
 }
 
 export interface RecurringValueRow {
@@ -236,7 +282,8 @@ export interface RecurringValueRow {
 }
 
 /**
- * Pure: bucket jobs into months and value them. A job's own price wins; a
+ * Pure: bucket jobs into months and value them. The invoiced amount wins, then
+ * the job's own price; a
  * recurring visit with no price is valued from its contract — the per-visit
  * rate, or a fixed monthly contract's value shared across that month's visits
  * (so the month totals the contract, however many visits there are).
@@ -270,7 +317,8 @@ export function summariseBookedJobs(
     const isDone = j.status === 'completed' || j.status === 'invoiced'
     if (isDone) bucket.done += 1
 
-    let value = Number(j.jobPrice ?? 0)
+    // One-off jobs only: a recurring visit's monthly invoice covers many visits.
+    let value = !j.recurringJobId && Number(j.invoicedValue ?? 0) > 0 ? Number(j.invoicedValue) : Number(j.jobPrice ?? 0)
     if (!(value > 0) && j.recurringJobId) {
       const rec = recById.get(j.recurringJobId)
       // per_visit and completed_visits contracts both price each visit.
@@ -303,7 +351,7 @@ export async function buildBookedJobs(supabase: SupabaseClient, today: string, p
   const [{ data: jobRows }, recRes] = await Promise.all([
     supabase
       .from('jobs')
-      .select('scheduled_date, status, job_price, recurring_job_id')
+      .select('id, scheduled_date, status, job_price, recurring_job_id')
       .is('deleted_at', null)
       .not('is_test', 'is', true)
       .neq('status', 'cancelled')
@@ -312,11 +360,31 @@ export async function buildBookedJobs(supabase: SupabaseClient, today: string, p
     supabase.from('recurring_jobs').select('id, billing_mode, monthly_value, per_visit_rate'),
   ])
 
+  // Billed amount per job, from its live invoice(s).
+  const jobIds = ((jobRows ?? []) as Array<Record<string, unknown>>).map((j) => j.id as string)
+  const invoicedByJob = new Map<string, number>()
+  for (let i = 0; i < jobIds.length; i += 200) {
+    const { data: invRows } = await supabase
+      .from('invoices')
+      .select('job_id, base_price, discount, invoice_items ( price )')
+      .in('job_id', jobIds.slice(i, i + 200))
+      .is('deleted_at', null)
+      .not('is_test', 'is', true)
+      .neq('status', 'cancelled')
+      .neq('status', 'draft')
+    for (const r of (invRows ?? []) as Array<Record<string, unknown>>) {
+      const items = (r.invoice_items ?? []) as Array<{ price: number | null }>
+      const lines = Number(r.base_price ?? 0) + items.reduce((s, it) => s + Number(it.price ?? 0), 0) - Number(r.discount ?? 0)
+      invoicedByJob.set(r.job_id as string, (invoicedByJob.get(r.job_id as string) ?? 0) + lines)
+    }
+  }
+
   const jobs: BookedJobRow[] = ((jobRows ?? []) as Array<Record<string, unknown>>).map((j) => ({
     scheduledDate: j.scheduled_date as string,
     status: (j.status as string | null) ?? null,
     jobPrice: j.job_price == null ? null : Number(j.job_price),
     recurringJobId: (j.recurring_job_id as string | null) ?? null,
+    invoicedValue: invoicedByJob.get(j.id as string) ?? null,
   }))
   const recurring: RecurringValueRow[] = (recRes.error ? [] : (recRes.data ?? []) as Array<Record<string, unknown>>).map((r) => ({
     id: r.id as string,
