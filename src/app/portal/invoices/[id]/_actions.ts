@@ -16,6 +16,7 @@ import { computeInvoiceDueDate, resolveServiceDate } from '@/lib/invoice-dates'
 import { getCustomerReplyToEmail } from '@/lib/email-reply-to'
 import { stampJobCompleteOnPaidInvoice } from '@/lib/job-paid-complete'
 import { nzToday } from '@/lib/nz-date'
+import { logInvoiceSent } from '@/lib/invoice-send-log'
 
 interface SendInvoiceInput {
   invoice_id: string
@@ -143,7 +144,7 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
     .map((e) => e.trim())
     .filter((e) => e.length > 0 && e.toLowerCase() !== input.to.trim().toLowerCase())
 
-  const { error: emailErr } = await resend.emails.send({
+  const { data: emailData, error: emailErr } = await resend.emails.send({
     from: 'Sano <noreply@sano.nz>',
     replyTo: getCustomerReplyToEmail(),
     to: input.to.trim(),
@@ -230,6 +231,20 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
     try { await collectInvoiceByAutopay(getServiceSupabase(), input.invoice_id) }
     catch (e) { console.error('[sendInvoiceEmail] direct debit not started', e) }
   }
+
+  // Permanent send record (Resend only keeps 30 days of logs).
+  let actorId: string | null = null
+  try { actorId = (await supabase.auth.getUser()).data.user?.id ?? null } catch { /* logged as system */ }
+  await logInvoiceSent(supabase, {
+    invoiceId: input.invoice_id,
+    invoiceNumber: invoice.invoice_number as string,
+    to: input.to.trim(),
+    cc: ccList,
+    subject: input.subject,
+    resendId: emailData?.id ?? null,
+    source: 'manual',
+    actorId,
+  })
 
   revalidatePath(`/portal/invoices/${input.invoice_id}`)
   revalidatePath('/portal/invoices')

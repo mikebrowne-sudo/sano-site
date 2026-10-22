@@ -13,6 +13,7 @@ import { computeInvoiceDueDate, resolveServiceDate } from '@/lib/invoice-dates'
 import { getCustomerReplyToEmail } from '@/lib/email-reply-to'
 import { nzToday } from '@/lib/nz-date'
 import { collectInvoiceByAutopay } from '@/lib/autopay'
+import { logInvoiceSent } from '@/lib/invoice-send-log'
 
 function esc(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -84,11 +85,12 @@ export async function sendRecurringInvoiceEmail(
   `
 
   const resend = new Resend(process.env.RESEND_API_KEY)
-  const { error: emailErr } = await resend.emails.send({
+  const subject = `Sano tax invoice ${invoice.invoice_number}`
+  const { data: emailData, error: emailErr } = await resend.emails.send({
     from: 'Sano <noreply@sano.nz>',
     replyTo: getCustomerReplyToEmail(),
     to,
-    subject: `Sano tax invoice ${invoice.invoice_number}`,
+    subject,
     html,
     attachments: [{ filename: `${sanitizePdfFilename(`Sano Tax Invoice - ${invoice.invoice_number}`)}.pdf`, content: pdf }],
   })
@@ -96,6 +98,17 @@ export async function sendRecurringInvoiceEmail(
 
   const { error: statusErr } = await svc.from('invoices').update({ status: 'sent' }).eq('id', invoiceId)
   if (statusErr) return { error: `sent but status update failed: ${statusErr.message}` }
+
+  // Permanent send record (Resend only keeps 30 days of logs).
+  await logInvoiceSent(svc, {
+    invoiceId,
+    invoiceNumber: invoice.invoice_number as string,
+    to,
+    subject,
+    resendId: emailData?.id ?? null,
+    source: 'recurring_auto',
+    actorId: null,
+  })
 
   // Customer on automatic payments: collect by direct debit (no-op otherwise).
   await collectInvoiceByAutopay(svc, invoiceId)
