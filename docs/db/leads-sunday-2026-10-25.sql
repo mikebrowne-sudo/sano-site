@@ -71,4 +71,19 @@
 -- leads for a second straight Sunday and a human needs to look at the environment's egress
 -- allowlist (sano.nz, business sites in general, and a DNS-over-HTTPS host like dns.google
 -- all need to be reachable for this task to function at all).
+--
+-- FOURTH / FINAL FIRING (~00:07 NZDT Mon 26 Oct, the 00:05 run): re-checked independently
+-- one more time before wrap-up. Identical result, no change:
+--   - curl to www.sano.nz, dns.google, www.markhams.co.nz: all still "CONNECT tunnel failed,
+--     response 403" (connect_rejected) via the egress proxy.
+--   - Proxy status endpoint recentRelayFailures logs the same connect_rejected / "gateway
+--     answered 403 to CONNECT" entries for all three hosts immediately after the curl
+--     attempts, confirming it is this run's policy denial, not a stale log.
+--   - WebFetch to https://www.sano.nz/: "getaddrinfo ENOTFOUND www.sano.nz" (DNS resolution
+--     still fails).
+-- This closes out the 2026-10-25 campaign at 4/4 firings tonight blocked, plus all 4
+-- firings on 2026-10-18 (8 total firings across two Sundays with zero leads produced, all
+-- for the identical destination-host network-policy denial). No lead added. A draft PR is
+-- being opened at wrap-up per protocol, carrying this outage record for a human to act on
+-- the environment's egress allowlist before next Sunday's run.
 -- ================================================================
