@@ -34,4 +34,20 @@
 -- per the task's explicit instruction, snippets cannot substitute for a page fetch or an MX
 -- check, so no lead at any grade can be added without fabricating verification. None was
 -- added. Flagged to the user via push notification at this firing.
+--
+-- SECOND FIRING (~21:06 NZDT): re-checked independently before touching anything else.
+-- Identical result - no change from the first firing:
+--   - curl to www.sano.nz, www.nzlawsociety.org.nz, dns.google all still "CONNECT tunnel
+--     failed, response 403" (connect_rejected) via the egress proxy.
+--   - registry.npmjs.org (allowlisted) still returns HTTP 200 over the same proxy, so the
+--     proxy itself is fine and this is still a destination-host policy denial.
+--   - dig/nslookup/host still not installed; python3 socket.gethostbyname('google.com')
+--     still fails (gaierror -2), confirming DNS resolution is blocked system-wide, not just
+--     for curl.
+--   - WebSearch (server-side) still works and returns snippets only; WebFetch still fails
+--     DNS resolution (getaddrinfo ENOTFOUND on www.sano.nz).
+-- Same blocker as the first firing and as every firing of the 2026-10-18 campaign: no lead
+-- can be added without fabricating an MX check or a same-site email verification. None
+-- added. Not re-notifying the user - this is the same unresolved issue already flagged at
+-- the first firing tonight, not new information.
 -- ================================================================
