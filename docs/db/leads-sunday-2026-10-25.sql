@@ -1,0 +1,37 @@
+-- Sano Sunday lead burst 2026-10-25 - review, then run in the Supabase SQL editor
+-- Each insert skips existing companies/emails.
+
+-- ===== SUMMARY (running totals, updated after each batch) =====
+-- Total: 0 | A-grade: 0 | B-grade: 0
+-- Category mix: Offices 0% (target ~40%) | Education 0% (target ~25%) | Hospitality 0% (target ~20%) | Clinic/Other 0% (cap ~15%)
+-- Sectors x suburbs covered: (none yet)
+--
+-- TOOL OUTAGE (2026-10-25, first firing ~16:06 NZDT): this session's network policy blocks
+-- all general outbound business/DNS web access, same signature as the prior Sunday
+-- (2026-10-18) campaign, which produced zero leads across all four firings and was never
+-- fixed. Confirmed independently this run before writing any lead:
+--   - WebFetch fails DNS resolution on a real business domain (getaddrinfo ENOTFOUND on
+--     www.sano.nz).
+--   - curl to any business or DNS host (www.sano.nz, www.nzlawsociety.org.nz,
+--     www.markhams.co.nz, dns.google, even a bare IP 1.1.1.1) gets "CONNECT tunnel failed,
+--     response 403" from the egress proxy.
+--   - The proxy's own status endpoint reports "selective": false (no selective blocking
+--     configured at this layer) yet recentRelayFailures logs connect_rejected /
+--     "gateway answered 403 to CONNECT (policy denial or upstream failure)" for every one
+--     of the above hosts - the block is upstream of this proxy's own config, exactly as in
+--     last week's run.
+--   - dig/nslookup/host are not installed; getent hosts and a sandboxed Python socket DNS
+--     lookup both fail to resolve google.com.
+--   - An allowlisted host (registry.npmjs.org) returns HTTP 200 over the same proxy,
+--     confirming the proxy itself works and this is a destination-host policy denial, not a
+--     broken tool.
+-- Per the proxy's own README: "403/407 ... do not retry or route around it - report the
+-- blocked host." Per this task's own hard rules, this blocks the whole campaign: an A-grade
+-- lead requires confirming a named contact + published email on the business's OWN site via
+-- a direct page fetch (impossible with WebFetch/curl both blocked), and EVERY lead (A or B)
+-- requires an MX deliverability check (impossible with dns.google and dig/nslookup both
+-- unavailable). WebSearch (server-side) is the only working tool and returns snippets only -
+-- per the task's explicit instruction, snippets cannot substitute for a page fetch or an MX
+-- check, so no lead at any grade can be added without fabricating verification. None was
+-- added. Flagged to the user via push notification at this firing.
+-- ================================================================
