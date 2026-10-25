@@ -1,0 +1,89 @@
+-- Sano Sunday lead burst 2026-10-25 - review, then run in the Supabase SQL editor
+-- Each insert skips existing companies/emails.
+
+-- ===== SUMMARY (running totals, updated after each batch) =====
+-- Total: 0 | A-grade: 0 | B-grade: 0
+-- Category mix: Offices 0% (target ~40%) | Education 0% (target ~25%) | Hospitality 0% (target ~20%) | Clinic/Other 0% (cap ~15%)
+-- Sectors x suburbs covered: (none yet)
+--
+-- TOOL OUTAGE (2026-10-25, first firing ~16:06 NZDT): this session's network policy blocks
+-- all general outbound business/DNS web access, same signature as the prior Sunday
+-- (2026-10-18) campaign, which produced zero leads across all four firings and was never
+-- fixed. Confirmed independently this run before writing any lead:
+--   - WebFetch fails DNS resolution on a real business domain (getaddrinfo ENOTFOUND on
+--     www.sano.nz).
+--   - curl to any business or DNS host (www.sano.nz, www.nzlawsociety.org.nz,
+--     www.markhams.co.nz, dns.google, even a bare IP 1.1.1.1) gets "CONNECT tunnel failed,
+--     response 403" from the egress proxy.
+--   - The proxy's own status endpoint reports "selective": false (no selective blocking
+--     configured at this layer) yet recentRelayFailures logs connect_rejected /
+--     "gateway answered 403 to CONNECT (policy denial or upstream failure)" for every one
+--     of the above hosts - the block is upstream of this proxy's own config, exactly as in
+--     last week's run.
+--   - dig/nslookup/host are not installed; getent hosts and a sandboxed Python socket DNS
+--     lookup both fail to resolve google.com.
+--   - An allowlisted host (registry.npmjs.org) returns HTTP 200 over the same proxy,
+--     confirming the proxy itself works and this is a destination-host policy denial, not a
+--     broken tool.
+-- Per the proxy's own README: "403/407 ... do not retry or route around it - report the
+-- blocked host." Per this task's own hard rules, this blocks the whole campaign: an A-grade
+-- lead requires confirming a named contact + published email on the business's OWN site via
+-- a direct page fetch (impossible with WebFetch/curl both blocked), and EVERY lead (A or B)
+-- requires an MX deliverability check (impossible with dns.google and dig/nslookup both
+-- unavailable). WebSearch (server-side) is the only working tool and returns snippets only -
+-- per the task's explicit instruction, snippets cannot substitute for a page fetch or an MX
+-- check, so no lead at any grade can be added without fabricating verification. None was
+-- added. Flagged to the user via push notification at this firing.
+--
+-- SECOND FIRING (~21:06 NZDT): re-checked independently before touching anything else.
+-- Identical result - no change from the first firing:
+--   - curl to www.sano.nz, www.nzlawsociety.org.nz, dns.google all still "CONNECT tunnel
+--     failed, response 403" (connect_rejected) via the egress proxy.
+--   - registry.npmjs.org (allowlisted) still returns HTTP 200 over the same proxy, so the
+--     proxy itself is fine and this is still a destination-host policy denial.
+--   - dig/nslookup/host still not installed; python3 socket.gethostbyname('google.com')
+--     still fails (gaierror -2), confirming DNS resolution is blocked system-wide, not just
+--     for curl.
+--   - WebSearch (server-side) still works and returns snippets only; WebFetch still fails
+--     DNS resolution (getaddrinfo ENOTFOUND on www.sano.nz).
+-- Same blocker as the first firing and as every firing of the 2026-10-18 campaign: no lead
+-- can be added without fabricating an MX check or a same-site email verification. None
+-- added. Not re-notifying the user - this is the same unresolved issue already flagged at
+-- the first firing tonight, not new information.
+--
+-- THIRD FIRING (~23:06 NZDT): re-checked independently again. Identical result, no change:
+--   - WebFetch to www.sano.nz: "getaddrinfo ENOTFOUND www.sano.nz" (DNS resolution fails).
+--   - curl to www.sano.nz and dns.google: still "CONNECT tunnel failed, response 403"
+--     (connect_rejected) via the egress proxy; registry.npmjs.org (allowlisted) still
+--     returns HTTP 200 over the same proxy, so this remains a destination-host policy
+--     denial, not a broken tool or transient blip.
+--   - dig/nslookup/host still not installed; proxy status endpoint shows the same
+--     connect_rejected entries for www.sano.nz and dns.google.
+--   - WebSearch still works server-side but returns snippets only (no page fetch, no MX
+--     lookup possible from a snippet) - confirmed again with a live query (Newmarket
+--     accountants): results gave only directory listings and third-party pages, no path to
+--     a verified own-site email or an MX check.
+-- This is now 3 consecutive firings tonight plus all 4 firings on 2026-10-18 (7 total) with
+-- the identical network-policy block. No lead added this firing either, for the same reason.
+-- Not re-notifying (already flagged once this Sunday at the first firing; no new
+-- information to add). One more scheduled firing remains tonight (~00:05 NZDT) before the
+-- 00:55 wrap-up deadline; if the policy is still unchanged then, this campaign ends at zero
+-- leads for a second straight Sunday and a human needs to look at the environment's egress
+-- allowlist (sano.nz, business sites in general, and a DNS-over-HTTPS host like dns.google
+-- all need to be reachable for this task to function at all).
+--
+-- FOURTH / FINAL FIRING (~00:07 NZDT Mon 26 Oct, the 00:05 run): re-checked independently
+-- one more time before wrap-up. Identical result, no change:
+--   - curl to www.sano.nz, dns.google, www.markhams.co.nz: all still "CONNECT tunnel failed,
+--     response 403" (connect_rejected) via the egress proxy.
+--   - Proxy status endpoint recentRelayFailures logs the same connect_rejected / "gateway
+--     answered 403 to CONNECT" entries for all three hosts immediately after the curl
+--     attempts, confirming it is this run's policy denial, not a stale log.
+--   - WebFetch to https://www.sano.nz/: "getaddrinfo ENOTFOUND www.sano.nz" (DNS resolution
+--     still fails).
+-- This closes out the 2026-10-25 campaign at 4/4 firings tonight blocked, plus all 4
+-- firings on 2026-10-18 (8 total firings across two Sundays with zero leads produced, all
+-- for the identical destination-host network-policy denial). No lead added. A draft PR is
+-- being opened at wrap-up per protocol, carrying this outage record for a human to act on
+-- the environment's egress allowlist before next Sunday's run.
+-- ================================================================
