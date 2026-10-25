@@ -50,4 +50,25 @@
 -- can be added without fabricating an MX check or a same-site email verification. None
 -- added. Not re-notifying the user - this is the same unresolved issue already flagged at
 -- the first firing tonight, not new information.
+--
+-- THIRD FIRING (~23:06 NZDT): re-checked independently again. Identical result, no change:
+--   - WebFetch to www.sano.nz: "getaddrinfo ENOTFOUND www.sano.nz" (DNS resolution fails).
+--   - curl to www.sano.nz and dns.google: still "CONNECT tunnel failed, response 403"
+--     (connect_rejected) via the egress proxy; registry.npmjs.org (allowlisted) still
+--     returns HTTP 200 over the same proxy, so this remains a destination-host policy
+--     denial, not a broken tool or transient blip.
+--   - dig/nslookup/host still not installed; proxy status endpoint shows the same
+--     connect_rejected entries for www.sano.nz and dns.google.
+--   - WebSearch still works server-side but returns snippets only (no page fetch, no MX
+--     lookup possible from a snippet) - confirmed again with a live query (Newmarket
+--     accountants): results gave only directory listings and third-party pages, no path to
+--     a verified own-site email or an MX check.
+-- This is now 3 consecutive firings tonight plus all 4 firings on 2026-10-18 (7 total) with
+-- the identical network-policy block. No lead added this firing either, for the same reason.
+-- Not re-notifying (already flagged once this Sunday at the first firing; no new
+-- information to add). One more scheduled firing remains tonight (~00:05 NZDT) before the
+-- 00:55 wrap-up deadline; if the policy is still unchanged then, this campaign ends at zero
+-- leads for a second straight Sunday and a human needs to look at the environment's egress
+-- allowlist (sano.nz, business sites in general, and a DNS-over-HTTPS host like dns.google
+-- all need to be reachable for this task to function at all).
 -- ================================================================
