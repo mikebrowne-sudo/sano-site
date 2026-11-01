@@ -81,3 +81,29 @@
 -- wrap-up time) - will send a push notification then summarizing the three-week outage if it
 -- has not cleared, since this is now the fourth consecutive zero-lead firing today/this
 -- weekend and the third consecutive Sunday.
+--
+-- WRAP-UP (2026-11-01, fourth/final firing, ~00:06-00:10 NZDT Monday): re-verified
+-- independently a fourth time rather than carry forward the prior notes unchecked. Identical
+-- result:
+--   - curl https://www.sano.nz -> "CONNECT tunnel failed, response 403".
+--   - curl https://dns.google/resolve?name=sano.nz&type=MX -> "CONNECT tunnel failed,
+--     response 403" (MX checks still impossible).
+--   - curl https://registry.npmjs.org (control) -> HTTP 200 (proxy mechanism itself fine).
+--   - WebFetch https://www.sano.nz/contact -> getaddrinfo ENOTFOUND, with the harness's own
+--     error message stating the host is outside this session's allowed network domains.
+--   - Proxy status endpoint's recentRelayFailures log shows the same "gateway answered 403
+--     to CONNECT" denial recurring for unrelated third-party MCP hosts at this same firing
+--     (2026-11-01T11:06 UTC), confirming a live, blanket policy rather than something
+--     specific to this session's requests.
+-- Closing this file at zero leads for the fourth straight firing today and the third
+-- straight Sunday this campaign has produced nothing. The blocker is outside this session's
+-- control: outbound HTTPS to ordinary business/government/DNS hosts (anything not on the
+-- egress proxy's narrow allowlist) is being rejected at the network layer, so neither of this
+-- task's two hard verification steps - (1) confirming a published email on the business's
+-- OWN site via a direct page fetch, (2) an MX record check per lead - can be performed by any
+-- tool available in this session (WebFetch, curl, dig/nslookup, Python socket DNS all
+-- fail the same way; WebSearch is snippet-only and cannot substitute for either). No lead was
+-- fabricated to work around this. Pushing this file and opening/updating the draft PR as
+-- instructed; flagging to the user via push notification that the egress network policy for
+-- this scheduled task's environment needs to allow outbound business-web + DNS traffic
+-- before the next Sunday burst can produce any leads.
