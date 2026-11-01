@@ -37,3 +37,16 @@
 -- third straight week this scheduled task has produced nothing, and the fix (allowing
 -- outbound business-web + DNS traffic through this environment's egress proxy) is outside
 -- this session's control.
+--
+-- RECONFIRMED (2026-11-01, second firing ~21:06 NZDT): independently re-tested from scratch
+-- this firing rather than trusting the earlier note - same result. curl to www.sano.nz,
+-- a random NZ business site (kensingtonswan.com) and dns.google all get "CONNECT tunnel
+-- failed, response 403" / connect_rejected from the egress proxy. WebFetch on
+-- www.sano.nz/contact fails with getaddrinfo ENOTFOUND. Only the explicit dev-registry
+-- allowlist (registry.npmjs.org, pypi.org) succeeds (HTTP 200) - everything else, including
+-- the dozens of unrelated plugin MCP servers configured for this account, gets the same 403.
+-- This pattern (narrow allowlist + blanket deny elsewhere, identical for 3 straight weeks)
+-- looks like this session's/environment's configured network policy rather than a transient
+-- outage - i.e. not something that will clear on its own at the next firing. Not re-flagging
+-- via push notification this firing since it's the same root cause already flagged today at
+-- ~16:06; will send a wrap-up notification at the final firing if it's still broken then.
