@@ -1,0 +1,39 @@
+-- Sano Sunday lead burst 2026-11-01 - review, then run in the Supabase SQL editor
+-- Each insert skips existing companies/emails.
+
+-- ===== SUMMARY (running totals, updated after each batch) =====
+-- Total: 0 | A-grade: 0 | B-grade: 0
+-- Category mix: Offices 0% (target ~40%) | Education 0% (target ~25%) | Hospitality 0% (target ~20%) | Clinic/Other 0% (cap ~15%)
+-- Sectors x suburbs covered: (none yet)
+--
+-- TOOL OUTAGE (2026-11-01, first firing ~16:06 NZDT): this is the THIRD consecutive Sunday
+-- with the exact same outage that produced zero leads on 2026-10-18 and 2026-10-25
+-- (docs/db PRs #? and #689) - unfixed across two prior flagged weeks. Verified independently
+-- again this firing before writing any lead:
+--   - WebFetch fails DNS resolution on the business's own domain: getaddrinfo ENOTFOUND on
+--     www.sano.nz.
+--   - curl to every business/government/DNS host tested (www.sano.nz,
+--     www.nzlawsociety.org.nz, www.nzqa.govt.nz, dns.google, a bare IP 1.1.1.1) gets
+--     "CONNECT tunnel failed, response 403" from the egress proxy (connect_rejected -
+--     "gateway answered 403 to CONNECT (policy denial or upstream failure)" per the proxy's
+--     own status endpoint).
+--   - dig/nslookup/host are not installed; a sandboxed Python3 socket DNS lookup
+--     (socket.gethostbyname) also fails (gaierror -2, name not known) - MX-record
+--     deliverability checks cannot be performed by any method available in this session.
+--   - Allowlisted hosts (registry.npmjs.org, pypi.org) return HTTP 200 over the same proxy,
+--     confirming the proxy mechanism itself works and this is a destination-host policy
+--     denial, not a broken tool or transient network blip.
+--   - WebSearch (server-side) is the only working research tool and returns snippets only -
+--     it cannot fetch a business's own contact/team page to confirm a published email, and
+--     it cannot return MX records.
+-- Per the proxy's own README: "403/407 ... do not retry or route around it - report the
+-- blocked host." Per this task's own hard rules, this blocks the whole campaign: an A-grade
+-- lead requires a named contact + email confirmed on the business's OWN site via a direct
+-- page fetch (impossible with WebFetch/curl both blocked), and EVERY lead (A or B) requires
+-- an MX deliverability check (impossible with dns.google/dig/nslookup all unavailable).
+-- WebSearch snippets cannot substitute for either per the task's explicit instructions, so
+-- no lead at any grade was added rather than fabricate verification that could not actually
+-- be performed. Flagged to the user via push notification at this firing - this is now the
+-- third straight week this scheduled task has produced nothing, and the fix (allowing
+-- outbound business-web + DNS traffic through this environment's egress proxy) is outside
+-- this session's control.
