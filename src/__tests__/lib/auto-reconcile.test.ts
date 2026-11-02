@@ -72,17 +72,30 @@ describe('auto-reconcile — known payers and recurring clients', () => {
     expect(r.proposals[0]).toMatchObject({ method: 'amount_match', allocations: [{ invoiceId: 'INV-261001', amount: 2740 }] })
   })
 
-  it('pays the oldest first when a client has several equal invoices open', () => {
+  it('sends a tie between equal invoices for one client to review instead of guessing', () => {
     const r = run(
-      [credit({ amount: 2740, payee: 'D/C FROM Pukekohe Gol', date: '2026-09-29' })],
+      [credit({ amount: 200, payee: 'D/C FROM Property Mgr', date: '2026-10-14' })],
       [
-        inv({ number: 'INV-B', total: 2740, clientId: 'puke', dateIssued: '2026-09-25' }),
-        inv({ number: 'INV-A', total: 2740, clientId: 'puke', dateIssued: '2026-08-25' }),
+        inv({ number: 'INV-0901', total: 200, clientId: 'pm', dateIssued: '2026-09-01' }),
+        inv({ number: 'INV-0902', total: 200, clientId: 'pm', dateIssued: '2026-09-02' }),
+      ],
+      [{ payerKey: 'PROPERTY MGR', clientId: 'pm' }],
+    )
+    expect(r.proposals).toHaveLength(0)
+    expect(r.review[0].why).toMatch(/2 open invoices of this amount for this client/)
+    expect(r.review[0].why).toMatch(/INV-0901/)
+  })
+
+  it('still pays a named invoice when equal ones are open (the reference breaks the tie)', () => {
+    const r = run(
+      [credit({ amount: 2740, payee: 'D/C FROM Pukekohe Gol', memo: 'INV-0301', date: '2026-09-29' })],
+      [
+        inv({ number: 'INV-0301', total: 2740, clientId: 'puke', dateIssued: '2026-09-25' }),
+        inv({ number: 'INV-0300', total: 2740, clientId: 'puke', dateIssued: '2026-08-25' }),
       ],
       history,
     )
-    expect(r.proposals[0].allocations[0].invoiceId).toBe('INV-A')
-    expect(r.proposals[0].reason).toMatch(/oldest of 2/)
+    expect(r.proposals[0].allocations[0].invoiceId).toBe('INV-0301')
   })
 
   it('matches a branch payer by name (B&T Henderson → Barfoot & Thompson Henderson)', () => {

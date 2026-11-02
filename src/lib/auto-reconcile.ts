@@ -16,8 +16,8 @@
 //      text names an invoice, the match MUST include it — a reference is never
 //      overruled by a same-amount invoice it didn't name):
 //        a. exactly one has an open balance equal to the payment, or
-//        b. several do, all for the same client → the oldest is paid first, or
-//        c. exactly one combination (2–6 invoices) sums to the payment.
+//        b. exactly one combination (2–6 invoices) sums to the payment.
+//      Several equal invoices are a tie and go to review, never "oldest first".
 // Never auto: amount-only matches with no payer link, partial payments,
 // overpayments, financing / tax-refund credits, and anything with two
 // plausible answers.
@@ -284,9 +284,16 @@ export function proposeAutoReconcile(args: {
     const exact = cands.filter((inv) => open.get(inv.id) === due && honoursRefs([inv]))
     if (exact.length === 1) { commit(exact, 'amount_match', `known payer, single open invoice ${exact[0].number}`); continue }
     if (exact.length > 1) {
+      // Never guess between equal invoices: one payer (e.g. a property
+      // manager) can owe the same amount for different properties, and paying
+      // the oldest once put a payment on the wrong property's invoice.
       const sameClient = exact.every((inv) => inv.clientId === exact[0].clientId)
-      if (sameClient) { commit([exact[0]], 'amount_match', `known payer, oldest of ${exact.length} equal invoices (${exact[0].number})`); continue }
-      review.push({ creditId: c.id, why: `${exact.length} open invoices of this amount across different clients` })
+      review.push({
+        creditId: c.id,
+        why: sameClient
+          ? `${exact.length} open invoices of this amount for this client (${exact.map((i) => i.number).join(', ')}) — pick the one it pays`
+          : `${exact.length} open invoices of this amount across different clients`,
+      })
       continue
     }
 

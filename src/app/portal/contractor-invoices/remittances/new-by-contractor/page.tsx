@@ -1,6 +1,6 @@
 // Contractor-select remittance builder — pick contractors, and each (with a
 // couple's shared-GST company combined) gets one remittance for their unpaid
-// jobs with a uniform KRITIKAPAYROLLDDMMYY reference. Admin-only.
+// jobs with a uniform NAMEDDMMYY reference (e.g. ALEX301026). Admin-only.
 
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'

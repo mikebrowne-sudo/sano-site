@@ -5,7 +5,7 @@
 // gathers that contractor's APPROVED, not-yet-remitted pay (their statement's
 // period jobs plus any earlier unpaid jobs — "unpaid" = not on any existing
 // remittance), and creates one remittance with a uniform reference
-// (FIRSTNAME/COMPANYPAYROLLDDMMYY). Reuses the canonical createContractorRemittance.
+// (FIRSTNAME/COMPANY + DDMMYY, e.g. ALEX301026). Reuses the canonical createContractorRemittance.
 // Admin-only; each group is independent (partial success).
 
 import { createClient } from '@/lib/supabase-server'

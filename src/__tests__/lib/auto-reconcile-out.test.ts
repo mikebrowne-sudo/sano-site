@@ -40,6 +40,17 @@ describe('money-out auto-reconcile', () => {
     expect(byDebit).toEqual({ nas: 'RA-39', vmk: 'RA-41' })
   })
 
+  it('matches the CONTRACTOR-format reference (NAME + ddmmyy, no PAYROLL)', () => {
+    const r = go({
+      debits: [debit({ amount: 1650, memo: 'CONTRACTOR RA-0047 ALEX301026', date: '2026-10-30' })],
+      remittances: [
+        remit({ id: 'RA-47', total: 1650, payeeLabel: 'Alex Smith', reference: 'ALEX301026', paymentDate: '2026-10-30' }),
+        remit({ id: 'RA-49', total: 1650, payeeLabel: 'Jordan Lee', reference: 'JORDAN301026', paymentDate: '2026-10-30' }),
+      ],
+    })
+    expect(r.proposals[0]).toMatchObject({ kind: 'remittance', method: 'reference', allocations: [{ remittanceId: 'RA-47', amount: 1650 }] })
+  })
+
   it('pays a remittance before a duplicate expense row for the same money', () => {
     const r = go({
       debits: [debit({ amount: 1220, date: '2026-05-08' })],

@@ -99,7 +99,7 @@ export function RemittanceBatchBuilder({ cis, contractors }: { cis: BuilderCI[];
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-sage-500">Bank / payment reference</span>
-          <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g. KRITIKAPAYROLL08-05-26" className={input} />
+          <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g. ALEX301026" className={input} />
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-sage-500">Payee label</span>

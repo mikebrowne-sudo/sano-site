@@ -121,7 +121,7 @@ export default async function ReconcileOutPage() {
           </Panel>
 
           <p className="text-xs text-sage-400">
-            Debits are matched to remittances by the reference stem in the memo (e.g. &ldquo;PAYROLL MARINA 220726&rdquo; → the Marina
+            Debits are matched to remittances by the reference stem in the memo (e.g. &ldquo;CONTRACTOR RA-0016 MARINA220726&rdquo; → the Marina
             remittance), or by a unique amount near the payment date. Confirm a match to record a durable link and mark the remittance
             <span className="font-medium"> confirmed paid</span>. A debit files into <span className="font-medium">Done</span> once fully
             allocated. Reverse a match with the undo control if you mis-tied it.
