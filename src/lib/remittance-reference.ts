@@ -1,7 +1,11 @@
 // Uniform contractor remittance reference + contractor grouping.
 //
-// Reference format: FIRSTTOKEN + "PAYROLL" + DDMMYY(payment date), uppercase,
-// alphanumeric only — e.g. "Kritika Kumar" + 2026-07-22 → KRITIKAPAYROLL220726.
+// Reference format: FIRSTTOKEN + DDMMYY(payment date), uppercase, alphanumeric
+// only — e.g. "Alex Smith" + 2026-10-30 → ALEX301026. This is what goes in
+// the Reference field on Sano's side of the transfer (Particulars CONTRACTOR,
+// Code RA-xxxx). Contractor payments are never "payroll". The name token is cut
+// to 6 characters so the whole reference fits the bank's 12-character field;
+// the payee name is kept because auto-reconcile matches debits by it.
 // The first token of the PAYEE name is used (contractor first name, or the
 // company's first word for a combined couple).
 //
@@ -11,12 +15,12 @@
 
 import { normalizeGstNumber } from './shared-gst-number'
 
-/** Build the uniform reference from a payee name + a YYYY-MM-DD payment date. */
+/** Build the reference (max 12 chars) from a payee name + a YYYY-MM-DD payment date. */
 export function buildRemittanceReference(payeeName: string | null | undefined, paymentDate: string): string {
   const token = (payeeName ?? '').trim().split(/\s+/)[0].toUpperCase().replace(/[^A-Z0-9]/g, '')
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(paymentDate)
   const ddmmyy = m ? `${m[3]}${m[2]}${m[1].slice(2)}` : ''
-  return `${token}PAYROLL${ddmmyy}`
+  return `${token.slice(0, 6)}${ddmmyy}`
 }
 
 export interface RemittanceContractor {

@@ -1,16 +1,21 @@
 import { buildRemittanceReference, groupContractorsForRemittance } from '@/lib/remittance-reference'
 
 describe('buildRemittanceReference', () => {
-  it('formats FIRSTNAME + PAYROLL + DDMMYY', () => {
-    expect(buildRemittanceReference('Kritika Kumar', '2026-07-22')).toBe('KRITIKAPAYROLL220726')
+  it('formats FIRSTNAME + DDMMYY, never PAYROLL', () => {
+    expect(buildRemittanceReference('Alex Smith', '2026-10-30')).toBe('ALEX301026')
+    expect(buildRemittanceReference('Jordan Lee', '2026-10-15')).toBe('JORDAN151026')
   })
   it('uses the first token of a company name and strips punctuation', () => {
-    expect(buildRemittanceReference('VMK LTD', '2026-07-22')).toBe('VMKPAYROLL220726')
-    expect(buildRemittanceReference("O'Brien Cleaning", '2026-01-05')).toBe('OBRIENPAYROLL050126')
+    expect(buildRemittanceReference('VMK LTD', '2026-07-22')).toBe('VMK220726')
+    expect(buildRemittanceReference("O'Brien Cleaning", '2026-01-05')).toBe('OBRIEN050126')
   })
   it('handles single-day/month dates and empty names gracefully', () => {
-    expect(buildRemittanceReference('Sam', '2026-03-09')).toBe('SAMPAYROLL090326')
-    expect(buildRemittanceReference('', '2026-07-22')).toBe('PAYROLL220726')
+    expect(buildRemittanceReference('Sam', '2026-03-09')).toBe('SAM090326')
+    expect(buildRemittanceReference('', '2026-07-22')).toBe('220726')
+  })
+  it("fits the bank's 12-character reference field", () => {
+    expect(buildRemittanceReference('Katherine Lee', '2026-07-22')).toBe('KATHER220726')
+    expect(buildRemittanceReference('Christopherson', '2026-12-31').length).toBeLessThanOrEqual(12)
   })
 })
 
@@ -26,7 +31,7 @@ describe('groupContractorsForRemittance', () => {
     expect(groups[0].combined).toBe(true)
     expect(groups[0].contractorIds.sort()).toEqual(['a', 'k'])
     expect(groups[0].payeeName).toBe('VMK LTD')
-    expect(buildRemittanceReference(groups[0].referenceName, '2026-07-22')).toBe('VMKPAYROLL220726')
+    expect(buildRemittanceReference(groups[0].referenceName, '2026-07-22')).toBe('VMK220726')
   })
 
   it('keeps unique / no-GST contractors separate', () => {
