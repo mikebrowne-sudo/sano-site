@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { businessRef } from '@/lib/seo-schema'
 import Link from 'next/link'
 import Image from 'next/image'
 import { AreasWeServeSection } from '../_components/AreasWeServeSection'
@@ -33,6 +34,10 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Commercial cleaning in Auckland | Sano',
     description: 'Offices, education and hospitality. Free site walkthrough, tailored proposal, fully insured team.',
+    url: './',
+    siteName: 'Sano Cleaning',
+    locale: 'en_NZ',
+    type: 'website',
     images: [{ url: '/og/sano-commercial-og.jpg', width: 1200, height: 630, alt: 'Sano commercial cleaning: offices, education and hospitality' }],
   },
   twitter: {
@@ -427,7 +432,7 @@ export default function CommercialCleaningPage() {
             name: 'Commercial & Office Cleaning',
             description:
               'Reliable commercial and office cleaning in Auckland. Consistent, detail-focused cleaning for workplaces.',
-            provider: { '@type': 'LocalBusiness', name: 'Sano Property Services' },
+            provider: businessRef,
             areaServed: { '@type': 'City', name: 'Auckland' },
           }),
         }}

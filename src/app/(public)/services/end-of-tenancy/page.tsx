@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { businessRef } from '@/lib/seo-schema'
 import { CtaBanner } from '@/components/CtaBanner'
 import { ServiceChecklist } from '@/components/ServiceChecklist'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
@@ -122,7 +123,7 @@ export default function EndOfTenancyPage() {
             name: 'End of Tenancy Cleaning',
             description:
               'End of tenancy cleaning in Auckland. Detailed property resets for tenants, landlords, and property managers.',
-            provider: { '@type': 'LocalBusiness', name: 'Sano Property Services' },
+            provider: businessRef,
             areaServed: { '@type': 'City', name: 'Auckland' },
           }),
         }}

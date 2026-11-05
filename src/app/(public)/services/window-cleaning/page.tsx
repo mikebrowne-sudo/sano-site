@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { businessRef } from '@/lib/seo-schema'
 import { Building2, DoorOpen, Frame, Home, PanelTop, PlusCircle, Sparkles, Square, Sun } from 'lucide-react'
 import { CtaBanner } from '@/components/CtaBanner'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
@@ -158,7 +159,7 @@ export default function WindowCleaningPage() {
             name: 'Window Cleaning',
             description:
               'Window cleaning in Auckland. Streak-free glass, frames, sills, and tracks for residential and commercial properties.',
-            provider: { '@type': 'LocalBusiness', name: 'Sano Property Services' },
+            provider: businessRef,
             areaServed: { '@type': 'City', name: 'Auckland' },
           }),
         }}

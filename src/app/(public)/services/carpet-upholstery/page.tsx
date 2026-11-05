@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { businessRef } from '@/lib/seo-schema'
 import { Armchair, Brush, Droplet, Footprints, PlusCircle, Sofa, Sparkles, Square, Wind } from 'lucide-react'
 import { CtaBanner } from '@/components/CtaBanner'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
@@ -159,7 +160,7 @@ export default function CarpetUpholsteryPage() {
             name: 'Carpet & Upholstery Cleaning',
             description:
               'Carpet and upholstery cleaning in Auckland. Careful cleaning for carpets, rugs, sofas, and fabric surfaces.',
-            provider: { '@type': 'LocalBusiness', name: 'Sano Property Services' },
+            provider: businessRef,
             areaServed: { '@type': 'City', name: 'Auckland' },
           }),
         }}

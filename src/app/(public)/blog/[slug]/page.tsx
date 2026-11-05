@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
+import Link from 'next/link'
 import { POSTS, getPostBySlug } from '@/lib/blog'
+import { getServiceBySlug } from '@/lib/services'
 import { CtaBanner } from '@/components/CtaBanner'
 
 interface Props {
@@ -42,6 +44,7 @@ export default function BlogPostPage({ params }: Props) {
 
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://sano.nz'
   const isoDate = toISODate(post.date)
+  const related = (post.related ?? []).map(getServiceBySlug).filter((s): s is NonNullable<typeof s> => s !== undefined)
 
   return (
     <>
@@ -122,6 +125,24 @@ export default function BlogPostPage({ params }: Props) {
           <p className="text-[16px] text-gray-600 leading-relaxed">
             {post.conclusion.body}
           </p>
+
+          {/* Related services — links each post to the service pages it
+              supports (internal links from blog content to money pages). */}
+          {related.length > 0 && (
+            <div className="mt-10 rounded-xl bg-sage-50 p-6">
+              <p className="text-xs font-semibold uppercase tracking-widest text-sage-500 mb-3">Related services</p>
+              <ul className="space-y-3">
+                {related.map((service) => (
+                  <li key={service.slug}>
+                    <Link href={`/services/${service.slug}`} className="font-semibold text-sage-700 hover:text-sage-900 underline-offset-2 hover:underline">
+                      {service.name} in Auckland
+                    </Link>
+                    <p className="text-[15px] text-gray-600 leading-relaxed mt-1">{service.shortDescription}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </article>
 

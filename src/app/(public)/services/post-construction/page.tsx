@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { businessRef } from '@/lib/seo-schema'
 import { Bath, BadgeCheck, ChefHat, Footprints, HardHat, PaintRoller, PanelTop, PlusCircle, Trash2 } from 'lucide-react'
 import { CtaBanner } from '@/components/CtaBanner'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
@@ -158,7 +159,7 @@ export default function PostConstructionPage() {
             name: 'Post-Construction Cleaning',
             description:
               'Post-construction cleaning in Auckland. Detailed handover cleans for renovations, new builds, and fit-outs.',
-            provider: { '@type': 'LocalBusiness', name: 'Sano Property Services' },
+            provider: businessRef,
             areaServed: { '@type': 'City', name: 'Auckland' },
           }),
         }}

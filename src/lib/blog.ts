@@ -7,11 +7,14 @@ export interface BlogPost {
   intro: string
   sections: { heading: string; body: string }[]
   conclusion: { heading: string; body: string }
+  /** Service slugs (src/lib/services.ts) linked under the post. */
+  related?: string[]
 }
 
 export const POSTS: BlogPost[] = [
   {
     slug: 'right-cleaner-for-office',
+    related: ['commercial-cleaning'],
     title: 'How Choosing the Right Cleaner for Your Office Can Save You Money',
     date: '1 APRIL 2026',
     image: '/blog/right-cleaner-for-office.jpg',
@@ -52,6 +55,7 @@ export const POSTS: BlogPost[] = [
   },
   {
     slug: '12-common-areas',
+    related: ['deep-cleaning', 'regular-cleaning'],
     title: '12 Common Areas People Forget to Clean Around the House',
     date: '3 APRIL 2026',
     image: '/blog/12-common-areas.jpg',
@@ -116,6 +120,7 @@ export const POSTS: BlogPost[] = [
   },
   {
     slug: '6-things-to-know',
+    related: ['regular-cleaning', 'deep-cleaning'],
     title: '6 Things to Know Before Hiring a House Cleaner in Auckland',
     date: '7 APRIL 2026',
     image: '/blog/6-things-to-know.jpg',
@@ -156,6 +161,7 @@ export const POSTS: BlogPost[] = [
   },
   {
     slug: '5-cleaning-hacks',
+    related: ['regular-cleaning'],
     title: '5 Simple Cleaning Hacks Using What You Already Have at Home',
     date: '9 APRIL 2026',
     image: '/blog/5-cleaning-hacks.jpg',
@@ -192,6 +198,7 @@ export const POSTS: BlogPost[] = [
   },
   {
     slug: '5-practical-tips',
+    related: ['regular-cleaning', 'deep-cleaning'],
     title: '5 Practical Tips for Keeping Your Home Clean in Auckland',
     date: '13 APRIL 2026',
     image: '/blog/5-practical-tips.jpg',

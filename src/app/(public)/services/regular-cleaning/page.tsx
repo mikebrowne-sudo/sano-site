@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { businessRef } from '@/lib/seo-schema'
 import { CtaBanner } from '@/components/CtaBanner'
 import { ServiceChecklist } from '@/components/ServiceChecklist'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
@@ -123,7 +124,7 @@ export default function RegularCleaningPage() {
             name: 'Regular House Cleaning',
             description:
               'Reliable regular house cleaning in Auckland. Weekly or fortnightly visits by vetted cleaners.',
-            provider: { '@type': 'LocalBusiness', name: 'Sano Property Services' },
+            provider: businessRef,
             areaServed: { '@type': 'City', name: 'Auckland' },
           }),
         }}

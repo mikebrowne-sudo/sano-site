@@ -11,6 +11,7 @@ import { SuburbServicesSection, type ServiceGroup } from './SuburbServicesSectio
 import { NearbySuburbsSection, type NearbySuburb } from './NearbySuburbsSection'
 import { SuburbFaqAccordion } from './SuburbFaqAccordion'
 import { SERVICE_AREAS, getAreasByRegion, hasSuburbPage } from '@/lib/service-areas'
+import { businessRef, breadcrumbSchema } from '@/lib/seo-schema'
 
 /**
  * Shared, data-driven suburb landing page. Renders the exact same section
@@ -229,14 +230,20 @@ export function SuburbLandingTemplate({ data }: { data: SuburbData }) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'Service',
-            name: `${data.suburb} Cleaning Services`,
-            description: data.schemaDescription,
-            provider: { '@type': 'LocalBusiness', name: 'Sano Property Services' },
-            areaServed: areaServedSchema,
-          }),
+          __html: JSON.stringify([
+            {
+              '@context': 'https://schema.org',
+              '@type': 'Service',
+              name: `${data.suburb} Cleaning Services`,
+              description: data.schemaDescription,
+              provider: businessRef,
+              areaServed: areaServedSchema,
+            },
+            breadcrumbSchema([
+              ['Service Areas', '/service-area'],
+              ...(area ? [[data.suburb, `/service-area/${area.slug}`] as const] : []),
+            ]),
+          ]),
         }}
       />
 

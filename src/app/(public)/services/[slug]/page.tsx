@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { businessRef } from '@/lib/seo-schema'
 import { notFound } from 'next/navigation'
 import { SERVICES, getServiceBySlug, getRelatedServices } from '@/lib/services'
 import { HeroSection } from '@/components/HeroSection'
@@ -136,7 +137,7 @@ export default function ServicePage({ params }: Props) {
             '@type': 'Service',
             name: service.name,
             description: service.metaDescription,
-            provider: { '@type': 'LocalBusiness', name: 'Sano Cleaning' },
+            provider: businessRef,
             areaServed: { '@type': 'City', name: 'Auckland' },
           }),
         }}

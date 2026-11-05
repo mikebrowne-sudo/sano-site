@@ -18,7 +18,20 @@ module.exports = {
     '/contractor',
     '/contractor/*',
     '/proposals/*',
+    '/collateral',
+    '/collateral/*',
+    '/agreement',
+    '/agreement/*',
+    '/remittance',
+    '/remittance-*',
+    '/training-docs',
+    '/training-docs/*',
+    '/contractor-setup',
+    '/contractor-setup/*',
   ],
+  // /contact reads searchParams, so it's dynamic and next-sitemap can't see
+  // it in the prerender manifest — add it explicitly (it's the quote page).
+  additionalPaths: async (config) => [await config.transform(config, '/contact')],
   robotsTxtOptions: {
     policies: [
       {

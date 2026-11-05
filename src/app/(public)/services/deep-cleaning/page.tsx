@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { businessRef } from '@/lib/seo-schema'
 import { CtaBanner } from '@/components/CtaBanner'
 import { ServiceChecklist } from '@/components/ServiceChecklist'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
@@ -121,7 +122,7 @@ export default function DeepCleaningPage() {
             name: 'Deep Cleaning',
             description:
               'Professional deep cleaning in Auckland. A full top-to-bottom clean that addresses build-up and detail.',
-            provider: { '@type': 'LocalBusiness', name: 'Sano Property Services' },
+            provider: businessRef,
             areaServed: { '@type': 'City', name: 'Auckland' },
           }),
         }}
