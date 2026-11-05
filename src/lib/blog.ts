@@ -5,13 +5,157 @@ export interface BlogPost {
   excerpt: string
   image: string
   intro: string
-  sections: { heading: string; body: string }[]
+  sections: { heading: string; body: string; points?: string[] }[]
   conclusion: { heading: string; body: string }
   /** Service slugs (src/lib/services.ts) linked under the post. */
   related?: string[]
 }
 
 export const POSTS: BlogPost[] = [
+  {
+    slug: 'end-of-tenancy-cleaning-checklist',
+    title: 'End of Tenancy Cleaning Checklist: What to Clean Before You Hand Back the Keys',
+    date: '6 NOVEMBER 2026',
+    image: '/images/end-of-tenancy.jpg',
+    related: ['end-of-tenancy', 'carpet-upholstery'],
+    excerpt:
+      'Moving out of an Auckland rental? This room-by-room checklist covers what landlords and property managers look at during the final inspection, and the spots that are easy to miss.',
+    intro:
+      "Moving out is busy enough without worrying about the final inspection. Under the Residential Tenancies Act, tenants must leave a rental reasonably clean and tidy and remove or dispose of their rubbish when the tenancy ends. In practice, the inspection is where bond conversations start, so it pays to know what gets looked at. This checklist works through a typical Auckland rental room by room, with the spots that are most often missed.",
+    sections: [
+      {
+        heading: 'Start With Your Ingoing Inspection Report',
+        body: "Before you clean anything, find the inspection report and any photos from when you moved in. The property is checked against that starting point, not against a brand new home. It shows you what condition things were in, what was already marked or worn, and where to focus your time.",
+      },
+      {
+        heading: 'Kitchen',
+        body: "The kitchen is usually the first room checked and the one that takes the longest. Grease builds up in places you don't see day to day.",
+        points: [
+          'Oven inside and out, including racks, trays and the door glass',
+          'Stovetop, knobs and the area around the elements',
+          'Range hood, including the filters',
+          'Inside every cupboard and drawer, plus the doors and handles',
+          'Fridge and freezer emptied, wiped out and left clean',
+          'Dishwasher filter and door seals',
+          'Splashback, benchtops, sink and taps',
+        ],
+      },
+      {
+        heading: 'Bathrooms and Laundry',
+        body: "Soap scum, limescale and mould are the main things that stand out in a bathroom. They take time to shift, so don't leave them to the last hour.",
+        points: [
+          'Shower glass, screens, tiles and grout',
+          'Shower and bath drains cleared',
+          'Toilet, including the base, behind it and the cistern',
+          'Vanity, mirror, drawers and cabinets inside and out',
+          'Extractor fan cover dusted',
+          'Laundry tub, the space behind the machine, and the dryer lint filter',
+        ],
+      },
+      {
+        heading: 'Windows, Sills and Tracks',
+        body: "Condensation is common on windows over the cooler months, so sills and tracks often hold mould and grime. They're quick to check during an inspection and easy to overlook when you're moving furniture out. Clean the inside glass, wipe the frames and sills, and vacuum and wipe out the tracks.",
+      },
+      {
+        heading: 'Walls, Switches, Doors and Skirting',
+        body: "These are small things, but together they change how clean a room looks.",
+        points: [
+          'Light switches, power points and door handles',
+          'Marks and scuffs spot-cleaned (gently, so the paint is not damaged)',
+          'Skirting boards dusted and wiped',
+          'Doors and door frames',
+          'Wardrobes and shelves inside',
+          'Hooks, tape and Blu Tack removed (check your tenancy agreement first)',
+        ],
+      },
+      {
+        heading: 'Floors and Carpets',
+        body: "Vacuum right to the edges and into corners, including inside wardrobes. Hard floors should be mopped once everything else is done. For carpets, check your tenancy agreement and talk to your landlord or property manager about what is expected, especially if there are stains or pets have lived in the home.",
+      },
+      {
+        heading: 'Outdoor Areas, Garage and Rubbish',
+        body: "Rubbish left behind is one of the most common move-out issues. Clear everything from the property, including the garage, garden shed and any outdoor storage. Sweep the garage, decks and paths, and make sure the bins are empty and not overflowing on the day of the inspection.",
+      },
+      {
+        heading: 'Get the Timing Right',
+        body: "Clean once the furniture and boxes are out, not before. Moving day always creates more mess, and it is much easier to clean an empty home properly. Leave yourself a buffer before the final inspection so anything missed can be sorted without a rush.",
+      },
+    ],
+    conclusion: {
+      heading: 'When It Makes Sense to Bring In Help',
+      body: "A proper end of tenancy clean takes longer than most people expect, often on the same week as packing, moving and starting somewhere new. If you would rather hand that part over, Sano's end of tenancy cleaning works through the kitchen, bathrooms, windows, tracks, sills, floors and the detail areas inspections focus on. We go room by room, with time allowed for build-up rather than a quick wipe down. The final decision on the bond sits with your landlord or property manager, but a thorough clean puts you in a good position for that conversation.",
+    },
+  },
+  {
+    slug: 'office-cleaning-checklist',
+    title: 'Office Cleaning Checklist: What to Clean Daily, Weekly and Monthly',
+    date: '6 NOVEMBER 2026',
+    image: '/images/heroes/commercial-office-cleaning-hero.jpg',
+    related: ['commercial-cleaning', 'window-cleaning', 'carpet-upholstery'],
+    excerpt:
+      'A practical office cleaning checklist for Auckland workplaces, broken down into daily, weekly, monthly and periodic tasks, plus how to work out the right frequency for your space.',
+    intro:
+      "Most office cleaning problems come down to one thing: nobody has written down what should be cleaned, and how often. The bins get emptied, but the kitchen slowly gets worse. Desks look fine, but the skirting and vents haven't been touched in months. A simple checklist fixes that. Here's a practical way to break down an office clean, from the daily basics through to the jobs that only need doing a few times a year.",
+    sections: [
+      {
+        heading: 'Daily Tasks',
+        body: "These are the things your team and visitors notice straight away. In a busy office, they need doing every working day.",
+        points: [
+          'Bins and recycling emptied, liners replaced',
+          'Kitchen benches, sink and tables wiped',
+          'Toilets, basins and mirrors cleaned, and supplies restocked',
+          'High-touch points wiped: door handles, light switches, lift buttons and shared equipment',
+          'Reception and entry areas tidied',
+          'Spills and marks on floors spot-cleaned',
+        ],
+      },
+      {
+        heading: 'Weekly Tasks',
+        body: "These keep the office from slowly sliding backwards between the daily cleans.",
+        points: [
+          'All floors vacuumed and mopped, including under desks',
+          'Clear desk surfaces wiped down',
+          'Microwave, kettle and coffee machine exterior cleaned',
+          'Glass doors, partitions and internal glass spot-cleaned',
+          'Meeting rooms reset: tables, chairs and whiteboards',
+          'Kitchen fridge wiped out (after staff have cleared it)',
+        ],
+      },
+      {
+        heading: 'Monthly Tasks',
+        body: "Dust and grime build up gradually in the places nobody looks at. A monthly pass keeps them under control.",
+        points: [
+          'Skirting boards, vents and air conditioning grilles dusted',
+          'Chairs and soft furnishings vacuumed',
+          'Inside kitchen cupboards and appliances wiped out',
+          'Behind and under furniture that is easy to move',
+          'Internal windows and window sills',
+        ],
+      },
+      {
+        heading: 'Periodic and Specialist Cleaning',
+        body: "Some jobs are best booked a few times a year, or when the space needs a reset after a busy period, a fit-out or a change of tenancy.",
+        points: [
+          'Carpet and upholstery cleaning',
+          'External window cleaning',
+          'Deep clean of kitchens and bathrooms',
+          'Post-construction clean after a fit-out or renovation',
+        ],
+      },
+      {
+        heading: 'How to Work Out the Right Frequency',
+        body: "There's no single answer that suits every workplace. The number of people on site, how many visitors you have, whether you share a kitchen, and how the space is used all make a difference. A small office with a handful of staff may only need a clean two or three times a week, while a busy office or shared workplace may need daily cleaning. The best starting point is to walk through the space and agree what needs doing where, then adjust once the routine has been running for a few weeks.",
+      },
+      {
+        heading: 'Be Clear About Who Does What',
+        body: "A lot of frustration with office cleaning comes from unclear expectations. Decide up front what is the cleaner's job and what stays with staff, such as dishes, clearing desks, or emptying the fridge each Friday. Write it down as part of the cleaning scope so everyone knows what to expect, and there's no guessing on either side.",
+      },
+    ],
+    conclusion: {
+      heading: 'A Checklist Only Works If It Is Followed',
+      body: "The value of a checklist is consistency: the same standard every visit, without anyone needing to chase it. If you'd like help setting one up for your workplace, Sano offers a free site walkthrough for commercial cleaning. We'll look at the space with you, agree what needs doing and how often, and put together a tailored proposal.",
+    },
+  },
   {
     slug: 'right-cleaner-for-office',
     related: ['commercial-cleaning'],

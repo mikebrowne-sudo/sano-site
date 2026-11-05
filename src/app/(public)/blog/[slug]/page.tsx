@@ -114,6 +114,13 @@ export default function BlogPostPage({ params }: Props) {
                 {section.heading}
               </h2>
               <p className="text-[16px] text-gray-600 leading-relaxed">{section.body}</p>
+              {section.points && (
+                <ul className="mt-3 space-y-1.5 list-disc pl-5 text-[16px] text-gray-600 leading-relaxed">
+                  {section.points.map((point) => (
+                    <li key={point}>{point}</li>
+                  ))}
+                </ul>
+              )}
             </div>
           ))}
 
