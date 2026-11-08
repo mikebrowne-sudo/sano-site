@@ -80,3 +80,28 @@
 -- This is the 5th straight week and 3rd straight firing tonight with the identical,
 -- verified-fresh-each-time cause. Pushing this note now and notifying the user, rather than
 -- waiting silently for the final ~00:05 firing to repeat the same result a 4th time.
+--
+-- FOURTH / FINAL FIRING (2026-11-08, ~00:05 NZDT Monday): re-verified independently again
+-- from scratch (fresh curl, WebFetch, python3-socket checks; did not reuse the prior three
+-- firings' notes above), per this task's resume protocol. Identical result, same root cause,
+-- now confirmed four times in one night and across five consecutive Sundays:
+--   - WebFetch https://www.sano.nz/contact -> "getaddrinfo ENOTFOUND www.sano.nz" (host
+--     outside this session's allowed network domains).
+--   - curl -> www.sano.nz:443 and dns.google:443 both "CONNECT tunnel failed, response 403"
+--     (connect_rejected) from the egress proxy; confirmed via the proxy's own
+--     /__agentproxy/status endpoint (recentRelayFailures shows the same connect_rejected
+--     pattern against dozens of other business/SaaS hosts, e.g. mcp.close.com,
+--     mcp.zoominfo.com, app.hex.tech - this is a blanket destination-host policy block, not
+--     a sano.nz-specific or transient issue).
+--   - curl -> registry.npmjs.org (allowlisted control) -> HTTP 200, proving the proxy
+--     mechanism itself is healthy.
+--   - python3 -I socket.gethostbyname('google.com') -> gaierror -2 (name not known); no
+--     dig/host/nslookup binaries installed.
+--   - WebSearch still works but returns third-party snippets only - no own-site email
+--     confirmation and no MX data, so it cannot satisfy either hard rule on its own.
+-- CAMPAIGN OUTCOME FOR THIS WEEK: 0 leads added across all 4 firings (16:06, ~21:06, ~23:05,
+-- ~00:05 NZDT). This is the 5th consecutive Sunday (2026-10-18, 2026-10-25, 2026-11-01,
+-- 2026-11-08) this scheduled task has produced zero leads for the identical, unfixed
+-- environment network-policy cause. This session's final action is to push this note and
+-- notify the user directly, since the fix is outside any session's control and needs
+-- attention on the cloud environment's egress/DNS allowlist before next Sunday's run.
