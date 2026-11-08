@@ -59,3 +59,24 @@
 -- Flagging to the user now rather than waiting for the final firing: this is the 5th
 -- consecutive failed firing/week on the identical cause. No further firing tonight can
 -- succeed unless the environment's egress/DNS policy changes mid-session.
+--
+-- THIRD FIRING (2026-11-08, ~23:05 NZDT): re-verified independently again from scratch
+-- (ran fresh curl/WebFetch/WebSearch/python3-socket checks, did not just reuse the first
+-- and second firings' notes above). Identical result, same root cause:
+--   - WebFetch https://www.sano.nz/contact -> "getaddrinfo ENOTFOUND www.sano.nz" (host
+--     outside this session's allowed network domains).
+--   - curl -> www.kensingtonswan.com:443 and dns.google:443 both "CONNECT tunnel failed,
+--     response 403" (connect_rejected) from the egress proxy; the proxy's own
+--     /__agentproxy/status endpoint confirms these as policy-level connect_rejected
+--     entries in recentRelayFailures, not transient errors.
+--   - curl -> registry.npmjs.org (allowlisted control) -> HTTP 200, so the proxy itself is
+--     healthy; this is a destination-host policy block on business-web + DNS-lookup hosts.
+--   - python3 -I socket.gethostbyname('google.com') -> gaierror -2 (name not known); no
+--     dig/host/nslookup binaries present.
+--   - WebSearch still works but only returns third-party snippets (tried: Newmarket
+--     accounting firms) with no confirmed email on any business's own site and no MX data.
+-- Same conclusion as the first two firings tonight: per the task's hard rules (own-site
+-- email confirmation + MX check, both impossible here), no lead at any grade can be added.
+-- This is the 5th straight week and 3rd straight firing tonight with the identical,
+-- verified-fresh-each-time cause. Pushing this note now and notifying the user, rather than
+-- waiting silently for the final ~00:05 firing to repeat the same result a 4th time.
