@@ -41,3 +41,21 @@
 -- (allowing outbound business-web + DNS traffic through this environment's egress proxy, or
 -- an equivalent fetch/DNS tool) is outside this session's control and needs the user's or
 -- an admin's attention on the environment's network policy.
+--
+-- SECOND FIRING (2026-11-08, ~21:06 NZDT): re-verified independently from scratch, not
+-- trusting the first firing's notes, before writing any lead. Same result:
+--   - WebFetch https://www.sano.nz/contact -> "getaddrinfo ENOTFOUND www.sano.nz" (host
+--     outside this session's allowed network domains).
+--   - curl -> www.sano.nz:443 and dns.google:443 both "CONNECT tunnel failed, response 403"
+--     / connect_rejected from the egress proxy.
+--   - python3 -I socket.gethostbyname('google.com') -> gaierror -2 (name not known); no
+--     dig/nslookup/host binaries present.
+--   - curl to registry.npmjs.org (allowlisted control) -> HTTP 200, so the proxy mechanism
+--     itself is fine; this is a destination-host policy block, not a transient fault.
+--   - WebSearch still works but only returns third-party snippets with emails redacted
+--     (e.g. Newmarket accountants search) - cannot confirm an email is published on a
+--     business's own site, and cannot return MX records. Per the task's hard rules this
+--     still blocks every lead at every grade, so nothing was added this firing either.
+-- Flagging to the user now rather than waiting for the final firing: this is the 5th
+-- consecutive failed firing/week on the identical cause. No further firing tonight can
+-- succeed unless the environment's egress/DNS policy changes mid-session.
