@@ -1,0 +1,107 @@
+-- Sano Sunday lead burst 2026-11-08 - review, then run in the Supabase SQL editor
+-- Each insert skips existing companies/emails.
+
+-- ===== SUMMARY (running totals, updated after each batch) =====
+-- Total: 0 | A-grade: 0 | B-grade: 0
+-- Category mix: Offices 0% (target ~40%) | Education 0% (target ~25%) | Hospitality 0% (target ~20%) | Clinic/Other 0% (cap ~15%)
+-- Sectors x suburbs covered: (none yet)
+--
+-- TOOL OUTAGE (2026-11-08, first firing ~16:06 NZDT): this is the FOURTH consecutive Sunday
+-- with the exact same outage that produced zero leads on 2026-10-18, 2026-10-25 and
+-- 2026-11-01 (see docs/db/leads-sunday-2026-11-01.sql and that branch's PR for the prior
+-- three weeks of detail) - unfixed across three prior flagged weeks. Verified independently
+-- again this firing before writing any lead, not trusting last week's notes:
+--   - WebFetch on https://www.sano.nz/contact fails: "getaddrinfo ENOTFOUND www.sano.nz" -
+--     the harness's own error says the host is outside this session's allowed network
+--     domains.
+--   - curl to a second, unrelated business domain (www.kensingtonswan.com) gets
+--     "CONNECT tunnel failed, response 403" (connect_rejected) from the egress proxy -
+--     confirms this is not a sano.nz-specific DNS problem, it's a blanket deny on
+--     business-web hosts.
+--   - curl to dns.google (for MX-record deliverability checks) also gets the same 403
+--     connect_rejected.
+--   - dig, nslookup and host are not installed in this environment; a sandboxed Python3
+--     socket.gethostbyname also fails (gaierror -2, name not known) even for google.com -
+--     no method available in this session can resolve DNS or fetch MX records for any
+--     business domain.
+--   - The allowlisted dev registry (registry.npmjs.org) returns HTTP 200 over the same
+--     proxy, confirming the proxy mechanism itself works and this is a destination-host
+--     policy denial, not a broken tool or transient blip.
+--   - WebSearch (server-side) is the only working research tool and returns snippets only -
+--     it cannot fetch a business's own contact/team page to confirm a published email, and
+--     it cannot return MX records.
+-- Per this task's own hard rules, this blocks the whole campaign: an A-grade lead requires a
+-- named contact + email confirmed on the business's OWN site via a direct page fetch
+-- (impossible - WebFetch and curl are both blocked for every business host tried), and EVERY
+-- lead at ANY grade requires an MX deliverability check (impossible - no DNS resolution path
+-- exists in this session). WebSearch snippets cannot substitute for either per the task's
+-- explicit instructions, so no lead at any grade was added rather than fabricate
+-- verification that could not actually be performed.
+-- This is now the fourth straight Sunday this scheduled task has produced nothing. The fix
+-- (allowing outbound business-web + DNS traffic through this environment's egress proxy, or
+-- an equivalent fetch/DNS tool) is outside this session's control and needs the user's or
+-- an admin's attention on the environment's network policy.
+--
+-- SECOND FIRING (2026-11-08, ~21:06 NZDT): re-verified independently from scratch, not
+-- trusting the first firing's notes, before writing any lead. Same result:
+--   - WebFetch https://www.sano.nz/contact -> "getaddrinfo ENOTFOUND www.sano.nz" (host
+--     outside this session's allowed network domains).
+--   - curl -> www.sano.nz:443 and dns.google:443 both "CONNECT tunnel failed, response 403"
+--     / connect_rejected from the egress proxy.
+--   - python3 -I socket.gethostbyname('google.com') -> gaierror -2 (name not known); no
+--     dig/nslookup/host binaries present.
+--   - curl to registry.npmjs.org (allowlisted control) -> HTTP 200, so the proxy mechanism
+--     itself is fine; this is a destination-host policy block, not a transient fault.
+--   - WebSearch still works but only returns third-party snippets with emails redacted
+--     (e.g. Newmarket accountants search) - cannot confirm an email is published on a
+--     business's own site, and cannot return MX records. Per the task's hard rules this
+--     still blocks every lead at every grade, so nothing was added this firing either.
+-- Flagging to the user now rather than waiting for the final firing: this is the 5th
+-- consecutive failed firing/week on the identical cause. No further firing tonight can
+-- succeed unless the environment's egress/DNS policy changes mid-session.
+--
+-- THIRD FIRING (2026-11-08, ~23:05 NZDT): re-verified independently again from scratch
+-- (ran fresh curl/WebFetch/WebSearch/python3-socket checks, did not just reuse the first
+-- and second firings' notes above). Identical result, same root cause:
+--   - WebFetch https://www.sano.nz/contact -> "getaddrinfo ENOTFOUND www.sano.nz" (host
+--     outside this session's allowed network domains).
+--   - curl -> www.kensingtonswan.com:443 and dns.google:443 both "CONNECT tunnel failed,
+--     response 403" (connect_rejected) from the egress proxy; the proxy's own
+--     /__agentproxy/status endpoint confirms these as policy-level connect_rejected
+--     entries in recentRelayFailures, not transient errors.
+--   - curl -> registry.npmjs.org (allowlisted control) -> HTTP 200, so the proxy itself is
+--     healthy; this is a destination-host policy block on business-web + DNS-lookup hosts.
+--   - python3 -I socket.gethostbyname('google.com') -> gaierror -2 (name not known); no
+--     dig/host/nslookup binaries present.
+--   - WebSearch still works but only returns third-party snippets (tried: Newmarket
+--     accounting firms) with no confirmed email on any business's own site and no MX data.
+-- Same conclusion as the first two firings tonight: per the task's hard rules (own-site
+-- email confirmation + MX check, both impossible here), no lead at any grade can be added.
+-- This is the 5th straight week and 3rd straight firing tonight with the identical,
+-- verified-fresh-each-time cause. Pushing this note now and notifying the user, rather than
+-- waiting silently for the final ~00:05 firing to repeat the same result a 4th time.
+--
+-- FOURTH / FINAL FIRING (2026-11-08, ~00:05 NZDT Monday): re-verified independently again
+-- from scratch (fresh curl, WebFetch, python3-socket checks; did not reuse the prior three
+-- firings' notes above), per this task's resume protocol. Identical result, same root cause,
+-- now confirmed four times in one night and across five consecutive Sundays:
+--   - WebFetch https://www.sano.nz/contact -> "getaddrinfo ENOTFOUND www.sano.nz" (host
+--     outside this session's allowed network domains).
+--   - curl -> www.sano.nz:443 and dns.google:443 both "CONNECT tunnel failed, response 403"
+--     (connect_rejected) from the egress proxy; confirmed via the proxy's own
+--     /__agentproxy/status endpoint (recentRelayFailures shows the same connect_rejected
+--     pattern against dozens of other business/SaaS hosts, e.g. mcp.close.com,
+--     mcp.zoominfo.com, app.hex.tech - this is a blanket destination-host policy block, not
+--     a sano.nz-specific or transient issue).
+--   - curl -> registry.npmjs.org (allowlisted control) -> HTTP 200, proving the proxy
+--     mechanism itself is healthy.
+--   - python3 -I socket.gethostbyname('google.com') -> gaierror -2 (name not known); no
+--     dig/host/nslookup binaries installed.
+--   - WebSearch still works but returns third-party snippets only - no own-site email
+--     confirmation and no MX data, so it cannot satisfy either hard rule on its own.
+-- CAMPAIGN OUTCOME FOR THIS WEEK: 0 leads added across all 4 firings (16:06, ~21:06, ~23:05,
+-- ~00:05 NZDT). This is the 5th consecutive Sunday (2026-10-18, 2026-10-25, 2026-11-01,
+-- 2026-11-08) this scheduled task has produced zero leads for the identical, unfixed
+-- environment network-policy cause. This session's final action is to push this note and
+-- notify the user directly, since the fix is outside any session's control and needs
+-- attention on the cloud environment's egress/DNS allowlist before next Sunday's run.
