@@ -218,7 +218,7 @@ export default async function ContractorDetailPage({ params }: { params: { id: s
         className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"
       >
         <ArrowLeft size={14} />
-        Back to contractors
+        Back to workforce
       </Link>
 
       <div className="flex items-center justify-between mb-8">

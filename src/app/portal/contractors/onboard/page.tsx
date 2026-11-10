@@ -19,7 +19,7 @@ export default async function OnboardContractorPage() {
         className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"
       >
         <ArrowLeft size={14} />
-        Back to contractors
+        Back to workforce
       </Link>
 
       <h1 className="text-2xl font-bold text-sage-800 mb-1">Onboard a contractor</h1>

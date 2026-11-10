@@ -56,6 +56,8 @@ const HUB_DESTINATIONS: { href: string; label: string; group: string }[] = [
   { href: '/portal/campaigns', label: 'Campaigns', group: 'Marketing' },
   { href: '/portal/reviews', label: 'Reviews', group: 'Marketing' },
   { href: '/portal/jobs/calendar', label: 'Calendar', group: 'Operations' },
+  { href: '/portal/contractors/onboard', label: 'Onboard a contractor', group: 'People' },
+  { href: '/portal/contractors/new', label: 'New worker', group: 'People' },
   { href: '/portal/staff', label: 'Staff', group: 'People' },
   { href: '/portal/settings/accountants', label: 'Accountant access', group: 'System' },
   { href: '/portal/settings/archive', label: 'Archived records', group: 'System' },

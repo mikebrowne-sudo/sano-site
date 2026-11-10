@@ -57,7 +57,8 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     heading: 'People',
     items: [
-      { href: '/portal/contractors', label: 'Workforce',   icon: HardHat },  // staff + contractors
+      { href: '/portal/contractors', label: 'Workforce',   icon: HardHat },  // employees + contractors (onboarding: /portal/contractors/onboard)
+      { href: '/portal/agreements',  label: 'Agreements',  icon: FileSignature }, // employee + contractor agreements
       { href: '/portal/applicants',  label: 'Applicants',  icon: UserPlus },
       { href: '/portal/training',    label: 'Training',    icon: BookOpen },
     ],
@@ -74,7 +75,6 @@ export const NAV_GROUPS: NavGroup[] = [
     heading: 'System',
     items: [
       { href: '/portal/settings',   label: 'Settings',    icon: Settings },  // Accountant access + Archive live inside Settings
-      { href: '/portal/agreements', label: 'Agreements',  icon: FileSignature },
       { href: '/portal/alerts',     label: 'Alerts',      icon: Bell },
       { href: '/portal/analytics',  label: 'Analytics',   icon: BarChart3 },
     ],

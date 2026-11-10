@@ -30,10 +30,10 @@ export default async function AgreementsPage() {
 
   return (
     <div className="max-w-3xl">
-      <Link href="/portal/settings" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 mb-4">
-        <ArrowLeft size={14} /> Settings
+      <Link href="/portal/contractors" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 mb-4">
+        <ArrowLeft size={14} /> Workforce
       </Link>
-      <h1 className="text-3xl font-bold text-sage-800 tracking-tight mb-1">Employment agreements</h1>
+      <h1 className="text-3xl font-bold text-sage-800 tracking-tight mb-1">Agreements</h1>
       <p className="text-sm text-sage-500 mb-6">Create a permanent, casual, or contractor agreement, send the private link to complete + e-sign, and store their signed copy.</p>
 
       <div className="mb-8">

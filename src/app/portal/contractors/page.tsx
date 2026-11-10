@@ -33,9 +33,9 @@ export default async function ContractorsPage() {
   if (error) {
     return (
       <div>
-        <h1 className="text-3xl tracking-tight font-bold text-sage-800 mb-8">Contractors</h1>
+        <h1 className="text-3xl tracking-tight font-bold text-sage-800 mb-8">Workforce</h1>
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700 text-sm">
-          Failed to load contractors: {error.message}
+          Failed to load the workforce: {error.message}
         </div>
       </div>
     )
@@ -46,7 +46,7 @@ export default async function ContractorsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl tracking-tight font-bold text-sage-800">Contractors</h1>
+        <h1 className="text-3xl tracking-tight font-bold text-sage-800">Workforce</h1>
         <div className="flex items-center gap-2">
           <Link
             href="/portal/contractors/onboard"
@@ -60,7 +60,7 @@ export default async function ContractorsPage() {
             className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
           >
             <Plus size={16} />
-            New Contractor
+            New worker
           </Link>
         </div>
       </div>
@@ -68,13 +68,13 @@ export default async function ContractorsPage() {
       {rows.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
           <HardHat size={32} className="text-sage-200 mx-auto mb-3" />
-          <p className="text-sage-600 text-sm mb-4">No contractors yet.</p>
+          <p className="text-sage-600 text-sm mb-4">No workers yet.</p>
           <Link
             href="/portal/contractors/new"
             className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
           >
             <Plus size={16} />
-            Add your first contractor
+            Add your first worker
           </Link>
         </div>
       ) : (
