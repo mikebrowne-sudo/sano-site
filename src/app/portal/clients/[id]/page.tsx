@@ -42,7 +42,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   const [{ data: client, error }, { data: { user } }] = await Promise.all([
     supabase
       .from('clients')
-      .select('id, name, company_name, branch_name, email, phone, service_address, billing_address, billing_same_as_service, notes, auth_user_id, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, is_archived, archived_at, allow_card_payment')
+      .select('id, name, company_name, branch_name, email, phone, service_address, billing_address, billing_same_as_service, notes, auth_user_id, invite_sent_at, invite_accepted_at, access_disabled_at, access_disabled_reason, is_archived, archived_at, allow_card_payment, invoice_cc_emails')
       .eq('id', params.id)
       .single(),
     supabase.auth.getUser(),
@@ -142,6 +142,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     billing_address:         asStrOrNull(c.billing_address),
     billing_same_as_service: asBool(c.billing_same_as_service, true),
     notes:                   asStrOrNull(c.notes),
+    invoice_cc_emails:       Array.isArray(c.invoice_cc_emails) ? (c.invoice_cc_emails as unknown[]).filter((e): e is string => typeof e === 'string') : [],
     auth_user_id:            asStrOrNull(c.auth_user_id),
     invite_sent_at:          asStrOrNull(c.invite_sent_at),
     invite_accepted_at:      asStrOrNull(c.invite_accepted_at),
@@ -209,6 +210,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           billing_address: vm.billing_address,
           billing_same_as_service: vm.billing_same_as_service,
           notes: vm.notes,
+          invoice_cc_emails: vm.invoice_cc_emails,
         }}
       />
 

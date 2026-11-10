@@ -19,6 +19,8 @@ export interface ReminderCandidate {
   invoiceNumber: string
   clientName: string
   to: string
+  /** The client's "Also send invoices to" list. */
+  cc: string[]
   greeting: string
   amountDue: number
   dueDate: string | null
@@ -45,7 +47,7 @@ type Row = InvoiceAmountFields & {
   contact_email: string | null
   accounts_contact_name: string | null
   accounts_email: string | null
-  clients: { name: string | null; email: string | null; accounts_email: string | null; allow_card_payment: boolean | null } | null
+  clients: { name: string | null; email: string | null; accounts_email: string | null; allow_card_payment: boolean | null; invoice_cc_emails: string[] | null } | null
 }
 
 export async function loadReminderCandidates(
@@ -59,7 +61,7 @@ export async function loadReminderCandidates(
       id, invoice_number, due_date, share_token, client_reference, payment_type, allow_card_payment,
       base_price, discount, gst_included, invoice_items ( price ),
       contact_id, contact_name, contact_email, accounts_contact_name, accounts_email,
-      clients ( name, email, accounts_email, allow_card_payment )
+      clients ( name, email, accounts_email, allow_card_payment, invoice_cc_emails )
     `)
     .is('deleted_at', null)
     .eq('status', 'sent')
@@ -102,6 +104,7 @@ export async function loadReminderCandidates(
       invoiceNumber: r.invoice_number,
       clientName: client?.name ?? '—',
       to: (r.accounts_email || client?.accounts_email || r.contact_email || client?.email || '').trim(),
+      cc: client?.invoice_cc_emails ?? [],
       greeting: resolveGreeting(
         [r.contact_id ? contactName.get(r.contact_id) : null, r.contact_name, r.accounts_contact_name],
         client?.name ?? null,

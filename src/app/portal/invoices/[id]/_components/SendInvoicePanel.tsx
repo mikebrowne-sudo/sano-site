@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { sendInvoiceEmail } from '../_actions'
 import { Send, X, CheckCircle } from 'lucide-react'
 import clsx from 'clsx'
+import { invoiceCcList, parseCcEmails } from '@/lib/invoice-cc'
 
 export function SendInvoicePanel({
   invoiceId,
@@ -16,6 +17,7 @@ export function SendInvoicePanel({
   //   optional CC = primary contact when present
   accountsEmail = '',
   primaryContactEmail = '',
+  clientCcEmails = [],
   clientReference = '',
   requiresPo = false,
   cardAvailable = false,
@@ -32,6 +34,8 @@ export function SendInvoicePanel({
   printUrl: string
   accountsEmail?: string
   primaryContactEmail?: string
+  /** The client's "Also send invoices to" list (clients.invoice_cc_emails). */
+  clientCcEmails?: string[]
   clientReference?: string
   requiresPo?: boolean
   /** Card payment is offered on this invoice (live Stripe, not switched off). */
@@ -50,6 +54,8 @@ export function SendInvoicePanel({
   const [open, setOpen] = useState(false)
   const [to, setTo] = useState(defaultTo)
   const [ccPrimary, setCcPrimary] = useState(false)
+  const [alsoTo, setAlsoTo] = useState(clientCcEmails.join(', '))
+  const [sentCc, setSentCc] = useState<string[]>([])
   const money = (n: number) => new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
   const fullyPaid = paidAmount > 0 && (balanceDue ?? 0) < 0.005
   const partPaid = paidAmount > 0 && !fullyPaid
@@ -89,14 +95,19 @@ export function SendInvoicePanel({
       return
     }
 
-    const cc = ccPrimary && showCcOption ? [primaryTrimmed] : undefined
+    const extra = parseCcEmails(alsoTo)
+    if (extra.invalid.length > 0) {
+      setError(`Not a valid email address: ${extra.invalid.join(', ')}`)
+      return
+    }
+    const cc = invoiceCcList(to, ccPrimary && showCcOption ? [primaryTrimmed] : [], extra.emails)
 
     startTransition(async () => {
       const result = await sendInvoiceEmail({
         invoice_id: invoiceId,
         invoice_number: invoiceNumber,
         to: to.trim(),
-        cc,
+        cc: cc.length > 0 ? cc : undefined,
         subject,
         message,
         print_url: printUrl,
@@ -105,6 +116,7 @@ export function SendInvoicePanel({
       if (result?.error) {
         setError(result.error)
       } else {
+        setSentCc(cc)
         setSent(true)
       }
     })
@@ -116,8 +128,8 @@ export function SendInvoicePanel({
         <CheckCircle size={18} className="text-emerald-600 shrink-0" />
         <span className="text-sm text-emerald-700">
           Invoice sent to <strong>{to}</strong>
-          {ccPrimary && showCcOption && (
-            <> · CC <strong>{primaryTrimmed}</strong></>
+          {sentCc.length > 0 && (
+            <> · CC <strong>{sentCc.join(', ')}</strong></>
           )}
           {fullyPaid ? '. It stays marked as paid.' : '. Status updated to sent.'}
         </span>
@@ -194,6 +206,20 @@ export function SendInvoicePanel({
           </span>
         </label>
       )}
+
+      <label className="block">
+        <span className="block text-sm font-semibold text-sage-800 mb-1.5">Also send to</span>
+        <input
+          type="text"
+          value={alsoTo}
+          onChange={(e) => setAlsoTo(e.target.value)}
+          placeholder="Optional: other emails, separated by commas"
+          className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-sm"
+        />
+        <span className="block text-[11px] text-sage-500 mt-1">
+          Filled in from the client&apos;s &ldquo;Also send invoices to&rdquo; list. They get a copy.
+        </span>
+      </label>
 
       <label className="block">
         <span className="block text-sm font-semibold text-sage-800 mb-1.5">Subject</span>

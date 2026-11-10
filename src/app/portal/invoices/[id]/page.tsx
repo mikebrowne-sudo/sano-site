@@ -95,7 +95,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   const [{ data: clientRecord }, { data: linkedJob }, { data: linkedQuote }, { data: candidateJobs }] = await Promise.all([
     supabase
       .from('clients')
-      .select('name, email, accounts_email')
+      .select('name, email, accounts_email, invoice_cc_emails')
       .eq('id', invoice.client_id)
       .single(),
     supabase
@@ -295,6 +295,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             // email, so "send all their invoices to X" is a one-field change.
             accountsEmail={invoice.accounts_email || clientRecord?.accounts_email || ''}
             primaryContactEmail={invoice.contact_email ?? ''}
+            clientCcEmails={(clientRecord?.invoice_cc_emails as string[] | null) ?? []}
             clientReference={invoice.client_reference ?? ''}
             requiresPo={invoice.requires_po ?? false}
             cardAvailable={canTakeRealPayments() && invoiceOffersCard({ ...invoice, client_allow_card_payment: clientCardSetting(invoice.clients) })}
@@ -369,6 +370,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
           greeting={greeting}
           defaultTo={invoice.accounts_email || clientRecord?.accounts_email || invoice.contact_email || clientRecord?.email || ''}
           primaryContactEmail={invoice.contact_email ?? ''}
+          clientCcEmails={(clientRecord?.invoice_cc_emails as string[] | null) ?? []}
           amountDue={amountOwed}
           dueDate={(invoice.due_date as string | null) ?? null}
           daysOverdue={Math.max(0, daysOverdue(invoice.due_date as string | null, nzToday()))}

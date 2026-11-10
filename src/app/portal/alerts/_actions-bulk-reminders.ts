@@ -29,6 +29,7 @@ import {
   renderReminderEmailHtml,
   type ReminderStage,
 } from '@/lib/invoice-reminders'
+import { invoiceCcList } from '@/lib/invoice-cc'
 import { SANO_ACCOUNT_NAME, SANO_ACCOUNT_NUMBER } from '@/lib/sano-bank-details'
 
 export async function sendCustomerReminders(
@@ -49,6 +50,7 @@ export async function sendCustomerReminders(
   if (invoices.some((i) => reminderGroupKey(i.to) !== reminderGroupKey(to))) {
     return { error: 'These invoices go to different email addresses.' }
   }
+  const cc = invoiceCcList(to, ...invoices.map((i) => i.cc))
 
   const origin = process.env.NEXT_PUBLIC_SITE_URL ?? `https://${headers().get('host') ?? 'sano.nz'}`
   const withUrls = invoices.map((i) => ({ ...i, shareUrl: `${origin}/share/invoice/${i.shareToken}` }))
@@ -101,6 +103,7 @@ export async function sendCustomerReminders(
     from: 'Sano <noreply@sano.nz>',
     replyTo: getCustomerReplyToEmail(),
     to,
+    ...(cc.length > 0 ? { cc } : {}),
     subject,
     html,
     attachments,
@@ -114,7 +117,7 @@ export async function sendCustomerReminders(
       stage: i.stage,
       sent_by: user?.id ?? null,
       to_email: to,
-      cc_emails: null,
+      cc_emails: cc.length > 0 ? cc : null,
       amount_due: i.amountDue,
       subject,
     })),
