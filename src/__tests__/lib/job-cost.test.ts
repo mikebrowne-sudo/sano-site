@@ -111,6 +111,12 @@ describe('getWorkerLabourCost', () => {
   it('returns 0 when allocated hours are null (no fabricated cost)', () => {
     expect(getWorkerLabourCost(jw({ pay_rate: 50, hours_allocated: null }))).toBe(0)
   })
+
+  it('a set amount per visit is the whole cost, whatever the hours', () => {
+    // Recurring weekly clean: $140 per visit, no hours on the worker row.
+    expect(getWorkerLabourCost(jw({ pay_type: 'per_visit', pay_rate: 140, hours_allocated: null }))).toBe(140)
+    expect(getWorkerLabourCost(jw({ pay_type: 'per_visit', pay_rate: 140, hours_allocated: 4 }))).toBe(140)
+  })
 })
 
 describe('getWorkerRateSource', () => {

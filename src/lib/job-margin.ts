@@ -73,6 +73,7 @@ export function workerRowToInput(w: Record<string, unknown>): WorkerInput {
     full_name: c?.full_name ?? '—',
     hourly_rate: c?.hourly_rate ?? null,
     pay_rate: (w.pay_rate as number | null) ?? null,
+    pay_type: (w.pay_type as string | null) ?? null,
     hours_allocated: (w.hours_allocated as number | null) ?? null,
     actual_hours: (w.actual_hours as number | null) ?? null,
     extra_hours: (w.extra_hours as number | null) ?? 0,
@@ -100,7 +101,7 @@ export async function loadJobMargins(
 
   const { data: wRows } = await supabase
     .from('job_workers')
-    .select('job_id, contractor_id, hours_allocated, actual_hours, pay_rate, extra_hours, extra_hours_status, contractors ( full_name, hourly_rate, worker_type, holiday_pay_method, holiday_pay_percent, kiwisaver_enrolled, kiwisaver_employer_rate )')
+    .select('job_id, contractor_id, hours_allocated, actual_hours, pay_rate, pay_type, extra_hours, extra_hours_status, contractors ( full_name, hourly_rate, worker_type, holiday_pay_method, holiday_pay_percent, kiwisaver_enrolled, kiwisaver_employer_rate )')
     .in('job_id', ids)
 
   const byJob = new Map<string, WorkerInput[]>()

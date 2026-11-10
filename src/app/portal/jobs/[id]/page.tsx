@@ -344,6 +344,7 @@ export default async function JobDetailPage({
       return {
         contractor_id: w.contractor_id as string,
         pay_rate: (w.pay_rate as number | null) ?? null,
+        pay_type: (w.pay_type as string | null) ?? null,
         contractor_hourly_rate: c?.hourly_rate ?? null,
         approved_hours: (w.approved_hours as number | null) ?? null,
         actual_hours: (w.actual_hours as number | null) ?? null,

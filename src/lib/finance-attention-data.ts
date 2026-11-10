@@ -38,6 +38,7 @@ export interface FinanceAttentionJob {
   job_workers: ReadonlyArray<{
     contractor_id: string
     pay_rate: number | null
+    pay_type?: string | null
     approved_hours: number | null
     actual_hours: number | null
     hours_allocated: number | null
@@ -103,6 +104,7 @@ export function buildFinanceAttentionRows(
     const workers = (job.job_workers ?? []).map((w) => ({
       contractor_id: w.contractor_id,
       pay_rate: w.pay_rate,
+      pay_type: w.pay_type ?? null,
       contractor_hourly_rate: w.contractors?.hourly_rate ?? null,
       approved_hours: w.approved_hours,
       actual_hours: w.actual_hours,
