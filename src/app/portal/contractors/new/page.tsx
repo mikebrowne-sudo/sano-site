@@ -10,10 +10,10 @@ export default function NewContractorPage() {
         className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 transition-colors mb-4"
       >
         <ArrowLeft size={14} />
-        Back to contractors
+        Back to workforce
       </Link>
 
-      <h1 className="text-2xl font-bold text-sage-800 mb-8">New Contractor</h1>
+      <h1 className="text-2xl font-bold text-sage-800 mb-8">New worker</h1>
 
       <ContractorForm />
     </div>
