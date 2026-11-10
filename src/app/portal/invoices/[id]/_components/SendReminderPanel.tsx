@@ -10,6 +10,7 @@ import { BellRing, CheckCircle, Eye, Phone, X } from 'lucide-react'
 import { sendInvoiceReminder } from '../_actions-reminder'
 import { buildReminderEmail, nextReminderStage, reminderStatus, REMINDER_LABEL, renderReminderEmailHtml } from '@/lib/invoice-reminders'
 import { SANO_ACCOUNT_NAME, SANO_ACCOUNT_NUMBER } from '@/lib/sano-bank-details'
+import { invoiceCcList, parseCcEmails } from '@/lib/invoice-cc'
 
 export interface ReminderHistoryRow {
   stage: number
@@ -27,6 +28,7 @@ export function SendReminderPanel({
   greeting,
   defaultTo,
   primaryContactEmail,
+  clientCcEmails = [],
   amountDue,
   dueDate,
   daysOverdue,
@@ -40,6 +42,8 @@ export function SendReminderPanel({
   greeting: string
   defaultTo: string
   primaryContactEmail: string
+  /** The client's "Also send invoices to" list (clients.invoice_cc_emails). */
+  clientCcEmails?: string[]
   amountDue: number
   dueDate: string | null
   daysOverdue: number
@@ -56,6 +60,7 @@ export function SendReminderPanel({
   const [open, setOpen] = useState(false)
   const [to, setTo] = useState(defaultTo)
   const [ccPrimary, setCcPrimary] = useState(false)
+  const [alsoTo, setAlsoTo] = useState(clientCcEmails.join(', '))
   const [subject, setSubject] = useState(draft.subject)
   const [message, setMessage] = useState(draft.message)
   const [error, setError] = useState<string | null>(null)
@@ -69,11 +74,17 @@ export function SendReminderPanel({
 
   function send() {
     setError(null)
+    const extra = parseCcEmails(alsoTo)
+    if (extra.invalid.length > 0) {
+      setError(`Not a valid email address: ${extra.invalid.join(', ')}`)
+      return
+    }
+    const cc = invoiceCcList(to, ccPrimary && showCc ? [primary] : [], extra.emails)
     startTransition(async () => {
       const res = await sendInvoiceReminder({
         invoice_id: invoiceId,
         to,
-        cc: ccPrimary && showCc ? [primary] : undefined,
+        cc: cc.length > 0 ? cc : undefined,
         subject,
         message,
       })
@@ -155,6 +166,15 @@ export function SendReminderPanel({
               CC {primary}
             </label>
           )}
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-sage-800">Also send to</span>
+            <input
+              value={alsoTo}
+              onChange={(e) => setAlsoTo(e.target.value)}
+              placeholder="Optional: other emails, separated by commas"
+              className="w-full rounded-lg border border-sage-200 px-4 py-3 text-sm text-sage-800 placeholder:text-sage-300 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-sage-500"
+            />
+          </label>
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-sage-800">Subject</span>
             <input

@@ -16,6 +16,8 @@ interface ClientInput {
   billing_address?: string
   billing_same_as_service: boolean
   notes?: string
+  /** Only sent by the edit form; create leaves the column at its default. */
+  invoice_cc_emails?: string[]
 }
 
 export async function createClientAction(input: ClientInput) {
@@ -61,6 +63,7 @@ export async function updateClientAction(id: string, input: ClientInput) {
       billing_address: input.billing_same_as_service ? null : (input.billing_address || null),
       billing_same_as_service: input.billing_same_as_service,
       notes: input.notes || null,
+      ...(input.invoice_cc_emails ? { invoice_cc_emails: input.invoice_cc_emails } : {}),
     })
     .eq('id', id)
 

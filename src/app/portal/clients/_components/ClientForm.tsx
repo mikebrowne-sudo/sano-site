@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { createClientAction, updateClientAction } from '../_actions'
 import { AddressField } from '../../_components/AddressField'
 import clsx from 'clsx'
+import { parseCcEmails } from '@/lib/invoice-cc'
 
 interface ClientData {
   id?: string
@@ -16,6 +17,7 @@ interface ClientData {
   billing_address: string | null
   billing_same_as_service: boolean
   notes: string | null
+  invoice_cc_emails?: string[]
 }
 
 export function ClientForm({ client }: { client?: ClientData }) {
@@ -30,6 +32,7 @@ export function ClientForm({ client }: { client?: ClientData }) {
   const [billingAddress, setBillingAddress] = useState(client?.billing_address ?? '')
   const [billingSame, setBillingSame] = useState(client?.billing_same_as_service ?? true)
   const [notes, setNotes] = useState(client?.notes ?? '')
+  const [invoiceCc, setInvoiceCc] = useState((client?.invoice_cc_emails ?? []).join(', '))
 
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -45,6 +48,12 @@ export function ClientForm({ client }: { client?: ClientData }) {
       return
     }
 
+    const cc = parseCcEmails(invoiceCc)
+    if (cc.invalid.length > 0) {
+      setError(`Not a valid email address: ${cc.invalid.join(', ')}`)
+      return
+    }
+
     const input = {
       name: name.trim(),
       company_name: companyName.trim() || undefined,
@@ -55,6 +64,7 @@ export function ClientForm({ client }: { client?: ClientData }) {
       billing_address: billingAddress.trim() || undefined,
       billing_same_as_service: billingSame,
       notes: notes.trim() || undefined,
+      ...(isEdit ? { invoice_cc_emails: cc.emails } : {}),
     }
 
     startTransition(async () => {
@@ -94,6 +104,21 @@ export function ClientForm({ client }: { client?: ClientData }) {
           <Field label="Main email" type="email" value={email} onChange={setEmail} />
           <Field label="Phone" type="tel" value={phone} onChange={setPhone} />
         </div>
+        {isEdit && (
+          <>
+            <Field
+              label="Also send invoices to"
+              value={invoiceCc}
+              onChange={setInvoiceCc}
+              placeholder="partner@example.com, accounts@example.com"
+              className="mt-4"
+            />
+            <p className="text-[11px] text-sage-500 mt-1.5">
+              These people are copied on every invoice, automatic invoice and payment reminder for this client.
+              Separate more than one with commas.
+            </p>
+          </>
+        )}
       </Section>
 
       {/* ── Addresses ────────────────────────────── */}

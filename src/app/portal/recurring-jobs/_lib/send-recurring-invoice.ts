@@ -14,6 +14,7 @@ import { getCustomerReplyToEmail } from '@/lib/email-reply-to'
 import { nzToday } from '@/lib/nz-date'
 import { collectInvoiceByAutopay } from '@/lib/autopay'
 import { logInvoiceSent } from '@/lib/invoice-send-log'
+import { invoiceCcList } from '@/lib/invoice-cc'
 
 function esc(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -32,7 +33,7 @@ export async function sendRecurringInvoiceEmail(
 
   const { data: client } = await svc
     .from('clients')
-    .select('email, accounts_email, payment_terms')
+    .select('email, accounts_email, payment_terms, invoice_cc_emails')
     .eq('id', invoice.client_id)
     .maybeSingle()
   // Same routing as the manual Send panel: invoice accounts email, then the
@@ -43,6 +44,8 @@ export async function sendRecurringInvoiceEmail(
     (client?.email as string | null)?.trim()
   )
   if (!to) return { error: 'no client email on file' }
+  // The client's "Also send invoices to" people get a copy.
+  const cc = invoiceCcList(to, client?.invoice_cc_emails as string[] | null)
 
   // Stamp issue + due dates on the first send (sticky thereafter). NZ date:
   // the cron fires at 21:00 UTC, which is the 1st in NZ but the 31st in UTC.
@@ -90,6 +93,7 @@ export async function sendRecurringInvoiceEmail(
     from: 'Sano <noreply@sano.nz>',
     replyTo: getCustomerReplyToEmail(),
     to,
+    ...(cc.length > 0 ? { cc } : {}),
     subject,
     html,
     attachments: [{ filename: `${sanitizePdfFilename(`Sano Tax Invoice - ${invoice.invoice_number}`)}.pdf`, content: pdf }],
@@ -104,6 +108,7 @@ export async function sendRecurringInvoiceEmail(
     invoiceId,
     invoiceNumber: invoice.invoice_number as string,
     to,
+    cc,
     subject,
     resendId: emailData?.id ?? null,
     source: 'recurring_auto',
