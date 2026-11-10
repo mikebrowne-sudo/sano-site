@@ -49,11 +49,11 @@ export default async function ContractorsPage() {
         <h1 className="text-3xl tracking-tight font-bold text-sage-800">Contractors</h1>
         <div className="flex items-center gap-2">
           <Link
-            href="/portal/agreements#onboarding-pack"
+            href="/portal/contractors/onboard"
             className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
           >
             <Send size={16} />
-            Send onboarding pack
+            Onboard a contractor
           </Link>
           <Link
             href="/portal/contractors/new"

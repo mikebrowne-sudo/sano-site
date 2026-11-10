@@ -18,30 +18,24 @@ export const GST_EXPECTATIONS: ReadonlyArray<{ value: GstExpectation; label: str
   { value: 'unsure', label: 'Not sure — they confirm it' },
 ]
 
-const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
-
-/** Split a GST-inclusive amount into its ex-GST and GST parts (15%). */
-export function splitGstInclusive(inclusive: number): { exGst: number; gst: number } {
-  const exGst = round2(inclusive / 1.15)
-  return { exGst, gst: round2(inclusive - exGst) }
+/** "$45" for whole dollars, "$32.50" otherwise. */
+function money(n: number): string {
+  return Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`
 }
 
 /**
  * Hourly-rate wording for a contractor. `registered` is the confirmed answer at
  * signing when known, otherwise staff's expectation from the send.
- *   registered     → "$45.00 per hour incl. GST ($39.13 + $5.87 GST)"
- *   not registered → "$45.00 per hour (no GST — not GST registered)"
- *   unknown        → "$45.00 per hour (inclusive of GST where registered)"
+ *   registered     → "$45 per hour including GST"
+ *   not registered → "$45 per hour (no GST)"
+ *   unknown        → "$45 per hour (including GST where registered)"
  */
 export function contractorRateLabel(rate: number | null, registered: boolean | null): string {
   if (rate == null) return '—'
-  const r = `$${rate.toFixed(2)} per hour`
-  if (registered === true) {
-    const { exGst, gst } = splitGstInclusive(rate)
-    return `${r} incl. GST ($${exGst.toFixed(2)} + $${gst.toFixed(2)} GST)`
-  }
-  if (registered === false) return `${r} (no GST — not GST registered)`
-  return `${r} (inclusive of GST where registered)`
+  const r = `${money(rate)} per hour`
+  if (registered === true) return `${r} including GST`
+  if (registered === false) return `${r} (no GST)`
+  return `${r} (including GST where registered)`
 }
 
 /** Expectation → boolean (unsure = unknown). */

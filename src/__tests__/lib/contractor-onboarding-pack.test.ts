@@ -1,5 +1,4 @@
 import {
-  splitGstInclusive,
   contractorRateLabel,
   gstExpectationToBool,
   needsPersonnelStep,
@@ -8,27 +7,18 @@ import {
   PERSONNEL_DECLARATION_TEXT,
 } from '@/lib/contractor-onboarding-pack'
 
-describe('splitGstInclusive', () => {
-  it('splits $45.00 incl. GST into $39.13 + $5.87', () => {
-    expect(splitGstInclusive(45)).toEqual({ exGst: 39.13, gst: 5.87 })
-  })
-  it('parts always add back to the inclusive amount', () => {
-    for (const r of [35, 45, 32.2, 180, 724.5]) {
-      const { exGst, gst } = splitGstInclusive(r)
-      expect(Math.round((exGst + gst) * 100) / 100).toBe(r)
-    }
-  })
-})
-
 describe('contractorRateLabel', () => {
-  it('shows the GST split when registered', () => {
-    expect(contractorRateLabel(45, true)).toBe('$45.00 per hour incl. GST ($39.13 + $5.87 GST)')
+  it('says including GST when registered', () => {
+    expect(contractorRateLabel(45, true)).toBe('$45 per hour including GST')
   })
   it('says no GST when not registered', () => {
-    expect(contractorRateLabel(45, false)).toBe('$45.00 per hour (no GST — not GST registered)')
+    expect(contractorRateLabel(45, false)).toBe('$45 per hour (no GST)')
   })
   it('hedges when unknown', () => {
-    expect(contractorRateLabel(45, null)).toBe('$45.00 per hour (inclusive of GST where registered)')
+    expect(contractorRateLabel(45, null)).toBe('$45 per hour (including GST where registered)')
+  })
+  it('keeps cents when the rate has them', () => {
+    expect(contractorRateLabel(32.5, true)).toBe('$32.50 per hour including GST')
   })
   it('dashes a missing rate', () => {
     expect(contractorRateLabel(null, true)).toBe('—')

@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Send } from 'lucide-react'
-import { sendOnboardingPack } from '../_actions'
+import { sendOnboardingPack } from '@/app/portal/agreements/_actions'
 import { GST_EXPECTATIONS, contractorRateLabel, gstExpectationToBool, type GstExpectation } from '@/lib/contractor-onboarding-pack'
 
 type Structure = 'company' | 'sole_trader' | 'unsure'
@@ -55,12 +55,7 @@ export function SendOnboardingPackForm() {
   }
 
   return (
-    <section id="onboarding-pack" className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-      <h2 className="text-lg font-semibold text-sage-800 mb-1">Send contractor onboarding pack</h2>
-      <p className="text-sm text-sage-500 mb-4">
-        Creates the contractor and their agreement, then emails a secure link. They fill in their business, bank, insurance and team details,
-        upload documents and e-sign online. The signed PDF is emailed to them and to you.
-      </p>
+    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
 
       <div className="grid sm:grid-cols-2 gap-3">
         <label className="flex flex-col gap-1"><span className="text-[11px] font-medium text-sage-500">Business name</span>
