@@ -83,7 +83,9 @@ export function SignAgreementForm({
 
   const [f, setF] = useState<FormValues>(INITIAL)
   const [businessStructure, setBusinessStructure] = useState('')
-  const [gstRegistered, setGstRegistered] = useState(false)
+  // null until the contractor answers — no silent "No" default, so a
+  // GST-registered company can't click through and be recorded unregistered.
+  const [gstRegistered, setGstRegistered] = useState<boolean | null>(null)
   const [agreed, setAgreed] = useState(false)
   // Authority-to-bind declaration (entities only). Deliberately NOT persisted to
   // localStorage — re-confirmed each session, like the IR330 acknowledgement.
@@ -151,6 +153,8 @@ export function SignAgreementForm({
       if (requiresAuthorityDeclaration(businessStructure as ContractingStructure) && !authorityConfirmed) {
         return 'Please confirm you are authorised to sign on behalf of the contracting entity.'
       }
+      if (gstRegistered === null) return 'Please tell us whether you are registered for GST.'
+      if (gstRegistered && !f.gstNumber.trim()) return 'Please enter your GST number.'
     }
     if (s === 2 && !isContractor) {
       if (!f.taxCode.trim()) return 'Please choose your tax code.'
@@ -195,7 +199,7 @@ export function SignAgreementForm({
         bankAccountName: f.bankName, bankAccount: f.bank, taxCode: f.taxCode, ir330Acknowledged: ir330Ack, kiwisaverSituation: f.kiwisaver, kiwisaverRate: f.kiwisaverRate,
         emergencyName: f.emName, emergencyPhone: f.emPhone, emergencyRelationship: f.emRel,
         tradingName: f.tradingName, gstNumber: f.gstNumber,
-        businessStructure, legalName: f.legalName, nzbn: f.nzbn, companyNumber: f.companyNumber, gstRegistered,
+        businessStructure, legalName: f.legalName, nzbn: f.nzbn, companyNumber: f.companyNumber, gstRegistered: gstRegistered ?? undefined,
         signatoryName: f.signatoryName, signatoryCapacity: f.signatoryCapacity,
         authorityConfirmed,
         insurerName: f.insurerName, insuranceCover: f.insuranceCover, insuranceExpiry: f.insuranceExpiry,
@@ -265,7 +269,7 @@ export function SignAgreementForm({
               <label className="flex flex-col gap-1 sm:col-span-2 lg:col-span-3"><span className="text-[11px] font-medium text-sage-500">{isContractor ? 'Business / home address' : 'Residential address'}</span>
                 <input value={f.address} onChange={set('address')} className={inputCls} /></label>
               {!isContractor && <Field label="Date of birth" type="date" value={f.dateOfBirth} onChange={set('dateOfBirth')} />}
-              <Field label="IRD number" ph="000-000-000" value={f.ird} onChange={set('ird')} />
+              <Field label={isContractor ? 'IRD number (the company’s, if you contract through a company)' : 'IRD number'} ph="000-000-000" value={f.ird} onChange={set('ird')} />
               {isContractor && <Field label="Trading name (if any)" value={f.tradingName} onChange={set('tradingName')} />}
             </div>
             <h3 className="text-sm font-semibold text-sage-800 mt-6 mb-3">Emergency contact</h3>
@@ -317,10 +321,10 @@ export function SignAgreementForm({
               </div>
             )}
             <div className="mt-5">
-              <span className="text-[11px] font-medium text-sage-500">Registered for GST?</span>
+              <span className="text-[11px] font-medium text-sage-500">Registered for GST? *</span>
               <div className="flex gap-4 mt-1 text-sm text-sage-700">
-                <label className="flex items-center gap-2"><input type="radio" name="gst" checked={!gstRegistered} onChange={() => setGstRegistered(false)} /> No</label>
-                <label className="flex items-center gap-2"><input type="radio" name="gst" checked={gstRegistered} onChange={() => setGstRegistered(true)} /> Yes</label>
+                <label className="flex items-center gap-2"><input type="radio" name="gst" checked={gstRegistered === false} onChange={() => setGstRegistered(false)} /> No</label>
+                <label className="flex items-center gap-2"><input type="radio" name="gst" checked={gstRegistered === true} onChange={() => setGstRegistered(true)} /> Yes</label>
               </div>
               {gstRegistered && <div className="mt-2 max-w-xs"><Field label="GST number" ph="123-456-789" value={f.gstNumber} onChange={set('gstNumber')} /></div>}
             </div>
@@ -419,7 +423,9 @@ export function SignAgreementForm({
                   <ReviewBlock title="Business & tax" onEdit={() => goTo(2)} rows={[
                     ['Structure', BUSINESS_STRUCTURES.find((b) => b.value === businessStructure)?.label || '—'],
                     ['Trading name', f.tradingName || '—'], ['Legal name', f.legalName || '—'], ['NZBN', f.nzbn || '—'],
-                    ['GST', gstRegistered ? (f.gstNumber || 'Registered') : 'Not registered'],
+                    ...(businessStructure === 'company' ? [['Company number', f.companyNumber || '—'] as [string, string]] : []),
+                    ...(isEntityStructure ? [['Signing for the business', [f.signatoryName, f.signatoryCapacity].filter(Boolean).join(', ') || '—'] as [string, string]] : []),
+                    ['GST', gstRegistered ? (f.gstNumber || 'Registered') : gstRegistered === false ? 'Not registered' : '—'],
                   ]} />
                   <ReviewBlock title="Payment & insurance" onEdit={() => goTo(3)} rows={[
                     ['Bank', f.bank || '—'], ['Insurer', f.insurerName || '—'], ['Cover', f.insuranceCover || '—'], ['Expiry', f.insuranceExpiry || '—'],
