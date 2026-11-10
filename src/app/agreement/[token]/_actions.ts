@@ -21,6 +21,7 @@ import { recordTaxDeclaration, validateTaxDeclaration } from '@/lib/tax-declarat
 import { buildAgreementScheduleSnapshot } from '@/lib/agreement-schedule-snapshot'
 import { evaluateSendGuard } from '@/lib/agreement-send-guard'
 import { validateStructureSubmission, AUTHORITY_TO_BIND_DECLARATION, AUTHORITY_TO_BIND_VERSION, type ContractingStructure } from '@/lib/contractor-structure-fields'
+import { needsPersonnelStep, normalisePersonnel, PERSONNEL_DECLARATION_TEXT, PERSONNEL_DECLARATION_VERSION, type PersonnelEntry } from '@/lib/contractor-onboarding-pack'
 
 export interface SignAgreementInput {
   token: string
@@ -54,6 +55,9 @@ export interface SignAgreementInput {
   insurerName?: string
   insuranceCover?: string
   insuranceExpiry?: string
+  /** Entity contractors: people who may attend + the written declaration. */
+  personnel?: Array<{ name?: string | null; phone?: string | null }>
+  personnelDeclared?: boolean
   signedName: string
 }
 
@@ -82,6 +86,15 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
     if (err) return { error: err }
   } else if (input.signedName.trim().toLowerCase() !== input.fullName.trim().toLowerCase()) {
     return { error: 'The signature must match your full legal name above.' }
+  }
+
+  // Your team (company / partnership / trust / other): at least one person and
+  // the written personnel declaration, or the agreement can't be signed.
+  let personnel: PersonnelEntry[] | null = null
+  if (isContractorEntity && needsPersonnelStep(structure)) {
+    personnel = normalisePersonnel(input.personnel ?? [])
+    if (personnel.length === 0) return { error: 'Please list at least one person who will do the cleaning (include yourself if you will).' }
+    if (input.personnelDeclared !== true) return { error: 'Please confirm the personnel declaration for your team.' }
   }
 
   const svc = getServiceSupabase()
@@ -178,6 +191,13 @@ export async function signEmploymentAgreement(input: SignAgreementInput): Promis
       insurer_name: input.insurerName?.trim() || null,
       insurance_cover: input.insuranceCover?.trim() || null,
       insurance_expiry: input.insuranceExpiry || null,
+      // Confirmed GST answer (contractors) — drives the signed rate wording.
+      contractor_gst_registered: isContractor && typeof input.gstRegistered === 'boolean' ? input.gstRegistered : null,
+      // Your team + frozen personnel declaration (entity contractors only).
+      contractor_personnel: personnel,
+      personnel_declaration_text: personnel ? PERSONNEL_DECLARATION_TEXT : null,
+      personnel_declaration_version: personnel ? PERSONNEL_DECLARATION_VERSION : null,
+      personnel_declared_at: personnel ? new Date().toISOString() : null,
       signed_name: input.signedName.trim(),
       signed_at: new Date().toISOString(),
       status: 'signed',

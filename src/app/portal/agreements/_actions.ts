@@ -7,6 +7,8 @@ import { sendAgreementLinkEmail } from '@/lib/resend'
 import { buildAgreementScheduleSnapshot } from '@/lib/agreement-schedule-snapshot'
 import { evaluateSendGuard } from '@/lib/agreement-send-guard'
 import { getContractorSetupBundle, contractorSafeInsuranceSnapshot } from '@/lib/contractor-setup-data'
+import { setInsuranceArrangement } from '@/app/portal/contractors/[id]/setup/_actions'
+import type { GstExpectation } from '@/lib/contractor-onboarding-pack'
 
 export async function createEmploymentAgreement(input: {
   agreementType: 'casual_employee' | 'permanent_employee' | 'contractor'
@@ -221,6 +223,97 @@ export async function sendAgreementLink(input: { agreementId: string; email: str
   revalidatePath(`/portal/agreements/${input.agreementId}`)
   revalidatePath('/portal/agreements')
   return { ok: true }
+}
+
+/**
+ * Send onboarding pack — one step for a new contractor: create (or link) the
+ * contractor record, set their insurance arrangement, create the contractor
+ * agreement with staff's GST expectation, and email the secure link. The
+ * contractor completes their details, team, documents and e-signs online; the
+ * signed PDF is emailed to them and downloadable from the signed page.
+ * An existing contractor with the same email is linked, never modified.
+ */
+export async function sendOnboardingPack(input: {
+  contactName: string
+  businessName?: string | null
+  email: string
+  hourlyRate: number
+  gst: GstExpectation
+  structure: 'company' | 'sole_trader' | 'unsure'
+  insurance: 'own_required' | 'covered_by_sano' | 'not_required'
+  startDate: string | null
+}): Promise<{ ok?: true; id?: string; error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  if (!isAdminUser(user)) return { error: 'Admin only.' }
+
+  const contactName = input.contactName.trim()
+  const businessName = input.businessName?.trim() || null
+  const email = input.email.trim()
+  if (!contactName) return { error: 'Enter the contact person’s name.' }
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: 'Enter a valid email address.' }
+  if (!(input.hourlyRate > 0)) return { error: 'Enter the hourly rate.' }
+  if (!['registered', 'not_registered', 'unsure'].includes(input.gst)) return { error: 'Choose a GST option.' }
+
+  // Link an existing contractor by email rather than creating a duplicate.
+  const { data: existing } = await supabase
+    .from('contractors')
+    .select('id')
+    .eq('worker_type', 'contractor')
+    .ilike('email', email)
+    .maybeSingle()
+
+  let contractorId = (existing?.id as string | undefined) ?? null
+  if (!contractorId) {
+    const { data: created, error: cErr } = await supabase
+      .from('contractors')
+      .insert({
+        full_name: contactName,
+        email,
+        company_name: businessName,
+        worker_type: 'contractor',
+        status: 'onboarding',
+        hourly_rate: input.hourlyRate,
+        business_structure: input.structure === 'unsure' ? null : input.structure,
+        gst_registered: input.gst === 'registered',
+        // Contractors don't have a PAYE tax code — don't inherit the 'M' default.
+        tax_code: null,
+      })
+      .select('id')
+      .single()
+    if (cErr || !created) return { error: `Couldn’t create the contractor: ${cErr?.message ?? 'no row'}` }
+    contractorId = created.id as string
+
+    // Insurance drives clause 9; pending_review would block the send.
+    const ins = await setInsuranceArrangement(contractorId, {
+      mode: input.insurance,
+      minCover: input.insurance === 'own_required' ? 1_000_000 : null,
+    })
+    if (ins.error) return { error: `Contractor created, but insurance wasn’t set: ${ins.error}` }
+  }
+
+  const created = await createEmploymentAgreement({
+    agreementType: 'contractor',
+    personLabel: businessName || contactName,
+    position: '',
+    hourlyRate: input.hourlyRate,
+    startDate: input.startDate,
+    linkedContractorId: contractorId,
+  })
+  if (created.error || !created.id) return { error: created.error ?? 'Couldn’t create the agreement.' }
+
+  const { error: gErr } = await supabase
+    .from('employment_agreements')
+    .update({ contractor_gst_expected: input.gst, person_label: businessName || contactName })
+    .eq('id', created.id)
+  if (gErr) return { error: `Agreement created, but GST wasn’t saved (run the onboarding-pack migration?): ${gErr.message}`, id: created.id }
+
+  const sent = await sendAgreementLink({ agreementId: created.id, email })
+  if (sent.error) return { error: `Agreement created but not sent: ${sent.error}`, id: created.id }
+
+  revalidatePath('/portal/contractors')
+  return { ok: true, id: created.id }
 }
 
 /**

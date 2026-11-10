@@ -18,6 +18,7 @@ import { structureFieldRules, requiresAuthorityDeclaration, AUTHORITY_TO_BIND_DE
 import { TAX_CODES, KS_EMPLOYEE_RATES } from '@/lib/nz-paye'
 import { IR330_DECLARATION_TEXT } from '@/lib/tax-declaration'
 import { EmploymentAgreementDocument, type AgreementView } from '@/components/EmploymentAgreementDocument'
+import { contractorRateLabel, needsPersonnelStep, PERSONNEL_DECLARATION_TEXT, MAX_PERSONNEL } from '@/lib/contractor-onboarding-pack'
 
 const INITIAL = {
   fullName: '', preferredName: '', phone: '', email: '', address: '', dateOfBirth: '',
@@ -39,6 +40,10 @@ function fmtDate(iso: string | null) {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
 }
+
+type StepKey = 'review' | 'personal' | 'business' | 'tax' | 'payment' | 'team' | 'documents' | 'sign'
+
+type TeamRow = { name: string; phone: string }
 
 const inputCls = 'w-full rounded-lg border border-sage-200 px-3 py-2.5 text-sm text-sage-800 focus:outline-none focus:ring-2 focus:ring-sage-500'
 
@@ -83,7 +88,9 @@ export function SignAgreementForm({
 
   const [f, setF] = useState<FormValues>(INITIAL)
   const [businessStructure, setBusinessStructure] = useState('')
-  const [gstRegistered, setGstRegistered] = useState(false)
+  // null until the contractor answers — no silent "No" default, so a
+  // GST-registered company can't click through and be recorded unregistered.
+  const [gstRegistered, setGstRegistered] = useState<boolean | null>(null)
   const [agreed, setAgreed] = useState(false)
   // Authority-to-bind declaration (entities only). Deliberately NOT persisted to
   // localStorage — re-confirmed each session, like the IR330 acknowledgement.
@@ -92,6 +99,10 @@ export function SignAgreementForm({
   // localStorage, so returning to the wizard requires re-confirming.
   const [ir330Ack, setIr330Ack] = useState(false)
   const [step, setStep] = useState(0)
+  // Your team (entity contractors). The list persists; the declaration is
+  // deliberately NOT persisted — re-confirmed each session like the others.
+  const [team, setTeam] = useState<TeamRow[]>([{ name: '', phone: '' }])
+  const [teamDeclared, setTeamDeclared] = useState(false)
   const [showAgreement, setShowAgreement] = useState(false)
   const [restored, setRestored] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -111,7 +122,8 @@ export function SignAgreementForm({
         if (s.f) setF((p) => ({ ...p, ...s.f }))
         if (typeof s.businessStructure === 'string') setBusinessStructure(s.businessStructure)
         if (typeof s.gstRegistered === 'boolean') setGstRegistered(s.gstRegistered)
-        if (typeof s.step === 'number') setStep(Math.min(s.step, 5))
+        if (Array.isArray(s.team) && s.team.length > 0) setTeam(s.team as TeamRow[])
+        if (typeof s.step === 'number') setStep(Math.min(s.step, 6))
         usedStorage = true
       }
     } catch { /* ignore */ }
@@ -128,21 +140,42 @@ export function SignAgreementForm({
   useEffect(() => {
     if (!restored) return
     try {
-      localStorage.setItem(storageKey, JSON.stringify({ f: { ...f, signedName: '' }, businessStructure, gstRegistered, step }))
+      localStorage.setItem(storageKey, JSON.stringify({ f: { ...f, signedName: '' }, businessStructure, gstRegistered, team, step }))
     } catch { /* ignore */ }
-  }, [f, businessStructure, gstRegistered, step, restored, storageKey])
+  }, [f, businessStructure, gstRegistered, team, step, restored, storageKey])
 
-  const STEPS = isContractor
-    ? ['Review agreement', 'Personal details', 'Business & tax', 'Payment & insurance', 'Documents', 'Review & sign']
-    : ['Review agreement', 'Personal details', 'Tax & KiwiSaver', 'Payment', 'Documents', 'Review & sign']
+  const showLegalName = ['company', 'partnership', 'trust', 'other'].includes(businessStructure)
+  const isEntityStructure = ['company', 'partnership', 'trust', 'other'].includes(businessStructure)
+  const legalNameLabel = businessStructure === 'company' ? 'Legal company name'
+    : businessStructure === 'partnership' ? 'Partnership name'
+      : businessStructure === 'trust' ? 'Trust name' : 'Entity name'
 
-  function validate(s: number): string | null {
-    if (s === 1) {
+  // Steps are keyed, not numbered: "Your team" appears only for a contractor
+  // trading through a company / partnership / trust / other entity.
+  const showTeam = isContractor && needsPersonnelStep(businessStructure)
+  const STEP_KEYS: StepKey[] = isContractor
+    ? ['review', 'personal', 'business', 'payment', ...(showTeam ? ['team' as const] : []), 'documents', 'sign']
+    : ['review', 'personal', 'tax', 'payment', 'documents', 'sign']
+  const STEP_LABELS: Record<StepKey, string> = {
+    review: 'Review agreement', personal: 'Personal details', business: 'Business & tax', tax: 'Tax & KiwiSaver',
+    payment: isContractor ? 'Payment & insurance' : 'Payment', team: 'Your team', documents: 'Documents', sign: 'Review & sign',
+  }
+  const STEPS = STEP_KEYS.map((k) => STEP_LABELS[k])
+  const current: StepKey = STEP_KEYS[Math.min(step, STEP_KEYS.length - 1)]
+  const at = (k: StepKey) => Math.max(STEP_KEYS.indexOf(k), 0)
+  const namedTeam = team.filter((t) => t.name.trim())
+
+  const rateText = isContractor
+    ? contractorRateLabel(agreement.hourlyRate != null ? Number(agreement.hourlyRate) : null, gstRegistered ?? agreement.contractorGstRegistered ?? null)
+    : agreement.hourlyRate != null ? `$${Number(agreement.hourlyRate).toFixed(2)}/hr` : '—'
+
+  function validate(s: StepKey): string | null {
+    if (s === 'personal') {
       if (!f.fullName.trim()) return 'Please enter your full legal name.'
       if (!f.email.trim()) return 'Please enter your email so we can send your signed copy.'
     }
-    if (s === 2 && isContractor && !businessStructure) return 'Please choose how you operate.'
-    if (s === 2 && isContractor && businessStructure) {
+    if (s === 'business' && !businessStructure) return 'Please choose how you operate.'
+    if (s === 'business' && businessStructure) {
       const rules = structureFieldRules(businessStructure as ContractingStructure)
       if (rules.legalName.required && !f.legalName.trim()) return `Please enter the ${rules.legalName.label.toLowerCase()}.`
       if (rules.companyNumber.required && !f.companyNumber.trim()) return 'Please enter the company number.'
@@ -151,14 +184,20 @@ export function SignAgreementForm({
       if (requiresAuthorityDeclaration(businessStructure as ContractingStructure) && !authorityConfirmed) {
         return 'Please confirm you are authorised to sign on behalf of the contracting entity.'
       }
+      if (gstRegistered === null) return 'Please tell us whether you are registered for GST.'
+      if (gstRegistered && !f.gstNumber.trim()) return 'Please enter your GST number.'
     }
-    if (s === 2 && !isContractor) {
+    if (s === 'tax') {
       if (!f.taxCode.trim()) return 'Please choose your tax code.'
       if (!ir330Ack) return 'Please confirm your tax code declaration to continue.'
       if (!f.kiwisaver) return 'Please tell us your KiwiSaver situation.'
     }
-    if (s === 3 && !f.bank.trim()) return 'Please enter your bank account number.'
-    if (s === 5) {
+    if (s === 'payment' && !f.bank.trim()) return 'Please enter your bank account number.'
+    if (s === 'team') {
+      if (namedTeam.length === 0) return 'Please list at least one person who will do the cleaning (include yourself if you will).'
+      if (!teamDeclared) return 'Please confirm the declaration for your team.'
+    }
+    if (s === 'sign') {
       if (!agreed) return 'Please tick the box to confirm you agree.'
       // For an entity contractor, the signature matches the authorised signatory;
       // for a sole trader / employee, it matches their own full legal name.
@@ -176,7 +215,7 @@ export function SignAgreementForm({
 
   function scrollTop() { if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' }) }
   function next() {
-    const err = validate(step)
+    const err = validate(current)
     if (err) { setError(err); return }
     setError(null); setStep((s) => Math.min(s + 1, STEPS.length - 1)); scrollTop()
   }
@@ -184,7 +223,7 @@ export function SignAgreementForm({
   function goTo(s: number) { setError(null); setStep(s); scrollTop() }
 
   function submit() {
-    const err = validate(5)
+    const err = (showTeam ? validate('team') : null) ?? validate('sign')
     if (err) { setError(err); return }
     setError(null)
     startTransition(async () => {
@@ -195,10 +234,11 @@ export function SignAgreementForm({
         bankAccountName: f.bankName, bankAccount: f.bank, taxCode: f.taxCode, ir330Acknowledged: ir330Ack, kiwisaverSituation: f.kiwisaver, kiwisaverRate: f.kiwisaverRate,
         emergencyName: f.emName, emergencyPhone: f.emPhone, emergencyRelationship: f.emRel,
         tradingName: f.tradingName, gstNumber: f.gstNumber,
-        businessStructure, legalName: f.legalName, nzbn: f.nzbn, companyNumber: f.companyNumber, gstRegistered,
+        businessStructure, legalName: f.legalName, nzbn: f.nzbn, companyNumber: f.companyNumber, gstRegistered: gstRegistered ?? undefined,
         signatoryName: f.signatoryName, signatoryCapacity: f.signatoryCapacity,
         authorityConfirmed,
         insurerName: f.insurerName, insuranceCover: f.insuranceCover, insuranceExpiry: f.insuranceExpiry,
+        personnel: showTeam ? namedTeam : undefined, personnelDeclared: showTeam ? teamDeclared : undefined,
         signedName: f.signedName,
       })
       if (res.error) { setError(res.error); return }
@@ -206,12 +246,6 @@ export function SignAgreementForm({
       router.refresh()
     })
   }
-
-  const showLegalName = ['company', 'partnership', 'trust', 'other'].includes(businessStructure)
-  const isEntityStructure = ['company', 'partnership', 'trust', 'other'].includes(businessStructure)
-  const legalNameLabel = businessStructure === 'company' ? 'Legal company name'
-    : businessStructure === 'partnership' ? 'Partnership name'
-      : businessStructure === 'trust' ? 'Trust name' : 'Entity name'
 
   return (
     <div className="relative">
@@ -238,12 +272,12 @@ export function SignAgreementForm({
 
       <div className="min-h-[16rem]">
         {/* Step 0 — Review agreement */}
-        {step === 0 && (
+        {current === 'review' && (
           <div>
             <h2 className="text-lg font-semibold text-sage-800 mb-1">Review your agreement</h2>
             <p className="text-sm text-sage-500 mb-4">Please read your {isContractor ? 'Independent Contractor' : 'Employment'} Agreement. You can open the full document at any time, and you&rsquo;ll sign at the end.</p>
             <div className="grid sm:grid-cols-3 gap-3 mb-4">
-              <div className="rounded-lg border border-sage-100 bg-sage-50/50 p-3"><p className="text-[11px] text-sage-500">Agreed rate</p><p className="text-sm font-semibold text-sage-800">{agreement.hourlyRate != null ? `$${Number(agreement.hourlyRate).toFixed(2)}/hr${isContractor ? ' (incl. GST)' : ''}` : '—'}</p></div>
+              <div className="rounded-lg border border-sage-100 bg-sage-50/50 p-3"><p className="text-[11px] text-sage-500">Agreed rate</p><p className="text-sm font-semibold text-sage-800">{rateText}</p></div>
               <div className="rounded-lg border border-sage-100 bg-sage-50/50 p-3"><p className="text-[11px] text-sage-500">Commences</p><p className="text-sm font-semibold text-sage-800">{fmtDate(agreement.startDate)}</p></div>
               <div className="rounded-lg border border-sage-100 bg-sage-50/50 p-3"><p className="text-[11px] text-sage-500">Version</p><p className="text-sm font-semibold text-sage-800">{agreement.agreementVersion || '—'}</p></div>
             </div>
@@ -254,7 +288,7 @@ export function SignAgreementForm({
         )}
 
         {/* Step 1 — Personal details */}
-        {step === 1 && (
+        {current === 'personal' && (
           <div>
             <h2 className="text-lg font-semibold text-sage-800 mb-4">Your details</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -265,7 +299,7 @@ export function SignAgreementForm({
               <label className="flex flex-col gap-1 sm:col-span-2 lg:col-span-3"><span className="text-[11px] font-medium text-sage-500">{isContractor ? 'Business / home address' : 'Residential address'}</span>
                 <input value={f.address} onChange={set('address')} className={inputCls} /></label>
               {!isContractor && <Field label="Date of birth" type="date" value={f.dateOfBirth} onChange={set('dateOfBirth')} />}
-              <Field label="IRD number" ph="000-000-000" value={f.ird} onChange={set('ird')} />
+              <Field label={isContractor ? 'IRD number (the company’s, if you contract through a company)' : 'IRD number'} ph="000-000-000" value={f.ird} onChange={set('ird')} />
               {isContractor && <Field label="Trading name (if any)" value={f.tradingName} onChange={set('tradingName')} />}
             </div>
             <h3 className="text-sm font-semibold text-sage-800 mt-6 mb-3">Emergency contact</h3>
@@ -278,7 +312,7 @@ export function SignAgreementForm({
         )}
 
         {/* Step 2 — Business & tax (contractor) */}
-        {step === 2 && isContractor && (
+        {current === 'business' && (
           <div>
             <h2 className="text-lg font-semibold text-sage-800 mb-1">Your business</h2>
             <p className="text-[11px] text-sage-400 mb-3">How do you operate? This helps us set you up correctly.</p>
@@ -317,17 +351,17 @@ export function SignAgreementForm({
               </div>
             )}
             <div className="mt-5">
-              <span className="text-[11px] font-medium text-sage-500">Registered for GST?</span>
+              <span className="text-[11px] font-medium text-sage-500">Registered for GST? *</span>
               <div className="flex gap-4 mt-1 text-sm text-sage-700">
-                <label className="flex items-center gap-2"><input type="radio" name="gst" checked={!gstRegistered} onChange={() => setGstRegistered(false)} /> No</label>
-                <label className="flex items-center gap-2"><input type="radio" name="gst" checked={gstRegistered} onChange={() => setGstRegistered(true)} /> Yes</label>
+                <label className="flex items-center gap-2"><input type="radio" name="gst" checked={gstRegistered === false} onChange={() => setGstRegistered(false)} /> No</label>
+                <label className="flex items-center gap-2"><input type="radio" name="gst" checked={gstRegistered === true} onChange={() => setGstRegistered(true)} /> Yes</label>
               </div>
               {gstRegistered && <div className="mt-2 max-w-xs"><Field label="GST number" ph="123-456-789" value={f.gstNumber} onChange={set('gstNumber')} /></div>}
             </div>
           </div>
         )}
         {/* Step 2 — Tax & KiwiSaver (employee) */}
-        {step === 2 && !isContractor && (
+        {current === 'tax' && (
           <div>
             <h2 className="text-lg font-semibold text-sage-800 mb-1">Tax code declaration (IR330)</h2>
             <p className="text-sm text-sage-500 mb-4">This is your employee tax code declaration. It is separate from your employment agreement, which you sign at the end.</p>
@@ -375,7 +409,7 @@ export function SignAgreementForm({
         )}
 
         {/* Step 3 — Payment & insurance / Payment */}
-        {step === 3 && (
+        {current === 'payment' && (
           <div>
             <h2 className="text-lg font-semibold text-sage-800 mb-4">Payment{isContractor ? ' & insurance' : ''}</h2>
             <div className="grid sm:grid-cols-2 gap-3">
@@ -396,8 +430,39 @@ export function SignAgreementForm({
           </div>
         )}
 
-        {/* Step 4 — Documents */}
-        {step === 4 && (
+        {/* Your team — entity contractors list who may attend + written declaration */}
+        {current === 'team' && (
+          <div>
+            <h2 className="text-lg font-semibold text-sage-800 mb-1">Your team</h2>
+            <p className="text-sm text-sage-500 mb-4">List everyone who may do cleaning for Sano through your business, including yourself if you will. You can add people later by letting us know in writing before they start.</p>
+            <div className="space-y-2">
+              {team.map((row, i) => (
+                <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                  <Field label={i === 0 ? 'Full name' : ''} value={row.name} onChange={(e) => setTeam((t) => t.map((r, j) => (j === i ? { ...r, name: e.target.value } : r)))} />
+                  <Field label={i === 0 ? 'Phone (optional)' : ''} value={row.phone} onChange={(e) => setTeam((t) => t.map((r, j) => (j === i ? { ...r, phone: e.target.value } : r)))} />
+                  <button type="button" aria-label="Remove person" disabled={team.length === 1}
+                    onClick={() => setTeam((t) => t.filter((_, j) => j !== i))}
+                    className="mb-1.5 rounded-lg p-2 text-sage-400 hover:text-red-600 disabled:opacity-30">
+                    <X size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            {team.length < MAX_PERSONNEL && (
+              <button type="button" onClick={() => setTeam((t) => [...t, { name: '', phone: '' }])}
+                className="mt-3 text-sm font-medium text-sage-600 hover:text-sage-800">+ Add another person</button>
+            )}
+            <div className="mt-5 rounded-lg border border-sage-200 bg-sage-50/50 p-3">
+              <label className="flex items-start gap-2 text-[13px] text-sage-700">
+                <input type="checkbox" checked={teamDeclared} onChange={(e) => setTeamDeclared(e.target.checked)} className="mt-0.5 rounded border-sage-300" />
+                <span>{PERSONNEL_DECLARATION_TEXT}</span>
+              </label>
+            </div>
+          </div>
+        )}
+
+        {/* Documents */}
+        {current === 'documents' && (
           <div>
             <h2 className="text-lg font-semibold text-sage-800 mb-4">Documents</h2>
             <AgreementDocumentsUpload token={token} initialDocs={initialDocs} workerType={isContractor ? 'contractor' : 'employee'} structure={businessStructure} />
@@ -406,36 +471,44 @@ export function SignAgreementForm({
         )}
 
         {/* Step 5 — Review & sign */}
-        {step === 5 && (
+        {current === 'sign' && (
           <div>
             <h2 className="text-lg font-semibold text-sage-800 mb-4">Review &amp; sign</h2>
             <div className="space-y-3">
-              <ReviewBlock title="Your details" onEdit={() => goTo(1)} rows={[
+              <ReviewBlock title="Your details" onEdit={() => goTo(at('personal'))} rows={[
                 ['Name', f.fullName || '—'], ['Preferred', f.preferredName || '—'], ['Phone', f.phone || '—'], ['Email', f.email || '—'],
                 ['Address', f.address || '—'], ['IRD', f.ird || '—'], ['Emergency', [f.emName, f.emPhone].filter(Boolean).join(' · ') || '—'],
               ]} />
               {isContractor ? (
                 <>
-                  <ReviewBlock title="Business & tax" onEdit={() => goTo(2)} rows={[
+                  <ReviewBlock title="Business & tax" onEdit={() => goTo(at(isContractor ? 'business' : 'tax'))} rows={[
                     ['Structure', BUSINESS_STRUCTURES.find((b) => b.value === businessStructure)?.label || '—'],
                     ['Trading name', f.tradingName || '—'], ['Legal name', f.legalName || '—'], ['NZBN', f.nzbn || '—'],
-                    ['GST', gstRegistered ? (f.gstNumber || 'Registered') : 'Not registered'],
+                    ...(businessStructure === 'company' ? [['Company number', f.companyNumber || '—'] as [string, string]] : []),
+                    ...(isEntityStructure ? [['Signing for the business', [f.signatoryName, f.signatoryCapacity].filter(Boolean).join(', ') || '—'] as [string, string]] : []),
+                    ['GST', gstRegistered ? (f.gstNumber || 'Registered') : gstRegistered === false ? 'Not registered' : '—'],
                   ]} />
-                  <ReviewBlock title="Payment & insurance" onEdit={() => goTo(3)} rows={[
+                  <ReviewBlock title="Payment & insurance" onEdit={() => goTo(at('payment'))} rows={[
                     ['Bank', f.bank || '—'], ['Insurer', f.insurerName || '—'], ['Cover', f.insuranceCover || '—'], ['Expiry', f.insuranceExpiry || '—'],
                   ]} />
+                  {showTeam && (
+                    <ReviewBlock title="Your team" onEdit={() => goTo(at('team'))} rows={[
+                      ['People', namedTeam.map((t) => t.name.trim()).join(', ') || '—'],
+                      ['Declaration', teamDeclared ? 'Confirmed' : 'Not yet confirmed'],
+                    ]} />
+                  )}
                 </>
               ) : (
                 <>
-                  <ReviewBlock title="Tax & KiwiSaver" onEdit={() => goTo(2)} rows={[
+                  <ReviewBlock title="Tax & KiwiSaver" onEdit={() => goTo(at(isContractor ? 'business' : 'tax'))} rows={[
                     ['Tax code', f.taxCode || '—'], ['KiwiSaver', f.kiwisaver === 'existing_member' ? `Existing member (${f.kiwisaverRate}%)` : f.kiwisaver === 'joining' ? `Enrolling (${f.kiwisaverRate}%)` : '—'],
                   ]} />
-                  <ReviewBlock title="Payment" onEdit={() => goTo(3)} rows={[['Bank name', f.bankName || '—'], ['Bank account', f.bank || '—']]} />
+                  <ReviewBlock title="Payment" onEdit={() => goTo(at('payment'))} rows={[['Bank name', f.bankName || '—'], ['Bank account', f.bank || '—']]} />
                 </>
               )}
               <ReviewBlock title="Agreement" onEdit={() => setShowAgreement(true)} editLabel="View" rows={[
                 ['Version', agreement.agreementVersion || '—'], ['Commences', fmtDate(agreement.startDate)],
-                ['Agreed rate', agreement.hourlyRate != null ? `$${Number(agreement.hourlyRate).toFixed(2)}/hr${isContractor ? ' (incl. GST)' : ''}` : '—'],
+                ['Agreed rate', rateText],
               ]} />
             </div>
 
@@ -459,7 +532,7 @@ export function SignAgreementForm({
           className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-medium text-sage-600 hover:text-sage-800 disabled:opacity-40">
           <ArrowLeft size={15} /> Back
         </button>
-        {step < 5 ? (
+        {current !== 'sign' ? (
           <button type="button" onClick={next}
             className="inline-flex items-center gap-1.5 bg-sage-500 text-white font-semibold px-5 py-2.5 rounded-lg text-sm hover:bg-sage-700">
             Continue <ArrowRight size={15} />

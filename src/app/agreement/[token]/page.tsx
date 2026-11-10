@@ -2,11 +2,12 @@
 // agreement, fills their details, and e-signs. No login (service-role read).
 
 import { notFound } from 'next/navigation'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Download } from 'lucide-react'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { EmploymentAgreementDocument, agreementViewFromRow } from '@/components/EmploymentAgreementDocument'
 import { ScheduleReviewNote } from './_components/ScheduleReviewNote'
 import { SignAgreementForm, type PrefillValues } from './_components/SignAgreementForm'
+import { gstExpectationToBool } from '@/lib/contractor-onboarding-pack'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,7 +63,14 @@ export default async function PublicAgreementPage({ params }: { params: { token:
           address: s(r.address), dateOfBirth: s(r.date_of_birth), ird: s(r.ird_number),
           bankName: s(r.bank_account_name), bank: s(r.bank_account_number),
           tradingName: s(r.company_name), legalName: s(r.legal_name), nzbn: s(r.nzbn), companyNumber: s(r.company_number),
-          gstNumber: s(r.gst_number), businessStructure: s(r.business_structure), gstRegistered: (r.gst_registered as boolean | null) ?? undefined,
+          gstNumber: s(r.gst_number), businessStructure: s(r.business_structure),
+          // Pre-select GST only when it's actually known: staff's answer at send,
+          // else a contractor already recorded as registered. gst_registered
+          // defaults to false on every new record, so false alone means "unknown"
+          // and the contractor must answer.
+          gstRegistered: a.contractor_gst_expected
+            ? (gstExpectationToBool(a.contractor_gst_expected as string) ?? undefined)
+            : r.gst_registered === true ? true : undefined,
           insurerName: s(r.insurance_provider), insuranceCover: s(r.insurance_liability_cover), insuranceExpiry: s(r.insurance_expiry),
           emName: s(r.emergency_contact_name), emPhone: s(r.emergency_contact_phone), emRel: s(r.emergency_contact_relationship),
         }
@@ -84,6 +92,9 @@ export default async function PublicAgreementPage({ params }: { params: { token:
           <>
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 mb-5 flex items-center gap-2 text-sm text-emerald-800">
               <CheckCircle2 size={16} className="shrink-0" /> Thanks — your agreement is signed. Keep this page for your records.
+              <a href={`/api/agreement/${params.token}/pdf`} className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 shrink-0">
+                <Download size={13} /> Download PDF
+              </a>
             </div>
             <EmploymentAgreementDocument a={view} wrapper="share-page" />
           </>
