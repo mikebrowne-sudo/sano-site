@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
-import { HardHat, Plus } from 'lucide-react'
+import { HardHat, Plus, Send } from 'lucide-react'
 import clsx from 'clsx'
 import { loadWorkforceSettings } from '@/lib/workforce-settings'
 // Phase 5.5.10 fix — import status helpers from the shared (no-
@@ -47,13 +47,22 @@ export default async function ContractorsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl tracking-tight font-bold text-sage-800">Contractors</h1>
-        <Link
-          href="/portal/contractors/new"
-          className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
-        >
-          <Plus size={16} />
-          New Contractor
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/portal/agreements#onboarding-pack"
+            className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors"
+          >
+            <Send size={16} />
+            Send onboarding pack
+          </Link>
+          <Link
+            href="/portal/contractors/new"
+            className="inline-flex items-center gap-2 bg-sage-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm hover:bg-sage-700 transition-colors"
+          >
+            <Plus size={16} />
+            New Contractor
+          </Link>
+        </div>
       </div>
 
       {rows.length === 0 ? (

@@ -7,6 +7,7 @@ import { ArrowLeft, FileSignature, CheckCircle2, Clock, Ban, FileEdit } from 'lu
 import { createClient } from '@/lib/supabase-server'
 import { isAdminUser } from '@/lib/is-admin'
 import { CreateAgreementForm } from './_components/CreateAgreementForm'
+import { SendOnboardingPackForm } from './_components/SendOnboardingPackForm'
 import { DeleteAgreementButton } from './_components/DeleteAgreementButton'
 import { formatDate } from '@/lib/format'
 
@@ -35,6 +36,10 @@ export default async function AgreementsPage() {
       </Link>
       <h1 className="text-3xl font-bold text-sage-800 tracking-tight mb-1">Employment agreements</h1>
       <p className="text-sm text-sage-500 mb-6">Create a permanent, casual, or contractor agreement, send the private link to complete + e-sign, and store their signed copy.</p>
+
+      <div className="mb-6">
+        <SendOnboardingPackForm />
+      </div>
 
       <div className="mb-8">
         <CreateAgreementForm

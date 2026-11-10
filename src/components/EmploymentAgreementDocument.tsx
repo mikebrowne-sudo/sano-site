@@ -9,6 +9,7 @@ import { EMPLOYER, agreementTitle, agreementSections, type AgreementType } from 
 import { kiwiSaverStatusStatement } from '@/lib/payroll/kiwisaver'
 import { schedulePayLine, supplyLabel, type AgreementScheduleBlock } from '@/lib/agreement-schedule-blocks'
 import { entityDisplayLines } from '@/lib/contractor-structure-fields'
+import { contractorRateLabel, gstExpectationToBool, type PersonnelEntry } from '@/lib/contractor-onboarding-pack'
 
 export interface AgreementView {
   type: AgreementType
@@ -64,6 +65,13 @@ export interface AgreementView {
     minCover?: number | null
     requiredType?: string | null
   } | null
+  /** GST registration for the rate wording: the contractor's confirmed answer
+   *  at signing, else staff's expectation from the send (null = unknown). */
+  contractorGstRegistered?: boolean | null
+  /** "Your team" (entity contractors) + the frozen written declaration. */
+  personnel?: PersonnelEntry[] | null
+  personnelDeclarationText?: string | null
+  personnelDeclaredAt?: string | null
 }
 
 /** Map an employment_agreements DB row to the document view. */
@@ -113,6 +121,12 @@ export function agreementViewFromRow(a: any): AgreementView {
     authorityConfirmed: a.authority_confirmed ?? null,
     authorityDeclarationText: a.authority_declaration_text ?? null,
     authorityConfirmedAt: a.authority_confirmed_at ?? null,
+    contractorGstRegistered: typeof a.contractor_gst_registered === 'boolean'
+      ? a.contractor_gst_registered
+      : gstExpectationToBool(a.contractor_gst_expected),
+    personnel: Array.isArray(a.contractor_personnel) ? (a.contractor_personnel as PersonnelEntry[]) : null,
+    personnelDeclarationText: a.personnel_declaration_text ?? null,
+    personnelDeclaredAt: a.personnel_declared_at ?? null,
     insurerName: a.insurer_name ?? null,
     insuranceCover: a.insurance_cover ?? null,
     insuranceExpiry: a.insurance_expiry ?? null,
@@ -213,7 +227,7 @@ export function EmploymentAgreementDocument({
         ['Commencement date', fmtDate(a.startDate)],
         ...(hasSchedules || noSchedulesStated
           ? []
-          : [['Agreed rate', a.hourlyRate != null ? `$${Number(a.hourlyRate).toFixed(2)} per hour (inclusive of GST)` : '—'] as [string, string]]),
+          : [['Agreed rate', contractorRateLabel(a.hourlyRate != null ? Number(a.hourlyRate) : null, a.contractorGstRegistered ?? null)] as [string, string]]),
         ['Contractor GST No.', a.contractorGstNumber || '—'],
         // Contractor IRD number is a tax identifier — deliberately NOT shown on
         // the general signed agreement/PDF. It is retained only in the secure
@@ -411,6 +425,25 @@ export function EmploymentAgreementDocument({
                 </div>
               ))}
             </section>
+
+            {/* Your team — people an entity contractor may send, and the written
+                declaration confirmed at signing (frozen text, read from the row). */}
+            {isContractor && a.personnel && a.personnel.length > 0 ? (
+              <section className="mt-7">
+                <h2 className="font-semibold text-sage-800 mb-1.5 text-[15px]">Schedule: Contractor personnel</h2>
+                <p className="text-[13px] leading-relaxed text-sage-700 mb-2">People the Contractor may send to perform the Services under clause 12. Anyone else requires prior written notice to the Principal.</p>
+                <ol className="list-decimal pl-5 text-[13px] text-sage-700 space-y-0.5">
+                  {a.personnel.map((p) => (
+                    <li key={p.name}>{p.name}{p.phone ? ` · ${p.phone}` : ''}</li>
+                  ))}
+                </ol>
+                {a.personnelDeclarationText ? (
+                  <p className="text-[12px] leading-relaxed text-sage-600 mt-3">
+                    Personnel declaration: “{a.personnelDeclarationText}”{a.personnelDeclaredAt ? ` — confirmed ${fmtDate(a.personnelDeclaredAt)}` : ''}.
+                  </p>
+                ) : null}
+              </section>
+            ) : null}
 
             {/* Signature. For an entity contractor, name the signatory + capacity. */}
             {a.signedName && a.signedAt ? (
