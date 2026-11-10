@@ -31,8 +31,12 @@
 //   simply has no labour cost yet.
 
 /** Minimal shape these helpers need from a job_workers row. */
+import { isSetAmountPerVisit } from './job-worker-pay-basis'
+
 export interface JobWorkerCostInput {
   pay_rate: number | null
+  /** job_workers.pay_type. 'per_visit' means pay_rate is the whole visit's pay. */
+  pay_type?: string | null
   /**
    * Optional fallback rate from the joined contractors row. Used only
    * when pay_rate is null (typical for rows that pre-date the Phase
@@ -135,6 +139,8 @@ export function getWorkerRateSource(jw: JobWorkerCostInput): WorkerRateSource {
  * We never fabricate a cost from a default rate.
  */
 export function getWorkerLabourCost(jw: JobWorkerCostInput): number {
+  // A set amount per visit is the whole visit's pay, whatever the hours.
+  if (isSetAmountPerVisit(jw.pay_type) && jw.pay_rate != null) return jw.pay_rate
   const rate = jw.pay_rate ?? jw.contractor_hourly_rate ?? null
   const hours = getWorkerPayableHours(jw)
   if (rate == null || hours == null) return 0

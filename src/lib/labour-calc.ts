@@ -1,3 +1,5 @@
+import { isSetAmountPerVisit } from './job-worker-pay-basis'
+
 const DEFAULT_ACC_RATE = 0.017 // 1.7%
 
 export interface WorkerInput {
@@ -10,6 +12,9 @@ export interface WorkerInput {
   // time snapshot may still have a null pay_rate; in that case the
   // calculator falls back to hourly_rate as before.
   pay_rate?: number | null
+  /** job_workers.pay_type. 'per_visit' means pay_rate is the whole visit's pay,
+   *  not an hourly rate (see lib/job-worker-pay-basis). */
+  pay_type?: string | null
   hours_allocated: number | null
   actual_hours: number | null
   // Allowed-hours model (2026-06): admin-approved extra hours beyond
@@ -108,9 +113,12 @@ function buildSummary(
     const hours = allocated + extra
     const wt = w.worker_type ?? 'contractor'
 
-    const cost = calcWorkerCost(hours, rate, wt, w.holiday_pay_method, w.holiday_pay_percent, w.kiwisaver_enrolled, w.kiwisaver_employer_rate, accRate)
+    // A set amount per visit is the pay for the whole visit: cost it once,
+    // not × allowed hours ($140/visit on a 4-hour job is $140, not $560).
+    const perVisit = isSetAmountPerVisit(w.pay_type)
+    const cost = calcWorkerCost(perVisit ? 1 : hours, rate, wt, w.holiday_pay_method, w.holiday_pay_percent, w.kiwisaver_enrolled, w.kiwisaver_employer_rate, accRate)
 
-    return { contractorId: w.contractor_id, fullName: w.full_name, workerType: wt, ...cost }
+    return { contractorId: w.contractor_id, fullName: w.full_name, workerType: wt, ...cost, hours }
   })
 
   const totalLabourCost = workerCosts.reduce((s, w) => s + w.totalCost, 0)

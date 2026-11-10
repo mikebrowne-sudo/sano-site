@@ -30,6 +30,18 @@ describe('computeJobMargin — labour-based gross margin', () => {
     expect(m.workerCount).toBe(0)
   })
 
+  it('a set amount per visit is costed once, not × allowed hours', () => {
+    // $180 visit, $140 per visit, 4 allowed hours: labour is $140 (not $560).
+    const m = computeJobMargin(180, 4, [worker({ pay_type: 'per_visit', pay_rate: 140, hours_allocated: null })])
+    expect(m.labourCost).toBe(140)
+    expect(m.grossProfit).toBe(40)
+    expect(m.needsCostReview).toBe(false)
+  })
+
+  it('workerRowToInput carries pay_type through', () => {
+    expect(workerRowToInput({ contractor_id: 'c1', pay_rate: 140, pay_type: 'per_visit' }).pay_type).toBe('per_visit')
+  })
+
   it('needsCostReview is FALSE once labour cost is recorded', () => {
     const m = computeJobMargin(400, 4, [worker()])
     expect(m.labourCost).toBeGreaterThan(0)

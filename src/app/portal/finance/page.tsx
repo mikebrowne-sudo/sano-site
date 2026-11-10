@@ -84,7 +84,7 @@ export default async function FinancePage({
         client_id, job_price, description, scope_snapshot, allowed_hours, completed_at,
         clients ( name ),
         job_workers (
-          contractor_id, pay_rate, approved_hours, actual_hours, hours_allocated,
+          contractor_id, pay_rate, pay_type, approved_hours, actual_hours, hours_allocated,
           pay_status, approved_at, extra_hours, extra_hours_status,
           contractors ( hourly_rate )
         )
@@ -214,6 +214,7 @@ export default async function FinancePage({
   // The same canonical helper is used by the job detail page.
   type RawJobWorker = {
     pay_rate: number | null
+    pay_type: string | null
     approved_hours: number | null
     actual_hours: number | null
     hours_allocated: number | null
@@ -226,6 +227,7 @@ export default async function FinancePage({
       const rawWorkers = (j.job_workers ?? []) as unknown as RawJobWorker[]
       const workers = rawWorkers.map((w) => ({
         pay_rate: w.pay_rate,
+        pay_type: w.pay_type,
         contractor_hourly_rate: w.contractors?.hourly_rate ?? null,
         approved_hours: w.approved_hours,
         actual_hours: w.actual_hours,
