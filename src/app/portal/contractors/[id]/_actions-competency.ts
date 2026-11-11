@@ -11,6 +11,7 @@ import { assertAdminAction } from '@/lib/require-admin'
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { recomputeOnboardingStatus } from './_actions-onboarding'
+import { normaliseExperienceLevel } from '@/lib/experience-level'
 
 export interface CompetencyInput {
   contractorId: string
@@ -33,13 +34,15 @@ export async function recordCompetency(input: CompetencyInput): Promise<{ ok: tr
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated.' }
   if (!input.assessmentDate) return { error: 'Assessment date is required.' }
+  const experienceLevel = normaliseExperienceLevel(input.experienceLevel)
+  if (experienceLevel === 'invalid') return { error: 'Choose an experience level: Trainee, Intermediate, Experienced or Lead.' }
 
   const nowIso = new Date().toISOString()
   const update: Record<string, unknown> = {
     competency_confirmed_at: nowIso,
     competency_confirmed_by: user.id,
     competency_assessment_date: input.assessmentDate,
-    experience_level: input.experienceLevel || null,
+    experience_level: experienceLevel,
     approved_services: input.approvedServices ?? [],
     can_work_solo: input.canWorkSolo,
     can_lead_jobs: input.canLeadJobs,

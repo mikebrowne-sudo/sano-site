@@ -1,15 +1,21 @@
-// Presentational body of the contractor profile screen. Shared by the
-// live page and the staff preview. In `readOnly` (preview) mode the
-// sign-out button is omitted.
+// Presentational body of the contractor profile screen. Shared by the live
+// page and the staff preview. In `readOnly` (preview) mode the sign-out
+// button and all edit/upload controls are omitted.
 
-import { User, Mail, Phone } from 'lucide-react'
+import { User, Mail, Phone, AlertTriangle } from 'lucide-react'
 import { ContractorSignOutButton } from '../_components/ContractorSignOutButton'
+import { EmergencyContactCard, type EmergencyContactValue } from '../_components/EmergencyContactCard'
+import { ProfileDocumentsCard, type ProfileDocSlotView } from '../_components/ProfileDocumentsCard'
 
 export interface ContractorProfile {
   full_name: string
   email?: string | null
   phone?: string | null
   worker_type?: string | null
+  emergency: EmergencyContactValue
+  docSlots: ProfileDocSlotView[]
+  /** What Sano still needs from this worker (drives the banner). */
+  missing: string[]
 }
 
 export function ContractorProfileView({
@@ -25,6 +31,16 @@ export function ContractorProfileView({
         <h1 className="text-xl font-bold text-sage-800">Profile</h1>
         <p className="text-sage-500 text-sm mt-0.5">Your Sano contractor account.</p>
       </div>
+
+      {contractor.missing.length > 0 && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex gap-3">
+          <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+          <div className="text-sm text-amber-800">
+            <p className="font-semibold">Sano still needs a few details from you</p>
+            <p className="mt-0.5">{contractor.missing.join(' · ')}</p>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl border border-sage-100 p-5">
         <div className="flex items-center gap-3 mb-4">
@@ -56,8 +72,11 @@ export function ContractorProfileView({
           )}
         </dl>
 
-        <p className="mt-4 text-xs text-sage-500">To update your details, contact Sano.</p>
+        <p className="mt-4 text-xs text-sage-500">To change your name, email, phone or bank details, contact Sano.</p>
       </div>
+
+      <EmergencyContactCard initial={contractor.emergency} readOnly={readOnly} />
+      <ProfileDocumentsCard initialSlots={contractor.docSlots} readOnly={readOnly} />
 
       {!readOnly && <ContractorSignOutButton />}
     </div>

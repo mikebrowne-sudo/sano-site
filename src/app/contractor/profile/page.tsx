@@ -2,27 +2,26 @@
 // (also used by the staff "Preview as contractor" tool).
 
 import { getContractor } from '../_lib/get-contractor'
+import { loadContractorProfile } from '../_lib/contractor-profile-data'
 import { ContractorProfileView } from '../_views/ContractorProfileView'
+import { getServiceSupabase } from '@/lib/supabase-service'
 
 export default async function ContractorProfilePage() {
-  const { supabase, contractor } = await getContractor()
-
-  const { data: full } = await supabase
-    .from('contractors')
-    .select('id, full_name, email, phone, status, worker_type')
-    .eq('id', contractor.id)
-    .single()
-
-  const c = full ?? contractor
+  // Identity comes from the signed-in session; the service client is then
+  // scoped to that id only (documents aren't contractor-readable via RLS).
+  const { contractor } = await getContractor()
+  const data = await loadContractorProfile(getServiceSupabase(), contractor.id as string)
 
   return (
     <ContractorProfileView
-      contractor={{
-        full_name: c.full_name,
-        email: (c as { email?: string | null }).email ?? null,
-        phone: (c as { phone?: string | null }).phone ?? null,
-        worker_type: (c as { worker_type?: string | null }).worker_type ?? null,
-      }}
+      contractor={
+        data ?? {
+          full_name: contractor.full_name as string,
+          emergency: { name: '', phone: '', relationship: '' },
+          docSlots: [],
+          missing: [],
+        }
+      }
     />
   )
 }

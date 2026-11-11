@@ -13,7 +13,7 @@ import { sendAgreementSignedEmail } from '@/lib/resend'
 import { KS_DEFAULT_EMPLOYEE, KS_DEFAULT_EMPLOYER, newHireKiwiSaverStatus, kiwiSaverStatusEnrolled } from '@/lib/payroll/kiwisaver'
 import { parseCoverAmount } from '@/lib/parse-cover-amount'
 import { seedAndAutoCompleteOnboardingOnSign, completeUploadedItems } from '@/lib/onboarding-sign'
-import { validateUploadFile } from '@/lib/upload-validation'
+import { WORKER_DOC_BUCKET, buildWorkerDocPath, isExpectedWorkerDocPath, createWorkerDocUploadUrl, confirmUploadedWorkerDoc } from '@/lib/worker-document-upload'
 import { AGREEMENT_DOC_TYPE_VALUES } from '@/lib/agreement-documents'
 import { deriveInitialTaxReview } from '@/lib/tax-review'
 import { autoAssignInductionModules } from '@/lib/induction-modules'
@@ -546,37 +546,59 @@ export async function requestAgreementScheduleCorrection(
   return { ok: true }
 }
 
-const AGREEMENT_DOC_BUCKET = 'worker-documents'
+const AGREEMENT_DOC_BUCKET = WORKER_DOC_BUCKET
 
-export async function uploadAgreementDocument(formData: FormData): Promise<
-  { ok: true; id: string; documentType: string; title: string; fileName: string } | { error: string }
-> {
-  const token = String(formData.get('token') || '')
-  const documentType = String(formData.get('documentType') || '')
-  const file = formData.get('file') as File | null
-  if (!token || !file) return { error: 'Please choose a file.' }
-  if (!AGREEMENT_DOC_TYPE_VALUES.includes(documentType)) return { error: 'Unknown document type.' }
-
-  const valid = validateUploadFile({ name: file.name, type: file.type, size: file.size })
-  if (!valid.ok) return { error: valid.error }
+/** Step 1 — validate + mint a signed upload token for this agreement. The file
+ *  itself goes browser → storage (see lib/worker-document-upload.ts). */
+export async function prepareAgreementUpload(input: {
+  token: string
+  documentType: string
+  fileName: string
+  fileType?: string | null
+  fileSize: number
+}): Promise<{ ok: true; path: string; uploadToken: string } | { error: string }> {
+  if (!input.token || !input.fileName) return { error: 'Please choose a file.' }
+  if (!AGREEMENT_DOC_TYPE_VALUES.includes(input.documentType)) return { error: 'Unknown document type.' }
 
   const svc = getServiceSupabase()
   const { data: agreement } = await svc
     .from('employment_agreements')
-    .select('id, status, agreement_type, contractor_id')
-    .eq('token', token)
+    .select('id, status')
+    .eq('token', input.token)
     .maybeSingle()
   if (!agreement) return { error: 'Invalid link.' }
   if (agreement.status === 'signed') return { error: 'This agreement is already signed.' }
 
-  const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '')
-  const filePath = `agreements/${agreement.id}/${documentType}-${Date.now()}.${ext}`
+  const path = buildWorkerDocPath(`agreements/${agreement.id}`, input.documentType, input.fileName)
+  return createWorkerDocUploadUrl(svc, path, input)
+}
 
-  const { error: upErr } = await svc.storage
-    .from(AGREEMENT_DOC_BUCKET)
-    .upload(filePath, file, { contentType: file.type || undefined, upsert: false })
-  if (upErr) return { error: `Upload failed: ${upErr.message}` }
+/** Step 2 — after the browser upload, confirm the object and record it. */
+export async function finaliseAgreementUpload(input: {
+  token: string
+  documentType: string
+  path: string
+  fileName: string
+}): Promise<{ ok: true; id: string; documentType: string; title: string; fileName: string } | { error: string }> {
+  if (!input.token || !input.path) return { error: 'Missing details.' }
+  if (!AGREEMENT_DOC_TYPE_VALUES.includes(input.documentType)) return { error: 'Unknown document type.' }
 
+  const svc = getServiceSupabase()
+  const { data: agreement } = await svc
+    .from('employment_agreements')
+    .select('id, status')
+    .eq('token', input.token)
+    .maybeSingle()
+  if (!agreement) return { error: 'Invalid link.' }
+  if (agreement.status === 'signed') return { error: 'This agreement is already signed.' }
+  if (!isExpectedWorkerDocPath(input.path, `agreements/${agreement.id}`, input.documentType)) {
+    return { error: 'That upload doesn’t belong to this agreement.' }
+  }
+
+  const confirmed = await confirmUploadedWorkerDoc(svc, input.path)
+  if (!('ok' in confirmed)) return { error: confirmed.error }
+
+  const title = input.fileName.slice(0, 200)
   const { data: inserted, error: dbErr } = await svc
     .from('worker_documents')
     .insert({
@@ -584,19 +606,19 @@ export async function uploadAgreementDocument(formData: FormData): Promise<
       // remove working uniformly (incl. pre-linked agreements).
       contractor_id: null,
       agreement_id: agreement.id,
-      document_type: documentType,
-      title: file.name,
-      file_path: filePath,
-      file_size: file.size,
+      document_type: input.documentType,
+      title,
+      file_path: input.path,
+      file_size: confirmed.size,
     })
     .select('id')
     .single()
   if (dbErr || !inserted) {
-    await svc.storage.from(AGREEMENT_DOC_BUCKET).remove([filePath]) // don't orphan the object
+    await svc.storage.from(WORKER_DOC_BUCKET).remove([input.path]) // don't orphan the object
     return { error: `Couldn’t save the document: ${dbErr?.message ?? 'unknown error'}` }
   }
 
-  return { ok: true, id: inserted.id as string, documentType, title: file.name, fileName: file.name }
+  return { ok: true, id: inserted.id as string, documentType: input.documentType, title, fileName: title }
 }
 
 export async function deleteAgreementDocument(

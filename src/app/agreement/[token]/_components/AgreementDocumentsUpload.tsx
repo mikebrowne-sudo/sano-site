@@ -7,7 +7,8 @@
 
 import { useState } from 'react'
 import { Loader2, Check, X, Upload } from 'lucide-react'
-import { uploadAgreementDocument, deleteAgreementDocument } from '../_actions'
+import { prepareAgreementUpload, finaliseAgreementUpload, deleteAgreementDocument } from '../_actions'
+import { uploadWorkerDocToSignedUrl } from '@/lib/worker-document-upload-client'
 import { agreementDocTypesForWorker } from '@/lib/agreement-documents'
 
 export interface UploadedDoc {
@@ -37,11 +38,12 @@ export function AgreementDocumentsUpload({
     setError(null)
     setBusyType(documentType)
     try {
-      const fd = new FormData()
-      fd.set('token', token)
-      fd.set('documentType', documentType)
-      fd.set('file', file)
-      const res = await uploadAgreementDocument(fd)
+      // Direct-to-storage: the file bytes skip the server action (body limits).
+      const prep = await prepareAgreementUpload({ token, documentType, fileName: file.name, fileType: file.type, fileSize: file.size })
+      if ('error' in prep) { setError(prep.error); return }
+      const upErr = await uploadWorkerDocToSignedUrl(prep.path, prep.uploadToken, file)
+      if (upErr) { setError(upErr); return }
+      const res = await finaliseAgreementUpload({ token, documentType, path: prep.path, fileName: file.name })
       if ('error' in res) { setError(res.error); return }
       setDocs((prev) => [
         ...prev.filter((d) => d.documentType !== documentType),
