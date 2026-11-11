@@ -14,6 +14,13 @@ const nextConfig = {
   // can't pack into a serverless function.
   experimental: {
     serverComponentsExternalPackages: ['puppeteer-core', '@sparticuz/chromium'],
+    // Server actions default to a 1 MB body, which rejected ordinary phone
+    // photos on staff document uploads. Netlify functions cap request bodies at
+    // ~6 MB anyway, so match that. Contractor/agreement uploads bypass this
+    // entirely (direct-to-storage — see src/lib/worker-document-upload.ts).
+    serverActions: {
+      bodySizeLimit: '6mb',
+    },
   },
   // The git commit this build came from (Netlify sets COMMIT_REF at build
   // time). Inlined at build, so /api/health can report which deploy is live

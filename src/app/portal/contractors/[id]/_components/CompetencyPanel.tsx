@@ -6,6 +6,7 @@
 import { useState, useTransition } from 'react'
 import { Loader2, Check, ShieldCheck } from 'lucide-react'
 import { recordCompetency } from '../_actions-competency'
+import { EXPERIENCE_LEVELS } from '@/lib/experience-level'
 
 const APPROVED_SERVICES = [
   { value: 'regular_clean', label: 'Regular clean' },
@@ -105,7 +106,10 @@ export function CompetencyPanel({ contractorId, initial }: { contractorId: strin
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-sage-500">Experience level</span>
-          <input value={experienceLevel} onChange={(e) => setExperienceLevel(e.target.value)} className={input} placeholder="e.g. Experienced" />
+          <select value={experienceLevel} onChange={(e) => setExperienceLevel(e.target.value)} className={input}>
+            <option value="">— Not set —</option>
+            {EXPERIENCE_LEVELS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+          </select>
         </label>
       </div>
 

@@ -60,6 +60,25 @@ export const AGREEMENT_DOC_TYPE_VALUES: string[] = [
   'kiwisaver',
 ]
 
+// Self-service slots on the contractor portal Profile screen — evidence a
+// worker can add or replace AFTER signing (photo ID, insurance, right-to-work).
+// Deliberately excludes tax forms (IR330C/IR330) and company evidence: tax
+// treatment stays a staff decision, captured through the agreement/tax flows.
+const PROFILE_CONTRACTOR_DOC_VALUES = ['id_verification', 'insurance', 'right_to_work']
+
+export function profileDocTypesForWorker(workerType?: string | null): AgreementDocType[] {
+  if (workerType === 'employee') return EMPLOYEE_DOC_TYPES.slice()
+  return PROFILE_CONTRACTOR_DOC_VALUES
+    .map((v) => AGREEMENT_DOC_TYPES.find((d) => d.value === v))
+    .filter((d): d is AgreementDocType => Boolean(d))
+}
+
+/** Profile slots Sano needs from everyone of this worker type (right-to-work is
+ *  only needed for visa holders, so it is never flagged as "missing"). */
+export function requiredProfileDocValues(workerType?: string | null): string[] {
+  return workerType === 'employee' ? ['id_verification'] : ['id_verification', 'insurance']
+}
+
 export function agreementDocLabel(value: string): string {
   if (value === IR330C_DOC_TYPE.value) return IR330C_DOC_TYPE.label
   return AGREEMENT_DOC_TYPES.find((d) => d.value === value)?.label ?? value

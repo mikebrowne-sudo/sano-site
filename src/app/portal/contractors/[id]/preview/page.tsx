@@ -23,6 +23,7 @@ import { ContractorJobDetailView } from '@/app/contractor/_views/ContractorJobDe
 import { ContractorPayView } from '@/app/contractor/_views/ContractorPayView'
 import ContractorOnboardingPage from '@/app/contractor/onboarding/page'
 import { ContractorProfileView } from '@/app/contractor/_views/ContractorProfileView'
+import { loadContractorProfile } from '@/app/contractor/_lib/contractor-profile-data'
 import { loadContractorPayStatement } from '@/app/contractor/_lib/contractor-pay-data'
 import { loadContractorJobHistory } from '@/app/contractor/_lib/contractor-job-history'
 import { loadContractorJobDetail } from '@/app/contractor/_lib/contractor-job-detail-data'
@@ -116,17 +117,11 @@ export default async function ContractorPreviewPage({
   } else if (tab === 'onboarding') {
     screen = <ContractorOnboardingPage />
   } else {
-    screen = (
-      <ContractorProfileView
-        readOnly
-        contractor={{
-          full_name: contractor.full_name as string,
-          email: (contractor.email as string | null) ?? null,
-          phone: (contractor.phone as string | null) ?? null,
-          worker_type: (contractor.worker_type as string | null) ?? null,
-        }}
-      />
-    )
+    // Same loader as the live contractor Profile page — keeps preview parity.
+    const profile = await loadContractorProfile(svc, params.id)
+    screen = profile
+      ? <ContractorProfileView readOnly contractor={profile} />
+      : <EmptyScreen label="Profile unavailable." />
   }
 
   return (
