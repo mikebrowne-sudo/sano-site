@@ -12,7 +12,7 @@ import { headers } from 'next/headers'
 import { sendNotification } from '@/lib/notifications/send'
 import { renderPdfFromUrl } from '@/lib/pdf/render-pdf'
 import { sanitizePdfFilename } from '@/lib/pdf/sanitize-filename'
-import { computeInvoiceDueDate, resolveServiceDate } from '@/lib/invoice-dates'
+import { stampInvoiceDatesOnFirstSend } from '@/lib/invoice-send-dates'
 import { getCustomerReplyToEmail } from '@/lib/email-reply-to'
 import { stampJobCompleteOnPaidInvoice } from '@/lib/job-paid-complete'
 import { nzToday } from '@/lib/nz-date'
@@ -55,58 +55,19 @@ export async function sendInvoiceEmail(input: SendInvoiceInput) {
     return { error: 'PDF generation failed, so the email was not sent. Please try again.' }
   }
 
-  // Stamp missing dates BEFORE rendering the PDF. The PDF is generated
-  // by Puppeteer hitting the share page, which reads these fields
-  // straight from the DB — render-then-stamp leaves the attachment
-  // showing blanks. due_date computation reuses the canonical helper
-  // from src/lib/invoice-dates so quote-conversion / send / Stripe
-  // checkout all agree on the formula.
-  // Stamp the issue + due dates on the FIRST send and keep them sticky
-  // thereafter. `date_issued` reflects the day the invoice actually went
-  // out (a re-send never changes it), and `due_date` is computed from that
-  // send date — so an invoice sent AFTER the clean gets a send-based due
-  // date (cash sale: due on the send date; on account: send + 14), while
-  // one sent BEFORE the clean is still due the day before the job.
-  const today = nzToday() // NZ issue date
-  const isFirstSend = !invoice.date_issued
-  const effectiveDateIssued = (invoice.date_issued as string | null) || today
-
-  let effectiveDueDate: string | null = (invoice.due_date as string | null) ?? null
-  if (isFirstSend) {
-    const { data: client } = await supabase
-      .from('clients')
-      .select('payment_terms')
-      .eq('id', invoice.client_id)
-      .maybeSingle()
-
-    // Recompute from the actual send date, overriding any provisional
-    // value written at creation.
-    effectiveDueDate = computeInvoiceDueDate({
-      payment_type: (invoice.payment_type as string | null) ?? 'cash_sale',
-      payment_terms: (client?.payment_terms as string | null) ?? null,
-      date_issued: effectiveDateIssued,
-      service_date: resolveServiceDate({
-        quote_scheduled_clean_date: (invoice.scheduled_clean_date as string | null) ?? null,
-      }),
-    })
-  }
-
-  const datePatch: Record<string, string> = {}
-  if (isFirstSend) {
-    datePatch.date_issued = effectiveDateIssued
-    if (effectiveDueDate) datePatch.due_date = effectiveDueDate
-  }
-
-  if (Object.keys(datePatch).length > 0) {
-    const { error: dateUpdErr } = await supabase
-      .from('invoices')
-      .update(datePatch)
-      .eq('id', input.invoice_id)
-    if (dateUpdErr) {
-      return {
-        error: 'PDF generation failed, so the email was not sent. Please try again.',
-        detail: dateUpdErr.message,
-      }
+  // Stamp issue + due dates on the first send (sticky thereafter) BEFORE the
+  // PDF render, which reads them from the DB. See lib/invoice-send-dates.
+  const stamped = await stampInvoiceDatesOnFirstSend(supabase, {
+    id: input.invoice_id,
+    client_id: (invoice.client_id as string | null) ?? null,
+    date_issued: (invoice.date_issued as string | null) ?? null,
+    payment_type: (invoice.payment_type as string | null) ?? null,
+    scheduled_clean_date: (invoice.scheduled_clean_date as string | null) ?? null,
+  })
+  if (stamped.error) {
+    return {
+      error: 'PDF generation failed, so the email was not sent. Please try again.',
+      detail: stamped.error,
     }
   }
 

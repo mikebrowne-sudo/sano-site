@@ -29,7 +29,7 @@ export function buildEmailHistory(sends: SendRow[], reminders: ReminderRow[]): E
         at: s.created_at,
         to: typeof a.to === 'string' ? a.to : '',
         cc: Array.isArray(a.cc) ? (a.cc as unknown[]).filter((x): x is string => typeof x === 'string') : [],
-        label: a.source === 'recurring_auto' ? 'Invoice auto-sent (recurring)' : 'Invoice sent',
+        label: a.source === 'recurring_auto' ? 'Invoice auto-sent (recurring)' : a.source === 'statement' ? 'Invoice sent on a statement' : 'Invoice sent',
       }
     }),
     ...reminders.map((r): EmailHistoryEntry => ({

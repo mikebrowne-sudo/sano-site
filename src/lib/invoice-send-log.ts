@@ -22,8 +22,8 @@ export interface InvoiceSentLog {
   subject: string
   /** Resend's id for the message — lets a delivery be traced in Resend while it still has it. */
   resendId: string | null
-  /** 'manual' = staff clicked Send; 'recurring_auto' = the recurring-contract cron. */
-  source: 'manual' | 'recurring_auto'
+  /** 'manual' = staff clicked Send; 'recurring_auto' = the recurring-contract cron; 'statement' = sent on a customer statement. */
+  source: 'manual' | 'recurring_auto' | 'statement'
   actorId: string | null
 }
 

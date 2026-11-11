@@ -20,7 +20,9 @@ import { QUOTE_INVOICE_CSS } from './QuoteInvoiceCss'
  * footer ending with the italic "Cleaning, done properly." line.
  */
 
-export type DocumentKind = 'quote' | 'invoice'
+// 'statement' groups several invoices: no GST breakdown (each invoice carries
+// its own), and the grand total is what is outstanding.
+export type DocumentKind = 'quote' | 'invoice' | 'statement'
 
 export interface DocumentParty {
   /** Bold first-line name (rendered in the display serif). */
@@ -166,10 +168,11 @@ export function DocumentLayout({
   stamp,
 }: DocumentLayoutProps) {
   const isQuote = kind === 'quote'
-  const typeWord = isQuote ? 'Quote' : 'Invoice'
-  const numberLabel = isQuote ? 'Quote #' : 'Invoice #'
-  const toPartyLabel = isQuote ? 'Quote for' : 'Billed to'
-  const grandTotalLabel = grandTotalLabelOverride ?? (isQuote ? 'Quote total' : 'Amount due')
+  const isStatement = kind === 'statement'
+  const typeWord = isQuote ? 'Quote' : isStatement ? 'Statement' : 'Invoice'
+  const numberLabel = isQuote ? 'Quote #' : isStatement ? 'Statement #' : 'Invoice #'
+  const toPartyLabel = isQuote ? 'Quote for' : isStatement ? 'Statement for' : 'Billed to'
+  const grandTotalLabel = grandTotalLabelOverride ?? (isQuote ? 'Quote total' : isStatement ? 'Total outstanding' : 'Amount due')
 
   return (
     <>
@@ -296,14 +299,18 @@ export function DocumentLayout({
               </div>
 
               <div className="doc-totals">
-                <div className="doc-total-row">
-                  <span>Subtotal (excl. GST)</span>
-                  <span className="val">{totals.subtotalExGstDisplay}</span>
-                </div>
-                <div className="doc-total-row">
-                  <span>GST (15%)</span>
-                  <span className="val">{totals.gstDisplay}</span>
-                </div>
+                {!isStatement && (
+                  <>
+                    <div className="doc-total-row">
+                      <span>Subtotal (excl. GST)</span>
+                      <span className="val">{totals.subtotalExGstDisplay}</span>
+                    </div>
+                    <div className="doc-total-row">
+                      <span>GST (15%)</span>
+                      <span className="val">{totals.gstDisplay}</span>
+                    </div>
+                  </>
+                )}
                 {(extraTotalRows ?? []).map((r) => (
                   <div key={r.label} className="doc-total-row doc-total-row-paid">
                     <span>{r.label}</span>

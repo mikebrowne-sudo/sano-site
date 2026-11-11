@@ -3,7 +3,7 @@
 // the calling server action checks isAdminUser and passes its session client.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { payerKey, proposeAutoReconcile, type ArCredit, type ArHistory, type ArInvoice } from '@/lib/auto-reconcile'
+import { payerKey, proposeAutoReconcile, type ArCredit, type ArHistory, type ArInvoice, type ArStatement } from '@/lib/auto-reconcile'
 import { round2 } from '@/lib/payment-allocation'
 import { applyBankAllocation, invoicePayableTotal } from './_apply'
 import { runAutoReconcileOut, type AutoReconcileOutSummary } from './_auto-out'
@@ -92,7 +92,16 @@ export async function runAutoReconcile(supabase: SupabaseClient, userId: string 
     }
   })
 
-  const { proposals, review } = proposeAutoReconcile({ credits, invoices, history })
+  // Sent customer statements, so a payment referenced STM-YYMMNN is split
+  // across the statement's invoices. Read on its own and ignored if the
+  // statements table isn't there yet (hand-run migration).
+  const { data: stmRows, error: stmErr } = await supabase.from('statements').select('statement_number, invoice_ids').not('sent_at', 'is', null)
+  const statements: ArStatement[] = stmErr ? [] : ((stmRows ?? []) as Rec[]).map((s) => ({
+    number: s.statement_number as string,
+    invoiceIds: (s.invoice_ids as string[] | null) ?? [],
+  }))
+
+  const { proposals, review } = proposeAutoReconcile({ credits, invoices, history, statements })
   const creditById = new Map(credits.map((c) => [c.id, c]))
 
   const summary: AutoReconcileSummary = { matched: 0, matchedAmount: 0, markedPaid: 0, backfilled: 0, needsReview: 0, failures: [], out: null, outError: null, stripe: null, stripeError: null }
