@@ -128,14 +128,16 @@ export async function runStripePayoutReconcile(supabase: SupabaseClient, userId:
       const allocated = new Map<string, number>()
       for (const a of (allocRows ?? []) as Rec[]) allocated.set(a.invoice_id as string, round2((allocated.get(a.invoice_id as string) ?? 0) + Number(a.amount_allocated ?? 0)))
 
-      const invoiceByIntent = new Map<string, StripeInvoiceRef>()
+      // Several invoices share one intent when a statement was paid in one go.
+      const invoiceByIntent = new Map<string, StripeInvoiceRef[]>()
       for (const i of invRows) {
-        invoiceByIntent.set(i.stripe_payment_intent_id as string, {
+        const key = i.stripe_payment_intent_id as string
+        invoiceByIntent.set(key, [...(invoiceByIntent.get(key) ?? []), {
           id: i.id as string,
           number: (i.invoice_number as string | null) ?? '',
           total: invoicePayableTotal(i),
           allocated: allocated.get(i.id as string) ?? 0,
-        })
+        }])
       }
       const quoteByIntent = new Map<string, string>()
       for (const q of (quoteQ.data ?? []) as Rec[]) quoteByIntent.set(q.stripe_payment_intent_id as string, (q.quote_number as string | null) ?? 'a quote')

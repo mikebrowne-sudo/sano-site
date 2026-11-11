@@ -46,8 +46,9 @@ export interface StripePayoutInput {
   /** The bank line's amount (dollars). */
   bankAmount: number
   lines: StripePayoutLine[]
-  /** payment intent → invoice it paid (invoices.stripe_payment_intent_id). */
-  invoiceByIntent: Map<string, StripeInvoiceRef>
+  /** payment intent → invoice(s) it paid (invoices.stripe_payment_intent_id).
+   *  Several when a whole statement was paid in one card payment. */
+  invoiceByIntent: Map<string, StripeInvoiceRef | StripeInvoiceRef[]>
   /** payment intent → quote number, for quotes paid before they were invoiced. */
   quoteByIntent: Map<string, string>
 }
@@ -93,7 +94,24 @@ export function proposeStripePayout(input: StripePayoutInput): StripePayoutPropo
   const byInvoice = new Map<string, { ref: StripeInvoiceRef; gross: number }>()
   const waitingQuotes: string[] = []
   for (const l of lines) {
-    const inv = l.paymentIntentId ? invoiceByIntent.get(l.paymentIntentId) : undefined
+    const hit = l.paymentIntentId ? invoiceByIntent.get(l.paymentIntentId) : undefined
+    const refs = hit === undefined ? [] : Array.isArray(hit) ? hit : [hit]
+    if (refs.length > 1) {
+      // A statement paid in one go: each invoice was paid its open balance
+      // (its fee share is already a line on it). Only split when those open
+      // balances explain this charge exactly.
+      const opens = refs.map((r) => round2(r.total - r.allocated))
+      if (Math.abs(round2(opens.reduce((s, x) => s + x, 0)) - round2(l.gross)) > EPS) {
+        return { ok: false, waiting: false, why: `Payout ${payoutId}: a ${l.gross.toFixed(2)} statement payment covers ${refs.map((r) => r.number).join(', ')}, whose open balances don't add up to it.` }
+      }
+      refs.forEach((r, k) => {
+        const cur = byInvoice.get(r.id) ?? { ref: r, gross: 0 }
+        cur.gross = round2(cur.gross + opens[k])
+        byInvoice.set(r.id, cur)
+      })
+      continue
+    }
+    const inv = refs[0]
     if (!inv) {
       const quote = l.paymentIntentId ? quoteByIntent.get(l.paymentIntentId) : undefined
       if (quote) {

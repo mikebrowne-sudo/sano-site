@@ -156,7 +156,7 @@ export function SendStatementForm({
           <span className="mb-1.5 block text-sm font-semibold text-sage-800">Message</span>
           <textarea rows={9} value={message} onChange={(e) => { setMessage(e.target.value); setEdited(true) }} className={clsx(INPUT, 'resize-y leading-relaxed')} />
           <span className="mt-1 block text-[11px] text-sage-500">
-            Added underneath automatically: the invoice list and total, bank details with the statement number as the reference, a link to view the statement, and the PDFs of the statement and each invoice.
+            Added underneath automatically: the invoice list and total, bank details with the statement number as the reference, a Pay online button (when card payment is allowed on every invoice), a link to view the statement, and the PDFs of the statement and each invoice.
           </span>
         </label>
       </section>

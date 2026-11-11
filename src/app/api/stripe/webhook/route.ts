@@ -6,6 +6,7 @@ import { stampJobCompleteOnPaidInvoice } from '@/lib/job-paid-complete'
 import { addCardFeeLine, applyQuoteCardPayment } from '@/lib/card-payments'
 import { nzToday } from '@/lib/nz-date'
 import { notifyAutopayFailure } from '@/lib/autopay'
+import { decodePlanMetadata } from '@/lib/statement-pay'
 import Stripe from 'stripe'
 
 function getServerSupabase() {
@@ -127,6 +128,57 @@ export async function POST(req: NextRequest) {
     // received may mark an invoice paid.
     if (session.payment_status !== 'paid') {
       console.log('[stripe-webhook] Session completed but not paid:', session.payment_status)
+      return NextResponse.json({ received: true })
+    }
+
+    // A paid STATEMENT: one card payment covering several invoices. Each
+    // invoice is marked paid with the same payment intent and gets its share
+    // of the card fee as a line (split fixed at checkout, lib/statement-pay).
+    // Idempotent per invoice (.neq paid). An invoice that was already paid
+    // some other way means the customer has overpaid it: alert for a refund.
+    if (session.metadata?.kind === 'statement') {
+      const parts = decodePlanMetadata(session.metadata as Record<string, string>)
+      const intent = (session.payment_intent as string) || null
+      const supabase = getServerSupabase()
+      const today = nzToday()
+      const overpaid: string[] = []
+      for (const p of parts) {
+        const { data: flipped, error } = await supabase
+          .from('invoices')
+          .update({ status: 'paid', date_paid: today, stripe_payment_intent_id: intent })
+          .eq('id', p.invoiceId)
+          .neq('status', 'paid')
+          .select('id')
+        if (error) {
+          console.error('[stripe-webhook] Failed to record statement payment:', error.message)
+          return NextResponse.json({ error: 'Failed to record payment' }, { status: 500 })
+        }
+        if ((flipped ?? []).length > 0) {
+          await addCardFeeLine(supabase, p.invoiceId, p.feeItemPrice)
+          await stampJobCompleteOnPaidInvoice(supabase, p.invoiceId)
+          continue
+        }
+        const { data: inv } = await supabase.from('invoices').select('stripe_payment_intent_id').eq('id', p.invoiceId).maybeSingle()
+        if (inv && intent && inv.stripe_payment_intent_id !== intent) overpaid.push(`${p.number} ($${(p.balance + p.fee).toFixed(2)})`)
+      }
+      await supabase.from('audit_log').insert({
+        actor_id: null, actor_role: 'system', action: 'statement.paid_by_card',
+        entity_table: 'statements', entity_id: session.metadata?.statement_id ?? null, before: null,
+        after: { statement_number: session.metadata?.statement_number, payment_intent: intent, amount: (session.amount_total ?? 0) / 100, invoices: parts.map((p) => p.number), overpaid },
+      })
+      if (overpaid.length > 0 && process.env.SANO_NOTIFY_EMAIL) {
+        try {
+          await new Resend(process.env.RESEND_API_KEY).emails.send({
+            from: 'Sano <noreply@sano.nz>',
+            to: process.env.SANO_NOTIFY_EMAIL,
+            subject: `Statement ${session.metadata?.statement_number} paid by card: part refund needed`,
+            html: `<p>Statement <strong>${session.metadata?.statement_number}</strong> was paid by card (payment ${intent}), but these invoices were already paid another way: <strong>${overpaid.join(', ')}</strong>.</p><p>Please refund that part in the Stripe dashboard: Payments → find ${intent} → Refund (partial).</p>`,
+          })
+        } catch (e) {
+          console.error('[stripe-webhook] statement overpayment alert failed', e)
+        }
+      }
+      console.log(`[stripe-webhook] Statement ${session.metadata?.statement_number} paid by card`)
       return NextResponse.json({ received: true })
     }
 
