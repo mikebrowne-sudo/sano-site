@@ -8,6 +8,10 @@ import { loadStatementLines } from '@/lib/statement-data'
 import { fmtMoney, statementTotal } from '@/lib/statements'
 import { autopayLinkUrl } from '@/lib/autopay'
 import { nzToday } from '@/lib/nz-date'
+import { canTakeRealPayments } from '@/lib/stripe'
+import { sanoPaymentDetails } from '@/lib/sano-bank-details'
+import { loadStatementPayInvoices, statementCardPlan } from '@/lib/statement-pay'
+import { PayNowButton } from '../../invoice/[token]/_components/PayNowButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,7 +34,7 @@ export default async function PublicStatementPage({
   searchParams,
 }: {
   params: { token: string }
-  searchParams: { pdf?: string }
+  searchParams: { pdf?: string; payment?: string }
 }) {
   const supabase = getServiceSupabase()
   const isPdf = searchParams?.pdf === '1'
@@ -53,8 +57,30 @@ export default async function PublicStatementPage({
   const origin = process.env.NEXT_PUBLIC_SITE_URL ?? `https://${headers().get('host') ?? 'sano.nz'}`
   const issuedOn = nzToday(new Date((st.sent_at ?? st.created_at) as string))
   const total = statementTotal(lines)
+  // Pay the whole statement by card — only when card can be offered on every
+  // invoice still owing, real payments are live, and they're not on autopay.
+  const plan = !isPdf && !autopayActive && canTakeRealPayments()
+    ? statementCardPlan(await loadStatementPayInvoices(supabase, (st.invoice_ids as string[]) ?? []))
+    : null
 
   const panel = isPdf ? undefined : (
+    <>
+    {plan && (
+      <PayNowButton
+        kind="statement"
+        shareToken={params.token}
+        status="sent"
+        datePaid={null}
+        paymentResult={searchParams?.payment ?? null}
+        total={fmtMoney(plan.amount)}
+        cardFee={plan.fee > 0 ? fmtMoney(plan.fee) : undefined}
+        cardTotal={plan.fee > 0 ? fmtMoney(Math.round((plan.amount + plan.fee) * 100) / 100) : undefined}
+        bankDetails={sanoPaymentDetails(st.statement_number as string)}
+      />
+    )}
+    {!plan && searchParams?.payment === 'success' && (
+      <PayNowButton kind="statement" shareToken={params.token} status="sent" datePaid={null} paymentResult="success" total={fmtMoney(total)} />
+    )}
     <div className="pay-panel">
       <h3 className="pay-title">Your invoices</h3>
       <p className="pay-sub">Open any invoice to view or download it.</p>
@@ -84,6 +110,7 @@ export default async function PublicStatementPage({
         </div>
       )}
     </div>
+    </>
   )
 
   return (

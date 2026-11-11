@@ -26,6 +26,8 @@ import { loadOutstandingStatementLines, loadStatementLines } from '@/lib/stateme
 import { nextStatementNumber, renderStatementEmailHtml, statementNumberPrefix, statementTotal } from '@/lib/statements'
 import { SANO_ACCOUNT_NAME, SANO_ACCOUNT_NUMBER } from '@/lib/sano-bank-details'
 import { nzToday } from '@/lib/nz-date'
+import { canTakeRealPayments } from '@/lib/stripe'
+import { loadStatementPayInvoices, statementCardPlan } from '@/lib/statement-pay'
 
 export interface SendStatementInput {
   clientId: string
@@ -142,6 +144,11 @@ export async function sendStatement(input: SendStatementInput): Promise<{ ok: tr
   }
 
   const autopayActive = client.autopay_status === 'active'
+  // "Pay now" goes to the statement page's card checkout — offered only when
+  // card is allowed on every invoice (drafts count as sent: they go out now).
+  const payInvoices = (await loadStatementPayInvoices(supabase, lines.map((l) => l.invoiceId)))
+    .map((i) => (draftIds.includes(i.id) ? { ...i, status: 'sent' } : i))
+  const cardPlan = !autopayActive && canTakeRealPayments() ? statementCardPlan(payInvoices) : null
   const html = renderStatementEmailHtml({
     message: input.message,
     statementNumber: statement.statement_number,
@@ -151,6 +158,7 @@ export async function sendStatement(input: SendStatementInput): Promise<{ ok: tr
     bankAccountName: SANO_ACCOUNT_NAME,
     bankAccountNumber: SANO_ACCOUNT_NUMBER,
     autopayUrl: input.includeAutopay ? autopayLinkUrl(origin, input.clientId) : null,
+    payUrl: cardPlan ? statementUrl : null,
     autopayActive,
   })
 

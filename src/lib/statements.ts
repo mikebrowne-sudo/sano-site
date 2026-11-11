@@ -152,9 +152,12 @@ export function renderStatementEmailHtml(i: {
       ].join('')
 
   const buttons = [
-    !i.autopayActive && i.payUrl ? button(i.payUrl, `Pay ${fmtMoney(i.total)} now`, true) : '',
+    !i.autopayActive && i.payUrl ? button(i.payUrl, 'Pay online by card', true) : '',
     button(i.statementUrl, 'View statement', !(!i.autopayActive && i.payUrl)),
   ].join('')
+  const cardNote = !i.autopayActive && i.payUrl
+    ? `<p style="margin:4px 0 0;color:${MUTED};font-size:12px;">Paying by card adds a 2.5% card fee. Bank transfer has no fee.</p>`
+    : ''
 
   const autopay = i.autopayUrl && !i.autopayActive
     ? `
@@ -178,6 +181,7 @@ export function renderStatementEmailHtml(i: {
       </td></tr>
     </table>
     <div style="margin-top:16px;">${buttons}</div>
+    ${cardNote}
     ${autopay}
     <p style="margin:16px 0 0;color:${MUTED};font-size:12px;">Tap an invoice number to view it. Copies of ${esc(i.lines.map((l) => l.invoiceNumber).join(', '))} and this statement are attached as PDFs.</p>
     <p style="margin:22px 0 0;">Kind regards,<br>The Sano team</p>

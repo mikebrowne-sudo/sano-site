@@ -4,6 +4,7 @@ import { getStripe } from '@/lib/stripe'
 import { computeDocumentTotals } from '@/lib/doc-totals'
 import { invoiceBalanceDue, loadAllocatedByInvoice } from '@/lib/invoice-balance'
 import { CARD_FEE_LABEL, cardFee, cardFeeItemPrice, clientCardSetting, invoiceCardPayable, quoteCardPayable } from '@/lib/card-payments'
+import { encodePlanMetadata, loadStatementPayInvoices, statementCardPlan } from '@/lib/statement-pay'
 
 // Service-role client, scoped by the unguessable share_token — the same
 // pattern as the share pages. This used the anon key, which only worked
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { share_token } = body
-    const kind: 'invoice' | 'quote' = body?.kind === 'quote' ? 'quote' : 'invoice'
+    const kind: 'invoice' | 'quote' | 'statement' = body?.kind === 'quote' ? 'quote' : body?.kind === 'statement' ? 'statement' : 'invoice'
 
     if (!share_token) {
       return NextResponse.json({ error: 'Missing share token' }, { status: 400 })
@@ -31,6 +32,61 @@ export async function POST(req: NextRequest) {
 
     const supabase = getServiceSupabase()
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
+
+    // A whole statement in one checkout: one Stripe line per invoice + the card
+    // fee. The per-invoice split rides in the metadata (lib/statement-pay).
+    if (kind === 'statement') {
+      const { data: st } = await supabase
+        .from('statements')
+        .select('id, statement_number, invoice_ids, sent_to, clients ( email )')
+        .eq('share_token', share_token)
+        .not('sent_at', 'is', null)
+        .maybeSingle()
+      if (!st) return NextResponse.json({ error: 'Statement not found' }, { status: 404 })
+      const plan = statementCardPlan(await loadStatementPayInvoices(supabase, (st.invoice_ids as string[]) ?? []))
+      if (!plan) return NextResponse.json({ error: 'Card payment is not available for this statement. Please pay by bank transfer.' }, { status: 400 })
+      const stMeta = {
+        kind: 'statement',
+        statement_id: st.id as string,
+        statement_number: st.statement_number as string,
+        share_token,
+        amount_ex_fee: plan.amount.toFixed(2),
+        card_fee: plan.fee.toFixed(2),
+        ...encodePlanMetadata(plan),
+      }
+      const stPath = `/share/statement/${share_token}`
+      const session = await getStripe().checkout.sessions.create({
+        mode: 'payment',
+        currency: 'nzd',
+        payment_method_types: ['card'],
+        customer_email: (st.sent_to as string | null) || (st.clients as unknown as { email: string | null } | null)?.email || undefined,
+        line_items: [
+          ...plan.parts.map((p) => ({
+            price_data: {
+              currency: 'nzd',
+              unit_amount: Math.round(p.balance * 100),
+              product_data: { name: `Invoice ${p.number}`, description: `Statement ${st.statement_number as string} (incl. GST)` },
+            },
+            quantity: 1,
+          })),
+          ...(plan.fee > 0
+            ? [{
+                price_data: {
+                  currency: 'nzd',
+                  unit_amount: Math.round(plan.fee * 100),
+                  product_data: { name: CARD_FEE_LABEL, description: 'Applies to card payments only. Bank transfer has no fee.' },
+                },
+                quantity: 1,
+              }]
+            : []),
+        ],
+        metadata: stMeta,
+        payment_intent_data: { metadata: stMeta },
+        success_url: `${siteUrl}${stPath}?payment=success`,
+        cancel_url: `${siteUrl}${stPath}?payment=cancelled`,
+      })
+      return NextResponse.json({ url: session.url })
+    }
 
     let amount: number
     let gstIncluded = true

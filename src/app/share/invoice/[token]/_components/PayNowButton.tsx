@@ -24,14 +24,14 @@ export function PayNowButton({
   paymentResult: string | null
   total: string
   /** 'quote' = pay an accepted quote upfront; the invoice follows marked paid. */
-  kind?: 'invoice' | 'quote'
+  kind?: 'invoice' | 'quote' | 'statement'
   /** Sano's bank details — shown under the card button as the fee-free option. */
   bankDetails?: ReadonlyArray<{ label: string; value: string }>
   /** 2.5% card fee and the card total (amount due + fee), formatted. */
   cardFee?: string
   cardTotal?: string
 }) {
-  const noun = kind === 'quote' ? 'booking' : 'invoice'
+  const noun = kind === 'quote' ? 'booking' : kind === 'statement' ? 'statement' : 'invoice'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -67,7 +67,7 @@ export function PayNowButton({
 
   return (
     <div className="pay-panel">
-      <h3 className="pay-title">{kind === 'quote' ? 'Pay for your booking' : 'Pay this invoice'}</h3>
+      <h3 className="pay-title">{kind === 'quote' ? 'Pay for your booking' : kind === 'statement' ? 'Pay all invoices' : 'Pay this invoice'}</h3>
       <p className="pay-sub">Secure payment powered by Stripe.</p>
 
       {cancelledMessage && <p className="pay-cancelled">{cancelledMessage}</p>}
@@ -123,7 +123,7 @@ export function PayNowButton({
 }
 
 function PayButton({ kind, shareToken, total, byCard, loading, setLoading, error, setError }: {
-  kind: 'invoice' | 'quote'
+  kind: 'invoice' | 'quote' | 'statement'
   byCard: boolean
   shareToken: string
   total: string
