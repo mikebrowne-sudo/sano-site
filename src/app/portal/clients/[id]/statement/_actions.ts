@@ -42,7 +42,7 @@ export interface SendStatementInput {
 
 const EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/
 
-export async function sendStatement(input: SendStatementInput): Promise<{ ok: true; statementNumber: string; to: string; cc: string[] } | { error: string }> {
+export async function sendStatement(input: SendStatementInput): Promise<{ ok: true; statementNumber: string; to: string; cc: string[]; warning?: string } | { error: string }> {
   await assertAdminAction()
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -177,14 +177,24 @@ export async function sendStatement(input: SendStatementInput): Promise<{ ok: tr
   }
 
   // The email is out. Drafts on it are now sent; a paid one stays paid.
-  if (draftIds.length > 0) {
-    const { error } = await supabase.from('invoices').update({ status: 'sent' }).in('id', draftIds).eq('status', 'draft')
-    if (error) console.error('[statement] sent but drafts not flipped:', error.message)
+  // These writes matter (an unsent statement can't be paid by card or matched
+  // by reference, an unflipped draft drops off the card total), so retry once
+  // and tell staff if they still fail rather than only logging.
+  const problems: string[] = []
+  const retry = async (fn: () => PromiseLike<{ error: { message: string } | null }>) => {
+    const first = await fn()
+    return first.error ? (await fn()).error : null
   }
-  await supabase
+  if (draftIds.length > 0) {
+    const err = await retry(() => supabase.from('invoices').update({ status: 'sent' }).in('id', draftIds).eq('status', 'draft'))
+    if (err) problems.push(`the draft invoices could not be marked as sent (${err.message}); send each one from its invoice page`)
+  }
+  const stErr = await retry(() => supabase
     .from('statements')
     .update({ sent_at: new Date().toISOString(), sent_by: user?.id ?? null, resend_id: sent?.id ?? null })
-    .eq('id', statement.id)
+    .eq('id', statement.id))
+  if (stErr) problems.push(`the statement could not be marked as sent (${stErr.message}), so its card payment and bank-reference matching won't work until it is`)
+  for (const p of problems) console.error('[statement]', p)
   for (const l of lines) {
     await logInvoiceSent(supabase, {
       invoiceId: l.invoiceId,
@@ -203,15 +213,21 @@ export async function sendStatement(input: SendStatementInput): Promise<{ ok: tr
     after: { statement_number: statement.statement_number, to, cc, total, invoices: lines.map((l) => l.invoiceNumber), include_autopay: input.includeAutopay },
   })
 
-  // Customer on automatic payments: newly sent drafts are collected, the same
-  // as a normal send. No-op for everyone else; never fails the send.
-  for (const id of draftIds) {
-    try { await collectInvoiceByAutopay(getServiceSupabase(), id) }
-    catch (e) { console.error('[statement] direct debit not started', e) }
+  // Customer on automatic payments: the statement tells them every invoice on
+  // it will be collected, so start (or retry a failed) debit on each one that
+  // isn't already collecting. No-op for everyone else; never fails the send.
+  if (autopayActive) {
+    for (const l of lines) {
+      try { await collectInvoiceByAutopay(getServiceSupabase(), l.invoiceId) }
+      catch (e) { console.error('[statement] direct debit not started', e) }
+    }
   }
 
   revalidatePath(`/portal/clients/${input.clientId}`)
   revalidatePath('/portal/invoices')
   for (const l of lines) revalidatePath(`/portal/invoices/${l.invoiceId}`)
-  return { ok: true, statementNumber: statement.statement_number, to, cc }
+  return {
+    ok: true, statementNumber: statement.statement_number, to, cc,
+    ...(problems.length > 0 ? { warning: `The email was sent, but ${problems.join('; and ')}.` } : {}),
+  }
 }

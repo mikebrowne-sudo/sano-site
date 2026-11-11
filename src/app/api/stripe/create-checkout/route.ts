@@ -38,11 +38,16 @@ export async function POST(req: NextRequest) {
     if (kind === 'statement') {
       const { data: st } = await supabase
         .from('statements')
-        .select('id, statement_number, invoice_ids, sent_to, clients ( email )')
+        .select('id, statement_number, invoice_ids, sent_to, clients ( email, autopay_status )')
         .eq('share_token', share_token)
         .not('sent_at', 'is', null)
         .maybeSingle()
       if (!st) return NextResponse.json({ error: 'Statement not found' }, { status: 404 })
+      // On automatic payments their invoices are collected by direct debit;
+      // a card payment as well would take the money twice.
+      if ((st.clients as unknown as { autopay_status: string | null } | null)?.autopay_status === 'active') {
+        return NextResponse.json({ error: 'These invoices are collected automatically by direct debit, so there is nothing to pay here.' }, { status: 400 })
+      }
       const plan = statementCardPlan(await loadStatementPayInvoices(supabase, (st.invoice_ids as string[]) ?? []))
       if (!plan) return NextResponse.json({ error: 'Card payment is not available for this statement. Please pay by bank transfer.' }, { status: 400 })
       const stMeta = {
@@ -122,12 +127,15 @@ export async function POST(req: NextRequest) {
     } else {
       const { data: invoice, error } = await supabase
         .from('invoices')
-        .select('id, invoice_number, status, payment_type, allow_card_payment, base_price, discount, gst_included, share_token, clients ( name, email, allow_card_payment ), invoice_items ( price )')
+        .select('id, invoice_number, status, payment_type, allow_card_payment, autopay_status, base_price, discount, gst_included, share_token, clients ( name, email, allow_card_payment ), invoice_items ( price )')
         .eq('share_token', share_token)
         .is('deleted_at', null)
         .single()
       if (error || !invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
       if (invoice.status === 'paid') return NextResponse.json({ error: 'Invoice already paid' }, { status: 400 })
+      if (invoice.autopay_status === 'processing' || invoice.autopay_status === 'succeeded') {
+        return NextResponse.json({ error: 'This invoice is being collected by direct debit, so there is nothing to pay here.' }, { status: 400 })
+      }
       if (!invoiceCardPayable({ ...invoice, client_allow_card_payment: clientCardSetting(invoice.clients) })) {
         return NextResponse.json({ error: 'Card payment is not available for this invoice' }, { status: 400 })
       }

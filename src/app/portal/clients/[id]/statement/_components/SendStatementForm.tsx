@@ -35,7 +35,7 @@ export function SendStatementForm({
   const [message, setMessage] = useState(defaultMessage)
   const [edited, setEdited] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [done, setDone] = useState<{ statementNumber: string; to: string; cc: string[] } | null>(null)
+  const [done, setDone] = useState<{ statementNumber: string; to: string; cc: string[]; warning?: string } | null>(null)
   const [pending, start] = useTransition()
 
   const chosen = useMemo(() => lines.filter((l) => picked.has(l.invoiceId)), [lines, picked])
@@ -79,6 +79,7 @@ export function SendStatementForm({
           {drafts > 0 ? `${drafts} draft invoice${drafts === 1 ? ' was' : 's were'} sent with it and now show as sent. ` : ''}
           A payment referenced {done.statementNumber} is matched to these invoices automatically when you import the bank statement.
         </p>
+        {done.warning && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">{done.warning}</p>}
         <Link href={`/portal/clients/${clientId}`} className="mt-3 inline-block text-sm font-medium text-sage-700 hover:text-sage-900">Back to the client</Link>
       </div>
     )

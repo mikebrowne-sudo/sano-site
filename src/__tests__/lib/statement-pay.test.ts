@@ -5,14 +5,16 @@
 import {
   decodePlanMetadata,
   encodePlanMetadata,
+  exactFeeItemPrice,
   splitCardFee,
   statementCardPlan,
   type StatementPayInvoice,
 } from '@/lib/statement-pay'
 import { proposeStripePayout, type StripeInvoiceRef } from '@/lib/stripe-payout-reconcile'
+import { invoiceTotalInclGst } from '@/lib/invoice-balance'
 
 const inv = (p: Partial<StatementPayInvoice>): StatementPayInvoice => ({
-  id: 'i1', number: 'INV-0001', status: 'sent', balance: 180, gstIncluded: true, cardOk: true, ...p,
+  id: 'i1', number: 'INV-0001', status: 'sent', balance: 180, lineTotal: p.balance ?? 180, gstIncluded: true, cardOk: true, ...p,
 })
 
 describe('splitCardFee', () => {
@@ -40,9 +42,30 @@ describe('statementCardPlan', () => {
   })
 
   it('fee line is ex-GST on a GST-exclusive invoice', () => {
-    const plan = statementCardPlan([inv({ gstIncluded: false, balance: 115 })])!
+    const plan = statementCardPlan([inv({ gstIncluded: false, balance: 115, lineTotal: 100 })])!
     expect(plan.parts[0].fee).toBe(2.88)
     expect(plan.parts[0].feeItemPrice).toBe(2.5)
+  })
+
+  it('exact fee line on GST-exclusive invoices: total rises by exactly the fee share', () => {
+    // The invoice's real total, exactly as the portal / PDF / payout matching compute it.
+    const total = (base: number, fee = 0) => Math.round(invoiceTotalInclGst({ base_price: base, discount: 0, gst_included: false, invoice_items: fee ? [{ price: fee }] : [] }) * 100)
+    let checked = 0
+    for (let c = 1000; c < 60000; c += 137) {
+      const lineTotal = c / 100
+      const fee = Math.round(lineTotal * 1.15 * 2.5) / 100
+      const p = exactFeeItemPrice(lineTotal, false, fee)
+      if (p === null) continue
+      checked++
+      expect(total(lineTotal, p) - total(lineTotal)).toBe(Math.round(fee * 100))
+    }
+    expect(checked).toBeGreaterThan(300)
+  })
+
+  it('never offers card on an invoice already being collected by direct debit', () => {
+    const plan = statementCardPlan([inv({ id: 'a' }), inv({ id: 'b', debiting: true })])!
+    expect(plan.parts.map((p) => p.invoiceId)).toEqual(['a'])
+    expect(statementCardPlan([inv({ debiting: true })])).toBeNull()
   })
 
   it('skips paid / zero-balance invoices', () => {
