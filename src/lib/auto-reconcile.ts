@@ -33,6 +33,7 @@
 // durable link and stops those invoices looking "open" to future payments.
 
 import { cleanPayee, matchClientsForPayee } from './payee-match'
+import { referencedStatements } from './statements'
 
 export const PAID_DATE_WINDOW = 10
 export const ISSUE_GRACE_DAYS = 14
@@ -67,6 +68,12 @@ export interface ArInvoice {
   clientLabel: string
   /** The quote this invoice was made from (QUO-0491), so a QUO reference finds it. */
   quoteNumber?: string | null
+}
+
+/** A sent customer statement: its number (the bank reference) and the invoices on it. */
+export interface ArStatement {
+  number: string
+  invoiceIds: string[]
 }
 
 /** One past allocation: who paid (normalised payer key) → which client. */
@@ -212,6 +219,7 @@ export function proposeAutoReconcile(args: {
   credits: ArCredit[]
   invoices: ArInvoice[]
   history: ArHistory[]
+  statements?: ArStatement[]
 }): ArResult {
   const proposals: ArProposal[] = []
   const review: ArResult['review'] = []
@@ -249,6 +257,23 @@ export function proposeAutoReconcile(args: {
       const allocations = invs.map((inv) => ({ invoiceId: inv.id, amount: (open.get(inv.id) ?? 0) / 100 }))
       for (const inv of invs) open.set(inv.id, 0)
       proposals.push({ creditId: c.id, allocations, method, reason: `auto: ${reason}`, backfill: c.cleared })
+    }
+
+    // 0. Statement reference (STM-261101): the invoices on that statement
+    // that are still open, when they add up EXACTLY to the payment. If one
+    // was paid separately in the meantime the sum won't match and the
+    // normal rules below decide.
+    const stmInvoiceIds = new Set<string>()
+    for (const num of referencedStatements(text)) {
+      for (const st of args.statements ?? []) if (st.number.toUpperCase() === num) st.invoiceIds.forEach((id) => stmInvoiceIds.add(id))
+    }
+    if (stmInvoiceIds.size > 0) {
+      const onStatement = args.invoices.filter((inv) => stmInvoiceIds.has(inv.id) && eligible(inv, c, true))
+      const sum = onStatement.reduce((s, inv) => s + (open.get(inv.id) ?? 0), 0)
+      if (onStatement.length > 0 && sum === due) {
+        commit(onStatement, 'invoice_ref', `statement ${referencedStatements(text).join(' + ')} (${onStatement.map((i) => i.number).join(' + ')})`)
+        continue
+      }
     }
 
     // 1. Reference.

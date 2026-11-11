@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { ClientForm } from '../_components/ClientForm'
 import Link from 'next/link'
-import { Archive, ChevronDown, Wrench } from 'lucide-react'
+import { Archive, ChevronDown, FileText, Wrench } from 'lucide-react'
 import { ClientAccessPanel } from './_components/ClientAccessPanel'
 import { ClientCleanupActions } from './_components/ClientCleanupActions'
 import { ClientContactsSection } from '../_components/ClientContactsSection'
@@ -223,6 +223,25 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
       {isAdmin && autopay && (
         <ClientAutopayCard clientId={vm.id} status={autopay.status} setupAt={autopay.setupAt} email={autopay.email} />
+      )}
+
+      {isAdmin && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="min-w-0">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-sage-800">
+              <FileText size={16} className="text-sage-500" /> Statement
+            </h2>
+            <p className="mt-1 text-sm text-sage-600">
+              One email with every outstanding invoice, their PDFs and one payment reference. Drafts are sent with it.
+            </p>
+          </div>
+          <Link
+            href={`/portal/clients/${vm.id}/statement`}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-sage-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sage-700"
+          >
+            Send statement
+          </Link>
+        </div>
       )}
 
       {/* ── 2. Contacts (normal workflow) ──────────────────── */}
