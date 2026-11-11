@@ -68,6 +68,8 @@ export interface ArInvoice {
   clientLabel: string
   /** The quote this invoice was made from (QUO-0491), so a QUO reference finds it. */
   quoteNumber?: string | null
+  /** Paid by card / direct debit: its money arrives in a Stripe payout, never a bank transfer. */
+  paidViaStripe?: boolean
 }
 
 /** A sent customer statement: its number (the bank reference) and the invoices on it. */
@@ -240,6 +242,8 @@ export function proposeAutoReconcile(args: {
 
   const eligible = (inv: ArInvoice, c: ArCredit, referenced: boolean): boolean => {
     if (!issuable(inv) || (open.get(inv.id) ?? 0) <= 0) return false
+    // Paid by card / direct debit: settled by its Stripe payout, never a transfer.
+    if (inv.paidViaStripe) return false
     if (c.cleared && inv.status !== 'paid') return false // backfill never marks anything paid
     if (referenced) return true
     if (inv.status === 'paid') return !!inv.datePaid && Math.abs(days(inv.datePaid, c.date)) <= PAID_DATE_WINDOW

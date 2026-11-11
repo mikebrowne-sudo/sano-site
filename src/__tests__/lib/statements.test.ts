@@ -114,6 +114,12 @@ describe('auto-reconcile — statement reference', () => {
     expect(r.proposals[0].allocations.map((a) => a.invoiceId).sort()).toEqual(['INV-0566', 'INV-0585'])
   })
 
+  it('ignores invoices already paid by card (their money comes in the Stripe payout)', () => {
+    const cardPaid = [inv('INV-0547', { status: 'paid', paidViaStripe: true, datePaid: '2026-11-18' }), inv('INV-0566'), inv('INV-0585')]
+    const r = proposeAutoReconcile({ credits: [credit({ amount: 540 })], invoices: cardPaid, history: [], statements })
+    expect(r.proposals.some((p) => p.allocations.some((a) => a.invoiceId === 'INV-0547'))).toBe(false)
+  })
+
   it('an unknown statement number changes nothing', () => {
     const r = proposeAutoReconcile({ credits: [credit({ memo: 'STM-269999' })], invoices, history: [], statements })
     expect(r.proposals).toHaveLength(0)

@@ -41,9 +41,10 @@ export function cardFeeItemPrice(fee: number, gstIncluded: boolean): number {
   return gstIncluded ? fee : round2(fee / 1.15)
 }
 
-/** Append the card-fee line to a paid invoice (service-role caller). */
-export async function addCardFeeLine(supabase: SupabaseClient, invoiceId: string, itemPrice: number): Promise<void> {
-  if (!(itemPrice > 0)) return
+/** Append the card-fee line to a paid invoice (service-role caller). Returns
+ *  false only when the line was needed but could not be written. */
+export async function addCardFeeLine(supabase: SupabaseClient, invoiceId: string, itemPrice: number): Promise<boolean> {
+  if (!(itemPrice > 0)) return true
   // Idempotent: never add the fee twice (e.g. a retried webhook).
   const { data: existing } = await supabase
     .from('invoice_items')
@@ -51,7 +52,7 @@ export async function addCardFeeLine(supabase: SupabaseClient, invoiceId: string
     .eq('invoice_id', invoiceId)
     .eq('label', CARD_FEE_LABEL)
     .limit(1)
-  if ((existing ?? []).length > 0) return
+  if ((existing ?? []).length > 0) return true
   const { error } = await supabase.from('invoice_items').insert({
     invoice_id: invoiceId,
     label: CARD_FEE_LABEL,
@@ -59,7 +60,11 @@ export async function addCardFeeLine(supabase: SupabaseClient, invoiceId: string
     price: itemPrice,
     sort_order: 9999,
   })
-  if (error) console.error('[card-fee] could not add fee line:', error.message)
+  if (error) {
+    console.error('[card-fee] could not add fee line:', error.message)
+    return false
+  }
+  return true
 }
 
 export function isOnAccount(paymentType: string | null | undefined): boolean {

@@ -3,9 +3,11 @@ import { Resend } from 'resend'
 import { getStripe } from '@/lib/stripe'
 import { createClient } from '@supabase/supabase-js'
 import { stampJobCompleteOnPaidInvoice } from '@/lib/job-paid-complete'
-import { addCardFeeLine, applyQuoteCardPayment } from '@/lib/card-payments'
+import { addCardFeeLine, applyQuoteCardPayment, CARD_FEE_LABEL } from '@/lib/card-payments'
+import { invoiceBalanceDue, loadAllocatedByInvoice, type InvoiceAmountFields } from '@/lib/invoice-balance'
 import { nzToday } from '@/lib/nz-date'
 import { notifyAutopayFailure } from '@/lib/autopay'
+import { decodePlanMetadata } from '@/lib/statement-pay'
 import Stripe from 'stripe'
 
 function getServerSupabase() {
@@ -97,6 +99,30 @@ export async function POST(req: NextRequest) {
       console.log(`[stripe-webhook] ${pi.metadata?.invoice_number} paid by direct debit`)
     } else {
       await supabase.from('invoices').update({ autopay_status: 'succeeded' }).eq('id', invoiceId)
+      // Already paid by a DIFFERENT payment (card / statement): the debit has
+      // collected it twice. Same rule as a duplicate card payment — alert.
+      const { data: inv } = await supabase.from('invoices').select('invoice_number, stripe_payment_intent_id').eq('id', invoiceId).maybeSingle()
+      if (inv && inv.stripe_payment_intent_id && inv.stripe_payment_intent_id !== pi.id) {
+        const amount = ((pi.amount_received ?? pi.amount) / 100).toFixed(2)
+        await supabase.from('audit_log').insert({
+          actor_id: null, actor_role: 'system', action: 'invoice.duplicate_direct_debit',
+          entity_table: 'invoices', entity_id: invoiceId, before: { stripe_payment_intent_id: inv.stripe_payment_intent_id },
+          after: { duplicate_payment_intent: pi.id, amount },
+        })
+        const notify = process.env.SANO_NOTIFY_EMAIL
+        if (notify) {
+          try {
+            await new Resend(process.env.RESEND_API_KEY).emails.send({
+              from: 'Sano <noreply@sano.nz>',
+              to: notify,
+              subject: `Duplicate payment on ${inv.invoice_number}: refund needed`,
+              html: `<p>Invoice <strong>${inv.invoice_number}</strong> was already paid, but the automatic direct debit has also collected <strong>$${amount}</strong> (payment ${pi.id}).</p><p>Please refund it in the Stripe dashboard: Payments → find ${pi.id} → Refund.</p>`,
+            })
+          } catch (e) {
+            console.error('[stripe-webhook] duplicate direct debit alert failed', e)
+          }
+        }
+      }
     }
     return NextResponse.json({ received: true })
   }
@@ -127,6 +153,105 @@ export async function POST(req: NextRequest) {
     // received may mark an invoice paid.
     if (session.payment_status !== 'paid') {
       console.log('[stripe-webhook] Session completed but not paid:', session.payment_status)
+      return NextResponse.json({ received: true })
+    }
+
+    // A paid STATEMENT: one card payment covering several invoices. Each
+    // invoice is marked paid with the same payment intent and gets its share
+    // of the card fee as a line (split fixed at checkout, lib/statement-pay).
+    //
+    // Safe to redeliver / retry after a partial failure: an invoice already
+    // paid by THIS intent still gets its fee line + job stamp (both
+    // idempotent). Anything that doesn't match what the customer was shown —
+    // paid another way (overpaid), cancelled / archived, or its balance changed
+    // since checkout — is NOT flipped; the team is alerted instead.
+    if (session.metadata?.kind === 'statement') {
+      const parts = decodePlanMetadata(session.metadata as Record<string, string>)
+      const intent = (session.payment_intent as string) || null
+      const supabase = getServerSupabase()
+      const today = nzToday()
+      const ids = parts.map((p) => p.invoiceId)
+      const [{ data: rows, error: loadErr }, allocated] = await Promise.all([
+        supabase
+          .from('invoices')
+          .select('id, status, deleted_at, stripe_payment_intent_id, base_price, discount, gst_included, invoice_items ( price, label )')
+          .in('id', ids),
+        loadAllocatedByInvoice(supabase, ids),
+      ])
+      if (loadErr) {
+        console.error('[stripe-webhook] Failed to load statement invoices:', loadErr.message)
+        return NextResponse.json({ error: 'Failed to record payment' }, { status: 500 })
+      }
+      const byId = new Map(((rows ?? []) as Array<Record<string, unknown>>).map((r) => [r.id as string, r]))
+      const overpaid: string[] = []
+      const mismatched: string[] = []
+      for (const p of parts) {
+        const r = byId.get(p.invoiceId)
+        if (!r) { mismatched.push(`${p.number} (not found)`); continue }
+        if (r.status === 'paid') {
+          if (intent && r.stripe_payment_intent_id === intent) {
+            // Ours, from an earlier delivery: finish anything it didn't get to.
+            if (!(await addCardFeeLine(supabase, p.invoiceId, p.feeItemPrice))) return NextResponse.json({ error: 'Failed to record payment' }, { status: 500 })
+            await stampJobCompleteOnPaidInvoice(supabase, p.invoiceId)
+          } else {
+            overpaid.push(`${p.number} ($${(p.balance + p.fee).toFixed(2)})`)
+          }
+          continue
+        }
+        // Balance now, ignoring any card-fee line (there shouldn't be one yet).
+        const items = ((r.invoice_items ?? []) as Array<{ price: number | null; label: string | null }>).filter((it) => it.label !== CARD_FEE_LABEL)
+        const balance = invoiceBalanceDue({ ...(r as InvoiceAmountFields), invoice_items: items }, allocated.get(p.invoiceId) ?? 0)
+        if (r.deleted_at || r.status === 'cancelled' || Math.abs(balance - p.balance) > 0.005) {
+          mismatched.push(`${p.number} (charged $${p.balance.toFixed(2)}, now ${r.deleted_at || r.status === 'cancelled' ? 'cancelled/archived' : `owes $${balance.toFixed(2)}`})`)
+          continue
+        }
+        const { data: flipped, error } = await supabase
+          .from('invoices')
+          .update({ status: 'paid', date_paid: today, stripe_payment_intent_id: intent })
+          .eq('id', p.invoiceId)
+          .neq('status', 'paid')
+          .select('id')
+        if (error) {
+          console.error('[stripe-webhook] Failed to record statement payment:', error.message)
+          return NextResponse.json({ error: 'Failed to record payment' }, { status: 500 })
+        }
+        if ((flipped ?? []).length > 0) {
+          if (!(await addCardFeeLine(supabase, p.invoiceId, p.feeItemPrice))) return NextResponse.json({ error: 'Failed to record payment' }, { status: 500 })
+          await stampJobCompleteOnPaidInvoice(supabase, p.invoiceId)
+        }
+      }
+
+      // Record + alert once per payment, not once per webhook delivery.
+      const { data: seen } = await supabase
+        .from('audit_log')
+        .select('id')
+        .eq('action', 'statement.paid_by_card')
+        .eq('after->>payment_intent', intent ?? '')
+        .limit(1)
+      if ((seen ?? []).length === 0) {
+        await supabase.from('audit_log').insert({
+          actor_id: null, actor_role: 'system', action: 'statement.paid_by_card',
+          entity_table: 'statements', entity_id: session.metadata?.statement_id ?? null, before: null,
+          after: { statement_number: session.metadata?.statement_number, payment_intent: intent, amount: (session.amount_total ?? 0) / 100, invoices: parts.map((p) => p.number), overpaid, mismatched },
+        })
+        if ((overpaid.length > 0 || mismatched.length > 0) && process.env.SANO_NOTIFY_EMAIL) {
+          const lines = [
+            overpaid.length ? `<p>Already paid another way (customer has overpaid these): <strong>${overpaid.join(', ')}</strong>.</p>` : '',
+            mismatched.length ? `<p>Not marked paid because they changed after the customer started paying: <strong>${mismatched.join('; ')}</strong>. Check each invoice, then mark it paid or refund the difference.</p>` : '',
+          ].join('')
+          try {
+            await new Resend(process.env.RESEND_API_KEY).emails.send({
+              from: 'Sano <noreply@sano.nz>',
+              to: process.env.SANO_NOTIFY_EMAIL,
+              subject: `Statement ${session.metadata?.statement_number} paid by card: please check`,
+              html: `<p>Statement <strong>${session.metadata?.statement_number}</strong> was paid by card (payment ${intent}).</p>${lines}<p>Refunds are made in the Stripe dashboard: Payments → find ${intent} → Refund (partial).</p>`,
+            })
+          } catch (e) {
+            console.error('[stripe-webhook] statement payment alert failed', e)
+          }
+        }
+      }
+      console.log(`[stripe-webhook] Statement ${session.metadata?.statement_number} paid by card`)
       return NextResponse.json({ received: true })
     }
 
