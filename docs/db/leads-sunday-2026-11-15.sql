@@ -1,0 +1,38 @@
+-- Sano Sunday lead burst 2026-11-15 - review, then run in the Supabase SQL editor
+-- Each insert skips existing companies/emails.
+
+-- ===== SUMMARY (running totals, updated after each batch) =====
+-- Total: 0 | A-grade: 0 | B-grade: 0
+-- Category mix: Offices 0% (target ~40%) | Education 0% (target ~25%) | Hospitality 0% (target ~20%) | Clinic/Other 0% (cap ~15%)
+-- Sectors x suburbs covered: (none yet)
+--
+-- TOOL OUTAGE (2026-11-15, first firing ~16:06 NZDT): this is the SIXTH consecutive Sunday
+-- with the identical outage that produced zero leads on 2026-10-18, 2026-10-25, 2026-11-01
+-- and 2026-11-08 (see docs/db/leads-sunday-2026-11-08.sql and that branch's PR for the prior
+-- four weeks of detail) - unfixed across four prior flagged weeks. Verified independently
+-- again this firing before writing any lead, not trusting any prior week's notes:
+--   - WebFetch https://www.sano.nz/ -> "getaddrinfo ENOTFOUND www.sano.nz", with the
+--     harness's own error stating the host is outside this session's allowed network
+--     domains.
+--   - curl -> dns.google:443, www.sano.nz:443, www.markhams.co.nz:443 and www.google.com:443
+--     all return "CONNECT tunnel failed, response 403" (connect_rejected) from the egress
+--     proxy.
+--   - curl -> registry.npmjs.org:443 (allowlisted control) -> HTTP 200, confirming the proxy
+--     mechanism itself is healthy; this is a destination-host policy block on ordinary
+--     business/DNS hosts, not a broken tool or transient fault.
+--   - WebSearch (server-side) is the only working research tool and returns third-party
+--     snippets only (tried: Newmarket accounting firms) - named roles appear (e.g. Practice
+--     Manager Anita Chan, SBA Newmarket) but every email is obscured in the snippet, with no
+--     way to open the firm's own contact/team page to confirm it.
+-- Per this task's own hard rules, this blocks the whole campaign: an A-grade lead requires a
+-- named contact + email confirmed on the business's OWN site via a direct page fetch
+-- (impossible - WebFetch and curl are both blocked for every business host tried), and EVERY
+-- lead at ANY grade requires an MX deliverability check via dns.google/dig/nslookup
+-- (impossible - no DNS resolution path exists in this session). WebSearch snippets cannot
+-- substitute for either per the task's explicit instructions, so no lead at any grade was
+-- added rather than fabricate verification that could not actually be performed.
+-- This is now the sixth straight Sunday this scheduled task has produced nothing. The fix
+-- (allowing outbound business-web + DNS traffic through this environment's egress proxy, or
+-- an equivalent fetch/DNS tool) is outside this session's control and needs the user's or an
+-- admin's attention on the environment's network policy before this campaign can function.
+-- ================================================================
