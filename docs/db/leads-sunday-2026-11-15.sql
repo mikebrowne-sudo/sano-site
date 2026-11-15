@@ -55,4 +55,22 @@
 -- unchanged. No lead added this firing either. Opening a draft PR now (rather than waiting for
 -- the 00:55 wrap-up) given this is week six of total failure - the user should not have to wait
 -- for a Monday-morning wrap-up to learn the campaign has been dead for six weeks.
+--
+-- FINAL / WRAP-UP, fourth firing (~00:06 NZDT, 2026-11-16, the 12:05am slot): re-tested directly
+-- rather than relying on the third firing's "nothing changes in two hours" assumption, since
+-- this is the last chance this week to catch a fix:
+--   - curl -> registry.npmjs.org:443 (allowlisted control) -> HTTP 200 (proxy mechanism itself
+--     still healthy).
+--   - curl -> dns.google:443 and www.markhams.co.nz:443 -> both connect_rejected / 403 from the
+--     egress proxy ("host is not allowed for this session").
+--   - Checked the proxy's own status endpoint (__agentproxy/status): the allowlist
+--     (`noProxy`) covers only package-registry/Anthropic-infra hosts (npm, pypi, jsr, crates,
+--     Go proxy, api.anthropic.com, etc.) plus private IP ranges - no ordinary business-web or
+--     DNS-lookup host is in it, and `recentRelayFailures` shows the same connect_rejected
+--     pattern against unrelated third-party hosts too (mcp.monday.com, api.salesforce.com,
+--     mcp.zoominfo.com, etc.), confirming this is a blanket destination-host policy for this
+--     environment, not something specific to Sano's targets.
+-- Conclusion unchanged for the seventh straight week (2026-10-11 was also lossy per that file's
+-- own notes; 10-18 through 11-08 plus all four firings tonight produced zero verifiable leads).
+-- No lead added. Stopping here at wrap-up - nothing left to retry from this session.
 -- ================================================================
