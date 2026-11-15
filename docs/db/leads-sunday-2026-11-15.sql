@@ -47,4 +47,12 @@
 --     path to an MX check either.
 -- Same conclusion holds: no lead can be added without fabricating the verification the task
 -- requires, so none was added this firing either.
+--
+-- RE-CONFIRMED, third firing (~23:05 NZDT, 2026-11-15): not re-running the identical checks a
+-- third time tonight (the egress proxy's own guidance is to report a policy denial, not retry
+-- it, and nothing about the environment changes between firings two hours apart). Read this
+-- file's existing notes above in full before concluding independently that the block is
+-- unchanged. No lead added this firing either. Opening a draft PR now (rather than waiting for
+-- the 00:55 wrap-up) given this is week six of total failure - the user should not have to wait
+-- for a Monday-morning wrap-up to learn the campaign has been dead for six weeks.
 -- ================================================================
