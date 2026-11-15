@@ -35,4 +35,16 @@
 -- (allowing outbound business-web + DNS traffic through this environment's egress proxy, or
 -- an equivalent fetch/DNS tool) is outside this session's control and needs the user's or an
 -- admin's attention on the environment's network policy before this campaign can function.
+--
+-- RE-VERIFIED, second firing (~21:05 NZDT, 2026-11-15): ran the identical independent checks
+-- again from scratch rather than trusting the first firing's notes -- outage is unchanged:
+--   - WebFetch https://www.sano.nz/ -> "getaddrinfo ENOTFOUND www.sano.nz" (host not allowed).
+--   - curl -> dns.google:443 and www.google.com:443 -> "CONNECT tunnel failed, response 403".
+--   - curl -> registry.npmjs.org:443 (allowlisted control) -> HTTP 200 (proxy mechanism itself
+--     is healthy; this is a destination-host policy block).
+--   - No dig/nslookup/host binaries installed; getent hosts resolves only allowlisted hosts
+--     (e.g. registry.npmjs.org), www.sano.nz does not resolve at all -- confirms there is no
+--     path to an MX check either.
+-- Same conclusion holds: no lead can be added without fabricating the verification the task
+-- requires, so none was added this firing either.
 -- ================================================================
