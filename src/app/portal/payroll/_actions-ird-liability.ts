@@ -12,6 +12,7 @@ import { assertAdminAction } from '@/lib/require-admin'
 import { createClient } from '@/lib/supabase-server'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { isAdminUser } from '@/lib/is-admin'
+import { backfillMissingLiabilityLines } from '@/lib/payroll/ird-liability-ledger'
 import { revalidatePath } from 'next/cache'
 
 type Result = { ok?: true; error?: string }
@@ -52,6 +53,17 @@ export async function recordIrdPayment(input: {
   } catch { /* audit shape varies */ }
   revalidatePath('/portal/payroll/ird')
   return { ok: true }
+}
+
+/** Create liability lines for approved/paid runs the ledger missed. */
+export async function syncIrdLiabilityLines(): Promise<Result & { created?: number; skipped?: number }> {
+  await assertAdminAction()
+  const g = await adminGate()
+  if (g.error) return { error: g.error }
+  const res = await backfillMissingLiabilityLines(getServiceSupabase())
+  if (res.skipped.length) console.error('[payroll] IRD backfill skipped:', res.skipped)
+  revalidatePath('/portal/payroll/ird')
+  return { ok: true, created: res.created, skipped: res.skipped.length }
 }
 
 export async function addIrdAdjustment(input: {

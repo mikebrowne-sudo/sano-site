@@ -88,10 +88,11 @@ export async function ensureLiabilityLineForRun(client: AnyClient, payRunId: str
   const period = irdPaymentPeriod(run.pay_date as string)
 
   // Ensure the period exists.
-  await client.from('ird_liabilities').upsert(
+  const { error: periodErr } = await client.from('ird_liabilities').upsert(
     { period_key: period.periodKey, period_start: period.periodStart, period_end: period.periodEnd, due_date: period.dueDate },
     { onConflict: 'period_key', ignoreDuplicates: true },
   )
+  if (periodErr) return { skipped: `period: ${periodErr.message}` }
   const { data: liab } = await client.from('ird_liabilities').select('id').eq('period_key', period.periodKey).maybeSingle()
   if (!liab) return { skipped: 'no_period' }
 
@@ -108,6 +109,23 @@ export async function ensureLiabilityLineForRun(client: AnyClient, payRunId: str
   // Unique violation = a concurrent approval already ledgered it — fine.
   if (error && (error as { code?: string }).code !== '23505') return { skipped: error.message }
   return { created: true }
+}
+
+/** Ledger every approved/paid employee run that has no liability line yet.
+ *  Repairs runs approved while the ledger write was failing. Idempotent. */
+export async function backfillMissingLiabilityLines(client: AnyClient): Promise<{ created: number; skipped: Array<{ payRunId: string; reason: string }> }> {
+  const { data: runs } = await client.from('pay_runs').select('id').in('status', ['approved', 'paid']).order('pay_date')
+  const { data: lined } = await client.from('ird_liability_lines').select('pay_run_id')
+  const have = new Set(((lined ?? []) as Array<{ pay_run_id: string }>).map((l) => l.pay_run_id))
+  let created = 0
+  const skipped: Array<{ payRunId: string; reason: string }> = []
+  for (const r of (runs ?? []) as Array<{ id: string }>) {
+    if (have.has(r.id)) continue
+    const res = await ensureLiabilityLineForRun(client, r.id)
+    if (res.created) created++
+    else if (res.skipped && res.skipped !== 'already_ledgered') skipped.push({ payRunId: r.id, reason: res.skipped })
+  }
+  return { created, skipped }
 }
 
 function round2(n: number) { return Math.round(n * 100) / 100 }
