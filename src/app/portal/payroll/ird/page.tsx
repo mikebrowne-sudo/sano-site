@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase-server'
 import { isAdminEmail } from '@/lib/is-admin'
 import { loadIrdLiabilityPeriods, type IrdPeriodView } from '@/lib/payroll/ird-liability-ledger'
 import { RecordIrdPaymentForm } from './_components/RecordIrdPaymentForm'
+import { SyncIrdLedgerButton } from './_components/SyncIrdLedgerButton'
 
 const money = (n: number) => new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(n)
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -30,6 +31,7 @@ export default async function IrdLiabilityPage() {
       <Link href="/portal/payroll" className="inline-flex items-center gap-1.5 text-sm text-sage-600 hover:text-sage-800 mb-4"><ArrowLeft size={14} /> Payroll</Link>
       <h1 className="text-2xl font-bold text-sage-800 mb-2">IRD liabilities</h1>
       <p className="text-sage-600 text-sm mb-6">PAYE + KiwiSaver owed to IRD, grouped by payment period. Separate from employee payment and payday filing — cleared only when a payment is recorded here.</p>
+      {isAdmin && <SyncIrdLedgerButton />}
 
       {periods.length === 0 ? (
         <p className="text-sage-500 text-sm">No liabilities yet. Approving a pay run creates its liability entry.</p>

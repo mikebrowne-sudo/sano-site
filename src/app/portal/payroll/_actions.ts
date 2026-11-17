@@ -7,6 +7,7 @@ import { createEmployeePayRun } from '@/lib/payroll/create-employee-pay-run'
 import { isAdminUser } from '@/lib/is-admin'
 import { canTransitionPayment, validatePaymentDetails, markPaidPatch } from '@/lib/payroll/pay-run-lifecycle'
 import { ensureLiabilityLineForRun } from '@/lib/payroll/ird-liability-ledger'
+import { getServiceSupabase } from '@/lib/supabase-service'
 import { renderAndStoreOfficialPayslip } from '@/lib/payroll/payslip-generate'
 import { Resend } from 'resend'
 import { redirect } from 'next/navigation'
@@ -146,10 +147,15 @@ export async function approvePayRun(payRunId: string) {
   } catch { /* audit shape varies */ }
 
   // Create the IRD liability line from the now-frozen figures (idempotent).
-  // Best-effort: the ledger tables depend on the PR C migration; approval must
-  // never fail because the ledger isn't applied yet.
-  try { await ensureLiabilityLineForRun(supabase, payRunId) } catch (e) {
-    console.error('[payroll] IRD liability not created (run migration?):', e instanceof Error ? e.message : e)
+  // The ledger tables are SELECT-only under RLS, so this MUST use the
+  // service-role client — with the session client every insert was silently
+  // refused and no run after the July backfill was ever ledgered.
+  // Best-effort: approval must never fail because of the ledger.
+  try {
+    const res = await ensureLiabilityLineForRun(getServiceSupabase(), payRunId)
+    if (res.skipped && res.skipped !== 'already_ledgered') console.error('[payroll] IRD liability not created:', res.skipped)
+  } catch (e) {
+    console.error('[payroll] IRD liability not created:', e instanceof Error ? e.message : e)
   }
 
   revalidatePath(`/portal/payroll/${payRunId}`)
