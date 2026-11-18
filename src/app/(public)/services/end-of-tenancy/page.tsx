@@ -9,6 +9,7 @@ import { ServiceInformation } from '../_components/ServiceInformation'
 import { WhyChooseSection } from '../_components/WhyChooseSection'
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/services/end-of-tenancy' },
   title: 'End of Tenancy Cleaning Auckland | Sano',
   description:
     'End of tenancy cleaning in Auckland. A bond-ready clean designed to maximise your chance of bond recovery. Thorough, reliable, fully insured.',

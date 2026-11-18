@@ -13,7 +13,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Henderson Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/henderson' },
+  title: 'Henderson Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Henderson homes, rentals, and workplaces: regular upkeep, deep cleans, end of tenancy, office and commercial cleaning, and specialist surfaces.',
 }

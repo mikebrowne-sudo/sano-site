@@ -31,8 +31,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = getPostBySlug(params.slug)
   if (!post) return {}
   return {
-    title: `${post.title} | Sano Blog`,
+    // Long post titles stand alone; the suffix would push them past what
+    // Google shows (~60 chars).
+    title: post.seoTitle ?? (post.title.length > 45 ? post.title : `${post.title} | Sano Blog`),
     description: post.excerpt,
+    alternates: { canonical: `/blog/${post.slug}` },
   }
 }
 

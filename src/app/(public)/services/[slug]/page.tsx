@@ -42,6 +42,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${service.name} in Auckland | Sano Cleaning`,
     description: service.metaDescription,
+    alternates: { canonical: `/services/${service.slug}` },
     openGraph: {
       title: `${service.name} in Auckland | Sano Cleaning`,
       description: service.metaDescription,

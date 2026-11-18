@@ -12,7 +12,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Avondale Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/avondale' },
+  title: 'Avondale Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Avondale homes, units, townhouses, and rentals: regular upkeep, deep cleans, end of tenancy, and specialist surfaces.',
 }

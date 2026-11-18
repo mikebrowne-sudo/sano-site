@@ -14,7 +14,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Takapuna Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/takapuna' },
+  title: 'Takapuna Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Takapuna apartments, homes, offices, and rentals: regular upkeep, handovers, workplace presentation, and specialist surfaces.',
 }

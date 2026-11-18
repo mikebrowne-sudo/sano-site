@@ -12,7 +12,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Mount Eden Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/mount-eden' },
+  title: 'Mount Eden Cleaners | House & Office Cleaning | Sano',
   description:
     'Regular, deep, and end-of-tenancy cleaning for Mount Eden homes and rentals. Sano helps prepare properties for everyday living, inspections, and handovers.',
 }

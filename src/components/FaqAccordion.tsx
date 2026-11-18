@@ -37,11 +37,14 @@ export function FaqAccordion({ categories }: FaqAccordionProps) {
                       </span>
                     </button>
                   </dt>
-                  {isOpen && (
-                    <dd className="px-6 pb-5 text-sm text-gray-600 leading-relaxed border-t border-sage-100 pt-4">
-                      {item.answer}
-                    </dd>
-                  )}
+                  {/* Always in the HTML (hidden until opened) so search engines
+                      can read every answer — they never click to expand. */}
+                  <dd
+                    hidden={!isOpen}
+                    className="px-6 pb-5 text-sm text-gray-600 leading-relaxed border-t border-sage-100 pt-4"
+                  >
+                    {item.answer}
+                  </dd>
                 </div>
               )
             })}

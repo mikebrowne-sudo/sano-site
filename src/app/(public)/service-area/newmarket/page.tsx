@@ -4,7 +4,8 @@ import { SuburbLandingTemplate } from '../_components/SuburbLandingTemplate'
 import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from '../_components/SuburbServicesSection'
 
 export const metadata: Metadata = {
-  title: 'Newmarket Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/newmarket' },
+  title: 'Newmarket Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Newmarket offices, retail and commercial spaces, apartments, and rentals: workplace cleaning, regular upkeep, and end-of-tenancy resets.',
 }

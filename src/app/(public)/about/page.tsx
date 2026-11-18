@@ -7,6 +7,7 @@ import { FadeIn, Stagger, StaggerItem } from '@/components/FadeIn'
 import { DEFAULT_TRUST_ITEMS, SubpageHero } from '@/components/SubpageHero'
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/about' },
   title: 'About Sano Property Services | Auckland',
   description: 'Sano Property Services provides reliable residential and commercial cleaning across Auckland. Over 20 years of experience. Consistent, detail-focused, easy to deal with.',
 }

@@ -4,7 +4,8 @@ import { SuburbLandingTemplate } from '../_components/SuburbLandingTemplate'
 import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from '../_components/SuburbServicesSection'
 
 export const metadata: Metadata = {
-  title: 'Parnell Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/parnell' },
+  title: 'Parnell Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Parnell homes, apartments, rentals, and small workplaces: regular upkeep, deep cleans, end of tenancy, and specialist surfaces.',
 }

@@ -4,7 +4,8 @@ import { SuburbLandingTemplate } from '../_components/SuburbLandingTemplate'
 import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from '../_components/SuburbServicesSection'
 
 export const metadata: Metadata = {
-  title: 'Browns Bay Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/browns-bay' },
+  title: 'Browns Bay Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Browns Bay homes, apartments, and rentals: regular upkeep, deep cleans, end of tenancy, window, and carpet cleaning on the North Shore.',
 }

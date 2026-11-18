@@ -9,6 +9,7 @@ import { WhatWeCoverSection } from '../_components/WhatWeCoverSection'
 import { WhyChooseSection } from '../_components/WhyChooseSection'
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/services/window-cleaning' },
   title: 'Window Cleaning Auckland | Sano',
   description:
     'Professional window cleaning in Auckland. Streak-free glass, frames, and sills for residential and commercial properties. Get a free quote from Sano.',

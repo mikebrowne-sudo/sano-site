@@ -1,9 +1,17 @@
 # *
 User-agent: *
 Allow: /
+Disallow: /email-signature
+Disallow: /preview
+Disallow: /share
+Disallow: /client
+Disallow: /portal
+Disallow: /contractor
+Disallow: /api
+Disallow: /collateral
 
 # Host
-Host: https://sano.co.nz
+Host: https://sano.nz
 
 # Sitemaps
-Sitemap: https://sano.co.nz/sitemap.xml
+Sitemap: https://sano.nz/sitemap.xml

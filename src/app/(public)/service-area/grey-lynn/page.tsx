@@ -11,7 +11,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Grey Lynn Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/grey-lynn' },
+  title: 'Grey Lynn Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Grey Lynn character homes, apartments, and rentals: regular upkeep, deep cleans, move-in and move-out, and specialist surfaces.',
 }

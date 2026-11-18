@@ -10,7 +10,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Otahuhu Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/otahuhu' },
+  title: 'Otahuhu Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Otahuhu homes, rentals, and workplaces: regular upkeep, deep cleans, end of tenancy, and commercial cleaning across the area.',
 }

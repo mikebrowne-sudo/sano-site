@@ -15,7 +15,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
-export const metadata = { title: 'Sano — A4 Marketing Flyer' }
+export const metadata = { title: 'Sano — A4 Marketing Flyer', robots: { index: false, follow: false } }
 
 const SAGE = {
   50: '#F7F9F7', 100: '#E0EAE3', 200: '#a8c5b0', 300: '#7EC87A',

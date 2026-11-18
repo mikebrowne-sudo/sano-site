@@ -15,7 +15,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Manukau Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/manukau' },
+  title: 'Manukau Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Manukau offices, homes, rentals, and commercial spaces. Sano matches the scope to workplaces, handovers, and regular upkeep.',
 }

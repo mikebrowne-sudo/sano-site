@@ -9,7 +9,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Meadowbank Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/meadowbank' },
+  title: 'Meadowbank Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Meadowbank homes, apartments, and rentals: regular upkeep, deep cleans, end of tenancy, carpet, and window cleaning.',
 }

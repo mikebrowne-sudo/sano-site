@@ -12,7 +12,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Glenfield Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/glenfield' },
+  title: 'Glenfield Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Glenfield homes, units, and rentals: regular upkeep, deep cleans, end of tenancy, carpet, and window cleaning on the North Shore.',
 }

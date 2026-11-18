@@ -18,6 +18,7 @@ import { WhyChooseSection } from '../services/_components/WhyChooseSection'
  */
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/guarantee' },
   title: 'Our Guarantee | Sano Cleaning Auckland',
   description:
     "We stand behind every clean. If something's not right, we'll come back and fix it or offer a discount on your next clean. No hassle.",

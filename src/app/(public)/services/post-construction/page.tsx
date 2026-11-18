@@ -9,6 +9,7 @@ import { WhatWeCoverSection } from '../_components/WhatWeCoverSection'
 import { WhyChooseSection } from '../_components/WhyChooseSection'
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/services/post-construction' },
   title: 'Post-Construction Cleaning Auckland | Sano',
   description:
     'Post-construction cleaning in Auckland. We clear dust, debris, and residue so your space is clean, safe, and ready to use. Free quote from Sano.',

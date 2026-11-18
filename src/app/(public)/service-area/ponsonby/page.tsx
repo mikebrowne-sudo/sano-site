@@ -13,7 +13,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Ponsonby Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/ponsonby' },
+  title: 'Ponsonby Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Ponsonby character homes, apartments, and rentals: regular upkeep, deep cleans, move-in and move-out, and specialist surfaces.',
 }

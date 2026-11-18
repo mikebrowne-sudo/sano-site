@@ -9,6 +9,7 @@ import { ServiceInformation } from '../_components/ServiceInformation'
 import { WhyChooseSection } from '../_components/WhyChooseSection'
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/services/deep-cleaning' },
   title: 'Deep Cleaning Services Auckland | Sano',
   description:
     'Professional deep cleaning in Auckland. A full top-to-bottom clean that tackles build-up and the areas most people miss. Get a free quote from Sano.',

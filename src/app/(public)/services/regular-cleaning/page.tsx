@@ -9,6 +9,7 @@ import { ServiceInformation } from '../_components/ServiceInformation'
 import { WhyChooseSection } from '../_components/WhyChooseSection'
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/services/regular-cleaning' },
   title: 'Regular House Cleaning Auckland | Sano',
   description:
     'Reliable regular house cleaning in Auckland. We keep your home consistently clean, tidy, and easy to live in — weekly or fortnightly. Get a free quote.',

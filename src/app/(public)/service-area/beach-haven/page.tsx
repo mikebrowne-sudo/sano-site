@@ -9,7 +9,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Beach Haven Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/beach-haven' },
+  title: 'Beach Haven Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Beach Haven homes, townhouses, and rentals: regular upkeep, deep cleans, end of tenancy, carpet, and window cleaning.',
 }

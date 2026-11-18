@@ -1,6 +1,8 @@
 export interface BlogPost {
   slug: string
   title: string
+  /** Shorter <title> for search results when `title` runs past ~60 chars. */
+  seoTitle?: string
   date: string
   excerpt: string
   image: string
@@ -13,6 +15,7 @@ export const POSTS: BlogPost[] = [
   {
     slug: 'right-cleaner-for-office',
     title: 'How Choosing the Right Cleaner for Your Office Can Save You Money',
+    seoTitle: 'Choosing the Right Office Cleaner Can Save You Money',
     date: '1 APRIL 2026',
     image: '/blog/right-cleaner-for-office.jpg',
     excerpt:

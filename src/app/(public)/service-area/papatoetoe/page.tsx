@@ -13,7 +13,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Papatoetoe Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/papatoetoe' },
+  title: 'Papatoetoe Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Papatoetoe homes, units, and rentals: regular upkeep, end of tenancy, deep cleans, carpet, and window cleaning.',
 }

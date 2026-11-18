@@ -5,6 +5,7 @@ import { CtaBanner } from '@/components/CtaBanner'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/faq' },
   title: 'FAQ | Sano Cleaning Auckland',
   description: 'Answers to common questions about Sano Cleaning: pricing, booking, our cleaners, products, and more.',
 }

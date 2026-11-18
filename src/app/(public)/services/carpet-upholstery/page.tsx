@@ -9,6 +9,7 @@ import { WhatWeCoverSection } from '../_components/WhatWeCoverSection'
 import { WhyChooseSection } from '../_components/WhyChooseSection'
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/services/carpet-upholstery' },
   title: 'Carpet & Upholstery Cleaning Auckland | Sano',
   description:
     'Professional carpet and upholstery cleaning in Auckland. Remove built-up dirt, stains, and odours from carpets and furniture. Free quote from Sano.',
