@@ -13,7 +13,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'New Lynn Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/new-lynn' },
+  title: 'New Lynn Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for New Lynn apartments, townhouses, units, and family homes: regular upkeep, deep cleans, move-in and move-out, and specialist surfaces.',
 }

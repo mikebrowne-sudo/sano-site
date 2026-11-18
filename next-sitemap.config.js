@@ -18,7 +18,13 @@ module.exports = {
     '/contractor',
     '/contractor/*',
     '/proposals/*',
+    // Internal print collateral, not a page for searchers.
+    '/collateral',
+    '/collateral/*',
   ],
+  // /contact reads ?service= so it renders per request and the generator
+  // can't see it; list it explicitly.
+  additionalPaths: async (config) => [await config.transform(config, '/contact')],
   robotsTxtOptions: {
     policies: [
       {
@@ -32,6 +38,7 @@ module.exports = {
           '/portal',
           '/contractor',
           '/api',
+          '/collateral',
         ],
       },
     ],

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { ApplicationWizard } from '@/components/careers-apply/ApplicationWizard'
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/join-our-team/apply' },
   title: 'Apply | Sano Careers',
   description: 'Apply to join the Sano cleaning team.',
 }

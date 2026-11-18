@@ -13,7 +13,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Panmure Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/panmure' },
+  title: 'Panmure Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Panmure homes, townhouses, rentals, and workplaces: regular upkeep, deep cleans, end of tenancy, and office cleaning.',
 }

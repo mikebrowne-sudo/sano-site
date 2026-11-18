@@ -9,7 +9,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Green Bay Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/green-bay' },
+  title: 'Green Bay Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Green Bay homes, townhouses, and rentals: regular upkeep, deep cleans, end of tenancy, carpet, and window cleaning.',
 }

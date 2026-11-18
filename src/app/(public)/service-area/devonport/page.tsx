@@ -14,7 +14,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Devonport Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/devonport' },
+  title: 'Devonport Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Devonport villas, character homes, apartments, and rentals: regular upkeep, deep cleans, move-in and move-out, and specialist surfaces.',
 }

@@ -4,7 +4,8 @@ import { SuburbLandingTemplate } from '../_components/SuburbLandingTemplate'
 import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from '../_components/SuburbServicesSection'
 
 export const metadata: Metadata = {
-  title: 'Hobsonville Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/hobsonville' },
+  title: 'Hobsonville Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Hobsonville homes, new builds, townhouses, and rentals: regular upkeep, deep cleans, end of tenancy, carpet, and window cleaning.',
 }

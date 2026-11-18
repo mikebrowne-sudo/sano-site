@@ -14,7 +14,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Takanini Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/takanini' },
+  title: 'Takanini Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Takanini homes, townhouses, and new builds: regular upkeep, deep cleans, end of tenancy, carpet, and window cleaning.',
 }

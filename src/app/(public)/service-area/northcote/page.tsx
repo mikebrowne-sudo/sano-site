@@ -12,7 +12,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Northcote Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/northcote' },
+  title: 'Northcote Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Northcote homes, townhouses, and rentals: regular upkeep, deep cleans, end of tenancy, and window cleaning on the North Shore.',
 }

@@ -13,6 +13,7 @@ import {
 import type { ServiceArea } from '@/lib/service-areas'
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/service-area' },
   title: 'Service Areas | Sano Cleaning Auckland',
   description:
     'Sano Cleaning services 80+ suburbs across Auckland — Central, North Shore, East, South, and West Auckland. Check your suburb or postcode.',

@@ -9,7 +9,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Orakei Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/orakei' },
+  title: 'Orakei Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Orakei homes, apartments, and rentals: regular upkeep, deep cleans, end of tenancy, window, and carpet cleaning.',
 }

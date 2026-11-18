@@ -4,7 +4,8 @@ import { SuburbLandingTemplate } from '../_components/SuburbLandingTemplate'
 import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from '../_components/SuburbServicesSection'
 
 export const metadata: Metadata = {
-  title: 'Royal Oak Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/royal-oak' },
+  title: 'Royal Oak Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Royal Oak homes, townhouses, and rentals: regular upkeep, deep cleans, end of tenancy, carpet, and window cleaning across Auckland.',
 }

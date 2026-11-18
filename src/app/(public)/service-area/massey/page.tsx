@@ -12,7 +12,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Massey Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/massey' },
+  title: 'Massey Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Massey homes and rentals: regular upkeep, deep cleans, end of tenancy, carpet, and window cleaning across West Auckland.',
 }

@@ -13,6 +13,7 @@ import { SERVICES } from '@/lib/services'
 import Image from 'next/image'
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/' },
   title: 'Sano — Professional Cleaning Services in Auckland',
   description: 'Professional residential and commercial cleaning in Auckland. Carefully selected teams, detail-focused work, and 20+ years of industry experience.',
 }

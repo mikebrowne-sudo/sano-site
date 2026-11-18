@@ -5,6 +5,7 @@ import { CareersProcess } from '@/components/CareersProcess'
 import { CareersContact } from '@/components/CareersContact'
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/join-our-team' },
   title: 'Join Our Team | Sano',
   description:
     "We're looking for reliable, detail-focused people for flexible cleaning work across Auckland. Apply to join the Sano team.",

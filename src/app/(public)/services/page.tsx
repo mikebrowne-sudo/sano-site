@@ -4,6 +4,7 @@ import { CtaBanner } from '@/components/CtaBanner'
 import { SERVICES } from '@/lib/services'
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/services' },
   title: 'Cleaning Services in Auckland | Sano Cleaning',
   description: 'Browse all Sano cleaning services in Auckland: regular, deep, end of tenancy, commercial, carpet, windows, and post-construction. Free quotes.',
 }

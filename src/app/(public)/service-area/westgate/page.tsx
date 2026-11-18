@@ -14,7 +14,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Westgate Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/westgate' },
+  title: 'Westgate Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Westgate homes, townhouses, and workplaces: regular upkeep, deep cleans, end of tenancy, and commercial cleaning across the area.',
 }

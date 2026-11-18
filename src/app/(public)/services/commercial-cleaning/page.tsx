@@ -27,6 +27,7 @@ import { GoogleReviewsStrip } from '@/components/GoogleReviewsStrip'
 export const revalidate = 21600
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/services/commercial-cleaning' },
   title: 'Commercial & Office Cleaning Auckland | Sano',
   description:
     'Reliable commercial cleaning for Auckland offices, education centres and hospitality venues. Free site walkthrough, tailored proposal, fully insured team.',

@@ -9,7 +9,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Glen Eden Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/glen-eden' },
+  title: 'Glen Eden Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Glen Eden homes, units, and rentals: regular upkeep, deep cleans, end of tenancy, carpet, and window cleaning.',
 }

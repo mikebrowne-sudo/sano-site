@@ -9,7 +9,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Te Atatu South Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/te-atatu-south' },
+  title: 'Te Atatu South Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Te Atatu South homes, townhouses, and rentals: regular upkeep, deep cleans, end of tenancy, carpet, and window cleaning.',
 }

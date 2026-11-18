@@ -5,6 +5,7 @@ import { SubpageHero } from '@/components/SubpageHero'
 import { POSTS } from '@/lib/blog'
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/blog' },
   title: 'Blog | Sano Cleaning',
   description:
     'Practical tips, guides, and insights to help you keep your space clean and well-maintained.',

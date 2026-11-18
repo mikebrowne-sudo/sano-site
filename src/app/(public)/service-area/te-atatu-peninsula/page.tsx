@@ -13,7 +13,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Te Atatū Peninsula Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/te-atatu-peninsula' },
+  title: 'Te Atatū Peninsula Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Te Atatū Peninsula family homes, townhouses, and rentals: regular upkeep, deep cleans, move-in and move-out, and specialist surfaces.',
 }

@@ -12,7 +12,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Epsom Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/epsom' },
+  title: 'Epsom Cleaners | House & Office Cleaning | Sano',
   description:
     'Regular, deep, and end-of-tenancy cleaning for Epsom homes, apartments, and rentals. Sano matches the scope to the property and the clean.',
 }

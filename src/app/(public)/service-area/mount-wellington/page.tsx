@@ -4,7 +4,8 @@ import { SuburbLandingTemplate } from '../_components/SuburbLandingTemplate'
 import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from '../_components/SuburbServicesSection'
 
 export const metadata: Metadata = {
-  title: 'Mount Wellington Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/mount-wellington' },
+  title: 'Mount Wellington Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Mount Wellington homes, rentals, offices, and commercial spaces: regular upkeep, deep cleans, end of tenancy, and workplace cleaning.',
 }

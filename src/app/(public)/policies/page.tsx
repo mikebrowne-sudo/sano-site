@@ -3,6 +3,7 @@ import { PoliciesAccordion } from '@/components/PoliciesAccordion'
 import { CtaBanner } from '@/components/CtaBanner'
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/policies' },
   title: 'Our Policies | Sano Cleaning Auckland',
   description:
     'Clear, fair policies that help keep everything simple and professional. Everything you need to know about booking with Sano Cleaning Auckland.',

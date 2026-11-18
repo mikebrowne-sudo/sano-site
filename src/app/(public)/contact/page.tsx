@@ -5,6 +5,7 @@ import { TrustBar } from '@/components/TrustBar'
 import { GoogleRatingLine } from '@/components/GoogleReviewsStrip'
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/contact' },
   title: 'Get a Free Quote | Sano Cleaning Auckland',
   description: "Request a free, no-obligation cleaning quote from Sano. We'll get back to you within a few hours. Serving all of Auckland.",
 }

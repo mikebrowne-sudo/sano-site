@@ -13,7 +13,8 @@ import { HOME_CLEANING_GROUP, PROPERTY_WORKPLACE_GROUP, SPECIALIST_GROUP } from 
  */
 
 export const metadata: Metadata = {
-  title: 'Titirangi Cleaning Services | Sano',
+  alternates: { canonical: '/service-area/titirangi' },
+  title: 'Titirangi Cleaners | House & Office Cleaning | Sano',
   description:
     'Cleaning for Titirangi bush-set homes, timber houses, and rentals: regular upkeep, deep cleans, move-in and move-out, glass, and specialist surfaces.',
 }
