@@ -5,8 +5,11 @@
 // must equal CRON_SECRET. Uses the service-role Supabase client (no user
 // session).
 //
-// It creates a DRAFT weekly pay run for the week just ended and emails Mike to
-// review it. It NEVER approves or pays — a human approves + pays in the portal.
+// It creates a DRAFT weekly pay run for the week STARTING today — wages are paid
+// in advance, by bank automatic payment, on the Monday — and emails Mike. It
+// never approves or pays by itself: when a bank import shows the payment
+// ("A/P WAGES CAROL", same net amount), auto-reconcile approves the run and
+// marks it paid on the bank date (finance/reconcile/_auto-out.ts).
 // The double-pay guard (unique index on employee cycle + period-end) means a
 // manual run already created for the week makes this a safe no-op.
 
@@ -50,9 +53,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, skipped: 'No active weekly employees.' })
   }
 
-  // The week just ended: 7 days ending yesterday (NZ), pay date today.
-  const periodStart = nzDateString(-7)
-  const periodEnd = nzDateString(-1)
+  // This week, paid in advance: today (Monday, NZ) to Sunday, pay date today —
+  // the same day the automatic payment leaves the bank.
+  const periodStart = nzDateString(0)
+  const periodEnd = nzDateString(6)
   const payDate = nzDateString(0)
 
   const res = await createEmployeePayRun(supabase, {
@@ -60,7 +64,7 @@ export async function POST(req: NextRequest) {
     pay_period_end: periodEnd,
     pay_date: payDate,
     pay_frequency: 'weekly',
-    notes: 'Auto-drafted weekly pay run — review, approve and pay in the portal.',
+    notes: 'Auto-drafted weekly pay run — approved and marked paid automatically when the bank shows the payment.',
   })
 
   if (res.duplicate) {
@@ -70,7 +74,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: res.error ?? 'Failed to create the draft.' }, { status: 500 })
   }
 
-  // Notify — draft only, never auto-paid.
+  // Notify — the run is a draft until the bank shows the payment.
   const notifyEmail = process.env.SANO_NOTIFY_EMAIL
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.URL ?? ''
   // Surface any pay-line review flags (e.g. an expired KiwiSaver temporary
@@ -90,7 +94,7 @@ export async function POST(req: NextRequest) {
         to: notifyEmail,
         subject: `Weekly pay run drafted — ${periodStart} to ${periodEnd}${warnings.length ? ' (review required)' : ''}`,
         html: `<p>A weekly pay run has been <strong>auto-drafted</strong> for ${periodStart} – ${periodEnd}.</p>
-          <p>It is a draft only — nothing has been approved or paid. Review, approve and pay it here:</p>
+          <p>When your next bank import shows the payment, it will be approved and marked paid automatically, and its PAYE added to the IRD ledger. If the amount paid differs, it stays a draft for you to check:</p>
           <p><a href="${baseUrl}/portal/payroll/${res.id}">${baseUrl}/portal/payroll/${res.id}</a></p>
           ${warningsHtml}`,
       })

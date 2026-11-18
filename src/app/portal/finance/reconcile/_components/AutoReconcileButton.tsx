@@ -26,6 +26,10 @@ export function autoSummaryText(s: AutoReconcileSummary): string {
     if (o.failures.length) parts.push(`${o.failures.length} money-out match${o.failures.length !== 1 ? 'es' : ''} couldn't be saved: ${o.failures.join('; ')}`)
   }
   if (s.outError) parts.push(`Money out didn't run: ${s.outError}`)
+  if (s.ird?.recorded) parts.push(`IRD: ${s.ird.recorded} PAYE payment${s.ird.recorded !== 1 ? 's' : ''} ($${s.ird.recordedAmount.toFixed(2)}) recorded on the IRD ledger`)
+  if (s.ird?.setupNeeded) parts.push(s.ird.setupNeeded)
+  if (s.ird?.failures.length) parts.push(`IRD ledger: ${s.ird.failures.join('; ')}`)
+  if (s.irdError) parts.push(`IRD ledger didn't update: ${s.irdError}`)
   if (s.stripe) {
     const st = s.stripe
     if (st.matched > 0) parts.push(`Stripe: ${st.matched} payout${st.matched !== 1 ? 's' : ''} matched${st.feesRecorded > 0 ? `, $${st.feesRecorded.toFixed(2)} Stripe fees recorded as bank fees` : ''}`)
@@ -66,7 +70,7 @@ export function AutoReconcileButton() {
         <Wand2 size={16} /> {isPending ? 'Reconciling…' : 'Auto-reconcile now'}
       </button>
       <p className="text-xs text-sage-400 mt-1.5">
-        Money in: invoice references, known payers (incl. recurring clients), exact bundles and Stripe payouts (checked against Stripe, fees recorded as bank fees). Money out: remittances, recorded expenses, pay runs, IRD payments, tax-savings transfers and repeat bills. Anything uncertain is left for you. Runs automatically after every import; every match can be reversed.
+        Money in: invoice references, known payers (incl. recurring clients), exact bundles and Stripe payouts (checked against Stripe, fees recorded as bank fees). Money out: remittances, recorded expenses, pay runs (an unpaid run is marked paid when the bank names the employee), IRD payments (PAYE ones also go on the IRD ledger), tax-savings transfers and repeat bills. Anything uncertain is left for you. Runs automatically after every import; every match can be reversed.
       </p>
       {msg && <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg px-4 py-3 mt-2">{msg}</p>}
       {err && <p className="text-red-600 text-sm bg-red-50 rounded-lg px-4 py-3 mt-2">{err}</p>}
