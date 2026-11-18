@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
-import { DollarSign, Plus, ClipboardCheck } from 'lucide-react'
+import { DollarSign, Plus, ClipboardCheck, Landmark, Car } from 'lucide-react'
 import clsx from 'clsx'
 import { isAdminEmail } from '@/lib/is-admin'
 import { QuickPayWeek } from './_components/QuickPayWeek'
@@ -52,7 +52,13 @@ export default async function PayrollPage({ searchParams }: { searchParams?: { d
       )}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl tracking-tight font-bold text-sage-800">Payroll</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/portal/payroll/ird" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
+            <Landmark size={16} /> IRD liabilities
+          </Link>
+          <Link href="/portal/mileage" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
+            <Car size={16} /> Mileage
+          </Link>
           {isAdmin && (
             <Link href="/portal/payroll/new" className="inline-flex items-center gap-2 border border-sage-200 text-sage-700 font-medium px-4 py-2.5 rounded-lg text-sm hover:bg-sage-50 transition-colors">
               <Plus size={16} /> New Pay Run
