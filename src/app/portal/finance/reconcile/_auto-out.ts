@@ -9,6 +9,9 @@ import { proposeDebitReconcile, payeeKeyOut, type OutKnownBill, type OutProposal
 import { round2 } from '@/lib/payment-allocation'
 import { SANO_ACCOUNT_NUMBER } from '@/lib/sano-bank-details'
 import { applyRemittanceAllocation } from '../reconcile-out/_apply-remit'
+import { canTransitionPayment, markPaidPatch } from '@/lib/payroll/pay-run-lifecycle'
+import { ensureLiabilityLineForRun } from '@/lib/payroll/ird-liability-ledger'
+import { getServiceSupabase } from '@/lib/supabase-service'
 
 export interface AutoReconcileOutSummary {
   matched: number
@@ -34,7 +37,9 @@ export async function runAutoReconcileOut(supabase: SupabaseClient, userId: stri
     supabase.from('contractor_remittance_items').select('remittance_id, amount'),
     supabase.from('remittance_payment_allocations').select('bank_transaction_id, remittance_id, amount_allocated').is('reversed_at', null),
     // Payout = net pay + mileage reimbursement (paid in the same transfer).
-    supabase.from('pay_runs').select('id, pay_date, payment_reference, pay_run_lines ( net_pay, mileage_reimbursement )').eq('status', 'paid'),
+    // Draft/approved runs too: the bank line is the proof of payment
+    // (automatic payments) — they match only when the bank names the employee.
+    supabase.from('pay_runs').select('id, pay_date, status, payment_reference, pay_run_lines ( net_pay, mileage_reimbursement, contractors ( full_name ) )').eq('kind', 'employee').in('status', ['draft', 'approved', 'paid']),
     supabase.from('expenses').select('id, expense_date, amount, category, vendor, payment_reference, gst_inclusive'),
     supabase
       .from('bank_debit_links')
@@ -106,6 +111,11 @@ export async function runAutoReconcileOut(supabase: SupabaseClient, userId: stri
             .reduce((s, l) => s + Number(l.net_pay ?? 0) + Number(l.mileage_reimbursement ?? 0), 0)),
           reference: (p.payment_reference as string | null) ?? null,
           linked: linkedPayRun.has(p.id as string),
+          status: p.status as 'draft' | 'approved' | 'paid',
+          // First names only: "Browne" is also the owner's surname.
+          employeeNames: ((p.pay_run_lines ?? []) as Rec[])
+            .map((l) => (one<{ full_name: string | null }>(l.contractors)?.full_name ?? '').trim().split(/\s+/)[0])
+            .filter((n) => n.length >= 3),
         }))
       : [],
     expenses: linksReady
@@ -151,6 +161,10 @@ async function applyDebitLink(
   userId: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
   if (!debit) return { ok: false, error: 'Bank line not found.' }
+  if (p.kind === 'pay_run' && p.markPaid) {
+    const r = await markPayRunPaidFromBank(supabase, p.payRunId, debit, userId)
+    if (!r.ok) return r
+  }
   let expenseId: string | null = p.kind === 'expense' ? p.expenseId : null
 
   if (p.kind === 'created_expense') {
@@ -209,5 +223,56 @@ async function applyDebitLink(
   } catch (err) {
     console.warn('[auto-reconcile-out] audit insert failed:', err)
   }
+  return { ok: true }
+}
+
+/**
+ * The bank shows this pay run's money went out: approve it if still a draft
+ * (which puts its PAYE on the IRD ledger), then mark it paid on the bank date.
+ * Payday filing in myIR stays a separate, manual step.
+ */
+async function markPayRunPaidFromBank(
+  supabase: SupabaseClient,
+  payRunId: string,
+  debit: { date: string; payee: string; memo: string },
+  userId: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  const { data: run } = await supabase.from('pay_runs').select('status').eq('id', payRunId).single()
+  if (!run) return { ok: false, error: 'Pay run not found.' }
+  const nowIso = new Date().toISOString()
+
+  if (run.status === 'draft') {
+    const t = canTransitionPayment('draft', 'approved')
+    if (!t.ok) return { ok: false, error: t.reason }
+    const { error } = await supabase.from('pay_runs')
+      .update({ status: 'approved', approved_at: nowIso, approved_by: userId })
+      .eq('id', payRunId).eq('status', 'draft')
+    if (error) return { ok: false, error: `Couldn't approve the pay run: ${error.message}` }
+  } else if (run.status !== 'approved') {
+    return { ok: true } // already paid — just link
+  }
+
+  // Ledger the PAYE (service role — the ledger is SELECT-only under RLS).
+  try {
+    const res = await ensureLiabilityLineForRun(getServiceSupabase(), payRunId)
+    if (res.skipped && res.skipped !== 'already_ledgered') console.error('[auto-reconcile-out] IRD liability not created:', res.skipped)
+  } catch (e) {
+    console.error('[auto-reconcile-out] IRD liability not created:', e instanceof Error ? e.message : e)
+  }
+
+  const reference = (debit.memo || debit.payee).trim()
+  const method = /A\/P/i.test(`${debit.payee} ${debit.memo}`) ? 'automatic payment' : 'bank transfer'
+  const { error } = await supabase.from('pay_runs')
+    .update(markPaidPatch({ paymentDate: debit.date, paymentReference: reference, paymentMethod: method }, nowIso, userId))
+    .eq('id', payRunId).eq('status', 'approved')
+  if (error) return { ok: false, error: `Couldn't mark the pay run paid: ${error.message}` }
+
+  try {
+    await supabase.from('audit_log').insert({
+      entity_table: 'pay_runs', entity_id: payRunId, action: 'pay_run_marked_paid',
+      detail: `Marked paid from the bank feed: ${reference} on ${debit.date} (${method}). Payday filing + IRD payment remain separate.`,
+      performed_by: userId,
+    })
+  } catch { /* audit shape varies */ }
   return { ok: true }
 }

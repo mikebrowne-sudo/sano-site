@@ -9,9 +9,13 @@
 //      open remittance of the same amount; else exactly one open remittance of
 //      the same amount within 7 days; else exactly one combination (2–4) of
 //      open remittances paid within 3 days that sums to the debit.
-//   2. Employee pay run — exactly one paid pay run whose payout (net pay +
-//      mileage reimbursement) equals the debit, paid within 6 days. Two pay
-//      runs paid in one transfer are flagged for review (one link per debit).
+//   2. Employee pay run — exactly one pay run whose payout (net pay +
+//      mileage reimbursement) equals the debit, dated within 6 days. A run
+//      already marked paid matches on amount + date. A DRAFT or APPROVED run
+//      also needs the bank text to name its employee ("A/P WAGES CAROL"); the
+//      runner then approves it and marks it paid on the bank date — the bank
+//      is the proof of payment (automatic payments). Two pay runs paid in one
+//      transfer are flagged for review (one link per debit).
 //   3. Own-account transfer — the bank text names Sano's own account number
 //      with a different suffix (e.g. -51 tax savings). Not an expense.
 //   4. Existing expense — exactly one unlinked expense of the same amount
@@ -56,6 +60,10 @@ export interface OutPayRun {
   net: number
   reference: string | null
   linked: boolean
+  /** Lifecycle status; omitted = already paid. */
+  status?: 'draft' | 'approved' | 'paid'
+  /** Employee names on the run — an unpaid run matches only when the bank text names one. */
+  employeeNames?: string[]
 }
 
 export interface OutExpense {
@@ -80,7 +88,7 @@ export interface OutKnownBill {
 
 export type OutProposal =
   | { kind: 'remittance'; debitId: string; allocations: Array<{ remittanceId: string; amount: number }>; method: 'reference' | 'amount_match'; reason: string }
-  | { kind: 'pay_run'; debitId: string; payRunId: string; amount: number; reason: string }
+  | { kind: 'pay_run'; debitId: string; payRunId: string; amount: number; reason: string; markPaid?: 'draft' | 'approved' }
   | { kind: 'internal_transfer'; debitId: string; amount: number; reason: string }
   | { kind: 'expense'; debitId: string; expenseId: string; amount: number; reason: string }
   | { kind: 'created_expense'; debitId: string; amount: number; category: string; vendor: string; description: string; gstInclusive: boolean; reason: string }
@@ -129,8 +137,8 @@ function namesPayee(text: string, label: string | null): boolean {
   return norm(label).split(' ').filter((t) => t.length >= 3 && !['LTD', 'LIMITED', 'AND'].includes(t)).some((t) => words.has(t))
 }
 
-const IRD_FEE_RE = /\bIRD\s+CONV(ENIENCE)?\s+FEE/i
-const IRD_RE = /INLAND\s+REVENUE|\bI\.?R\.?D\.?\b/i
+export const IRD_FEE_RE = /\bIRD\s+CONV(ENIENCE)?\s+FEE/i
+export const IRD_RE = /INLAND\s+REVENUE|\bI\.?R\.?D\.?\b/i
 
 function uniqueSubset<T>(items: Array<{ item: T; value: number }>, target: number, maxSize: number): T[] | null {
   let found: T[] | null = null
@@ -215,19 +223,27 @@ export function proposeDebitReconcile(args: {
       continue
     }
 
-    // 2. Employee pay run (net pay).
+    // 2. Employee pay run (net pay). Unpaid runs need the employee named.
+    const runEligible = (p: OutPayRun) => !payRunTaken.has(p.id) && !!p.payDate && absDays(p.payDate, d.date) <= RECORD_DATE_WINDOW
+      && (!p.status || p.status === 'paid' || (p.employeeNames ?? []).some((n) => namesPayee(text, n)))
     const runs = args.payRuns
-      .filter((p) => !payRunTaken.has(p.id) && cents(p.net) === due && p.payDate && absDays(p.payDate, d.date) <= RECORD_DATE_WINDOW)
+      .filter((p) => runEligible(p) && cents(p.net) === due)
       .sort((a, b) => absDays(a.payDate as string, d.date) - absDays(b.payDate as string, d.date))
     if (runs.length > 1 && absDays(runs[0].payDate as string, d.date) < absDays(runs[1].payDate as string, d.date)) runs.splice(1)
     if (runs.length === 1) {
-      payRunTaken.add(runs[0].id)
-      proposals.push({ kind: 'pay_run', debitId: d.id, payRunId: runs[0].id, amount, reason: `auto: pay run ${runs[0].payDate} (net pay)` })
+      const pr = runs[0]
+      payRunTaken.add(pr.id)
+      const unpaid = pr.status && pr.status !== 'paid' ? pr.status : undefined
+      proposals.push({
+        kind: 'pay_run', debitId: d.id, payRunId: pr.id, amount,
+        reason: unpaid ? `auto: pay run ${pr.payDate} — bank shows it paid, marked paid` : `auto: pay run ${pr.payDate} (net pay)`,
+        ...(unpaid ? { markPaid: unpaid } : {}),
+      })
       continue
     }
     if (runs.length > 1) { review.push({ debitId: d.id, why: 'Several pay runs of this amount' }); continue }
     const nearRuns = args.payRuns
-      .filter((p) => !payRunTaken.has(p.id) && p.payDate && absDays(p.payDate, d.date) <= RECORD_DATE_WINDOW)
+      .filter(runEligible)
       .map((p) => ({ item: p, value: cents(p.net) }))
     const runPair = nearRuns.length >= 2 ? uniqueSubset(nearRuns, due, 3) : null
     if (runPair) {

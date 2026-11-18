@@ -140,4 +140,43 @@ describe('money-out auto-reconcile', () => {
     expect(r.proposals).toHaveLength(0)
     expect(r.review[0].why).toMatch(/Pays 2 pay runs together/)
   })
+
+  describe('automatic payment marks an unpaid pay run paid', () => {
+    const ap = debit({ amount: 505.5, payee: 'Carol Browne', memo: 'A/P WAGES CAROL', date: '2026-10-19' })
+
+    it('a draft run naming the employee is matched and flagged to mark paid', () => {
+      const r = go({ debits: [ap], payRuns: [run({ id: 'w', payDate: '2026-10-19', status: 'draft', employeeNames: ['Carol'] })] })
+      expect(r.proposals[0]).toMatchObject({ kind: 'pay_run', payRunId: 'w', markPaid: 'draft' })
+    })
+
+    it('an approved run too', () => {
+      const r = go({ debits: [ap], payRuns: [run({ id: 'w', payDate: '2026-10-19', status: 'approved', employeeNames: ['Carol'] })] })
+      expect(r.proposals[0]).toMatchObject({ kind: 'pay_run', payRunId: 'w', markPaid: 'approved' })
+    })
+
+    it('never marks an unpaid run paid when the bank does not name the employee', () => {
+      const r = go({
+        debits: [debit({ amount: 505.5, payee: 'Mike Browne', memo: 'TRANSFER', date: '2026-10-19' })],
+        payRuns: [run({ id: 'w', payDate: '2026-10-19', status: 'draft', employeeNames: ['Carol'] })],
+      })
+      expect(r.proposals.filter((p) => p.kind === 'pay_run')).toHaveLength(0)
+    })
+
+    it('picks the week whose pay date matches, not the neighbouring week', () => {
+      const r = go({
+        debits: [ap],
+        payRuns: [
+          run({ id: 'prev', payDate: '2026-10-12', status: 'approved', employeeNames: ['Carol'] }),
+          run({ id: 'this', payDate: '2026-10-19', status: 'draft', employeeNames: ['Carol'] }),
+          run({ id: 'next', payDate: '2026-10-26', status: 'draft', employeeNames: ['Carol'] }),
+        ],
+      })
+      expect(r.proposals[0]).toMatchObject({ payRunId: 'this' })
+    })
+
+    it('a different amount (e.g. leave week) is not matched', () => {
+      const r = go({ debits: [ap], payRuns: [run({ id: 'w', payDate: '2026-10-19', status: 'draft', net: 480, employeeNames: ['Carol'] })] })
+      expect(r.proposals.filter((p) => p.kind === 'pay_run')).toHaveLength(0)
+    })
+  })
 })

@@ -9,6 +9,8 @@ import { applyBankAllocation, invoicePayableTotal } from './_apply'
 import { runAutoReconcileOut, type AutoReconcileOutSummary } from './_auto-out'
 import { runStripePayoutReconcile, type StripeReconcileSummary } from './_stripe'
 import { isStripePayoutLine } from '@/lib/stripe-payout-reconcile'
+import { applyIrdBankPayments, type IrdBankPaymentSummary } from '@/lib/payroll/ird-bank-payment-runner'
+import { getServiceSupabase } from '@/lib/supabase-service'
 
 export interface AutoReconcileSummary {
   /** Uncleared payments now fully reconciled. */
@@ -27,6 +29,9 @@ export interface AutoReconcileSummary {
   /** Stripe payouts (net of Stripe fees) matched against Stripe's records. */
   stripe: StripeReconcileSummary | null
   stripeError: string | null
+  /** PAYE payments seen on the bank, recorded on the IRD ledger. */
+  ird?: IrdBankPaymentSummary | null
+  irdError?: string | null
 }
 
 type Rec = Record<string, unknown>
@@ -147,6 +152,14 @@ export async function runAutoReconcile(supabase: SupabaseClient, userId: string 
     summary.out = await runAutoReconcileOut(supabase, userId)
   } catch (e) {
     summary.outError = e instanceof Error ? e.message : 'Money-out auto-reconcile failed.'
+  }
+
+  // IRD ledger — after money out, so pay runs it just marked paid are ledgered
+  // first. Service role: the ledger is SELECT-only under RLS.
+  try {
+    summary.ird = await applyIrdBankPayments(getServiceSupabase())
+  } catch (e) {
+    summary.irdError = e instanceof Error ? e.message : 'IRD ledger update failed.'
   }
   return summary
 }

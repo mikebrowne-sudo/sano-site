@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase-server'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { isAdminUser } from '@/lib/is-admin'
 import { backfillMissingLiabilityLines } from '@/lib/payroll/ird-liability-ledger'
+import { applyIrdBankPayments } from '@/lib/payroll/ird-bank-payment-runner'
 import { revalidatePath } from 'next/cache'
 
 type Result = { ok?: true; error?: string }
@@ -56,14 +57,22 @@ export async function recordIrdPayment(input: {
 }
 
 /** Create liability lines for approved/paid runs the ledger missed. */
-export async function syncIrdLiabilityLines(): Promise<Result & { created?: number; skipped?: number }> {
+export async function syncIrdLiabilityLines(): Promise<Result & { created?: number; skipped?: number; paymentsRecorded?: number; paymentsAmount?: number; note?: string }> {
   await assertAdminAction()
   const g = await adminGate()
   if (g.error) return { error: g.error }
-  const res = await backfillMissingLiabilityLines(getServiceSupabase())
+  const svc = getServiceSupabase()
+  const res = await backfillMissingLiabilityLines(svc)
   if (res.skipped.length) console.error('[payroll] IRD backfill skipped:', res.skipped)
+  // Then pick up PAYE payments already on the bank feed.
+  let pay = null
+  try { pay = await applyIrdBankPayments(svc) } catch (e) { console.error('[payroll] IRD bank payments:', e instanceof Error ? e.message : e) }
   revalidatePath('/portal/payroll/ird')
-  return { ok: true, created: res.created, skipped: res.skipped.length }
+  return {
+    ok: true, created: res.created, skipped: res.skipped.length,
+    paymentsRecorded: (pay?.recorded ?? 0) + (pay?.linkedManual ?? 0), paymentsAmount: pay?.recordedAmount ?? 0,
+    note: pay?.setupNeeded ?? (pay?.failures.length ? pay.failures.join('; ') : undefined),
+  }
 }
 
 export async function addIrdAdjustment(input: {
