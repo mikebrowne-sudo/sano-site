@@ -180,6 +180,10 @@ export default async function PayHubPage() {
           title="Employee Pay"
           href="/portal/payroll"
           actionLabel="Open Employee Payroll"
+          secondary={[
+            { href: '/portal/payroll/ird', label: 'IRD liabilities' },
+            { href: '/portal/mileage', label: 'Mileage' },
+          ]}
           stats={[
             {
               label: 'On payroll',
@@ -294,7 +298,7 @@ function PayCard({
           {actionLabel}
         </Link>
         {secondary?.map((s) => (
-          <Link key={s.href} href={s.href} className="text-xs text-sage-600 hover:text-sage-800 underline">
+          <Link key={s.href} href={s.href} className={buttonClasses({ variant: 'secondary', size: 'sm' })}>
             {s.label}
           </Link>
         ))}

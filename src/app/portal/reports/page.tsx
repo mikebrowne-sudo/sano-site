@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { isFinanceUser } from '@/lib/is-admin'
 import { HubGrid } from '../_components/HubGrid'
-import { Scale, BarChart3, Landmark, ShieldAlert, Wallet2, FileSpreadsheet } from 'lucide-react'
+import { Scale, BarChart3, Landmark, ShieldAlert, Wallet2, FileSpreadsheet, Receipt, FileCheck } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,6 +22,8 @@ export default async function ReportsHubPage() {
             { href: '/portal/finance/profit-loss', title: 'P&L statement', desc: 'Profit & loss for any period.', icon: Scale },
             { href: '/portal/finance/job-margins', title: 'Job margins', desc: 'Profit per job, plus jobs flagged to action.', icon: BarChart3 },
             { href: '/portal/finance/reconcile', title: 'Bank reconciliation', desc: 'Match bank statements to the ledger.', icon: Landmark },
+            { href: '/portal/payroll/ird', title: 'IRD liabilities', desc: 'PAYE owed to IRD by month: what is due, paid and outstanding.', icon: Receipt },
+            { href: '/portal/payroll/contractor-withholding', title: 'Schedular withholding', desc: 'Tax withheld from contractor payments, by IRD period.', icon: FileCheck },
             { href: '/portal/finance/contractor-tax-remediation', title: 'Contractor tax remediation', desc: 'Historical tax gaps to review (read-only).', icon: ShieldAlert },
             { href: '/portal/expenses', title: 'Expenses', desc: 'Recorded business expenses.', icon: Wallet2 },
           ],
