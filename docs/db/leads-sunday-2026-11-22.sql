@@ -2,11 +2,54 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 25 | A: 23 | B: 2
+-- Total: 29 | A: 27 | B: 2
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 12 (48%) | Education: 5 (20%) | Hospitality: 7 (28%) | Clinic/Other: 1 (4%)
--- Offices is still over target - next batches should avoid law/accounting/engineering firms
---   entirely and keep building Education specifically (it's furthest under share now).
+--   Offices: 12 (41%) | Education: 6 (21%) | Hospitality: 10 (34%) | Clinic/Other: 1 (3%)
+-- Batch 3 (this batch): added Imperial College of New Zealand (CBD language/business PTE - Principal
+--   Kanwalpreet Kaur named on the college's own about-us page, info@imperial.ac.nz on the same page,
+--   MX ok). Hospitality: Water Boy (St Heliers) and The Corner (Remuera) - both owned by the same
+--   2-venue partnership (Patrick Kean & Victoria Blake, named in Denizen/NZ Herald coverage), under
+--   the 3-site chain threshold, each with its own mailto: contact email confirmed on its own homepage
+--   (thirsty@waterboystheliers.co.nz, enquiries@thecornerremuera.co.nz, both MX ok) - also Ragtag
+--   (Westmere, founder/chef Dan Freeman named in Broadsheet/Metro, hello@ragtagnz.com on own site,
+--   MX ok). Grepping mailto: links out of downloaded homepages worked better than WebSearch alone for
+--   finding hospitality emails this batch.
+-- Education PTE/language-school sweep this batch (via a parallel research pass) hit mostly chains or
+--   no-named-contact dead ends: New Zealand Skills and Education College (3 Auckland campuses - New
+--   Lynn/Manukau/CBD - chain), ICL Graduate Business School and Auckland English Academy (both part of
+--   the larger ICL Education Group - too institutional/chain-like), Elite International School of
+--   Beauty and Spa Therapies (Yoobee Colleges-owned - chain), Let's Go music school (named directors +
+--   an NZQA-listed email, but delivers out of shared community venues with no confirmed own premises,
+--   and its own domain didn't resolve - too uncertain), International Travel College of NZ (ITC - its
+--   own site publishes college@itc.co.nz, MX ok, but no named decision-maker found and its own contact
+--   page is titled "Contact Us | Campuses" (plural) - too much chain risk to use even as B), Carter
+--   Chan Dance Performance Centre (named director, no email found), Fun Beats/ABC Studios/Franks Music/
+--   Mt Eden Ballet/Studio One Performing Arts (directory presence only, no own site + email), Aspiring
+--   Language Institute (already a duplicate in docs/db/2026-08-02-sales-leads-seed-9.sql - not
+--   re-added), Languages International (part of the larger Study Group chain - skipped).
+-- Hospitality dead ends this batch: Kazuya (Eden Terrace - own site live but no email found anywhere
+--   on it), Augustus Bistro (augustusbistro.co.nz now appears to be an unrelated repurposed content
+--   site, not the restaurant), Postal Service/Kokako (Grey Lynn - no email found), Phil's Kitchen
+--   (Kingsland - domain now redirects to an unrelated casino-affiliate site), Puglia (domain didn't
+--   resolve), Bonita/Bianca (Ellerslie - appear closed or Instagram-only), Nomad (Pt Chevalier - no
+--   current owner/chef confirmed), Barclay Suites (CBD boutique hotel - email only found via a
+--   third-party SuperGold page, not the hotel's own site - stayed below the bar), Viaduct Events
+--   Centre (belongs to Auckland Conventions, not independent), Markovina Estate / Gracehill wineries
+--   (no email on current live site), Mister Fox (Grey Lynn - no contact found at all), The Blue Breeze
+--   Inn / Chop Chop / Woodpecker Hill (Mark Wallbank & Che Barrington's restaurant group - treated
+--   cautiously as a 3-venue group and skipped, even though each trades under a different name), Fantail
+--   and Turtle (Takapuna - whanau-owned function venue, hello@fantailandturtle.co.nz confirmed on its
+--   own site but no named contact - a B-grade candidate held back this batch to keep the B share low).
+--   ARC Vets (2-site independent emergency/referral vet hospital, Freemans Bay + Albany - under the
+--   chain threshold) was checked for the Clinic/Other cap but no named owner/director or email was
+--   found on its own site (team/about pages blocked or 404).
+-- Next batch: Education is now the hardest category to fill - Auckland's independent PTEs keep turning
+--   out to be chain-owned (ICL Education Group, Yoobee, Study Group) or lack a named-contact + own-site
+--   email combo. Try smaller single-site NZQA-registered trade/vocational providers not yet checked
+--   (e.g. specific hairdressing/beauty academies individually rather than as a group), or independent/
+--   private schools (not large multi-campus colleges). Hospitality is still productive - keep using the
+--   mailto: grep approach on real (search-verified, not guessed) domains in fresh suburbs. Clinic/Other
+--   stays at the 15% cap with just 1 lead by design - only add another if truly standout.
 -- Eliette's Music Academy skipped (3+ Auckland sites - Albany/Botany/Takapuna - treated as a chain).
 -- ECE hunt this batch (Remuera, Sandringham, Mt Roskill, Herne Bay, Parnell, One Tree Hill) hit
 --   mostly chains (Kindercare, BestStart, Bear Park x11 sites, KiNZ, Kidicorp/First Steps, Bright
@@ -184,6 +227,26 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Hotel DeBrett', 'Boutique hotel', 'https://www.hoteldebrett.com', NULL, '2 High Street, Auckland 1010', 'Jess Singh', 'Hotel Manager', 'reception@hoteldebrett.com', '09 925 9000', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Hospitality (independent boutique heritage-building hotel, CBD, part of 2-property Habitat Hotels group - under the chain threshold). Hotel Manager Jess Singh named signing the hotel''s own guest-review responses (public replies on review platforms). reception@hoteldebrett.com confirmed published on the hotel''s own homepage (hoteldebrett.com). MX ok (hoteldebrett.com -> hoteldebrett-com.mail.protection.outlook.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Hotel DeBrett'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@hoteldebrett.com'));
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Imperial College of New Zealand', 'English language / business training establishment (NZQA PTE)', 'https://www.imperial.ac.nz', NULL, 'Level 3, 16 Waverley Street, Auckland 1010', 'Kanwalpreet Kaur', 'Principal', 'info@imperial.ac.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Education (NZQA-registered PTE delivering English language and business/employment pathway courses from its own Level 3 Waverley Street premises in the CBD; first registered 2002, MoE provider 7499). Principal Kanwalpreet Kaur named with her role on the college''s own About Us page (imperial.ac.nz/about-us), alongside a message from the college''s Managing Director. info@imperial.ac.nz confirmed published on the same page. MX ok (imperial.ac.nz -> mta.1stdomains.net.nz). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Imperial College of New Zealand'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@imperial.ac.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Water Boy', 'Restaurant / bar (beachfront)', 'https://www.waterboystheliers.co.nz', NULL, '413 Tamaki Drive, St Heliers, Auckland', 'Patrick Kean', 'Partner / Co-owner', 'thirsty@waterboystheliers.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Hospitality (modern beachfront pub/restaurant, own St Heliers premises on Tamaki Drive). Partners Patrick Kean and Victoria Blake named as the duo behind Water Boy (and Remuera''s The Corner) in The Denizen''s opening feature (thedenizen.co.nz/new-opening/meet-water-boy-the-laid-back-new-beachfront-local-in-the-heart-of-st-heliers). Email thirsty@waterboystheliers.co.nz confirmed via a mailto link on the venue''s own homepage. MX ok (waterboystheliers.co.nz -> smtp.google.com). Only 2 venues under this ownership, below the 3-site chain threshold. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Water Boy'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('thirsty@waterboystheliers.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'The Corner', 'Restaurant / bar', 'https://www.thecornerremuera.co.nz', NULL, '604 Remuera Road, Remuera, Auckland', 'Patrick Kean', 'Partner / Co-owner', 'enquiries@thecornerremuera.co.nz', '09 283 0377', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Hospitality (established neighbourhood restaurant/pub, own Remuera Road premises). Partners Patrick Kean and Victoria Blake (also of St Heliers'' Water Boy) named in NZ Herald and Denizen coverage as the duo behind The Corner. Email enquiries@thecornerremuera.co.nz confirmed via a mailto link on the restaurant''s own homepage. MX ok (thecornerremuera.co.nz -> Google Workspace aspmx records). Only 2 venues under this ownership, below the 3-site chain threshold. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('The Corner'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('enquiries@thecornerremuera.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Ragtag', 'Restaurant (Mexican-inspired bistro)', 'https://www.ragtagnz.com', NULL, '162 Garnet Road, Westmere, Auckland', 'Dan Freeman', 'Founder / Chef-owner', 'hello@ragtagnz.com', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Hospitality (buzzy neighbourhood Mexican-inspired restaurant, own Westmere premises, opened Dec 2022). Founder/chef Dan Freeman named in Broadsheet and Metro reviews as having grown the restaurant out of his own taco pop-ups. Email hello@ragtagnz.com confirmed via a mailto link on the restaurant''s own homepage. MX ok (ragtagnz.com -> Google Workspace aspmx records). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Ragtag'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@ragtagnz.com'));
+
 -- ===== B-GRADE (no named contact / directory-only email) =====
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
