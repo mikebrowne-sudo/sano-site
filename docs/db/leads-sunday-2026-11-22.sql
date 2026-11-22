@@ -2,9 +2,17 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 62 | A: 52 | B: 10
+-- Total: 63 | A: 52 | B: 11
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 25 (40%) | Education: 15 (24%) | Hospitality: 13 (21%) | Clinic/Other: 8 (13%)
+--   Offices: 26 (41%) | Education: 15 (24%) | Hospitality: 13 (21%) | Clinic/Other: 8 (13%)
+-- Batch 16: added Gubb Design (Henderson boutique architecture/building-design practice, B - the
+--   only named contact anywhere is a first-name-only "Darren" from client testimonials, so capped at
+--   B despite a confirmed own-site email). B-grade is now at 11 of 63 (17%), still under the ~20%
+--   cap but worth watching - prefer A-grade from here. Tutoring-centre search this round mostly hit
+--   NumberWorks''nWords and Kumon franchise branches (both already-excluded chains); AD Architects
+--   (Eden Terrace) has a confirmed own-site email but no street address at all on its own site, just
+--   a mobile number - likely home-based/no-fixed-premises, skipped per that rule. Mix remains close
+--   to ideal across every category.
 -- Batch 15: finally found 2 fresh Education leads after many dead-end searches - Homai Study Centre
 --   (Manurewa - independent tutoring centre with its own fixed classroom premises, named Education
 --   Director with own-site email, A) and Zest Education Centre (Remuera - independent tutoring
@@ -562,4 +570,9 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Zest Education Centre', 'Tutoring centre (physical classroom premises)', 'https://www.zesteducation.co.nz', NULL, '3A Clonbern Road, Remuera, Auckland 1050', NULL, NULL, 'learn@zesteducation.co.nz', '09 529 2686', 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Education (independent tutoring centre, own Remuera premises, founded 2015). No named owner/director confirmed on the centre''s own site - a third-party data-aggregator (Prospeo) names a "Jason Barnes" as director, but that source is unreliable enough to exclude per the grading rules, so this stays unnamed and capped at B. learn@zesteducation.co.nz and the Remuera address confirmed on the centre''s own Contact page (zesteducation.co.nz/contact). MX ok (zesteducation.co.nz -> aspmx.l.google.com and others). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Zest Education Centre'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('learn@zesteducation.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Gubb Design', 'Architecture / building design practice', 'https://www.gubbdesign.co.nz', '8', '199c Lincoln Road, Henderson, Auckland 0612', NULL, NULL, 'info@gubbdesign.co.nz', '09 833 3252', 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Offices (design-focused boutique architectural/building-design practice, ADNZ professional member, own Henderson premises, team of 8). Client testimonials on ArchiPro name the principal only as "Darren" (no surname given anywhere found), so the contact is not a full named decision-maker and this is capped at B despite a confirmed own-site email. info@gubbdesign.co.nz and the Henderson address confirmed on the practice''s own Contact page (gubbdesign.co.nz/contact). MX ok (gubbdesign.co.nz -> gubbdesign-co-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Gubb Design'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@gubbdesign.co.nz'));
 
