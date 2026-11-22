@@ -2,9 +2,31 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 63 | A: 52 | B: 11
+-- Total: 67 | A: 54 | B: 13
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 26 (41%) | Education: 15 (24%) | Hospitality: 13 (21%) | Clinic/Other: 8 (13%)
+--   Offices: 28 (42%) | Education: 16 (24%) | Hospitality: 14 (21%) | Clinic/Other: 8 (12%)
+-- Batch 17 (final run of the night, started 00:05 NZT with a hard stop at 00:55): added 2 more
+--   Offices (Kennerley & Co, Mt Eden - boutique chartered accountants, A - named Director Jonathan
+--   Kennerley with his own-site personal email off a published "Key People" staff list; Cohesion
+--   Consulting NZ, Auckland CBD - boutique recruitment/HR advisory and training firm, A - named
+--   co-founder/Director Nichola Rawlence with her own-site personal email), 1 Hospitality (Turanga
+--   Creek, Whitford - certified organic vineyard wedding/function venue, B - no named contact, but a
+--   dedicated functions email on its own site) and 1 Education (Devonport School of Dance, Devonport -
+--   independent dance school with its own studio premises, B - a personal-style email is published on
+--   its own site but with no stated surname or role; a third-party snippet naming "Emily Summerville,
+--   principal and owner" could not be re-confirmed against any retrievable source, so it was treated
+--   as unverified and left out rather than risking a fabricated name). Dead ends this batch worth
+--   recording: NZ Welding School (own-site email found via its NZQA listing, but NZQA shows 4+ Auckland
+--   delivery sites - CBD, two in Wiri, Manukau - so it is a chain under this campaign''s 3-site rule,
+--   skipped); Orphans Kitchen, Ponsonby (its old domain now redirects to an unrelated motel site -
+--   looks closed or rebranded, skipped); Apex Insurance (acquired by Howden in 2023, no longer
+--   independent, skipped); Robust Engineering Consultant (founder''s listed address is a residential
+--   unit, likely home-based, skipped); Smart Rental Property Management, Kinetics IT, Blooming Buds
+--   ECE and Bracu Restaurant were all checked but dropped for incomplete address, no published email,
+--   or no reliably named contact. B-grade is now at 13 of 67 (19%), right at the ~20% cap - the next
+--   run should prioritise A-grade only or stop adding B for a while. Mix remains close to ideal across
+--   every category; Education and Hospitality both still have a little headroom, Offices is now
+--   slightly over its ~40% target so further Offices adds should be exceptional-only.
 -- Batch 16: added Gubb Design (Henderson boutique architecture/building-design practice, B - the
 --   only named contact anywhere is a first-name-only "Darren" from client testimonials, so capped at
 --   B despite a confirmed own-site email). B-grade is now at 11 of 63 (17%), still under the ~20%
@@ -575,4 +597,24 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Gubb Design', 'Architecture / building design practice', 'https://www.gubbdesign.co.nz', '8', '199c Lincoln Road, Henderson, Auckland 0612', NULL, NULL, 'info@gubbdesign.co.nz', '09 833 3252', 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Offices (design-focused boutique architectural/building-design practice, ADNZ professional member, own Henderson premises, team of 8). Client testimonials on ArchiPro name the principal only as "Darren" (no surname given anywhere found), so the contact is not a full named decision-maker and this is capped at B despite a confirmed own-site email. info@gubbdesign.co.nz and the Henderson address confirmed on the practice''s own Contact page (gubbdesign.co.nz/contact). MX ok (gubbdesign.co.nz -> gubbdesign-co-nz.mail.protection.outlook.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Gubb Design'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@gubbdesign.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Kennerley & Co', 'Chartered accountants', 'https://kco.co.nz', '18', '75 Boston Road, Mt Eden, Auckland 1023', 'Jonathan VE Kennerley', 'Director', 'jonathan@kco.co.nz', '09 320 4101', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (boutique chartered accounting firm, own Mt Eden premises, 18 named staff). Director Jonathan VE Kennerley named with that role and his personal email on the firm''s own Key People page (kco.co.nz/key-people). MX ok (kco.co.nz -> aspmx.l.google.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Kennerley & Co'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('jonathan@kco.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Cohesion Consulting NZ', 'Recruitment & HR advisory/training', 'https://www.cohesionconsulting.nz', NULL, 'Level 8, SAP Tower, 151 Queen Street, Auckland Central, Auckland 1010', 'Nichola Rawlence', 'Director & Co-Founder', 'nichola@cohesionconsulting.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (boutique recruitment, HR advisory and training consultancy, established 2016, own Auckland CBD office). Director and co-founder Nichola Rawlence named with that role and her personal email on the firm''s own homepage (cohesionconsulting.nz), alongside co-director Rachel McNaughton (rachel@cohesionconsulting.nz). MX ok (cohesionconsulting.nz -> mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Cohesion Consulting NZ'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('nichola@cohesionconsulting.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Turanga Creek', 'Vineyard / wedding & function venue', 'https://www.turangacreek.co.nz', NULL, '133 Whitford Park Road, Whitford, Auckland 2576', NULL, NULL, 'events@turangacreek.co.nz', NULL, 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Hospitality (certified organic vineyard and wedding/function venue, own Whitford premises). No named owner/manager found on the venue''s own site - only a first name ("Sarah") appears, attached to a wine-trade enquiry address, with no surname or title - so this stays unnamed and capped at B despite a confirmed own-site functions email. events@turangacreek.co.nz confirmed on the venue''s own Contact page (turangacreek.co.nz/contact). MX ok (turangacreek.co.nz -> aspmx.l.google.com and others). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Turanga Creek'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('events@turangacreek.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Devonport School of Dance', 'Dance / performing arts school', 'https://www.devonportschoolofdance.com', NULL, '15 Wynyard Street, Devonport, Auckland 0624', NULL, NULL, 'emily@devonportschoolofdance.com', '027 637 1882', 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Education (independent dance school - ballet, jazz, contemporary, tap, hip hop, acro - own Devonport studio premises). The school''s own homepage publishes a personal-style email (emily@devonportschoolofdance.com) but does not state the name''s surname or role anywhere on the site itself, and an unverified third-party snippet claiming "Emily Summerville, principal and owner" could not be confirmed against a reliable source, so this stays capped at B. MX ok (devonportschoolofdance.com -> aspmx.l.google.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Devonport School of Dance'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('emily@devonportschoolofdance.com'));
 
