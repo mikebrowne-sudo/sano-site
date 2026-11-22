@@ -2,9 +2,20 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 58 | A: 49 | B: 9
+-- Total: 59 | A: 50 | B: 9
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 25 (43%) | Education: 14 (24%) | Hospitality: 13 (22%) | Clinic/Other: 6 (10%)
+--   Offices: 25 (42%) | Education: 14 (24%) | Hospitality: 13 (22%) | Clinic/Other: 7 (12%)
+-- Batch 13: added Boulder Co (Westgate - standout bouldering gym, "largest in the Southern
+--   Hemisphere" per RNZ, named founder Adam Cauldwell via press, own-site email). Clinic/Other now
+--   at 12%, still under the 15% cap but getting close - only add another if truly standout.
+--   Extensive searching this round (immigration advisers, bookkeeping/accounting-tech firms, boutique
+--   wealth managers, trampoline parks, other climbing gyms, driving-test/theory centres, family-
+--   business press features) turned up nothing else that cleared the bar - either no own-site email,
+--   home-based/no-fixed-premises signals, institutional backing (Pāua Wealth Management has FNZ/
+--   Temasek/CPP Investments institutional backing - too large/complex a target), or a company that
+--   turned out to be outside Auckland or part of a larger group. Mix is close to ideal across the
+--   board; further batches should keep prioritising Education and standout Clinic/Other, and avoid
+--   Offices unless something exceptional turns up.
 -- Batch 12: added one more Clinic/Other (Sarsfield Brooke, Grey Lynn - furniture/lighting showroom,
 --   named Director via ArchiPro + own-site email). Education search this round (independent English
 --   language schools, driving-school classroom premises) mostly hit chain-affiliated providers
@@ -473,6 +484,11 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Sarsfield Brooke', 'Furniture / lighting showroom (design-trade importer)', 'https://www.sarsfieldbrooke.co.nz', NULL, 'Unit 3/299 Great North Road, Grey Lynn, Auckland 1021', 'Peter Lancaster', 'Director', 'info@sarsfieldbrooke.co.nz', '09 377 1502', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Clinic/Other (showroom - furniture/lighting/artwork design-trade importer and wholesaler-retailer, established 1998, own Grey Lynn showroom premises). Peter Lancaster and Donna Higginson both named as Director on the business''s ArchiPro profile (archipro.co.nz/professional/sarsfield-brooke-ltd/info). info@sarsfieldbrooke.co.nz and the Grey Lynn showroom address confirmed on the business''s own Contact page (sarsfieldbrooke.co.nz/about/come-visit-us). MX ok (sarsfieldbrooke.co.nz -> sarsfieldbrooke-co-nz.mail.protection.outlook.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Sarsfield Brooke'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@sarsfieldbrooke.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Boulder Co', 'Bouldering / indoor climbing gym', 'https://www.boulderco.co.nz', NULL, '33-47 Northside Drive, Westgate, Auckland 0814', 'Adam Cauldwell', 'Founder', 'info@boulderco.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Clinic/Other (standout gym - described by RNZ as the largest bouldering gym in the Southern Hemisphere, own large-format Westgate premises; the business also has Christchurch and Hamilton gyms, but only one Auckland site). Founder Adam Cauldwell named in an RNZ feature (rnz.co.nz/news/top/532379/bouldering-races-up-the-wall-of-popular-fitness, 31 Oct 2024). info@boulderco.co.nz confirmed on the gym''s own Contact page (boulderco.co.nz/contact), which lists a separate email per city (Auckland/Christchurch/Hamilton) confirming this is the Auckland-specific address. MX ok (boulderco.co.nz -> aspmx.l.google.com and others). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Boulder Co'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@boulderco.co.nz'));
 
 -- ===== B-GRADE (no named contact / directory-only email) =====
 
