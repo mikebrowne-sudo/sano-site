@@ -2,11 +2,12 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 22 | A: 20 | B: 2
+-- Total: 23 | A: 21 | B: 2
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 12 (55%) | Education: 4 (18%) | Hospitality: 6 (27%) | Clinic/Other: 0 (0%)
--- Offices is still over target - next batch should avoid law/accounting/engineering firms
+--   Offices: 12 (52%) | Education: 5 (22%) | Hospitality: 6 (26%) | Clinic/Other: 0 (0%)
+-- Offices is still over target - next batches should avoid law/accounting/engineering firms
 --   entirely and keep building Education specifically (it's furthest under share now).
+-- Eliette's Music Academy skipped (3+ Auckland sites - Albany/Botany/Takapuna - treated as a chain).
 -- Checked and already duplicates this batch (not re-added): Soljans Estate Winery and Kumeu River
 --   Wines (both already in docs/db/2026-07-06-sales-leads-seed-5.sql).
 -- Restaurant hunt in Devonport/Birkenhead/Mt Eden/Epsom this batch found named owners (Duo Eatery -
@@ -173,3 +174,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Tala', 'Modern Samoan restaurant', 'https://www.tala.co.nz', NULL, '235 Parnell Road, Parnell, Auckland 1052', 'Henry Onesemo', 'Owner', 'hello@tala.co.nz', '021 172 8349', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Hospitality (award-winning modern Samoan restaurant, Cuisine New Restaurant of the Year, own Parnell premises). Owner Henry Onesemo named in NZ Herald/Cuisine coverage (opened with his wife Debby). hello@tala.co.nz confirmed published on the restaurant''s own site (tala.co.nz/contact). MX ok (tala.co.nz -> aspmx.l.google.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Tala'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@tala.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Modern Music Learning', 'Music tuition school', 'https://www.modernmusiclearning.co.nz', NULL, '2 Sanders Avenue, Takapuna, Auckland 0622', 'Peter Hickman', 'Founder & Director', 'contact@modernmusiclearning.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Education (music tuition school - piano/guitar/drums/bass/singing, own Takapuna studio premises, 9 named tutors). Founder & Director Peter Hickman named with his role on the school''s own About page (modernmusiclearning.co.nz/about); contact@modernmusiclearning.co.nz confirmed published on the same site. MX ok (modernmusiclearning.co.nz -> aspmx.l.google.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Modern Music Learning'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('contact@modernmusiclearning.co.nz'));
