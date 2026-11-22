@@ -2,9 +2,11 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 17 | A: 15 | B: 2
+-- Total: 18 | A: 16 | B: 2
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 10 (59%) | Education: 3 (18%) | Hospitality: 4 (24%) | Clinic/Other: 0 (0%)
+--   Offices: 10 (56%) | Education: 4 (22%) | Hospitality: 4 (22%) | Clinic/Other: 0 (0%)
+-- Checked and already duplicates this batch (not re-added): Soljans Estate Winery and Kumeu River
+--   Wines (both already in docs/db/2026-07-06-sales-leads-seed-5.sql).
 -- Mix is close to target overall (Offices a bit high, Clinic/Other untouched by design).
 -- Next batch: keep Education and Hospitality going in fresh suburbs; a standout A clinic/vet/gym
 --   lead would be fine to round out the Clinic/Other 15% cap, but don't go looking for volume there
@@ -141,3 +143,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Duncan King Law', 'Law firm', 'https://www.dklaw.co.nz', NULL, '40 George Street, Kingsland, Auckland 1024', 'Kristine King', 'Director', 'reception@dklaw.co.nz', '09 623 0515', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (law firm). Law firm (trading also as Duncan Horrocks Law/Sandringham Law/Wadsworth Ray, all consolidated at one Kingsland office per the firm''s own site) in its own George Street premises. Kristine Ann King named as Director on the official NZ Law Society register (lawsociety.org.nz/register/kristine-ann-king). reception@dklaw.co.nz confirmed published on the firm''s own contact page (dklaw.co.nz/contact). MX ok (dklaw.co.nz -> dklaw-co-nz.mail.protection.outlook.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Duncan King Law'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@dklaw.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Excel School of Performing Arts', 'Performing arts training establishment (NZQA PTE)', 'https://excel.ac.nz', NULL, '20 Portage Road, New Lynn, Auckland 0600', 'Deborah Knight', 'Principal', 'deborah@excel.ac.nz', '09 827 7327', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Education (NZQA-registered performing arts PTE, est. 1994, own New Lynn studio/theatre premises). Principal Deborah Knight named with her direct email on the school''s own team page (excel-nz.squarespace.com/our-team), alongside Academic Manager John Knight and other named staff. MX ok (excel.ac.nz -> aspmx.l.google.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Excel School of Performing Arts'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('deborah@excel.ac.nz'));
