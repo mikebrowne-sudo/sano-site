@@ -2,15 +2,32 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 33 | A: 29 | B: 4
+-- Total: 36 | A: 30 | B: 6
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 12 (36%) | Education: 7 (21%) | Hospitality: 13 (39%) | Clinic/Other: 1 (3%)
--- Hospitality has now overshot its ~20% target (two research batches in a row landed mostly
---   hospitality leads) - next batches should pull back on hospitality and prioritise Education
---   (still under target) and genuinely fresh Office niches (insurance/finance brokers, IT, marketing
---   - not law/accounting/engineering, which are already saturated from earlier seed files). A standout
---   Clinic/Other lead is still welcome; the 15% cap has plenty of headroom.
--- Batch 4 (this batch): added Techtorium NZIIT (Newmarket IT training PTE - Managing Director Patrick
+--   Offices: 13 (36%) | Education: 9 (25%) | Hospitality: 13 (36%) | Clinic/Other: 1 (3%)
+-- Hospitality is still well over its ~20% target and Offices/Education are both now close to their
+--   targets - next batches should avoid hospitality for a while and focus on Offices (fresh niches
+--   only - insurance/finance brokers, IT, marketing/design, recruitment - not law/accounting/
+--   engineering, saturated from earlier seed files) and keep pushing Education where possible. A
+--   standout Clinic/Other lead is still welcome; the 15% cap has plenty of headroom. B-grade is at 6
+--   of 36 (17%), still under the ~20% cap but getting close - prefer A-grade candidates from here.
+-- Batch 5 (this batch): added OneHQ (Newmarket managed-IT-services firm, single Auckland site plus a
+--   Christchurch office - Managing Director Mark Anyon named on the company's own Management Team
+--   page, enquiries@onehq.nz on its own contact page, MX ok). Two B-grade education/dance leads added
+--   cautiously (only to round out Education's target share, not pursued further given the weak named-
+--   contact signal): Howick Dance Studio (sharon.barber@howickdance.co.nz via mailto on its own site,
+--   but no role/title stated anywhere so Sharon Barber's position is unconfirmed) and Expressions Dance
+--   (Pakuranga, Te Tuhi arts centre - hello@expressionsdance.co.nz on its own site, no named contact at
+--   all). Tried, no result this batch: Prestige Insurance Brokers (named director + own-site email but
+--   no verifiable physical address found anywhere - excluded per the home-based/virtual-office rule),
+--   Wolfe Interior Design (named founder but site describes a Northland service area, Auckland premises
+--   unconfirmed), Certus Insurance Brokers (dead site), Need Recruitment (director named via HR NZ
+--   directory only, no company domain), Harper Digital (403), several boutique marketing/design
+--   agencies (Kyttn, Human Digital, Hello Saturday, Blur the Lines, Ritual Interiors - no named contact
+--   + email combo). Floristry/makeup/security-trades training providers (Education) all hit dead ends
+--   too (no own-site named contact + email combo; Chevtrain director only sourced via a third-party
+--   data aggregator, excluded).
+-- Batch 4: added Techtorium NZIIT (Newmarket IT training PTE - Managing Director Patrick
 --   Dowling named on the college's own About Us page, learn@techtorium.ac.nz on the same site, MX ok).
 --   Hospitality: Browne Street (Avondale gastropub - co-owner Sam Fraser named in a 2018 Metro feature,
 --   hello@brownestreet.co.nz via mailto on its own live site, MX ok; same 2-owner group also runs
@@ -272,6 +289,11 @@ select 'Browne Street', 'Restaurant / gastropub', 'https://www.brownestreet.co.n
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Browne Street'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@brownestreet.co.nz'));
 
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'OneHQ', 'Managed IT services', 'https://onehq.nz', NULL, '60 Broadway, Newmarket, Auckland 1023', 'Mark Anyon', 'Managing Director', 'enquiries@onehq.nz', '09 222 0888', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (managed IT services firm, founded in Auckland in 2005 as Fission IT, now trading as OneHQ; single Auckland office plus a Christchurch office, under the 3-Auckland-site chain threshold). Mark Anyon named as Managing Director on the company''s own Management Team page (onehq.nz/management-team). enquiries@onehq.nz confirmed published on the company''s own contact page (onehq.nz/contact), alongside helpdesk@onehq.nz. MX ok (onehq.nz -> onehq-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('OneHQ'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('enquiries@onehq.nz'));
+
 -- ===== B-GRADE (no named contact / directory-only email) =====
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
@@ -293,4 +315,14 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Thirty Nine', 'Cocktail bar', 'https://thirtynine.co.nz', NULL, '39 Ponsonby Road, Ponsonby, Auckland 1011', NULL, NULL, 'bookings@thirtynine.co.nz', NULL, 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Hospitality (cocktail bar, own Ponsonby Road premises). Email bookings@thirtynine.co.nz published on the bar''s own homepage (thirtynine.co.nz). No named owner/manager found on the bar''s own site (press mentions an owner but not by name tied to this venue specifically). MX ok (thirtynine.co.nz -> aspmx.l.google.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Thirty Nine'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('bookings@thirtynine.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Howick Dance Studio', 'Dance school/studio', 'https://www.howickdance.co.nz', NULL, '3/121 Elliot Street, Howick, Auckland 2014', 'Sharon Barber', NULL, 'sharon.barber@howickdance.co.nz', NULL, 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Education (dance school, established 1992 per third-party listings, own Howick studio premises). Sharon Barber is named via a mailto link on the studio''s own homepage, but no role/title is stated anywhere on the site, so her position (owner/director/teacher) is unconfirmed - graded B on that basis even though the email is personal and own-site. MX ok (howickdance.co.nz -> aspmx.l.google.com and others). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Howick Dance Studio'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('sharon.barber@howickdance.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Expressions Dance', 'Dance school/studio', 'https://www.expressionsdance.co.nz', NULL, 'Te Tuhi, 21 William Roberts Road, Pakuranga, Auckland', NULL, NULL, 'hello@expressionsdance.co.nz', NULL, 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Education (dance school operating out of the Te Tuhi arts centre in Pakuranga). The current live site names no owner/director. hello@expressionsdance.co.nz confirmed on the school''s own current homepage. MX ok (expressionsdance.co.nz -> expressionsdance-co-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Expressions Dance'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@expressionsdance.co.nz'));
 
