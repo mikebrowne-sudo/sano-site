@@ -2,9 +2,9 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 24 | A: 22 | B: 2
+-- Total: 25 | A: 23 | B: 2
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 12 (50%) | Education: 5 (21%) | Hospitality: 6 (25%) | Clinic/Other: 1 (4%)
+--   Offices: 12 (48%) | Education: 5 (20%) | Hospitality: 7 (28%) | Clinic/Other: 1 (4%)
 -- Offices is still over target - next batches should avoid law/accounting/engineering firms
 --   entirely and keep building Education specifically (it's furthest under share now).
 -- Eliette's Music Academy skipped (3+ Auckland sites - Albany/Botany/Takapuna - treated as a chain).
@@ -191,3 +191,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Carbon Method CrossFit', 'Gym / CrossFit studio', 'https://www.carbonmethodcrossfit.co.nz', NULL, '3 George Street, Mount Eden, Auckland 1024', 'Mark Holyoake', 'Founder', 'hello@carbonmethodcrossfit.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Clinic/Other (gym - standout A only, per the cap on this category). CrossFit affiliate gym in its own Mount Eden premises (sweat/equipment-heavy floor, real cleaning need). Founder Mark Holyoake named on the gym''s own About page (carbonmethodcrossfit.co.nz/about); Mellissa Teh is also named as Owner & General Manager on the gym''s official CrossFit.com affiliate listing. hello@carbonmethodcrossfit.co.nz confirmed published on the gym''s own contact page. MX ok (carbonmethodcrossfit.co.nz -> aspmx.l.google.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Carbon Method CrossFit'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@carbonmethodcrossfit.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Hotel DeBrett', 'Boutique hotel', 'https://www.hoteldebrett.com', NULL, '2 High Street, Auckland 1010', 'Jess Singh', 'Hotel Manager', 'reception@hoteldebrett.com', '09 925 9000', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Hospitality (independent boutique heritage-building hotel, CBD, part of 2-property Habitat Hotels group - under the chain threshold). Hotel Manager Jess Singh named signing the hotel''s own guest-review responses (public replies on review platforms). reception@hoteldebrett.com confirmed published on the hotel''s own homepage (hoteldebrett.com). MX ok (hoteldebrett.com -> hoteldebrett-com.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Hotel DeBrett'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@hoteldebrett.com'));
