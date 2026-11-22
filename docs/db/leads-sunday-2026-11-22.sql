@@ -2,13 +2,13 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 12 | A: 10 | B: 2
+-- Total: 14 | A: 12 | B: 2
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 7 (58%) | Education: 2 (17%) | Hospitality: 3 (25%) | Clinic/Other: 0 (0%)
--- Next batch should keep building Education (PTEs, language schools, private schools - avoid
---   duplicating the 2026-10-11 run's ECE/childcare suburbs) and Hospitality (restaurants/venues/
---   boutique hotels in fresh suburbs - Mission Bay, Kingsland, Newmarket, Takapuna, Browns Bay not
---   yet tried this run); Offices is now ahead of target so can ease off next batch.
+--   Offices: 7 (50%) | Education: 3 (21%) | Hospitality: 4 (29%) | Clinic/Other: 0 (0%)
+-- Mix is now close to target overall (Offices a bit high, Clinic/Other untouched by design).
+-- Next batch: keep Education and Hospitality going in fresh suburbs; a standout A clinic/vet/gym
+--   lead would be fine to round out the Clinic/Other 15% cap, but don't go looking for volume there
+--   (it was over-mined on 2026-10-11).
 -- Sectors/suburbs covered: architecture practices (Ponsonby x2, Devonport, Freemans Bay, Herne Bay),
 --   mortgage/finance brokers (Ponsonby), fine-dining restaurant (Herne Bay), cocktail bar (Ponsonby),
 --   culinary/hospitality/wine PTE (Auckland CBD/Viaduct), hairdressing/beauty NZQA academy (Newton),
@@ -42,7 +42,11 @@
 --   (Mikey Smith, David Green) but no email on own site - Wix/no-text contact forms), law firms
 --   outside this batch's picks (Mt Eden Legal - director named, Mt Eden domain didn't resolve;
 --   Henderson Reeves - director named with email but only a PO Box address found for the Auckland
---   branch, so skipped pending a confirmed street address).
+--   branch, so skipped pending a confirmed street address). Restaurants in Mission Bay/Kingsland/
+--   Browns Bay/Takapuna mostly had only a first name or no contact at all for the owner (Franc's
+--   appears to have closed; Takapuna Beach Cafe is HIP Group-owned, a 8+ venue Auckland group -
+--   skipped as a chain); Markovina Estate (Kumeu wedding venue) had a named owner from an old
+--   cached page but no email on the current live site, so skipped as unconfirmed.
 -- Tool notes: WebFetch failed (403/404/empty) on educationcounts.govt.nz (Cloudflare challenge),
 --   donlogic.co.nz (DNS not resolvable in this session), nextgenaccountants about page (ok),
 --   mcisaacs.co.nz/contact (404 - try bare domain next time), lawsociety.org.nz register pages
@@ -111,3 +115,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'KempsWeir', 'Law firm (property law)', 'https://www.kempsweir.co.nz', NULL, 'Ground Floor, Building 1, Central Park, 660-670 Great South Road, Ellerslie, Auckland 1051', 'Joshua Garnett', 'Director', 'joshua@kempsweir.co.nz', '09 525 7711', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (law firm). Established 1996 property law firm (Alliott Global Alliance NZ representative firm) in its own Ellerslie office premises. Joshua Garnett named as Director on the official NZ Law Society register (lawsociety.org.nz/register/joshua-kirk-garnett), which also publishes his direct work email. MX ok (kempsweir.co.nz -> mx1/mx2.nz.smxemail.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('KempsWeir'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('joshua@kempsweir.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'New Zealand Academic and Learning Institute', 'Financial-adviser / business training establishment (NZQA PTE)', 'https://www.nzali.ac.nz', NULL, '12 Huron Street, Takapuna, Auckland 0622', 'Duncan Balmer', 'Founder', 'duncan.balmer@nzali.ac.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Education (NZQA-registered PTE delivering financial-adviser and business training from its own Takapuna premises). Duncan Balmer established the institute per a Good Returns industry profile; he is also the registered contact on the official NZQA provider register (nzqa.govt.nz, providerId 802189001), which publishes his duncan.balmer@nzali.ac.nz email. Street address (12 Huron Street, Takapuna) cross-checked via Study With New Zealand and an earlier NZQA provider report. MX ok (nzali.ac.nz -> nzali-ac-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('New Zealand Academic and Learning Institute'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('duncan.balmer@nzali.ac.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Taylors on Hurstmere', 'Wine bar / restaurant', 'https://www.taylorsonhurstmere.co.nz', NULL, '168 Hurstmere Road, Takapuna, Auckland 0622', 'Steve Taylor', 'Owner', 'taylorsonhurstmere@gmail.com', '09 489 9510', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Hospitality (wine bar/restaurant, also does private functions, own Takapuna premises on Hurstmere Road). Owner Steve Taylor named in local food press (Channel magazine, "Taylors on Hurstmere") - he bought the business (formerly Pinot Plus) in 2017; the venue trades under his own name. Contact email taylorsonhurstmere@gmail.com confirmed published (obfuscated) on the venue''s own contact page (taylorsonhurstmere.co.nz/contact) - a free-mail address but the one the business itself publishes. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Taylors on Hurstmere'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('taylorsonhurstmere@gmail.com'));
