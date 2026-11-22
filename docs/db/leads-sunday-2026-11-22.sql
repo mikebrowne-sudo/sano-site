@@ -2,11 +2,14 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 18 | A: 16 | B: 2
+-- Total: 19 | A: 17 | B: 2
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 10 (56%) | Education: 4 (22%) | Hospitality: 4 (22%) | Clinic/Other: 0 (0%)
+--   Offices: 11 (58%) | Education: 4 (21%) | Hospitality: 4 (21%) | Clinic/Other: 0 (0%)
 -- Checked and already duplicates this batch (not re-added): Soljans Estate Winery and Kumeu River
 --   Wines (both already in docs/db/2026-07-06-sales-leads-seed-5.sql).
+-- Restaurant hunt in Devonport/Birkenhead/Mt Eden/Epsom this batch found named owners (Duo Eatery -
+--   Sarah & Jordan MacDonald; Stone Oven - Brendan & Dani; Forest - Plabita Florence; One Tree Grill -
+--   Guy Malyon, possibly outdated) but no email on any of their own sites, so none added.
 -- Mix is close to target overall (Offices a bit high, Clinic/Other untouched by design).
 -- Next batch: keep Education and Hospitality going in fresh suburbs; a standout A clinic/vet/gym
 --   lead would be fine to round out the Clinic/Other 15% cap, but don't go looking for volume there
@@ -148,3 +151,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Excel School of Performing Arts', 'Performing arts training establishment (NZQA PTE)', 'https://excel.ac.nz', NULL, '20 Portage Road, New Lynn, Auckland 0600', 'Deborah Knight', 'Principal', 'deborah@excel.ac.nz', '09 827 7327', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Education (NZQA-registered performing arts PTE, est. 1994, own New Lynn studio/theatre premises). Principal Deborah Knight named with her direct email on the school''s own team page (excel-nz.squarespace.com/our-team), alongside Academic Manager John Knight and other named staff. MX ok (excel.ac.nz -> aspmx.l.google.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Excel School of Performing Arts'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('deborah@excel.ac.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Structure Design Ltd', 'Structural engineering consultancy', 'https://www.structuredesign.co.nz', '18', 'Suite 207, Geyser Building, 100 Parnell Road, Parnell, Auckland 1052', 'Peter Boardman', 'Founder', 'info@structuredesign.co.nz', '09 302 0205', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (structural engineering, 150+ years combined team experience, commercial/educational/residential work). Founder Peter Boardman and the 18-employee headcount are both published in the firm''s own site structured data (structuredesign.co.nz); info@structuredesign.co.nz confirmed on the same site. MX ok (structuredesign.co.nz -> structuredesign-co-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Structure Design Ltd'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@structuredesign.co.nz'));
