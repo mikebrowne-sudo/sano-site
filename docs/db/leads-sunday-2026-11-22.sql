@@ -2,16 +2,32 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 37 | A: 31 | B: 6
+-- Total: 46 | A: 40 | B: 6
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 14 (38%) | Education: 9 (24%) | Hospitality: 13 (35%) | Clinic/Other: 1 (3%)
--- Hospitality is still well over its ~20% target; Offices/Education are both close to their targets
---   now - next batches should keep avoiding hospitality and push Education and fresh Office niches
---   (insurance/finance brokers, IT, marketing/design, recruitment - not law/accounting/engineering).
---   A standout Clinic/Other lead is still welcome; the 15% cap has plenty of headroom (checked this
---   batch - boutique physio/dental searches turned up only multi-site chains like Habit Health or
---   institutional-feeling groups like Dental Boutique's NZ/Australia arm, nothing standout found).
---   B-grade is at 6 of 37 (16%), still under the ~20% cap - prefer A-grade candidates from here.
+--   Offices: 21 (46%) | Education: 11 (24%) | Hospitality: 13 (28%) | Clinic/Other: 1 (2%)
+-- Batch 7 (23:00-ish NZ run, resuming after the earlier run hit the usage limit): added 7 Offices
+--   (Vemo IT Solutions - Epsom managed-IT firm; The Private Office - Auckland CBD boutique wealth
+--   advisory founded by Laetitia Peterson; Global Logistics International - Rosedale freight
+--   forwarder/customs broker; and 4 more architecture practices - Alignworks/Epsom, Metropolitan
+--   Architecture Studio (MA Studio)/Birkenhead, Robin O'Donnell Architects/Newmarket, Smith + Scully/
+--   Grey Lynn) and 2 Education leads (Honeybees Preschool - single-site Auckland CBD ECE; Browne
+--   School of Art - Grey Lynn fine-art training studio). Offices is now slightly over its 40% target
+--   (46%, heavy on architecture - 4 of the 7 new Offices leads) - next batch should favour non-
+--   architecture Offices (insurance/finance brokers, IT, marketing/design, recruitment) if any can be
+--   found with a genuine named-contact + own-site-email combo; architecture practices have been a
+--   reliable source via the NZIA practice directory but are now well-mined. Education is close to
+--   target. Hospitality's share kept falling as the denominator grew and no new hospitality was added
+--   this batch (good - stay off it). Clinic/Other still has plenty of headroom under the 15% cap -
+--   this batch's Clinic/Other searches (independent vets, boutique gyms/Pilates/CrossFit studios) again
+--   mostly hit chains, no-email dead ends, or unconfirmed-role situations (Legacy Strength &
+--   Conditioning/Albany+Hobsonville - named owner Matiu Brown but no email anywhere on site; Normanby
+--   Road Vet Clinic/Mt Eden - no website found at all) - only add another Clinic/Other if truly
+--   standout. Insurance brokers remain hard: Insite Insurance Brokers turned out to have been acquired
+--   by Gallagher/AJG (its own domain now redirects to ajg.co.nz - no longer independent, not re-added);
+--   Sherpa Insurance Brokers was acquired by Howden in July 2025 (same reason, skipped); O'Connor
+--   Warren Insurance Brokers (named founder/director Eamon O'Connor per Insurance Business NZ) has a
+--   heavy Wix/JS site that didn't yield a clean name+email combo this batch - worth another look with
+--   more time. B-grade is at 6 of 46 (13%), well under the ~20% cap - prefer A-grade candidates.
 -- Education dead-end sweep (no leads found, logged so future batches don't repeat): Ashton Warner
 --   Nanny Academy (Stanmore Bay - NZQA PTE but only an unnamed "principal" in its reports, no own
 --   website/email found), National Forklift Training (East Tamaki - owners named in old trade press
@@ -317,6 +333,51 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Vivid Icon', 'Graphic design / branding studio', 'https://vividicon.co.nz', NULL, '9 Laidlaw Way, East Tamaki, Auckland 2013', 'Shabbir Mohammed', 'Creative Director', 'sales@vividicon.co.nz', '021 141 6190', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (independent branding/graphic design studio with its own East Tamaki premises, 25+ years production experience, single site). Shabbir Mohammed named as Creative Director via the studio''s own homepage and schema.org structured data (vividicon.co.nz). Email sales@vividicon.co.nz confirmed in the same page''s organization/LocalBusiness schema and footer. MX ok (vividicon.co.nz -> mta.1stdomains.net.nz). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Vivid Icon'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('sales@vividicon.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Vemo IT Solutions', 'Managed IT services', 'https://vemo.co.nz', NULL, 'Level 2, 10 Manukau Road, Epsom, Auckland 1023', 'Ahmed Al-joubory', 'Managing Director', 'enquire@vemo.co.nz', '+64 9 306 6600', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (managed IT/cybersecurity services firm, Kiwi-owned since 2007, own Epsom premises). Managing Director Ahmed Al-joubory (with fellow Director Tony Cox) named on the company''s own homepage and Contact page (vemo.co.nz/contact), which also publishes enquire@vemo.co.nz and the Epsom address via the page''s own LocalBusiness schema.org data. MX ok (vemo.co.nz -> vemo-co-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Vemo IT Solutions'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('enquire@vemo.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'The Private Office', 'Financial advisory / wealth management', 'https://www.theprivateoffice.co.nz', NULL, 'Level 1, Princes Court, 2 Princes Street, Auckland 1010', 'Laetitia Peterson', 'Founder', 'info@theprivateoffice.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (insurance/finance broker - boutique independent wealth advisory, own Auckland CBD premises, established 2014 after Peterson sold her fund-management business Liontamer). Founder Laetitia Peterson named on the firm''s own homepage (theprivateoffice.co.nz) alongside named adviser Claudia Williams; her founder role is also confirmed via an MPA NZ brokerage-industry profile. info@theprivateoffice.co.nz and the Princes Street address confirmed on the firm''s own contact page. MX ok (theprivateoffice.co.nz -> theprivateoffice-co-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('The Private Office'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@theprivateoffice.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Global Logistics International', 'Freight forwarding / customs brokerage', 'https://www.gliltd.com', NULL, '2F, 41 William Pickering Drive, Rosedale, Auckland 0632', 'Leo Kim', 'Director', 'operator@gliltd.com', '+64 9 410 3181', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (independent freight forwarder/customs broker, own Rosedale office premises). Leo Kim named as Director on the company''s own listing in the CBAFF (Customs Brokers and Freight Forwarders Federation) industry-association business directory. operator@gliltd.com and the Rosedale street address confirmed published on the company''s own homepage (gliltd.com). MX ok (gliltd.com -> aspmx.l.google.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Global Logistics International'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('operator@gliltd.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Alignworks', 'Architecture practice', 'https://www.alignworks.co.nz', NULL, '268C Manukau Road, Epsom, Auckland 1023', 'Rob Aerts', 'Director / NZIA-registered Architect', 'rob@alignworks.co.nz', '09 625 1238', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (architecture, registered NZIA practice in its own Epsom premises, run by husband-and-wife principals Rob and Jennie Aerts). Rob Aerts named as principal with his direct email on the official NZIA 2025 Practice Directory (nzia.co.nz); the practice''s own contact page (alignworks.co.nz/contact) confirms both principals and the Epsom address but does not itself publish an email, so the email source here is the NZIA register rather than the firm''s own site. MX ok (alignworks.co.nz -> aspmx.l.google.com and others). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Alignworks'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('rob@alignworks.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Metropolitan Architecture Studio', 'Architecture practice', 'https://www.mastudio.co.nz', NULL, 'Level 1, 80 Hinemoa Street, Birkenhead, Auckland 0626', 'AJ Sutton', 'Director', 'info@mastudio.co.nz', '09 379 8775', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (award-winning boutique residential architecture practice, trading as MA Studio, own Birkenhead premises, established 2009). Director AJ Sutton named with that title and the "established 2009 by AJ Sutton" line on the practice''s own Profile page (mastudio.co.nz/profile). info@mastudio.co.nz and the Birkenhead address confirmed on the practice''s own Contact page. MX ok (mastudio.co.nz -> mastudio-co-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Metropolitan Architecture Studio'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@mastudio.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Robin O''Donnell Architects', 'Architecture practice', 'https://www.rod-architects.co.nz', NULL, 'Studio 7, 160 Broadway, Newmarket, Auckland 1023', 'Robin O''Donnell', 'Principal', 'info@rod-architects.co.nz', '09 523 4907', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (sole-practitioner-founded architecture studio trading under its principal''s own name, own Newmarket studio premises). Robin O''Donnell is named throughout the practice''s own site (rod-architects.co.nz) via the firm''s own name/branding, consistent with the NZIA practice directory listing for Robin O''Donnell Architects Limited; no separate staff title is given on the site beyond the eponymous practice name. info@rod-architects.co.nz and the Newmarket studio address confirmed on the practice''s own Contact page. MX ok (rod-architects.co.nz -> mxa.onenet.co.nz). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Robin O''Donnell Architects'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@rod-architects.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Honeybees Preschool', 'Early childhood education centre', 'https://www.honeybees.co.nz', NULL, 'Level 5, 127 Hobson Street, Auckland CBD, Auckland 1010', 'Jason James', 'Co-Owner', 'hello@honeybees.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Education (single-site, independently owned ECE centre wedged among corporate offices opposite the Sky Tower - confirmed single-site via ERO/directory listings, institution no. 46310). Co-owner Jason James named in a 2019 industry-press piece covering the centre winning a My ECE Award for Excellence (oece.nz newsroom). hello@honeybees.co.nz and the Hobson Street address confirmed on the centre''s own homepage (honeybees.co.nz redirects to its current live domain honeybees.nz, which still publishes the honeybees.co.nz email address). MX ok (honeybees.co.nz -> honeybees-co-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Honeybees Preschool'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@honeybees.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Browne School of Art', 'Fine-art training school', 'https://www.browne.school.nz', NULL, '194 Great North Road, Grey Lynn, Auckland 1021', 'Matthew Browne', 'Founder', 'info@browne.school.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Education (independent fine-art training studio - drawing, painting and printmaking day/evening/short courses for teenagers and adults, own Grey Lynn studio premises, opened 2013). Founder Matthew Browne (painter and tutor) named via an art-supplier industry profile (gordonharris.co.nz). info@browne.school.nz and the Grey Lynn address confirmed on the school''s own homepage (browne.school.nz). MX ok (browne.school.nz -> aspmx.l.google.com and others). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Browne School of Art'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@browne.school.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Smith + Scully', 'Architecture practice', 'https://smith-scully.com', NULL, 'Studio 1A, Level 3, 58 Surrey Crescent, Grey Lynn, Auckland 1021', 'Carolyn Smith', 'Director / NZIA-registered Architect', 'info@smith-scully.com', '09 845 6249', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (architecture, registered NZIA practice in its own Grey Lynn studio premises). Carolyn Smith named as the firm''s NZIA-registered principal contact on the official NZIA 2025 Practice Directory (nzia.co.nz) and appears on the practice''s own site in client testimonials describing her design work. info@smith-scully.com and the Surrey Crescent address confirmed on the practice''s own homepage (smith-scully.com). MX ok (smith-scully.com -> smithscully-com01c.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Smith + Scully'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@smith-scully.com'));
 
 -- ===== B-GRADE (no named contact / directory-only email) =====
 
