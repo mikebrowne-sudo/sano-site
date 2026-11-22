@@ -2,9 +2,18 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 50 | A: 44 | B: 6
+-- Total: 53 | A: 46 | B: 7
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 24 (48%) | Education: 12 (24%) | Hospitality: 13 (26%) | Clinic/Other: 1 (2%)
+--   Offices: 24 (45%) | Education: 14 (26%) | Hospitality: 13 (25%) | Clinic/Other: 2 (4%)
+-- Batch 9: added Auckland Physiotherapy (Newmarket - standout A Clinic/Other, 2 named physio-
+--   specialist directors on its own About page) and 2 Education (Euroasia Language Academy/Parnell -
+--   A; North Shore Language School/Takapuna - B, no named contact found). Offices is still over its
+--   40% target (45%) - keep avoiding new Offices leads unless something truly exceptional turns up.
+--   Education is now close to its 25% target. Clinic/Other is still well under its 15% cap (4%) -
+--   this batch''s dental search (Caring 4 Smiles, Epsom) found a named dentist (Dr Loy Correa) via
+--   press/directory sources but no verifiable own-site domain, so it was not added; worth another
+--   look with more time if a working own-site domain can be found. B-grade is at 7 of 53 (13%), still
+--   comfortably under the ~20% cap.
 -- Batch 8: added 4 more Offices (84 Recruitment/Takapuna - recruitment; FixHR/Mairangi Bay - HR
 --   consultancy; One Plus One Communications/Auckland Central - PR agency) and 1 Education (North
 --   Shore Aero Club/Dairy Flat - flight training, re-checked via its own Staff page after an earlier
@@ -415,6 +424,16 @@ select 'One Plus One Communications', 'PR / communications agency', 'https://www
 where not exists (select 1 from public.sales_leads where lower(company) = lower('One Plus One Communications'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('kelly.bennett@oneplusone.co.nz'));
 
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Auckland Physiotherapy', 'Physiotherapy clinic', 'https://www.aucklandphysiotherapy.co.nz', NULL, 'Foundation Precinct, 8 George Street, Newmarket, Auckland 1023', 'Katy Carnachan', 'Physio Specialist & Director', 'admin@aucklandphysiotherapy.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Clinic/Other (standout - boutique physiotherapy clinic with 2 NZ-Board-registered Musculoskeletal Physiotherapy Specialists among its 3 named directors, own Foundation Precinct premises in Newmarket). Katy Carnachan (Physio Specialist & Director) and Mark Quinn (Director & Physio) both named with those exact titles on the clinic''s own About Us page (aucklandphysiotherapy.co.nz/about-us); a third director, Helen van Praagh, is named via Healthpoint only. admin@aucklandphysiotherapy.co.nz confirmed (de-obfuscated mailto link) on the clinic''s own Contact page. MX ok (aucklandphysiotherapy.co.nz -> aspmx.l.google.com and others). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Auckland Physiotherapy'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@aucklandphysiotherapy.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Euroasia Language Academy', 'Language school (NZQA-linked)', 'https://www.euroasia.co.nz', NULL, '10 Titoki Street, Parnell, Auckland 1052', 'Kenneth Leong', 'Director', 'info@euroasia.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Education (independent language school est. 2000 - French, German, Spanish, Mandarin and Japanese classes, own Parnell premises). Kenneth Leong named as Director on the school''s own Our Staff page (euroasia.co.nz/our-staff). info@euroasia.co.nz and the Parnell address confirmed on the school''s own homepage. MX ok (euroasia.co.nz -> aspmx.l.google.com and others). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Euroasia Language Academy'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@euroasia.co.nz'));
+
 -- ===== B-GRADE (no named contact / directory-only email) =====
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
@@ -446,4 +465,9 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Expressions Dance', 'Dance school/studio', 'https://www.expressionsdance.co.nz', NULL, 'Te Tuhi, 21 William Roberts Road, Pakuranga, Auckland', NULL, NULL, 'hello@expressionsdance.co.nz', NULL, 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Education (dance school operating out of the Te Tuhi arts centre in Pakuranga). The current live site names no owner/director. hello@expressionsdance.co.nz confirmed on the school''s own current homepage. MX ok (expressionsdance.co.nz -> expressionsdance-co-nz.mail.protection.outlook.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Expressions Dance'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@expressionsdance.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'North Shore Language School', 'Language school', 'https://www.nsls.ac.nz', NULL, '15 Auburn Street, Takapuna, Auckland 0622', NULL, NULL, 'education.nsls@xtra.co.nz', '09 442 4500', 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Education (language school, own Takapuna premises). No named director/principal found anywhere on the school''s own site. education.nsls@xtra.co.nz is a free-mail address but is the one the school itself publishes on its own homepage (nsls.ac.nz) and contact page. MX ok (xtra.co.nz -> Spark NZ mail servers). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('North Shore Language School'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('education.nsls@xtra.co.nz'));
 
