@@ -2,9 +2,9 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 15 | A: 13 | B: 2
+-- Total: 17 | A: 15 | B: 2
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 8 (53%) | Education: 3 (20%) | Hospitality: 4 (27%) | Clinic/Other: 0 (0%)
+--   Offices: 10 (59%) | Education: 3 (18%) | Hospitality: 4 (24%) | Clinic/Other: 0 (0%)
 -- Mix is close to target overall (Offices a bit high, Clinic/Other untouched by design).
 -- Next batch: keep Education and Hospitality going in fresh suburbs; a standout A clinic/vet/gym
 --   lead would be fine to round out the Clinic/Other 15% cap, but don't go looking for volume there
@@ -131,3 +131,13 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Goode PR', 'PR / marketing agency', 'https://www.goodepr.co.nz', NULL, '1 Northumberland Avenue, Hauraki, Auckland 0622', 'Vikki Lee Goode', 'Founder', 'info@goodepr.co.nz', '09 480 9948', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (PR/marketing agency). Boutique PR agency (founded 1991) in its own North Shore office. Founder Vikki Lee Goode named on the agency''s own About page (goodepr.co.nz/about); info@goodepr.co.nz confirmed published on the same site. MX ok (goodepr.co.nz -> goodepr-co-nz.mail.protection.outlook.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Goode PR'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@goodepr.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Totara Law', 'Law firm', 'https://www.totaralaw.co.nz', NULL, '3 Totara Avenue, New Lynn West, Auckland 0600', 'Michael Richardson', 'Director', 'office@totaralaw.co.nz', '09 827 5907', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (law firm). Law firm in its own New Lynn West premises. Michael Richardson named as Director on the official NZ Law Society register (lawsociety.org.nz/register/michael-john-richardson); office@totaralaw.co.nz and other named staff emails (lene@, johng@) confirmed published on the firm''s own site (totaralaw.co.nz). MX ok (totaralaw.co.nz -> totaralaw-co-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Totara Law'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('office@totaralaw.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Duncan King Law', 'Law firm', 'https://www.dklaw.co.nz', NULL, '40 George Street, Kingsland, Auckland 1024', 'Kristine King', 'Director', 'reception@dklaw.co.nz', '09 623 0515', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (law firm). Law firm (trading also as Duncan Horrocks Law/Sandringham Law/Wadsworth Ray, all consolidated at one Kingsland office per the firm''s own site) in its own George Street premises. Kristine Ann King named as Director on the official NZ Law Society register (lawsociety.org.nz/register/kristine-ann-king). reception@dklaw.co.nz confirmed published on the firm''s own contact page (dklaw.co.nz/contact). MX ok (dklaw.co.nz -> dklaw-co-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Duncan King Law'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@dklaw.co.nz'));
