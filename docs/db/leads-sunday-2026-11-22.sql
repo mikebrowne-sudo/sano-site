@@ -2,13 +2,14 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 14 | A: 12 | B: 2
+-- Total: 15 | A: 13 | B: 2
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 7 (50%) | Education: 3 (21%) | Hospitality: 4 (29%) | Clinic/Other: 0 (0%)
--- Mix is now close to target overall (Offices a bit high, Clinic/Other untouched by design).
+--   Offices: 8 (53%) | Education: 3 (20%) | Hospitality: 4 (27%) | Clinic/Other: 0 (0%)
+-- Mix is close to target overall (Offices a bit high, Clinic/Other untouched by design).
 -- Next batch: keep Education and Hospitality going in fresh suburbs; a standout A clinic/vet/gym
 --   lead would be fine to round out the Clinic/Other 15% cap, but don't go looking for volume there
---   (it was over-mined on 2026-10-11).
+--   (it was over-mined on 2026-10-11). Undertow Media (Grey Lynn PR agency) was checked and found
+--   to already be a duplicate in docs/db/2026-08-02-sales-leads-seed-7.sql - not re-added.
 -- Sectors/suburbs covered: architecture practices (Ponsonby x2, Devonport, Freemans Bay, Herne Bay),
 --   mortgage/finance brokers (Ponsonby), fine-dining restaurant (Herne Bay), cocktail bar (Ponsonby),
 --   culinary/hospitality/wine PTE (Auckland CBD/Viaduct), hairdressing/beauty NZQA academy (Newton),
@@ -125,3 +126,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Taylors on Hurstmere', 'Wine bar / restaurant', 'https://www.taylorsonhurstmere.co.nz', NULL, '168 Hurstmere Road, Takapuna, Auckland 0622', 'Steve Taylor', 'Owner', 'taylorsonhurstmere@gmail.com', '09 489 9510', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Hospitality (wine bar/restaurant, also does private functions, own Takapuna premises on Hurstmere Road). Owner Steve Taylor named in local food press (Channel magazine, "Taylors on Hurstmere") - he bought the business (formerly Pinot Plus) in 2017; the venue trades under his own name. Contact email taylorsonhurstmere@gmail.com confirmed published (obfuscated) on the venue''s own contact page (taylorsonhurstmere.co.nz/contact) - a free-mail address but the one the business itself publishes. No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Taylors on Hurstmere'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('taylorsonhurstmere@gmail.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Goode PR', 'PR / marketing agency', 'https://www.goodepr.co.nz', NULL, '1 Northumberland Avenue, Hauraki, Auckland 0622', 'Vikki Lee Goode', 'Founder', 'info@goodepr.co.nz', '09 480 9948', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (PR/marketing agency). Boutique PR agency (founded 1991) in its own North Shore office. Founder Vikki Lee Goode named on the agency''s own About page (goodepr.co.nz/about); info@goodepr.co.nz confirmed published on the same site. MX ok (goodepr.co.nz -> goodepr-co-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Goode PR'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@goodepr.co.nz'));
