@@ -2,9 +2,11 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 19 | A: 17 | B: 2
+-- Total: 20 | A: 18 | B: 2
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 11 (58%) | Education: 4 (21%) | Hospitality: 4 (21%) | Clinic/Other: 0 (0%)
+--   Offices: 12 (60%) | Education: 4 (20%) | Hospitality: 4 (20%) | Clinic/Other: 0 (0%)
+-- Offices is now well over target - next batch should avoid law/accounting/engineering firms
+--   entirely and focus only on Education and Hospitality until the mix rebalances.
 -- Checked and already duplicates this batch (not re-added): Soljans Estate Winery and Kumeu River
 --   Wines (both already in docs/db/2026-07-06-sales-leads-seed-5.sql).
 -- Restaurant hunt in Devonport/Birkenhead/Mt Eden/Epsom this batch found named owners (Duo Eatery -
@@ -156,3 +158,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Structure Design Ltd', 'Structural engineering consultancy', 'https://www.structuredesign.co.nz', '18', 'Suite 207, Geyser Building, 100 Parnell Road, Parnell, Auckland 1052', 'Peter Boardman', 'Founder', 'info@structuredesign.co.nz', '09 302 0205', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (structural engineering, 150+ years combined team experience, commercial/educational/residential work). Founder Peter Boardman and the 18-employee headcount are both published in the firm''s own site structured data (structuredesign.co.nz); info@structuredesign.co.nz confirmed on the same site. MX ok (structuredesign.co.nz -> structuredesign-co-nz.mail.protection.outlook.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Structure Design Ltd'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@structuredesign.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Jim Thompson Law', 'Law firm', 'https://www.jimthompsonlaw.co.nz', NULL, '121A Kitchener Road, Milford, Auckland 0620', 'Nicholas Kearney', 'Director', 'reception@shorelegal.co.nz', '09 486 0745', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (law firm). North Shore law firm (registered as Shore Legal Ltd, trading as Jim Thompson Law) in its own Milford premises. Nicholas Kearney named as Director on the official NZ Law Society register (lawsociety.org.nz/register/nicholas-norman-kearney). reception@shorelegal.co.nz confirmed published on the firm''s own contact page (jimthompsonlaw.co.nz/contact). MX ok (shorelegal.co.nz -> mx-01/02.eml100syd.ctr.sophos.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Jim Thompson Law'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('reception@shorelegal.co.nz'));
