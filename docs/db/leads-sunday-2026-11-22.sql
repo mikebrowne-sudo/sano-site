@@ -2,9 +2,17 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 57 | A: 48 | B: 9
+-- Total: 58 | A: 49 | B: 9
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 25 (44%) | Education: 14 (25%) | Hospitality: 13 (23%) | Clinic/Other: 5 (9%)
+--   Offices: 25 (43%) | Education: 14 (24%) | Hospitality: 13 (22%) | Clinic/Other: 6 (10%)
+-- Batch 12: added one more Clinic/Other (Sarsfield Brooke, Grey Lynn - furniture/lighting showroom,
+--   named Director via ArchiPro + own-site email). Education search this round (independent English
+--   language schools, driving-school classroom premises) mostly hit chain-affiliated providers
+--   (Seafield School of English and Auckland English Academy are both part of New Zealand Skills and
+--   Education Group/ICL Education Group - already-excluded chains) or mobile/no-fixed-premises
+--   businesses (Focus Driving School, Smales Farm - lessons are "meet at" car parks, not a real
+--   office, skipped per the home-based/no-premises rule). Mix remains close to ideal: Offices and
+--   Education both near target, Hospitality under target, Clinic/Other with room to the 15% cap.
 -- Batch 11: added one more Office (Neville Design Studio, Grey Lynn - landscape architecture,
 --   NZILA-registered, named Director with own-site email) - a solid lead but Offices is now at 44%,
 --   clearly over target, so this should be the last new Office added unless something truly
@@ -460,6 +468,11 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Neville Design Studio', 'Landscape architecture practice', 'https://www.nevilledesignstudio.co.nz', NULL, '37D Crummer Road, Grey Lynn, Auckland 1021', 'Richard Neville', 'Director / NZILA Registered Landscape Architect', 'richard@nevilledesignstudio.co.nz', '+64 22 406 1054', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (landscape architecture - own Grey Lynn studio premises). Richard Neville named as Director and NZILA Registered Landscape Architect on the official NZILA (NZ Institute of Landscape Architects) practice directory. His direct email richard@nevilledesignstudio.co.nz and the Grey Lynn studio address are confirmed on the practice''s own Contact page (nevilledesignstudio.co.nz/contact). MX ok (nevilledesignstudio.co.nz -> aspmx.l.google.com and others). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Neville Design Studio'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('richard@nevilledesignstudio.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Sarsfield Brooke', 'Furniture / lighting showroom (design-trade importer)', 'https://www.sarsfieldbrooke.co.nz', NULL, 'Unit 3/299 Great North Road, Grey Lynn, Auckland 1021', 'Peter Lancaster', 'Director', 'info@sarsfieldbrooke.co.nz', '09 377 1502', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Clinic/Other (showroom - furniture/lighting/artwork design-trade importer and wholesaler-retailer, established 1998, own Grey Lynn showroom premises). Peter Lancaster and Donna Higginson both named as Director on the business''s ArchiPro profile (archipro.co.nz/professional/sarsfield-brooke-ltd/info). info@sarsfieldbrooke.co.nz and the Grey Lynn showroom address confirmed on the business''s own Contact page (sarsfieldbrooke.co.nz/about/come-visit-us). MX ok (sarsfieldbrooke.co.nz -> sarsfieldbrooke-co-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Sarsfield Brooke'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@sarsfieldbrooke.co.nz'));
 
 -- ===== B-GRADE (no named contact / directory-only email) =====
 
