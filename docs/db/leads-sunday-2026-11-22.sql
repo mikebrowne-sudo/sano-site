@@ -2,12 +2,19 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 23 | A: 21 | B: 2
+-- Total: 24 | A: 22 | B: 2
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 12 (52%) | Education: 5 (22%) | Hospitality: 6 (26%) | Clinic/Other: 0 (0%)
+--   Offices: 12 (50%) | Education: 5 (21%) | Hospitality: 6 (25%) | Clinic/Other: 1 (4%)
 -- Offices is still over target - next batches should avoid law/accounting/engineering firms
 --   entirely and keep building Education specifically (it's furthest under share now).
 -- Eliette's Music Academy skipped (3+ Auckland sites - Albany/Botany/Takapuna - treated as a chain).
+-- ECE hunt this batch (Remuera, Sandringham, Mt Roskill, Herne Bay, Parnell, One Tree Hill) hit
+--   mostly chains (Kindercare, BestStart, Bear Park x11 sites, KiNZ, Kidicorp/First Steps, Bright
+--   Beginnings x3+ sites) or unconfirmed roles (Village Square Trust, Parnell - CEO named in an
+--   undated Rotary talk, not confirmed current) - none added. Tasman International Academies
+--   (Auckland CBD language PTE) had a named NZQA contact but only a third-party-sourced role title
+--   and a 2025 NZQA report showing enrolment down to 6 international students - skipped as too
+--   uncertain a going concern.
 -- Checked and already duplicates this batch (not re-added): Soljans Estate Winery and Kumeu River
 --   Wines (both already in docs/db/2026-07-06-sales-leads-seed-5.sql).
 -- Restaurant hunt in Devonport/Birkenhead/Mt Eden/Epsom this batch found named owners (Duo Eatery -
@@ -179,3 +186,8 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Modern Music Learning', 'Music tuition school', 'https://www.modernmusiclearning.co.nz', NULL, '2 Sanders Avenue, Takapuna, Auckland 0622', 'Peter Hickman', 'Founder & Director', 'contact@modernmusiclearning.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Education (music tuition school - piano/guitar/drums/bass/singing, own Takapuna studio premises, 9 named tutors). Founder & Director Peter Hickman named with his role on the school''s own About page (modernmusiclearning.co.nz/about); contact@modernmusiclearning.co.nz confirmed published on the same site. MX ok (modernmusiclearning.co.nz -> aspmx.l.google.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Modern Music Learning'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('contact@modernmusiclearning.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Carbon Method CrossFit', 'Gym / CrossFit studio', 'https://www.carbonmethodcrossfit.co.nz', NULL, '3 George Street, Mount Eden, Auckland 1024', 'Mark Holyoake', 'Founder', 'hello@carbonmethodcrossfit.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Clinic/Other (gym - standout A only, per the cap on this category). CrossFit affiliate gym in its own Mount Eden premises (sweat/equipment-heavy floor, real cleaning need). Founder Mark Holyoake named on the gym''s own About page (carbonmethodcrossfit.co.nz/about); Mellissa Teh is also named as Owner & General Manager on the gym''s official CrossFit.com affiliate listing. hello@carbonmethodcrossfit.co.nz confirmed published on the gym''s own contact page. MX ok (carbonmethodcrossfit.co.nz -> aspmx.l.google.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Carbon Method CrossFit'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@carbonmethodcrossfit.co.nz'));
