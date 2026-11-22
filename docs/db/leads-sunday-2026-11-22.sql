@@ -2,9 +2,18 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 69 | A: 56 | B: 13
+-- Total: 70 | A: 57 | B: 13
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 30 (43%) | Education: 16 (23%) | Hospitality: 14 (20%) | Clinic/Other: 8 (12%)
+--   Offices: 30 (43%) | Education: 16 (23%) | Hospitality: 15 (21%) | Clinic/Other: 8 (11%)
+-- Batch 19 (same final run, continued): added 1 standout Hospitality A-grade - Sid at The French
+--   Café (Eden Terrace, fine dining, run by Sid and Chand Sahrawat since 2018). Owner/executive chef
+--   Sid Sahrawat is independently named via press profiles (Goethe-Institut, NZ Herald/Metro), and the
+--   business''s own site publishes a personal-style email (info@sidatthefrenchcafe.co.nz) whose domain
+--   itself spells the owner''s name - a stronger-than-usual signal for an A-grade without a role
+--   literally printed on the page. The couple''s only other Auckland venue is Cassia, so this stays
+--   under the 3-site chain threshold. Dead end this round: Dialog Studio (Orewa) has a named contact
+--   but no stated role and Orewa sits outside this campaign''s core Auckland urban area, so it was left
+--   out rather than stretched to fit.
 -- Batch 18 (same final run, continued): added 2 more Offices, both boutique mortgage/finance
 --   advisers - MortgageGPT (Takapuna, A - named founder Jen Qu, Founder & Senior Financial Adviser,
 --   with an own-site email) and SWIFT Mortgages (Manukau City Centre, A - named founder Izaz Hussein,
@@ -636,4 +645,9 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'SWIFT Mortgages', 'Mortgage & insurance advisory', 'https://www.swiftmortgages.co.nz', NULL, '1/34 Cavendish Drive, Manukau City Centre, Auckland 2104', 'Izaz Hussein', 'Founder & Mortgage Adviser', 'info@swiftmortgages.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (independent, single-office mortgage and insurance advisory practice established 2013, own Manukau City Centre premises). Founder Izaz Hussein named with that role on the firm''s own homepage (swiftmortgages.co.nz), which also publishes this contact email. MX ok (swiftmortgages.co.nz -> aspmx.l.google.com and others). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('SWIFT Mortgages'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@swiftmortgages.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Sid at The French Café', 'Fine dining restaurant', 'https://www.thefrenchcafe.co.nz', '20-30', '210 Symonds Street, Eden Terrace, Auckland 1010', 'Sid Sahrawat', 'Owner & Executive Chef', 'info@sidatthefrenchcafe.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Hospitality (long-established fine dining restaurant, own Eden Terrace premises, acquired and run by Sid and Chand Sahrawat since 2018; the couple also runs one other Auckland venue, Cassia, so under 3 Auckland sites and not a chain). Owner and executive chef Sid Sahrawat is independently named with that role in press profiles (e.g. a Goethe-Institut feature and multiple NZ Herald/Metro reviews), and the business''s own homepage (thefrenchcafe.co.nz) publishes the contact email info@sidatthefrenchcafe.co.nz, whose domain itself spells out "Sid at The French Cafe". MX ok (sidatthefrenchcafe.co.nz -> aspmx.l.google.com and others). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Sid at The French Café'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@sidatthefrenchcafe.co.nz'));
 
