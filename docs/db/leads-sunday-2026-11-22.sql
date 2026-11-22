@@ -2,9 +2,19 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 53 | A: 46 | B: 7
+-- Total: 56 | A: 47 | B: 9
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 24 (45%) | Education: 14 (26%) | Hospitality: 13 (25%) | Clinic/Other: 2 (4%)
+--   Offices: 24 (43%) | Education: 14 (25%) | Hospitality: 13 (23%) | Clinic/Other: 5 (9%)
+-- Batch 10: added 3 more Clinic/Other showroom/clinic leads - Designers'' Collection (Newmarket
+--   furniture showroom - A, owner Rod Hanna quoted by name in press with his own-site personal
+--   email), Kitchen Inspirations (Pukekohe kitchen/joinery showroom - B, named owner only via
+--   ArchiPro directory) and Botany Junction Optometrists (B, named owner-since-2008 on her own
+--   site but the site itself has no email, so the email is directory-sourced). Mix is now close to
+--   ideal across the board: Offices and Education both near target, Hospitality comfortably under,
+--   Clinic/Other still has headroom to the 15% cap if another standout comes up. B-grade is at 9 of
+--   56 (16%), still under the ~20% cap. Dead end this batch: NVISION Eyecare (Rosedale) has a named
+--   founder (Dr Ryan Mahmoud) but the agency that built its own site confirms no email is published
+--   there (contact-form only) - skipped per the no-guessing rule.
 -- Batch 9: added Auckland Physiotherapy (Newmarket - standout A Clinic/Other, 2 named physio-
 --   specialist directors on its own About page) and 2 Education (Euroasia Language Academy/Parnell -
 --   A; North Shore Language School/Takapuna - B, no named contact found). Offices is still over its
@@ -434,6 +444,11 @@ select 'Euroasia Language Academy', 'Language school (NZQA-linked)', 'https://ww
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Euroasia Language Academy'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@euroasia.co.nz'));
 
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Designers'' Collection', 'Furniture showroom / interior design retailer', 'https://designerscollection.co.nz', NULL, 'The Foundation, 8 George Street, Newmarket, Auckland 1023', 'Rod Hanna', 'Owner', 'rod@designerscollection.co.nz', '029 376 6686', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Clinic/Other (showroom - furniture design/retail business designing, tailor-making and sourcing furniture since 1986, own Newmarket showroom premises in The Foundation precinct). Owner Rod Hanna is quoted by name in an ArchiPro feature article about the business (archipro.co.nz/article/international-furniture-design-customised-for-kiwi-comfort-designers-collection); his personal rod@designerscollection.co.nz is confirmed on the business''s own Contact page (designerscollection.co.nz/pages/contact), alongside a second named contact (Toni) and the general info@designerscollection.co.nz. MX ok (designerscollection.co.nz -> designerscollection-co-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Designers'' Collection'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('rod@designerscollection.co.nz'));
+
 -- ===== B-GRADE (no named contact / directory-only email) =====
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
@@ -470,4 +485,14 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'North Shore Language School', 'Language school', 'https://www.nsls.ac.nz', NULL, '15 Auburn Street, Takapuna, Auckland 0622', NULL, NULL, 'education.nsls@xtra.co.nz', '09 442 4500', 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Education (language school, own Takapuna premises). No named director/principal found anywhere on the school''s own site. education.nsls@xtra.co.nz is a free-mail address but is the one the school itself publishes on its own homepage (nsls.ac.nz) and contact page. MX ok (xtra.co.nz -> Spark NZ mail servers). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('North Shore Language School'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('education.nsls@xtra.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Kitchen Inspirations', 'Kitchen/joinery showroom', 'https://www.kitcheninspirations.co.nz', '17', '78 John Street, Pukekohe, Auckland 2120', 'Justin Berry', 'Owner & Director', 'hello@kitcheninspirations.co.nz', NULL, 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Clinic/Other (showroom - kitchen design/joinery business, grown from a small 2005 shed to a 17-person team with a 3-display-kitchen showroom, own Pukekohe premises). Justin Berry (with wife/business partner Becs Berry) is named as Owner and Director on the business''s ArchiPro profile (archipro.co.nz/professional/kitchen-inspirations/info) - a third-party directory, not the business''s own site, so capped at B despite the named contact. hello@kitcheninspirations.co.nz confirmed on the business''s own Contact page (kitcheninspirations.co.nz/contact), which also gives a separate admin@ address. MX ok (kitcheninspirations.co.nz -> aspmx.l.google.com and others). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Kitchen Inspirations'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@kitcheninspirations.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Botany Junction Optometrists', 'Optometry practice', 'https://www.botanyjunctionoptometrists.co.nz', NULL, '5B, 123 Ormiston Road, Botany Junction, Auckland 2016', 'Melinda Nordin', 'Owner', 'admin@botanyjunctionoptometrists.co.nz', '09 278 4393', 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Clinic/Other (independent optometry practice, owned by the same optometrist since 2008, own Botany Junction premises). Owner Melinda Nordin named with that role and the "owned the practice since 2008" detail on the business''s own homepage (botanyjunctionoptometrists.co.nz) - but the site itself publishes no email, only a phone number, so the email here is sourced from a third-party health directory listing instead, capping the lead at B. MX ok (botanyjunctionoptometrists.co.nz -> mx1/mx2.sparkbusinessmail.co.nz). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Botany Junction Optometrists'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@botanyjunctionoptometrists.co.nz'));
 
