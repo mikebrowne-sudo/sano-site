@@ -12,7 +12,15 @@
 --   batch - boutique physio/dental searches turned up only multi-site chains like Habit Health or
 --   institutional-feeling groups like Dental Boutique's NZ/Australia arm, nothing standout found).
 --   B-grade is at 6 of 37 (16%), still under the ~20% cap - prefer A-grade candidates from here.
--- Batch 6 (this batch): added Vivid Icon (East Tamaki branding/graphic design studio, single-site,
+-- Education dead-end sweep (no leads found, logged so future batches don't repeat): Ashton Warner
+--   Nanny Academy (Stanmore Bay - NZQA PTE but only an unnamed "principal" in its reports, no own
+--   website/email found), National Forklift Training (East Tamaki - owners named in old trade press
+--   but no website/email), Elam School of Fine Arts/Te Ranga Traditional Arts Academy (university-
+--   affiliated or unconfirmed), martial-arts instructor training (no standalone NZQA-registered
+--   academy found, only clubs/franchises or Te Wananga o Aotearoa), au pair/nanny placement networks
+--   (NZMA is a 4-site chain; others are placement agencies not training colleges, or based outside
+--   Auckland).
+-- Batch 6: added Vivid Icon (East Tamaki branding/graphic design studio, single-site,
 --   25+ years production experience - Creative Director Shabbir Mohammed named via the studio's own
 --   homepage/schema.org data, sales@vividicon.co.nz confirmed in the same page's footer, MX ok). Tried,
 --   no result: independent insurance brokers in Albany/Henderson/Manukau/East Tamaki (only large
