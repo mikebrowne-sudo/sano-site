@@ -2,9 +2,25 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 46 | A: 40 | B: 6
+-- Total: 50 | A: 44 | B: 6
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 21 (46%) | Education: 11 (24%) | Hospitality: 13 (28%) | Clinic/Other: 1 (2%)
+--   Offices: 24 (48%) | Education: 12 (24%) | Hospitality: 13 (26%) | Clinic/Other: 1 (2%)
+-- Batch 8: added 4 more Offices (84 Recruitment/Takapuna - recruitment; FixHR/Mairangi Bay - HR
+--   consultancy; One Plus One Communications/Auckland Central - PR agency) and 1 Education (North
+--   Shore Aero Club/Dairy Flat - flight training, re-checked via its own Staff page after an earlier
+--   batch wrongly logged it as a dead end). Offices is now at 48%, meaningfully over the ~40% target -
+--   next batch should stop adding Offices entirely unless something truly exceptional turns up, and
+--   focus on Education (still has headroom to ~25%+) and, cautiously, Clinic/Other (still only 2%,
+--   well under the 15% cap). Dead ends this batch worth remembering: Insite Insurance Brokers and
+--   Sherpa Insurance Brokers have both been acquired by larger groups (AJG/Gallagher and Howden
+--   respectively) - no longer independent; O'Connor Warren Insurance Brokers has a strong named-
+--   director + own-site email combo (eamon@oconnorwarren.co.nz) but is based in Tauranga, not
+--   Auckland - out of scope; Platinum Mortgages looks home-based/online-only (conflicting addresses
+--   across sources, "began its online operations" framing) - skipped per the home-based rule; The
+--   People Place (HR, Parnell) has a confirmed own-site email but no address on its own site ("Based
+--   in Auckland, available across New Zealand" - possible home-based signal) - skipped rather than
+--   relying on a third-party-only address; Cinch HR's old domain (cinchhr.co.nz) now redirects to an
+--   unrelated casino-comparison site - the business may have rebranded or closed, not pursued further.
 -- Batch 7 (23:00-ish NZ run, resuming after the earlier run hit the usage limit): added 7 Offices
 --   (Vemo IT Solutions - Epsom managed-IT firm; The Private Office - Auckland CBD boutique wealth
 --   advisory founded by Laetitia Peterson; Global Logistics International - Rosedale freight
@@ -378,6 +394,26 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Smith + Scully', 'Architecture practice', 'https://smith-scully.com', NULL, 'Studio 1A, Level 3, 58 Surrey Crescent, Grey Lynn, Auckland 1021', 'Carolyn Smith', 'Director / NZIA-registered Architect', 'info@smith-scully.com', '09 845 6249', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (architecture, registered NZIA practice in its own Grey Lynn studio premises). Carolyn Smith named as the firm''s NZIA-registered principal contact on the official NZIA 2025 Practice Directory (nzia.co.nz) and appears on the practice''s own site in client testimonials describing her design work. info@smith-scully.com and the Surrey Crescent address confirmed on the practice''s own homepage (smith-scully.com). MX ok (smith-scully.com -> smithscully-com01c.mail.protection.outlook.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Smith + Scully'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@smith-scully.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select '84 Recruitment', 'Recruitment agency', 'https://www.84recruitment.co.nz', NULL, 'Level 1, B:HIVE building, Smales Farm, 74 Taharoto Road, Takapuna, Auckland', 'Mark Fisher', 'Managing Director', 'info@84recruitment.co.nz', '+64 9 391 8484', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (recruitment, trading also as Eighty4 Recruitment - founded by Mark Fisher in 2013, specialist team covering construction/engineering/tech recruitment, own leased office suite within the B:HIVE managed-office building at Smales Farm). Mark Fisher named as Managing Director/founder on the firm''s own About Us page (84recruitment.co.nz/about-us) and Consultants page, alongside 8 other named staff. info@84recruitment.co.nz and the Takapuna address confirmed on the firm''s own site. MX ok (84recruitment.co.nz -> 84recruitment-co-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('84 Recruitment'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@84recruitment.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'FixHR', 'HR consultancy', 'https://www.fixhr.co.nz', '6', '28 Constellation Drive, Mairangi Bay, Auckland 0632', 'Ainsley Palairet', 'Director / Founder', 'ainsley@fixhr.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (HR consultancy, founded 2020, own Mairangi Bay premises - also has small Wellington/Lower Hutt offices but only one Auckland site). Founder Ainsley Palairet named as Director with her direct email and the Mairangi Bay address, all confirmed via the firm''s own homepage LocalBusiness schema.org data (fixhr.co.nz). MX ok (fixhr.co.nz -> fixhr-co-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('FixHR'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('ainsley@fixhr.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'North Shore Aero Club', 'Flight training establishment (NZQA-linked)', 'https://www.nsac.co.nz', NULL, 'North Shore Aerodrome, 300 Postman Road, Dairy Flat, Auckland', 'John Punshon', 'CEO', 'info@nsac.co.nz', '09 426 4273', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Education (flight training centre - single-site Dairy Flat aerodrome with its own hangar, training centre and head office, per its own NZQA provider report). CEO John Punshon named with that title on the club''s own Staff page (nsac.co.nz/aero-club/staff), alongside named CFI Daryl Gillett and a full admin/instructor team. info@nsac.co.nz confirmed on the same page (all staff rows resolve to this one address). MX ok (nsac.co.nz -> nsac-co-nz.mail.protection.outlook.com). This entity was only logged as a dead end in an earlier batch of this same file (generic flightdesk-style inbox, no named decision-maker found) before the Staff page was checked directly - that earlier note is now superseded. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('North Shore Aero Club'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@nsac.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'One Plus One Communications', 'PR / communications agency', 'https://www.oneplusone.co.nz', NULL, 'Suite 4, Level 5, 10 Madden Street, Auckland Central 1010', 'Kelly Bennett', 'Managing Director / Founder', 'kelly.bennett@oneplusone.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (marketing/creative - boutique PR and communications agency, own Auckland Central office). Managing Director and founder Kelly Bennett named with that title and her direct email on the agency''s own homepage (oneplusone.co.nz); the site shows a Madden Street Auckland Central address alongside an older-looking Parnell (130 St Georges Bay Road) address on its embedded map, so the current office location should be reconfirmed before contact. MX ok (oneplusone.co.nz -> Google Workspace MX records). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('One Plus One Communications'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('kelly.bennett@oneplusone.co.nz'));
 
 -- ===== B-GRADE (no named contact / directory-only email) =====
 
