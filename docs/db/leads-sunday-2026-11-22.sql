@@ -2,9 +2,15 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 59 | A: 50 | B: 9
+-- Total: 60 | A: 51 | B: 9
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 25 (42%) | Education: 14 (24%) | Hospitality: 13 (22%) | Clinic/Other: 7 (12%)
+--   Offices: 25 (42%) | Education: 14 (23%) | Hospitality: 13 (22%) | Clinic/Other: 8 (13%)
+-- Batch 14: added Mt Eden Chiropractic (long-established single clinic, brother-to-brother
+--   handover named on its own site). Clinic/Other is now at 13%, close to the 15% cap - stop adding
+--   more unless something extremely standout turns up. Translation/interpreting agencies searched
+--   this round with no named-contact + own-site-email combo found. From here, remaining effort
+--   should go almost entirely to Education, which is the one category still with real headroom
+--   relative to target.
 -- Batch 13: added Boulder Co (Westgate - standout bouldering gym, "largest in the Southern
 --   Hemisphere" per RNZ, named founder Adam Cauldwell via press, own-site email). Clinic/Other now
 --   at 12%, still under the 15% cap but getting close - only add another if truly standout.
@@ -489,6 +495,11 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Boulder Co', 'Bouldering / indoor climbing gym', 'https://www.boulderco.co.nz', NULL, '33-47 Northside Drive, Westgate, Auckland 0814', 'Adam Cauldwell', 'Founder', 'info@boulderco.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Clinic/Other (standout gym - described by RNZ as the largest bouldering gym in the Southern Hemisphere, own large-format Westgate premises; the business also has Christchurch and Hamilton gyms, but only one Auckland site). Founder Adam Cauldwell named in an RNZ feature (rnz.co.nz/news/top/532379/bouldering-races-up-the-wall-of-popular-fitness, 31 Oct 2024). info@boulderco.co.nz confirmed on the gym''s own Contact page (boulderco.co.nz/contact), which lists a separate email per city (Auckland/Christchurch/Hamilton) confirming this is the Auckland-specific address. MX ok (boulderco.co.nz -> aspmx.l.google.com and others). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Boulder Co'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@boulderco.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Mt Eden Chiropractic', 'Chiropractic clinic', 'https://www.alignchiro.co.nz', NULL, '318 Mt Eden Road, Mt Eden, Auckland 1024', 'Dr Simon Kelly', 'Chiropractor (now leading patient care)', 'info@mtedenchiro.co.nz', '09 222 1299', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Clinic/Other (long-established single-clinic chiropractic practice, serving the Mt Eden area since 2003, own Mt Eden Road premises - previously traded under the Align Chiropractic name with a CBD presence, now consolidated to the single Mt Eden Road clinic). The practice''s own homepage (alignchiro.co.nz) states that founding chiropractor Dr Brian Kelly "has moved overseas, and he has handed your care to his brother, Dr Simon Kelly," who now leads patient care with the team at Mt Eden Chiropractic. info@mtedenchiro.co.nz confirmed on the same page. A third-party directory separately describes an earlier Chiropractor-of-the-Year-style award for the practice, but that claim is not repeated on the practice''s own current site, so it is not relied on here. MX ok (mtedenchiro.co.nz -> mxa.onenet.co.nz). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Mt Eden Chiropractic'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@mtedenchiro.co.nz'));
 
 -- ===== B-GRADE (no named contact / directory-only email) =====
 
