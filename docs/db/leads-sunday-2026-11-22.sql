@@ -2,16 +2,27 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 36 | A: 30 | B: 6
+-- Total: 37 | A: 31 | B: 6
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 13 (36%) | Education: 9 (25%) | Hospitality: 13 (36%) | Clinic/Other: 1 (3%)
--- Hospitality is still well over its ~20% target and Offices/Education are both now close to their
---   targets - next batches should avoid hospitality for a while and focus on Offices (fresh niches
---   only - insurance/finance brokers, IT, marketing/design, recruitment - not law/accounting/
---   engineering, saturated from earlier seed files) and keep pushing Education where possible. A
---   standout Clinic/Other lead is still welcome; the 15% cap has plenty of headroom. B-grade is at 6
---   of 36 (17%), still under the ~20% cap but getting close - prefer A-grade candidates from here.
--- Batch 5 (this batch): added OneHQ (Newmarket managed-IT-services firm, single Auckland site plus a
+--   Offices: 14 (38%) | Education: 9 (24%) | Hospitality: 13 (35%) | Clinic/Other: 1 (3%)
+-- Hospitality is still well over its ~20% target; Offices/Education are both close to their targets
+--   now - next batches should keep avoiding hospitality and push Education and fresh Office niches
+--   (insurance/finance brokers, IT, marketing/design, recruitment - not law/accounting/engineering).
+--   A standout Clinic/Other lead is still welcome; the 15% cap has plenty of headroom (checked this
+--   batch - boutique physio/dental searches turned up only multi-site chains like Habit Health or
+--   institutional-feeling groups like Dental Boutique's NZ/Australia arm, nothing standout found).
+--   B-grade is at 6 of 37 (16%), still under the ~20% cap - prefer A-grade candidates from here.
+-- Batch 6 (this batch): added Vivid Icon (East Tamaki branding/graphic design studio, single-site,
+--   25+ years production experience - Creative Director Shabbir Mohammed named via the studio's own
+--   homepage/schema.org data, sales@vividicon.co.nz confirmed in the same page's footer, MX ok). Tried,
+--   no result: independent insurance brokers in Albany/Henderson/Manukau/East Tamaki (only large
+--   network brokers or one too-large existing player turned up), Positive People HR consultancy
+--   (named MD but own site gives only a PO Box + explicitly works "onsite or offsite" - excluded as
+--   home/virtual-office), Spice HR (director named via directory only, no own-site contact), Knowhow
+--   Limited, Scribble Me This (appears to be a solo freelancer, not a staffed office), quantity
+--   surveyors/valuers (Veron, Costwise, Cuesko, White Associates, Bayleys valuations - no named-contact
+--   + own-site-email combo found).
+-- Batch 5: added OneHQ (Newmarket managed-IT-services firm, single Auckland site plus a
 --   Christchurch office - Managing Director Mark Anyon named on the company's own Management Team
 --   page, enquiries@onehq.nz on its own contact page, MX ok). Two B-grade education/dance leads added
 --   cautiously (only to round out Education's target share, not pursued further given the weak named-
@@ -293,6 +304,11 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'OneHQ', 'Managed IT services', 'https://onehq.nz', NULL, '60 Broadway, Newmarket, Auckland 1023', 'Mark Anyon', 'Managing Director', 'enquiries@onehq.nz', '09 222 0888', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (managed IT services firm, founded in Auckland in 2005 as Fission IT, now trading as OneHQ; single Auckland office plus a Christchurch office, under the 3-Auckland-site chain threshold). Mark Anyon named as Managing Director on the company''s own Management Team page (onehq.nz/management-team). enquiries@onehq.nz confirmed published on the company''s own contact page (onehq.nz/contact), alongside helpdesk@onehq.nz. MX ok (onehq.nz -> onehq-nz.mail.protection.outlook.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('OneHQ'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('enquiries@onehq.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Vivid Icon', 'Graphic design / branding studio', 'https://vividicon.co.nz', NULL, '9 Laidlaw Way, East Tamaki, Auckland 2013', 'Shabbir Mohammed', 'Creative Director', 'sales@vividicon.co.nz', '021 141 6190', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (independent branding/graphic design studio with its own East Tamaki premises, 25+ years production experience, single site). Shabbir Mohammed named as Creative Director via the studio''s own homepage and schema.org structured data (vividicon.co.nz). Email sales@vividicon.co.nz confirmed in the same page''s organization/LocalBusiness schema and footer. MX ok (vividicon.co.nz -> mta.1stdomains.net.nz). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Vivid Icon'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('sales@vividicon.co.nz'));
 
 -- ===== B-GRADE (no named contact / directory-only email) =====
 
