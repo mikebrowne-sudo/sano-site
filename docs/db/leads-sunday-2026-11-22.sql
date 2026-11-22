@@ -2,9 +2,16 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 56 | A: 47 | B: 9
+-- Total: 57 | A: 48 | B: 9
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 24 (43%) | Education: 14 (25%) | Hospitality: 13 (23%) | Clinic/Other: 5 (9%)
+--   Offices: 25 (44%) | Education: 14 (25%) | Hospitality: 13 (23%) | Clinic/Other: 5 (9%)
+-- Batch 11: added one more Office (Neville Design Studio, Grey Lynn - landscape architecture,
+--   NZILA-registered, named Director with own-site email) - a solid lead but Offices is now at 44%,
+--   clearly over target, so this should be the last new Office added unless something truly
+--   exceptional turns up. Education/Clinic/Other search this round was unproductive (first-aid
+--   training, swim schools, beauty/floristry PTEs, boutique ECE press features all hit dead ends -
+--   no named-contact + own-site-email combo found for any). Next batch should keep trying Education
+--   and Clinic/Other in fresh suburbs/niches and stop pursuing Offices.
 -- Batch 10: added 3 more Clinic/Other showroom/clinic leads - Designers'' Collection (Newmarket
 --   furniture showroom - A, owner Rod Hanna quoted by name in press with his own-site personal
 --   email), Kitchen Inspirations (Pukekohe kitchen/joinery showroom - B, named owner only via
@@ -448,6 +455,11 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Designers'' Collection', 'Furniture showroom / interior design retailer', 'https://designerscollection.co.nz', NULL, 'The Foundation, 8 George Street, Newmarket, Auckland 1023', 'Rod Hanna', 'Owner', 'rod@designerscollection.co.nz', '029 376 6686', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Clinic/Other (showroom - furniture design/retail business designing, tailor-making and sourcing furniture since 1986, own Newmarket showroom premises in The Foundation precinct). Owner Rod Hanna is quoted by name in an ArchiPro feature article about the business (archipro.co.nz/article/international-furniture-design-customised-for-kiwi-comfort-designers-collection); his personal rod@designerscollection.co.nz is confirmed on the business''s own Contact page (designerscollection.co.nz/pages/contact), alongside a second named contact (Toni) and the general info@designerscollection.co.nz. MX ok (designerscollection.co.nz -> designerscollection-co-nz.mail.protection.outlook.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Designers'' Collection'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('rod@designerscollection.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Neville Design Studio', 'Landscape architecture practice', 'https://www.nevilledesignstudio.co.nz', NULL, '37D Crummer Road, Grey Lynn, Auckland 1021', 'Richard Neville', 'Director / NZILA Registered Landscape Architect', 'richard@nevilledesignstudio.co.nz', '+64 22 406 1054', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (landscape architecture - own Grey Lynn studio premises). Richard Neville named as Director and NZILA Registered Landscape Architect on the official NZILA (NZ Institute of Landscape Architects) practice directory. His direct email richard@nevilledesignstudio.co.nz and the Grey Lynn studio address are confirmed on the practice''s own Contact page (nevilledesignstudio.co.nz/contact). MX ok (nevilledesignstudio.co.nz -> aspmx.l.google.com and others). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Neville Design Studio'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('richard@nevilledesignstudio.co.nz'));
 
 -- ===== B-GRADE (no named contact / directory-only email) =====
 
