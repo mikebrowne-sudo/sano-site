@@ -2,10 +2,19 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 67 | A: 54 | B: 13
+-- Total: 69 | A: 56 | B: 13
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 28 (42%) | Education: 16 (24%) | Hospitality: 14 (21%) | Clinic/Other: 8 (12%)
--- Batch 17 (final run of the night, started 00:05 NZT with a hard stop at 00:55): added 2 more
+--   Offices: 30 (43%) | Education: 16 (23%) | Hospitality: 14 (20%) | Clinic/Other: 8 (12%)
+-- Batch 18 (same final run, continued): added 2 more Offices, both boutique mortgage/finance
+--   advisers - MortgageGPT (Takapuna, A - named founder Jen Qu, Founder & Senior Financial Adviser,
+--   with an own-site email) and SWIFT Mortgages (Manukau City Centre, A - named founder Izaz Hussein,
+--   Founder & Mortgage Adviser, with an own-site email). Both single-office, independently founded
+--   advisory practices, not part of a franchise network like Mike Pero. Dead end: Platinum Mortgages
+--   (Angela Downie) is based at Red Beach on the Hibiscus Coast, outside the core Auckland urban area
+--   this campaign targets, and her own site wasn''t checked directly in the time available, so it was
+--   left out rather than guessed at. Offices is now well over its ~40% target (43%) - this run is
+--   stopping Offices adds here. B-grade holds at 13 of 69 (19%), still under the ~20% cap.
+-- Batch 17 (same final run, started 00:05 NZT with a hard stop at 00:55): added 2 more
 --   Offices (Kennerley & Co, Mt Eden - boutique chartered accountants, A - named Director Jonathan
 --   Kennerley with his own-site personal email off a published "Key People" staff list; Cohesion
 --   Consulting NZ, Auckland CBD - boutique recruitment/HR advisory and training firm, A - named
@@ -617,4 +626,14 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Devonport School of Dance', 'Dance / performing arts school', 'https://www.devonportschoolofdance.com', NULL, '15 Wynyard Street, Devonport, Auckland 0624', NULL, NULL, 'emily@devonportschoolofdance.com', '027 637 1882', 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Education (independent dance school - ballet, jazz, contemporary, tap, hip hop, acro - own Devonport studio premises). The school''s own homepage publishes a personal-style email (emily@devonportschoolofdance.com) but does not state the name''s surname or role anywhere on the site itself, and an unverified third-party snippet claiming "Emily Summerville, principal and owner" could not be confirmed against a reliable source, so this stays capped at B. MX ok (devonportschoolofdance.com -> aspmx.l.google.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Devonport School of Dance'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('emily@devonportschoolofdance.com'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'MortgageGPT', 'Mortgage & finance advisory', 'https://mortgagegpt.co.nz', NULL, '9 Huron Street, Takapuna, Auckland 0622', 'Jen Qu', 'Founder & Senior Financial Adviser', 'support@mortgagegpt.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (independent, single-office mortgage and finance advisory practice, own Takapuna premises). Founder Jen Qu named with that role on the firm''s own homepage (mortgagegpt.co.nz), which also publishes this contact email. MX ok (mortgagegpt.co.nz -> aspmx.l.google.com and others). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('MortgageGPT'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('support@mortgagegpt.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'SWIFT Mortgages', 'Mortgage & insurance advisory', 'https://www.swiftmortgages.co.nz', NULL, '1/34 Cavendish Drive, Manukau City Centre, Auckland 2104', 'Izaz Hussein', 'Founder & Mortgage Adviser', 'info@swiftmortgages.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (independent, single-office mortgage and insurance advisory practice established 2013, own Manukau City Centre premises). Founder Izaz Hussein named with that role on the firm''s own homepage (swiftmortgages.co.nz), which also publishes this contact email. MX ok (swiftmortgages.co.nz -> aspmx.l.google.com and others). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('SWIFT Mortgages'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('info@swiftmortgages.co.nz'));
 
