@@ -2,10 +2,25 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 29 | A: 27 | B: 2
+-- Total: 33 | A: 29 | B: 4
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 12 (41%) | Education: 6 (21%) | Hospitality: 10 (34%) | Clinic/Other: 1 (3%)
--- Batch 3 (this batch): added Imperial College of New Zealand (CBD language/business PTE - Principal
+--   Offices: 12 (36%) | Education: 7 (21%) | Hospitality: 13 (39%) | Clinic/Other: 1 (3%)
+-- Hospitality has now overshot its ~20% target (two research batches in a row landed mostly
+--   hospitality leads) - next batches should pull back on hospitality and prioritise Education
+--   (still under target) and genuinely fresh Office niches (insurance/finance brokers, IT, marketing
+--   - not law/accounting/engineering, which are already saturated from earlier seed files). A standout
+--   Clinic/Other lead is still welcome; the 15% cap has plenty of headroom.
+-- Batch 4 (this batch): added Techtorium NZIIT (Newmarket IT training PTE - Managing Director Patrick
+--   Dowling named on the college's own About Us page, learn@techtorium.ac.nz on the same site, MX ok).
+--   Hospitality: Browne Street (Avondale gastropub - co-owner Sam Fraser named in a 2018 Metro feature,
+--   hello@brownestreet.co.nz via mailto on its own live site, MX ok; same 2-owner group also runs
+--   Blockhouse Bay's The Block, below the 3-site chain threshold - press is from 2018 so ownership
+--   should be reconfirmed before contact). Two B-grade hospitality venues added: Vin Alto (Clevedon
+--   winery/function venue - enquiries@vinalto.co.nz on its own site, MX ok, but no named contact on
+--   the current site - an old tour flyer names Enzo & Margaret Bettio but that's unconfirmed/outdated)
+--   and Space on Crummer (Grey Lynn-area industrial events venue - hello@spaceoncrummer.co.nz via
+--   mailto on its own site, MX ok, no named contact found).
+-- Batch 3: added Imperial College of New Zealand (CBD language/business PTE - Principal
 --   Kanwalpreet Kaur named on the college's own about-us page, info@imperial.ac.nz on the same page,
 --   MX ok). Hospitality: Water Boy (St Heliers) and The Corner (Remuera) - both owned by the same
 --   2-venue partnership (Patrick Kean & Victoria Blake, named in Denizen/NZ Herald coverage), under
@@ -247,7 +262,27 @@ select 'Ragtag', 'Restaurant (Mexican-inspired bistro)', 'https://www.ragtagnz.c
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Ragtag'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@ragtagnz.com'));
 
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Techtorium NZIIT', 'IT training establishment (NZQA PTE)', 'https://techtorium.ac.nz', NULL, 'Level 3, 182 Broadway, Newmarket, Auckland 1023', 'Patrick Dowling', 'Managing Director', 'learn@techtorium.ac.nz', '0800 529 7523', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Education (NZQA Category 1 private training establishment delivering computer engineering/software development diplomas from its own Newmarket campus, single Auckland site, operating 10+ years). Managing Director Patrick Dowling named and signing a message from the Managing Director on the college''s own About Us page (techtorium.ac.nz/about-us). Email learn@techtorium.ac.nz confirmed published on the same site''s homepage and contact page. MX ok (techtorium.ac.nz -> techtorium-ac-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Techtorium NZIIT'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('learn@techtorium.ac.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Browne Street', 'Restaurant / gastropub', 'https://www.brownestreet.co.nz', NULL, '50 Rosebank Road, Avondale, Auckland', 'Sam Fraser', 'Co-owner', 'hello@brownestreet.co.nz', NULL, 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Hospitality (gastropub in a converted two-level former transport depot building, own Avondale premises). Co-owner Sam Fraser named in a Metro magazine feature (metromag.co.nz/food/food-cafes/contemporary-new-cafe-browne-st-opens-in-avondale) as one of the business partners behind Browne Street, who also co-own Blockhouse Bay''s The Block cafe - 2 venues total, below the 3-site chain threshold. Email hello@brownestreet.co.nz confirmed via a mailto link on the restaurant''s own live homepage. MX ok (brownestreet.co.nz -> mx1/mx2.sparkbusinessmail.co.nz). Press is from 2018 so ownership should be reconfirmed before contact. No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Browne Street'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@brownestreet.co.nz'));
+
 -- ===== B-GRADE (no named contact / directory-only email) =====
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Vin Alto', 'Restaurant / winery function venue', 'https://www.vinalto.co.nz', NULL, 'Clevedon, Auckland', NULL, NULL, 'enquiries@vinalto.co.nz', NULL, 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Hospitality (renovated winery/restaurant venue in the Clevedon hills doing weddings, functions and degustation dining, own rural Auckland premises). enquiries@vinalto.co.nz confirmed published on the venue''s own live site. An old tour flyer names Enzo & Margaret Bettio (founders of Del Maine Fine Food) as owners, but that is unconfirmed and the current site names no one, so left without a named contact. MX ok (vinalto.co.nz -> Google Workspace aspmx records). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Vin Alto'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('enquiries@vinalto.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Space on Crummer', 'Function / events venue', 'https://www.spaceoncrummer.co.nz', NULL, '12 Crummer Road, Auckland 1021', NULL, NULL, 'hello@spaceoncrummer.co.nz', NULL, 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Hospitality (independent industrial-style wedding/corporate events venue, own Grey Lynn-area premises). Email hello@spaceoncrummer.co.nz confirmed via a mailto link on the venue''s own homepage. No named owner/manager found on the site. MX ok (spaceoncrummer.co.nz -> Google Workspace aspmx records). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Space on Crummer'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('hello@spaceoncrummer.co.nz'));
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
 select 'Lloyd Hartley Architects', 'Architecture practice', 'http://lloydhartley.com', NULL, '56B Brown Street, Ponsonby, Auckland 1021', NULL, NULL, 'info@lloydhartley.com', '09 281 5505', 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Offices (architecture). Architecture practice in its own Ponsonby premises. Email info@lloydhartley.com published on the practice''s own contact page. Earlier directory results named two directors (Mike Hartley, Ben Lloyd) but the practice''s current own site does not name either, so left out as unconfirmed. MX ok (lloydhartley.com -> aspmx.l.google.com). No renewal hint found.'
