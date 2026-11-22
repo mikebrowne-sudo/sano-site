@@ -2,9 +2,14 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 60 | A: 51 | B: 9
+-- Total: 62 | A: 52 | B: 10
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 25 (42%) | Education: 14 (23%) | Hospitality: 13 (22%) | Clinic/Other: 8 (13%)
+--   Offices: 25 (40%) | Education: 15 (24%) | Hospitality: 13 (21%) | Clinic/Other: 8 (13%)
+-- Batch 15: finally found 2 fresh Education leads after many dead-end searches - Homai Study Centre
+--   (Manurewa - independent tutoring centre with its own fixed classroom premises, named Education
+--   Director with own-site email, A) and Zest Education Centre (Remuera - independent tutoring
+--   centre, own premises, no reliably named contact, B). Mix is now very close to ideal across every
+--   category. B-grade is at 10 of 62 (16%), still under the ~20% cap.
 -- Batch 14: added Mt Eden Chiropractic (long-established single clinic, brother-to-brother
 --   handover named on its own site). Clinic/Other is now at 13%, close to the 15% cap - stop adding
 --   more unless something extremely standout turns up. Translation/interpreting agencies searched
@@ -501,6 +506,11 @@ select 'Mt Eden Chiropractic', 'Chiropractic clinic', 'https://www.alignchiro.co
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Mt Eden Chiropractic'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('info@mtedenchiro.co.nz'));
 
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Homai Study Centre', 'Tutoring centre (physical classroom premises)', 'https://sites.google.com/site/homaistudycentre/', NULL, '159 Browns Road, Manurewa, Auckland 2102', 'Shalini Dreadon', 'Education Director', 'office@homaistudycentre.com', '021 204 3336', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Education (independent tutoring centre with its own fixed Manurewa classroom premises, not a franchise or online-only tutor network). Education Director Shalini Dreadon named with that title on the centre''s own site (sites.google.com/site/homaistudycentre/contact-details), which also confirms office@homaistudycentre.com and the Browns Road address. MX ok (homaistudycentre.com -> aspmx.l.google.com and others). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Homai Study Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('office@homaistudycentre.com'));
+
 -- ===== B-GRADE (no named contact / directory-only email) =====
 
 insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
@@ -547,4 +557,9 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Botany Junction Optometrists', 'Optometry practice', 'https://www.botanyjunctionoptometrists.co.nz', NULL, '5B, 123 Ormiston Road, Botany Junction, Auckland 2016', 'Melinda Nordin', 'Owner', 'admin@botanyjunctionoptometrists.co.nz', '09 278 4393', 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Clinic/Other (independent optometry practice, owned by the same optometrist since 2008, own Botany Junction premises). Owner Melinda Nordin named with that role and the "owned the practice since 2008" detail on the business''s own homepage (botanyjunctionoptometrists.co.nz) - but the site itself publishes no email, only a phone number, so the email here is sourced from a third-party health directory listing instead, capping the lead at B. MX ok (botanyjunctionoptometrists.co.nz -> mx1/mx2.sparkbusinessmail.co.nz). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Botany Junction Optometrists'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('admin@botanyjunctionoptometrists.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Zest Education Centre', 'Tutoring centre (physical classroom premises)', 'https://www.zesteducation.co.nz', NULL, '3A Clonbern Road, Remuera, Auckland 1050', NULL, NULL, 'learn@zesteducation.co.nz', '09 529 2686', 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Education (independent tutoring centre, own Remuera premises, founded 2015). No named owner/director confirmed on the centre''s own site - a third-party data-aggregator (Prospeo) names a "Jason Barnes" as director, but that source is unreliable enough to exclude per the grading rules, so this stays unnamed and capped at B. learn@zesteducation.co.nz and the Remuera address confirmed on the centre''s own Contact page (zesteducation.co.nz/contact). MX ok (zesteducation.co.nz -> aspmx.l.google.com and others). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Zest Education Centre'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('learn@zesteducation.co.nz'));
 
