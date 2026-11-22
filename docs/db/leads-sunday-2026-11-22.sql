@@ -2,16 +2,18 @@
 -- Each insert skips existing companies/emails.
 --
 -- SUMMARY (running totals, updated after each batch)
--- Total: 9 | A: 7 | B: 2
+-- Total: 12 | A: 10 | B: 2
 -- Category mix vs target (Offices ~40%, Education ~25%, Hospitality ~20%, Clinic/Other cap ~15%):
---   Offices: 4 (44%) | Education: 2 (22%) | Hospitality: 3 (33%) | Clinic/Other: 0 (0%)
--- Next batch should steer toward Offices (accountants, law firms, recruitment, insurance/property
---   management, IT/marketing - all attempted so far but hit rate was low; try fresh suburbs) and
---   keep building Education (PTEs, language schools, private schools - avoid duplicating the
---   2026-10-11 run's ECE/childcare suburbs).
+--   Offices: 7 (58%) | Education: 2 (17%) | Hospitality: 3 (25%) | Clinic/Other: 0 (0%)
+-- Next batch should keep building Education (PTEs, language schools, private schools - avoid
+--   duplicating the 2026-10-11 run's ECE/childcare suburbs) and Hospitality (restaurants/venues/
+--   boutique hotels in fresh suburbs - Mission Bay, Kingsland, Newmarket, Takapuna, Browns Bay not
+--   yet tried this run); Offices is now ahead of target so can ease off next batch.
 -- Sectors/suburbs covered: architecture practices (Ponsonby x2, Devonport, Freemans Bay, Herne Bay),
 --   mortgage/finance brokers (Ponsonby), fine-dining restaurant (Herne Bay), cocktail bar (Ponsonby),
---   culinary/hospitality/wine PTE (Auckland CBD/Viaduct), hairdressing/beauty NZQA academy (Newton).
+--   culinary/hospitality/wine PTE (Auckland CBD/Viaduct), hairdressing/beauty NZQA academy (Newton),
+--   boutique law firms (Parnell, Newmarket, Ellerslie) sourced via the NZ Law Society official
+--   register (name/role/email combo) cross-checked against each firm's own domain for the email.
 -- Attempted, no result (directory-only or no email found, skipped rather than guessed): accountants
 --   (Parnell, Newmarket, Takapuna - NextGen Accountants/McIsaacs/EqualBiz all lacked a named contact +
 --   own-site email together; SBA Small Business Accounting appears to be a multi-branch franchise
@@ -35,7 +37,12 @@
 --   instructor-based, no fixed office premises needing a cleaning contract), cookery/hairdressing
 --   academies (New Zealand School of Food and Wine and Servilles Academy succeeded below; others
 --   like Elite Beauty/Cut Above Academy had no email), tutoring centres (mostly home-based/online
---   tutor networks, not fixed premises, or franchise-style - skipped).
+--   tutor networks, not fixed premises, or franchise-style - skipped). Also attempted this batch:
+--   accounting/mortgage firms (Guardian Smith, adviceHQ, Takapuna - named director/founder found
+--   (Mikey Smith, David Green) but no email on own site - Wix/no-text contact forms), law firms
+--   outside this batch's picks (Mt Eden Legal - director named, Mt Eden domain didn't resolve;
+--   Henderson Reeves - director named with email but only a PO Box address found for the Auckland
+--   branch, so skipped pending a confirmed street address).
 -- Tool notes: WebFetch failed (403/404/empty) on educationcounts.govt.nz (Cloudflare challenge),
 --   donlogic.co.nz (DNS not resolvable in this session), nextgenaccountants about page (ok),
 --   mcisaacs.co.nz/contact (404 - try bare domain next time), lawsociety.org.nz register pages
@@ -89,3 +96,18 @@ insert into public.sales_leads (company, industry, website, staff_size, address,
 select 'Thirty Nine', 'Cocktail bar', 'https://thirtynine.co.nz', NULL, '39 Ponsonby Road, Ponsonby, Auckland 1011', NULL, NULL, 'bookings@thirtynine.co.nz', NULL, 'sunday-burst-2026-11-22', 'B', 'new', '[Sunday burst 2026-11-22] Category: Hospitality (cocktail bar, own Ponsonby Road premises). Email bookings@thirtynine.co.nz published on the bar''s own homepage (thirtynine.co.nz). No named owner/manager found on the bar''s own site (press mentions an owner but not by name tied to this venue specifically). MX ok (thirtynine.co.nz -> aspmx.l.google.com). No renewal hint found.'
 where not exists (select 1 from public.sales_leads where lower(company) = lower('Thirty Nine'))
   and not exists (select 1 from public.sales_leads where lower(email) = lower('bookings@thirtynine.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Cowan Law', 'Law firm', 'https://www.cowanlaw.co.nz', NULL, '168 Parnell Road, Parnell, Auckland 1052', 'Douglas Cowan', 'Sole Practitioner / Director', 'doug.cowan@cowanlaw.co.nz', '09 320 4616', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (law firm). Boutique litigation/commercial/property law firm with its own Parnell Road premises (confirmed via Yellow directory listing; also employs named staff Jacqueline Li and Oliver Sweeney per the same register). Douglas Cowan named as Sole Practitioner/Director with his direct work email published on the official NZ Law Society register (lawsociety.org.nz/register/douglas-austin-cowan). MX ok (cowanlaw.co.nz -> cowanlaw-co-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Cowan Law'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('doug.cowan@cowanlaw.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'Pacific Legal', 'Law firm (immigration law)', 'https://www.pacificlegal.co.nz', NULL, 'Level 5, 130 Broadway, Newmarket, Auckland 1023', 'Richard Small', 'Director', 'office@pacificlegal.co.nz', '09 666 0440', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (law firm). Award-winning specialist immigration law firm in its own Newmarket office. Richard Small named as Director on the official NZ Law Society register (lawsociety.org.nz/register/richard-andrew-charles-small), 20+ years in immigration law per a Newmarket business directory profile. office@pacificlegal.co.nz confirmed published on the firm''s own homepage (pacificlegal.co.nz). MX ok (pacificlegal.co.nz -> pacificlegal-co-nz.mail.protection.outlook.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('Pacific Legal'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('office@pacificlegal.co.nz'));
+
+insert into public.sales_leads (company, industry, website, staff_size, address, contact_name, contact_role, email, phone, source, quality_rank, status, notes)
+select 'KempsWeir', 'Law firm (property law)', 'https://www.kempsweir.co.nz', NULL, 'Ground Floor, Building 1, Central Park, 660-670 Great South Road, Ellerslie, Auckland 1051', 'Joshua Garnett', 'Director', 'joshua@kempsweir.co.nz', '09 525 7711', 'sunday-burst-2026-11-22', 'A', 'new', '[Sunday burst 2026-11-22] Category: Offices (law firm). Established 1996 property law firm (Alliott Global Alliance NZ representative firm) in its own Ellerslie office premises. Joshua Garnett named as Director on the official NZ Law Society register (lawsociety.org.nz/register/joshua-kirk-garnett), which also publishes his direct work email. MX ok (kempsweir.co.nz -> mx1/mx2.nz.smxemail.com). No renewal hint found.'
+where not exists (select 1 from public.sales_leads where lower(company) = lower('KempsWeir'))
+  and not exists (select 1 from public.sales_leads where lower(email) = lower('joshua@kempsweir.co.nz'));
