@@ -245,7 +245,7 @@ export function NewClientModal({ inline = false, onCancel, onCreated }: Props) {
                 { value: '',            label: '— Pick one —' },
                 { value: '7_days',      label: '7 days from invoice' },
                 { value: '14_days',     label: '14 days from invoice' },
-                { value: '20_of_month', label: '20th of the month' },
+                { value: '20_of_month', label: '20th of the month following' },
                 { value: 'custom',      label: 'Custom (note in notes)' },
               ]}
             />

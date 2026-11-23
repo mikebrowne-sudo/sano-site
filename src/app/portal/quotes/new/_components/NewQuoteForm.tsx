@@ -839,7 +839,7 @@ export function NewQuoteForm({
             if (!c?.payment_type) return null
             const termsLabel = c.payment_terms === '7_days'      ? '7 days from invoice'
                               : c.payment_terms === '14_days'    ? '14 days from invoice'
-                              : c.payment_terms === '20_of_month' ? '20th of the month'
+                              : c.payment_terms === '20_of_month' ? '20th of the month following'
                               : c.payment_terms === 'custom'      ? 'Custom (see notes)'
                               :                                     null
             return (
