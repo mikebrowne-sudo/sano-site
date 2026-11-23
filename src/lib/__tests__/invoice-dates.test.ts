@@ -112,20 +112,44 @@ describe('computeInvoiceDueDate', () => {
     })).toBe('2026-05-15')
   })
 
-  it('payment_terms 20_of_month returns the next 20th when issued is before the 20th', () => {
+  it('payment_terms 20_of_month is the 20th of the FOLLOWING month when issued before the 20th', () => {
     expect(computeInvoiceDueDate({
       payment_type: 'on_account',
       payment_terms: '20_of_month',
       date_issued: '2026-05-10',
-    })).toBe('2026-05-20')
+    })).toBe('2026-06-20')
   })
 
-  it('payment_terms 20_of_month rolls to next month when issued is after the 20th', () => {
+  it('payment_terms 20_of_month is the 20th of the following month when issued after the 20th', () => {
     expect(computeInvoiceDueDate({
       payment_type: 'on_account',
       payment_terms: '20_of_month',
       date_issued: '2026-05-25',
     })).toBe('2026-06-20')
+  })
+
+  it('payment_terms 20_of_month: issued the day before the 20th is NOT due the next day (INV-0615)', () => {
+    expect(computeInvoiceDueDate({
+      payment_type: 'on_account',
+      payment_terms: '20_of_month',
+      date_issued: '2026-11-19',
+    })).toBe('2026-12-20')
+  })
+
+  it('payment_terms 20_of_month: issued ON the 20th is due the 20th of next month', () => {
+    expect(computeInvoiceDueDate({
+      payment_type: 'on_account',
+      payment_terms: '20_of_month',
+      date_issued: '2026-11-20',
+    })).toBe('2026-12-20')
+  })
+
+  it('payment_terms 20_of_month rolls over the year end', () => {
+    expect(computeInvoiceDueDate({
+      payment_type: 'on_account',
+      payment_terms: '20_of_month',
+      date_issued: '2026-12-31',
+    })).toBe('2027-01-20')
   })
 
   it('payment_terms due_immediately returns the issued date', () => {

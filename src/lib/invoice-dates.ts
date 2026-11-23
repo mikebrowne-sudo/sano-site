@@ -43,19 +43,13 @@ function addDaysISO(iso: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
-function nextTwentiethISO(fromIso: string): string {
-  // Returns the next 20th of a month on/after `fromIso`. If `fromIso`
-  // is already past the 20th, returns the 20th of the FOLLOWING month.
-  // Conservative — keeps the operator from accidentally setting a due
-  // date that's already overdue.
+function twentiethOfFollowingMonthISO(fromIso: string): string {
+  // "20th of the month following" — standard NZ trade terms. Always the
+  // 20th of the month AFTER the invoice month, whatever day it's issued:
+  // issued 1 Nov or 30 Nov → due 20 Dec. (This used to return the NEXT
+  // 20th, so an invoice issued 19 Nov was due the next day.)
   const d = new Date(fromIso + 'T00:00:00Z')
-  const day = d.getUTCDate()
-  const month = d.getUTCMonth()
-  const year = d.getUTCFullYear()
-  if (day <= 20) {
-    return new Date(Date.UTC(year, month, 20)).toISOString().slice(0, 10)
-  }
-  return new Date(Date.UTC(year, month + 1, 20)).toISOString().slice(0, 10)
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 20)).toISOString().slice(0, 10)
 }
 
 /** Compute the invoice's due_date. Returns null when there isn't
@@ -69,7 +63,7 @@ export function computeInvoiceDueDate(input: DueDateInput): string | null {
   // Explicit terms keys win over the broader payment_type axis.
   if (pt === '7_days')      return issued ? addDaysISO(issued, 7)  : null
   if (pt === '14_days')     return issued ? addDaysISO(issued, 14) : null
-  if (pt === '20_of_month') return nextTwentiethISO(issued ?? nzToday())
+  if (pt === '20_of_month') return twentiethOfFollowingMonthISO(issued ?? nzToday())
   if (pt === 'due_immediately') return issued ?? service ?? null
   if (pt === 'due_on_completion') return service ?? issued ?? null
   // 'custom' or null falls through to the payment_type axis.
